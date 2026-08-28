@@ -1,0 +1,120 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  ADMIN
+  DOCTOR
+  PATIENT
+}
+
+enum AppointmentStatus {
+  PENDING_PAYMENT
+  CONFIRMED
+  CANCELLED
+  COMPLETED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+}
+
+model User {
+  id           String   @id @default(cuid())
+  name         String
+  email        String   @unique
+  phone        String?
+  passwordHash String
+  role         Role     @default(PATIENT)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  doctorProfile DoctorProfile?
+  articles      Article[]
+  appointments  Appointment[] @relation("PatientAppointments")
+}
+
+model DoctorProfile {
+  id           String   @id @default(cuid())
+  userId       String   @unique
+  specialty    String
+  bio          String   @default("")
+  avatarUrl    String?
+  sessionPrice Int      @default(3000000)
+  isActive     Boolean  @default(true)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  availabilities Availability[]
+  appointments   Appointment[]
+}
+
+model Article {
+  id          String    @id @default(cuid())
+  title       String
+  slug        String    @unique
+  content     String
+  excerpt     String    @default("")
+  coverUrl    String?
+  published   Boolean   @default(false)
+  publishedAt DateTime?
+  authorId    String
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  author User @relation(fields: [authorId], references: [id], onDelete: Cascade)
+}
+
+model Availability {
+  id          String   @id @default(cuid())
+  doctorId    String
+  date        String
+  startTime   String
+  endTime     String
+  slotMinutes Int      @default(50)
+  createdAt   DateTime @default(now())
+
+  doctor DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([doctorId, date])
+}
+
+model Appointment {
+  id        String            @id @default(cuid())
+  doctorId  String
+  patientId String
+  startsAt  DateTime
+  endsAt    DateTime
+  status    AppointmentStatus @default(PENDING_PAYMENT)
+  notes     String?
+  createdAt DateTime          @default(now())
+  updatedAt DateTime          @updatedAt
+
+  doctor  DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  patient User          @relation("PatientAppointments", fields: [patientId], references: [id], onDelete: Cascade)
+  payment Payment?
+
+  @@index([doctorId, startsAt])
+  @@index([patientId])
+}
+
+model Payment {
+  id            String        @id @default(cuid())
+  appointmentId String        @unique
+  amount        Int
+  authority     String?
+  refId         String?
+  status        PaymentStatus @default(PENDING)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+
+  appointment Appointment @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+}
