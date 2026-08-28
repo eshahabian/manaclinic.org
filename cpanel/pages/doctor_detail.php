@@ -26,6 +26,10 @@ $articles->execute([$doctor['user_id']]);
 $articles = $articles->fetchAll();
 
 $pageTitle = $doctor['name'];
+$pageHead = '
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
+';
+
 ob_start();
 ?>
 <div class="container-page section">
@@ -59,21 +63,19 @@ ob_start();
     <div class="panel stack" id="booking-box">
       <h2 style="margin:0">رزرو نوبت آنلاین</h2>
       <div>
-        <label class="label">انتخاب تاریخ (شمسی)</label>
-        <div class="date-chips" id="book-dates" role="listbox" aria-label="تاریخ‌های خالی">
-          <?php if (!$dates): ?>
-            <span class="muted">روز خالی تعریف نشده است.</span>
-          <?php endif; ?>
-          <?php foreach ($dates as $d): ?>
-            <button
-              type="button"
-              class="date-chip"
-              role="option"
-              data-date="<?= e($d) ?>"
-            ><?= e(to_jalali_label($d)) ?></button>
-          <?php endforeach; ?>
-        </div>
+        <label class="label" for="book-date-view">انتخاب تاریخ</label>
+        <input
+          class="input"
+          id="book-date-view"
+          type="text"
+          placeholder="تاریخ را انتخاب کنید"
+          data-jdp
+          data-jdp-only-date
+          autocomplete="off"
+          readonly
+        >
         <input type="hidden" id="book-date" value="">
+        <p class="muted" style="font-size:.8rem;margin:.4rem 0 0">فقط روزهای خالی دکتر قابل انتخاب هستند.</p>
       </div>
       <div>
         <label class="label">ساعت‌های خالی</label>
@@ -87,19 +89,46 @@ ob_start();
 </div>
 <?php
 $content = ob_get_clean();
-$pageScripts = '<script>
+$pageScripts = '
+<script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
+<script>
 (function(){
   var doctorId = ' . json_encode($doctor['id']) . ';
+  var available = ' . json_encode(array_values($dates), JSON_UNESCAPED_UNICODE) . ';
+  var availableSet = {};
+  available.forEach(function(d){ availableSet[d] = true; });
+
+  var dateView = document.getElementById("book-date-view");
   var dateEl = document.getElementById("book-date");
-  var datesWrap = document.getElementById("book-dates");
   var slotsEl = document.getElementById("book-slots");
   var timeEl = document.getElementById("book-time");
   var errEl = document.getElementById("book-error");
   var loggedIn = ' . json_encode((bool) current_user()) . ';
-  var isPatient = ' . json_encode((current_user()['role'] ?? "") === "PATIENT") . ';
-  var loginUrl = ' . json_encode(url("/login") . "?next=" . urlencode(url("/doctors/" . $doctor["id"]))) . ';
-  var slotsUrl = ' . json_encode(url("/api/slots")) . ';
-  var bookUrl = ' . json_encode(url("/book")) . ';
+  var isPatient = ' . json_encode((current_user()['role'] ?? '') === 'PATIENT') . ';
+  var loginUrl = ' . json_encode(url('/login') . '?next=' . urlencode(url('/doctors/' . $doctor['id']))) . ';
+  var slotsUrl = ' . json_encode(url('/api/slots')) . ';
+  var bookUrl = ' . json_encode(url('/book')) . ';
+
+  function faToEn(str){
+    return String(str).replace(/[۰-۹]/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹".indexOf(d); });
+  }
+  function pad(n){ return (n < 10 ? "0" : "") + n; }
+  function jalaliTextToGregorian(text){
+    var t = faToEn(text).replace(/-/g, "/").trim();
+    var p = t.split("/");
+    if (p.length !== 3) return "";
+    var jy = parseInt(p[0], 10), jm = parseInt(p[1], 10), jd = parseInt(p[2], 10);
+    if (!jy || !jm || !jd) return "";
+    var g = jalaali.toGregorian(jy, jm, jd);
+    return g.gy + "-" + pad(g.gm) + "-" + pad(g.gd);
+  }
+  function gregorianToJalaliText(ymd){
+    var p = ymd.split("-");
+    if (p.length !== 3) return "";
+    var j = jalaali.toJalaali(parseInt(p[0],10), parseInt(p[1],10), parseInt(p[2],10));
+    return j.jy + "/" + pad(j.jm) + "/" + pad(j.jd);
+  }
 
   function loadSlots(){
     timeEl.value = "";
@@ -126,20 +155,38 @@ $pageScripts = '<script>
       });
   }
 
-  datesWrap.addEventListener("click", function(e){
-    var btn = e.target.closest(".date-chip");
-    if (!btn) return;
-    Array.prototype.forEach.call(datesWrap.querySelectorAll(".date-chip"), function(x){ x.classList.remove("active"); });
-    btn.classList.add("active");
-    dateEl.value = btn.getAttribute("data-date") || "";
+  function onDatePicked(){
+    var g = jalaliTextToGregorian(dateView.value);
     errEl.style.display = "none";
+    if (!g || !availableSet[g]) {
+      dateEl.value = "";
+      dateView.value = "";
+      errEl.textContent = "این تاریخ در روزهای خالی دکتر نیست.";
+      errEl.style.display = "block";
+      slotsEl.innerHTML = "<span class=\\"muted\\">ابتدا تاریخ را انتخاب کنید</span>";
+      return;
+    }
+    dateEl.value = g;
     loadSlots();
+  }
+
+  jalaliDatepicker.startWatch({
+    selector: "#book-date-view",
+    time: false,
+    hideAfterChange: true,
+    showTodayBtn: false,
+    showEmptyBtn: true,
+    autoReadOnlyInput: true,
+    zIndex: 99999
   });
+
+  dateView.addEventListener("jdp:change", onDatePicked);
+  dateView.addEventListener("change", onDatePicked);
 
   document.getElementById("book-submit").onclick = function(){
     errEl.style.display = "none";
     if (!loggedIn) { location.href = loginUrl; return; }
-    if (!isPatient) { errEl.textContent = "فقط بیماران می‌توانند نوبت رزرو کنند."; errEl.style.display="block"; return; }
+    if (!isPatient) { errEl.textContent = "فقط بیماران می‌توانند از این صفحه نوبت رزرو کنند. منشی از پنل منشی رزرو کند."; errEl.style.display="block"; return; }
     if (!dateEl.value || !timeEl.value) { errEl.textContent = "تاریخ و ساعت را انتخاب کنید."; errEl.style.display="block"; return; }
     var fd = new FormData();
     fd.append("doctorId", doctorId);
@@ -150,7 +197,7 @@ $pageScripts = '<script>
       .then(function(res){
         if (!res.ok) { errEl.textContent = res.j.error || "رزرو ناموفق بود"; errEl.style.display="block"; return; }
         if (res.j.paymentUrl) location.href = res.j.paymentUrl;
-        else location.href = ' . json_encode(url("/dashboard/appointments")) . ';
+        else location.href = ' . json_encode(url('/dashboard/appointments')) . ';
       })
       .catch(function(){ errEl.textContent = "خطای شبکه"; errEl.style.display="block"; });
   };

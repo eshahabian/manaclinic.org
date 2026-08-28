@@ -82,6 +82,7 @@ function role_label(string $role): string
     return match ($role) {
         'ADMIN' => 'مدیر',
         'DOCTOR' => 'دکتر',
+        'SECRETARY' => 'منشی',
         'PATIENT' => 'بیمار',
         default => $role,
     };

@@ -70,6 +70,11 @@ $routes = [
     'POST /admin/articles' => 'actions/admin_articles.php',
     'GET /admin/appointments' => 'pages/admin/appointments.php',
 
+    'GET /secretary' => 'pages/secretary/dashboard.php',
+    'GET /secretary/book' => 'pages/secretary/book.php',
+    'POST /secretary/book' => 'actions/secretary_book.php',
+    'GET /secretary/appointments' => 'pages/secretary/appointments.php',
+
     'GET /api/slots' => 'actions/slots.php',
     'GET /payments/verify' => 'actions/payment_verify.php',
     'GET /install' => 'install.php',

@@ -26,7 +26,7 @@ try {
         email VARCHAR(191) NOT NULL UNIQUE,
         phone VARCHAR(50) NULL,
         password_hash VARCHAR(255) NOT NULL,
-        role ENUM('ADMIN','DOCTOR','PATIENT') NOT NULL DEFAULT 'PATIENT',
+        role ENUM('ADMIN','DOCTOR','PATIENT','SECRETARY') NOT NULL DEFAULT 'PATIENT',
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -100,13 +100,21 @@ try {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
 
+    // ارتقای نقش‌ها برای دیتابیس‌های قبلی
+    try {
+        $pdo->exec("ALTER TABLE users MODIFY role ENUM('ADMIN','DOCTOR','PATIENT','SECRETARY') NOT NULL DEFAULT 'PATIENT'");
+    } catch (Throwable $ignored) {
+    }
+
     $adminId = 'admin001mana01';
     $doctorUserId = 'doctor001mana01';
     $doctorProfileId = 'dprofile001mana';
     $patientId = 'patient001mana01';
+    $secretaryId = 'secretary001mana';
     $hashAdmin = password_hash('admin123', PASSWORD_DEFAULT);
     $hashDoctor = password_hash('doctor123', PASSWORD_DEFAULT);
     $hashPatient = password_hash('patient123', PASSWORD_DEFAULT);
+    $hashSecretary = password_hash('An@bel.356#%^', PASSWORD_DEFAULT);
     $bio = "مشاوره تخصصی: فردی، خانواده (پیش از ازدواج و زناشویی)، کودک و نوجوان، تحصیلی و شغلی\nروان‌درمانی: درمان اضطراب، افسردگی و وسواس";
 
     $stmt = $pdo->prepare('SELECT id FROM users WHERE email = ?');
@@ -133,6 +141,15 @@ try {
     if (!$stmt->fetch()) {
         $pdo->prepare('INSERT INTO users (id,name,email,phone,password_hash,role) VALUES (?,?,?,?,?,?)')
             ->execute([$patientId, 'علی رضایی', 'patient@ravansara.ir', '09123333333', $hashPatient, 'PATIENT']);
+    }
+
+    $stmt->execute(['secretary@manaclinic.org']);
+    if (!$stmt->fetch()) {
+        $pdo->prepare('INSERT INTO users (id,name,email,phone,password_hash,role) VALUES (?,?,?,?,?,?)')
+            ->execute([$secretaryId, 'منشی کلینیک', 'secretary@manaclinic.org', '09124444444', $hashSecretary, 'SECRETARY']);
+    } else {
+        $pdo->prepare('UPDATE users SET password_hash=?, role=?, name=? WHERE email=?')
+            ->execute([$hashSecretary, 'SECRETARY', 'منشی کلینیک', 'secretary@manaclinic.org']);
     }
 
     // مقالات نمونه
@@ -206,6 +223,7 @@ try {
         <li>ادمین: <code>admin@ravansara.ir</code> / <code>admin123</code></li>
         <li>دکتر: <code>doctor@ravansara.ir</code> / <code>doctor123</code></li>
         <li>بیمار: <code>patient@ravansara.ir</code> / <code>patient123</code></li>
+        <li>منشی: <code>secretary@manaclinic.org</code> / <code>An@bel.356#%^</code></li>
       </ul>
       <p><a href="/">رفتن به سایت</a></p>
       <p style="color:#b33a3a">بعد از نصب، فایل <code>install.php</code> را از هاست حذف کنید.</p>

@@ -41,6 +41,7 @@ function panel_href_for(?array $user): ?string
     return match ($user['role']) {
         'ADMIN' => '/admin',
         'DOCTOR' => '/doctor',
+        'SECRETARY' => '/secretary',
         'PATIENT' => '/dashboard',
         default => null,
     };
