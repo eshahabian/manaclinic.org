@@ -12,6 +12,7 @@ function secretary_nav(): array
 
 function render_secretary_page(string $title, string $innerHtml): void
 {
+    global $pageScripts, $pageHead;
     $nav = secretary_nav();
     $pageTitle = $title;
     ob_start();

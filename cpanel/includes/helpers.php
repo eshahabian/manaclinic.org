@@ -122,6 +122,17 @@ function post(string $key, string $default = ''): string
     return trim((string) ($_POST[$key] ?? $default));
 }
 
+/** ارقام فارسی/عربی → انگلیسی (برای رمز و نام کاربری) */
+function normalize_input(string $value): string
+{
+    return strtr(trim($value), [
+        '۰' => '0', '۱' => '1', '۲' => '2', '۳' => '3', '۴' => '4',
+        '۵' => '5', '۶' => '6', '۷' => '7', '۸' => '8', '۹' => '9',
+        '٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4',
+        '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9',
+    ]);
+}
+
 /** تبدیل تاریخ میلادی Y-m-d به شمسی با ارقام فارسی */
 function to_jalali_label(string $ymd): string
 {

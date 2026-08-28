@@ -7,6 +7,7 @@ require_once __DIR__ . '/includes/helpers.php';
 $config = require __DIR__ . '/config.php';
 $error = null;
 $ok = false;
+$resetPasswords = false;
 
 try {
     $dsn = sprintf(
@@ -142,21 +143,27 @@ try {
     $pass123 = password_hash('123', PASSWORD_DEFAULT);
     $bio = "مشاوره تخصصی: فردی، خانواده (پیش از ازدواج و زناشویی)، کودک و نوجوان، تحصیلی و شغلی\nروان‌درمانی: درمان اضطراب، افسردگی و وسواس";
 
+    // فقط کاربر جدید می‌سازد؛ رمز کاربران موجود را دست نمی‌زند
+    // برای ریست اضطراری رمز حساب‌های نمونه: /install?reset_passwords=1
+    $resetPasswords = isset($_GET['reset_passwords']) && $_GET['reset_passwords'] === '1';
     $upsertUser = function (
         string $id,
         string $username,
         string $name,
         string $role,
         ?string $phone = null
-    ) use ($pdo, $pass123): void {
+    ) use ($pdo, $pass123, $resetPasswords): void {
         $stmt = $pdo->prepare('SELECT id FROM users WHERE username = ?');
         $stmt->execute([$username]);
         if (!$stmt->fetch()) {
             $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,must_change_password) VALUES (?,?,?,?,?,?,?,1)')
                 ->execute([$id, $username, $name, $username . '@manaclinic.local', $phone, $pass123, $role]);
-        } else {
+        } elseif ($resetPasswords) {
             $pdo->prepare('UPDATE users SET name=?, role=?, password_hash=?, must_change_password=1, phone=COALESCE(phone, ?) WHERE username=?')
                 ->execute([$name, $role, $pass123, $phone, $username]);
+        } else {
+            $pdo->prepare('UPDATE users SET name=?, role=?, phone=COALESCE(phone, ?) WHERE username=?')
+                ->execute([$name, $role, $phone, $username]);
         }
     };
 
@@ -244,14 +251,18 @@ try {
   <div class="box">
     <h1>نصب مانا کلینیک (PHP)</h1>
     <?php if ($ok): ?>
-      <p class="ok">نصب با موفقیت انجام شد.</p>
-      <p>حساب‌ها (رمز همه: <code>123</code> — در اولین ورود باید عوض شود):</p>
+      <p class="ok">نصب / ارتقا با موفقیت انجام شد.</p>
+      <p>اگر حساب از قبل نبود، با این مشخصات ساخته شد (رمز اولیه <code>123</code> و اجباری به عوض کردن):</p>
       <ul>
         <li>ادمین: <code>admin</code></li>
         <li>دکتر: <code>doctor</code></li>
         <li>بیمار: <code>patient</code></li>
         <li>منشی: <code>secretary</code></li>
       </ul>
+      <p>اگر قبلاً رمز را عوض کرده بودید، همان رمز جدیدتان معتبر است و ریست نشده.</p>
+      <?php if (!empty($resetPasswords)): ?>
+        <p class="ok">رمز حساب‌های نمونه به <code>123</code> ریست شد.</p>
+      <?php endif; ?>
       <p><a href="/">رفتن به سایت</a></p>
       <p style="color:#b33a3a">بعد از نصب، فایل <code>install.php</code> را از هاست حذف کنید.</p>
     <?php else: ?>

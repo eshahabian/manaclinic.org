@@ -13,16 +13,25 @@ $doctors = $pdo->query("
 ")->fetchAll();
 
 $availByDoctor = [];
-$stmt = $pdo->query("SELECT doctor_id, date FROM availabilities WHERE date >= CURDATE() ORDER BY date ASC");
+$stmt = $pdo->query("
+  SELECT doctor_id, DATE_FORMAT(`date`, '%Y-%m-%d') AS d
+  FROM availabilities
+  WHERE `date` >= CURDATE()
+  ORDER BY `date` ASC
+");
 foreach ($stmt->fetchAll() as $row) {
-    $availByDoctor[$row['doctor_id']][] = $row['date'];
+    $d = (string) $row['d'];
+    if ($d === '') {
+        continue;
+    }
+    $availByDoctor[(string) $row['doctor_id']][] = $d;
 }
 
 ob_start();
 ?>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
 <h1>رزرو نوبت برای بیمار</h1>
-<p class="muted">بیمار را انتخاب کنید یا بیمار جدید بسازید، سپس تاریخ و ساعت خالی را مشخص کنید.</p>
+<p class="muted">ابتدا دکتر را انتخاب کنید؛ فقط روزهایی که دکتر وقت خالی گذاشته قابل انتخاب هستند.</p>
 
 <form class="panel form-stack" method="post" action="<?= e(url('/secretary/book')) ?>" id="secretary-book-form" style="margin-top:1rem;max-width:44rem">
   <div>
@@ -55,14 +64,19 @@ ob_start();
   </div>
 
   <div>
-    <label class="label" for="sec-date-view">انتخاب تاریخ</label>
-    <input class="input" type="text" id="sec-date-view" data-jdp data-jdp-only-date autocomplete="off" readonly placeholder="تاریخ شمسی">
+    <label class="label">روزهای خالی دکتر</label>
+    <div class="slots" id="sec-date-chips"><span class="muted">ابتدا دکتر را انتخاب کنید</span></div>
+  </div>
+
+  <div>
+    <label class="label" for="sec-date-view">یا انتخاب از تقویم</label>
+    <input class="input" type="text" id="sec-date-view" data-jdp data-jdp-only-date autocomplete="off" readonly placeholder="ابتدا دکتر را انتخاب کنید" disabled>
     <input type="hidden" name="date" id="sec-date" required>
   </div>
 
   <div>
     <label class="label">ساعت</label>
-    <div class="slots" id="sec-slots"><span class="muted">ابتدا دکتر و تاریخ را انتخاب کنید</span></div>
+    <div class="slots" id="sec-slots"><span class="muted">ابتدا تاریخ را انتخاب کنید</span></div>
     <input type="hidden" name="time" id="sec-time" required>
   </div>
 
@@ -74,40 +88,57 @@ ob_start();
   <p id="sec-error" style="color:var(--danger);display:none;font-size:.9rem"></p>
   <button class="btn btn-primary" type="submit">ثبت نوبت (تأیید شده)</button>
 </form>
+<?php
+$inner = ob_get_clean();
 
+$pageScripts = '
 <script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
 <script>
 (function(){
-  var availByDoctor = <?= json_encode($availByDoctor, JSON_UNESCAPED_UNICODE) ?>;
+  var availByDoctor = ' . json_encode($availByDoctor, JSON_UNESCAPED_UNICODE) . ';
   var doctorEl = document.getElementById("doctor_id");
+  var chipsEl = document.getElementById("sec-date-chips");
   var dateView = document.getElementById("sec-date-view");
   var dateEl = document.getElementById("sec-date");
   var slotsEl = document.getElementById("sec-slots");
   var timeEl = document.getElementById("sec-time");
   var errEl = document.getElementById("sec-error");
-  var slotsUrl = <?= json_encode(url('/api/slots')) ?>;
+  var slotsUrl = ' . json_encode(url('/api/slots')) . ';
 
-  function faToEn(str){ return String(str).replace(/[۰-۹]/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹".indexOf(d); }); }
   function pad(n){ return (n < 10 ? "0" : "") + n; }
+  function faToEn(str){
+    return String(str).replace(/[۰-۹]/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹".indexOf(d); })
+      .replace(/[٠-٩]/g, function(d){ return "٠١٢٣٤٥٦٧٨٩".indexOf(d); });
+  }
   function jalaliToGregorian(text){
     var t = faToEn(text).replace(/-/g,"/").trim();
     var p = t.split("/");
     if (p.length !== 3) return "";
-    var g = jalaali.toGregorian(parseInt(p[0],10), parseInt(p[1],10), parseInt(p[2],10));
+    var jy = parseInt(p[0],10), jm = parseInt(p[1],10), jd = parseInt(p[2],10);
+    if (!jy || !jm || !jd) return "";
+    var g = jalaali.toGregorian(jy, jm, jd);
     return g.gy + "-" + pad(g.gm) + "-" + pad(g.gd);
   }
-  function currentAvailableSet(){
-    var id = doctorEl.value;
-    var list = availByDoctor[id] || [];
+  function gregorianToJalaliText(ymd){
+    var p = String(ymd).substring(0,10).split("-");
+    if (p.length !== 3) return ymd;
+    var j = jalaali.toJalaali(parseInt(p[0],10), parseInt(p[1],10), parseInt(p[2],10));
+    return j.jy + "/" + pad(j.jm) + "/" + pad(j.jd);
+  }
+  function availableList(){
+    return (availByDoctor[doctorEl.value] || []).map(function(d){ return String(d).substring(0,10); });
+  }
+  function availableSet(){
     var set = {};
-    list.forEach(function(d){ set[d] = true; });
+    availableList().forEach(function(d){ set[d] = true; });
     return set;
   }
+
   function loadSlots(){
     timeEl.value = "";
     if (!doctorEl.value || !dateEl.value) {
-      slotsEl.innerHTML = "<span class=\\"muted\\">ابتدا دکتر و تاریخ را انتخاب کنید</span>";
+      slotsEl.innerHTML = "<span class=\\"muted\\">ابتدا تاریخ را انتخاب کنید</span>";
       return;
     }
     slotsEl.innerHTML = "در حال بارگذاری...";
@@ -115,33 +146,73 @@ ob_start();
       .then(function(r){ return r.json(); })
       .then(function(data){
         var slots = data.slots || [];
-        if (!slots.length) { slotsEl.innerHTML = "<span class=\\"muted\\">ساعت خالی نیست</span>"; return; }
+        if (!slots.length) {
+          slotsEl.innerHTML = "<span class=\\"muted\\">ساعت خالی نیست</span>";
+          return;
+        }
         slotsEl.innerHTML = "";
         slots.forEach(function(s){
           var b = document.createElement("button");
-          b.type = "button"; b.className = "slot-btn"; b.textContent = s;
+          b.type = "button";
+          b.className = "slot-btn";
+          b.textContent = s;
           b.onclick = function(){
             Array.prototype.forEach.call(slotsEl.querySelectorAll(".slot-btn"), function(x){ x.classList.remove("active"); });
-            b.classList.add("active"); timeEl.value = s;
+            b.classList.add("active");
+            timeEl.value = s;
+            errEl.style.display = "none";
           };
           slotsEl.appendChild(b);
         });
+      })
+      .catch(function(){
+        slotsEl.innerHTML = "<span class=\\"muted\\">خطا در دریافت ساعت‌ها</span>";
       });
   }
-  function onDate(){
-    var g = jalaliToGregorian(dateView.value);
-    var set = currentAvailableSet();
+
+  function selectDate(gDate){
     errEl.style.display = "none";
-    if (!g || !set[g]) {
+    var g = String(gDate).substring(0,10);
+    var set = availableSet();
+    if (!doctorEl.value) {
+      errEl.textContent = "ابتدا دکتر را انتخاب کنید.";
+      errEl.style.display = "block";
+      return;
+    }
+    if (!set[g]) {
       dateEl.value = "";
       dateView.value = "";
       errEl.textContent = "این تاریخ برای دکتر انتخاب‌شده خالی نیست.";
       errEl.style.display = "block";
       loadSlots();
+      renderChips();
       return;
     }
     dateEl.value = g;
+    dateView.value = gregorianToJalaliText(g);
+    renderChips();
     loadSlots();
+  }
+
+  function renderChips(){
+    var list = availableList();
+    chipsEl.innerHTML = "";
+    if (!doctorEl.value) {
+      chipsEl.innerHTML = "<span class=\\"muted\\">ابتدا دکتر را انتخاب کنید</span>";
+      return;
+    }
+    if (!list.length) {
+      chipsEl.innerHTML = "<span class=\\"muted\\">برای این دکتر روز خالی آینده‌ای ثبت نشده</span>";
+      return;
+    }
+    list.forEach(function(g){
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "slot-btn" + (dateEl.value === g ? " active" : "");
+      b.textContent = gregorianToJalaliText(g);
+      b.onclick = function(){ selectDate(g); };
+      chipsEl.appendChild(b);
+    });
   }
 
   jalaliDatepicker.startWatch({
@@ -149,13 +220,35 @@ ob_start();
     time: false,
     hideAfterChange: true,
     autoReadOnlyInput: true,
-    zIndex: 99999
+    zIndex: 99999,
+    dayRendering: function(dayOptions){
+      if (!doctorEl.value) {
+        return { isValid: false };
+      }
+      var g = jalaali.toGregorian(dayOptions.year, dayOptions.month, dayOptions.day);
+      var key = g.gy + "-" + pad(g.gm) + "-" + pad(g.gd);
+      return { isValid: !!availableSet()[key] };
+    }
   });
-  dateView.addEventListener("jdp:change", onDate);
-  dateView.addEventListener("change", onDate);
+
+  dateView.addEventListener("jdp:change", function(){
+    var g = jalaliToGregorian(dateView.value);
+    if (g) selectDate(g);
+  });
+  dateView.addEventListener("change", function(){
+    var g = jalaliToGregorian(dateView.value);
+    if (g) selectDate(g);
+  });
+
   doctorEl.addEventListener("change", function(){
     dateView.value = "";
     dateEl.value = "";
+    timeEl.value = "";
+    errEl.style.display = "none";
+    var hasDoctor = !!doctorEl.value;
+    dateView.disabled = !hasDoctor;
+    dateView.placeholder = hasDoctor ? "تاریخ شمسی خالی" : "ابتدا دکتر را انتخاب کنید";
+    renderChips();
     loadSlots();
   });
 
@@ -174,7 +267,10 @@ ob_start();
       errEl.style.display = "block";
     }
   });
+
+  renderChips();
 })();
 </script>
-<?php
-render_secretary_page('رزرو برای بیمار', ob_get_clean());
+';
+
+render_secretary_page('رزرو برای بیمار', $inner);
