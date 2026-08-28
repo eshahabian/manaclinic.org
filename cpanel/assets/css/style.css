@@ -140,6 +140,31 @@ a { color: inherit; text-decoration: none; }
 }
 .slot-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
 
+.date-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+.date-chip {
+  appearance: none;
+  -webkit-appearance: none;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: .65rem;
+  padding: .65rem .9rem;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: .9rem;
+  color: var(--fg);
+  line-height: 1.4;
+}
+.date-chip.active {
+  background: var(--primary);
+  color: #fff;
+  border-color: var(--primary);
+}
+.date-chip:hover { border-color: var(--primary); }
+
 .table { width: 100%; border-collapse: collapse; font-size: .9rem; }
 .table th, .table td { padding: .75rem 1rem; border-top: 1px solid var(--line); text-align: right; }
 .table thead { background: var(--bg-soft); color: var(--muted); }

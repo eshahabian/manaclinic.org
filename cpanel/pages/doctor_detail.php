@@ -17,7 +17,7 @@ if (!$doctor) {
     exit;
 }
 
-$av = $pdo->prepare('SELECT date FROM availabilities WHERE doctor_id = ? ORDER BY date ASC');
+$av = $pdo->prepare('SELECT date FROM availabilities WHERE doctor_id = ? AND date >= CURDATE() ORDER BY date ASC');
 $av->execute([$doctor['id']]);
 $dates = array_column($av->fetchAll(), 'date');
 
@@ -37,7 +37,6 @@ ob_start();
         <div>
           <h1 style="margin:0"><?= e($doctor['name']) ?></h1>
           <p style="color:var(--primary);margin:.35rem 0 0"><?= e($doctor['specialty']) ?></p>
-          <p style="font-weight:700;margin:.5rem 0 0">هزینه هر جلسه: <?= e(format_price((int)$doctor['session_price'])) ?></p>
         </div>
       </div>
       <div class="muted whitespace-pre" style="margin-top:1.5rem;line-height:1.9">
@@ -59,15 +58,22 @@ ob_start();
 
     <div class="panel stack" id="booking-box">
       <h2 style="margin:0">رزرو نوبت آنلاین</h2>
-      <p class="muted" style="margin:0">هزینه جلسه: <?= e(format_price((int)$doctor['session_price'])) ?></p>
       <div>
-        <label class="label">انتخاب تاریخ</label>
-        <select class="input" id="book-date">
-          <option value="">انتخاب کنید</option>
+        <label class="label">انتخاب تاریخ (شمسی)</label>
+        <div class="date-chips" id="book-dates" role="listbox" aria-label="تاریخ‌های خالی">
+          <?php if (!$dates): ?>
+            <span class="muted">روز خالی تعریف نشده است.</span>
+          <?php endif; ?>
           <?php foreach ($dates as $d): ?>
-            <option value="<?= e($d) ?>"><?= e($d) ?></option>
+            <button
+              type="button"
+              class="date-chip"
+              role="option"
+              data-date="<?= e($d) ?>"
+            ><?= e(to_jalali_label($d)) ?></button>
           <?php endforeach; ?>
-        </select>
+        </div>
+        <input type="hidden" id="book-date" value="">
       </div>
       <div>
         <label class="label">ساعت‌های خالی</label>
@@ -85,19 +91,23 @@ $pageScripts = '<script>
 (function(){
   var doctorId = ' . json_encode($doctor['id']) . ';
   var dateEl = document.getElementById("book-date");
+  var datesWrap = document.getElementById("book-dates");
   var slotsEl = document.getElementById("book-slots");
   var timeEl = document.getElementById("book-time");
   var errEl = document.getElementById("book-error");
   var loggedIn = ' . json_encode((bool) current_user()) . ';
-  var isPatient = ' . json_encode((current_user()['role'] ?? '') === 'PATIENT') . ';
-  var loginUrl = ' . json_encode(url('/login') . '?next=' . urlencode(url('/doctors/' . $doctor['id']))) . ';
-  var slotsUrl = ' . json_encode(url('/api/slots')) . ';
-  var bookUrl = ' . json_encode(url('/book')) . ';
+  var isPatient = ' . json_encode((current_user()['role'] ?? "") === "PATIENT") . ';
+  var loginUrl = ' . json_encode(url("/login") . "?next=" . urlencode(url("/doctors/" . $doctor["id"]))) . ';
+  var slotsUrl = ' . json_encode(url("/api/slots")) . ';
+  var bookUrl = ' . json_encode(url("/book")) . ';
 
-  dateEl.addEventListener("change", function(){
+  function loadSlots(){
     timeEl.value = "";
     slotsEl.innerHTML = "در حال بارگذاری...";
-    if (!dateEl.value) { slotsEl.innerHTML = "<span class=\\"muted\\">ابتدا تاریخ را انتخاب کنید</span>"; return; }
+    if (!dateEl.value) {
+      slotsEl.innerHTML = "<span class=\\"muted\\">ابتدا تاریخ را انتخاب کنید</span>";
+      return;
+    }
     fetch(slotsUrl + "?doctorId=" + encodeURIComponent(doctorId) + "&date=" + encodeURIComponent(dateEl.value))
       .then(function(r){ return r.json(); })
       .then(function(data){
@@ -114,6 +124,16 @@ $pageScripts = '<script>
           slotsEl.appendChild(b);
         });
       });
+  }
+
+  datesWrap.addEventListener("click", function(e){
+    var btn = e.target.closest(".date-chip");
+    if (!btn) return;
+    Array.prototype.forEach.call(datesWrap.querySelectorAll(".date-chip"), function(x){ x.classList.remove("active"); });
+    btn.classList.add("active");
+    dateEl.value = btn.getAttribute("data-date") || "";
+    errEl.style.display = "none";
+    loadSlots();
   });
 
   document.getElementById("book-submit").onclick = function(){
@@ -130,7 +150,7 @@ $pageScripts = '<script>
       .then(function(res){
         if (!res.ok) { errEl.textContent = res.j.error || "رزرو ناموفق بود"; errEl.style.display="block"; return; }
         if (res.j.paymentUrl) location.href = res.j.paymentUrl;
-        else location.href = ' . json_encode(url('/dashboard/appointments')) . ';
+        else location.href = ' . json_encode(url("/dashboard/appointments")) . ';
       })
       .catch(function(){ errEl.textContent = "خطای شبکه"; errEl.style.display="block"; });
   };
