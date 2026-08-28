@@ -181,3 +181,19 @@ input[data-jdp] {
 .whitespace-pre { white-space: pre-wrap; }
 .stack { display: grid; gap: .75rem; }
 .row-between { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .75rem; align-items: start; }
+
+/* پرونده خصوصی دکتر */
+.clinical-highlight {
+  border-radius: .75rem;
+  padding: .85rem 1rem;
+  border: 1px solid transparent;
+}
+.clinical-highlight-excerpt {
+  font-weight: 600;
+  white-space: pre-wrap;
+  line-height: 1.7;
+}
+.clinical-highlight-yellow { background: #fff8db; border-color: #f0e0a0; }
+.clinical-highlight-green { background: #e8f6ee; border-color: #b7e0c6; }
+.clinical-highlight-pink { background: #fce8f0; border-color: #f0c2d4; }
+.clinical-highlight-blue { background: #e8f1fa; border-color: #b7cfe8; }

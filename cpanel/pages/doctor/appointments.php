@@ -32,6 +32,7 @@ ob_start();
       </div>
     </div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+      <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/patients/' . $a['patient_id'])) ?>">پرونده بیمار</a>
       <?php if ($a['status'] !== 'CANCELLED'): ?>
         <form method="post" action="<?= e(url('/doctor/appointments')) ?>">
           <input type="hidden" name="id" value="<?= e($a['id']) ?>">

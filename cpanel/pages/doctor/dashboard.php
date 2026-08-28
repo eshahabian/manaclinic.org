@@ -16,7 +16,8 @@ $rows = $stmt->fetchAll();
 ob_start();
 ?>
 <h1>سلام دکتر <?= e($ctx['user']['name']) ?></h1>
-<p class="muted">نوبت‌ها و برنامه کاری خود را مدیریت کنید.</p>
+<p class="muted">نوبت‌ها و برنامه کاری خود را مدیریت کنید. پرونده بیماران فقط برای شماست.</p>
+<p style="margin-top:1rem"><a class="btn btn-primary" href="<?= e(url('/doctor/patients')) ?>">پرونده بیماران</a></p>
 <div class="panel stack" style="margin-top:1.5rem">
   <h2 style="margin:0;font-size:1.1rem">نوبت‌های پیش‌رو</h2>
   <?php foreach ($rows as $a): ?>
@@ -25,7 +26,10 @@ ob_start();
         <strong><?= e($a['patient_name']) ?></strong>
         <div class="muted" style="font-size:.85rem"><?= e(format_fa_datetime($a['starts_at'])) ?></div>
       </div>
-      <span class="badge"><?= e(appointment_status_label($a['status'])) ?></span>
+      <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap">
+        <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/patients/' . $a['patient_id'])) ?>">پرونده</a>
+        <span class="badge"><?= e(appointment_status_label($a['status'])) ?></span>
+      </div>
     </div>
   <?php endforeach; ?>
   <?php if (!$rows): ?><p class="muted">نوبت پیش‌رویی نیست.</p><?php endif; ?>

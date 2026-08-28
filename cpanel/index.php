@@ -63,6 +63,7 @@ $routes = [
     'POST /doctor/appointments' => 'actions/doctor_appointments.php',
     'GET /doctor/articles' => 'pages/doctor/articles.php',
     'POST /doctor/articles' => 'actions/doctor_articles.php',
+    'GET /doctor/patients' => 'pages/doctor/patients.php',
 
     'GET /admin' => 'pages/admin/dashboard.php',
     'GET /admin/doctors' => 'pages/admin/doctors.php',
@@ -93,6 +94,30 @@ if (preg_match('#^/doctors/([a-zA-Z0-9_-]+)$#', $path, $m) && $method === 'GET')
 if (preg_match('#^/articles/([a-zA-Z0-9_-]+)$#', $path, $m) && $method === 'GET') {
     $_GET['slug'] = $m[1];
     require __DIR__ . '/pages/article_detail.php';
+    exit;
+}
+
+// پرونده خصوصی بیمار — فقط دکتر
+if (preg_match('#^/doctor/patients/([a-zA-Z0-9_-]+)$#', $path, $m)) {
+    $_GET['id'] = $m[1];
+    if ($method === 'GET') {
+        require __DIR__ . '/pages/doctor/patient_chart.php';
+        exit;
+    }
+}
+if (preg_match('#^/doctor/patients/([a-zA-Z0-9_-]+)/history$#', $path, $m) && $method === 'POST') {
+    $_GET['id'] = $m[1];
+    require __DIR__ . '/actions/doctor_patient_history.php';
+    exit;
+}
+if (preg_match('#^/doctor/patients/([a-zA-Z0-9_-]+)/session-note$#', $path, $m) && $method === 'POST') {
+    $_GET['id'] = $m[1];
+    require __DIR__ . '/actions/doctor_session_note.php';
+    exit;
+}
+if (preg_match('#^/doctor/patients/([a-zA-Z0-9_-]+)/highlight$#', $path, $m) && $method === 'POST') {
+    $_GET['id'] = $m[1];
+    require __DIR__ . '/actions/doctor_highlight.php';
     exit;
 }
 

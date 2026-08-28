@@ -101,7 +101,96 @@ try {
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         CONSTRAINT fk_pay_app FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+      CREATE TABLE IF NOT EXISTS doctor_patient_charts (
+        id VARCHAR(32) PRIMARY KEY,
+        doctor_id VARCHAR(32) NOT NULL,
+        patient_id VARCHAR(32) NOT NULL,
+        history_text MEDIUMTEXT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_doctor_patient_chart (doctor_id, patient_id),
+        INDEX idx_chart_doctor (doctor_id),
+        CONSTRAINT fk_chart_doctor FOREIGN KEY (doctor_id) REFERENCES doctor_profiles(id) ON DELETE CASCADE,
+        CONSTRAINT fk_chart_patient FOREIGN KEY (patient_id) REFERENCES users(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+      CREATE TABLE IF NOT EXISTS doctor_session_notes (
+        id VARCHAR(32) PRIMARY KEY,
+        doctor_id VARCHAR(32) NOT NULL,
+        patient_id VARCHAR(32) NOT NULL,
+        appointment_id VARCHAR(32) NOT NULL,
+        note_text MEDIUMTEXT NOT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_session_note_appointment (appointment_id),
+        INDEX idx_session_doctor_patient (doctor_id, patient_id),
+        CONSTRAINT fk_snote_doctor FOREIGN KEY (doctor_id) REFERENCES doctor_profiles(id) ON DELETE CASCADE,
+        CONSTRAINT fk_snote_patient FOREIGN KEY (patient_id) REFERENCES users(id) ON DELETE CASCADE,
+        CONSTRAINT fk_snote_appointment FOREIGN KEY (appointment_id) REFERENCES appointments(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+      CREATE TABLE IF NOT EXISTS doctor_highlights (
+        id VARCHAR(32) PRIMARY KEY,
+        doctor_id VARCHAR(32) NOT NULL,
+        patient_id VARCHAR(32) NOT NULL,
+        excerpt TEXT NOT NULL,
+        remark TEXT NULL,
+        color VARCHAR(20) NOT NULL DEFAULT 'yellow',
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_hl_doctor_patient (doctor_id, patient_id),
+        CONSTRAINT fk_hl_doctor FOREIGN KEY (doctor_id) REFERENCES doctor_profiles(id) ON DELETE CASCADE,
+        CONSTRAINT fk_hl_patient FOREIGN KEY (patient_id) REFERENCES users(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
+
+    // جداول پرونده بالینی خصوصی دکتر (برای دیتابیس‌های قبلی)
+    try {
+        $pdo->exec("
+          CREATE TABLE IF NOT EXISTS doctor_patient_charts (
+            id VARCHAR(32) PRIMARY KEY,
+            doctor_id VARCHAR(32) NOT NULL,
+            patient_id VARCHAR(32) NOT NULL,
+            history_text MEDIUMTEXT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_doctor_patient_chart (doctor_id, patient_id),
+            INDEX idx_chart_doctor (doctor_id)
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+    } catch (Throwable $ignored) {
+    }
+    try {
+        $pdo->exec("
+          CREATE TABLE IF NOT EXISTS doctor_session_notes (
+            id VARCHAR(32) PRIMARY KEY,
+            doctor_id VARCHAR(32) NOT NULL,
+            patient_id VARCHAR(32) NOT NULL,
+            appointment_id VARCHAR(32) NOT NULL,
+            note_text MEDIUMTEXT NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_session_note_appointment (appointment_id),
+            INDEX idx_session_doctor_patient (doctor_id, patient_id)
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+    } catch (Throwable $ignored) {
+    }
+    try {
+        $pdo->exec("
+          CREATE TABLE IF NOT EXISTS doctor_highlights (
+            id VARCHAR(32) PRIMARY KEY,
+            doctor_id VARCHAR(32) NOT NULL,
+            patient_id VARCHAR(32) NOT NULL,
+            excerpt TEXT NOT NULL,
+            remark TEXT NULL,
+            color VARCHAR(20) NOT NULL DEFAULT 'yellow',
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_hl_doctor_patient (doctor_id, patient_id)
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+    } catch (Throwable $ignored) {
+    }
 
     // ارتقای نقش‌ها و ستون‌ها برای دیتابیس‌های قبلی
     try {
