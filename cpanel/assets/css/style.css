@@ -182,18 +182,141 @@ input[data-jdp] {
 .stack { display: grid; gap: .75rem; }
 .row-between { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .75rem; align-items: start; }
 
-/* پرونده خصوصی دکتر */
-.clinical-highlight {
+/* ادیتور شرح حال */
+.clinical-board {
+  display: grid;
+  gap: 1rem;
+}
+.clinical-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem;
+  align-items: center;
+  padding: .65rem .75rem;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
   border-radius: .75rem;
-  padding: .85rem 1rem;
-  border: 1px solid transparent;
 }
-.clinical-highlight-excerpt {
+.clinical-toolbar .tool-btn {
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: .5rem;
+  padding: .35rem .65rem;
+  font-family: inherit;
+  font-size: .85rem;
+  cursor: pointer;
+  color: var(--fg);
+}
+.clinical-toolbar .tool-btn:hover,
+.clinical-toolbar .tool-btn.active {
+  border-color: var(--primary);
+  color: var(--primary-dark);
+}
+.clinical-toolbar .tool-btn.bold { font-weight: 700; }
+.clinical-toolbar .swatch {
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: .35rem;
+  border: 1px solid rgba(0,0,0,.12);
+  cursor: pointer;
+  padding: 0;
+}
+.clinical-toolbar .swatch.yellow { background: #ffe566; }
+.clinical-toolbar .swatch.green { background: #8fd6a8; }
+.clinical-toolbar .swatch.pink { background: #f5a3c0; }
+.clinical-toolbar .swatch.blue { background: #8eb7e8; }
+.clinical-toolbar .tool-sep {
+  width: 1px;
+  height: 1.4rem;
+  background: var(--line);
+  margin-inline: .15rem;
+}
+.clinical-editor {
+  min-height: 220px;
+  max-height: 480px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: .75rem;
+  padding: 1rem 1.1rem;
+  background: #fff;
+  line-height: 1.9;
+  outline: none;
+}
+.clinical-editor:focus {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(27,94,75,.12);
+}
+.clinical-editor:empty:before {
+  content: attr(data-placeholder);
+  color: var(--muted);
+  pointer-events: none;
+}
+.clinical-editor mark,
+.clinical-editor span[data-hl] {
+  border-radius: .2rem;
+  padding: 0 .1rem;
+}
+.clinical-sessions-label {
+  font-size: .9rem;
   font-weight: 600;
-  white-space: pre-wrap;
-  line-height: 1.7;
+  margin: .25rem 0 0;
 }
-.clinical-highlight-yellow { background: #fff8db; border-color: #f0e0a0; }
-.clinical-highlight-green { background: #e8f6ee; border-color: #b7e0c6; }
-.clinical-highlight-pink { background: #fce8f0; border-color: #f0c2d4; }
-.clinical-highlight-blue { background: #e8f1fa; border-color: #b7cfe8; }
+.clinical-session-grid {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .65rem;
+}
+.session-note-box {
+  position: relative;
+  width: min(100%, 11.5rem);
+}
+.session-note-toggle {
+  width: 100%;
+  text-align: right;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: .75rem;
+  padding: .65rem .75rem;
+  cursor: pointer;
+  font-family: inherit;
+  transition: box-shadow .2s ease, transform .15s ease, border-color .15s ease;
+}
+.session-note-toggle:hover {
+  border-color: var(--primary);
+}
+.session-note-toggle .sn-date {
+  display: block;
+  font-weight: 700;
+  font-size: .88rem;
+}
+.session-note-toggle .sn-meta {
+  display: block;
+  margin-top: .25rem;
+  font-size: .75rem;
+  color: var(--muted);
+}
+.session-note-box.open .session-note-toggle {
+  border-color: var(--primary);
+  box-shadow: 0 10px 28px rgba(26,46,40,.18);
+  transform: translateY(-1px);
+  background: #fbfffc;
+}
+.session-note-panel {
+  display: none;
+  position: absolute;
+  top: calc(100% + .45rem);
+  right: 0;
+  z-index: 20;
+  width: min(22rem, calc(100vw - 3rem));
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: .9rem;
+  padding: .9rem;
+  box-shadow: 0 16px 40px rgba(26,46,40,.22);
+}
+.session-note-box.open .session-note-panel {
+  display: block;
+}
+.session-note-box.has-note .session-note-toggle {
+  background: linear-gradient(180deg, #fff 0%, #f3faf6 100%);
+}

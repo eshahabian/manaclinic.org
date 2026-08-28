@@ -7,7 +7,7 @@ $ctx = require_doctor_profile($pdo);
 $patientId = (string) ($_GET['id'] ?? '');
 require_doctor_patient_access($pdo, $ctx, $patientId);
 
-$history = (string) ($_POST['history_text'] ?? '');
+$history = sanitize_clinical_html((string) ($_POST['history_text'] ?? ''));
 $doctorId = $ctx['profile']['id'];
 $chart = get_or_create_patient_chart($pdo, $doctorId, $patientId);
 
