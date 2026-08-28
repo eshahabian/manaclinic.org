@@ -27,6 +27,7 @@ try {
         phone VARCHAR(50) NULL,
         password_hash VARCHAR(255) NOT NULL,
         role ENUM('ADMIN','DOCTOR','PATIENT','SECRETARY') NOT NULL DEFAULT 'PATIENT',
+        must_change_password TINYINT(1) NOT NULL DEFAULT 0,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
@@ -105,6 +106,10 @@ try {
         $pdo->exec("ALTER TABLE users MODIFY role ENUM('ADMIN','DOCTOR','PATIENT','SECRETARY') NOT NULL DEFAULT 'PATIENT'");
     } catch (Throwable $ignored) {
     }
+    try {
+        $pdo->exec("ALTER TABLE users ADD COLUMN must_change_password TINYINT(1) NOT NULL DEFAULT 0 AFTER role");
+    } catch (Throwable $ignored) {
+    }
 
     $adminId = 'admin001mana01';
     $doctorUserId = 'doctor001mana01';
@@ -114,7 +119,7 @@ try {
     $hashAdmin = password_hash('admin123', PASSWORD_DEFAULT);
     $hashDoctor = password_hash('doctor123', PASSWORD_DEFAULT);
     $hashPatient = password_hash('patient123', PASSWORD_DEFAULT);
-    $hashSecretary = password_hash('An@bel.356#%^', PASSWORD_DEFAULT);
+    $hashSecretary = password_hash('123', PASSWORD_DEFAULT);
     $bio = "مشاوره تخصصی: فردی، خانواده (پیش از ازدواج و زناشویی)، کودک و نوجوان، تحصیلی و شغلی\nروان‌درمانی: درمان اضطراب، افسردگی و وسواس";
 
     $stmt = $pdo->prepare('SELECT id FROM users WHERE email = ?');
@@ -145,10 +150,10 @@ try {
 
     $stmt->execute(['secretary@manaclinic.org']);
     if (!$stmt->fetch()) {
-        $pdo->prepare('INSERT INTO users (id,name,email,phone,password_hash,role) VALUES (?,?,?,?,?,?)')
+        $pdo->prepare('INSERT INTO users (id,name,email,phone,password_hash,role,must_change_password) VALUES (?,?,?,?,?,?,1)')
             ->execute([$secretaryId, 'منشی کلینیک', 'secretary@manaclinic.org', '09124444444', $hashSecretary, 'SECRETARY']);
     } else {
-        $pdo->prepare('UPDATE users SET password_hash=?, role=?, name=? WHERE email=?')
+        $pdo->prepare('UPDATE users SET password_hash=?, role=?, name=?, must_change_password=1 WHERE email=?')
             ->execute([$hashSecretary, 'SECRETARY', 'منشی کلینیک', 'secretary@manaclinic.org']);
     }
 
@@ -223,7 +228,7 @@ try {
         <li>ادمین: <code>admin@ravansara.ir</code> / <code>admin123</code></li>
         <li>دکتر: <code>doctor@ravansara.ir</code> / <code>doctor123</code></li>
         <li>بیمار: <code>patient@ravansara.ir</code> / <code>patient123</code></li>
-        <li>منشی: <code>secretary@manaclinic.org</code> / <code>An@bel.356#%^</code></li>
+        <li>منشی: <code>secretary@manaclinic.org</code> / <code>123</code> (اولین ورود باید رمز عوض شود)</li>
       </ul>
       <p><a href="/">رفتن به سایت</a></p>
       <p style="color:#b33a3a">بعد از نصب، فایل <code>install.php</code> را از هاست حذف کنید.</p>

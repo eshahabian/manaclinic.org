@@ -45,6 +45,8 @@ $routes = [
     'GET /logout' => 'pages/logout.php',
     'POST /login' => 'actions/login.php',
     'POST /register' => 'actions/register.php',
+    'GET /change-password' => 'pages/change_password.php',
+    'POST /change-password' => 'actions/change_password.php',
 
     'GET /dashboard' => 'pages/patient/dashboard.php',
     'GET /dashboard/appointments' => 'pages/patient/appointments.php',

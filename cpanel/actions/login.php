@@ -16,6 +16,11 @@ if (!$user || !password_verify($password, $user['password_hash'])) {
 
 login_user($user);
 
+if (!empty($user['must_change_password'])) {
+    flash_set('info', 'برای ادامه، لطفاً رمز عبور خود را تغییر دهید.');
+    redirect('/change-password');
+}
+
 if ($next && str_starts_with($next, '/')) {
     redirect($next);
 }

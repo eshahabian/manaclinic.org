@@ -13,6 +13,7 @@ function login_user(array $user): void
         'name' => $user['name'],
         'email' => $user['email'],
         'role' => $user['role'],
+        'must_change_password' => (int) ($user['must_change_password'] ?? 0),
     ];
 }
 
@@ -26,6 +27,13 @@ function require_login(?array $roles = null): array
     $user = current_user();
     if (!$user) {
         redirect('/login');
+    }
+    if (!empty($user['must_change_password'])) {
+        global $path;
+        $allowed = ['/change-password', '/logout'];
+        if (!in_array($path ?? '', $allowed, true)) {
+            redirect('/change-password');
+        }
     }
     if ($roles && !in_array($user['role'], $roles, true)) {
         redirect('/');

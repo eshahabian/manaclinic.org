@@ -24,7 +24,7 @@ ob_start();
     </div>
     <button class="btn btn-primary" type="submit">ورود</button>
     <p class="muted" style="font-size:.75rem;background:var(--bg-soft);padding:.75rem;border-radius:.65rem;line-height:1.7">
-      نمونه: admin@ravansara.ir / admin123 — doctor@ravansara.ir / doctor123 — patient@ravansara.ir / patient123 — secretary@manaclinic.org
+      نمونه: admin@ravansara.ir / admin123 — doctor@ravansara.ir / doctor123 — patient@ravansara.ir / patient123 — secretary@manaclinic.org / 123
     </p>
   </form>
 </div>
