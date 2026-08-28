@@ -22,8 +22,9 @@ try {
     $pdo->exec("
       CREATE TABLE IF NOT EXISTS users (
         id VARCHAR(32) PRIMARY KEY,
+        username VARCHAR(64) NOT NULL UNIQUE,
         name VARCHAR(191) NOT NULL,
-        email VARCHAR(191) NOT NULL UNIQUE,
+        email VARCHAR(191) NULL,
         phone VARCHAR(50) NULL,
         password_hash VARCHAR(255) NOT NULL,
         role ENUM('ADMIN','DOCTOR','PATIENT','SECRETARY') NOT NULL DEFAULT 'PATIENT',
@@ -101,7 +102,7 @@ try {
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
 
-    // ارتقای نقش‌ها برای دیتابیس‌های قبلی
+    // ارتقای نقش‌ها و ستون‌ها برای دیتابیس‌های قبلی
     try {
         $pdo->exec("ALTER TABLE users MODIFY role ENUM('ADMIN','DOCTOR','PATIENT','SECRETARY') NOT NULL DEFAULT 'PATIENT'");
     } catch (Throwable $ignored) {
@@ -110,55 +111,74 @@ try {
         $pdo->exec("ALTER TABLE users ADD COLUMN must_change_password TINYINT(1) NOT NULL DEFAULT 0 AFTER role");
     } catch (Throwable $ignored) {
     }
+    try {
+        $pdo->exec("ALTER TABLE users ADD COLUMN username VARCHAR(64) NULL AFTER id");
+    } catch (Throwable $ignored) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE users MODIFY email VARCHAR(191) NULL");
+    } catch (Throwable $ignored) {
+    }
+
+    $pdo->exec("UPDATE users SET username='admin' WHERE (username IS NULL OR username='') AND (email LIKE 'admin@%' OR role='ADMIN') LIMIT 1");
+    $pdo->exec("UPDATE users SET username='doctor' WHERE (username IS NULL OR username='') AND (email LIKE 'doctor@%' OR role='DOCTOR') LIMIT 1");
+    $pdo->exec("UPDATE users SET username='patient' WHERE (username IS NULL OR username='') AND (email LIKE 'patient@%' OR role='PATIENT') LIMIT 1");
+    $pdo->exec("UPDATE users SET username='secretary' WHERE (username IS NULL OR username='') AND (email LIKE 'secretary@%' OR role='SECRETARY') LIMIT 1");
+    $pdo->exec("UPDATE users SET username=CONCAT('user_', SUBSTRING(id,1,8)) WHERE username IS NULL OR username=''");
+    try {
+        $pdo->exec("ALTER TABLE users MODIFY username VARCHAR(64) NOT NULL");
+    } catch (Throwable $ignored) {
+    }
+    try {
+        $pdo->exec("CREATE UNIQUE INDEX users_username_unique ON users (username)");
+    } catch (Throwable $ignored) {
+    }
 
     $adminId = 'admin001mana01';
     $doctorUserId = 'doctor001mana01';
     $doctorProfileId = 'dprofile001mana';
     $patientId = 'patient001mana01';
     $secretaryId = 'secretary001mana';
-    $hashAdmin = password_hash('admin123', PASSWORD_DEFAULT);
-    $hashDoctor = password_hash('doctor123', PASSWORD_DEFAULT);
-    $hashPatient = password_hash('patient123', PASSWORD_DEFAULT);
-    $hashSecretary = password_hash('123', PASSWORD_DEFAULT);
+    $pass123 = password_hash('123', PASSWORD_DEFAULT);
     $bio = "مشاوره تخصصی: فردی، خانواده (پیش از ازدواج و زناشویی)، کودک و نوجوان، تحصیلی و شغلی\nروان‌درمانی: درمان اضطراب، افسردگی و وسواس";
 
-    $stmt = $pdo->prepare('SELECT id FROM users WHERE email = ?');
-    $stmt->execute(['admin@ravansara.ir']);
-    if (!$stmt->fetch()) {
-        $pdo->prepare('INSERT INTO users (id,name,email,phone,password_hash,role) VALUES (?,?,?,?,?,?)')
-            ->execute([$adminId, 'مدیر سایت', 'admin@ravansara.ir', '09120000000', $hashAdmin, 'ADMIN']);
+    $upsertUser = function (
+        string $id,
+        string $username,
+        string $name,
+        string $role,
+        ?string $phone = null
+    ) use ($pdo, $pass123): void {
+        $stmt = $pdo->prepare('SELECT id FROM users WHERE username = ?');
+        $stmt->execute([$username]);
+        if (!$stmt->fetch()) {
+            $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,must_change_password) VALUES (?,?,?,?,?,?,?,1)')
+                ->execute([$id, $username, $name, $username . '@manaclinic.local', $phone, $pass123, $role]);
+        } else {
+            $pdo->prepare('UPDATE users SET name=?, role=?, password_hash=?, must_change_password=1, phone=COALESCE(phone, ?) WHERE username=?')
+                ->execute([$name, $role, $pass123, $phone, $username]);
+        }
+    };
+
+    $upsertUser($adminId, 'admin', 'مدیر سایت', 'ADMIN', '09120000000');
+    $upsertUser($doctorUserId, 'doctor', 'دکتر شیوا گرانمایه پور', 'DOCTOR', '09121111111');
+    $upsertUser($patientId, 'patient', 'علی رضایی', 'PATIENT', '09123333333');
+    $upsertUser($secretaryId, 'secretary', 'منشی کلینیک', 'SECRETARY', '09124444444');
+
+    $doctorRow = $pdo->query("SELECT id FROM users WHERE username='doctor' LIMIT 1")->fetch();
+    if ($doctorRow) {
+        $dp = $pdo->prepare('SELECT id FROM doctor_profiles WHERE user_id=?');
+        $dp->execute([$doctorRow['id']]);
+        if (!$dp->fetch()) {
+            $pdo->prepare('INSERT INTO doctor_profiles (id,user_id,specialty,bio,session_price,is_active) VALUES (?,?,?,?,?,1)')
+                ->execute([$doctorProfileId, $doctorRow['id'], 'روان‌درمانی شناختی-رفتاری', $bio, 3000000]);
+        } else {
+            $pdo->prepare('UPDATE doctor_profiles SET specialty=?, bio=?, session_price=3000000 WHERE user_id=?')
+                ->execute(['روان‌درمانی شناختی-رفتاری', $bio, $doctorRow['id']]);
+        }
     }
 
-    $stmt->execute(['doctor@ravansara.ir']);
-    if (!$stmt->fetch()) {
-        $pdo->prepare('INSERT INTO users (id,name,email,phone,password_hash,role) VALUES (?,?,?,?,?,?)')
-            ->execute([$doctorUserId, 'دکتر شیوا گرانمایه پور', 'doctor@ravansara.ir', '09121111111', $hashDoctor, 'DOCTOR']);
-        $pdo->prepare('INSERT INTO doctor_profiles (id,user_id,specialty,bio,session_price,is_active) VALUES (?,?,?,?,?,1)')
-            ->execute([$doctorProfileId, $doctorUserId, 'روان‌درمانی شناختی-رفتاری', $bio, 3000000]);
-    } else {
-        $pdo->prepare('UPDATE users SET name=? WHERE email=?')
-            ->execute(['دکتر شیوا گرانمایه پور', 'doctor@ravansara.ir']);
-        $pdo->prepare('UPDATE doctor_profiles dp JOIN users u ON u.id=dp.user_id SET dp.bio=?, dp.session_price=3000000 WHERE u.email=?')
-            ->execute([$bio, 'doctor@ravansara.ir']);
-    }
-
-    $stmt->execute(['patient@ravansara.ir']);
-    if (!$stmt->fetch()) {
-        $pdo->prepare('INSERT INTO users (id,name,email,phone,password_hash,role) VALUES (?,?,?,?,?,?)')
-            ->execute([$patientId, 'علی رضایی', 'patient@ravansara.ir', '09123333333', $hashPatient, 'PATIENT']);
-    }
-
-    $stmt->execute(['secretary@manaclinic.org']);
-    if (!$stmt->fetch()) {
-        $pdo->prepare('INSERT INTO users (id,name,email,phone,password_hash,role,must_change_password) VALUES (?,?,?,?,?,?,1)')
-            ->execute([$secretaryId, 'منشی کلینیک', 'secretary@manaclinic.org', '09124444444', $hashSecretary, 'SECRETARY']);
-    } else {
-        $pdo->prepare('UPDATE users SET password_hash=?, role=?, name=?, must_change_password=1 WHERE email=?')
-            ->execute([$hashSecretary, 'SECRETARY', 'منشی کلینیک', 'secretary@manaclinic.org']);
-    }
-
-    // مقالات نمونه
-    $author = $pdo->query("SELECT id FROM users WHERE email='doctor@ravansara.ir'")->fetch();
+    $author = $pdo->query("SELECT id FROM users WHERE username='doctor' LIMIT 1")->fetch();
     if ($author) {
         $exists = $pdo->prepare('SELECT id FROM articles WHERE slug=?');
         $exists->execute(['modiriat-ezterab']);
@@ -186,7 +206,9 @@ try {
                 ]);
         }
 
-        $dp = $pdo->query("SELECT id FROM doctor_profiles WHERE user_id='{$author['id']}' OR user_id=(SELECT id FROM users WHERE email='doctor@ravansara.ir' LIMIT 1) LIMIT 1")->fetch();
+        $dp = $pdo->prepare('SELECT id FROM doctor_profiles WHERE user_id=? LIMIT 1');
+        $dp->execute([$author['id']]);
+        $dp = $dp->fetch();
         if ($dp) {
             for ($i = 1; $i <= 7; $i++) {
                 $date = date('Y-m-d', strtotime("+{$i} day"));
@@ -223,12 +245,12 @@ try {
     <h1>نصب مانا کلینیک (PHP)</h1>
     <?php if ($ok): ?>
       <p class="ok">نصب با موفقیت انجام شد.</p>
-      <p>حساب‌ها:</p>
+      <p>حساب‌ها (رمز همه: <code>123</code> — در اولین ورود باید عوض شود):</p>
       <ul>
-        <li>ادمین: <code>admin@ravansara.ir</code> / <code>admin123</code></li>
-        <li>دکتر: <code>doctor@ravansara.ir</code> / <code>doctor123</code></li>
-        <li>بیمار: <code>patient@ravansara.ir</code> / <code>patient123</code></li>
-        <li>منشی: <code>secretary@manaclinic.org</code> / <code>123</code> (اولین ورود باید رمز عوض شود)</li>
+        <li>ادمین: <code>admin</code></li>
+        <li>دکتر: <code>doctor</code></li>
+        <li>بیمار: <code>patient</code></li>
+        <li>منشی: <code>secretary</code></li>
       </ul>
       <p><a href="/">رفتن به سایت</a></p>
       <p style="color:#b33a3a">بعد از نصب، فایل <code>install.php</code> را از هاست حذف کنید.</p>

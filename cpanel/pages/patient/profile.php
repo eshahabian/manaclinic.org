@@ -28,8 +28,8 @@ ob_start();
         <input class="input" name="name" value="<?= e($profile['name']) ?>" required>
       </div>
       <div>
-        <label class="label">ایمیل</label>
-        <input class="input" value="<?= e($profile['email']) ?>" disabled dir="ltr">
+        <label class="label">نام کاربری</label>
+        <input class="input" value="<?= e((string)$profile['username']) ?>" disabled dir="ltr">
       </div>
       <div>
         <label class="label">موبایل</label>

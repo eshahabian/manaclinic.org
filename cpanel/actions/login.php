@@ -1,16 +1,16 @@
 <?php
 declare(strict_types=1);
 
-$email = mb_strtolower(post('email'));
+$username = mb_strtolower(post('username'));
 $password = (string) ($_POST['password'] ?? '');
 $next = post('next');
 
-$stmt = $pdo->prepare('SELECT * FROM users WHERE email = ? LIMIT 1');
-$stmt->execute([$email]);
+$stmt = $pdo->prepare('SELECT * FROM users WHERE username = ? LIMIT 1');
+$stmt->execute([$username]);
 $user = $stmt->fetch();
 
 if (!$user || !password_verify($password, $user['password_hash'])) {
-    flash_set('error', 'ایمیل یا رمز عبور نادرست است.');
+    flash_set('error', 'نام کاربری یا رمز عبور نادرست است.');
     redirect('/login');
 }
 

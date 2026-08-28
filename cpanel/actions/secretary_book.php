@@ -5,7 +5,7 @@ require_login(['SECRETARY']);
 $patientId = post('patient_id');
 $newName = post('new_name');
 $newPhone = post('new_phone') ?: null;
-$newEmail = mb_strtolower(post('new_email'));
+$newUsername = mb_strtolower(post('new_username'));
 $doctorId = post('doctor_id');
 $date = post('date');
 $time = post('time');
@@ -21,19 +21,22 @@ if ($patientId === '') {
         flash_set('error', 'نام بیمار جدید الزامی است.');
         redirect('/secretary/book');
     }
-    if ($newEmail === '') {
-        $newEmail = 'patient_' . time() . '_' . random_int(100, 999) . '@manaclinic.local';
+    if ($newUsername === '') {
+        $newUsername = 'patient_' . time() . '_' . random_int(100, 999);
     }
-    $exists = $pdo->prepare('SELECT id FROM users WHERE email=?');
-    $exists->execute([$newEmail]);
+    if (!preg_match('/^[a-z0-9._-]{3,32}$/', $newUsername)) {
+        flash_set('error', 'نام کاربری نامعتبر است.');
+        redirect('/secretary/book');
+    }
+    $exists = $pdo->prepare('SELECT id FROM users WHERE username=?');
+    $exists->execute([$newUsername]);
     if ($exists->fetch()) {
-        flash_set('error', 'این ایمیل قبلاً ثبت شده است.');
+        flash_set('error', 'این نام کاربری قبلاً ثبت شده است.');
         redirect('/secretary/book');
     }
     $patientId = cuid();
-    $tempPass = bin2hex(random_bytes(4));
-    $pdo->prepare('INSERT INTO users (id,name,email,phone,password_hash,role) VALUES (?,?,?,?,?,?)')
-        ->execute([$patientId, $newName, $newEmail, $newPhone, password_hash($tempPass, PASSWORD_DEFAULT), 'PATIENT']);
+    $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,must_change_password) VALUES (?,?,?,?,?,?,?,1)')
+        ->execute([$patientId, $newUsername, $newName, $newUsername . '@manaclinic.local', $newPhone, password_hash('123', PASSWORD_DEFAULT), 'PATIENT']);
 }
 
 $doc = $pdo->prepare('SELECT * FROM doctor_profiles WHERE id=? AND is_active=1');

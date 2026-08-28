@@ -3,7 +3,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../includes/admin_panel.php';
 require_login(['ADMIN']);
 $doctors = $pdo->query("
-  SELECT dp.*, u.name, u.email FROM doctor_profiles dp
+  SELECT dp.*, u.name, u.username FROM doctor_profiles dp
   JOIN users u ON u.id=dp.user_id ORDER BY dp.created_at DESC
 ")->fetchAll();
 ob_start();
@@ -14,8 +14,8 @@ ob_start();
   <h2 style="margin:0;font-size:1.05rem">افزودن دکتر جدید</h2>
   <div class="grid-2">
     <div><label class="label">نام</label><input class="input" name="name" required></div>
-    <div><label class="label">ایمیل</label><input class="input" name="email" type="email" required dir="ltr"></div>
-    <div><label class="label">رمز موقت</label><input class="input" name="password" required minlength="6" dir="ltr"></div>
+    <div><label class="label">نام کاربری</label><input class="input" name="username" required dir="ltr" pattern="[A-Za-z0-9._-]{3,32}"></div>
+    <div><label class="label">رمز موقت</label><input class="input" name="password" value="123" required dir="ltr"></div>
     <div><label class="label">موبایل</label><input class="input" name="phone" dir="ltr"></div>
     <div><label class="label">تخصص</label><input class="input" name="specialty" required></div>
     <div><label class="label">هزینه جلسه</label><input class="input" type="number" name="session_price" value="3000000" required dir="ltr"></div>
@@ -29,7 +29,7 @@ ob_start();
     <div>
       <strong><?= e($d['name']) ?></strong>
       <div style="color:var(--primary);font-size:.9rem"><?= e($d['specialty']) ?></div>
-      <div class="muted" style="font-size:.85rem" dir="ltr"><?= e($d['email']) ?></div>
+      <div class="muted" style="font-size:.85rem" dir="ltr"><?= e($d['username']) ?></div>
       <div style="font-size:.9rem;margin-top:.25rem"><?= e(format_price((int)$d['session_price'])) ?></div>
     </div>
     <form method="post" action="<?= e(url('/admin/doctors')) ?>">

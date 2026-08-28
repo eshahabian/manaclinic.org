@@ -17,8 +17,8 @@ ob_start();
       <input class="input" name="name" required>
     </div>
     <div>
-      <label class="label">ایمیل</label>
-      <input class="input" name="email" type="email" required dir="ltr">
+      <label class="label">نام کاربری</label>
+      <input class="input" name="username" required dir="ltr" autocomplete="username" pattern="[A-Za-z0-9._-]{3,32}" title="فقط حروف انگلیسی، عدد و ._- (۳ تا ۳۲ کاراکتر)">
     </div>
     <div>
       <label class="label">موبایل</label>

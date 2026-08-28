@@ -11,7 +11,8 @@ function login_user(array $user): void
     $_SESSION['user'] = [
         'id' => $user['id'],
         'name' => $user['name'],
-        'email' => $user['email'],
+        'email' => $user['email'] ?? null,
+        'username' => $user['username'] ?? null,
         'role' => $user['role'],
         'must_change_password' => (int) ($user['must_change_password'] ?? 0),
     ];

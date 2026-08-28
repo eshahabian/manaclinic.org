@@ -3,7 +3,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../includes/secretary_panel.php';
 require_login(['SECRETARY']);
 
-$patients = $pdo->query("SELECT id, name, email, phone FROM users WHERE role='PATIENT' ORDER BY name ASC")->fetchAll();
+$patients = $pdo->query("SELECT id, name, username, phone FROM users WHERE role='PATIENT' ORDER BY name ASC")->fetchAll();
 $doctors = $pdo->query("
   SELECT dp.id, u.name, dp.specialty
   FROM doctor_profiles dp
@@ -30,7 +30,7 @@ ob_start();
     <select class="input" name="patient_id" id="patient_id">
       <option value="">— انتخاب بیمار —</option>
       <?php foreach ($patients as $p): ?>
-        <option value="<?= e($p['id']) ?>"><?= e($p['name']) ?> (<?= e($p['email']) ?>)</option>
+        <option value="<?= e($p['id']) ?>"><?= e($p['name']) ?> (<?= e((string)$p['username']) ?>)</option>
       <?php endforeach; ?>
     </select>
   </div>
@@ -40,7 +40,7 @@ ob_start();
     <div class="grid-2">
       <div><label class="label">نام</label><input class="input" name="new_name" id="new_name"></div>
       <div><label class="label">موبایل</label><input class="input" name="new_phone" id="new_phone" dir="ltr"></div>
-      <div style="grid-column:1/-1"><label class="label">ایمیل</label><input class="input" name="new_email" id="new_email" type="email" dir="ltr" placeholder="اختیاری — اگر خالی باشد خودکار ساخته می‌شود"></div>
+      <div style="grid-column:1/-1"><label class="label">نام کاربری</label><input class="input" name="new_username" id="new_username" dir="ltr" placeholder="اختیاری — اگر خالی باشد خودکار ساخته می‌شود" pattern="[A-Za-z0-9._-]{3,32}"></div>
     </div>
   </div>
 
