@@ -1,0 +1,9 @@
+RewriteEngine On
+
+# اگر فایل/پوشه واقعی بود، همان را سرو کن
+RewriteCond %{REQUEST_FILENAME} -f [OR]
+RewriteCond %{REQUEST_FILENAME} -d
+RewriteRule ^ - [L]
+
+# بقیه درخواست‌ها به index.php
+RewriteRule ^ index.php [L]
