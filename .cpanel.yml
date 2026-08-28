@@ -1,0 +1,7 @@
+---
+deployment:
+  tasks:
+    - export DEPLOYPATH=/home3/slhgjbht/public_html/
+    - /bin/mkdir -p $DEPLOYPATH
+    - /bin/cp -rf cpanel/. $DEPLOYPATH
+    - /bin/cp -n cpanel/config.sample.php $DEPLOYPATH/config.php || true
