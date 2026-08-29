@@ -7,9 +7,9 @@ $action = post('action');
 if ($action === 'create') {
     $title = post('title');
     $excerpt = post('excerpt');
-    $content = post('content');
+    $content = sanitize_rich_html((string) ($_POST['content'] ?? ''));
     $published = isset($_POST['published']) ? 1 : 0;
-    if ($title && $content) {
+    if ($title && $content !== '' && trim(strip_tags($content)) !== '') {
         $slug = slugify($title);
         $check = $pdo->prepare('SELECT id FROM articles WHERE slug=?');
         $check->execute([$slug]);
@@ -17,6 +17,8 @@ if ($action === 'create') {
         $pdo->prepare('INSERT INTO articles (id,title,slug,content,excerpt,published,published_at,author_id) VALUES (?,?,?,?,?,?,?,?)')
             ->execute([cuid(), $title, $slug, $content, $excerpt, $published, $published ? date('Y-m-d H:i:s') : null, $ctx['user']['id']]);
         flash_set('success', 'مقاله ذخیره شد.');
+    } else {
+        flash_set('error', 'عنوان و متن مقاله الزامی است.');
     }
 } elseif ($action === 'toggle') {
     $id = post('id');

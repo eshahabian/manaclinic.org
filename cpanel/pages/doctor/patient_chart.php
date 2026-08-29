@@ -123,105 +123,39 @@ ob_start();
 <?php
 $inner = ob_get_clean();
 
-$pageScripts = <<<'JS'
+$pageScripts = '
+<script src="' . e(url('/assets/js/rich-editor.js')) . '"></script>
 <script>
+initRichEditor({
+  editor: "#clinical-editor",
+  toolbar: "#clinical-toolbar",
+  form: "#history-form",
+  hidden: "#history_text"
+});
 (function(){
-  var editor = document.getElementById("clinical-editor");
-  var hidden = document.getElementById("history_text");
-  var form = document.getElementById("history-form");
-  var toolbar = document.getElementById("clinical-toolbar");
-  if (!editor || !form || !toolbar) return;
-
-  function focusEditor(){ editor.focus(); }
-
-  function wrapSelection(tagName, styles){
-    var sel = window.getSelection();
-    if (!sel || sel.rangeCount === 0 || sel.isCollapsed) return false;
-    var range = sel.getRangeAt(0);
-    if (!editor.contains(range.commonAncestorContainer)) return false;
-    var el = document.createElement(tagName);
-    if (styles) {
-      Object.keys(styles).forEach(function(k){ el.style[k] = styles[k]; });
-    }
-    try {
-      range.surroundContents(el);
-    } catch (err) {
-      var frag = range.extractContents();
-      el.appendChild(frag);
-      range.insertNode(el);
-    }
-    sel.removeAllRanges();
-    var r = document.createRange();
-    r.selectNodeContents(el);
-    sel.addRange(r);
-    return true;
-  }
-
-  toolbar.addEventListener("mousedown", function(e){
-    // جلوگیری از از دست رفتن selection
-    if (e.target.closest("button")) e.preventDefault();
-  });
-
-  toolbar.addEventListener("click", function(e){
-    var btn = e.target.closest("button");
-    if (!btn) return;
-    focusEditor();
-
-    if (btn.dataset.cmd === "bold") {
-      document.execCommand("bold", false, null);
-      return;
-    }
-    if (btn.dataset.cmd === "removeFormat") {
-      document.execCommand("removeFormat", false, null);
-      // برداشتن هایلایت‌های span
-      var sel = window.getSelection();
-      if (sel && sel.rangeCount && !sel.isCollapsed) {
-        document.execCommand("hiliteColor", false, "transparent");
-      }
-      return;
-    }
-    if (btn.dataset.fontsize) {
-      wrapSelection("span", { fontSize: btn.dataset.fontsize + "px" });
-      return;
-    }
-    if (btn.dataset.hl) {
-      document.execCommand("styleWithCSS", true, null);
-      var ok = document.execCommand("hiliteColor", false, btn.dataset.hl);
-      if (!ok) {
-        wrapSelection("span", { backgroundColor: btn.dataset.hl });
-      }
-    }
-  });
-
-  form.addEventListener("submit", function(){
-    hidden.value = editor.innerHTML;
-  });
-
-  // باکس‌های یادداشت جلسه
   var grid = document.getElementById("session-note-grid");
-  if (grid) {
-    grid.addEventListener("click", function(e){
-      var closeBtn = e.target.closest("[data-close]");
-      var toggle = e.target.closest("[data-toggle]");
-      var box = e.target.closest("[data-box]");
-      if (closeBtn && box) {
-        box.classList.remove("open");
-        return;
-      }
-      if (toggle && box) {
-        var wasOpen = box.classList.contains("open");
-        grid.querySelectorAll("[data-box].open").forEach(function(b){ b.classList.remove("open"); });
-        if (!wasOpen) box.classList.add("open");
-      }
-    });
-    document.addEventListener("click", function(e){
-      if (!e.target.closest("[data-box]")) {
-        grid.querySelectorAll("[data-box].open").forEach(function(b){ b.classList.remove("open"); });
-      }
-    });
-  }
+  if (!grid) return;
+  grid.addEventListener("click", function(e){
+    var closeBtn = e.target.closest("[data-close]");
+    var toggle = e.target.closest("[data-toggle]");
+    var box = e.target.closest("[data-box]");
+    if (closeBtn && box) {
+      box.classList.remove("open");
+      return;
+    }
+    if (toggle && box) {
+      var wasOpen = box.classList.contains("open");
+      grid.querySelectorAll("[data-box].open").forEach(function(b){ b.classList.remove("open"); });
+      if (!wasOpen) box.classList.add("open");
+    }
+  });
+  document.addEventListener("click", function(e){
+    if (!e.target.closest("[data-box]")) {
+      grid.querySelectorAll("[data-box].open").forEach(function(b){ b.classList.remove("open"); });
+    }
+  });
 })();
 </script>
-JS;
+';
 
 render_doctor_page('پرونده ' . $patient['name'], $inner);

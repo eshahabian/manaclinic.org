@@ -100,64 +100,10 @@ function get_or_create_patient_chart(PDO $pdo, string $doctorId, string $patient
 /** HTML امن برای ادیتور شرح حال (bold / سایز / هایلایت) */
 function sanitize_clinical_html(string $html): string
 {
-    $html = trim($html);
-    if ($html === '' || $html === '<br>' || $html === '<div><br></div>') {
-        return '';
-    }
-
-    $html = preg_replace('#<(script|style|iframe|object|embed|link|meta)[^>]*>.*?</\1>#is', '', $html) ?? $html;
-    $html = preg_replace('#<(script|style|iframe|object|embed|link|meta)[^>]*/?>#is', '', $html) ?? $html;
-    $html = strip_tags($html, '<p><br><div><span><b><strong><i><em><u><mark>');
-
-    $html = preg_replace_callback('/<([a-z0-9]+)(\s[^>]*)?>/i', static function (array $m): string {
-        $tag = strtolower($m[1]);
-        if ($tag === 'br') {
-            return '<br>';
-        }
-        $attrs = $m[2] ?? '';
-        $safe = '';
-        if (preg_match('/style\s*=\s*(["\'])(.*?)\1/i', $attrs, $sm)) {
-            $styles = [];
-            foreach (explode(';', $sm[2]) as $part) {
-                $part = trim($part);
-                if ($part === '' || !str_contains($part, ':')) {
-                    continue;
-                }
-                [$prop, $val] = array_map('trim', explode(':', $part, 2));
-                $propL = strtolower($prop);
-                $valCompact = preg_replace('/\s+/', '', $val) ?? '';
-                if ($propL === 'background-color' && preg_match('/^#([0-9a-f]{3}|[0-9a-f]{6})$/i', $valCompact)) {
-                    $styles[] = 'background-color:' . $valCompact;
-                } elseif ($propL === 'font-size' && preg_match('/^(\d+(\.\d+)?)(px|rem|em)$/i', $valCompact, $fm)) {
-                    $size = (float) $fm[1];
-                    if ($size >= 10 && $size <= 36) {
-                        $styles[] = 'font-size:' . $valCompact;
-                    }
-                } elseif ($propL === 'font-weight' && in_array(strtolower($valCompact), ['bold', '700', '600'], true)) {
-                    $styles[] = 'font-weight:700';
-                }
-            }
-            if ($styles) {
-                $safe .= ' style="' . implode(';', $styles) . '"';
-            }
-        }
-        if ($tag === 'span' && preg_match('/data-hl\s*=\s*(["\'])([a-z]+)\1/i', $attrs, $hm)) {
-            $safe .= ' data-hl="' . $hm[2] . '"';
-        }
-        return '<' . $tag . $safe . '>';
-    }, $html) ?? $html;
-
-    return trim($html);
+    return sanitize_rich_html($html);
 }
 
 function history_html_for_editor(?string $raw): string
 {
-    $raw = (string) $raw;
-    if (trim($raw) === '') {
-        return '';
-    }
-    if (!preg_match('/<[^>]+>/', $raw)) {
-        return nl2br(e($raw), false);
-    }
-    return sanitize_clinical_html($raw);
+    return rich_html_for_display($raw);
 }

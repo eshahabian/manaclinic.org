@@ -320,3 +320,9 @@ input[data-jdp] {
 .session-note-box.has-note .session-note-toggle {
   background: linear-gradient(180deg, #fff 0%, #f3faf6 100%);
 }
+
+.article-body mark,
+.article-body span[style*="background"] {
+  border-radius: .2rem;
+  padding: 0 .1rem;
+}

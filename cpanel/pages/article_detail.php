@@ -26,8 +26,8 @@ ob_start();
   <div style="margin-top:1rem;display:flex;gap:.75rem;align-items:center">
     <span class="badge"><?= e($article['author_name']) ?></span>
   </div>
-  <div class="panel whitespace-pre" style="margin-top:2rem;max-width:48rem;line-height:1.9">
-    <?= e($article['content']) ?>
+  <div class="panel article-body" style="margin-top:2rem;max-width:48rem;line-height:1.9">
+    <?= rich_html_for_display($article['content']) ?>
   </div>
 </article>
 <?php
