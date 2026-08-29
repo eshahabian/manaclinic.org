@@ -25,6 +25,7 @@ $flash = flash_get();
     <div class="container-page header-inner">
       <a class="brand" href="<?= e(url('/')) ?>">مانا کلینیک</a>
       <nav class="nav-links">
+        <a href="<?= e(url('/')) ?>">صفحه اصلی</a>
         <a href="<?= e(url('/doctors')) ?>">متخصصان</a>
         <a href="<?= e(url('/articles')) ?>">مقالات</a>
         <a href="<?= e(url('/about')) ?>">درباره ما</a>
@@ -62,6 +63,7 @@ $flash = flash_get();
       </div>
       <div>
         <p class="footer-title">دسترسی سریع</p>
+        <a href="<?= e(url('/')) ?>">صفحه اصلی</a>
         <a href="<?= e(url('/doctors')) ?>">متخصصان</a>
         <a href="<?= e(url('/articles')) ?>">مقالات</a>
         <a href="<?= e(url('/about')) ?>">درباره ما</a>
