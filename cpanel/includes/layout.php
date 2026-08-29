@@ -27,6 +27,8 @@ $flash = flash_get();
       <nav class="nav-links">
         <a href="<?= e(url('/doctors')) ?>">متخصصان</a>
         <a href="<?= e(url('/articles')) ?>">مقالات</a>
+        <a href="<?= e(url('/about')) ?>">درباره ما</a>
+        <a href="<?= e(url('/contact')) ?>">تماس با ما</a>
         <?php if ($panelHref): ?>
           <a href="<?= e(url($panelHref)) ?>">پنل من</a>
         <?php endif; ?>
@@ -62,6 +64,8 @@ $flash = flash_get();
         <p class="footer-title">دسترسی سریع</p>
         <a href="<?= e(url('/doctors')) ?>">متخصصان</a>
         <a href="<?= e(url('/articles')) ?>">مقالات</a>
+        <a href="<?= e(url('/about')) ?>">درباره ما</a>
+        <a href="<?= e(url('/contact')) ?>">تماس با ما</a>
         <a href="<?= e(url('/register')) ?>">ثبت‌نام بیمار</a>
       </div>
       <div>
