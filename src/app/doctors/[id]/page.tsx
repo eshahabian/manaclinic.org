@@ -31,7 +31,7 @@ export default async function DoctorDetailPage({
     },
   });
 
-  if (!doctor || !doctor.isActive) notFound();
+  if (!doctor || !doctor.isActive || !doctor.isApproved) notFound();
 
   const articles = await prisma.article.findMany({
     where: { authorId: doctor.userId, published: true },

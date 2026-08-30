@@ -4,9 +4,10 @@ import { formatPrice } from "@/lib/utils";
 
 export default async function AdminHomePage() {
   await requireUser(["ADMIN"]);
-  const [users, doctors, articles, appointments, paid] = await Promise.all([
+  const [users, doctors, pendingDoctors, articles, appointments, paid] = await Promise.all([
     prisma.user.count(),
-    prisma.doctorProfile.count({ where: { isActive: true } }),
+    prisma.doctorProfile.count({ where: { isActive: true, isApproved: true } }),
+    prisma.doctorProfile.count({ where: { isApproved: false } }),
     prisma.article.count({ where: { published: true } }),
     prisma.appointment.count(),
     prisma.payment.aggregate({
@@ -18,7 +19,8 @@ export default async function AdminHomePage() {
 
   const cards = [
     { label: "کاربران", value: users },
-    { label: "دکترهای فعال", value: doctors },
+    { label: "درمانگرهای فعال", value: doctors },
+    { label: "در انتظار تأیید", value: pendingDoctors },
     { label: "مقالات منتشرشده", value: articles },
     { label: "کل نوبت‌ها", value: appointments },
     {

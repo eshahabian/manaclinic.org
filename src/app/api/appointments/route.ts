@@ -23,7 +23,7 @@ export async function POST(req: Request) {
   const doctor = await prisma.doctorProfile.findUnique({
     where: { id: doctorId },
   });
-  if (!doctor || !doctor.isActive) {
+  if (!doctor || !doctor.isActive || !doctor.isApproved) {
     return NextResponse.json({ error: "دکتر یافت نشد." }, { status: 404 });
   }
 

@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 export default async function HomePage() {
   const [doctors, articles] = await Promise.all([
     prisma.doctorProfile.findMany({
-      where: { isActive: true },
+      where: { isActive: true, isApproved: true },
       include: { user: true },
       take: 3,
       orderBy: { createdAt: "asc" },

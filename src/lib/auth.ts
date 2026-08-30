@@ -43,11 +43,18 @@ export const authOptions: NextAuthOptions = {
 
         const user = await prisma.user.findUnique({
           where: { email: credentials.email.toLowerCase().trim() },
+          include: { doctorProfile: true },
         });
         if (!user) return null;
 
         const valid = await compare(credentials.password, user.passwordHash);
         if (!valid) return null;
+
+        if (user.role === "DOCTOR") {
+          if (!user.doctorProfile?.isApproved) {
+            throw new Error("PENDING_APPROVAL");
+          }
+        }
 
         return {
           id: user.id,

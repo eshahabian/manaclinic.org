@@ -15,7 +15,7 @@ export function SiteFooter() {
           <div className="flex flex-col gap-2 text-sm text-muted">
             <Link href="/doctors">متخصصان</Link>
             <Link href="/articles">مقالات</Link>
-            <Link href="/register">ثبت‌نام بیمار</Link>
+            <Link href="/register">ثبت‌نام</Link>
           </div>
         </div>
         <div>

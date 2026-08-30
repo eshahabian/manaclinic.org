@@ -26,6 +26,8 @@ async function main() {
       name: "دکتر شیوا گرانمایه پور",
       doctorProfile: {
         update: {
+          isApproved: true,
+          isActive: true,
           sessionPrice: 3000000,
           bio: "مشاوره تخصصی: فردی، خانواده (پیش از ازدواج و زناشویی)، کودک و نوجوان، تحصیلی و شغلی\nروان‌درمانی: درمان اضطراب، افسردگی و وسواس",
         },
@@ -42,6 +44,7 @@ async function main() {
           specialty: "روان‌درمانی شناختی-رفتاری",
           bio: "مشاوره تخصصی: فردی، خانواده (پیش از ازدواج و زناشویی)، کودک و نوجوان، تحصیلی و شغلی\nروان‌درمانی: درمان اضطراب، افسردگی و وسواس",
           sessionPrice: 3000000,
+          isApproved: true,
           isActive: true,
         },
       },

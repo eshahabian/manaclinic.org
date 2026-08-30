@@ -14,6 +14,7 @@ export default async function DoctorsPage({
   const doctors = await prisma.doctorProfile.findMany({
     where: {
       isActive: true,
+      isApproved: true,
       ...(query
         ? {
             OR: [

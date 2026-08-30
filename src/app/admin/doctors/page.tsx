@@ -33,6 +33,7 @@ async function createDoctor(formData: FormData) {
           specialty,
           bio,
           sessionPrice,
+          isApproved: true,
           isActive: true,
         },
       },
@@ -42,12 +43,37 @@ async function createDoctor(formData: FormData) {
   revalidatePath("/doctors");
 }
 
-async function toggleDoctor(formData: FormData) {
+async function approveDoctor(formData: FormData) {
   "use server";
   await requireUser(["ADMIN"]);
   const id = String(formData.get("id") || "");
   const doctor = await prisma.doctorProfile.findUnique({ where: { id } });
   if (!doctor) return;
+  await prisma.doctorProfile.update({
+    where: { id },
+    data: { isApproved: true, isActive: true },
+  });
+  revalidatePath("/admin/doctors");
+  revalidatePath("/doctors");
+}
+
+async function rejectDoctor(formData: FormData) {
+  "use server";
+  await requireUser(["ADMIN"]);
+  const id = String(formData.get("id") || "");
+  const doctor = await prisma.doctorProfile.findUnique({ where: { id } });
+  if (!doctor || doctor.isApproved) return;
+  await prisma.user.delete({ where: { id: doctor.userId } });
+  revalidatePath("/admin/doctors");
+  revalidatePath("/doctors");
+}
+
+async function toggleDoctor(formData: FormData) {
+  "use server";
+  await requireUser(["ADMIN"]);
+  const id = String(formData.get("id") || "");
+  const doctor = await prisma.doctorProfile.findUnique({ where: { id } });
+  if (!doctor || !doctor.isApproved) return;
   await prisma.doctorProfile.update({
     where: { id },
     data: { isActive: !doctor.isActive },
@@ -63,12 +89,59 @@ export default async function AdminDoctorsPage() {
     orderBy: { createdAt: "desc" },
   });
 
+  const pending = doctors.filter((d) => !d.isApproved);
+  const approved = doctors.filter((d) => d.isApproved);
+
   return (
     <div className="space-y-6">
-      <h1 className="text-2xl font-bold">مدیریت دکترها</h1>
+      <h1 className="text-2xl font-bold">مدیریت درمانگرها</h1>
+
+      {pending.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-bold text-primary">
+            درخواست‌های در انتظار تأیید ({pending.length})
+          </h2>
+          {pending.map((d) => (
+            <div
+              key={d.id}
+              className="panel flex flex-wrap items-center justify-between gap-3 border-2 border-primary/30"
+            >
+              <div>
+                <p className="font-bold">{d.user.name}</p>
+                <p className="text-sm text-primary">{d.specialty}</p>
+                <p className="text-sm text-muted" dir="ltr">
+                  {d.user.email}
+                </p>
+                {d.user.phone && (
+                  <p className="text-sm text-muted" dir="ltr">
+                    {d.user.phone}
+                  </p>
+                )}
+                <p className="mt-1 text-xs text-muted">
+                  ثبت‌نام: {new Intl.DateTimeFormat("fa-IR").format(d.createdAt)}
+                </p>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                <form action={approveDoctor}>
+                  <input type="hidden" name="id" value={d.id} />
+                  <button type="submit" className="btn btn-primary !py-2 !text-sm">
+                    تأیید درمانگر
+                  </button>
+                </form>
+                <form action={rejectDoctor}>
+                  <input type="hidden" name="id" value={d.id} />
+                  <button type="submit" className="btn btn-danger !py-2 !text-sm">
+                    رد درخواست
+                  </button>
+                </form>
+              </div>
+            </div>
+          ))}
+        </section>
+      )}
 
       <form action={createDoctor} className="panel grid gap-4 md:grid-cols-2">
-        <h2 className="font-bold md:col-span-2">افزودن دکتر جدید</h2>
+        <h2 className="font-bold md:col-span-2">افزودن درمانگر جدید (مستقیم)</h2>
         <div>
           <label className="label">نام</label>
           <input name="name" className="input" required />
@@ -105,12 +178,16 @@ export default async function AdminDoctorsPage() {
           <textarea name="bio" className="input min-h-24" />
         </div>
         <button type="submit" className="btn btn-primary md:col-span-2">
-          ایجاد حساب دکتر
+          ایجاد حساب درمانگر
         </button>
       </form>
 
       <div className="space-y-3">
-        {doctors.map((d) => (
+        <h2 className="text-lg font-bold">درمانگرهای تأییدشده</h2>
+        {approved.length === 0 && (
+          <p className="text-sm text-muted">هنوز درمانگر تأییدشده‌ای وجود ندارد.</p>
+        )}
+        {approved.map((d) => (
           <div key={d.id} className="panel flex flex-wrap items-center justify-between gap-3">
             <div>
               <p className="font-bold">{d.user.name}</p>
@@ -119,6 +196,9 @@ export default async function AdminDoctorsPage() {
                 {d.user.email}
               </p>
               <p className="mt-1 text-sm">{formatPrice(d.sessionPrice)}</p>
+              {!d.isActive && (
+                <p className="mt-1 text-xs text-danger">غیرفعال</p>
+              )}
             </div>
             <form action={toggleDoctor}>
               <input type="hidden" name="id" value={d.id} />

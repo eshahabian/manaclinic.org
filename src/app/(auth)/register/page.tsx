@@ -5,21 +5,28 @@ import { signIn } from "next-auth/react";
 import { useRouter } from "next/navigation";
 import { FormEvent, useState } from "react";
 
+type AccountType = "PATIENT" | "DOCTOR";
+
 export default function RegisterPage() {
   const router = useRouter();
   const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
   const [loading, setLoading] = useState(false);
+  const [accountType, setAccountType] = useState<AccountType>("PATIENT");
 
   async function onSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault();
     setLoading(true);
     setError("");
+    setSuccess("");
     const form = new FormData(e.currentTarget);
     const payload = {
       name: String(form.get("name")),
       email: String(form.get("email")),
       phone: String(form.get("phone")),
       password: String(form.get("password")),
+      role: accountType,
+      specialty: accountType === "DOCTOR" ? String(form.get("specialty")) : "",
     };
 
     const res = await fetch("/api/register", {
@@ -31,6 +38,12 @@ export default function RegisterPage() {
     if (!res.ok) {
       setLoading(false);
       setError(data.error || "ثبت‌نام ناموفق بود");
+      return;
+    }
+
+    if (data.pendingApproval) {
+      setLoading(false);
+      setSuccess(data.message);
       return;
     }
 
@@ -48,7 +61,7 @@ export default function RegisterPage() {
     <div className="container-page flex min-h-[70vh] items-center justify-center py-12">
       <form onSubmit={onSubmit} className="panel w-full max-w-md space-y-4">
         <div>
-          <h1 className="text-2xl font-bold">ثبت‌نام بیمار</h1>
+          <h1 className="text-2xl font-bold">ثبت‌نام</h1>
           <p className="mt-2 text-sm text-muted">
             قبلاً ثبت‌نام کرده‌اید؟{" "}
             <Link href="/login" className="font-semibold text-primary">
@@ -56,6 +69,40 @@ export default function RegisterPage() {
             </Link>
           </p>
         </div>
+
+        <div>
+          <p className="label mb-2">نوع حساب</p>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setAccountType("PATIENT")}
+              className={`rounded-xl border-2 p-3 text-sm transition ${
+                accountType === "PATIENT"
+                  ? "border-primary bg-primary/10 font-semibold text-primary"
+                  : "border-[var(--border)] hover:border-primary/50"
+              }`}
+            >
+              مراجع
+            </button>
+            <button
+              type="button"
+              onClick={() => setAccountType("DOCTOR")}
+              className={`rounded-xl border-2 p-3 text-sm transition ${
+                accountType === "DOCTOR"
+                  ? "border-primary bg-primary/10 font-semibold text-primary"
+                  : "border-[var(--border)] hover:border-primary/50"
+              }`}
+            >
+              درمانگر
+            </button>
+          </div>
+          {accountType === "DOCTOR" && (
+            <p className="mt-2 text-xs leading-6 text-muted">
+              حساب درمانگر پس از بررسی و تأیید مدیر سایت فعال می‌شود.
+            </p>
+          )}
+        </div>
+
         <div>
           <label className="label" htmlFor="name">
             نام و نام خانوادگی
@@ -74,6 +121,22 @@ export default function RegisterPage() {
           </label>
           <input id="phone" name="phone" className="input" dir="ltr" placeholder="0912..." />
         </div>
+
+        {accountType === "DOCTOR" && (
+          <div>
+            <label className="label" htmlFor="specialty">
+              تخصص
+            </label>
+            <input
+              id="specialty"
+              name="specialty"
+              required
+              className="input"
+              placeholder="مثلاً روان‌درمانی شناختی-رفتاری"
+            />
+          </div>
+        )}
+
         <div>
           <label className="label" htmlFor="password">
             رمز عبور
@@ -88,9 +151,19 @@ export default function RegisterPage() {
             dir="ltr"
           />
         </div>
+
         {error && <p className="text-sm text-danger">{error}</p>}
-        <button type="submit" className="btn btn-primary w-full" disabled={loading}>
-          {loading ? "در حال ثبت‌نام..." : "ایجاد حساب"}
+        {success && (
+          <div className="space-y-2 rounded-lg bg-[var(--bg-soft)] p-3 text-sm leading-7">
+            <p className="text-primary">{success}</p>
+            <Link href="/login" className="font-semibold text-primary underline">
+              رفتن به صفحه ورود
+            </Link>
+          </div>
+        )}
+
+        <button type="submit" className="btn btn-primary w-full" disabled={loading || !!success}>
+          {loading ? "در حال ثبت‌نام..." : accountType === "DOCTOR" ? "ارسال درخواست" : "ایجاد حساب"}
         </button>
       </form>
     </div>

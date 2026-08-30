@@ -24,7 +24,11 @@ function LoginForm() {
     });
     setLoading(false);
     if (res?.error) {
-      setError("ایمیل یا رمز عبور نادرست است.");
+      if (res.error === "PENDING_APPROVAL") {
+        setError("حساب درمانگر شما هنوز توسط مدیر سایت تأیید نشده است.");
+      } else {
+        setError("ایمیل یا رمز عبور نادرست است.");
+      }
       return;
     }
 
@@ -50,7 +54,7 @@ function LoginForm() {
           <p className="mt-2 text-sm text-muted">
             حساب ندارید؟{" "}
             <Link href="/register" className="font-semibold text-primary">
-              ثبت‌نام بیمار
+              ثبت‌نام
             </Link>
           </p>
         </div>

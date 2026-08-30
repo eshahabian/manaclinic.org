@@ -48,7 +48,8 @@ model DoctorProfile {
   bio          String   @default("")
   avatarUrl    String?
   sessionPrice Int      @default(3000000)
-  isActive     Boolean  @default(true)
+  isApproved   Boolean  @default(false)
+  isActive     Boolean  @default(false)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
