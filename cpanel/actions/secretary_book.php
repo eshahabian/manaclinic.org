@@ -10,6 +10,7 @@ $newPhone = post('new_phone') ?: null;
 $newUsername = mb_strtolower(post('new_username'));
 $newPassword = (string) ($_POST['new_password'] ?? '');
 $newPasswordConfirm = (string) ($_POST['new_password_confirm'] ?? '');
+$preferredDoctorId = post('new_preferred_doctor_id') ?: null;
 $doctorId = post('doctor_id');
 $date = post('date');
 $time = post('time');
@@ -23,6 +24,16 @@ if ($doctorId === '' || $date === '' || $time === '') {
 if ($patientId === '') {
     if ($firstName === '' || $lastName === '') {
         flash_set('error', 'نام و نام خانوادگی بیمار جدید الزامی است.');
+        redirect('/secretary/book');
+    }
+    if ($preferredDoctorId === null || $preferredDoctorId === '') {
+        // اگر خالی بود، درمانگر نوبت را به‌عنوان درمانگر بیمار بگیر
+        $preferredDoctorId = $doctorId;
+    }
+    $prefDoc = $pdo->prepare('SELECT id FROM doctor_profiles WHERE id=? AND is_active=1 AND is_approved=1');
+    $prefDoc->execute([$preferredDoctorId]);
+    if (!$prefDoc->fetch()) {
+        flash_set('error', 'درمانگر مربوط به مراجعه‌کننده معتبر نیست.');
         redirect('/secretary/book');
     }
     if ($newUsername === '') {
@@ -48,8 +59,8 @@ if ($patientId === '') {
         redirect('/secretary/book');
     }
     $patientId = cuid();
-    $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,must_change_password) VALUES (?,?,?,?,?,?,?,0)')
-        ->execute([$patientId, $newUsername, $newName, $newUsername . '@manaclinic.local', $newPhone, password_hash($newPassword, PASSWORD_DEFAULT), 'PATIENT']);
+    $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,preferred_doctor_id,must_change_password) VALUES (?,?,?,?,?,?,?,?,0)')
+        ->execute([$patientId, $newUsername, $newName, $newUsername . '@manaclinic.local', $newPhone, password_hash($newPassword, PASSWORD_DEFAULT), 'PATIENT', $preferredDoctorId]);
 }
 
 $doc = $pdo->prepare('SELECT * FROM doctor_profiles WHERE id=? AND is_active=1 AND is_approved=1');

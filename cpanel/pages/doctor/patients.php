@@ -15,13 +15,20 @@ $stmt = $pdo->prepare("
     u.phone,
     COUNT(a.id) AS visit_count,
     MAX(a.starts_at) AS last_visit
-  FROM appointments a
-  JOIN users u ON u.id = a.patient_id
-  WHERE a.doctor_id = ?
+  FROM users u
+  LEFT JOIN appointments a ON a.patient_id = u.id AND a.doctor_id = ?
+  WHERE u.role = 'PATIENT'
+    AND (
+      u.preferred_doctor_id = ?
+      OR EXISTS (
+        SELECT 1 FROM appointments ax
+        WHERE ax.patient_id = u.id AND ax.doctor_id = ?
+      )
+    )
   GROUP BY u.id, u.name, u.username, u.phone
-  ORDER BY last_visit DESC
+  ORDER BY last_visit IS NULL ASC, last_visit DESC, u.name ASC
 ");
-$stmt->execute([$doctorId]);
+$stmt->execute([$doctorId, $doctorId, $doctorId]);
 $patients = $stmt->fetchAll();
 
 $noteCounts = [];
@@ -56,7 +63,7 @@ ob_start();
   </a>
 <?php endforeach; ?>
 <?php if (!$patients): ?>
-  <p class="muted">هنوز بیماری با شما نوبت نداشته است.</p>
+  <p class="muted">هنوز بیمار اختصاص‌یافته یا نوبت‌داری برای شما ثبت نشده است.</p>
 <?php endif; ?>
 </div>
 <?php

@@ -49,7 +49,7 @@ function ensure_doctor_clinical_tables(PDO $pdo): void
 }
 
 /**
- * بیمار فقط اگر حداقل یک نوبت با همین دکتر داشته باشد قابل دسترسی است.
+ * بیمار اگر درمانگر ترجیحی‌اش همین دکتر باشد یا حداقل یک نوبت با او داشته باشد قابل دسترسی است.
  * @return array{patient: array, appointments: array}
  */
 function require_doctor_patient_access(PDO $pdo, array $ctx, string $patientId): array
@@ -57,7 +57,7 @@ function require_doctor_patient_access(PDO $pdo, array $ctx, string $patientId):
     ensure_doctor_clinical_tables($pdo);
     $doctorId = $ctx['profile']['id'];
 
-    $patientStmt = $pdo->prepare("SELECT id, username, name, phone, created_at FROM users WHERE id=? AND role='PATIENT' LIMIT 1");
+    $patientStmt = $pdo->prepare("SELECT id, username, name, phone, preferred_doctor_id, created_at FROM users WHERE id=? AND role='PATIENT' LIMIT 1");
     $patientStmt->execute([$patientId]);
     $patient = $patientStmt->fetch();
     if (!$patient) {
@@ -67,7 +67,9 @@ function require_doctor_patient_access(PDO $pdo, array $ctx, string $patientId):
 
     $check = $pdo->prepare('SELECT COUNT(*) FROM appointments WHERE doctor_id=? AND patient_id=?');
     $check->execute([$doctorId, $patientId]);
-    if ((int) $check->fetchColumn() < 1) {
+    $hasAppointment = (int) $check->fetchColumn() > 0;
+    $isPreferred = (string) ($patient['preferred_doctor_id'] ?? '') === (string) $doctorId;
+    if (!$hasAppointment && !$isPreferred) {
         flash_set('error', 'دسترسی به پرونده این بیمار برای شما مجاز نیست.');
         redirect('/doctor/patients');
     }

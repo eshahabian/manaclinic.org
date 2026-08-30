@@ -6,6 +6,13 @@ if (current_user()) {
 $pageTitle = 'ثبت‌نام';
 $role = (($_GET['role'] ?? '') === 'DOCTOR') ? 'DOCTOR' : 'PATIENT';
 $takenUsernames = $pdo->query("SELECT username FROM users WHERE username IS NOT NULL AND username <> ''")->fetchAll(PDO::FETCH_COLUMN);
+$doctors = $pdo->query("
+  SELECT dp.id, u.name, dp.specialty
+  FROM doctor_profiles dp
+  JOIN users u ON u.id = dp.user_id
+  WHERE dp.is_active = 1 AND dp.is_approved = 1
+  ORDER BY u.name ASC
+")->fetchAll();
 ob_start();
 ?>
 <div class="auth-wrap">
@@ -25,6 +32,21 @@ ob_start();
         <p class="muted" style="font-size:.75rem;line-height:1.7;margin:.5rem 0 0">حساب درمانگر پس از بررسی و تأیید مدیر سایت فعال می‌شود.</p>
       <?php endif; ?>
     </div>
+
+    <?php if ($role === 'PATIENT'): ?>
+    <div>
+      <label class="label" for="preferred_doctor_id">درمانگر من</label>
+      <select class="input" name="preferred_doctor_id" id="preferred_doctor_id" required>
+        <option value="">انتخاب درمانگر</option>
+        <?php foreach ($doctors as $d): ?>
+          <option value="<?= e($d['id']) ?>"><?= e($d['name']) ?> — <?= e($d['specialty']) ?></option>
+        <?php endforeach; ?>
+      </select>
+      <?php if (!$doctors): ?>
+        <p class="muted" style="font-size:.75rem;margin:.4rem 0 0">در حال حاضر درمانگر فعالی برای انتخاب وجود ندارد.</p>
+      <?php endif; ?>
+    </div>
+    <?php endif; ?>
 
     <div class="grid-2">
       <div>

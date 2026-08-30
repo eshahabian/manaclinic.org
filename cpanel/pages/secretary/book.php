@@ -3,7 +3,14 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../includes/secretary_panel.php';
 require_login(['SECRETARY']);
 
-$patients = $pdo->query("SELECT id, name, username, phone FROM users WHERE role='PATIENT' ORDER BY name ASC")->fetchAll();
+$patients = $pdo->query("
+  SELECT u.id, u.name, u.username, u.phone, u.preferred_doctor_id, du.name AS doctor_name
+  FROM users u
+  LEFT JOIN doctor_profiles dp ON dp.id = u.preferred_doctor_id
+  LEFT JOIN users du ON du.id = dp.user_id
+  WHERE u.role='PATIENT'
+  ORDER BY u.name ASC
+")->fetchAll();
 $takenUsernames = $pdo->query("SELECT username FROM users WHERE username IS NOT NULL AND username <> ''")->fetchAll(PDO::FETCH_COLUMN);
 $doctors = $pdo->query("
   SELECT dp.id, u.name, dp.specialty
@@ -40,7 +47,7 @@ ob_start();
     <select class="input" name="patient_id" id="patient_id">
       <option value="">— انتخاب بیمار —</option>
       <?php foreach ($patients as $p): ?>
-        <option value="<?= e($p['id']) ?>"><?= e($p['name']) ?> (<?= e((string)$p['username']) ?>)</option>
+        <option value="<?= e($p['id']) ?>"><?= e($p['name']) ?> (<?= e((string)$p['username']) ?>)<?= !empty($p['doctor_name']) ? ' — ' . e($p['doctor_name']) : '' ?></option>
       <?php endforeach; ?>
     </select>
   </div>
@@ -64,6 +71,15 @@ ob_start();
       <div>
         <label class="label" for="new_surname">surname</label>
         <input class="input" name="new_surname" id="new_surname" dir="ltr" lang="en" autocomplete="off" placeholder="surname">
+      </div>
+      <div style="grid-column:1/-1">
+        <label class="label" for="new_preferred_doctor_id">درمانگر مربوط به مراجعه‌کننده</label>
+        <select class="input" name="new_preferred_doctor_id" id="new_preferred_doctor_id">
+          <option value="">انتخاب درمانگر</option>
+          <?php foreach ($doctors as $d): ?>
+            <option value="<?= e($d['id']) ?>"><?= e($d['name']) ?> — <?= e($d['specialty']) ?></option>
+          <?php endforeach; ?>
+        </select>
       </div>
       <div style="grid-column:1/-1">
         <label class="label" for="new_phone">موبایل</label>
@@ -142,6 +158,7 @@ $pageScripts = '
   var lastNameEl = document.getElementById("new_last_name");
   var nameEnEl = document.getElementById("new_name_en");
   var surnameEl = document.getElementById("new_surname");
+  var preferredDoctorEl = document.getElementById("new_preferred_doctor_id");
   var newUserEl = document.getElementById("new_username");
   var newPassEl = document.getElementById("new_password");
   var newPassConfirmEl = document.getElementById("new_password_confirm");
@@ -211,8 +228,9 @@ $pageScripts = '
   function clearExistingPatient() {
     if (patientEl.value) patientEl.value = "";
   }
-  [firstNameEl, lastNameEl, nameEnEl, surnameEl, newUserEl, newPassEl, newPassConfirmEl, newPhoneEl].forEach(function(el){
+  [firstNameEl, lastNameEl, nameEnEl, surnameEl, preferredDoctorEl, newUserEl, newPassEl, newPassConfirmEl, newPhoneEl].forEach(function(el){
     el.addEventListener("input", clearExistingPatient);
+    el.addEventListener("change", clearExistingPatient);
   });
   patientEl.addEventListener("change", function(){
     if (!patientEl.value) return;
@@ -220,12 +238,20 @@ $pageScripts = '
     lastNameEl.value = "";
     nameEnEl.value = "";
     surnameEl.value = "";
+    preferredDoctorEl.value = "";
     newUserEl.value = "";
     newPassEl.value = "";
     newPassConfirmEl.value = "";
     newPhoneEl.value = "";
     usernameTouched = false;
     usernameHint.textContent = "";
+  });
+
+  // اگر درمانگر نوبت انتخاب شد و درمانگر بیمار خالی است، همان را پیشنهاد بده
+  doctorEl.addEventListener("change", function(){
+    if (!patientEl.value && !preferredDoctorEl.value && doctorEl.value) {
+      preferredDoctorEl.value = doctorEl.value;
+    }
   });
 
   var dateView = document.getElementById("sec-date-view");
@@ -402,6 +428,13 @@ $pageScripts = '
         errEl.textContent = "نام و نام خانوادگی بیمار جدید الزامی است.";
         errEl.style.display = "block";
         (firstName ? lastNameEl : firstNameEl).focus();
+        return;
+      }
+      if (!preferredDoctorEl.value) {
+        e.preventDefault();
+        errEl.textContent = "درمانگر مربوط به مراجعه‌کننده را انتخاب کنید.";
+        errEl.style.display = "block";
+        preferredDoctorEl.focus();
         return;
       }
       if (!/^[a-z0-9._-]{3,32}$/.test(newUser)) {

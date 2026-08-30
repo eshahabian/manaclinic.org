@@ -55,4 +55,12 @@ function db_ensure_schema(PDO $pdo): void
         }
     } catch (Throwable $ignored) {
     }
+
+    try {
+        $has = $pdo->query("SHOW COLUMNS FROM users LIKE 'preferred_doctor_id'")->fetch();
+        if (!$has) {
+            $pdo->exec("ALTER TABLE users ADD COLUMN preferred_doctor_id VARCHAR(32) NULL AFTER role");
+        }
+    } catch (Throwable $ignored) {
+    }
 }

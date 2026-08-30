@@ -29,6 +29,7 @@ try {
         phone VARCHAR(50) NULL,
         password_hash VARCHAR(255) NOT NULL,
         role ENUM('ADMIN','DOCTOR','PATIENT','SECRETARY') NOT NULL DEFAULT 'PATIENT',
+        preferred_doctor_id VARCHAR(32) NULL,
         must_change_password TINYINT(1) NOT NULL DEFAULT 0,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
@@ -200,6 +201,10 @@ try {
     }
     try {
         $pdo->exec("ALTER TABLE users ADD COLUMN must_change_password TINYINT(1) NOT NULL DEFAULT 0 AFTER role");
+    } catch (Throwable $ignored) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE users ADD COLUMN preferred_doctor_id VARCHAR(32) NULL AFTER role");
     } catch (Throwable $ignored) {
     }
     try {
