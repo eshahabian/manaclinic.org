@@ -5,8 +5,10 @@ require_login(['SECRETARY']);
 $patientId = post('patient_id');
 $firstName = trim(post('new_first_name'));
 $lastName = trim(post('new_last_name'));
+$nameEn = trim(post('new_name_en'));
+$surname = trim(post('new_surname'));
 $newName = trim($firstName . ' ' . $lastName);
-$newPhone = post('new_phone') ?: null;
+$newPhone = trim(post('new_phone'));
 $newUsername = mb_strtolower(post('new_username'));
 $newPassword = (string) ($_POST['new_password'] ?? '');
 $newPasswordConfirm = (string) ($_POST['new_password_confirm'] ?? '');
@@ -22,18 +24,21 @@ if ($doctorId === '' || $date === '' || $time === '') {
 }
 
 if ($patientId === '') {
-    if ($firstName === '' || $lastName === '') {
-        flash_set('error', 'نام و نام خانوادگی بیمار جدید الزامی است.');
+    if ($firstName === '' || $lastName === '' || $nameEn === '' || $surname === '') {
+        flash_set('error', 'نام، نام خانوادگی، name و surname الزامی هستند.');
         redirect('/secretary/book');
     }
     if ($preferredDoctorId === null || $preferredDoctorId === '') {
-        // اگر خالی بود، درمانگر نوبت را به‌عنوان درمانگر بیمار بگیر
         $preferredDoctorId = $doctorId;
     }
     $prefDoc = $pdo->prepare('SELECT id FROM doctor_profiles WHERE id=? AND is_active=1 AND is_approved=1');
     $prefDoc->execute([$preferredDoctorId]);
     if (!$prefDoc->fetch()) {
         flash_set('error', 'درمانگر مربوط به مراجعه‌کننده معتبر نیست.');
+        redirect('/secretary/book');
+    }
+    if (!preg_match('/^09[0-9]{9}$/', $newPhone)) {
+        flash_set('error', 'موبایل الزامی است و باید ۱۱ رقم با ۰۹ باشد.');
         redirect('/secretary/book');
     }
     if ($newUsername === '') {
@@ -61,6 +66,24 @@ if ($patientId === '') {
     $patientId = cuid();
     $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,preferred_doctor_id,must_change_password) VALUES (?,?,?,?,?,?,?,?,0)')
         ->execute([$patientId, $newUsername, $newName, $newUsername . '@manaclinic.local', $newPhone, password_hash($newPassword, PASSWORD_DEFAULT), 'PATIENT', $preferredDoctorId]);
+
+    $docNameStmt = $pdo->prepare('SELECT u.name FROM doctor_profiles dp JOIN users u ON u.id = dp.user_id WHERE dp.id = ?');
+    $docNameStmt->execute([$preferredDoctorId]);
+    $doctorName = (string) ($docNameStmt->fetchColumn() ?: 'درمانگر');
+    notify_role(
+        $pdo,
+        'SECRETARY',
+        'بیمار جدید توسط منشی',
+        "بیمار «{$newName}» توسط منشی ثبت شد (درمانگر: {$doctorName}).",
+        '/secretary/appointments'
+    );
+    notify_doctor_profile(
+        $pdo,
+        $preferredDoctorId,
+        'بیمار جدید',
+        "بیمار «{$newName}» به شما اختصاص داده شد.",
+        '/doctor/patients/' . $patientId
+    );
 }
 
 $doc = $pdo->prepare('SELECT * FROM doctor_profiles WHERE id=? AND is_active=1 AND is_approved=1');
@@ -107,6 +130,19 @@ try {
     $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,status,ref_id) VALUES (?,?,?,?,?)')
         ->execute([$paymentId, $appointmentId, (int)$doctor['session_price'], 'PAID', 'SECRETARY']);
     $pdo->commit();
+
+    $patientNameStmt = $pdo->prepare('SELECT name FROM users WHERE id = ?');
+    $patientNameStmt->execute([$patientId]);
+    $patientName = (string) ($patientNameStmt->fetchColumn() ?: 'بیمار');
+    $when = format_fa_datetime($startsAt);
+    notify_doctor_profile(
+        $pdo,
+        $doctorId,
+        'نوبت جدید توسط منشی',
+        "نوبت «{$patientName}» برای {$when} توسط منشی ثبت و تأیید شد.",
+        '/doctor/appointments'
+    );
+
     flash_set('success', 'نوبت با موفقیت ثبت و تأیید شد.');
 } catch (Throwable $e) {
     $pdo->rollBack();

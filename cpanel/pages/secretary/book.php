@@ -58,18 +58,18 @@ ob_start();
     <div class="grid-2">
       <div>
         <label class="label" for="new_first_name">نام</label>
-        <input class="input" name="new_first_name" id="new_first_name" dir="auto" autocomplete="given-name" placeholder="نام">
+        <input class="input input-rtl" name="new_first_name" id="new_first_name" dir="rtl" autocomplete="given-name" placeholder="نام">
       </div>
       <div>
-        <label class="label" for="new_name_en">name</label>
+        <label class="label label-ltr" for="new_name_en">name</label>
         <input class="input" name="new_name_en" id="new_name_en" dir="ltr" lang="en" autocomplete="off" placeholder="name">
       </div>
       <div>
         <label class="label" for="new_last_name">نام خانوادگی</label>
-        <input class="input" name="new_last_name" id="new_last_name" dir="auto" autocomplete="family-name" placeholder="نام خانوادگی">
+        <input class="input input-rtl" name="new_last_name" id="new_last_name" dir="rtl" autocomplete="family-name" placeholder="نام خانوادگی">
       </div>
       <div>
-        <label class="label" for="new_surname">surname</label>
+        <label class="label label-ltr" for="new_surname">surname</label>
         <input class="input" name="new_surname" id="new_surname" dir="ltr" lang="en" autocomplete="off" placeholder="surname">
       </div>
       <div style="grid-column:1/-1">
@@ -83,7 +83,7 @@ ob_start();
       </div>
       <div style="grid-column:1/-1">
         <label class="label" for="new_phone">موبایل</label>
-        <input class="input" name="new_phone" id="new_phone" dir="ltr" placeholder="09...">
+        <input class="input" name="new_phone" id="new_phone" dir="ltr" placeholder="09..." pattern="09[0-9]{9}" title="شماره موبایل ۱۱ رقمی با ۰۹">
       </div>
       <div style="grid-column:1/-1">
         <label class="label" for="new_username">نام کاربری</label>
@@ -430,11 +430,25 @@ $pageScripts = '
         (firstName ? lastNameEl : firstNameEl).focus();
         return;
       }
+      if (!nameEnEl.value.trim() || !surnameEl.value.trim()) {
+        e.preventDefault();
+        errEl.textContent = "فیلدهای name و surname هم الزامی هستند.";
+        errEl.style.display = "block";
+        (!nameEnEl.value.trim() ? nameEnEl : surnameEl).focus();
+        return;
+      }
       if (!preferredDoctorEl.value) {
         e.preventDefault();
         errEl.textContent = "درمانگر مربوط به مراجعه‌کننده را انتخاب کنید.";
         errEl.style.display = "block";
         preferredDoctorEl.focus();
+        return;
+      }
+      if (!/^09[0-9]{9}$/.test(newPhoneEl.value.trim())) {
+        e.preventDefault();
+        errEl.textContent = "موبایل الزامی است و باید ۱۱ رقم با ۰۹ باشد.";
+        errEl.style.display = "block";
+        newPhoneEl.focus();
         return;
       }
       if (!/^[a-z0-9._-]{3,32}$/.test(newUser)) {

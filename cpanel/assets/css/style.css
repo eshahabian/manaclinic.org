@@ -64,6 +64,14 @@ a { color: inherit; text-decoration: none; }
   width: 100%; border: 1px solid var(--line); background: #fff;
   border-radius: .65rem; padding: .7rem .9rem; font-family: inherit; font-size: 1rem;
 }
+.input-rtl {
+  direction: rtl;
+  text-align: right;
+}
+.input-rtl::placeholder {
+  text-align: right;
+  direction: rtl;
+}
 select.input,
 select {
   appearance: none;
@@ -77,6 +85,10 @@ select {
   cursor: pointer;
 }
 .label { display: block; margin-bottom: .35rem; font-size: .9rem; color: var(--muted); }
+.label-ltr {
+  direction: ltr;
+  text-align: left;
+}
 .panel {
   background: var(--card); border: 1px solid var(--line);
   border-radius: 1rem; padding: 1.25rem;

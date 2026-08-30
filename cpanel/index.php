@@ -20,6 +20,7 @@ require_once __DIR__ . '/includes/helpers.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/zarinpal.php';
 require_once __DIR__ . '/includes/view.php';
+require_once __DIR__ . '/includes/notifications.php';
 
 $pdo = db_connect($config);
 
@@ -56,6 +57,12 @@ $routes = [
     'POST /dashboard/profile' => 'actions/patient_profile.php',
     'POST /book' => 'actions/book.php',
 
+    'GET /secretary' => 'pages/secretary/dashboard.php',
+    'GET /secretary/book' => 'pages/secretary/book.php',
+    'POST /secretary/book' => 'actions/secretary_book.php',
+    'GET /secretary/appointments' => 'pages/secretary/appointments.php',
+    'POST /secretary/notifications/read' => 'actions/secretary_notifications.php',
+
     'GET /doctor' => 'pages/doctor/dashboard.php',
     'GET /doctor/profile' => 'pages/doctor/profile.php',
     'POST /doctor/profile' => 'actions/doctor_profile.php',
@@ -66,6 +73,7 @@ $routes = [
     'GET /doctor/articles' => 'pages/doctor/articles.php',
     'POST /doctor/articles' => 'actions/doctor_articles.php',
     'GET /doctor/patients' => 'pages/doctor/patients.php',
+    'POST /doctor/notifications/read' => 'actions/doctor_notifications.php',
 
     'GET /admin' => 'pages/admin/dashboard.php',
     'GET /admin/doctors' => 'pages/admin/doctors.php',
@@ -74,11 +82,6 @@ $routes = [
     'GET /admin/articles' => 'pages/admin/articles.php',
     'POST /admin/articles' => 'actions/admin_articles.php',
     'GET /admin/appointments' => 'pages/admin/appointments.php',
-
-    'GET /secretary' => 'pages/secretary/dashboard.php',
-    'GET /secretary/book' => 'pages/secretary/book.php',
-    'POST /secretary/book' => 'actions/secretary_book.php',
-    'GET /secretary/appointments' => 'pages/secretary/appointments.php',
 
     'GET /api/slots' => 'actions/slots.php',
     'GET /payments/verify' => 'actions/payment_verify.php',

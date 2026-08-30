@@ -9,17 +9,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['submit_register'])) 
 
 $firstName = trim(post('first_name'));
 $lastName = trim(post('last_name'));
+$nameEn = trim(post('name_en'));
+$surname = trim(post('surname'));
 $name = trim($firstName . ' ' . $lastName);
 $username = mb_strtolower(post('username'));
-$phone = post('phone') ?: null;
+$phone = trim(post('phone'));
 $password = (string) ($_POST['password'] ?? '');
 $passwordConfirm = (string) ($_POST['password_confirm'] ?? '');
 $role = post('role') === 'DOCTOR' ? 'DOCTOR' : 'PATIENT';
 $specialty = post('specialty');
 $preferredDoctorId = post('preferred_doctor_id') ?: null;
 
-if ($firstName === '' || $lastName === '' || $username === '' || strlen($password) < 6) {
-    flash_set('error', 'اطلاعات ناقص است. نام، نام خانوادگی، نام کاربری و رمز (حداقل ۶ کاراکتر) الزامی است.');
+if ($firstName === '' || $lastName === '' || $nameEn === '' || $surname === '' || $username === '' || $phone === '' || strlen($password) < 6) {
+    flash_set('error', 'همه فیلدها الزامی هستند. رمز حداقل ۶ کاراکتر باشد.');
+    redirect('/register?role=' . $role);
+}
+if (!preg_match('/^09[0-9]{9}$/', $phone)) {
+    flash_set('error', 'شماره موبایل معتبر نیست (مثال: 09123456789).');
     redirect('/register?role=' . $role);
 }
 if ($password !== $passwordConfirm) {
@@ -71,6 +77,25 @@ if ($role === 'DOCTOR') {
 
 $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,preferred_doctor_id,must_change_password) VALUES (?,?,?,?,?,?,?,?,0)')
     ->execute([$id, $username, $name, $email, $phone, password_hash($password, PASSWORD_DEFAULT), 'PATIENT', $preferredDoctorId]);
+
+$docNameStmt = $pdo->prepare('SELECT u.name FROM doctor_profiles dp JOIN users u ON u.id = dp.user_id WHERE dp.id = ?');
+$docNameStmt->execute([$preferredDoctorId]);
+$doctorName = (string) ($docNameStmt->fetchColumn() ?: 'درمانگر');
+
+notify_role(
+    $pdo,
+    'SECRETARY',
+    'ثبت‌نام مراجعه‌کننده جدید',
+    "مراجعه‌کننده «{$name}» ثبت‌نام کرد و درمانگر «{$doctorName}» را انتخاب کرد.",
+    '/secretary/appointments'
+);
+notify_doctor_profile(
+    $pdo,
+    $preferredDoctorId,
+    'مراجعه‌کننده جدید',
+    "مراجعه‌کننده «{$name}» شما را به‌عنوان درمانگر خود انتخاب کرد و ثبت‌نام نمود.",
+    '/doctor/patients/' . $id
+);
 
 login_user([
     'id' => $id,

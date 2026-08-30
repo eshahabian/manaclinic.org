@@ -51,19 +51,19 @@ ob_start();
     <div class="grid-2">
       <div>
         <label class="label" for="first_name">نام</label>
-        <input class="input" name="first_name" id="first_name" required dir="auto" autocomplete="given-name" placeholder="نام">
+        <input class="input input-rtl" name="first_name" id="first_name" required dir="rtl" autocomplete="given-name" placeholder="نام">
       </div>
       <div>
-        <label class="label" for="name_en">name</label>
-        <input class="input" name="name_en" id="name_en" dir="ltr" lang="en" autocomplete="off" placeholder="name">
+        <label class="label label-ltr" for="name_en">name</label>
+        <input class="input" name="name_en" id="name_en" required dir="ltr" lang="en" autocomplete="off" placeholder="name">
       </div>
       <div>
         <label class="label" for="last_name">نام خانوادگی</label>
-        <input class="input" name="last_name" id="last_name" required dir="auto" autocomplete="family-name" placeholder="نام خانوادگی">
+        <input class="input input-rtl" name="last_name" id="last_name" required dir="rtl" autocomplete="family-name" placeholder="نام خانوادگی">
       </div>
       <div>
-        <label class="label" for="surname">surname</label>
-        <input class="input" name="surname" id="surname" dir="ltr" lang="en" autocomplete="off" placeholder="surname">
+        <label class="label label-ltr" for="surname">surname</label>
+        <input class="input" name="surname" id="surname" required dir="ltr" lang="en" autocomplete="off" placeholder="surname">
       </div>
     </div>
 
@@ -78,7 +78,7 @@ ob_start();
 
     <div>
       <label class="label" for="phone">موبایل</label>
-      <input class="input" name="phone" id="phone" dir="ltr" placeholder="09...">
+      <input class="input" name="phone" id="phone" required dir="ltr" placeholder="09..." pattern="09[0-9]{9}" title="شماره موبایل ۱۱ رقمی با ۰۹">
     </div>
 
     <?php if ($role === 'DOCTOR'): ?>
@@ -184,6 +184,19 @@ $pageScripts = '
   });
 
   document.getElementById("register-form").addEventListener("submit", function(e){
+    var phoneEl = document.getElementById("phone");
+    if (!nameEnEl.value.trim() || !surnameEl.value.trim()) {
+      e.preventDefault();
+      alert("فیلدهای name و surname الزامی هستند.");
+      (!nameEnEl.value.trim() ? nameEnEl : surnameEl).focus();
+      return;
+    }
+    if (phoneEl && !/^09[0-9]{9}$/.test(phoneEl.value.trim())) {
+      e.preventDefault();
+      alert("موبایل الزامی است و باید ۱۱ رقم با ۰۹ باشد.");
+      phoneEl.focus();
+      return;
+    }
     var user = userEl.value.trim().toLowerCase();
     if (!/^[a-z0-9._-]{3,32}$/.test(user)) {
       e.preventDefault();

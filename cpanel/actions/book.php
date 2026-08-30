@@ -80,6 +80,23 @@ try {
     $pdo->prepare('UPDATE payments SET authority=? WHERE id=?')->execute([$pay['authority'], $paymentId]);
     $pdo->commit();
 
+    $patientName = (string) ($user['name'] ?? 'مراجعه‌کننده');
+    $when = format_fa_datetime($startsAt);
+    notify_role(
+        $pdo,
+        'SECRETARY',
+        'رزرو نوبت جدید',
+        "مراجعه‌کننده «{$patientName}» نوبت رزرو کرد ({$when}) — در انتظار پرداخت.",
+        '/secretary/appointments'
+    );
+    notify_doctor_profile(
+        $pdo,
+        $doctorId,
+        'رزرو نوبت جدید',
+        "مراجعه‌کننده «{$patientName}» برای {$when} نوبت رزرو کرد (در انتظار پرداخت).",
+        '/doctor/appointments'
+    );
+
     echo json_encode([
         'appointmentId' => $appointmentId,
         'paymentUrl' => $pay['paymentUrl'],

@@ -13,11 +13,15 @@ $stmt = $pdo->prepare("
 $stmt->execute([$ctx['profile']['id']]);
 $rows = $stmt->fetchAll();
 
+$notifications = fetch_notifications($pdo, (string) $ctx['user']['id'], 15);
+$unreadCount = count_unread_notifications($pdo, (string) $ctx['user']['id']);
+
 ob_start();
 ?>
 <h1>سلام دکتر <?= e($ctx['user']['name']) ?></h1>
-<p class="muted">نوبت‌ها و برنامه کاری خود را مدیریت کنید. پرونده بیماران فقط برای شماست.</p>
+<p class="muted">نوبت‌ها و برنامه کاری خود را مدیریت کنید. پرونده بیماران فقط برای شماست.<?= $unreadCount ? ' · ' . $unreadCount . ' پیام خوانده‌نشده' : '' ?></p>
 <p style="margin-top:1rem"><a class="btn btn-primary" href="<?= e(url('/doctor/patients')) ?>">پرونده بیماران</a></p>
+<?= render_notifications_panel($notifications, url('/doctor/notifications/read')) ?>
 <div class="panel stack" style="margin-top:1.5rem">
   <h2 style="margin:0;font-size:1.1rem">نوبت‌های پیش‌رو</h2>
   <?php foreach ($rows as $a): ?>

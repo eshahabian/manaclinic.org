@@ -37,5 +37,33 @@ $pdo->prepare("UPDATE payments SET status='PAID', ref_id=? WHERE id=?")
 $pdo->prepare("UPDATE appointments SET status='CONFIRMED' WHERE id=?")
     ->execute([$payment['appointment_id']]);
 
+$appStmt = $pdo->prepare("
+  SELECT a.starts_at, a.doctor_id, u.name AS patient_name
+  FROM appointments a
+  JOIN users u ON u.id = a.patient_id
+  WHERE a.id = ?
+  LIMIT 1
+");
+$appStmt->execute([$payment['appointment_id']]);
+$appInfo = $appStmt->fetch();
+if ($appInfo) {
+    $patientName = (string) $appInfo['patient_name'];
+    $when = format_fa_datetime((string) $appInfo['starts_at']);
+    notify_role(
+        $pdo,
+        'SECRETARY',
+        'تأیید نوبت پس از پرداخت',
+        "نوبت «{$patientName}» برای {$when} پرداخت و تأیید شد.",
+        '/secretary/appointments'
+    );
+    notify_doctor_profile(
+        $pdo,
+        (string) $appInfo['doctor_id'],
+        'تأیید نوبت',
+        "نوبت «{$patientName}» برای {$when} پرداخت و تأیید شد.",
+        '/doctor/appointments'
+    );
+}
+
 flash_set('success', 'پرداخت با موفقیت انجام شد و نوبت تأیید شد.');
 redirect('/dashboard/appointments');
