@@ -79,6 +79,7 @@ $routes = [
     'GET /admin/doctors' => 'pages/admin/doctors.php',
     'POST /admin/doctors' => 'actions/admin_doctors.php',
     'GET /admin/users' => 'pages/admin/users.php',
+    'POST /admin/users' => 'actions/admin_users.php',
     'GET /admin/articles' => 'pages/admin/articles.php',
     'POST /admin/articles' => 'actions/admin_articles.php',
     'GET /admin/appointments' => 'pages/admin/appointments.php',
