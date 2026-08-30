@@ -70,40 +70,26 @@ export default function RegisterPage() {
           </p>
         </div>
 
-        <fieldset className="rounded-xl border-2 border-primary/40 bg-[var(--bg-soft)] p-4">
-          <legend className="px-1 text-sm font-bold text-primary">من هستم…</legend>
-          <div className="grid grid-cols-2 gap-3">
-            <button
-              type="button"
-              onClick={() => setAccountType("PATIENT")}
-              aria-pressed={accountType === "PATIENT"}
-              className={`rounded-xl border-2 p-4 text-base transition ${
-                accountType === "PATIENT"
-                  ? "border-primary bg-white font-bold text-primary shadow-sm"
-                  : "border-transparent bg-white/60 hover:border-primary/40"
-              }`}
-            >
-              مراجع
-            </button>
-            <button
-              type="button"
-              onClick={() => setAccountType("DOCTOR")}
-              aria-pressed={accountType === "DOCTOR"}
-              className={`rounded-xl border-2 p-4 text-base transition ${
-                accountType === "DOCTOR"
-                  ? "border-primary bg-white font-bold text-primary shadow-sm"
-                  : "border-transparent bg-white/60 hover:border-primary/40"
-              }`}
-            >
-              درمانگر
-            </button>
-          </div>
+        <div>
+          <label className="label" htmlFor="accountType">
+            نوع حساب
+          </label>
+          <select
+            id="accountType"
+            name="accountType"
+            className="input"
+            value={accountType}
+            onChange={(e) => setAccountType(e.target.value as AccountType)}
+          >
+            <option value="PATIENT">مراجع</option>
+            <option value="DOCTOR">درمانگر</option>
+          </select>
           {accountType === "DOCTOR" && (
-            <p className="mt-3 text-xs leading-6 text-muted">
+            <p className="mt-2 text-xs leading-6 text-muted">
               حساب درمانگر پس از بررسی و تأیید مدیر سایت فعال می‌شود.
             </p>
           )}
-        </fieldset>
+        </div>
 
         <div>
           <label className="label" htmlFor="name">

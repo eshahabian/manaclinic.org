@@ -15,12 +15,11 @@ ob_start();
     </div>
 
     <div>
-      <p class="label" style="margin-bottom:.5rem">نوع حساب</p>
-      <div class="account-type-grid">
-        <a class="account-type-option <?= $role === 'PATIENT' ? 'active' : '' ?>" href="<?= e(url('/register?role=PATIENT')) ?>">مراجع</a>
-        <a class="account-type-option <?= $role === 'DOCTOR' ? 'active' : '' ?>" href="<?= e(url('/register?role=DOCTOR')) ?>">درمانگر</a>
-      </div>
-      <input type="hidden" name="role" value="<?= e($role) ?>">
+      <label class="label" for="role">نوع حساب</label>
+      <select class="input" id="role" name="role" required onchange="window.location.href='<?= e(url('/register')) ?>?role=' + this.value">
+        <option value="PATIENT" <?= $role === 'PATIENT' ? 'selected' : '' ?>>مراجع</option>
+        <option value="DOCTOR" <?= $role === 'DOCTOR' ? 'selected' : '' ?>>درمانگر</option>
+      </select>
       <?php if ($role === 'DOCTOR'): ?>
         <p class="muted" style="font-size:.75rem;line-height:1.7;margin:.5rem 0 0">حساب درمانگر پس از بررسی و تأیید مدیر سایت فعال می‌شود.</p>
       <?php endif; ?>
