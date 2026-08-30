@@ -3,7 +3,9 @@ declare(strict_types=1);
 require_login(['SECRETARY']);
 
 $patientId = post('patient_id');
-$newName = post('new_name');
+$firstName = trim(post('new_first_name'));
+$lastName = trim(post('new_last_name'));
+$newName = trim($firstName . ' ' . $lastName);
 $newPhone = post('new_phone') ?: null;
 $newUsername = mb_strtolower(post('new_username'));
 $newPassword = (string) ($_POST['new_password'] ?? '');
@@ -19,8 +21,8 @@ if ($doctorId === '' || $date === '' || $time === '') {
 }
 
 if ($patientId === '') {
-    if ($newName === '') {
-        flash_set('error', 'نام بیمار جدید الزامی است.');
+    if ($firstName === '' || $lastName === '') {
+        flash_set('error', 'نام و نام خانوادگی بیمار جدید الزامی است.');
         redirect('/secretary/book');
     }
     if ($newUsername === '') {

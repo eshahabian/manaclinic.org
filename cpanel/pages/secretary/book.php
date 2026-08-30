@@ -47,11 +47,23 @@ ob_start();
 
   <div class="panel" style="background:var(--bg-soft);border-style:dashed">
     <p style="margin:0 0 .75rem;font-weight:600">یا بیمار جدید</p>
-    <p class="muted" style="margin:0 0 .75rem;font-size:.85rem;line-height:1.7">بیمار با نام کاربری و رمز زیر می‌تواند بعداً وارد شود و نوبت بگیرد. برای پیشنهاد نام کاربری، نام را به انگلیسی هم می‌توانید بنویسید.</p>
+    <p class="muted" style="margin:0 0 .75rem;font-size:.85rem;line-height:1.7">بیمار با نام کاربری و رمز زیر می‌تواند بعداً وارد شود و نوبت بگیرد. برای پیشنهاد نام کاربری، فیلدهای انگلیسی را هم پر کنید.</p>
     <div class="grid-2">
-      <div style="grid-column:1/-1">
-        <label class="label" for="new_name">نام و نام خانوادگی</label>
-        <input class="input" name="new_name" id="new_name" dir="auto" autocomplete="name" placeholder="فارسی یا انگلیسی">
+      <div>
+        <label class="label" for="new_first_name">نام</label>
+        <input class="input" name="new_first_name" id="new_first_name" dir="auto" autocomplete="given-name" placeholder="فارسی">
+      </div>
+      <div>
+        <label class="label" for="new_name_en">name</label>
+        <input class="input" name="new_name_en" id="new_name_en" dir="ltr" lang="en" autocomplete="off" placeholder="English">
+      </div>
+      <div>
+        <label class="label" for="new_last_name">نام خانوادگی</label>
+        <input class="input" name="new_last_name" id="new_last_name" dir="auto" autocomplete="family-name" placeholder="فارسی">
+      </div>
+      <div>
+        <label class="label" for="new_surname">surname</label>
+        <input class="input" name="new_surname" id="new_surname" dir="ltr" lang="en" autocomplete="off" placeholder="English">
       </div>
       <div style="grid-column:1/-1">
         <label class="label" for="new_phone">موبایل</label>
@@ -61,7 +73,7 @@ ob_start();
         <label class="label" for="new_username">نام کاربری</label>
         <div style="display:flex;gap:.5rem;align-items:stretch">
           <input class="input" name="new_username" id="new_username" dir="ltr" pattern="[A-Za-z0-9._-]{3,32}" placeholder="حروف انگلیسی، عدد و ._- " style="flex:1">
-          <button type="button" class="btn btn-outline" id="suggest-username" title="پیشنهاد از روی نام انگلیسی">پیشنهاد</button>
+          <button type="button" class="btn btn-outline" id="suggest-username" title="پیشنهاد از روی name و surname">پیشنهاد</button>
         </div>
         <p class="muted" id="username-hint" style="margin:.4rem 0 0;font-size:.8rem;line-height:1.6"></p>
       </div>
@@ -126,7 +138,10 @@ $pageScripts = '
 
   var doctorEl = document.getElementById("doctor_id");
   var patientEl = document.getElementById("patient_id");
-  var newNameEl = document.getElementById("new_name");
+  var firstNameEl = document.getElementById("new_first_name");
+  var lastNameEl = document.getElementById("new_last_name");
+  var nameEnEl = document.getElementById("new_name_en");
+  var surnameEl = document.getElementById("new_surname");
   var newUserEl = document.getElementById("new_username");
   var newPassEl = document.getElementById("new_password");
   var newPassConfirmEl = document.getElementById("new_password_confirm");
@@ -135,15 +150,17 @@ $pageScripts = '
   var usernameHint = document.getElementById("username-hint");
   var usernameTouched = false;
 
-  function latinParts(name) {
-    return String(name || "").toLowerCase().replace(/[^a-z\\s]/g, " ").trim().split(/\\s+/).filter(Boolean);
+  function latinWord(value) {
+    return String(value || "").toLowerCase().replace(/[^a-z]/g, "");
   }
 
-  function baseUsernameFromName(name) {
-    var parts = latinParts(name);
-    if (!parts.length) return "";
-    if (parts.length === 1) return parts[0].slice(0, 32);
-    return (parts[0].charAt(0) + parts[parts.length - 1]).slice(0, 32);
+  function baseUsernameFromParts() {
+    var first = latinWord(nameEnEl.value) || latinWord(firstNameEl.value);
+    var last = latinWord(surnameEl.value) || latinWord(lastNameEl.value);
+    if (!first && !last) return "";
+    if (!last) return first.slice(0, 32);
+    if (!first) return last.slice(0, 32);
+    return (first.charAt(0) + last).slice(0, 32);
   }
 
   function uniqueUsername(base) {
@@ -160,9 +177,9 @@ $pageScripts = '
 
   function applySuggestion(force) {
     if (!force && usernameTouched && newUserEl.value.trim()) return;
-    var base = baseUsernameFromName(newNameEl.value);
+    var base = baseUsernameFromParts();
     if (!base) {
-      usernameHint.textContent = "برای پیشنهاد خودکار، بخشی از نام را انگلیسی بنویسید؛ در غیر این صورت نام کاربری را دستی وارد کنید.";
+      usernameHint.textContent = "برای پیشنهاد، فیلد name و surname را انگلیسی پر کنید؛ در غیر این صورت نام کاربری را دستی وارد کنید.";
       return;
     }
     var suggested = uniqueUsername(base);
@@ -177,8 +194,10 @@ $pageScripts = '
   }
 
   newUserEl.addEventListener("input", function(){ usernameTouched = true; });
-  newNameEl.addEventListener("blur", function(){ applySuggestion(false); });
-  newNameEl.addEventListener("change", function(){ applySuggestion(false); });
+  [firstNameEl, lastNameEl, nameEnEl, surnameEl].forEach(function(el){
+    el.addEventListener("blur", function(){ applySuggestion(false); });
+    el.addEventListener("change", function(){ applySuggestion(false); });
+  });
   suggestBtn.addEventListener("click", function(){
     usernameTouched = false;
     applySuggestion(true);
@@ -187,12 +206,15 @@ $pageScripts = '
   function clearExistingPatient() {
     if (patientEl.value) patientEl.value = "";
   }
-  [newNameEl, newUserEl, newPassEl, newPassConfirmEl, newPhoneEl].forEach(function(el){
+  [firstNameEl, lastNameEl, nameEnEl, surnameEl, newUserEl, newPassEl, newPassConfirmEl, newPhoneEl].forEach(function(el){
     el.addEventListener("input", clearExistingPatient);
   });
   patientEl.addEventListener("change", function(){
     if (!patientEl.value) return;
-    newNameEl.value = "";
+    firstNameEl.value = "";
+    lastNameEl.value = "";
+    nameEnEl.value = "";
+    surnameEl.value = "";
     newUserEl.value = "";
     newPassEl.value = "";
     newPassConfirmEl.value = "";
@@ -357,17 +379,26 @@ $pageScripts = '
 
   document.getElementById("secretary-book-form").addEventListener("submit", function(e){
     var patientId = patientEl.value;
-    var newName = newNameEl.value.trim();
+    var firstName = firstNameEl.value.trim();
+    var lastName = lastNameEl.value.trim();
+    var newName = (firstName + " " + lastName).trim();
     var newUser = newUserEl.value.trim().toLowerCase();
     var newPass = newPassEl.value;
     var newPassConfirm = newPassConfirmEl.value;
     if (!patientId && !newName) {
       e.preventDefault();
-      errEl.textContent = "بیمار موجود را انتخاب کنید یا اطلاعات بیمار جدید را وارد کنید.";
+      errEl.textContent = "بیمار موجود را انتخاب کنید یا نام و نام خانوادگی بیمار جدید را وارد کنید.";
       errEl.style.display = "block";
       return;
     }
     if (!patientId) {
+      if (!firstName || !lastName) {
+        e.preventDefault();
+        errEl.textContent = "نام و نام خانوادگی بیمار جدید الزامی است.";
+        errEl.style.display = "block";
+        (firstName ? lastNameEl : firstNameEl).focus();
+        return;
+      }
       if (!/^[a-z0-9._-]{3,32}$/.test(newUser)) {
         e.preventDefault();
         errEl.textContent = "نام کاربری بیمار جدید الزامی است (۳ تا ۳۲ کاراکتر انگلیسی).";
