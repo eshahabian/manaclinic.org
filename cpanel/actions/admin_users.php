@@ -29,7 +29,43 @@ if ($action === 'delete_user') {
         $pdo->commit();
         flash_set('success', 'کاربر «' . $user['name'] . '» و نوبت‌های مرتبط حذف شد.');
     } catch (Throwable $e) {
-        $pdo->rollBack();
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        flash_set('error', 'حذف ناموفق: ' . $e->getMessage());
+    }
+    redirect('/admin/users');
+}
+
+if ($action === 'delete_selected') {
+    $ids = $_POST['user_ids'] ?? [];
+    if (!is_array($ids) || !$ids) {
+        flash_set('error', 'هیچ کاربری انتخاب نشده است.');
+        redirect('/admin/users');
+    }
+    $deleted = 0;
+    try {
+        $pdo->beginTransaction();
+        foreach ($ids as $id) {
+            $id = (string) $id;
+            if ($id === '') {
+                continue;
+            }
+            $row = $pdo->prepare('SELECT id, role FROM users WHERE id = ?');
+            $row->execute([$id]);
+            $user = $row->fetch();
+            if (!$user || $user['role'] === 'ADMIN') {
+                continue;
+            }
+            delete_user_cascade($pdo, $id);
+            $deleted++;
+        }
+        $pdo->commit();
+        flash_set('success', "{$deleted} کاربر انتخاب‌شده حذف شد.");
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
         flash_set('error', 'حذف ناموفق: ' . $e->getMessage());
     }
     redirect('/admin/users');
@@ -47,8 +83,7 @@ if ($action === 'cleanup_named_and_appointments') {
             $deletedUsers++;
         }
 
-        // همه نوبت‌های باقی‌مانده (وقت‌های ثبت‌شده)
-        $deletedAppointments = (int) $pdo->exec('DELETE FROM appointments');
+        $deletedAppointments = delete_all_appointments($pdo);
 
         $pdo->commit();
         flash_set(
