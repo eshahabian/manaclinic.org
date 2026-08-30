@@ -29,5 +29,30 @@ function db_connect(array $config): PDO
         exit;
     }
 
+    db_ensure_schema($pdo);
+
     return $pdo;
+}
+
+/**
+ * ارتقای سبک اسکیما برای دیتابیس‌هایی که بعد از آپدیت کد، ستون‌های جدید را ندارند.
+ * فقط ستون‌های حیاتی؛ نصب کامل همچنان از install.php است.
+ */
+function db_ensure_schema(PDO $pdo): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+
+    try {
+        $has = $pdo->query("SHOW COLUMNS FROM doctor_profiles LIKE 'is_approved'")->fetch();
+        if (!$has) {
+            $pdo->exec("ALTER TABLE doctor_profiles ADD COLUMN is_approved TINYINT(1) NOT NULL DEFAULT 0 AFTER session_price");
+            // درمانگرهای قبلی که فعال بودند را تأییدشده در نظر بگیر
+            $pdo->exec("UPDATE doctor_profiles SET is_approved=1 WHERE is_active=1");
+        }
+    } catch (Throwable $ignored) {
+    }
 }
