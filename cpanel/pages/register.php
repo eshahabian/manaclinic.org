@@ -17,7 +17,7 @@ ob_start();
     <div>
       <label class="label" for="role">نوع حساب</label>
       <select class="input" id="role" name="role" required onchange="window.location.href='<?= e(url('/register')) ?>?role=' + this.value">
-        <option value="PATIENT" <?= $role === 'PATIENT' ? 'selected' : '' ?>>مراجع</option>
+        <option value="PATIENT" <?= $role === 'PATIENT' ? 'selected' : '' ?>>مراجعه‌کننده</option>
         <option value="DOCTOR" <?= $role === 'DOCTOR' ? 'selected' : '' ?>>درمانگر</option>
       </select>
       <?php if ($role === 'DOCTOR'): ?>
@@ -35,7 +35,7 @@ ob_start();
     </div>
     <div>
       <label class="label">موبایل</label>
-      <input class="input" name="phone" dir="ltr" placeholder="0912...">
+      <input class="input" name="phone" dir="ltr" placeholder="09...">
     </div>
     <?php if ($role === 'DOCTOR'): ?>
     <div>

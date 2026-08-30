@@ -81,7 +81,7 @@ export default function RegisterPage() {
             value={accountType}
             onChange={(e) => setAccountType(e.target.value as AccountType)}
           >
-            <option value="PATIENT">مراجع</option>
+            <option value="PATIENT">مراجعه‌کننده</option>
             <option value="DOCTOR">درمانگر</option>
           </select>
           {accountType === "DOCTOR" && (
@@ -107,7 +107,7 @@ export default function RegisterPage() {
           <label className="label" htmlFor="phone">
             موبایل
           </label>
-          <input id="phone" name="phone" className="input" dir="ltr" placeholder="0912..." />
+          <input id="phone" name="phone" className="input" dir="ltr" placeholder="09..." />
         </div>
 
         {accountType === "DOCTOR" && (
