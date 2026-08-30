@@ -47,27 +47,31 @@ ob_start();
 
   <div class="panel" style="background:var(--bg-soft);border-style:dashed">
     <p style="margin:0 0 .75rem;font-weight:600">یا بیمار جدید</p>
-    <p class="muted" style="margin:0 0 .75rem;font-size:.85rem;line-height:1.7">نام را به انگلیسی وارد کنید تا نام کاربری پیشنهاد شود. بیمار با همین نام کاربری و رمز می‌تواند بعداً وارد شود و نوبت بگیرد.</p>
+    <p class="muted" style="margin:0 0 .75rem;font-size:.85rem;line-height:1.7">بیمار با نام کاربری و رمز زیر می‌تواند بعداً وارد شود و نوبت بگیرد. برای پیشنهاد نام کاربری، نام را به انگلیسی هم می‌توانید بنویسید.</p>
     <div class="grid-2">
       <div style="grid-column:1/-1">
-        <label class="label" for="new_name">نام و نام خانوادگی (انگلیسی)</label>
-        <input class="input" name="new_name" id="new_name" dir="ltr" lang="en" autocomplete="name" placeholder="Emad Shahabian">
+        <label class="label" for="new_name">نام و نام خانوادگی</label>
+        <input class="input" name="new_name" id="new_name" dir="auto" autocomplete="name" placeholder="فارسی یا انگلیسی">
       </div>
-      <div>
+      <div style="grid-column:1/-1">
         <label class="label" for="new_phone">موبایل</label>
         <input class="input" name="new_phone" id="new_phone" dir="ltr" placeholder="09...">
+      </div>
+      <div style="grid-column:1/-1">
+        <label class="label" for="new_username">نام کاربری</label>
+        <div style="display:flex;gap:.5rem;align-items:stretch">
+          <input class="input" name="new_username" id="new_username" dir="ltr" pattern="[A-Za-z0-9._-]{3,32}" placeholder="حروف انگلیسی، عدد و ._- " style="flex:1">
+          <button type="button" class="btn btn-outline" id="suggest-username" title="پیشنهاد از روی نام انگلیسی">پیشنهاد</button>
+        </div>
+        <p class="muted" id="username-hint" style="margin:.4rem 0 0;font-size:.8rem;line-height:1.6"></p>
       </div>
       <div>
         <label class="label" for="new_password">رمز عبور</label>
         <input class="input" name="new_password" id="new_password" type="password" dir="ltr" minlength="6" autocomplete="new-password" placeholder="حداقل ۶ کاراکتر">
       </div>
-      <div style="grid-column:1/-1">
-        <label class="label" for="new_username">نام کاربری</label>
-        <div style="display:flex;gap:.5rem;align-items:stretch">
-          <input class="input" name="new_username" id="new_username" dir="ltr" pattern="[A-Za-z0-9._-]{3,32}" placeholder="مثلاً eshahabian" style="flex:1">
-          <button type="button" class="btn btn-outline" id="suggest-username" title="پیشنهاد از روی نام">پیشنهاد</button>
-        </div>
-        <p class="muted" id="username-hint" style="margin:.4rem 0 0;font-size:.8rem;line-height:1.6"></p>
+      <div>
+        <label class="label" for="new_password_confirm">تکرار رمز عبور</label>
+        <input class="input" name="new_password_confirm" id="new_password_confirm" type="password" dir="ltr" minlength="6" autocomplete="new-password" placeholder="تکرار رمز">
       </div>
     </div>
   </div>
@@ -125,6 +129,7 @@ $pageScripts = '
   var newNameEl = document.getElementById("new_name");
   var newUserEl = document.getElementById("new_username");
   var newPassEl = document.getElementById("new_password");
+  var newPassConfirmEl = document.getElementById("new_password_confirm");
   var newPhoneEl = document.getElementById("new_phone");
   var suggestBtn = document.getElementById("suggest-username");
   var usernameHint = document.getElementById("username-hint");
@@ -157,7 +162,7 @@ $pageScripts = '
     if (!force && usernameTouched && newUserEl.value.trim()) return;
     var base = baseUsernameFromName(newNameEl.value);
     if (!base) {
-      usernameHint.textContent = "برای پیشنهاد، نام را به انگلیسی بنویسید (مثل Emad Shahabian).";
+      usernameHint.textContent = "برای پیشنهاد خودکار، بخشی از نام را انگلیسی بنویسید؛ در غیر این صورت نام کاربری را دستی وارد کنید.";
       return;
     }
     var suggested = uniqueUsername(base);
@@ -182,7 +187,7 @@ $pageScripts = '
   function clearExistingPatient() {
     if (patientEl.value) patientEl.value = "";
   }
-  [newNameEl, newUserEl, newPassEl, newPhoneEl].forEach(function(el){
+  [newNameEl, newUserEl, newPassEl, newPassConfirmEl, newPhoneEl].forEach(function(el){
     el.addEventListener("input", clearExistingPatient);
   });
   patientEl.addEventListener("change", function(){
@@ -190,6 +195,7 @@ $pageScripts = '
     newNameEl.value = "";
     newUserEl.value = "";
     newPassEl.value = "";
+    newPassConfirmEl.value = "";
     newPhoneEl.value = "";
     usernameTouched = false;
     usernameHint.textContent = "";
@@ -354,6 +360,7 @@ $pageScripts = '
     var newName = newNameEl.value.trim();
     var newUser = newUserEl.value.trim().toLowerCase();
     var newPass = newPassEl.value;
+    var newPassConfirm = newPassConfirmEl.value;
     if (!patientId && !newName) {
       e.preventDefault();
       errEl.textContent = "بیمار موجود را انتخاب کنید یا اطلاعات بیمار جدید را وارد کنید.";
@@ -380,6 +387,13 @@ $pageScripts = '
         errEl.textContent = "رمز عبور بیمار جدید الزامی است و حداقل ۶ کاراکتر باشد.";
         errEl.style.display = "block";
         newPassEl.focus();
+        return;
+      }
+      if (newPass !== newPassConfirm) {
+        e.preventDefault();
+        errEl.textContent = "رمز عبور و تکرار آن یکسان نیست.";
+        errEl.style.display = "block";
+        newPassConfirmEl.focus();
         return;
       }
     }

@@ -7,6 +7,7 @@ $newName = post('new_name');
 $newPhone = post('new_phone') ?: null;
 $newUsername = mb_strtolower(post('new_username'));
 $newPassword = (string) ($_POST['new_password'] ?? '');
+$newPasswordConfirm = (string) ($_POST['new_password_confirm'] ?? '');
 $doctorId = post('doctor_id');
 $date = post('date');
 $time = post('time');
@@ -32,6 +33,10 @@ if ($patientId === '') {
     }
     if (strlen($newPassword) < 6) {
         flash_set('error', 'رمز عبور حداقل ۶ کاراکتر باشد.');
+        redirect('/secretary/book');
+    }
+    if ($newPassword !== $newPasswordConfirm) {
+        flash_set('error', 'رمز عبور و تکرار آن یکسان نیست.');
         redirect('/secretary/book');
     }
     $exists = $pdo->prepare('SELECT id FROM users WHERE username=?');
