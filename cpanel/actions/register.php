@@ -7,15 +7,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['submit_register'])) 
     redirect('/register?role=' . $role);
 }
 
-$name = post('name');
+$firstName = trim(post('first_name'));
+$lastName = trim(post('last_name'));
+$name = trim($firstName . ' ' . $lastName);
 $username = mb_strtolower(post('username'));
 $phone = post('phone') ?: null;
 $password = (string) ($_POST['password'] ?? '');
+$passwordConfirm = (string) ($_POST['password_confirm'] ?? '');
 $role = post('role') === 'DOCTOR' ? 'DOCTOR' : 'PATIENT';
 $specialty = post('specialty');
 
-if ($name === '' || $username === '' || strlen($password) < 6) {
-    flash_set('error', 'اطلاعات ناقص است. رمز حداقل ۶ کاراکتر باشد.');
+if ($firstName === '' || $lastName === '' || $username === '' || strlen($password) < 6) {
+    flash_set('error', 'اطلاعات ناقص است. نام، نام خانوادگی، نام کاربری و رمز (حداقل ۶ کاراکتر) الزامی است.');
+    redirect('/register?role=' . $role);
+}
+if ($password !== $passwordConfirm) {
+    flash_set('error', 'رمز عبور و تکرار آن یکسان نیست.');
     redirect('/register?role=' . $role);
 }
 if (!preg_match('/^[a-z0-9._-]{3,32}$/', $username)) {
