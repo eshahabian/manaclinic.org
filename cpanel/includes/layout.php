@@ -68,7 +68,7 @@ $flash = flash_get();
         <a href="<?= e(url('/articles')) ?>">مقالات</a>
         <a href="<?= e(url('/about')) ?>">درباره ما</a>
         <a href="<?= e(url('/contact')) ?>">تماس با ما</a>
-        <a href="<?= e(url('/register')) ?>">ثبت‌نام بیمار</a>
+        <a href="<?= e(url('/register')) ?>">ثبت‌نام</a>
       </div>
       <div>
         <p class="footer-title">تماس</p>

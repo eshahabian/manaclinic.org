@@ -14,6 +14,16 @@ if (!$user || $password === '' || !password_verify($password, $user['password_ha
     redirect('/login');
 }
 
+if ($user['role'] === 'DOCTOR') {
+    $dp = $pdo->prepare('SELECT is_approved FROM doctor_profiles WHERE user_id=? LIMIT 1');
+    $dp->execute([$user['id']]);
+    $profile = $dp->fetch();
+    if (!$profile || !(int) $profile['is_approved']) {
+        flash_set('error', 'حساب درمانگر شما هنوز توسط مدیر سایت تأیید نشده است.');
+        redirect('/login');
+    }
+}
+
 login_user($user);
 
 if (!empty($user['must_change_password'])) {

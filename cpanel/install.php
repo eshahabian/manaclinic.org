@@ -41,7 +41,8 @@ try {
         bio TEXT NOT NULL,
         avatar_url VARCHAR(255) NULL,
         session_price INT NOT NULL DEFAULT 3000000,
-        is_active TINYINT(1) NOT NULL DEFAULT 1,
+        is_approved TINYINT(1) NOT NULL DEFAULT 0,
+        is_active TINYINT(1) NOT NULL DEFAULT 0,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         CONSTRAINT fk_doctor_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
@@ -202,6 +203,15 @@ try {
     } catch (Throwable $ignored) {
     }
     try {
+        $pdo->exec("ALTER TABLE doctor_profiles ADD COLUMN is_approved TINYINT(1) NOT NULL DEFAULT 0 AFTER session_price");
+    } catch (Throwable $ignored) {
+    }
+    try {
+        // درمانگرهای قبلی که فعال بودند را تأییدشده در نظر بگیر
+        $pdo->exec("UPDATE doctor_profiles SET is_approved=1 WHERE is_active=1 AND is_approved=0");
+    } catch (Throwable $ignored) {
+    }
+    try {
         $pdo->exec("ALTER TABLE users ADD COLUMN username VARCHAR(64) NULL AFTER id");
     } catch (Throwable $ignored) {
     }
@@ -266,10 +276,10 @@ try {
         $dp = $pdo->prepare('SELECT id FROM doctor_profiles WHERE user_id=?');
         $dp->execute([$doctorRow['id']]);
         if (!$dp->fetch()) {
-            $pdo->prepare('INSERT INTO doctor_profiles (id,user_id,specialty,bio,session_price,is_active) VALUES (?,?,?,?,?,1)')
+            $pdo->prepare('INSERT INTO doctor_profiles (id,user_id,specialty,bio,session_price,is_approved,is_active) VALUES (?,?,?,?,?,1,1)')
                 ->execute([$doctorProfileId, $doctorRow['id'], 'روان‌درمانی شناختی-رفتاری', $bio, 3000000]);
         } else {
-            $pdo->prepare('UPDATE doctor_profiles SET specialty=?, bio=?, session_price=3000000 WHERE user_id=?')
+            $pdo->prepare('UPDATE doctor_profiles SET specialty=?, bio=?, session_price=3000000, is_approved=1, is_active=1 WHERE user_id=?')
                 ->execute(['روان‌درمانی شناختی-رفتاری', $bio, $doctorRow['id']]);
         }
     }

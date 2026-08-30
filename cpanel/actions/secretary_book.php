@@ -39,7 +39,7 @@ if ($patientId === '') {
         ->execute([$patientId, $newUsername, $newName, $newUsername . '@manaclinic.local', $newPhone, password_hash('123', PASSWORD_DEFAULT), 'PATIENT']);
 }
 
-$doc = $pdo->prepare('SELECT * FROM doctor_profiles WHERE id=? AND is_active=1');
+$doc = $pdo->prepare('SELECT * FROM doctor_profiles WHERE id=? AND is_active=1 AND is_approved=1');
 $doc->execute([$doctorId]);
 $doctor = $doc->fetch();
 if (!$doctor) {

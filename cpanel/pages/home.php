@@ -5,7 +5,7 @@ $doctors = $pdo->query("
   SELECT dp.*, u.name
   FROM doctor_profiles dp
   JOIN users u ON u.id = dp.user_id
-  WHERE dp.is_active = 1
+  WHERE dp.is_active = 1 AND dp.is_approved = 1
   ORDER BY dp.created_at ASC
   LIMIT 3
 ")->fetchAll();

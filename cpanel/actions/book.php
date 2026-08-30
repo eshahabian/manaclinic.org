@@ -19,7 +19,7 @@ if ($doctorId === '' || $date === '' || $time === '') {
     exit;
 }
 
-$doc = $pdo->prepare('SELECT * FROM doctor_profiles WHERE id=? AND is_active=1');
+$doc = $pdo->prepare('SELECT * FROM doctor_profiles WHERE id=? AND is_active=1 AND is_approved=1');
 $doc->execute([$doctorId]);
 $doctor = $doc->fetch();
 if (!$doctor) {

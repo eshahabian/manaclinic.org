@@ -5,12 +5,29 @@ $action = post('action');
 
 if ($action === 'toggle') {
     $id = post('id');
-    $row = $pdo->prepare('SELECT is_active FROM doctor_profiles WHERE id=?');
+    $row = $pdo->prepare('SELECT is_active, is_approved FROM doctor_profiles WHERE id=?');
     $row->execute([$id]);
     $d = $row->fetch();
-    if ($d) {
+    if ($d && (int) $d['is_approved']) {
         $pdo->prepare('UPDATE doctor_profiles SET is_active=? WHERE id=?')->execute([$d['is_active'] ? 0 : 1, $id]);
-        flash_set('success', 'وضعیت دکتر تغییر کرد.');
+        flash_set('success', 'وضعیت درمانگر تغییر کرد.');
+    }
+} elseif ($action === 'approve') {
+    $id = post('id');
+    $row = $pdo->prepare('SELECT id FROM doctor_profiles WHERE id=? AND is_approved=0');
+    $row->execute([$id]);
+    if ($row->fetch()) {
+        $pdo->prepare('UPDATE doctor_profiles SET is_approved=1, is_active=1 WHERE id=?')->execute([$id]);
+        flash_set('success', 'درمانگر تأیید شد و می‌تواند وارد شود.');
+    }
+} elseif ($action === 'reject') {
+    $id = post('id');
+    $row = $pdo->prepare('SELECT user_id, is_approved FROM doctor_profiles WHERE id=?');
+    $row->execute([$id]);
+    $d = $row->fetch();
+    if ($d && !(int) $d['is_approved']) {
+        $pdo->prepare('DELETE FROM users WHERE id=?')->execute([$d['user_id']]);
+        flash_set('success', 'درخواست درمانگر رد و حذف شد.');
     }
 } elseif ($action === 'create') {
     $name = post('name');
@@ -30,9 +47,9 @@ if ($action === 'toggle') {
             $did = cuid();
             $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,must_change_password) VALUES (?,?,?,?,?,?,?,1)')
                 ->execute([$uid, $username, $name, $username . '@manaclinic.local', $phone, password_hash($password, PASSWORD_DEFAULT), 'DOCTOR']);
-            $pdo->prepare('INSERT INTO doctor_profiles (id,user_id,specialty,bio,session_price,is_active) VALUES (?,?,?,?,?,1)')
+            $pdo->prepare('INSERT INTO doctor_profiles (id,user_id,specialty,bio,session_price,is_approved,is_active) VALUES (?,?,?,?,?,1,1)')
                 ->execute([$did, $uid, $specialty, $bio, $price]);
-            flash_set('success', 'دکتر ایجاد شد. رمز موقت باید در اولین ورود عوض شود.');
+            flash_set('success', 'درمانگر ایجاد شد. رمز موقت باید در اولین ورود عوض شود.');
         }
     } else {
         flash_set('error', 'اطلاعات ناقص یا نام کاربری نامعتبر است.');

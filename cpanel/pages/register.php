@@ -4,14 +4,28 @@ if (current_user()) {
     redirect('/dashboard');
 }
 $pageTitle = 'ثبت‌نام';
+$role = (($_GET['role'] ?? '') === 'DOCTOR') ? 'DOCTOR' : 'PATIENT';
 ob_start();
 ?>
 <div class="auth-wrap">
-  <form class="panel auth-box form-stack" method="post" action="<?= e(url('/register')) ?>">
+  <form class="panel auth-box form-stack" method="post" action="<?= e(url('/register')) ?>" id="register-form">
     <div>
-      <h1>ثبت‌نام بیمار</h1>
+      <h1>ثبت‌نام</h1>
       <p class="muted">قبلاً ثبت‌نام کرده‌اید؟ <a href="<?= e(url('/login')) ?>" style="color:var(--primary);font-weight:600">ورود</a></p>
     </div>
+
+    <div>
+      <p class="label" style="margin-bottom:.5rem">نوع حساب</p>
+      <div class="account-type-grid">
+        <a class="account-type-option <?= $role === 'PATIENT' ? 'active' : '' ?>" href="<?= e(url('/register?role=PATIENT')) ?>">مراجع</a>
+        <a class="account-type-option <?= $role === 'DOCTOR' ? 'active' : '' ?>" href="<?= e(url('/register?role=DOCTOR')) ?>">درمانگر</a>
+      </div>
+      <input type="hidden" name="role" value="<?= e($role) ?>">
+      <?php if ($role === 'DOCTOR'): ?>
+        <p class="muted" style="font-size:.75rem;line-height:1.7;margin:.5rem 0 0">حساب درمانگر پس از بررسی و تأیید مدیر سایت فعال می‌شود.</p>
+      <?php endif; ?>
+    </div>
+
     <div>
       <label class="label">نام و نام خانوادگی</label>
       <input class="input" name="name" required>
@@ -24,11 +38,19 @@ ob_start();
       <label class="label">موبایل</label>
       <input class="input" name="phone" dir="ltr" placeholder="0912...">
     </div>
+    <?php if ($role === 'DOCTOR'): ?>
+    <div>
+      <label class="label">تخصص</label>
+      <input class="input" name="specialty" required placeholder="مثلاً روان‌درمانی شناختی-رفتاری">
+    </div>
+    <?php endif; ?>
     <div>
       <label class="label">رمز عبور</label>
       <input class="input" name="password" type="password" required minlength="6" dir="ltr">
     </div>
-    <button class="btn btn-primary" type="submit">ایجاد حساب</button>
+    <button class="btn btn-primary" type="submit" name="submit_register" value="1">
+      <?= $role === 'DOCTOR' ? 'ارسال درخواست' : 'ایجاد حساب' ?>
+    </button>
   </form>
 </div>
 <?php

@@ -4,7 +4,7 @@ declare(strict_types=1);
 function admin_nav(): array {
     return [
         ['href' => '/admin', 'label' => 'خلاصه'],
-        ['href' => '/admin/doctors', 'label' => 'مدیریت دکترها'],
+        ['href' => '/admin/doctors', 'label' => 'مدیریت درمانگرها'],
         ['href' => '/admin/users', 'label' => 'کاربران'],
         ['href' => '/admin/articles', 'label' => 'مقالات'],
         ['href' => '/admin/appointments', 'label' => 'نوبت‌ها و پرداخت‌ها'],
