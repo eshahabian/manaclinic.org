@@ -60,6 +60,7 @@ $routes = [
     'GET /secretary' => 'pages/secretary/dashboard.php',
     'GET /secretary/book' => 'pages/secretary/book.php',
     'POST /secretary/book' => 'actions/secretary_book.php',
+    'POST /secretary/delete-patient' => 'actions/secretary_delete_patient.php',
     'GET /secretary/appointments' => 'pages/secretary/appointments.php',
     'POST /secretary/notifications/read' => 'actions/secretary_notifications.php',
 
