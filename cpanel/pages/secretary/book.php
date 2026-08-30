@@ -1,7 +1,6 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/../../includes/secretary_panel.php';
-require_once __DIR__ . '/../../includes/user_cleanup.php';
 require_login(['SECRETARY']);
 
 $patients = $pdo->query("
@@ -41,32 +40,6 @@ ob_start();
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
 <h1>رزرو نوبت برای بیمار</h1>
 <p class="muted">ابتدا دکتر را انتخاب کنید؛ فقط روزهایی که دکتر وقت خالی گذاشته قابل انتخاب هستند.</p>
-
-<?php if ($patients): ?>
-<div class="panel" style="margin-top:1rem;max-width:44rem;border:2px solid var(--danger)">
-  <h2 style="margin:0 0 .5rem;font-size:1rem;color:var(--danger)">مدیریت لیست بیماران</h2>
-  <p class="muted" style="font-size:.85rem;margin:0 0 .75rem;line-height:1.7">اگر اسم تستی در «انتخاب بیمار» می‌بینی، از اینجا حذفش کن.</p>
-  <div class="stack" style="margin-bottom:1rem">
-    <?php foreach ($patients as $p): ?>
-      <div class="row-between" style="align-items:center;border-bottom:1px solid var(--line);padding:.45rem 0;gap:.5rem">
-        <div>
-          <strong><?= e($p['name']) ?></strong>
-          <span class="muted" dir="ltr" style="font-size:.8rem;margin-right:.5rem"><?= e((string)$p['username']) ?></span>
-        </div>
-        <form method="post" action="<?= e(url('/secretary/delete-patient')) ?>" style="margin:0" onsubmit="return confirm('«<?= e($p['name']) ?>» حذف شود؟');">
-          <input type="hidden" name="action" value="delete_patient">
-          <input type="hidden" name="patient_id" value="<?= e($p['id']) ?>">
-          <button type="submit" class="btn btn-outline btn-sm" style="color:var(--danger)">حذف</button>
-        </form>
-      </div>
-    <?php endforeach; ?>
-  </div>
-  <form method="post" action="<?= e(url('/secretary/delete-patient')) ?>" onsubmit="return confirm('برهان شاوردی، عماد، علی رضایی و تمام نوبت‌ها حذف شوند؟');">
-    <input type="hidden" name="action" value="purge_test_patients">
-    <button type="submit" class="btn btn-danger">حذف برهان / عماد / علی رضایی + همه نوبت‌ها</button>
-  </form>
-</div>
-<?php endif; ?>
 
 <form class="panel form-stack" method="post" action="<?= e(url('/secretary/book')) ?>" id="secretary-book-form" style="margin-top:1rem;max-width:44rem">
   <div>
