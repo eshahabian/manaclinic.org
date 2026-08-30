@@ -51,19 +51,19 @@ ob_start();
     <div class="grid-2">
       <div>
         <label class="label" for="new_first_name">نام</label>
-        <input class="input" name="new_first_name" id="new_first_name" dir="auto" autocomplete="given-name" placeholder="فارسی">
+        <input class="input" name="new_first_name" id="new_first_name" dir="auto" autocomplete="given-name" placeholder="نام">
       </div>
       <div>
         <label class="label" for="new_name_en">name</label>
-        <input class="input" name="new_name_en" id="new_name_en" dir="ltr" lang="en" autocomplete="off" placeholder="English">
+        <input class="input" name="new_name_en" id="new_name_en" dir="ltr" lang="en" autocomplete="off" placeholder="name">
       </div>
       <div>
         <label class="label" for="new_last_name">نام خانوادگی</label>
-        <input class="input" name="new_last_name" id="new_last_name" dir="auto" autocomplete="family-name" placeholder="فارسی">
+        <input class="input" name="new_last_name" id="new_last_name" dir="auto" autocomplete="family-name" placeholder="نام خانوادگی">
       </div>
       <div>
         <label class="label" for="new_surname">surname</label>
-        <input class="input" name="new_surname" id="new_surname" dir="ltr" lang="en" autocomplete="off" placeholder="English">
+        <input class="input" name="new_surname" id="new_surname" dir="ltr" lang="en" autocomplete="off" placeholder="surname">
       </div>
       <div style="grid-column:1/-1">
         <label class="label" for="new_phone">موبایل</label>
@@ -176,10 +176,13 @@ $pageScripts = '
   }
 
   function applySuggestion(force) {
-    if (!force && usernameTouched && newUserEl.value.trim()) return;
+    if (!force && usernameTouched) return;
     var base = baseUsernameFromParts();
     if (!base) {
-      usernameHint.textContent = "برای پیشنهاد، فیلد name و surname را انگلیسی پر کنید؛ در غیر این صورت نام کاربری را دستی وارد کنید.";
+      if (force || !newUserEl.value.trim()) {
+        if (!usernameTouched) newUserEl.value = "";
+        usernameHint.textContent = "با تایپ name و surname پیشنهاد نام کاربری همین‌جا می‌آید.";
+      }
       return;
     }
     var suggested = uniqueUsername(base);
@@ -187,7 +190,9 @@ $pageScripts = '
       usernameHint.textContent = "پیشنهاد معتبری پیدا نشد؛ نام کاربری را دستی وارد کنید.";
       return;
     }
-    newUserEl.value = suggested;
+    if (force || !usernameTouched) {
+      newUserEl.value = suggested;
+    }
     usernameHint.textContent = suggested === base
       ? "پیشنهاد: " + suggested
       : "پیشنهاد (بدون تکرار): " + suggested;
@@ -195,8 +200,8 @@ $pageScripts = '
 
   newUserEl.addEventListener("input", function(){ usernameTouched = true; });
   [firstNameEl, lastNameEl, nameEnEl, surnameEl].forEach(function(el){
+    el.addEventListener("input", function(){ applySuggestion(false); });
     el.addEventListener("blur", function(){ applySuggestion(false); });
-    el.addEventListener("change", function(){ applySuggestion(false); });
   });
   suggestBtn.addEventListener("click", function(){
     usernameTouched = false;
