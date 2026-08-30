@@ -6,6 +6,7 @@ $patientId = post('patient_id');
 $newName = post('new_name');
 $newPhone = post('new_phone') ?: null;
 $newUsername = mb_strtolower(post('new_username'));
+$newPassword = (string) ($_POST['new_password'] ?? '');
 $doctorId = post('doctor_id');
 $date = post('date');
 $time = post('time');
@@ -22,10 +23,15 @@ if ($patientId === '') {
         redirect('/secretary/book');
     }
     if ($newUsername === '') {
-        $newUsername = 'patient_' . time() . '_' . random_int(100, 999);
+        flash_set('error', 'نام کاربری بیمار جدید الزامی است.');
+        redirect('/secretary/book');
     }
     if (!preg_match('/^[a-z0-9._-]{3,32}$/', $newUsername)) {
-        flash_set('error', 'نام کاربری نامعتبر است.');
+        flash_set('error', 'نام کاربری نامعتبر است. فقط حروف انگلیسی، عدد و ._- (۳ تا ۳۲ کاراکتر).');
+        redirect('/secretary/book');
+    }
+    if (strlen($newPassword) < 6) {
+        flash_set('error', 'رمز عبور حداقل ۶ کاراکتر باشد.');
         redirect('/secretary/book');
     }
     $exists = $pdo->prepare('SELECT id FROM users WHERE username=?');
@@ -35,8 +41,8 @@ if ($patientId === '') {
         redirect('/secretary/book');
     }
     $patientId = cuid();
-    $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,must_change_password) VALUES (?,?,?,?,?,?,?,1)')
-        ->execute([$patientId, $newUsername, $newName, $newUsername . '@manaclinic.local', $newPhone, password_hash('123', PASSWORD_DEFAULT), 'PATIENT']);
+    $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,must_change_password) VALUES (?,?,?,?,?,?,?,0)')
+        ->execute([$patientId, $newUsername, $newName, $newUsername . '@manaclinic.local', $newPhone, password_hash($newPassword, PASSWORD_DEFAULT), 'PATIENT']);
 }
 
 $doc = $pdo->prepare('SELECT * FROM doctor_profiles WHERE id=? AND is_active=1 AND is_approved=1');
