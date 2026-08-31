@@ -121,9 +121,54 @@ select {
   text-decoration: underline;
 }
 .home-tests-grid {
-  display: grid;
-  gap: 1.25rem;
-  grid-template-columns: repeat(2, 1fr);
+  display: flex;
+  flex-wrap: nowrap;
+  gap: .75rem;
+  overflow-x: auto;
+  padding-bottom: .35rem;
+  scrollbar-width: thin;
+}
+.home-test-chip {
+  position: relative;
+  flex: 0 0 auto;
+  padding: .75rem 1rem;
+  white-space: nowrap;
+}
+.home-test-chip-title {
+  font-size: .9rem;
+  font-weight: 700;
+  line-height: 1.5;
+}
+.home-test-chip-tip {
+  position: absolute;
+  z-index: 20;
+  left: 50%;
+  right: auto;
+  bottom: calc(100% + .65rem);
+  transform: translateX(-50%) translateY(.35rem);
+  width: max-content;
+  max-width: 16rem;
+  padding: .7rem .85rem;
+  border-radius: .75rem;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--muted);
+  font-size: .8rem;
+  font-weight: 400;
+  line-height: 1.6;
+  white-space: normal;
+  text-align: center;
+  box-shadow: 0 10px 28px rgba(26, 46, 40, 0.14);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .18s ease, transform .18s ease, visibility .18s ease;
+}
+.home-test-chip:hover .home-test-chip-tip,
+.home-test-chip:focus-visible .home-test-chip-tip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
 }
 .home-split-grid {
   display: grid;

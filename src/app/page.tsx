@@ -108,13 +108,13 @@ export default async function HomePage() {
                 <Link
                   key={test.slug}
                   href={`/tests/${test.slug}`}
-                  className="panel transition hover:-translate-y-1 hover:shadow-md"
+                  className="home-test-chip panel transition hover:-translate-y-1 hover:shadow-md"
+                  title={test.title}
                 >
-                  <p className="badge mb-3">{test.category}</p>
-                  <h3 className="text-lg font-bold leading-8">{test.title}</h3>
-                  <p className="mt-3 line-clamp-3 text-sm leading-7 text-muted">
+                  <span className="home-test-chip-title">{test.title}</span>
+                  <span className="home-test-chip-tip" role="tooltip">
                     {test.description}
-                  </p>
+                  </span>
                 </Link>
               ))}
             </div>

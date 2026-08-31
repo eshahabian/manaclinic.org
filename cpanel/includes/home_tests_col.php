@@ -12,10 +12,13 @@ $tests = psych_tests_catalog();
   </div>
   <div class="home-tests-grid">
     <?php foreach ($tests as $test): ?>
-      <a class="panel card-link" href="<?= e(url('/tests/' . $test['slug'])) ?>">
-        <span class="badge"><?= e($test['category']) ?></span>
-        <h3 style="margin:.75rem 0 0;line-height:1.7"><?= e($test['title']) ?></h3>
-        <p class="muted line-clamp-3" style="font-size:.9rem;line-height:1.8;margin-top:.75rem"><?= e($test['description']) ?></p>
+      <a
+        class="home-test-chip panel card-link"
+        href="<?= e(url('/tests/' . $test['slug'])) ?>"
+        title="<?= e($test['title']) ?>"
+      >
+        <span class="home-test-chip-title"><?= e($test['title']) ?></span>
+        <span class="home-test-chip-tip" role="tooltip"><?= e($test['description']) ?></span>
       </a>
     <?php endforeach; ?>
   </div>
