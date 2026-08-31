@@ -7,8 +7,9 @@ $doctors = $pdo->query("
   JOIN users u ON u.id = dp.user_id
   WHERE dp.is_active = 1 AND dp.is_approved = 1
   ORDER BY dp.created_at ASC
-  LIMIT 3
 ")->fetchAll();
+$leadDoctor = $doctors[0] ?? null;
+$moreDoctors = array_slice($doctors, 1);
 
 $articles = $pdo->query("
   SELECT a.*, u.name AS author_name
@@ -61,10 +62,20 @@ ob_start();
       <h2>متخصصان ما</h2>
       <p class="muted">متخصصان با تجربه برای همراهی در مسیر درمان</p>
     </div>
-    <a href="<?= e(url('/doctors')) ?>" style="color:var(--primary);font-weight:600;font-size:.9rem">مشاهده همه</a>
   </div>
-  <div class="grid-3">
-    <?php foreach ($doctors as $doc): ?>
+  <div class="articles-showcase">
+    <?php if ($leadDoctor): ?>
+      <div class="articles-lead-col">
+        <a class="panel card-link" href="<?= e(url('/doctors/' . $leadDoctor['id'])) ?>">
+          <div class="avatar"><?= e(mb_substr($leadDoctor['name'], 0, 1)) ?></div>
+          <h3 style="margin:0"><?= e($leadDoctor['name']) ?></h3>
+          <p style="color:var(--primary);margin:.35rem 0 0;font-size:.9rem"><?= e($leadDoctor['specialty']) ?></p>
+          <p class="muted line-clamp-3 whitespace-pre" style="font-size:.9rem;line-height:1.8;margin-top:.75rem"><?= e($leadDoctor['bio']) ?></p>
+        </a>
+        <a class="articles-all-link" href="<?= e(url('/doctors')) ?>">مشاهده همه</a>
+      </div>
+    <?php endif; ?>
+    <?php foreach ($moreDoctors as $doc): ?>
       <a class="panel card-link" href="<?= e(url('/doctors/' . $doc['id'])) ?>">
         <div class="avatar"><?= e(mb_substr($doc['name'], 0, 1)) ?></div>
         <h3 style="margin:0"><?= e($doc['name']) ?></h3>

@@ -6,7 +6,6 @@ export default async function HomePage() {
     prisma.doctorProfile.findMany({
       where: { isActive: true, isApproved: true },
       include: { user: true },
-      take: 3,
       orderBy: { createdAt: "asc" },
     }),
     prisma.article.findMany({
@@ -44,19 +43,37 @@ export default async function HomePage() {
       </section>
 
       <section className="container-page mt-16">
-        <div className="mb-8 flex items-end justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-bold">متخصصان ما</h2>
-            <p className="mt-2 text-muted">
-              متخصصان با تجربه برای همراهی در مسیر درمان
-            </p>
-          </div>
-          <Link href="/doctors" className="text-sm font-semibold text-primary">
-            مشاهده همه
-          </Link>
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold">متخصصان ما</h2>
+          <p className="mt-2 text-muted">
+            متخصصان با تجربه برای همراهی در مسیر درمان
+          </p>
         </div>
-        <div className="grid gap-5 md:grid-cols-3">
-          {doctors.map((doc) => (
+        <div className="grid items-start gap-5 md:grid-cols-3">
+          {doctors[0] && (
+            <div className="flex flex-col gap-5">
+              <Link
+                href={`/doctors/${doctors[0].id}`}
+                className="panel transition hover:-translate-y-1 hover:shadow-md"
+              >
+                <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--bg-soft)] text-lg font-bold text-primary">
+                  {doctors[0].user.name.slice(0, 1)}
+                </div>
+                <h3 className="text-lg font-bold">{doctors[0].user.name}</h3>
+                <p className="mt-1 text-sm text-primary">{doctors[0].specialty}</p>
+                <p className="mt-3 line-clamp-3 whitespace-pre-line text-sm leading-7 text-muted">
+                  {doctors[0].bio}
+                </p>
+              </Link>
+              <Link
+                href="/doctors"
+                className="px-1 text-base font-semibold text-primary hover:underline"
+              >
+                مشاهده همه
+              </Link>
+            </div>
+          )}
+          {doctors.slice(1).map((doc) => (
             <Link
               key={doc.id}
               href={`/doctors/${doc.id}`}
