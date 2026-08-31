@@ -231,19 +231,17 @@ select.input {
 }
 
 .home-tests-grid {
-  display: flex;
-  flex-wrap: nowrap;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 0.75rem;
-  overflow-x: auto;
-  padding-bottom: 0.35rem;
-  scrollbar-width: thin;
+  align-content: start;
 }
 
 .home-test-chip {
   position: relative;
-  flex: 0 0 auto;
+  flex: none;
   padding: 0.75rem 1rem;
-  white-space: nowrap;
+  white-space: normal;
 }
 
 .home-test-chip-title {
