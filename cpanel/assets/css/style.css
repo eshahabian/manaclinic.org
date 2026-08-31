@@ -110,13 +110,15 @@ select {
   flex-direction: column;
   gap: 1.25rem;
 }
-.articles-all-card {
-  border: 1px dashed color-mix(in srgb, var(--primary) 35%, transparent);
-  background: color-mix(in srgb, var(--bg-soft) 70%, #fff);
+.articles-all-link {
+  display: inline-block;
+  color: var(--primary);
+  font-weight: 600;
+  font-size: 1rem;
+  padding-inline: .25rem;
 }
-.articles-all-card:hover {
-  border-color: var(--primary);
-  background: var(--bg-soft);
+.articles-all-link:hover {
+  text-decoration: underline;
 }
 @media (min-width: 768px) {
   .grid-3 { grid-template-columns: repeat(3, 1fr); }

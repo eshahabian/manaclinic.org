@@ -100,13 +100,9 @@ export default async function HomePage() {
               </Link>
               <Link
                 href="/articles"
-                className="panel border border-dashed border-primary/35 bg-[color-mix(in_srgb,var(--bg-soft)_70%,white)] transition hover:-translate-y-1 hover:border-primary hover:bg-[var(--bg-soft)] hover:shadow-md"
+                className="px-1 text-base font-semibold text-primary hover:underline"
               >
-                <p className="badge mb-3">مانا کلینیک</p>
-                <h3 className="text-lg font-bold leading-8">همه مقالات</h3>
-                <p className="mt-3 text-sm leading-7 text-muted">
-                  مشاهده آرشیو کامل مقالات روانشناسی
-                </p>
+                همه مقالات
               </Link>
             </div>
           )}

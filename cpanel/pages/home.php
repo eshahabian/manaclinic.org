@@ -91,11 +91,7 @@ ob_start();
           <h3 style="margin:.75rem 0 0;line-height:1.7"><?= e($leadArticle['title']) ?></h3>
           <p class="muted line-clamp-3" style="font-size:.9rem;line-height:1.8;margin-top:.75rem"><?= e($leadArticle['excerpt']) ?></p>
         </a>
-        <a class="panel card-link articles-all-card" href="<?= e(url('/articles')) ?>">
-          <span class="badge">مانا کلینیک</span>
-          <h3 style="margin:.75rem 0 0;line-height:1.7">همه مقالات</h3>
-          <p class="muted" style="font-size:.9rem;line-height:1.8;margin-top:.75rem">مشاهده آرشیو کامل مقالات روانشناسی</p>
-        </a>
+        <a class="articles-all-link" href="<?= e(url('/articles')) ?>">همه مقالات</a>
       </div>
     <?php endif; ?>
     <?php foreach ($moreArticles as $article): ?>
