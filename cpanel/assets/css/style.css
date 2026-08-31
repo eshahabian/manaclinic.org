@@ -125,9 +125,26 @@ select {
   gap: 1.25rem;
   grid-template-columns: repeat(2, 1fr);
 }
-@media (min-width: 768px) {
-  .home-tests-grid {
-    grid-template-columns: repeat(5, 1fr);
+.home-split-grid {
+  display: grid;
+  gap: 1.5rem;
+  align-items: start;
+}
+@media (min-width: 900px) {
+  .home-split-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem 2rem;
+  }
+  .home-specialists-col .articles-showcase {
+    grid-template-columns: 1fr;
+  }
+}
+@media (max-width: 899px) {
+  .home-split-grid {
+    grid-template-columns: 1fr;
+  }
+  .home-tests-col {
+    order: 2;
   }
 }
 @media (min-width: 768px) {

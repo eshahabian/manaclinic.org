@@ -236,8 +236,25 @@ select.input {
   grid-template-columns: repeat(2, 1fr);
 }
 
-@media (min-width: 768px) {
-  .home-tests-grid {
-    grid-template-columns: repeat(5, 1fr);
+.home-split-grid {
+  display: grid;
+  gap: 1.5rem;
+  align-items: start;
+}
+
+@media (min-width: 900px) {
+  .home-split-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem 2rem;
+  }
+}
+
+@media (max-width: 899px) {
+  .home-split-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .home-tests-col {
+    order: 2;
   }
 }

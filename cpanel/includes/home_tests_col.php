@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 $tests = psych_tests_catalog();
 ?>
-<section class="container-page section">
+<div class="home-tests-col">
   <div class="section-head">
     <div>
       <h2>آزمون‌ها</h2>
@@ -22,4 +22,4 @@ $tests = psych_tests_catalog();
   <p style="margin-top:1.25rem">
     <a class="articles-all-link" href="<?= e(url('/tests')) ?>">همه آزمون‌ها</a>
   </p>
-</section>
+</div>

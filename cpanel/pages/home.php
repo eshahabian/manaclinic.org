@@ -57,37 +57,40 @@ ob_start();
 </section>
 
 <section class="container-page section">
-  <div class="section-head">
-    <div>
-      <h2>متخصصان ما</h2>
-      <p class="muted">متخصصان با تجربه برای همراهی در مسیر درمان</p>
-    </div>
-  </div>
-  <div class="articles-showcase">
-    <?php if ($leadDoctor): ?>
-      <div class="articles-lead-col">
-        <a class="panel card-link" href="<?= e(url('/doctors/' . $leadDoctor['id'])) ?>">
-          <div class="avatar"><?= e(mb_substr($leadDoctor['name'], 0, 1)) ?></div>
-          <h3 style="margin:0"><?= e($leadDoctor['name']) ?></h3>
-          <p style="color:var(--primary);margin:.35rem 0 0;font-size:.9rem"><?= e($leadDoctor['specialty']) ?></p>
-          <p class="muted line-clamp-3 whitespace-pre" style="font-size:.9rem;line-height:1.8;margin-top:.75rem"><?= e($leadDoctor['bio']) ?></p>
-        </a>
-        <a class="articles-all-link" href="<?= e(url('/doctors')) ?>">مشاهده همه</a>
+  <div class="home-split-grid">
+    <div class="home-specialists-col">
+      <div class="section-head">
+        <div>
+          <h2>متخصصان ما</h2>
+          <p class="muted">متخصصان با تجربه برای همراهی در مسیر درمان</p>
+        </div>
       </div>
-    <?php endif; ?>
-    <?php foreach ($moreDoctors as $doc): ?>
-      <a class="panel card-link" href="<?= e(url('/doctors/' . $doc['id'])) ?>">
-        <div class="avatar"><?= e(mb_substr($doc['name'], 0, 1)) ?></div>
-        <h3 style="margin:0"><?= e($doc['name']) ?></h3>
-        <p style="color:var(--primary);margin:.35rem 0 0;font-size:.9rem"><?= e($doc['specialty']) ?></p>
-        <p class="muted line-clamp-3 whitespace-pre" style="font-size:.9rem;line-height:1.8;margin-top:.75rem"><?= e($doc['bio']) ?></p>
-      </a>
-    <?php endforeach; ?>
-    <?php if (!$doctors): ?><p class="muted">هنوز متخصصی ثبت نشده است.</p><?php endif; ?>
+      <div class="articles-showcase">
+        <?php if ($leadDoctor): ?>
+          <div class="articles-lead-col">
+            <a class="panel card-link" href="<?= e(url('/doctors/' . $leadDoctor['id'])) ?>">
+              <div class="avatar"><?= e(mb_substr($leadDoctor['name'], 0, 1)) ?></div>
+              <h3 style="margin:0"><?= e($leadDoctor['name']) ?></h3>
+              <p style="color:var(--primary);margin:.35rem 0 0;font-size:.9rem"><?= e($leadDoctor['specialty']) ?></p>
+              <p class="muted line-clamp-3 whitespace-pre" style="font-size:.9rem;line-height:1.8;margin-top:.75rem"><?= e($leadDoctor['bio']) ?></p>
+            </a>
+            <a class="articles-all-link" href="<?= e(url('/doctors')) ?>">مشاهده همه</a>
+          </div>
+        <?php endif; ?>
+        <?php foreach ($moreDoctors as $doc): ?>
+          <a class="panel card-link" href="<?= e(url('/doctors/' . $doc['id'])) ?>">
+            <div class="avatar"><?= e(mb_substr($doc['name'], 0, 1)) ?></div>
+            <h3 style="margin:0"><?= e($doc['name']) ?></h3>
+            <p style="color:var(--primary);margin:.35rem 0 0;font-size:.9rem"><?= e($doc['specialty']) ?></p>
+            <p class="muted line-clamp-3 whitespace-pre" style="font-size:.9rem;line-height:1.8;margin-top:.75rem"><?= e($doc['bio']) ?></p>
+          </a>
+        <?php endforeach; ?>
+        <?php if (!$doctors): ?><p class="muted">هنوز متخصصی ثبت نشده است.</p><?php endif; ?>
+      </div>
+    </div>
+    <?php require __DIR__ . '/../includes/home_tests_col.php'; ?>
   </div>
 </section>
-
-<?php require __DIR__ . '/../includes/home_tests_section.php'; ?>
 
 <section class="container-page section">
   <div class="section-head">
