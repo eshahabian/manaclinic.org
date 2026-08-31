@@ -55,7 +55,13 @@ $showTestsSidebar = should_show_tests_sidebar();
       </div>
     <?php endif; ?>
     <?php if ($showTestsSidebar): ?>
-      <div class="site-content-shell">
+      <?php
+      $shellClass = 'site-content-shell';
+      if (!empty($testsRailMode)) {
+          $shellClass .= ' site-content-shell--' . preg_replace('/[^a-z0-9-]/', '', str_replace('_', '-', (string) $testsRailMode));
+      }
+      ?>
+      <div class="<?= e($shellClass) ?>">
         <div class="site-content-main">
           <?= $content ?? '' ?>
         </div>

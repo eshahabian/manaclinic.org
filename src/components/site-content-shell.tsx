@@ -27,7 +27,9 @@ export function SiteContentShell({ children }: Props) {
   }
 
   return (
-    <div className="site-content-shell">
+    <div
+      className={`site-content-shell${pathname === "/" ? " site-content-shell--home-articles" : ""}`}
+    >
       <div className="site-content-main">{children}</div>
       <aside className="tests-rail" aria-label="آزمون‌های روانشناسی">
         <div className="section-head tests-rail-head">
@@ -47,7 +49,7 @@ export function SiteContentShell({ children }: Props) {
               <Link
                 key={test.slug}
                 href={href}
-                className={`tests-chip panel card-link transition hover:-translate-y-1 hover:shadow-md${isActive ? " is-active" : ""}`}
+                className={`tests-chip panel card-link${isActive ? " is-active" : ""}`}
                 title={test.abbr}
               >
                 <span className="tests-chip-title">{test.title}</span>

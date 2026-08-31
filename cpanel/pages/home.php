@@ -21,6 +21,8 @@ $articles = $pdo->query("
 $leadArticle = $articles[0] ?? null;
 $moreArticles = array_slice($articles, 1);
 
+$testsRailMode = 'home-articles';
+
 $pageTitle = 'خانه';
 $heroSlides = [
     url('/assets/img/hero.png'),
