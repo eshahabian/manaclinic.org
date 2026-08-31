@@ -14,6 +14,7 @@ function render_panel(string $title, array $nav, string $viewFile, array $vars =
 {
     $vars['panelTitle'] = $title;
     $vars['panelNav'] = $nav;
+    $GLOBALS['hideTestsSidebar'] = true;
     extract($vars, EXTR_SKIP);
     ob_start();
     ?>

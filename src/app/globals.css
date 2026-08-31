@@ -211,3 +211,71 @@ select.input {
 .rmdp-input {
   width: 100% !important;
 }
+
+.tests-sidebar {
+  position: fixed;
+  left: 0;
+  top: 4rem;
+  bottom: 0;
+  width: 13.5rem;
+  z-index: 35;
+  overflow-y: auto;
+  border-right: 1px solid color-mix(in srgb, var(--line) 85%, transparent);
+  background: color-mix(in srgb, var(--bg) 94%, transparent);
+  backdrop-filter: blur(10px);
+}
+
+body:has(.tests-sidebar) .site-layer {
+  margin-left: 13.5rem;
+}
+
+.tests-sidebar-inner {
+  padding: 1.25rem 1rem 1.5rem;
+}
+
+.tests-sidebar-title {
+  margin: 0 0 1rem;
+  font-weight: 700;
+  font-size: 1rem;
+}
+
+.tests-sidebar-title a {
+  color: var(--primary);
+}
+
+.tests-sidebar-nav {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.tests-sidebar-link {
+  display: block;
+  padding: 0.55rem 0.65rem;
+  border-radius: 0.65rem;
+  color: var(--muted);
+  transition:
+    background 0.15s ease,
+    color 0.15s ease;
+}
+
+.tests-sidebar-link:hover,
+.tests-sidebar-link.is-active {
+  background: var(--bg-soft);
+  color: var(--primary);
+}
+
+.tests-sidebar-link-title {
+  display: block;
+  font-size: 0.82rem;
+  line-height: 1.55;
+  font-weight: 600;
+}
+
+.tests-sidebar-link-abbr {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.72rem;
+  opacity: 0.75;
+  direction: ltr;
+  text-align: left;
+}

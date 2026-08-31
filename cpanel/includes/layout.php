@@ -4,6 +4,7 @@ declare(strict_types=1);
 $user = current_user();
 $panelHref = panel_href_for($user);
 $flash = flash_get();
+$showTestsSidebar = should_show_tests_sidebar();
 ?>
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
@@ -18,8 +19,11 @@ $flash = flash_get();
     <?= $pageHead ?>
   <?php endif; ?>
 </head>
-<body>
+<body<?= $showTestsSidebar ? ' class="has-tests-sidebar"' : '' ?>>
 <canvas id="particle-canvas" aria-hidden="true"></canvas>
+<?php if ($showTestsSidebar): ?>
+  <?php require __DIR__ . '/tests_sidebar.php'; ?>
+<?php endif; ?>
 <div class="site-layer">
   <header class="site-header">
     <div class="container-page header-inner">
@@ -28,6 +32,7 @@ $flash = flash_get();
         <a href="<?= e(url('/')) ?>">صفحه اصلی</a>
         <a href="<?= e(url('/doctors')) ?>">متخصصان</a>
         <a href="<?= e(url('/articles')) ?>">مقالات</a>
+        <a href="<?= e(url('/tests')) ?>">آزمون‌ها</a>
         <a href="<?= e(url('/about')) ?>">درباره ما</a>
         <a href="<?= e(url('/contact')) ?>">تماس با ما</a>
         <?php if ($panelHref): ?>
@@ -66,6 +71,7 @@ $flash = flash_get();
         <a href="<?= e(url('/')) ?>">صفحه اصلی</a>
         <a href="<?= e(url('/doctors')) ?>">متخصصان</a>
         <a href="<?= e(url('/articles')) ?>">مقالات</a>
+        <a href="<?= e(url('/tests')) ?>">آزمون‌ها</a>
         <a href="<?= e(url('/about')) ?>">درباره ما</a>
         <a href="<?= e(url('/contact')) ?>">تماس با ما</a>
         <a href="<?= e(url('/register')) ?>">ثبت‌نام</a>

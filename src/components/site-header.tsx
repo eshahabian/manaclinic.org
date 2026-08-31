@@ -28,6 +28,9 @@ export async function SiteHeader() {
           <Link href="/articles" className="hover:text-primary">
             مقالات
           </Link>
+          <Link href="/tests" className="hover:text-primary">
+            آزمون‌ها
+          </Link>
           {panelHref && (
             <Link href={panelHref} className="hover:text-primary">
               پنل من

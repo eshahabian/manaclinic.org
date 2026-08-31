@@ -21,6 +21,7 @@ require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/zarinpal.php';
 require_once __DIR__ . '/includes/view.php';
 require_once __DIR__ . '/includes/notifications.php';
+require_once __DIR__ . '/includes/psych_tests.php';
 
 $pdo = db_connect($config);
 
@@ -41,6 +42,7 @@ $routes = [
     'GET /' => 'pages/home.php',
     'GET /doctors' => 'pages/doctors.php',
     'GET /articles' => 'pages/articles.php',
+    'GET /tests' => 'pages/tests.php',
     'GET /about' => 'pages/about.php',
     'GET /contact' => 'pages/contact.php',
     'GET /login' => 'pages/login.php',
@@ -101,6 +103,11 @@ if (preg_match('#^/doctors/([a-zA-Z0-9_-]+)$#', $path, $m) && $method === 'GET')
 if (preg_match('#^/articles/([a-zA-Z0-9_-]+)$#', $path, $m) && $method === 'GET') {
     $_GET['slug'] = $m[1];
     require __DIR__ . '/pages/article_detail.php';
+    exit;
+}
+if (preg_match('#^/tests/([a-zA-Z0-9_-]+)$#', $path, $m) && $method === 'GET') {
+    $_GET['slug'] = $m[1];
+    require __DIR__ . '/pages/test_detail.php';
     exit;
 }
 

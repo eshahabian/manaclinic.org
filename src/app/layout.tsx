@@ -3,6 +3,7 @@ import { Vazirmatn } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { SiteTestsSidebar } from "@/components/site-tests-sidebar";
 import { ParticleNetwork } from "@/components/particle-network";
 import "./globals.css";
 
@@ -31,6 +32,7 @@ export default function RootLayout({
       <body className={`${vazirmatn.variable} antialiased`}>
         <Providers>
           <ParticleNetwork />
+          <SiteTestsSidebar />
           <div className="site-layer">
             <SiteHeader />
             <main>{children}</main>
