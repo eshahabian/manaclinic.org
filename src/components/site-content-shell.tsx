@@ -30,9 +30,14 @@ export function SiteContentShell({ children }: Props) {
     <div className="site-content-shell">
       <div className="site-content-main">{children}</div>
       <aside className="tests-rail" aria-label="آزمون‌های روانشناسی">
-        <p className="tests-rail-title">
-          <Link href="/tests">آزمون‌ها</Link>
-        </p>
+        <div className="section-head tests-rail-head">
+          <div>
+            <h2>
+              <Link href="/tests">آزمون‌ها</Link>
+            </h2>
+            <p className="muted">ابزارهای خودارزیابی روانشناسی</p>
+          </div>
+        </div>
         <nav className="tests-rail-nav">
           {psychTestsCatalog.map((test) => {
             const href = `/tests/${test.slug}`;
@@ -42,11 +47,13 @@ export function SiteContentShell({ children }: Props) {
               <Link
                 key={test.slug}
                 href={href}
-                className={`tests-chip${isActive ? " is-active" : ""}`}
+                className={`tests-chip panel card-link transition hover:-translate-y-1 hover:shadow-md${isActive ? " is-active" : ""}`}
                 title={test.abbr}
               >
                 <span className="tests-chip-title">{test.title}</span>
-                <span className="tests-chip-desc">{test.description}</span>
+                <span className="tests-chip-desc text-muted">
+                  {test.description}
+                </span>
               </Link>
             );
           })}

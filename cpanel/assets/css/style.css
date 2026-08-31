@@ -271,10 +271,10 @@ select {
 }
 @media (min-width: 900px) {
   .site-content-shell {
-    grid-template-columns: 1fr 12rem;
+    grid-template-columns: 1fr 15rem;
   }
   .site-content-shell:has(.site-content-main > .hero-surface) .tests-rail {
-    margin-top: min(88vh, 720px);
+    margin-top: calc(min(88vh, 720px) + 4rem);
   }
 }
 .site-content-main {
@@ -299,23 +299,27 @@ select {
 @media (min-width: 900px) {
   .tests-rail {
     order: 0;
-    width: 12rem;
+    width: 15rem;
     padding-bottom: 1rem;
   }
 }
-.tests-rail-title {
-  margin: 0 0 .35rem;
-  font-size: .82rem;
-  font-weight: 700;
+.tests-rail-head h2 {
+  margin: 0;
+  font-size: 1.6rem;
+}
+.tests-rail-head h2 a {
+  color: inherit;
+}
+.tests-rail-head h2 a:hover {
   color: var(--primary);
 }
-.tests-rail-title a:hover {
-  text-decoration: underline;
+.tests-rail-head .muted {
+  margin-top: .5rem;
 }
 .tests-rail-nav {
   display: flex;
   flex-wrap: wrap;
-  gap: .4rem;
+  gap: 1.25rem;
 }
 @media (min-width: 900px) {
   .tests-rail-nav {
@@ -326,48 +330,45 @@ select {
 .tests-chip {
   display: flex;
   flex-direction: column;
-  gap: .2rem;
+  gap: .75rem;
   width: 100%;
-  min-height: 4.5rem;
-  padding: .5rem .55rem;
-  border-radius: .55rem;
-  border: 1px solid var(--line);
-  background: var(--card);
-  color: var(--fg);
+  min-height: 8.5rem;
+  padding: 1.25rem;
   box-sizing: border-box;
-  box-shadow: 0 1px 2px rgba(26, 46, 40, 0.05);
-  transition: border-color .15s ease, background .15s ease;
+}
+.tests-chip.panel {
+  border-radius: 1rem;
 }
 @media (max-width: 899px) {
   .tests-chip {
-    flex: 1 1 calc(50% - .25rem);
-    min-width: 9.5rem;
-    max-width: calc(50% - .25rem);
+    flex: 1 1 calc(50% - .625rem);
+    min-width: 11rem;
+    max-width: calc(50% - .625rem);
   }
 }
 .tests-chip-title {
-  font-size: .76rem;
+  font-size: 1.125rem;
   font-weight: 700;
-  line-height: 1.45;
+  line-height: 1.7;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .tests-chip-desc {
-  font-size: .67rem;
-  line-height: 1.4;
-  color: var(--muted);
-  font-weight: 400;
+  font-size: .9rem;
+  line-height: 1.8;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
-.tests-chip:hover,
 .tests-chip.is-active {
   border-color: color-mix(in srgb, var(--primary) 45%, var(--line));
   background: var(--bg-soft);
 }
-.tests-chip:hover .tests-chip-title,
 .tests-chip.is-active .tests-chip-title {
   color: var(--primary);
-}
-.tests-chip:hover .tests-chip-desc,
-.tests-chip.is-active .tests-chip-desc {
-  color: color-mix(in srgb, var(--primary) 55%, var(--muted));
 }
 
 .slots { display: flex; flex-wrap: wrap; gap: .5rem; }
