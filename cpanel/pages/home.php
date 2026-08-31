@@ -16,8 +16,9 @@ $articles = $pdo->query("
   JOIN users u ON u.id = a.author_id
   WHERE a.published = 1
   ORDER BY a.published_at DESC
-  LIMIT 3
 ")->fetchAll();
+$leadArticle = $articles[0] ?? null;
+$moreArticles = array_slice($articles, 1);
 
 $pageTitle = 'خانه';
 $heroSlides = [
@@ -81,10 +82,23 @@ ob_start();
       <h2>آخرین مقالات</h2>
       <p class="muted">دانش کاربردی برای سلامت روان</p>
     </div>
-    <a href="<?= e(url('/articles')) ?>" style="color:var(--primary);font-weight:600;font-size:.9rem">همه مقالات</a>
   </div>
-  <div class="grid-3">
-    <?php foreach ($articles as $article): ?>
+  <div class="articles-showcase">
+    <?php if ($leadArticle): ?>
+      <div class="articles-lead-col">
+        <a class="panel card-link" href="<?= e(url('/articles/' . $leadArticle['slug'])) ?>">
+          <span class="badge"><?= e($leadArticle['author_name']) ?></span>
+          <h3 style="margin:.75rem 0 0;line-height:1.7"><?= e($leadArticle['title']) ?></h3>
+          <p class="muted line-clamp-3" style="font-size:.9rem;line-height:1.8;margin-top:.75rem"><?= e($leadArticle['excerpt']) ?></p>
+        </a>
+        <a class="panel card-link articles-all-card" href="<?= e(url('/articles')) ?>">
+          <span class="badge">مانا کلینیک</span>
+          <h3 style="margin:.75rem 0 0;line-height:1.7">همه مقالات</h3>
+          <p class="muted" style="font-size:.9rem;line-height:1.8;margin-top:.75rem">مشاهده آرشیو کامل مقالات روانشناسی</p>
+        </a>
+      </div>
+    <?php endif; ?>
+    <?php foreach ($moreArticles as $article): ?>
       <a class="panel card-link" href="<?= e(url('/articles/' . $article['slug'])) ?>">
         <span class="badge"><?= e($article['author_name']) ?></span>
         <h3 style="margin:.75rem 0 0;line-height:1.7"><?= e($article['title']) ?></h3>

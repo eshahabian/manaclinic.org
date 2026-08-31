@@ -100,9 +100,28 @@ select {
 .muted { color: var(--muted); }
 .grid-3 { display: grid; gap: 1.25rem; }
 .grid-2 { display: grid; gap: 1.25rem; }
+.articles-showcase {
+  display: grid;
+  gap: 1.25rem;
+  align-items: start;
+}
+.articles-lead-col {
+  display: flex;
+  flex-direction: column;
+  gap: 1.25rem;
+}
+.articles-all-card {
+  border: 1px dashed color-mix(in srgb, var(--primary) 35%, transparent);
+  background: color-mix(in srgb, var(--bg-soft) 70%, #fff);
+}
+.articles-all-card:hover {
+  border-color: var(--primary);
+  background: var(--bg-soft);
+}
 @media (min-width: 768px) {
   .grid-3 { grid-template-columns: repeat(3, 1fr); }
   .grid-2 { grid-template-columns: repeat(2, 1fr); }
+  .articles-showcase { grid-template-columns: repeat(3, 1fr); }
 }
 
 .hero-surface {

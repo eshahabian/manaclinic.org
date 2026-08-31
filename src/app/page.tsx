@@ -12,7 +12,6 @@ export default async function HomePage() {
     prisma.article.findMany({
       where: { published: true },
       include: { author: true },
-      take: 3,
       orderBy: { publishedAt: "desc" },
     }),
   ]);
@@ -80,17 +79,38 @@ export default async function HomePage() {
       </section>
 
       <section className="container-page mt-20">
-        <div className="mb-8 flex items-end justify-between gap-4">
-          <div>
-            <h2 className="text-2xl font-bold">آخرین مقالات</h2>
-            <p className="mt-2 text-muted">دانش کاربردی برای سلامت روان</p>
-          </div>
-          <Link href="/articles" className="text-sm font-semibold text-primary">
-            همه مقالات
-          </Link>
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold">آخرین مقالات</h2>
+          <p className="mt-2 text-muted">دانش کاربردی برای سلامت روان</p>
         </div>
-        <div className="grid gap-5 md:grid-cols-3">
-          {articles.map((article) => (
+        <div className="grid items-start gap-5 md:grid-cols-3">
+          {articles[0] && (
+            <div className="flex flex-col gap-5">
+              <Link
+                href={`/articles/${articles[0].slug}`}
+                className="panel transition hover:-translate-y-1 hover:shadow-md"
+              >
+                <p className="badge mb-3">{articles[0].author.name}</p>
+                <h3 className="text-lg font-bold leading-8">
+                  {articles[0].title}
+                </h3>
+                <p className="mt-3 line-clamp-3 text-sm leading-7 text-muted">
+                  {articles[0].excerpt}
+                </p>
+              </Link>
+              <Link
+                href="/articles"
+                className="panel border border-dashed border-primary/35 bg-[color-mix(in_srgb,var(--bg-soft)_70%,white)] transition hover:-translate-y-1 hover:border-primary hover:bg-[var(--bg-soft)] hover:shadow-md"
+              >
+                <p className="badge mb-3">مانا کلینیک</p>
+                <h3 className="text-lg font-bold leading-8">همه مقالات</h3>
+                <p className="mt-3 text-sm leading-7 text-muted">
+                  مشاهده آرشیو کامل مقالات روانشناسی
+                </p>
+              </Link>
+            </div>
+          )}
+          {articles.slice(1).map((article) => (
             <Link
               key={article.id}
               href={`/articles/${article.slug}`}
