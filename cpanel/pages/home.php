@@ -56,7 +56,7 @@ ob_start();
   </div>
 </section>
 
-<section class="container-page section">
+<section class="container-page container-page-wide section">
   <div class="home-main-grid">
     <div class="home-content-col">
       <div class="home-specialists-block">

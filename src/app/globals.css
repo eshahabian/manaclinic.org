@@ -58,7 +58,12 @@ a {
 }
 
 .container-page {
-  width: min(1120px, calc(100% - 2rem));
+  width: min(1200px, calc(100% - 2rem));
+  margin-inline: auto;
+}
+
+.container-page-wide {
+  width: min(1240px, calc(100% - 2rem));
   margin-inline: auto;
 }
 
@@ -276,15 +281,25 @@ select.input {
   flex-shrink: 0;
 }
 
+.home-tests-head .muted {
+  font-size: 0.85rem;
+  line-height: 1.6;
+}
+
 @media (min-width: 900px) {
   .home-main-grid {
     grid-template-columns: 1fr auto;
-    gap: 1.5rem 2rem;
+    gap: 1.5rem 2.25rem;
   }
 
   .home-tests-col {
-    width: 10rem;
+    width: 13.5rem;
     justify-self: start;
+  }
+
+  .home-tests-head .muted {
+    white-space: nowrap;
+    font-size: 0.8rem;
   }
 
   .home-tests-grid {

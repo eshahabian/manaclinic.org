@@ -43,7 +43,7 @@ export default async function HomePage() {
         </div>
       </section>
 
-      <section className="container-page mt-16">
+      <section className="container-page container-page-wide mt-16">
         <div className="home-main-grid">
           <div className="home-content-col">
             <div className="home-specialists-block">
