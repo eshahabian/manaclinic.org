@@ -4,7 +4,6 @@ declare(strict_types=1);
 $user = current_user();
 $panelHref = panel_href_for($user);
 $flash = flash_get();
-$showTestsSidebar = should_show_tests_sidebar();
 ?>
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
@@ -54,22 +53,7 @@ $showTestsSidebar = should_show_tests_sidebar();
         <div class="flash flash-<?= e($flash['type']) ?>"><?= e($flash['message']) ?></div>
       </div>
     <?php endif; ?>
-    <?php if ($showTestsSidebar): ?>
-      <?php
-      $shellClass = 'site-content-shell';
-      if (!empty($testsRailMode)) {
-          $shellClass .= ' site-content-shell--' . preg_replace('/[^a-z0-9-]/', '', str_replace('_', '-', (string) $testsRailMode));
-      }
-      ?>
-      <div class="<?= e($shellClass) ?>">
-        <div class="site-content-main">
-          <?= $content ?? '' ?>
-        </div>
-        <?php require __DIR__ . '/tests_rail.php'; ?>
-      </div>
-    <?php else: ?>
-      <?= $content ?? '' ?>
-    <?php endif; ?>
+    <?= $content ?? '' ?>
   </main>
 
   <footer class="site-footer">

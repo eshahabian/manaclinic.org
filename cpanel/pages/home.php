@@ -21,8 +21,6 @@ $articles = $pdo->query("
 $leadArticle = $articles[0] ?? null;
 $moreArticles = array_slice($articles, 1);
 
-$testsRailMode = 'home-articles';
-
 $pageTitle = 'خانه';
 $heroSlides = [
     url('/assets/img/hero.png'),
@@ -88,6 +86,8 @@ ob_start();
     <?php if (!$doctors): ?><p class="muted">هنوز متخصصی ثبت نشده است.</p><?php endif; ?>
   </div>
 </section>
+
+<?php require __DIR__ . '/../includes/home_tests_section.php'; ?>
 
 <section class="container-page section">
   <div class="section-head">

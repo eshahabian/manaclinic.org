@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
+import { psychTestsCatalog } from "@/lib/psych-tests";
 
 export default async function HomePage() {
   const [doctors, articles] = await Promise.all([
@@ -93,6 +94,36 @@ export default async function HomePage() {
             <p className="text-muted">هنوز دکتری ثبت نشده است.</p>
           )}
         </div>
+      </section>
+
+      <section className="container-page mt-20">
+        <div className="mb-8">
+          <h2 className="text-2xl font-bold">آزمون‌ها</h2>
+          <p className="mt-2 text-muted">ابزارهای خودارزیابی روانشناسی</p>
+        </div>
+        <div className="home-tests-grid">
+          {psychTestsCatalog.map((test) => (
+            <Link
+              key={test.slug}
+              href={`/tests/${test.slug}`}
+              className="panel transition hover:-translate-y-1 hover:shadow-md"
+            >
+              <p className="badge mb-3">{test.category}</p>
+              <h3 className="text-lg font-bold leading-8">{test.title}</h3>
+              <p className="mt-3 line-clamp-3 text-sm leading-7 text-muted">
+                {test.description}
+              </p>
+            </Link>
+          ))}
+        </div>
+        <p className="mt-5">
+          <Link
+            href="/tests"
+            className="px-1 text-base font-semibold text-primary hover:underline"
+          >
+            همه آزمون‌ها
+          </Link>
+        </p>
       </section>
 
       <section className="container-page mt-20">

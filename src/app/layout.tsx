@@ -3,7 +3,6 @@ import { Vazirmatn } from "next/font/google";
 import { Providers } from "@/components/providers";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
-import { SiteContentShell } from "@/components/site-content-shell";
 import { ParticleNetwork } from "@/components/particle-network";
 import "./globals.css";
 
@@ -34,9 +33,7 @@ export default function RootLayout({
           <ParticleNetwork />
           <div className="site-layer">
             <SiteHeader />
-            <main>
-              <SiteContentShell>{children}</SiteContentShell>
-            </main>
+            <main>{children}</main>
             <SiteFooter />
           </div>
         </Providers>
