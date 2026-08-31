@@ -53,7 +53,7 @@ export default async function HomePage() {
                   متخصصان با تجربه برای همراهی در مسیر درمان
                 </p>
               </div>
-              <div className="grid items-start gap-5 md:grid-cols-1">
+              <div className="grid items-start gap-5 md:grid-cols-3">
                 {doctors[0] && (
                   <div className="flex flex-col gap-5">
                     <Link

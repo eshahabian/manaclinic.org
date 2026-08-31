@@ -278,8 +278,13 @@ select.input {
 
 @media (min-width: 900px) {
   .home-main-grid {
-    grid-template-columns: 1fr minmax(11.5rem, 14rem);
+    grid-template-columns: 1fr auto;
     gap: 1.5rem 2rem;
+  }
+
+  .home-tests-col {
+    width: 10rem;
+    justify-self: start;
   }
 
   .home-tests-grid {
