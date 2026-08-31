@@ -45,7 +45,8 @@ export function SiteContentShell({ children }: Props) {
                 className={`tests-chip${isActive ? " is-active" : ""}`}
                 title={test.abbr}
               >
-                {test.title}
+                <span className="tests-chip-title">{test.title}</span>
+                <span className="tests-chip-desc">{test.description}</span>
               </Link>
             );
           })}

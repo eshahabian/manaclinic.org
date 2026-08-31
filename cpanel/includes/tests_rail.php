@@ -14,7 +14,10 @@ $tests = psych_tests_catalog();
         href="<?= e(url('/tests/' . $test['slug'])) ?>"
         class="tests-chip<?= $testsSidebarActive === $test['slug'] ? ' is-active' : '' ?>"
         title="<?= e($test['abbr']) ?>"
-      ><?= e($test['title']) ?></a>
+      >
+        <span class="tests-chip-title"><?= e($test['title']) ?></span>
+        <span class="tests-chip-desc"><?= e($test['description']) ?></span>
+      </a>
     <?php endforeach; ?>
   </nav>
 </aside>
