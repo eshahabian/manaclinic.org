@@ -12,23 +12,28 @@ const hiddenPrefixes = [
   "/register",
 ];
 
-export function SiteTestsSidebar() {
-  const pathname = usePathname();
+type Props = {
+  children: React.ReactNode;
+};
 
-  if (hiddenPrefixes.some((prefix) => pathname.startsWith(prefix))) {
-    return null;
+export function SiteContentShell({ children }: Props) {
+  const pathname = usePathname();
+  const showTestsRail = !hiddenPrefixes.some((prefix) =>
+    pathname.startsWith(prefix)
+  );
+
+  if (!showTestsRail) {
+    return <>{children}</>;
   }
 
   return (
-    <aside
-      className="tests-sidebar hidden xl:block"
-      aria-label="آزمون‌های روانشناسی"
-    >
-      <div className="tests-sidebar-inner">
-        <p className="tests-sidebar-title">
+    <div className="site-content-shell">
+      <div className="site-content-main">{children}</div>
+      <aside className="tests-rail" aria-label="آزمون‌های روانشناسی">
+        <p className="tests-rail-title">
           <Link href="/tests">آزمون‌ها</Link>
         </p>
-        <nav className="tests-sidebar-nav">
+        <nav className="tests-rail-nav">
           {psychTestsCatalog.map((test) => {
             const href = `/tests/${test.slug}`;
             const isActive = pathname === href;
@@ -37,16 +42,15 @@ export function SiteTestsSidebar() {
               <Link
                 key={test.slug}
                 href={href}
-                className={`tests-sidebar-link${isActive ? " is-active" : ""}`}
+                className={`tests-chip${isActive ? " is-active" : ""}`}
                 title={test.abbr}
               >
-                <span className="tests-sidebar-link-title">{test.title}</span>
-                <span className="tests-sidebar-link-abbr">{test.abbr}</span>
+                {test.title}
               </Link>
             );
           })}
         </nav>
-      </div>
-    </aside>
+      </aside>
+    </div>
   );
 }

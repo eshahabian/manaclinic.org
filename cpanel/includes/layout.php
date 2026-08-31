@@ -19,11 +19,8 @@ $showTestsSidebar = should_show_tests_sidebar();
     <?= $pageHead ?>
   <?php endif; ?>
 </head>
-<body<?= $showTestsSidebar ? ' class="has-tests-sidebar"' : '' ?>>
+<body>
 <canvas id="particle-canvas" aria-hidden="true"></canvas>
-<?php if ($showTestsSidebar): ?>
-  <?php require __DIR__ . '/tests_sidebar.php'; ?>
-<?php endif; ?>
 <div class="site-layer">
   <header class="site-header">
     <div class="container-page header-inner">
@@ -57,7 +54,16 @@ $showTestsSidebar = should_show_tests_sidebar();
         <div class="flash flash-<?= e($flash['type']) ?>"><?= e($flash['message']) ?></div>
       </div>
     <?php endif; ?>
-    <?= $content ?? '' ?>
+    <?php if ($showTestsSidebar): ?>
+      <div class="site-content-shell">
+        <div class="site-content-main">
+          <?= $content ?? '' ?>
+        </div>
+        <?php require __DIR__ . '/tests_rail.php'; ?>
+      </div>
+    <?php else: ?>
+      <?= $content ?? '' ?>
+    <?php endif; ?>
   </main>
 
   <footer class="site-footer">
