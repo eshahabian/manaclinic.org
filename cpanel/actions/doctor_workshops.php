@@ -37,6 +37,9 @@ function workshop_save_fields_from_post(): array
     if ($type === 'OFFLINE' && trim(post('content_url')) === '') {
         throw new RuntimeException('برای کارگاه آفلاین، لینک محتوا الزامی است.');
     }
+    if ($type === 'IN_PERSON' && trim(post('location')) === '') {
+        throw new RuntimeException('برای کارگاه حضوری، آدرس محل برگزاری را بنویسید.');
+    }
 
     [$location, $meetingUrl, $contentUrl] = workshop_type_urls_from_post($type);
 

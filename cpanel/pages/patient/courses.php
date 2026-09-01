@@ -118,6 +118,8 @@ ob_start();
               <div style="font-size:.85rem;margin-top:.35rem"><a href="<?= e($e['meeting_url']) ?>" target="_blank" rel="noopener">ورود به جلسه آنلاین</a></div>
             <?php elseif ($e['type'] === 'OFFLINE' && $e['content_url']): ?>
               <div style="font-size:.85rem;margin-top:.35rem"><a href="<?= e($e['content_url']) ?>" target="_blank" rel="noopener">دریافت محتوا</a></div>
+            <?php elseif ($e['type'] === 'IN_PERSON' && $e['location']): ?>
+              <div style="font-size:.85rem;margin-top:.35rem">محل: <?= e($e['location']) ?></div>
             <?php endif; ?>
           <?php endif; ?>
         </div>

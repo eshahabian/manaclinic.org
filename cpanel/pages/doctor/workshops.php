@@ -48,6 +48,7 @@ if ($editWorkshop) {
 ob_start();
 ?>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <h1>کارگاه‌ها و دوره‌ها</h1>
 <p class="muted" style="margin-top:.35rem;font-size:.9rem">کارگاه برگزار کنید؛ مراجعان از بخش «دوره‌های من» ثبت‌نام می‌کنند.</p>
 
@@ -84,6 +85,9 @@ ob_start();
             · <?= $workshop['is_published'] ? 'منتشر شده' : 'پیش‌نویس' ?>
             · <?= $workshop['status'] === 'COMPLETED' ? 'برگزار شده' : ($workshop['status'] === 'CANCELLED' ? 'لغو شده' : 'فعال') ?>
           </div>
+          <?php if ($workshop['type'] === 'IN_PERSON' && $workshop['location']): ?>
+            <div class="muted" style="font-size:.8rem;margin-top:.35rem">محل: <?= e($workshop['location']) ?></div>
+          <?php endif; ?>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:.5rem;justify-content:flex-end">
           <?php if ($workshop['status'] !== 'COMPLETED' && $workshop['status'] !== 'CANCELLED'): ?>
@@ -177,6 +181,24 @@ ob_start();
     </div>
   </div>
 
+  <div id="field-in-person" class="workshop-type-block" hidden>
+    <label class="label" for="workshop-location">محل برگزاری</label>
+    <textarea
+      class="input"
+      name="location"
+      id="workshop-location"
+      rows="2"
+      placeholder="آدرس کامل محل برگزاری را بنویسید"
+    ><?= e((string) ($formData['location'] ?? '')) ?></textarea>
+    <p class="muted" style="font-size:.8rem;margin:.5rem 0 0;line-height:1.6">
+      آدرس را دستی بنویسید یا با کلیک روی نقشه، موقعیت را انتخاب کنید (در صورت امکان آدرس خودکار پر می‌شود).
+    </p>
+    <button type="button" class="btn btn-outline btn-sm" id="toggle-workshop-map" style="margin-top:.5rem">انتخاب روی نقشه</button>
+    <div id="workshop-map-wrap" hidden style="margin-top:.75rem">
+      <div id="workshop-map" style="height:280px;border-radius:.75rem;border:1px solid var(--line);z-index:1"></div>
+    </div>
+  </div>
+
   <div id="field-online" class="workshop-type-block" hidden>
     <label class="label">لینک جلسه آنلاین</label>
     <input class="input" name="meeting_url" dir="ltr" placeholder="https://..." value="<?= e((string) ($formData['meeting_url'] ?? '')) ?>">
@@ -207,6 +229,7 @@ ob_start();
 
 <script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
 (function(){
   function faToEn(str){ return String(str).replace(/[۰-۹]/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹".indexOf(d); }); }
@@ -223,14 +246,70 @@ ob_start();
   }
 
   var typeSelect = document.getElementById("workshop-type");
+  var blockInPerson = document.getElementById("field-in-person");
   var blockOnline = document.getElementById("field-online");
   var blockOffline = document.getElementById("field-offline");
+  var locationInput = document.getElementById("workshop-location");
+  var mapWrap = document.getElementById("workshop-map-wrap");
+  var mapToggle = document.getElementById("toggle-workshop-map");
+  var mapInstance = null;
+  var mapMarker = null;
 
   function syncTypeBlocks(){
     if (!typeSelect) return;
     var t = typeSelect.value;
+    if (blockInPerson) blockInPerson.hidden = t !== "IN_PERSON";
     if (blockOnline) blockOnline.hidden = t !== "ONLINE";
     if (blockOffline) blockOffline.hidden = t !== "OFFLINE";
+    if (locationInput) {
+      locationInput.required = t === "IN_PERSON";
+    }
+  }
+
+  function initWorkshopMap(){
+    if (mapInstance || !window.L) return;
+    var el = document.getElementById("workshop-map");
+    if (!el) return;
+    mapInstance = L.map(el, { scrollWheelZoom: true }).setView([35.6892, 51.3890], 11);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+      maxZoom: 19,
+      attribution: "&copy; OpenStreetMap"
+    }).addTo(mapInstance);
+    mapInstance.on("click", function(e){
+      var lat = e.latlng.lat;
+      var lng = e.latlng.lng;
+      if (mapMarker) mapMarker.setLatLng(e.latlng);
+      else mapMarker = L.marker(e.latlng).addTo(mapInstance);
+      if (locationInput) {
+        locationInput.value = "در حال دریافت آدرس...";
+      }
+      fetch("https://nominatim.openstreetmap.org/reverse?format=json&lat=" + lat + "&lon=" + lng + "&accept-language=fa", {
+        headers: { "Accept-Language": "fa" }
+      })
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+          if (locationInput && data && data.display_name) {
+            locationInput.value = data.display_name;
+          } else if (locationInput) {
+            locationInput.value = lat.toFixed(5) + ", " + lng.toFixed(5);
+          }
+        })
+        .catch(function(){
+          if (locationInput) {
+            locationInput.value = lat.toFixed(5) + ", " + lng.toFixed(5) + " (آدرس را تکمیل کنید)";
+          }
+        });
+    });
+    setTimeout(function(){ mapInstance.invalidateSize(); }, 200);
+  }
+
+  if (mapToggle && mapWrap) {
+    mapToggle.addEventListener("click", function(){
+      var open = mapWrap.hidden;
+      mapWrap.hidden = !open;
+      mapToggle.textContent = open ? "بستن نقشه" : "انتخاب روی نقشه";
+      if (open) initWorkshopMap();
+    });
   }
 
   if (typeSelect) {
@@ -270,6 +349,11 @@ ob_start();
       if (!sd || !sd.value || !ed || !ed.value) {
         e.preventDefault();
         alert("تاریخ شروع و پایان را از تقویم شمسی انتخاب کنید.");
+        return;
+      }
+      if (typeSelect && typeSelect.value === "IN_PERSON" && locationInput && !locationInput.value.trim()) {
+        e.preventDefault();
+        alert("آدرس محل برگزاری را بنویسید.");
       }
     });
   }

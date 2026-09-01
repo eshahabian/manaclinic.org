@@ -126,7 +126,9 @@ function workshop_type_urls_from_post(string $type): array
     $location = null;
     $meetingUrl = null;
     $contentUrl = null;
-    if ($type === 'ONLINE') {
+    if ($type === 'IN_PERSON') {
+        $location = trim(post('location')) ?: null;
+    } elseif ($type === 'ONLINE') {
         $meetingUrl = trim(post('meeting_url')) ?: null;
     } elseif ($type === 'OFFLINE') {
         $contentUrl = trim(post('content_url')) ?: null;
