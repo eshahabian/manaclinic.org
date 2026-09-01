@@ -1,15 +1,11 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/../includes/doctor_panel.php';
-require_once __DIR__ . '/../includes/workshops.php';
+require_once __DIR__ . '/../../includes/doctor_panel.php';
+require_once __DIR__ . '/../../includes/workshops.php';
 
 $ctx = require_doctor_profile($pdo);
 ensure_workshop_schema($pdo);
-
-if ($action === 'create' || post('action') === 'create') {
-    // handled in POST action file only
-}
 
 $editId = trim((string) ($_GET['edit'] ?? ''));
 $editWorkshop = null;
