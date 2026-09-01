@@ -1,14 +1,57 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/../includes/workshops.php';
+
 $authority = (string) ($_GET['Authority'] ?? $_GET['authority'] ?? '');
 $status = (string) ($_GET['Status'] ?? $_GET['status'] ?? '');
+$kind = (string) ($_GET['kind'] ?? '');
 
 if ($authority === '') {
     flash_set('error', 'اطلاعات پرداخت ناقص بود.');
     redirect('/dashboard/appointments');
 }
 
+// پرداخت کارگاه
+if ($kind === 'workshop') {
+    $stmt = $pdo->prepare('SELECT * FROM workshop_payments WHERE authority = ? LIMIT 1');
+    $stmt->execute([$authority]);
+    $payment = $stmt->fetch();
+    if (!$payment) {
+        flash_set('error', 'تراکنش کارگاه یافت نشد.');
+        redirect('/dashboard/courses');
+    }
+
+    if ($status !== 'OK') {
+        $pdo->prepare("UPDATE workshop_payments SET status='FAILED' WHERE id=?")->execute([$payment['id']]);
+        $pdo->prepare("UPDATE workshop_enrollments SET status='CANCELLED' WHERE id=?")->execute([$payment['enrollment_id']]);
+        flash_set('error', 'پرداخت لغو شد.');
+        redirect('/dashboard/courses');
+    }
+
+    $onlineAmount = (int) $payment['amount'] - (int) ($payment['wallet_amount'] ?? 0);
+    $verified = zarinpal_verify($config, $authority, $onlineAmount);
+    if (empty($verified['ok'])) {
+        $pdo->prepare("UPDATE workshop_payments SET status='FAILED' WHERE id=?")->execute([$payment['id']]);
+        $pdo->prepare("UPDATE workshop_enrollments SET status='CANCELLED' WHERE id=?")->execute([$payment['enrollment_id']]);
+        flash_set('error', $verified['message'] ?? 'پرداخت ناموفق بود.');
+        redirect('/dashboard/courses');
+    }
+
+    $pdo->beginTransaction();
+    try {
+        $payment['ref_id'] = $verified['refId'] ?? null;
+        confirm_workshop_payment($pdo, $payment);
+        $pdo->commit();
+        flash_set('success', 'پرداخت کارگاه با موفقیت انجام شد.');
+    } catch (Throwable $e) {
+        $pdo->rollBack();
+        flash_set('error', $e->getMessage());
+    }
+    redirect('/dashboard/courses');
+}
+
+// پرداخت نوبت (قبلی)
 $stmt = $pdo->prepare('SELECT * FROM payments WHERE authority = ? LIMIT 1');
 $stmt->execute([$authority]);
 $payment = $stmt->fetch();

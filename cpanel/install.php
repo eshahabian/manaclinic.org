@@ -4,6 +4,8 @@ declare(strict_types=1);
 // install.php از index هم قابل دسترسی است
 require_once __DIR__ . '/includes/helpers.php';
 require_once __DIR__ . '/includes/name_transliterations.php';
+require_once __DIR__ . '/includes/wallet.php';
+require_once __DIR__ . '/includes/workshops.php';
 
 $config = require __DIR__ . '/config.php';
 $error = null;
@@ -348,6 +350,12 @@ try {
     }
 
     ensure_name_transliterations_schema($pdo);
+
+    ensure_workshop_schema($pdo);
+    $users = $pdo->query('SELECT id FROM users')->fetchAll();
+    foreach ($users as $u) {
+        ensure_wallet($pdo, (string) $u['id']);
+    }
 
     $ok = true;
 } catch (Throwable $e) {

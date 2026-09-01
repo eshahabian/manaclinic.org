@@ -23,8 +23,11 @@ require_once __DIR__ . '/includes/zarinpal.php';
 require_once __DIR__ . '/includes/view.php';
 require_once __DIR__ . '/includes/notifications.php';
 require_once __DIR__ . '/includes/psych_tests.php';
+require_once __DIR__ . '/includes/wallet.php';
+require_once __DIR__ . '/includes/workshops.php';
 
 $pdo = db_connect($config);
+ensure_workshop_schema($pdo);
 
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 $base = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/\\');
@@ -57,9 +60,13 @@ $routes = [
     'GET /dashboard' => 'pages/patient/dashboard.php',
     'GET /dashboard/appointments' => 'pages/patient/appointments.php',
     'GET /dashboard/courses' => 'pages/patient/courses.php',
+    'GET /dashboard/wallet' => 'pages/patient/wallet.php',
     'GET /dashboard/profile' => 'pages/patient/profile.php',
     'POST /dashboard/profile' => 'actions/patient_profile.php',
     'POST /dashboard/pay' => 'actions/pay_appointment.php',
+    'POST /enroll-workshop' => 'actions/enroll_workshop.php',
+    'POST /pay-workshop' => 'actions/pay_workshop.php',
+    'POST /cancel-enrollment' => 'actions/cancel_enrollment.php',
     'POST /book' => 'actions/book.php',
 
     'GET /secretary' => 'pages/secretary/dashboard.php',
@@ -76,6 +83,8 @@ $routes = [
     'POST /doctor/availability' => 'actions/doctor_availability.php',
     'GET /doctor/appointments' => 'pages/doctor/appointments.php',
     'POST /doctor/appointments' => 'actions/doctor_appointments.php',
+    'GET /doctor/workshops' => 'pages/doctor/workshops.php',
+    'POST /doctor/workshops' => 'actions/doctor_workshops.php',
     'GET /doctor/articles' => 'pages/doctor/articles.php',
     'POST /doctor/articles' => 'actions/doctor_articles.php',
     'GET /doctor/patients' => 'pages/doctor/patients.php',

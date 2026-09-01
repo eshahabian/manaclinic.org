@@ -8,6 +8,7 @@ function doctor_nav(): array {
         ['href' => '/doctor/profile', 'label' => 'پروفایل حرفه‌ای'],
         ['href' => '/doctor/availability', 'label' => 'روزهای خالی'],
         ['href' => '/doctor/appointments', 'label' => 'نوبت‌ها'],
+        ['href' => '/doctor/workshops', 'label' => 'کارگاه‌ها'],
         ['href' => '/doctor/articles', 'label' => 'مقالات'],
     ];
 }

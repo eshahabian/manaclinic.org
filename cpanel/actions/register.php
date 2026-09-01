@@ -73,6 +73,8 @@ if ($exists->fetch()) {
     redirect('/register?role=' . $role);
 }
 
+require_once __DIR__ . '/../includes/wallet.php';
+
 $id = cuid();
 $email = $username . '@manaclinic.local';
 
@@ -81,6 +83,7 @@ if ($role === 'DOCTOR') {
         ->execute([$id, $username, $name, $email, $phone, password_hash($password, PASSWORD_DEFAULT), 'DOCTOR', null]);
     $pdo->prepare('INSERT INTO doctor_profiles (id,user_id,specialty,bio,session_price,is_approved,is_active) VALUES (?,?,?,?,?,?,?)')
         ->execute([cuid(), $id, $specialty, '', 3000000, 0, 0]);
+    ensure_wallet($pdo, $id);
     remember_registration_name_transliterations($pdo, $firstName, $lastName, $nameEn, $surname);
     flash_set('success', 'درخواست ثبت‌نام شما ثبت شد. پس از تأیید مدیر سایت می‌توانید وارد شوید.');
     redirect('/login');
@@ -88,6 +91,8 @@ if ($role === 'DOCTOR') {
 
 $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,preferred_doctor_id,must_change_password) VALUES (?,?,?,?,?,?,?,?,0)')
     ->execute([$id, $username, $name, $email, $phone, password_hash($password, PASSWORD_DEFAULT), 'PATIENT', $preferredDoctorId]);
+
+ensure_wallet($pdo, $id);
 
 remember_registration_name_transliterations($pdo, $firstName, $lastName, $nameEn, $surname);
 
