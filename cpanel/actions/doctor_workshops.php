@@ -31,9 +31,6 @@ function workshop_save_fields_from_post(): array
         throw new RuntimeException('زمان پایان باید بعد از شروع باشد.');
     }
 
-    if ($type === 'IN_PERSON' && workshop_location_from_post() === null) {
-        throw new RuntimeException('برای کارگاه حضوری، محل برگزاری را انتخاب کنید.');
-    }
     if ($type === 'ONLINE' && trim(post('meeting_url')) === '') {
         throw new RuntimeException('برای کارگاه آنلاین، لینک جلسه الزامی است.');
     }

@@ -31,7 +31,6 @@ $stmt->execute([$ctx['profile']['id']]);
 $workshops = $stmt->fetchAll();
 $doctorWallet = ensure_wallet($pdo, $ctx['user']['id']);
 $flash = flash_get();
-$locationPresets = workshop_location_presets();
 
 $formAction = $editWorkshop ? 'update' : 'create';
 $formTitle = $editWorkshop ? 'ویرایش کارگاه' : 'کارگاه جدید';
@@ -41,13 +40,9 @@ $formData = $editWorkshop ?: [];
 if ($editWorkshop) {
     $startParts = workshop_datetime_parts((string) $editWorkshop['starts_at']);
     $endParts = workshop_datetime_parts((string) $editWorkshop['ends_at']);
-    $locationKey = workshop_location_preset_key($editWorkshop['location'] ?? null);
-    $locationCustom = $locationKey === '__custom__' ? (string) ($editWorkshop['location'] ?? '') : '';
 } else {
     $startParts = ['date' => '', 'time' => '10:00', 'jalali' => ''];
     $endParts = ['date' => '', 'time' => '12:00', 'jalali' => ''];
-    $locationKey = '';
-    $locationCustom = '';
 }
 
 ob_start();
@@ -89,9 +84,6 @@ ob_start();
             · <?= $workshop['is_published'] ? 'منتشر شده' : 'پیش‌نویس' ?>
             · <?= $workshop['status'] === 'COMPLETED' ? 'برگزار شده' : ($workshop['status'] === 'CANCELLED' ? 'لغو شده' : 'فعال') ?>
           </div>
-          <?php if ($workshop['type'] === 'IN_PERSON' && $workshop['location']): ?>
-            <div class="muted" style="font-size:.8rem;margin-top:.35rem">محل: <?= e($workshop['location']) ?></div>
-          <?php endif; ?>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:.5rem;justify-content:flex-end">
           <?php if ($workshop['status'] !== 'COMPLETED' && $workshop['status'] !== 'CANCELLED'): ?>
@@ -185,25 +177,6 @@ ob_start();
     </div>
   </div>
 
-  <div id="field-in-person" class="workshop-type-block" hidden>
-    <label class="label">محل برگزاری</label>
-    <select class="input" name="location_preset" id="location-preset">
-      <option value="">— انتخاب محل —</option>
-      <?php foreach ($locationPresets as $key => $label): ?>
-        <option value="<?= e($key) ?>"<?= $locationKey === $key ? ' selected' : '' ?>><?= e($label) ?></option>
-      <?php endforeach; ?>
-    </select>
-    <input
-      class="input"
-      type="text"
-      name="location_custom"
-      id="location-custom"
-      style="margin-top:.5rem"
-      placeholder="آدرس کامل را بنویسید"
-      value="<?= e($locationCustom) ?>"
-    >
-  </div>
-
   <div id="field-online" class="workshop-type-block" hidden>
     <label class="label">لینک جلسه آنلاین</label>
     <input class="input" name="meeting_url" dir="ltr" placeholder="https://..." value="<?= e((string) ($formData['meeting_url'] ?? '')) ?>">
@@ -250,35 +223,19 @@ ob_start();
   }
 
   var typeSelect = document.getElementById("workshop-type");
-  var blockInPerson = document.getElementById("field-in-person");
   var blockOnline = document.getElementById("field-online");
   var blockOffline = document.getElementById("field-offline");
-  var locationPreset = document.getElementById("location-preset");
-  var locationCustom = document.getElementById("location-custom");
-
-  function syncLocationCustom(){
-    if (!locationPreset || !locationCustom) return;
-    var show = locationPreset.value === "__custom__";
-    locationCustom.style.display = show ? "block" : "none";
-    locationCustom.required = show && typeSelect && typeSelect.value === "IN_PERSON";
-  }
 
   function syncTypeBlocks(){
     if (!typeSelect) return;
     var t = typeSelect.value;
-    if (blockInPerson) blockInPerson.hidden = t !== "IN_PERSON";
     if (blockOnline) blockOnline.hidden = t !== "ONLINE";
     if (blockOffline) blockOffline.hidden = t !== "OFFLINE";
-    syncLocationCustom();
   }
 
   if (typeSelect) {
     typeSelect.addEventListener("change", syncTypeBlocks);
     syncTypeBlocks();
-  }
-  if (locationPreset) {
-    locationPreset.addEventListener("change", syncLocationCustom);
-    syncLocationCustom();
   }
 
   jalaliDatepicker.startWatch({
@@ -313,18 +270,6 @@ ob_start();
       if (!sd || !sd.value || !ed || !ed.value) {
         e.preventDefault();
         alert("تاریخ شروع و پایان را از تقویم شمسی انتخاب کنید.");
-        return;
-      }
-      if (typeSelect && typeSelect.value === "IN_PERSON" && locationPreset) {
-        if (!locationPreset.value) {
-          e.preventDefault();
-          alert("محل برگزاری را انتخاب کنید.");
-          return;
-        }
-        if (locationPreset.value === "__custom__" && locationCustom && !locationCustom.value.trim()) {
-          e.preventDefault();
-          alert("آدرس محل برگزاری را بنویسید.");
-        }
       }
     });
   }
