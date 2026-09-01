@@ -19,6 +19,18 @@ if (!isset($sections[$active])) {
 }
 $dbType = workshop_type_from_tab($active);
 
+$tabCounts = $pdo->query("
+  SELECT w.type, COUNT(*) AS cnt
+  FROM workshops w
+  WHERE w.is_published = 1 AND w.status = 'PUBLISHED' AND w.starts_at > NOW()
+  GROUP BY w.type
+")->fetchAll(PDO::FETCH_KEY_PAIR);
+$countForTab = static function (string $tab): int {
+    global $tabCounts;
+    $type = workshop_type_from_tab($tab);
+    return (int) ($tabCounts[$type] ?? 0);
+};
+
 $available = $pdo->prepare("
   SELECT w.*, u.name AS doctor_name
   FROM workshops w
@@ -57,7 +69,9 @@ ob_start();
 
   <nav class="course-tabs" aria-label="دسته‌بندی دوره‌ها">
     <?php foreach ($sections as $key => $label): ?>
-      <a href="<?= e(url('/dashboard/courses?type=' . $key)) ?>" class="course-tab<?= $active === $key ? ' active' : '' ?>"><?= e($label) ?></a>
+      <a href="<?= e(url('/dashboard/courses?type=' . $key)) ?>" class="course-tab<?= $active === $key ? ' active' : '' ?>">
+        <?= e($label) ?><?php $n = $countForTab($key); if ($n > 0): ?> <span class="course-tab-count"><?= $n ?></span><?php endif; ?>
+      </a>
     <?php endforeach; ?>
   </nav>
 
@@ -96,7 +110,11 @@ ob_start();
       </div>
     <?php endforeach; ?>
     <?php if (!$availableWorkshops): ?>
-      <p class="muted">کارگاه فعالی برای ثبت‌نام نیست.</p>
+      <p class="muted">کارگاه فعالی برای ثبت‌نام در این دسته نیست.</p>
+      <ul class="muted" style="font-size:.85rem;margin:.5rem 0 0;padding-right:1.1rem">
+        <li>کارگاه <strong>حضوری</strong> را در تب «دوره‌های حضوری»، <strong>آنلاین</strong> و <strong>آفلاین</strong> را در تب مربوطه ببینید.</li>
+        <li>پزشک باید کارگاه را <strong>منتشر</strong> کرده باشد و زمان شروع هنوز نگذشته باشد.</li>
+      </ul>
     <?php endif; ?>
   </section>
 
@@ -150,6 +168,8 @@ ob_start();
   .course-tab { padding: .55rem .9rem; border-radius: .65rem; border: 1px solid var(--line); color: var(--muted); font-size: .9rem; background: #fff; }
   .course-tab:hover { border-color: var(--primary); color: var(--primary); }
   .course-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
+  .course-tab-count { font-size: .75rem; opacity: .9; }
+  .course-tab.active .course-tab-count { opacity: 1; }
   #course-msg.ok { color: var(--success); }
   #course-msg.err { color: var(--danger); }
 </style>

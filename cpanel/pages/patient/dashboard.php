@@ -20,7 +20,14 @@ ob_start();
 ?>
 <div>
   <h1>سلام <?= e($user['name']) ?></h1>
-  <p class="muted">نوبت‌ها و وضعیت پرداخت‌های خود را اینجا ببینید.</p>
+  <p class="muted">نوبت‌ها، دوره‌ها و وضعیت پرداخت‌های خود را اینجا ببینید.</p>
+  <div class="panel row-between" style="margin-top:1rem;font-size:.9rem">
+    <div>
+      <strong>دوره‌ها و کارگاه‌ها</strong>
+      <div class="muted" style="font-size:.85rem;margin-top:.25rem">ثبت‌نام در کارگاه‌های حضوری، آنلاین و آفلاین</div>
+    </div>
+    <a class="btn btn-outline btn-sm" href="<?= e(url('/dashboard/courses')) ?>">دوره‌های من</a>
+  </div>
   <div class="panel" style="margin-top:1.5rem">
     <div class="row-between" style="margin-bottom:1rem">
       <h2 style="margin:0;font-size:1.1rem">آخرین نوبت‌ها</h2>

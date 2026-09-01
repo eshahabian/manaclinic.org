@@ -10,6 +10,8 @@ if (!is_file($configFile)) {
 
 $config = require $configFile;
 
+date_default_timezone_set($config['timezone'] ?? 'Asia/Tehran');
+
 session_name($config['session_name'] ?? 'mana_clinic_sess');
 if (session_status() !== PHP_SESSION_ACTIVE) {
     session_start();

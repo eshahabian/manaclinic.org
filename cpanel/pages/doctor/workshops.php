@@ -88,6 +88,13 @@ ob_start();
           <?php if ($workshop['type'] === 'IN_PERSON' && $workshop['location']): ?>
             <div class="muted" style="font-size:.8rem;margin-top:.35rem">محل: <?= e($workshop['location']) ?></div>
           <?php endif; ?>
+          <?php if (!$workshop['is_published'] || $workshop['status'] !== 'PUBLISHED'): ?>
+            <p style="color:var(--danger);font-size:.8rem;margin-top:.5rem">مراجعان این کارگاه را نمی‌بینند — دکمه «انتشار» را بزنید.</p>
+          <?php elseif (strtotime((string) $workshop['starts_at']) <= time()): ?>
+            <p style="color:var(--muted);font-size:.8rem;margin-top:.5rem">زمان شروع گذشته — در لیست ثبت‌نام مراجعان نمایش داده نمی‌شود.</p>
+          <?php else: ?>
+            <p style="color:var(--success);font-size:.8rem;margin-top:.5rem">برای مراجعان در «دوره‌های من» → تب <?= e(workshop_type_label($workshop['type'])) ?> قابل مشاهده است.</p>
+          <?php endif; ?>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:.5rem;justify-content:flex-end">
           <?php if ($workshop['status'] !== 'COMPLETED' && $workshop['status'] !== 'CANCELLED'): ?>
@@ -222,7 +229,11 @@ ob_start();
     <textarea class="input" name="notes" rows="3" placeholder="یادداشت داخلی یا توضیحات تکمیلی"><?= e((string) ($formData['notes'] ?? '')) ?></textarea>
   </div>
   <label style="display:flex;gap:.5rem;align-items:center;font-size:.9rem">
-    <input type="checkbox" name="published" <?= ($editWorkshop ? (bool)$editWorkshop['is_published'] : true) ? 'checked' : '' ?>> انتشار برای مراجعان
+    <?php if ($editWorkshop): ?>
+      <span class="muted">وضعیت انتشار: <strong><?= $editWorkshop['is_published'] ? 'منتشر شده' : 'پیش‌نویس' ?></strong> — برای تغییر از دکمه «انتشار / لغو انتشار» در لیست بالا استفاده کنید.</span>
+    <?php else: ?>
+      <input type="checkbox" name="published" checked> انتشار برای مراجعان (در «دوره‌های من» نمایش داده شود)
+    <?php endif; ?>
   </label>
   <button class="btn btn-primary" type="submit"><?= e($formSubmit) ?></button>
 </form>

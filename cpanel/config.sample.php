@@ -11,6 +11,7 @@ return [
 
     'app_name' => 'مانا کلینیک',
     'app_url' => 'https://manaclinic.org', // بدون اسلش آخر
+    'timezone' => 'Asia/Tehran',
 
     'zarinpal_merchant_id' => 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX',
     'zarinpal_sandbox' => true, // بعد از گرفتن مرچنت واقعی false کنید

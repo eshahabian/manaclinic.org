@@ -121,10 +121,11 @@ if ($action === 'update') {
         redirect('/doctor/workshops?edit=' . urlencode($id));
     }
 
+    // ویرایش محتوا — وضعیت انتشار فقط با دکمه «انتشار / لغو انتشار» تغییر می‌کند
     $pdo->prepare('
       UPDATE workshops SET
         title=?, type=?, starts_at=?, ends_at=?, items_to_bring=?, notes=?, description=?,
-        price=?, capacity=?, location=?, meeting_url=?, content_url=?, is_published=?, status=?
+        price=?, capacity=?, location=?, meeting_url=?, content_url=?
       WHERE id=? AND doctor_id=?
     ')->execute([
         $data['title'],
@@ -139,8 +140,6 @@ if ($action === 'update') {
         $data['location'],
         $data['meeting_url'],
         $data['content_url'],
-        $data['published'] ? 1 : 0,
-        $data['published'] ? 'PUBLISHED' : 'DRAFT',
         $id,
         $ctx['profile']['id'],
     ]);
