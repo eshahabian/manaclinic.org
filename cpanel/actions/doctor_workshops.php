@@ -8,7 +8,8 @@ $ctx = require_doctor_profile($pdo);
 ensure_workshop_schema($pdo);
 $action = post('action');
 
-if ($action === 'create') {
+function workshop_save_fields_from_post(): array
+{
     $title = trim(post('title'));
     $type = post('type');
     $startDate = post('start_date');
@@ -21,14 +22,49 @@ if ($action === 'create') {
     $published = isset($_POST['published']);
 
     if ($title === '' || !in_array($type, ['IN_PERSON', 'ONLINE', 'OFFLINE'], true)) {
-        flash_set('error', 'اطلاعات کارگاه ناقص است.');
-        redirect('/doctor/workshops');
+        throw new RuntimeException('اطلاعات کارگاه ناقص است.');
     }
 
     $startsAt = $startDate . ' ' . $startTime . ':00';
     $endsAt = $endDate . ' ' . $endTime . ':00';
     if (strtotime($endsAt) <= strtotime($startsAt)) {
-        flash_set('error', 'زمان پایان باید بعد از شروع باشد.');
+        throw new RuntimeException('زمان پایان باید بعد از شروع باشد.');
+    }
+
+    if ($type === 'IN_PERSON' && workshop_location_from_post() === null) {
+        throw new RuntimeException('برای کارگاه حضوری، محل برگزاری را انتخاب کنید.');
+    }
+    if ($type === 'ONLINE' && trim(post('meeting_url')) === '') {
+        throw new RuntimeException('برای کارگاه آنلاین، لینک جلسه الزامی است.');
+    }
+    if ($type === 'OFFLINE' && trim(post('content_url')) === '') {
+        throw new RuntimeException('برای کارگاه آفلاین، لینک محتوا الزامی است.');
+    }
+
+    [$location, $meetingUrl, $contentUrl] = workshop_type_urls_from_post($type);
+
+    return [
+        'title' => $title,
+        'type' => $type,
+        'starts_at' => $startsAt,
+        'ends_at' => $endsAt,
+        'price' => $price,
+        'capacity' => $capacity,
+        'published' => $published,
+        'items_to_bring' => trim(post('items_to_bring')) ?: null,
+        'notes' => trim(post('notes')) ?: null,
+        'description' => trim(post('description')) ?: null,
+        'location' => $location,
+        'meeting_url' => $meetingUrl,
+        'content_url' => $contentUrl,
+    ];
+}
+
+if ($action === 'create') {
+    try {
+        $data = workshop_save_fields_from_post();
+    } catch (RuntimeException $e) {
+        flash_set('error', $e->getMessage());
         redirect('/doctor/workshops');
     }
 
@@ -40,22 +76,75 @@ if ($action === 'create') {
     ')->execute([
         $id,
         $ctx['profile']['id'],
-        $title,
-        $type,
-        $startsAt,
-        $endsAt,
-        trim(post('items_to_bring')) ?: null,
-        trim(post('notes')) ?: null,
-        trim(post('description')) ?: null,
-        $price,
-        $capacity,
-        trim(post('location')) ?: null,
-        trim(post('meeting_url')) ?: null,
-        trim(post('content_url')) ?: null,
-        $published ? 1 : 0,
-        $published ? 'PUBLISHED' : 'DRAFT',
+        $data['title'],
+        $data['type'],
+        $data['starts_at'],
+        $data['ends_at'],
+        $data['items_to_bring'],
+        $data['notes'],
+        $data['description'],
+        $data['price'],
+        $data['capacity'],
+        $data['location'],
+        $data['meeting_url'],
+        $data['content_url'],
+        $data['published'] ? 1 : 0,
+        $data['published'] ? 'PUBLISHED' : 'DRAFT',
     ]);
     flash_set('success', 'کارگاه ایجاد شد.');
+    redirect('/doctor/workshops');
+}
+
+if ($action === 'update') {
+    $id = post('id');
+    if ($id === '') {
+        flash_set('error', 'کارگاه یافت نشد.');
+        redirect('/doctor/workshops');
+    }
+
+    $own = $pdo->prepare('SELECT id, status FROM workshops WHERE id=? AND doctor_id=?');
+    $own->execute([$id, $ctx['profile']['id']]);
+    $existing = $own->fetch();
+    if (!$existing) {
+        flash_set('error', 'کارگاه یافت نشد.');
+        redirect('/doctor/workshops');
+    }
+    if (in_array($existing['status'], ['COMPLETED', 'CANCELLED'], true)) {
+        flash_set('error', 'کارگاه برگزار شده یا لغو شده قابل ویرایش نیست.');
+        redirect('/doctor/workshops');
+    }
+
+    try {
+        $data = workshop_save_fields_from_post();
+    } catch (RuntimeException $e) {
+        flash_set('error', $e->getMessage());
+        redirect('/doctor/workshops?edit=' . urlencode($id));
+    }
+
+    $pdo->prepare('
+      UPDATE workshops SET
+        title=?, type=?, starts_at=?, ends_at=?, items_to_bring=?, notes=?, description=?,
+        price=?, capacity=?, location=?, meeting_url=?, content_url=?, is_published=?, status=?
+      WHERE id=? AND doctor_id=?
+    ')->execute([
+        $data['title'],
+        $data['type'],
+        $data['starts_at'],
+        $data['ends_at'],
+        $data['items_to_bring'],
+        $data['notes'],
+        $data['description'],
+        $data['price'],
+        $data['capacity'],
+        $data['location'],
+        $data['meeting_url'],
+        $data['content_url'],
+        $data['published'] ? 1 : 0,
+        $data['published'] ? 'PUBLISHED' : 'DRAFT',
+        $id,
+        $ctx['profile']['id'],
+    ]);
+    flash_set('success', 'تغییرات کارگاه ذخیره شد.');
     redirect('/doctor/workshops');
 }
 

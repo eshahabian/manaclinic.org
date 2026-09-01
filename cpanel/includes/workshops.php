@@ -121,6 +121,73 @@ function workshop_has_capacity(PDO $pdo, array $workshop): bool
     return workshop_enrollment_count($pdo, $workshop['id']) < (int) $workshop['capacity'];
 }
 
+function workshop_location_presets(): array
+{
+    return [
+        'mana_main' => 'مانا کلینیک — دفتر مرکزی',
+        'mana_group' => 'مانا کلینیک — سالن جلسات گروهی',
+        '__custom__' => 'آدرس دیگر (دستی)',
+    ];
+}
+
+function workshop_location_from_post(): ?string
+{
+    $preset = trim(post('location_preset'));
+    if ($preset === '__custom__') {
+        return trim(post('location_custom')) ?: null;
+    }
+    if ($preset !== '') {
+        $presets = workshop_location_presets();
+        return $presets[$preset] ?? $preset;
+    }
+    return trim(post('location')) ?: null;
+}
+
+function workshop_type_urls_from_post(string $type): array
+{
+    $location = null;
+    $meetingUrl = null;
+    $contentUrl = null;
+    if ($type === 'IN_PERSON') {
+        $location = workshop_location_from_post();
+    } elseif ($type === 'ONLINE') {
+        $meetingUrl = trim(post('meeting_url')) ?: null;
+    } elseif ($type === 'OFFLINE') {
+        $contentUrl = trim(post('content_url')) ?: null;
+    }
+    return [$location, $meetingUrl, $contentUrl];
+}
+
+function workshop_datetime_parts(string $datetime): array
+{
+    $ts = strtotime($datetime);
+    if (!$ts) {
+        return ['date' => '', 'time' => '', 'jalali' => ''];
+    }
+    $ymd = date('Y-m-d', $ts);
+    $time = date('H:i', $ts);
+    [$jy, $jm, $jd] = gregorian_to_jalali(
+        (int) date('Y', $ts),
+        (int) date('m', $ts),
+        (int) date('d', $ts)
+    );
+    $jalali = $jy . '/' . $jm . '/' . $jd;
+    return ['date' => $ymd, 'time' => $time, 'jalali' => $jalali];
+}
+
+function workshop_location_preset_key(?string $location): string
+{
+    if ($location === null || $location === '') {
+        return '';
+    }
+    foreach (workshop_location_presets() as $key => $label) {
+        if ($key !== '__custom__' && $label === $location) {
+            return $key;
+        }
+    }
+    return '__custom__';
+}
+
 function confirm_workshop_payment(PDO $pdo, array $paymentRow): void
 {
     $pdo->prepare("UPDATE workshop_payments SET status='PAID', ref_id=? WHERE id=?")
