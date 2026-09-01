@@ -10,12 +10,6 @@ if (!$user || $user['role'] !== 'PATIENT') {
     exit;
 }
 
-if (!online_payment_enabled($config)) {
-    http_response_code(503);
-    echo json_encode(['error' => online_payment_disabled_message()], JSON_UNESCAPED_UNICODE);
-    exit;
-}
-
 $doctorId = post('doctorId');
 $date = post('date');
 $time = post('time');
@@ -79,11 +73,6 @@ try {
         ->execute([$appointmentId, $doctorId, $user['id'], $startsAt, $endsAt, 'PENDING_PAYMENT']);
     $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,status) VALUES (?,?,?,?)')
         ->execute([$paymentId, $appointmentId, $amount, 'PENDING']);
-
-    $callback = rtrim($config['app_url'], '/') . '/payments/verify';
-    $pay = zarinpal_request($config, $amount, 'پرداخت نوبت مانا کلینیک - ' . $appointmentId, $callback, $user['email'] ?? null);
-
-    $pdo->prepare('UPDATE payments SET authority=? WHERE id=?')->execute([$pay['authority'], $paymentId]);
     $pdo->commit();
 
     $patientName = (string) ($user['name'] ?? 'مراجعه‌کننده');
@@ -102,6 +91,19 @@ try {
         "مراجعه‌کننده «{$patientName}» برای {$when} نوبت رزرو کرد (در انتظار پرداخت).",
         '/doctor/appointments'
     );
+
+    if (!online_payment_enabled($config)) {
+        echo json_encode([
+            'appointmentId' => $appointmentId,
+            'paymentDisabled' => true,
+            'message' => 'نوبت با موفقیت ثبت شد. برای پرداخت به بخش نوبت‌های من بروید.',
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    $callback = rtrim($config['app_url'], '/') . '/payments/verify';
+    $pay = zarinpal_request($config, $amount, 'پرداخت نوبت مانا کلینیک - ' . $appointmentId, $callback, $user['email'] ?? null);
+    $pdo->prepare('UPDATE payments SET authority=? WHERE id=?')->execute([$pay['authority'], $paymentId]);
 
     echo json_encode([
         'appointmentId' => $appointmentId,

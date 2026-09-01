@@ -1,5 +1,6 @@
 import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/session";
+import { PayAppointmentButton } from "@/components/pay-appointment-button";
 import {
   appointmentStatusLabel,
   formatJalaliDate,
@@ -10,10 +11,10 @@ import {
 export default async function PatientAppointmentsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ pay?: string }>;
+  searchParams: Promise<{ pay?: string; booked?: string }>;
 }) {
   const session = await requireUser(["PATIENT"]);
-  const { pay } = await searchParams;
+  const { pay, booked } = await searchParams;
 
   const appointments = await prisma.appointment.findMany({
     where: { patientId: session.user.id },
@@ -35,6 +36,11 @@ export default async function PatientAppointmentsPage({
   return (
     <div className="space-y-4">
       <h1 className="text-2xl font-bold">نوبت‌های من</h1>
+      {booked && (
+        <div className="panel border-success text-sm text-success">
+          نوبت با موفقیت ثبت شد. برای پرداخت روی دکمه «پرداخت آنلاین» کلیک کنید.
+        </div>
+      )}
       {pay && payMessage[pay] && (
         <div
           className={`panel text-sm ${
@@ -67,6 +73,9 @@ export default async function PatientAppointmentsPage({
                     {paymentStatusLabel[a.payment.status]}
                     {a.payment.refId ? ` (پیگیری: ${a.payment.refId})` : ""}
                   </p>
+                )}
+                {a.status === "PENDING_PAYMENT" && a.payment?.status === "PENDING" && (
+                  <PayAppointmentButton appointmentId={a.id} />
                 )}
               </div>
             </div>

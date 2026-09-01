@@ -92,14 +92,21 @@ export function BookingForm({
       return;
     }
 
-    router.push("/dashboard/appointments");
+    if (data.paymentUrl) {
+      window.location.href = data.paymentUrl;
+      return;
+    }
+
+    router.push("/dashboard/appointments?booked=1");
   }
 
   return (
     <div className="panel space-y-4">
       <h2 className="text-xl font-bold">رزرو نوبت آنلاین</h2>
       <p className="text-sm text-muted">هزینه جلسه: {formatPrice(sessionPrice)}</p>
-      <p className="text-sm leading-7 text-muted">پرداخت آنلاین فعلاً فعال نیست.</p>
+      <p className="text-sm leading-7 text-muted">
+        پس از رزرو، پرداخت از بخش «نوبت‌های من» انجام می‌شود.
+      </p>
 
       <div>
         <label className="label">انتخاب تاریخ</label>

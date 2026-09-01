@@ -64,7 +64,7 @@ ob_start();
 
     <div class="panel stack" id="booking-box">
       <h2 style="margin:0">رزرو نوبت آنلاین</h2>
-      <p class="muted" style="margin:.35rem 0 0;font-size:.9rem;line-height:1.7">پرداخت آنلاین فعلاً فعال نیست.</p>
+      <p class="muted" style="margin:.35rem 0 0;font-size:.9rem;line-height:1.7">پس از رزرو، پرداخت از بخش «نوبت‌های من» انجام می‌شود.</p>
       <div>
         <label class="label" for="book-date-view">انتخاب تاریخ</label>
         <input
@@ -200,7 +200,8 @@ $pageScripts = '
       .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
       .then(function(res){
         if (!res.ok) { errEl.textContent = res.j.error || "رزرو ناموفق بود"; errEl.style.display="block"; return; }
-        location.href = ' . json_encode(url('/dashboard/appointments')) . ';
+        if (res.j.paymentUrl) { location.href = res.j.paymentUrl; return; }
+        location.href = ' . json_encode(url('/dashboard/appointments?booked=1')) . ';
       })
       .catch(function(){ errEl.textContent = "خطای شبکه"; errEl.style.display="block"; });
   };
