@@ -233,13 +233,25 @@ function workshop_media_course_url(string $enrollmentId): string
     return url('/dashboard/courses/media?enrollment=' . rawurlencode($enrollmentId));
 }
 
-function workshop_media_watermark_for_user(array $user): string
+function workshop_media_watermark_for_user(array $user, ?PDO $pdo = null): string
 {
-    $watermark = trim((string) ($user['username'] ?? ''));
-    if ($watermark === '') {
-        $watermark = trim((string) ($user['name'] ?? 'کاربر'));
+    $label = trim((string) ($user['username'] ?? ''));
+    if ($label === '') {
+        $label = trim((string) ($user['name'] ?? 'کاربر'));
     }
-    return $watermark;
+
+    $phone = trim((string) ($user['phone'] ?? ''));
+    if ($phone === '' && $pdo !== null && !empty($user['id'])) {
+        $stmt = $pdo->prepare('SELECT phone FROM users WHERE id = ? LIMIT 1');
+        $stmt->execute([(string) $user['id']]);
+        $phone = trim((string) ($stmt->fetchColumn() ?: ''));
+    }
+
+    if ($phone !== '') {
+        return $label . ' · ' . $phone;
+    }
+
+    return $label;
 }
 
 function workshop_media_detect_mime(string $tmpPath): string

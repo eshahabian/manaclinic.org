@@ -21,7 +21,7 @@ if (!$enrollment) {
 
 $mediaItems = workshop_media_list($pdo, (string) $enrollment['workshop_id']);
 $mediaCounts = workshop_media_kind_counts_from_list($mediaItems);
-$watermark = workshop_media_watermark_for_user($user);
+$watermark = workshop_media_watermark_for_user($user, $pdo);
 $backTab = workshop_courses_tab_for_type((string) $enrollment['type']);
 $backUrl = url('/dashboard/courses?type=' . $backTab);
 
@@ -95,7 +95,7 @@ ob_start();
             oncontextmenu="return false;"
             style="width:100%;margin-top:.5rem;display:none"
           ></audio>
-          <p class="muted offline-audio-wm">شناسه پخش: <?= e($watermark) ?> — دانلود مستقیم غیرفعال است.</p>
+          <p class="muted offline-audio-wm">واترمارک: <?= e($watermark) ?> — دانلود مستقیم غیرفعال است.</p>
         </div>
       <?php endif; ?>
     </article>
