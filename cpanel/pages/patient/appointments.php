@@ -4,6 +4,7 @@ declare(strict_types=1);
 $user = require_login(['PATIENT']);
 require_once __DIR__ . '/../../includes/patient_panel.php';
 require_once __DIR__ . '/../../includes/booking_terms.php';
+require_once __DIR__ . '/../../includes/appointment_cancel.php';
 
 $stmt = $pdo->prepare("
   SELECT a.*, u.name AS doctor_name, dp.specialty, p.amount, p.status AS pay_status, p.ref_id
@@ -18,6 +19,8 @@ $stmt->execute([$user['id']]);
 $appointments = $stmt->fetchAll();
 $booked = isset($_GET['booked']);
 $payUrl = url('/dashboard/pay');
+$cancelUrl = url('/cancel-appointment');
+$flashSuccess = flash_get();
 $hasPendingPay = false;
 foreach ($appointments as $a) {
     if ($a['status'] === 'PENDING_PAYMENT' && ($a['pay_status'] ?? '') === 'PENDING') {
@@ -38,7 +41,11 @@ ob_start();
   <?php if ($hasPendingPay): ?>
     <?= booking_terms_acceptance_html('terms-accept-pay') ?>
   <?php endif; ?>
+  <?php if ($flashSuccess): ?>
+    <div class="panel" style="border-color:var(--success);color:var(--success);font-size:.9rem"><?= e($flashSuccess['message']) ?></div>
+  <?php endif; ?>
   <p id="pay-error" style="color:var(--danger);font-size:.9rem;display:none"></p>
+  <p id="cancel-msg" style="font-size:.9rem;display:none"></p>
   <?php foreach ($appointments as $a): ?>
     <div class="panel row-between">
       <div>
@@ -63,6 +70,17 @@ ob_start();
             disabled
           >پرداخت آنلاین</button>
         <?php endif; ?>
+        <?php if (patient_can_cancel_appointment($a['status'])): ?>
+          <button
+            type="button"
+            class="btn btn-outline btn-sm cancel-app-btn"
+            style="margin-top:.5rem"
+            data-id="<?= e($a['id']) ?>"
+          >لغو نوبت</button>
+          <?php if ($a['status'] === 'CONFIRMED' && ($a['pay_status'] ?? '') === 'PAID'): ?>
+            <p class="muted" style="font-size:.75rem;margin-top:.35rem;max-width:14rem"><?= e(appointment_refund_hint($a['starts_at'])) ?></p>
+          <?php endif; ?>
+        <?php endif; ?>
       </div>
     </div>
   <?php endforeach; ?>
@@ -75,7 +93,9 @@ ob_start();
 <script>
 (function(){
   var payUrl = <?= json_encode($payUrl, JSON_UNESCAPED_UNICODE) ?>;
+  var cancelUrl = <?= json_encode($cancelUrl, JSON_UNESCAPED_UNICODE) ?>;
   var errEl = document.getElementById("pay-error");
+  var cancelMsgEl = document.getElementById("cancel-msg");
   var termsCb = document.getElementById("terms-accept-pay");
   document.querySelectorAll(".pay-btn").forEach(function(btn){
     btn.onclick = function(){
@@ -102,6 +122,35 @@ ob_start();
         })
         .catch(function(){
           btn.disabled = termsCb ? !termsCb.checked : false;
+          errEl.textContent = "خطای شبکه";
+          errEl.style.display = "block";
+        });
+    };
+  });
+  document.querySelectorAll(".cancel-app-btn").forEach(function(btn){
+    btn.onclick = function(){
+      if (!confirm("نوبت لغو شود؟")) return;
+      cancelMsgEl.style.display = "none";
+      errEl.style.display = "none";
+      btn.disabled = true;
+      var fd = new FormData();
+      fd.append("appointmentId", btn.getAttribute("data-id"));
+      fetch(cancelUrl, { method: "POST", body: fd })
+        .then(function(r){ return r.json().then(function(j){ return { ok: r.ok, j: j }; }); })
+        .then(function(res){
+          if (!res.ok) {
+            btn.disabled = false;
+            errEl.textContent = res.j.error || "لغو ناموفق بود";
+            errEl.style.display = "block";
+            return;
+          }
+          cancelMsgEl.textContent = res.j.message || "نوبت لغو شد.";
+          cancelMsgEl.style.color = "var(--success)";
+          cancelMsgEl.style.display = "block";
+          setTimeout(function(){ location.reload(); }, 1200);
+        })
+        .catch(function(){
+          btn.disabled = false;
           errEl.textContent = "خطای شبکه";
           errEl.style.display = "block";
         });

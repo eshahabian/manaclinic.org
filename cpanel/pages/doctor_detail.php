@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/../includes/booking_terms.php';
+
 $id = (string) ($_GET['id'] ?? '');
 $stmt = $pdo->prepare("
   SELECT dp.*, u.name, u.email
@@ -216,5 +218,4 @@ $pageScripts = '
 $GLOBALS['pageHead'] = $pageHead;
 $GLOBALS['pageScripts'] = $pageScripts;
 require_once __DIR__ . '/../includes/patient_panel.php';
-require_once __DIR__ . '/../includes/booking_terms.php';
 finish_patient_or_public_page($pageTitle, $content);

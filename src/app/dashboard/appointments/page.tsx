@@ -37,10 +37,12 @@ export default async function PatientAppointmentsPage({
     id: a.id,
     doctorName: a.doctor.user.name,
     specialty: a.doctor.specialty,
+    startsAtIso: a.startsAt.toISOString(),
     startsAtLabel: `${formatJalaliDate(a.startsAt)} — ${a.startsAt.toLocaleTimeString("fa-IR", {
       hour: "2-digit",
       minute: "2-digit",
     })}`,
+    status: a.status,
     statusLabel: appointmentStatusLabel[a.status],
     amountLabel: a.payment
       ? `${formatPrice(a.payment.amount)} — ${paymentStatusLabel[a.payment.status]}${
@@ -48,6 +50,8 @@ export default async function PatientAppointmentsPage({
         }`
       : null,
     canPay: a.status === "PENDING_PAYMENT" && a.payment?.status === "PENDING",
+    canCancel: a.status === "PENDING_PAYMENT" || a.status === "CONFIRMED",
+    isPaid: a.payment?.status === "PAID",
   }));
 
   return (

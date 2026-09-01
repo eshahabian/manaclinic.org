@@ -67,6 +67,7 @@ $routes = [
     'POST /enroll-workshop' => 'actions/enroll_workshop.php',
     'POST /pay-workshop' => 'actions/pay_workshop.php',
     'POST /cancel-enrollment' => 'actions/cancel_enrollment.php',
+    'POST /cancel-appointment' => 'actions/cancel_appointment.php',
     'POST /book' => 'actions/book.php',
 
     'GET /secretary' => 'pages/secretary/dashboard.php',
