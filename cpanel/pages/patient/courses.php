@@ -4,8 +4,10 @@ declare(strict_types=1);
 $user = require_login(['PATIENT']);
 require_once __DIR__ . '/../../includes/patient_panel.php';
 require_once __DIR__ . '/../../includes/workshops.php';
+require_once __DIR__ . '/../../includes/workshop_media.php';
 
 ensure_workshop_schema($pdo);
+ensure_workshop_media_schema($pdo);
 ensure_wallet($pdo, $user['id']);
 
 $sections = [
@@ -46,6 +48,7 @@ $availableWorkshops = $available->fetchAll();
 $mine = $pdo->prepare("
   SELECT e.*, w.title, w.starts_at, w.ends_at, w.type, w.meeting_url, w.content_url, w.location,
          w.location_lat, w.location_lng,
+         (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id) AS media_count,
          wp.amount, wp.wallet_amount, wp.status AS pay_status, u.name AS doctor_name
   FROM workshop_enrollments e
   JOIN workshops w ON w.id = e.workshop_id
@@ -146,11 +149,8 @@ ob_start();
           <?php if ($e['status'] === 'CONFIRMED' || $e['status'] === 'COMPLETED'): ?>
             <?php if ($e['type'] === 'ONLINE' && $e['meeting_url']): ?>
               <div style="font-size:.85rem;margin-top:.35rem"><a href="<?= e($e['meeting_url']) ?>" target="_blank" rel="noopener">ورود به جلسه آنلاین</a></div>
-            <?php elseif ($e['type'] === 'OFFLINE'): ?>
-              <div style="font-size:.85rem;margin-top:.35rem">
-                <a class="btn btn-outline btn-sm" href="<?= e(url('/dashboard/courses/offline?enrollment=' . $e['id'])) ?>">مشاهده محتوای آفلاین</a>
-              </div>
-            <?php elseif ($e['type'] === 'IN_PERSON' && ($e['location'] || workshop_navigation_uri_from_row($e))): ?>
+            <?php endif; ?>
+            <?php if ($e['type'] === 'IN_PERSON' && ($e['location'] || workshop_navigation_uri_from_row($e))): ?>
               <div class="enrollment-location">
                 <?php if ($e['location']): ?>
                   <div class="enrollment-address"><span class="enrollment-label">محل:</span> <?= e($e['location']) ?></div>
@@ -159,6 +159,13 @@ ob_start();
                 <?php if ($navUri): ?>
                   <a href="<?= e($navUri) ?>" class="btn btn-outline btn-sm enrollment-nav-btn">مسیر‌یابی</a>
                 <?php endif; ?>
+              </div>
+            <?php endif; ?>
+            <?php if ((int) ($e['media_count'] ?? 0) > 0 || $e['type'] === 'OFFLINE'): ?>
+              <div style="font-size:.85rem;margin-top:.35rem">
+                <a class="btn btn-outline btn-sm" href="<?= e(workshop_media_course_url((string) $e['id'])) ?>">
+                  <?= $e['type'] === 'OFFLINE' ? 'مشاهده محتوای آفلاین' : 'مشاهده ضبط جلسات' ?>
+                </a>
               </div>
             <?php endif; ?>
           <?php elseif ($e['status'] === 'PENDING_PAYMENT' && $e['type'] === 'OFFLINE'): ?>

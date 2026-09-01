@@ -62,9 +62,9 @@ if ($editWorkshop) {
     $endParts = ['date' => '', 'time' => '18:00', 'jalali' => ''];
 }
 
-$offlineMedia = [];
-if ($editWorkshop && ($editWorkshop['type'] ?? '') === 'OFFLINE') {
-    $offlineMedia = workshop_media_list($pdo, (string) $editWorkshop['id']);
+$workshopMedia = [];
+if ($editWorkshop) {
+    $workshopMedia = workshop_media_list($pdo, (string) $editWorkshop['id']);
 }
 global $config;
 $mediaMaxMb = (int) ($config['workshop_media_max_mb'] ?? 300);
@@ -102,9 +102,12 @@ ob_start();
           <span class="badge" style="margin-right:.5rem"><?= e(workshop_type_label($workshop['type'])) ?></span>
           <div class="muted" style="font-size:.85rem;margin-top:.35rem">
             <?php if ($workshop['type'] === 'OFFLINE'): ?>
-              دوره آفلاین · <?= workshop_media_count($pdo, (string) $workshop['id']) ?> ویدیو/صوت
+              دوره آفلاین
             <?php else: ?>
               <?= e(format_workshop_datetime_fa($workshop['starts_at'])) ?> — <?= e(format_workshop_datetime_fa($workshop['ends_at'])) ?>
+            <?php endif; ?>
+            <?php $mediaCnt = workshop_media_count($pdo, (string) $workshop['id']); if ($mediaCnt > 0): ?>
+              · <?= $mediaCnt ?> ویدیو/صوت
             <?php endif; ?>
           </div>
           <div class="muted" style="font-size:.85rem;margin-top:.25rem">
@@ -112,9 +115,6 @@ ob_start();
             · ثبت‌نام: <?= (int)$workshop['enrolled_count'] ?><?= $workshop['capacity'] ? ' / ' . (int)$workshop['capacity'] : '' ?>
             · <?= $workshop['is_published'] ? 'منتشر شده' : 'پیش‌نویس' ?>
             · <?= !empty($workshop['enrollment_open']) ? 'ثبت‌نام باز' : 'ثبت‌نام بسته' ?>
-            <?php if ($workshop['type'] === 'OFFLINE'): ?>
-              · <?= workshop_media_count($pdo, (string) $workshop['id']) ?> فایل آفلاین
-            <?php endif; ?>
             · <?= $workshop['status'] === 'COMPLETED' ? 'برگزار شده' : ($workshop['status'] === 'CANCELLED' ? 'لغو شده' : 'فعال') ?>
           </div>
           <?php if ($workshop['type'] === 'IN_PERSON' && $workshop['location']): ?>
@@ -193,10 +193,10 @@ ob_start();
 <?php endif; ?>
 
 <div class="stack" style="margin-top:1.5rem">
-<?php if ($editWorkshop && ($editWorkshop['type'] ?? '') === 'OFFLINE' && $offlineMedia): ?>
+<?php if ($editWorkshop && $workshopMedia): ?>
   <section class="panel stack" style="margin-bottom:0">
     <h3 style="margin:0;font-size:.95rem">فایل‌های بارگذاری‌شده</h3>
-    <?php foreach ($offlineMedia as $media): ?>
+    <?php foreach ($workshopMedia as $media): ?>
       <div class="panel" style="padding:.75rem;font-size:.9rem">
         <div class="row-between" style="align-items:flex-start;gap:.75rem">
           <div style="min-width:0">
@@ -298,16 +298,18 @@ ob_start();
     <input class="input" name="meeting_url" dir="ltr" placeholder="https://..." value="<?= e((string) ($formData['meeting_url'] ?? '')) ?>">
   </div>
 
-  <div id="field-offline" class="workshop-type-block" hidden>
-    <div style="border:1px solid var(--line);border-radius:.75rem;padding:1rem;background:var(--bg-soft,#f8fafc)">
-      <h3 style="margin:0;font-size:.95rem">ویدیوها و فایل‌های صوتی</h3>
-      <p class="muted" style="font-size:.85rem;line-height:1.65;margin:.35rem 0 0">
-        مراجع پس از خرید به این محتوا دسترسی دارد. حداکثر <?= (int) $mediaMaxMb ?> مگابایت برای هر فایل — mp4, webm, mp3, m4a, ogg, wav
-      </p>
+  <div id="field-session-media" class="panel" style="padding:1rem;background:var(--bg-soft,#f8fafc);border-style:dashed">
+    <h3 style="margin:0;font-size:.95rem">ضبط جلسات (ویدیو / صوت)</h3>
+    <p class="muted session-media-hint-offline" style="font-size:.85rem;line-height:1.65;margin:.35rem 0 0">
+      برای دوره آفلاین، حداقل یک ویدیو یا صوت الزامی است. مراجع پس از ثبت‌نام به محتوا دسترسی دارد.
+    </p>
+    <p class="muted session-media-hint-scheduled" style="font-size:.85rem;line-height:1.65;margin:.35rem 0 0;display:none">
+      پس از برگزاری کارگاه می‌توانید ضبط جلسات را بارگذاری کنید. مراجعان ثبت‌نام‌شده به آن‌ها دسترسی دارند.
+    </p>
+    <p class="muted" style="font-size:.8rem;margin:.35rem 0 0">حداکثر <?= (int) $mediaMaxMb ?> مگابایت برای هر فایل — mp4, webm, mp3, m4a, ogg, wav</p>
 
-      <div id="offline-media-rows" class="stack" style="margin-top:1rem"></div>
-      <button type="button" class="btn btn-outline btn-sm" id="add-offline-media-row" style="margin-top:.75rem">+ افزودن ویدیو / صوت</button>
-    </div>
+    <div id="session-media-rows" class="stack" style="margin-top:1rem"></div>
+    <button type="button" class="btn btn-outline btn-sm" id="add-session-media-row" style="margin-top:.75rem">+ افزودن ویدیو / صوت</button>
   </div>
 
   <div>
@@ -333,8 +335,8 @@ ob_start();
 </form>
 </div>
 
-<template id="offline-media-row-template">
-  <div class="offline-media-row panel" style="padding:.75rem;font-size:.9rem;background:#fff">
+<template id="session-media-row-template">
+  <div class="session-media-row panel" style="padding:.75rem;font-size:.9rem;background:#fff">
     <div class="grid-2">
       <div>
         <label class="label">نوع</label>
@@ -354,9 +356,9 @@ ob_start();
     </div>
     <div style="margin-top:.5rem">
       <label class="label">فایل</label>
-      <input class="input offline-media-file" type="file" name="media_files[]" accept="video/*,audio/*,.mp3,.m4a,.wav,.ogg,.mp4,.webm,.mov">
+      <input class="input session-media-file" type="file" name="media_files[]" accept="video/*,audio/*,.mp3,.m4a,.wav,.ogg,.mp4,.webm,.mov">
     </div>
-    <button type="button" class="btn btn-outline btn-sm remove-offline-media-row" style="margin-top:.5rem">حذف این ردیف</button>
+    <button type="button" class="btn btn-outline btn-sm remove-session-media-row" style="margin-top:.5rem">حذف این ردیف</button>
   </div>
 </template>
 
@@ -382,15 +384,16 @@ ob_start();
   var blockSchedule = document.getElementById("field-schedule");
   var blockInPerson = document.getElementById("field-in-person");
   var blockOnline = document.getElementById("field-online");
-  var blockOffline = document.getElementById("field-offline");
-  var offlineRows = document.getElementById("offline-media-rows");
-  var offlineRowTemplate = document.getElementById("offline-media-row-template");
-  var addOfflineRowBtn = document.getElementById("add-offline-media-row");
+  var sessionRows = document.getElementById("session-media-rows");
+  var sessionRowTemplate = document.getElementById("session-media-row-template");
+  var addSessionRowBtn = document.getElementById("add-session-media-row");
+  var hintOffline = document.querySelector(".session-media-hint-offline");
+  var hintScheduled = document.querySelector(".session-media-hint-scheduled");
   var startView = document.getElementById("workshop-start-date-view");
   var endView = document.getElementById("workshop-end-date-view");
   var startTime = document.getElementById("workshop-start-time");
   var endTime = document.getElementById("workshop-end-time");
-  var hasExistingOfflineMedia = <?= $editWorkshop && $offlineMedia ? 'true' : 'false' ?>;
+  var hasExistingMedia = <?= $editWorkshop && $workshopMedia ? 'true' : 'false' ?>;
   var locationInput = document.getElementById("workshop-location");
   var locationLatInput = document.getElementById("workshop-location-lat");
   var locationLngInput = document.getElementById("workshop-location-lng");
@@ -423,17 +426,18 @@ ob_start();
     }
   }
 
-  function addOfflineMediaRow(){
-    if (!offlineRows || !offlineRowTemplate) return;
-    var node = offlineRowTemplate.content.cloneNode(true);
-    offlineRows.appendChild(node);
-    var rows = offlineRows.querySelectorAll(".offline-media-row");
+  function addSessionMediaRow(){
+    if (!sessionRows || !sessionRowTemplate) return;
+    var node = sessionRowTemplate.content.cloneNode(true);
+    sessionRows.appendChild(node);
+    var rows = sessionRows.querySelectorAll(".session-media-row");
     var last = rows[rows.length - 1];
     if (last) {
-      var removeBtn = last.querySelector(".remove-offline-media-row");
+      var removeBtn = last.querySelector(".remove-session-media-row");
       if (removeBtn) {
         removeBtn.addEventListener("click", function(){
-          if (offlineRows.querySelectorAll(".offline-media-row").length <= 1 && !hasExistingOfflineMedia) {
+          var isOffline = typeSelect && typeSelect.value === "OFFLINE";
+          if (isOffline && sessionRows.querySelectorAll(".session-media-row").length <= 1 && !hasExistingMedia) {
             alert("حداقل یک فایل برای دوره آفلاین لازم است.");
             return;
           }
@@ -450,7 +454,8 @@ ob_start();
     if (blockSchedule) blockSchedule.hidden = isOffline;
     if (blockInPerson) blockInPerson.hidden = t !== "IN_PERSON";
     if (blockOnline) blockOnline.hidden = t !== "ONLINE";
-    if (blockOffline) blockOffline.hidden = !isOffline;
+    if (hintOffline) hintOffline.style.display = isOffline ? "" : "none";
+    if (hintScheduled) hintScheduled.style.display = isOffline ? "none" : "";
     if (locationInput) {
       locationInput.required = t === "IN_PERSON";
     }
@@ -458,8 +463,8 @@ ob_start();
     if (endView) endView.required = !isOffline;
     if (startTime) startTime.required = !isOffline;
     if (endTime) endTime.required = !isOffline;
-    if (isOffline && offlineRows && !offlineRows.children.length) {
-      addOfflineMediaRow();
+    if (isOffline && sessionRows && !sessionRows.children.length) {
+      addSessionMediaRow();
     }
   }
 
@@ -495,8 +500,8 @@ ob_start();
     });
   }
 
-  if (addOfflineRowBtn) {
-    addOfflineRowBtn.addEventListener("click", addOfflineMediaRow);
+  if (addSessionRowBtn) {
+    addSessionRowBtn.addEventListener("click", addSessionMediaRow);
   }
 
   if (typeSelect) {
@@ -540,22 +545,39 @@ ob_start();
           alert("تاریخ شروع و پایان را از تقویم شمسی انتخاب کنید.");
           return;
         }
+        if (sessionRows) {
+          var invalidScheduled = false;
+          sessionRows.querySelectorAll(".session-media-row").forEach(function(row){
+            var fileInput = row.querySelector(".session-media-file");
+            var titleInput = row.querySelector('input[name="media_title[]"]');
+            if (fileInput && fileInput.files && fileInput.files.length) {
+              if (!titleInput || !titleInput.value.trim()) {
+                invalidScheduled = true;
+              }
+            }
+          });
+          if (invalidScheduled) {
+            e.preventDefault();
+            alert("برای هر فایل، عنوان را هم بنویسید.");
+            return;
+          }
+        }
       } else {
         var hasNewFile = false;
-        if (offlineRows) {
-          offlineRows.querySelectorAll(".offline-media-file").forEach(function(input){
+        if (sessionRows) {
+          sessionRows.querySelectorAll(".session-media-file").forEach(function(input){
             if (input.files && input.files.length) hasNewFile = true;
           });
         }
-        if (!hasNewFile && !hasExistingOfflineMedia) {
+        if (!hasNewFile && !hasExistingMedia) {
           e.preventDefault();
           alert("حداقل یک ویدیو یا فایل صوتی انتخاب کنید.");
           return;
         }
-        if (offlineRows) {
+        if (sessionRows) {
           var invalid = false;
-          offlineRows.querySelectorAll(".offline-media-row").forEach(function(row){
-            var fileInput = row.querySelector(".offline-media-file");
+          sessionRows.querySelectorAll(".session-media-row").forEach(function(row){
+            var fileInput = row.querySelector(".session-media-file");
             var titleInput = row.querySelector('input[name="media_title[]"]');
             if (fileInput && fileInput.files && fileInput.files.length) {
               if (!titleInput || !titleInput.value.trim()) {
@@ -566,6 +588,7 @@ ob_start();
           if (invalid) {
             e.preventDefault();
             alert("برای هر فایل، عنوان را هم بنویسید.");
+            return;
           }
         }
       }

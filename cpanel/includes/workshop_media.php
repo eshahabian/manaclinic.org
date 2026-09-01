@@ -109,7 +109,7 @@ function workshop_media_get(PDO $pdo, string $itemId): ?array
 function workshop_media_patient_can_access(PDO $pdo, string $patientId, string $itemId): bool
 {
     $item = workshop_media_get($pdo, $itemId);
-    if (!$item || $item['workshop_type'] !== 'OFFLINE') {
+    if (!$item) {
         return false;
     }
     $stmt = $pdo->prepare("
@@ -127,13 +127,36 @@ function workshop_media_enrollment_access(PDO $pdo, string $patientId, string $e
       SELECT e.*, w.title, w.type
       FROM workshop_enrollments e
       JOIN workshops w ON w.id = e.workshop_id
-      WHERE e.id = ? AND e.patient_id = ? AND w.type = 'OFFLINE'
+      WHERE e.id = ? AND e.patient_id = ?
         AND e.status IN ('CONFIRMED','COMPLETED')
       LIMIT 1
     ");
     $stmt->execute([$enrollmentId, $patientId]);
     $row = $stmt->fetch();
     return $row ?: null;
+}
+
+function workshop_courses_tab_for_type(string $type): string
+{
+    return match ($type) {
+        'OFFLINE' => 'offline',
+        'ONLINE' => 'online',
+        default => 'in-person',
+    };
+}
+
+function workshop_media_course_url(string $enrollmentId): string
+{
+    return url('/dashboard/courses/media?enrollment=' . rawurlencode($enrollmentId));
+}
+
+function workshop_media_watermark_for_user(array $user): string
+{
+    $watermark = trim((string) ($user['username'] ?? ''));
+    if ($watermark === '') {
+        $watermark = trim((string) ($user['name'] ?? 'کاربر'));
+    }
+    return $watermark;
 }
 
 function workshop_media_detect_mime(string $tmpPath): string
@@ -204,7 +227,7 @@ function workshop_media_save_upload(PDO $pdo, string $workshopId, string $doctor
     return $id;
 }
 
-/** بارگذاری چند فایل از فرم ایجاد/ویرایش کارگاه آفلاین */
+/** بارگذاری چند فایل از فرم ایجاد/ویرایش کارگاه */
 function workshop_media_process_form_uploads(PDO $pdo, string $workshopId, string $doctorProfileId): int
 {
     $kinds = $_POST['media_kind'] ?? [];

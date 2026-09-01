@@ -64,6 +64,7 @@ $routes = [
     'GET /dashboard' => 'pages/patient/dashboard.php',
     'GET /dashboard/appointments' => 'pages/patient/appointments.php',
     'GET /dashboard/courses' => 'pages/patient/courses.php',
+    'GET /dashboard/courses/media' => 'pages/patient/course_media.php',
     'GET /dashboard/courses/offline' => 'pages/patient/offline_course.php',
     'GET /dashboard/wallet' => 'pages/patient/wallet.php',
     'GET /dashboard/profile' => 'pages/patient/profile.php',

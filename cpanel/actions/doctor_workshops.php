@@ -128,11 +128,9 @@ if ($action === 'create') {
             'PUBLISHED',
         ]);
 
-        if (workshop_is_offline($data['type'])) {
-            $uploaded = workshop_media_process_form_uploads($pdo, $id, $ctx['profile']['id']);
-            if ($uploaded < 1) {
-                throw new RuntimeException('برای دوره آفلاین حداقل یک ویدیو یا فایل صوتی بارگذاری کنید.');
-            }
+        workshop_media_process_form_uploads($pdo, $id, $ctx['profile']['id']);
+        if (workshop_is_offline($data['type']) && workshop_media_count($pdo, $id) < 1) {
+            throw new RuntimeException('برای دوره آفلاین حداقل یک ویدیو یا فایل صوتی بارگذاری کنید.');
         }
 
         $pdo->commit();
@@ -213,6 +211,8 @@ if ($action === 'update') {
             if (workshop_media_count($pdo, $id) < 1) {
                 throw new RuntimeException('دوره آفلاین باید حداقل یک ویدیو یا فایل صوتی داشته باشد.');
             }
+        } else {
+            workshop_media_process_form_uploads($pdo, $id, $ctx['profile']['id']);
         }
 
         $pdo->commit();
