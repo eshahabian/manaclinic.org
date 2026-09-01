@@ -54,26 +54,25 @@ ob_start();
         <input class="input input-rtl" name="first_name" id="first_name" required dir="rtl" autocomplete="given-name" placeholder="نام">
       </div>
       <div>
-        <label class="label label-ltr" for="name_en">name</label>
+        <label class="label label-ltr" for="name_en">نام (انگلیسی)</label>
         <input class="input" name="name_en" id="name_en" required dir="ltr" lang="en" autocomplete="off" placeholder="name">
+        <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">از روی نام فارسی پر می‌شود؛ در صورت نیاز ویرایش کنید.</p>
       </div>
       <div>
         <label class="label" for="last_name">نام خانوادگی</label>
         <input class="input input-rtl" name="last_name" id="last_name" required dir="rtl" autocomplete="family-name" placeholder="نام خانوادگی">
       </div>
       <div>
-        <label class="label label-ltr" for="surname">surname</label>
+        <label class="label label-ltr" for="surname">نام خانوادگی (انگلیسی)</label>
         <input class="input" name="surname" id="surname" required dir="ltr" lang="en" autocomplete="off" placeholder="surname">
+        <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">از روی نام خانوادگی فارسی پر می‌شود؛ در صورت نیاز ویرایش کنید.</p>
       </div>
     </div>
 
     <div>
       <label class="label" for="username">نام کاربری</label>
-      <div style="display:flex;gap:.5rem;align-items:stretch">
-        <input class="input" name="username" id="username" required dir="ltr" autocomplete="username" pattern="[A-Za-z0-9._-]{3,32}" title="فقط حروف انگلیسی، عدد و ._- (۳ تا ۳۲ کاراکتر)" placeholder="حروف انگلیسی، عدد و ._- " style="flex:1">
-        <button type="button" class="btn btn-outline" id="suggest-username" title="پیشنهاد از روی name و surname">پیشنهاد</button>
-      </div>
-      <p class="muted" id="username-hint" style="margin:.4rem 0 0;font-size:.8rem;line-height:1.6"></p>
+      <input class="input" name="username" id="username" required dir="ltr" readonly tabindex="-1" style="background:var(--bg-soft);cursor:default">
+      <p class="muted" id="username-hint" style="margin:.4rem 0 0;font-size:.8rem;line-height:1.6">با وارد کردن نام، به‌صورت خودکار ساخته می‌شود.</p>
     </div>
 
     <div>
@@ -114,6 +113,26 @@ $pageScripts = '
   var takenSet = {};
   takenUsernames.forEach(function(u){ if (u) takenSet[u] = true; });
 
+  var faMap = {
+    "آ":"a","ا":"a","أ":"a","إ":"a","ب":"b","پ":"p","ت":"t","ث":"s","ج":"j","چ":"ch",
+    "ح":"h","خ":"kh","د":"d","ذ":"z","ر":"r","ز":"z","ژ":"zh","س":"s","ش":"sh","ص":"s",
+    "ض":"z","ط":"t","ظ":"z","ع":"a","غ":"gh","ف":"f","ق":"gh","ک":"k","ك":"k","گ":"g",
+    "ل":"l","م":"m","ن":"n","و":"o","ؤ":"o","ه":"h","ۀ":"e","ة":"e","ی":"i","ي":"i","ئ":"i","ء":""
+  };
+
+  function persianToLatin(text) {
+    var out = "";
+    String(text || "").split("").forEach(function(ch) {
+      if (faMap[ch] !== undefined) out += faMap[ch];
+      else if (/[a-zA-Z]/.test(ch)) out += ch.toLowerCase();
+    });
+    return out;
+  }
+
+  function latinWord(value) {
+    return persianToLatin(value).toLowerCase().replace(/[^a-z]/g, "");
+  }
+
   var firstNameEl = document.getElementById("first_name");
   var lastNameEl = document.getElementById("last_name");
   var nameEnEl = document.getElementById("name_en");
@@ -121,13 +140,9 @@ $pageScripts = '
   var userEl = document.getElementById("username");
   var passEl = document.getElementById("password");
   var passConfirmEl = document.getElementById("password_confirm");
-  var suggestBtn = document.getElementById("suggest-username");
   var usernameHint = document.getElementById("username-hint");
-  var usernameTouched = false;
-
-  function latinWord(value) {
-    return String(value || "").toLowerCase().replace(/[^a-z]/g, "");
-  }
+  var nameEnTouched = false;
+  var surnameTouched = false;
 
   function baseUsernameFromParts() {
     var first = latinWord(nameEnEl.value) || latinWord(firstNameEl.value);
@@ -150,44 +165,52 @@ $pageScripts = '
     return candidate;
   }
 
-  function applySuggestion(force) {
-    if (!force && usernameTouched) return;
+  function fillEnglishFromPersian() {
+    if (!nameEnTouched && firstNameEl.value.trim()) {
+      nameEnEl.value = persianToLatin(firstNameEl.value.trim());
+    }
+    if (!surnameTouched && lastNameEl.value.trim()) {
+      surnameEl.value = persianToLatin(lastNameEl.value.trim());
+    }
+  }
+
+  function applyUsername() {
     var base = baseUsernameFromParts();
     if (!base) {
-      if (force || !userEl.value.trim()) {
-        if (!usernameTouched) userEl.value = "";
-        usernameHint.textContent = "با تایپ name و surname پیشنهاد نام کاربری همین‌جا می‌آید.";
-      }
+      userEl.value = "";
+      usernameHint.textContent = "با وارد کردن نام، به‌صورت خودکار ساخته می‌شود.";
       return;
     }
     var suggested = uniqueUsername(base);
     if (!suggested) {
-      usernameHint.textContent = "پیشنهاد معتبری پیدا نشد؛ نام کاربری را دستی وارد کنید.";
+      usernameHint.textContent = "پیشنهاد معتبری پیدا نشد؛ نام انگلیسی را اصلاح کنید.";
       return;
     }
-    if (force || !usernameTouched) {
-      userEl.value = suggested;
-    }
+    userEl.value = suggested;
     usernameHint.textContent = suggested === base
-      ? "پیشنهاد: " + suggested
-      : "پیشنهاد (بدون تکرار): " + suggested;
+      ? "نام کاربری: " + suggested
+      : "نام کاربری (بدون تکرار): " + suggested;
   }
 
-  userEl.addEventListener("input", function(){ usernameTouched = true; });
-  [firstNameEl, lastNameEl, nameEnEl, surnameEl].forEach(function(el){
-    el.addEventListener("input", function(){ applySuggestion(false); });
-    el.addEventListener("blur", function(){ applySuggestion(false); });
-  });
-  suggestBtn.addEventListener("click", function(){
-    usernameTouched = false;
-    applySuggestion(true);
+  function onNameInput() {
+    fillEnglishFromPersian();
+    applyUsername();
+  }
+
+  nameEnEl.addEventListener("input", function(){ nameEnTouched = true; applyUsername(); });
+  surnameEl.addEventListener("input", function(){ surnameTouched = true; applyUsername(); });
+  [firstNameEl, lastNameEl].forEach(function(el){
+    el.addEventListener("input", onNameInput);
+    el.addEventListener("blur", onNameInput);
   });
 
   document.getElementById("register-form").addEventListener("submit", function(e){
+    fillEnglishFromPersian();
+    applyUsername();
     var phoneEl = document.getElementById("phone");
     if (!nameEnEl.value.trim() || !surnameEl.value.trim()) {
       e.preventDefault();
-      alert("فیلدهای name و surname الزامی هستند.");
+      alert("فیلدهای انگلیسی نام و نام خانوادگی الزامی هستند.");
       (!nameEnEl.value.trim() ? nameEnEl : surnameEl).focus();
       return;
     }
@@ -200,14 +223,14 @@ $pageScripts = '
     var user = userEl.value.trim().toLowerCase();
     if (!/^[a-z0-9._-]{3,32}$/.test(user)) {
       e.preventDefault();
-      alert("نام کاربری باید ۳ تا ۳۲ کاراکتر انگلیسی باشد.");
-      userEl.focus();
+      alert("نام کاربری معتبر ساخته نشد. فیلدهای انگلیسی را بررسی کنید.");
+      nameEnEl.focus();
       return;
     }
     if (takenSet[user]) {
       e.preventDefault();
-      alert("این نام کاربری قبلاً ثبت شده است.");
-      userEl.focus();
+      alert("این نام کاربری قبلاً ثبت شده است. نام انگلیسی را کمی تغییر دهید.");
+      nameEnEl.focus();
       return;
     }
     if (passEl.value.length < 6) {

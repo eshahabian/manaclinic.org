@@ -56,9 +56,7 @@ ob_start();
   </div>
 </section>
 
-<section class="container-page container-page-wide section">
-  <div class="home-main-grid">
-    <div class="home-content-col">
+<section class="container-page section">
       <div class="home-specialists-block">
         <div class="section-head">
           <div>
@@ -90,7 +88,7 @@ ob_start();
         </div>
       </div>
 
-      <div class="home-articles-block">
+      <div class="home-articles-block" style="margin-top:3rem">
         <div class="section-head">
           <div>
             <h2>آخرین مقالات</h2>
@@ -117,10 +115,6 @@ ob_start();
           <?php endforeach; ?>
         </div>
       </div>
-    </div>
-
-    <?php require __DIR__ . '/../includes/home_tests_col.php'; ?>
-  </div>
 </section>
 <?php
 $content = ob_get_clean();

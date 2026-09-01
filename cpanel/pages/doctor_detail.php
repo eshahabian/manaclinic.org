@@ -32,7 +32,7 @@ $pageHead = '
 
 ob_start();
 ?>
-<div class="container-page section">
+<div class="section" style="padding:0">
   <a href="<?= e(url('/doctors')) ?>" style="color:var(--primary);font-size:.9rem">← بازگشت به لیست</a>
   <div class="grid-2" style="margin-top:1.5rem;align-items:start">
     <div class="panel">
@@ -186,7 +186,7 @@ $pageScripts = '
   document.getElementById("book-submit").onclick = function(){
     errEl.style.display = "none";
     if (!loggedIn) { location.href = loginUrl; return; }
-    if (!isPatient) { errEl.textContent = "فقط بیماران می‌توانند از این صفحه نوبت رزرو کنند. منشی از پنل منشی رزرو کند."; errEl.style.display="block"; return; }
+    if (!isPatient) { errEl.textContent = "فقط مراجعان می‌توانند از این صفحه نوبت رزرو کنند. منشی از پنل منشی رزرو کند."; errEl.style.display="block"; return; }
     if (!dateEl.value || !timeEl.value) { errEl.textContent = "تاریخ و ساعت را انتخاب کنید."; errEl.style.display="block"; return; }
     var fd = new FormData();
     fd.append("doctorId", doctorId);
@@ -203,4 +203,5 @@ $pageScripts = '
   };
 })();
 </script>';
-require __DIR__ . '/../includes/layout.php';
+require_once __DIR__ . '/../includes/patient_panel.php';
+finish_patient_or_public_page($pageTitle, $content);

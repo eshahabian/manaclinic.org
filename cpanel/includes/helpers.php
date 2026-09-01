@@ -225,6 +225,77 @@ function to_fa_digits(string $value): string
     ]);
 }
 
+/** تبدیل حروف فارسی به لاتین (برای نام کاربری و فیلدهای انگلیسی) */
+function persian_to_latin(string $text): string
+{
+    static $map = [
+        'آ' => 'a', 'ا' => 'a', 'أ' => 'a', 'إ' => 'a', 'ب' => 'b', 'پ' => 'p',
+        'ت' => 't', 'ث' => 's', 'ج' => 'j', 'چ' => 'ch', 'ح' => 'h', 'خ' => 'kh',
+        'د' => 'd', 'ذ' => 'z', 'ر' => 'r', 'ز' => 'z', 'ژ' => 'zh', 'س' => 's',
+        'ش' => 'sh', 'ص' => 's', 'ض' => 'z', 'ط' => 't', 'ظ' => 'z', 'ع' => 'a',
+        'غ' => 'gh', 'ف' => 'f', 'ق' => 'gh', 'ک' => 'k', 'ك' => 'k', 'گ' => 'g',
+        'ل' => 'l', 'م' => 'm', 'ن' => 'n', 'و' => 'o', 'ؤ' => 'o', 'ه' => 'h',
+        'ۀ' => 'e', 'ة' => 'e', 'ی' => 'i', 'ي' => 'i', 'ئ' => 'i', 'ء' => '',
+        '‌' => '', ' ' => '',
+    ];
+
+    $out = '';
+    $len = mb_strlen($text);
+    for ($i = 0; $i < $len; $i++) {
+        $ch = mb_substr($text, $i, 1);
+        if (isset($map[$ch])) {
+            $out .= $map[$ch];
+        } elseif (preg_match('/[a-zA-Z]/', $ch)) {
+            $out .= strtolower($ch);
+        }
+    }
+
+    return $out;
+}
+
+function latin_word(string $value): string
+{
+    return preg_replace('/[^a-z]/', '', strtolower(persian_to_latin($value)));
+}
+
+function username_base_from_names(string $nameEn, string $surname, string $firstName = '', string $lastName = ''): string
+{
+    $first = latin_word($nameEn) ?: latin_word($firstName);
+    $last = latin_word($surname) ?: latin_word($lastName);
+    if ($first === '' && $last === '') {
+        return '';
+    }
+    if ($last === '') {
+        return mb_substr($first, 0, 32);
+    }
+    if ($first === '') {
+        return mb_substr($last, 0, 32);
+    }
+
+    return mb_substr($first[0] . $last, 0, 32);
+}
+
+function unique_username(PDO $pdo, string $base): string
+{
+    if ($base === '' || mb_strlen($base) < 3) {
+        return '';
+    }
+    $candidate = $base;
+    $n = 1;
+    $stmt = $pdo->prepare('SELECT id FROM users WHERE username = ? LIMIT 1');
+    while (true) {
+        $stmt->execute([$candidate]);
+        if (!$stmt->fetch()) {
+            return $candidate;
+        }
+        $suffix = (string) $n++;
+        $candidate = mb_substr($base, 0, max(3, 32 - mb_strlen($suffix))) . $suffix;
+        if ($n > 999) {
+            return '';
+        }
+    }
+}
+
 function gregorian_to_jalali(int $gy, int $gm, int $gd): array
 {
     $g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];

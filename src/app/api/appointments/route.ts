@@ -8,7 +8,7 @@ import { zarinpalRequest } from "@/lib/zarinpal";
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user || session.user.role !== "PATIENT") {
-    return NextResponse.json({ error: "لطفاً با حساب بیمار وارد شوید." }, { status: 401 });
+    return NextResponse.json({ error: "لطفاً با حساب مراجع وارد شوید." }, { status: 401 });
   }
 
   const body = await req.json();

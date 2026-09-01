@@ -11,7 +11,7 @@ export default async function DashboardLayout({
   return (
     <div className="container-page grid gap-6 py-10 md:grid-cols-[240px_1fr]">
       <PanelNav
-        title="پنل بیمار"
+        title="پنل مراجع"
         items={[
           { href: "/dashboard", label: "خلاصه" },
           { href: "/dashboard/appointments", label: "نوبت‌های من" },

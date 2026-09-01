@@ -2,12 +2,7 @@
 declare(strict_types=1);
 
 $user = require_login(['PATIENT']);
-$nav = [
-    ['href' => '/dashboard', 'label' => 'خلاصه'],
-    ['href' => '/dashboard/appointments', 'label' => 'نوبت‌های من'],
-    ['href' => '/dashboard/profile', 'label' => 'پروفایل'],
-    ['href' => '/doctors', 'label' => 'رزرو نوبت جدید'],
-];
+require_once __DIR__ . '/../../includes/patient_panel.php';
 
 $stmt = $pdo->prepare("
   SELECT a.*, u.name AS doctor_name
@@ -21,7 +16,6 @@ $stmt = $pdo->prepare("
 $stmt->execute([$user['id']]);
 $appointments = $stmt->fetchAll();
 
-$pageTitle = 'پنل بیمار';
 ob_start();
 ?>
 <div>
@@ -47,16 +41,4 @@ ob_start();
   </div>
 </div>
 <?php
-$inner = ob_get_clean();
-ob_start();
-?>
-<div class="container-page panel-layout">
-  <aside class="panel side-nav">
-    <p class="side-nav-title">پنل بیمار</p>
-    <nav><?php foreach ($nav as $item): ?><a href="<?= e(url($item['href'])) ?>"><?= e($item['label']) ?></a><?php endforeach; ?></nav>
-  </aside>
-  <div><?= $inner ?></div>
-</div>
-<?php
-$content = ob_get_clean();
-require __DIR__ . '/../../includes/layout.php';
+render_patient_page('پنل مراجع', ob_get_clean());

@@ -26,7 +26,7 @@ if ($q !== '') {
 $pageTitle = 'متخصصان';
 ob_start();
 ?>
-<div class="container-page section">
+<div class="section" style="padding:0">
   <h1>متخصصان</h1>
   <p class="muted">متخصص مناسب خود را پیدا کنید و نوبت بگیرید</p>
   <form class="auth-box" style="margin-top:1.5rem;width:min(560px,100%)" method="get">
@@ -48,4 +48,5 @@ ob_start();
 </div>
 <?php
 $content = ob_get_clean();
-require __DIR__ . '/../includes/layout.php';
+require_once __DIR__ . '/../includes/patient_panel.php';
+finish_patient_or_public_page($pageTitle, $content);

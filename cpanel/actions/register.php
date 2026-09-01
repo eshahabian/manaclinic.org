@@ -11,8 +11,18 @@ $firstName = trim(post('first_name'));
 $lastName = trim(post('last_name'));
 $nameEn = trim(post('name_en'));
 $surname = trim(post('surname'));
+if ($nameEn === '' && $firstName !== '') {
+    $nameEn = persian_to_latin($firstName);
+}
+if ($surname === '' && $lastName !== '') {
+    $surname = persian_to_latin($lastName);
+}
 $name = trim($firstName . ' ' . $lastName);
 $username = mb_strtolower(post('username'));
+if ($username === '') {
+    $base = username_base_from_names($nameEn, $surname, $firstName, $lastName);
+    $username = unique_username($pdo, $base);
+}
 $phone = trim(post('phone'));
 $password = (string) ($_POST['password'] ?? '');
 $passwordConfirm = (string) ($_POST['password_confirm'] ?? '');

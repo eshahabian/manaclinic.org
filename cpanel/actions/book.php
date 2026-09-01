@@ -6,7 +6,7 @@ header('Content-Type: application/json; charset=utf-8');
 $user = current_user();
 if (!$user || $user['role'] !== 'PATIENT') {
     http_response_code(401);
-    echo json_encode(['error' => 'لطفاً با حساب بیمار وارد شوید.']);
+    echo json_encode(['error' => 'لطفاً با حساب مراجع وارد شوید.']);
     exit;
 }
 
