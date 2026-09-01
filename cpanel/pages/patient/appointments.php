@@ -33,6 +33,13 @@ ob_start();
 ?>
 <div class="stack">
   <h1>نوبت‌های من</h1>
+  <div class="panel row-between" style="font-size:.9rem">
+    <div>
+      <strong>رزرو نوبت جدید</strong>
+      <div class="muted" style="font-size:.85rem;margin-top:.25rem">انتخاب درمانگر و زمان جلسه</div>
+    </div>
+    <a class="btn btn-primary btn-sm" href="<?= e(url('/doctors')) ?>">رزرو نوبت جدید</a>
+  </div>
   <?php if ($booked): ?>
     <div class="panel" style="border-color:var(--success);color:var(--success);font-size:.9rem">
       نوبت با موفقیت ثبت شد. برای پرداخت، شرایط را بپذیرید و روی «پرداخت آنلاین» کلیک کنید.

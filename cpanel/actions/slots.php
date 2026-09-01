@@ -1,7 +1,11 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/../includes/availability.php';
+
 header('Content-Type: application/json; charset=utf-8');
+
+ensure_availability_schema($pdo);
 
 $doctorId = (string) ($_GET['doctorId'] ?? '');
 $date = (string) ($_GET['date'] ?? '');
@@ -10,7 +14,6 @@ if ($doctorId === '' || $date === '') {
     exit;
 }
 
-// آزاد کردن نوبت‌های پرداخت‌نشده قدیمی
 $pdo->prepare("
   UPDATE appointments SET status='CANCELLED'
   WHERE doctor_id=? AND status='PENDING_PAYMENT' AND created_at < (NOW() - INTERVAL 20 MINUTE)
@@ -24,7 +27,7 @@ if (!$availability) {
     exit;
 }
 
-$all = generate_slots($availability['start_time'], $availability['end_time'], (int)$availability['slot_minutes']);
+$all = appointment_slots_from_availability($availability);
 
 $takenStmt = $pdo->prepare("
   SELECT DATE_FORMAT(starts_at, '%H:%i') AS t
@@ -37,9 +40,16 @@ $taken = array_column($takenStmt->fetchAll(), 't');
 $now = time();
 $free = [];
 foreach ($all as $slot) {
-    if (in_array($slot, $taken, true)) continue;
+    if (in_array($slot, $taken, true)) {
+        continue;
+    }
     $ts = strtotime($date . ' ' . $slot . ':00');
-    if ($ts && $ts > $now) $free[] = $slot;
+    if ($ts && $ts > $now) {
+        $free[] = [
+            'value' => $slot,
+            'label' => appointment_time_to_hour_label($slot),
+        ];
+    }
 }
 
 echo json_encode(['slots' => $free], JSON_UNESCAPED_UNICODE);

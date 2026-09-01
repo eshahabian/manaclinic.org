@@ -400,6 +400,19 @@ select {
 }
 .slot-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
 
+.hour-picker { display: flex; flex-wrap: wrap; gap: .45rem; }
+.hour-chip {
+  display: inline-flex; align-items: center; justify-content: center;
+  min-width: 2.35rem; padding: .4rem .65rem; border-radius: .65rem;
+  border: 1px solid var(--line); background: #fff; font-size: .9rem;
+  cursor: pointer; user-select: none; position: relative;
+}
+.hour-chip input { position: absolute; opacity: 0; pointer-events: none; }
+.hour-chip:has(input:checked) { background: var(--primary); border-color: var(--primary); color: #fff; }
+.hour-picker-readonly .hour-chip { cursor: default; }
+.hour-picker-readonly .hour-chip.is-active { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; font-weight: 600; }
+.hour-picker-readonly .hour-chip.is-off { opacity: .35; }
+
 .date-chips {
   display: flex;
   flex-wrap: wrap;

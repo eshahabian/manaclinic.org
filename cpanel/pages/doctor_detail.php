@@ -152,11 +152,13 @@ $pageScripts = '
         if (!slots.length) { slotsEl.innerHTML = "<span class=\\"muted\\">ساعت خالی نیست</span>"; return; }
         slotsEl.innerHTML = "";
         slots.forEach(function(s){
+          var value = typeof s === "string" ? s : (s.value || "");
+          var label = typeof s === "string" ? value.replace(/:00$/, "") : (s.label || value.replace(/:00$/, ""));
           var b = document.createElement("button");
-          b.type = "button"; b.className = "slot-btn"; b.textContent = s;
+          b.type = "button"; b.className = "slot-btn"; b.textContent = label;
           b.onclick = function(){
             Array.prototype.forEach.call(slotsEl.querySelectorAll(".slot-btn"), function(x){ x.classList.remove("active"); });
-            b.classList.add("active"); timeEl.value = s;
+            b.classList.add("active"); timeEl.value = value;
           };
           slotsEl.appendChild(b);
         });

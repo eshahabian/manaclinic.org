@@ -73,7 +73,8 @@ try {
         date DATE NOT NULL,
         start_time CHAR(5) NOT NULL,
         end_time CHAR(5) NOT NULL,
-        slot_minutes INT NOT NULL DEFAULT 50,
+        slot_minutes INT NOT NULL DEFAULT 60,
+        available_hours VARCHAR(64) NULL,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_doctor_date (doctor_id, date),
         CONSTRAINT fk_avail_doctor FOREIGN KEY (doctor_id) REFERENCES doctor_profiles(id) ON DELETE CASCADE
@@ -342,8 +343,8 @@ try {
                 $check = $pdo->prepare('SELECT id FROM availabilities WHERE doctor_id=? AND date=?');
                 $check->execute([$dp['id'], $date]);
                 if (!$check->fetch()) {
-                    $pdo->prepare('INSERT INTO availabilities (id,doctor_id,date,start_time,end_time,slot_minutes) VALUES (?,?,?,?,?,50)')
-                        ->execute([cuid(), $dp['id'], $date, '10:00', '14:00']);
+                    $pdo->prepare('INSERT INTO availabilities (id,doctor_id,date,start_time,end_time,slot_minutes,available_hours) VALUES (?,?,?,?,?,?,?)')
+                        ->execute([cuid(), $dp['id'], $date, '10:00', '18:00', 60, '10,11,12,13,14,15,16,17']);
                 }
             }
         }

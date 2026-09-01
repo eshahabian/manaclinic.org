@@ -8,10 +8,10 @@ function patient_nav(): array
     return [
         ['href' => '/dashboard', 'label' => 'خلاصه'],
         ['href' => '/dashboard/appointments', 'label' => 'نوبت‌های من'],
+        ['href' => '/doctors', 'label' => 'رزرو نوبت جدید'],
         ['href' => '/dashboard/courses', 'label' => 'دوره‌های من'],
         ['href' => '/dashboard/wallet', 'label' => 'کیف پول'],
         ['href' => '/dashboard/profile', 'label' => 'پروفایل'],
-        ['href' => '/doctors', 'label' => 'رزرو نوبت جدید'],
     ];
 }
 

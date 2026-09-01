@@ -4,6 +4,7 @@ declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/../includes/booking_terms.php';
+require_once __DIR__ . '/../includes/availability.php';
 
 $user = current_user();
 if (!$user || $user['role'] !== 'PATIENT') {
@@ -42,7 +43,7 @@ if (!$availability) {
     exit;
 }
 
-$valid = generate_slots($availability['start_time'], $availability['end_time'], (int)$availability['slot_minutes']);
+$valid = appointment_slots_from_availability($availability);
 if (!in_array($time, $valid, true)) {
     http_response_code(400);
     echo json_encode(['error' => 'ساعت نامعتبر است.']);
@@ -50,7 +51,7 @@ if (!in_array($time, $valid, true)) {
 }
 
 $startsAt = $date . ' ' . $time . ':00';
-$endsAt = date('Y-m-d H:i:s', strtotime($startsAt) + ((int)$availability['slot_minutes'] * 60));
+$endsAt = date('Y-m-d H:i:s', strtotime($startsAt) + (appointment_slot_minutes() * 60));
 if (strtotime($startsAt) <= time()) {
     http_response_code(400);
     echo json_encode(['error' => 'این زمان گذشته است.']);

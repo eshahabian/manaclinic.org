@@ -102,14 +102,14 @@ if (!$availability) {
     redirect('/secretary/book');
 }
 
-$valid = generate_slots($availability['start_time'], $availability['end_time'], (int)$availability['slot_minutes']);
+$valid = appointment_slots_from_availability($availability);
 if (!in_array($time, $valid, true)) {
     flash_set('error', 'ساعت نامعتبر است.');
     redirect('/secretary/book');
 }
 
 $startsAt = $date . ' ' . $time . ':00';
-$endsAt = date('Y-m-d H:i:s', strtotime($startsAt) + ((int)$availability['slot_minutes'] * 60));
+$endsAt = date('Y-m-d H:i:s', strtotime($startsAt) + (appointment_slot_minutes() * 60));
 
 $conflict = $pdo->prepare("
   SELECT id FROM appointments

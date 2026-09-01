@@ -1,16 +1,21 @@
 <?php
 declare(strict_types=1);
+
 require_once __DIR__ . '/../../includes/doctor_panel.php';
+require_once __DIR__ . '/../../includes/availability.php';
+
 $ctx = require_doctor_profile($pdo);
+ensure_availability_schema($pdo);
 $items = $pdo->prepare('SELECT * FROM availabilities WHERE doctor_id=? ORDER BY date ASC');
 $items->execute([$ctx['profile']['id']]);
 $items = $items->fetchAll();
+$bookingHours = appointment_booking_hours();
 
 ob_start();
 ?>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
 <h1>روزهای خالی</h1>
-<p class="muted">تاریخ‌هایی که بیماران می‌توانند در آن‌ها نوبت بگیرند را مشخص کنید.</p>
+<p class="muted">تاریخ را انتخاب کنید و ساعت‌های خالی (۱۰ تا ۱۷) را مشخص کنید.</p>
 <form class="panel form-stack" method="post" action="<?= e(url('/doctor/availability')) ?>" style="margin-top:1rem;max-width:40rem">
   <input type="hidden" name="action" value="save">
   <div>
@@ -18,19 +23,32 @@ ob_start();
     <input class="input" type="text" id="avail-date-view" name="date_jalali" data-jdp data-jdp-only-date autocomplete="off" readonly required placeholder="انتخاب تاریخ">
     <input type="hidden" name="date" id="avail-date" value="">
   </div>
-  <div class="grid-2">
-    <div><label class="label">از ساعت</label><input class="input" type="time" name="start_time" value="10:00" required></div>
-    <div><label class="label">تا ساعت</label><input class="input" type="time" name="end_time" value="14:00" required></div>
+  <div>
+    <label class="label">ساعت‌های خالی</label>
+    <div class="hour-picker" id="hour-picker">
+      <?php foreach ($bookingHours as $hour): ?>
+        <label class="hour-chip">
+          <input type="checkbox" name="hours[]" value="<?= (int) $hour ?>" checked>
+          <span><?= (int) $hour ?></span>
+        </label>
+      <?php endforeach; ?>
+    </div>
+    <p class="muted" style="font-size:.8rem;margin:.5rem 0 0;line-height:1.6">هر جلسه یک ساعت کامل است (مثلاً ۱۰ یعنی ۱۰:۰۰ تا ۱۱:۰۰).</p>
   </div>
-  <div><label class="label">مدت هر جلسه (دقیقه)</label><input class="input" type="number" name="slot_minutes" value="50" min="20" max="180" required></div>
   <button class="btn btn-primary" type="submit">افزودن / به‌روزرسانی</button>
 </form>
 <div class="stack" style="margin-top:1.5rem">
   <?php foreach ($items as $item): ?>
+    <?php $savedHours = appointment_availability_hours($item); ?>
     <div class="panel row-between">
       <div>
         <strong><?= e(to_jalali_label($item['date'])) ?></strong>
-        <div class="muted" style="font-size:.85rem"><?= e($item['start_time']) ?> تا <?= e($item['end_time']) ?> — هر اسلات <?= e((string)$item['slot_minutes']) ?> دقیقه</div>
+        <div class="muted" style="font-size:.85rem;margin-top:.35rem">ساعت‌های خالی:</div>
+        <div class="hour-picker hour-picker-readonly" style="margin-top:.35rem">
+          <?php foreach ($bookingHours as $hour): ?>
+            <span class="hour-chip<?= in_array($hour, $savedHours, true) ? ' is-active' : ' is-off' ?>"><?= (int) $hour ?></span>
+          <?php endforeach; ?>
+        </div>
       </div>
       <form method="post" action="<?= e(url('/doctor/availability')) ?>">
         <input type="hidden" name="action" value="delete">
@@ -66,7 +84,16 @@ ob_start();
   view.addEventListener("change", sync);
   view.closest("form").addEventListener("submit", function(e){
     sync();
-    if (!hidden.value) { e.preventDefault(); alert("تاریخ را انتخاب کنید"); }
+    if (!hidden.value) {
+      e.preventDefault();
+      alert("تاریخ را انتخاب کنید");
+      return;
+    }
+    var checked = document.querySelectorAll('#hour-picker input[name="hours[]"]:checked');
+    if (!checked.length) {
+      e.preventDefault();
+      alert("حداقل یک ساعت خالی انتخاب کنید.");
+    }
   });
 })();
 </script>

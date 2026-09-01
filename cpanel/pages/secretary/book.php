@@ -308,14 +308,16 @@ $pageScripts = '
         }
         slotsEl.innerHTML = "";
         slots.forEach(function(s){
+          var value = typeof s === "string" ? s : (s.value || "");
+          var label = typeof s === "string" ? value.replace(/:00$/, "") : (s.label || value.replace(/:00$/, ""));
           var b = document.createElement("button");
           b.type = "button";
           b.className = "slot-btn";
-          b.textContent = s;
+          b.textContent = label;
           b.onclick = function(){
             Array.prototype.forEach.call(slotsEl.querySelectorAll(".slot-btn"), function(x){ x.classList.remove("active"); });
             b.classList.add("active");
-            timeEl.value = s;
+            timeEl.value = value;
             errEl.style.display = "none";
           };
           slotsEl.appendChild(b);
