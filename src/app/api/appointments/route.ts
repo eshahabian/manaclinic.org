@@ -14,6 +14,9 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
+  if (!body.acceptTerms) {
+    return NextResponse.json({ error: "لطفاً شرایط رزرو و پرداخت را مطالعه و تأیید کنید." }, { status: 400 });
+  }
   const doctorId = String(body.doctorId || "");
   const date = String(body.date || "");
   const time = String(body.time || "");

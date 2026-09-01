@@ -86,10 +86,13 @@ ob_start();
       </div>
       <input type="hidden" id="book-time" value="">
       <p id="book-error" style="color:var(--danger);font-size:.9rem;display:none"></p>
-      <button type="button" class="btn btn-primary" id="book-submit">رزرو نوبت</button>
+      <?= booking_terms_acceptance_html('terms-accept') ?>
+      <button type="button" class="btn btn-primary" id="book-submit" disabled>رزرو نوبت</button>
     </div>
   </div>
 </div>
+<?= booking_terms_modal_html() ?>
+<?= booking_terms_styles() ?>
 <?php
 $content = ob_get_clean();
 $pageScripts = '
@@ -192,10 +195,13 @@ $pageScripts = '
     if (!loggedIn) { location.href = loginUrl; return; }
     if (!isPatient) { errEl.textContent = "فقط مراجعان می‌توانند از این صفحه نوبت رزرو کنند. منشی از پنل منشی رزرو کند."; errEl.style.display="block"; return; }
     if (!dateEl.value || !timeEl.value) { errEl.textContent = "تاریخ و ساعت را انتخاب کنید."; errEl.style.display="block"; return; }
+    var termsCb = document.getElementById("terms-accept");
+    if (!termsCb || !termsCb.checked) { errEl.textContent = "لطفاً شرایط رزرو را بپذیرید."; errEl.style.display="block"; return; }
     var fd = new FormData();
     fd.append("doctorId", doctorId);
     fd.append("date", dateEl.value);
     fd.append("time", timeEl.value);
+    fd.append("accept_terms", "1");
     fetch(bookUrl, { method: "POST", body: fd })
       .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
       .then(function(res){
@@ -206,8 +212,9 @@ $pageScripts = '
       .catch(function(){ errEl.textContent = "خطای شبکه"; errEl.style.display="block"; });
   };
 })();
-</script>';
+</script>' . booking_terms_script('terms-accept', '#book-submit');
 $GLOBALS['pageHead'] = $pageHead;
 $GLOBALS['pageScripts'] = $pageScripts;
 require_once __DIR__ . '/../includes/patient_panel.php';
+require_once __DIR__ . '/../includes/booking_terms.php';
 finish_patient_or_public_page($pageTitle, $content);

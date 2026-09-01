@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 header('Content-Type: application/json; charset=utf-8');
 
+require_once __DIR__ . '/../includes/booking_terms.php';
+
 $user = current_user();
 if (!$user || $user['role'] !== 'PATIENT') {
     http_response_code(401);
@@ -14,6 +16,10 @@ if (!online_payment_enabled($config)) {
     http_response_code(503);
     echo json_encode(['error' => online_payment_disabled_message()], JSON_UNESCAPED_UNICODE);
     exit;
+}
+
+if (!booking_terms_accepted()) {
+    booking_terms_not_accepted_error();
 }
 
 $appointmentId = post('appointmentId');

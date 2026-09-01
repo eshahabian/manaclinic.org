@@ -9,6 +9,7 @@ import gregorian from "react-date-object/calendars/gregorian";
 import persian_fa from "react-date-object/locales/persian_fa";
 import DateObject from "react-date-object";
 import { formatPrice } from "@/lib/utils";
+import { BookingTermsAcceptance } from "@/components/booking-terms-acceptance";
 
 function toIsoDate(date: DateObject) {
   const g = date.convert(gregorian);
@@ -39,6 +40,7 @@ export function BookingForm({
   const [selectedSlot, setSelectedSlot] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [termsAccepted, setTermsAccepted] = useState(false);
 
   const availableDates = useMemo(
     () => new Set(availabilities.map((a) => a.date)),
@@ -73,6 +75,10 @@ export function BookingForm({
       setError("تاریخ و ساعت را انتخاب کنید.");
       return;
     }
+    if (!termsAccepted) {
+      setError("لطفاً شرایط رزرو را بپذیرید.");
+      return;
+    }
 
     setLoading(true);
     const res = await fetch("/api/appointments", {
@@ -82,6 +88,7 @@ export function BookingForm({
         doctorId,
         date: selectedDate,
         time: selectedSlot,
+        acceptTerms: true,
       }),
     });
     const data = await res.json();
@@ -181,11 +188,13 @@ export function BookingForm({
 
       {error && <p className="text-sm text-danger">{error}</p>}
 
+      <BookingTermsAcceptance checked={termsAccepted} onChange={setTermsAccepted} />
+
       <button
         type="button"
         className="btn btn-primary w-full"
         onClick={book}
-        disabled={loading}
+        disabled={loading || !termsAccepted}
       >
         {loading ? "در حال ثبت..." : "رزرو نوبت"}
       </button>

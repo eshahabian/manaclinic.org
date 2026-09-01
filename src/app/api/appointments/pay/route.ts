@@ -18,6 +18,9 @@ export async function POST(req: Request) {
   }
 
   const body = await req.json();
+  if (!body.acceptTerms) {
+    return NextResponse.json({ error: "لطفاً شرایط رزرو و پرداخت را مطالعه و تأیید کنید." }, { status: 400 });
+  }
   const appointmentId = String(body.appointmentId || "");
   if (!appointmentId) {
     return NextResponse.json({ error: "شناسه نوبت نامعتبر است." }, { status: 400 });
