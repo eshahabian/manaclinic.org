@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+global $pageTitle, $pageHead, $pageScripts, $content;
+
 $user = current_user();
 $panelHref = panel_href_for($user);
 $flash = flash_get();

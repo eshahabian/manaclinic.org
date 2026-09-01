@@ -355,6 +355,7 @@ select {
 
 .panel-layout { display: grid; gap: 1.5rem; padding: 2.5rem 0; }
 @media (min-width: 768px) { .panel-layout { grid-template-columns: 240px 1fr; } }
+.panel-layout > div:last-child { overflow: visible; position: relative; }
 .side-nav { height: fit-content; position: sticky; top: 88px; }
 .side-nav-title { font-weight: 700; color: var(--primary); margin: 0 0 1rem; font-size: 1.1rem; }
 .side-nav nav { display: grid; gap: .35rem; }
@@ -396,6 +397,7 @@ select {
 /* تقویم شمسی jalaliDatepicker */
 jdp-container, .jdp-container, [class*="jdp"] {
   font-family: Vazirmatn, Tahoma, sans-serif !important;
+  z-index: 100000 !important;
 }
 input[data-jdp] {
   cursor: pointer;

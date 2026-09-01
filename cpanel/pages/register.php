@@ -56,7 +56,7 @@ ob_start();
       <div>
         <label class="label label-ltr" for="name_en">نام (انگلیسی)</label>
         <input class="input" name="name_en" id="name_en" required dir="ltr" lang="en" autocomplete="off" placeholder="name">
-        <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">از روی نام فارسی پر می‌شود؛ در صورت نیاز ویرایش کنید.</p>
+        <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">از روی نام فارسی با جستجوی آنلاین پر می‌شود؛ در صورت نیاز ویرایش کنید.</p>
       </div>
       <div>
         <label class="label" for="last_name">نام خانوادگی</label>
@@ -65,7 +65,7 @@ ob_start();
       <div>
         <label class="label label-ltr" for="surname">نام خانوادگی (انگلیسی)</label>
         <input class="input" name="surname" id="surname" required dir="ltr" lang="en" autocomplete="off" placeholder="surname">
-        <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">از روی نام خانوادگی فارسی پر می‌شود؛ در صورت نیاز ویرایش کنید.</p>
+        <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">از روی نام خانوادگی فارسی با جستجوی آنلاین پر می‌شود؛ در صورت نیاز ویرایش کنید.</p>
       </div>
     </div>
 
@@ -110,27 +110,12 @@ $pageScripts = '
 <script>
 (function(){
   var takenUsernames = ' . json_encode(array_values(array_map(static fn($u) => mb_strtolower((string) $u), $takenUsernames)), JSON_UNESCAPED_UNICODE) . ';
+  var transliterateUrl = ' . json_encode(url('/api/transliterate-name')) . ';
   var takenSet = {};
   takenUsernames.forEach(function(u){ if (u) takenSet[u] = true; });
 
-  var faMap = {
-    "آ":"a","ا":"a","أ":"a","إ":"a","ب":"b","پ":"p","ت":"t","ث":"s","ج":"j","چ":"ch",
-    "ح":"h","خ":"kh","د":"d","ذ":"z","ر":"r","ز":"z","ژ":"zh","س":"s","ش":"sh","ص":"s",
-    "ض":"z","ط":"t","ظ":"z","ع":"a","غ":"gh","ف":"f","ق":"gh","ک":"k","ك":"k","گ":"g",
-    "ل":"l","م":"m","ن":"n","و":"o","ؤ":"o","ه":"h","ۀ":"e","ة":"e","ی":"i","ي":"i","ئ":"i","ء":""
-  };
-
-  function persianToLatin(text) {
-    var out = "";
-    String(text || "").split("").forEach(function(ch) {
-      if (faMap[ch] !== undefined) out += faMap[ch];
-      else if (/[a-zA-Z]/.test(ch)) out += ch.toLowerCase();
-    });
-    return out;
-  }
-
   function latinWord(value) {
-    return persianToLatin(value).toLowerCase().replace(/[^a-z]/g, "");
+    return String(value || "").toLowerCase().replace(/[^a-z]/g, "");
   }
 
   var firstNameEl = document.getElementById("first_name");
@@ -143,6 +128,8 @@ $pageScripts = '
   var usernameHint = document.getElementById("username-hint");
   var nameEnTouched = false;
   var surnameTouched = false;
+  var timers = { first: null, last: null };
+  var requests = { first: 0, last: 0 };
 
   function baseUsernameFromParts() {
     var first = latinWord(nameEnEl.value) || latinWord(firstNameEl.value);
@@ -165,15 +152,6 @@ $pageScripts = '
     return candidate;
   }
 
-  function fillEnglishFromPersian() {
-    if (!nameEnTouched && firstNameEl.value.trim()) {
-      nameEnEl.value = persianToLatin(firstNameEl.value.trim());
-    }
-    if (!surnameTouched && lastNameEl.value.trim()) {
-      surnameEl.value = persianToLatin(lastNameEl.value.trim());
-    }
-  }
-
   function applyUsername() {
     var base = baseUsernameFromParts();
     if (!base) {
@@ -192,21 +170,66 @@ $pageScripts = '
       : "نام کاربری (بدون تکرار): " + suggested;
   }
 
-  function onNameInput() {
-    fillEnglishFromPersian();
+  function requestTransliteration(kind, persianText) {
+    var reqId = ++requests[kind];
+    var targetEl = kind === "first" ? nameEnEl : surnameEl;
+    targetEl.placeholder = "در حال جستجو...";
+
+    fetch(transliterateUrl + "?name=" + encodeURIComponent(persianText))
+      .then(function(r){ return r.json().then(function(j){ return { ok: r.ok, j: j }; }); })
+      .then(function(res){
+        if (reqId !== requests[kind]) return;
+        targetEl.placeholder = kind === "first" ? "name" : "surname";
+        if (!res.ok || !res.j.latin) return;
+        if (kind === "first" && !nameEnTouched) nameEnEl.value = res.j.latin;
+        if (kind === "last" && !surnameTouched) surnameEl.value = res.j.latin;
+        applyUsername();
+      })
+      .catch(function(){
+        if (reqId !== requests[kind]) return;
+        targetEl.placeholder = kind === "first" ? "name" : "surname";
+      });
+  }
+
+  function scheduleTransliteration(kind, persianText) {
+    clearTimeout(timers[kind]);
+    timers[kind] = setTimeout(function(){
+      requestTransliteration(kind, persianText);
+    }, 400);
+  }
+
+  function onFirstNameInput() {
+    var val = firstNameEl.value.trim();
+    if (!val) {
+      nameEnEl.value = "";
+      nameEnTouched = false;
+      applyUsername();
+      return;
+    }
+    if (!nameEnTouched) scheduleTransliteration("first", val);
+    applyUsername();
+  }
+
+  function onLastNameInput() {
+    var val = lastNameEl.value.trim();
+    if (!val) {
+      surnameEl.value = "";
+      surnameTouched = false;
+      applyUsername();
+      return;
+    }
+    if (!surnameTouched) scheduleTransliteration("last", val);
     applyUsername();
   }
 
   nameEnEl.addEventListener("input", function(){ nameEnTouched = true; applyUsername(); });
   surnameEl.addEventListener("input", function(){ surnameTouched = true; applyUsername(); });
-  [firstNameEl, lastNameEl].forEach(function(el){
-    el.addEventListener("input", onNameInput);
-    el.addEventListener("blur", onNameInput);
-  });
+  firstNameEl.addEventListener("input", onFirstNameInput);
+  lastNameEl.addEventListener("input", onLastNameInput);
+  firstNameEl.addEventListener("blur", onFirstNameInput);
+  lastNameEl.addEventListener("blur", onLastNameInput);
 
   document.getElementById("register-form").addEventListener("submit", function(e){
-    fillEnglishFromPersian();
-    applyUsername();
     var phoneEl = document.getElementById("phone");
     if (!nameEnEl.value.trim() || !surnameEl.value.trim()) {
       e.preventDefault();

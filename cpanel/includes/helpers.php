@@ -296,6 +296,79 @@ function unique_username(PDO $pdo, string $base): string
     }
 }
 
+/** ترجمه نام فارسی به انگلیسی با سرویس آنلاین (با fallback محلی) */
+function fetch_online_translation(string $text, string $from = 'fa', string $to = 'en'): ?string
+{
+    $url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl='
+        . rawurlencode($from) . '&tl=' . rawurlencode($to) . '&dt=t&q=' . rawurlencode($text);
+
+    $ctx = stream_context_create([
+        'http' => [
+            'timeout' => 6,
+            'header' => "User-Agent: ManaClinic/1.0\r\n",
+        ],
+        'ssl' => [
+            'verify_peer' => true,
+            'verify_peer_name' => true,
+        ],
+    ]);
+
+    $raw = @file_get_contents($url, false, $ctx);
+    if ($raw === false) {
+        return null;
+    }
+
+    $data = json_decode($raw, true);
+    if (!is_array($data) || !isset($data[0][0][0])) {
+        return null;
+    }
+
+    $translated = trim((string) $data[0][0][0]);
+    return $translated !== '' ? $translated : null;
+}
+
+function clean_latin_name(string $value): string
+{
+    $value = trim(preg_replace('/\s+/', ' ', $value) ?? '');
+    $value = preg_replace("/[^a-zA-Z\s'-]/", '', $value) ?? '';
+    return trim($value);
+}
+
+function format_latin_name(string $value): string
+{
+    $value = clean_latin_name($value);
+    if ($value === '') {
+        return '';
+    }
+
+    $parts = preg_split('/\s+/', $value) ?: [];
+    $parts = array_map(static function (string $part): string {
+        $part = strtolower($part);
+        return mb_strtoupper(mb_substr($part, 0, 1)) . mb_substr($part, 1);
+    }, $parts);
+
+    return implode(' ', $parts);
+}
+
+function transliterate_persian_name(string $name): string
+{
+    $name = trim($name);
+    if ($name === '') {
+        return '';
+    }
+
+    $translated = fetch_online_translation($name);
+    if ($translated !== null) {
+        $clean = clean_latin_name($translated);
+        if ($clean !== '') {
+            return format_latin_name($clean);
+        }
+    }
+
+    $fallback = clean_latin_name(persian_to_latin($name));
+    return format_latin_name($fallback);
+}
+
 function gregorian_to_jalali(int $gy, int $gm, int $gd): array
 {
     $g_d_m = [0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334];

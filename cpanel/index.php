@@ -88,6 +88,7 @@ $routes = [
     'GET /admin/appointments' => 'pages/admin/appointments.php',
 
     'GET /api/slots' => 'actions/slots.php',
+    'GET /api/transliterate-name' => 'actions/transliterate_name.php',
     'GET /payments/verify' => 'actions/payment_verify.php',
     'GET /install' => 'install.php',
 ];

@@ -25,6 +25,7 @@ $articles = $pdo->prepare('SELECT title, slug FROM articles WHERE author_id = ? 
 $articles->execute([$doctor['user_id']]);
 $articles = $articles->fetchAll();
 
+$currentUser = current_user();
 $pageTitle = $doctor['name'];
 $pageHead = '
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
@@ -104,8 +105,8 @@ $pageScripts = '
   var slotsEl = document.getElementById("book-slots");
   var timeEl = document.getElementById("book-time");
   var errEl = document.getElementById("book-error");
-  var loggedIn = ' . json_encode((bool) current_user()) . ';
-  var isPatient = ' . json_encode((current_user()['role'] ?? '') === 'PATIENT') . ';
+  var loggedIn = ' . json_encode((bool) $currentUser) . ';
+  var isPatient = ' . json_encode(($currentUser['role'] ?? '') === 'PATIENT') . ';
   var loginUrl = ' . json_encode(url('/login') . '?next=' . urlencode(url('/doctors/' . $doctor['id']))) . ';
   var slotsUrl = ' . json_encode(url('/api/slots')) . ';
   var bookUrl = ' . json_encode(url('/book')) . ';
@@ -177,7 +178,8 @@ $pageScripts = '
     showTodayBtn: false,
     showEmptyBtn: true,
     autoReadOnlyInput: true,
-    zIndex: 99999
+    zIndex: 100000,
+    container: "body"
   });
 
   dateView.addEventListener("jdp:change", onDatePicked);
