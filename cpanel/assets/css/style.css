@@ -355,7 +355,9 @@ select {
 
 .panel-layout { display: grid; gap: 1.5rem; padding: 2.5rem 0; }
 @media (min-width: 768px) { .panel-layout { grid-template-columns: 240px 1fr; } }
-.panel-layout > div:last-child { overflow: visible; position: relative; }
+.panel-layout > div:last-child,
+.panel-layout > .panel-main { overflow: visible; position: relative; min-width: 0; }
+.patient-panel-inner { padding: 0; }
 .side-nav { height: fit-content; position: sticky; top: 88px; }
 .side-nav-title { font-weight: 700; color: var(--primary); margin: 0 0 1rem; font-size: 1.1rem; }
 .side-nav nav { display: grid; gap: .35rem; }

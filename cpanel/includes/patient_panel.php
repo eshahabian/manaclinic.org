@@ -24,10 +24,10 @@ function render_patient_page(string $title, string $innerHtml): void
         <p class="side-nav-title">پنل مراجع</p>
         <nav><?php foreach ($nav as $item): ?><a href="<?= e(url($item['href'])) ?>"><?= e($item['label']) ?></a><?php endforeach; ?></nav>
       </aside>
-      <div><?= $innerHtml ?></div>
+      <div class="panel-main"><?= $innerHtml ?></div>
     </div>
     <?php
-    $content = ob_get_clean();
+    $GLOBALS['content'] = ob_get_clean();
     require __DIR__ . '/layout.php';
 }
 

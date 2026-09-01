@@ -24,9 +24,11 @@ if ($q !== '') {
 }
 
 $pageTitle = 'متخصصان';
+$currentUser = current_user();
+$isPatientViewer = $currentUser && ($currentUser['role'] ?? '') === 'PATIENT';
 ob_start();
 ?>
-<div class="section" style="padding:0">
+<div class="<?= $isPatientViewer ? 'patient-panel-inner' : 'container-page section' ?>">
   <h1>متخصصان</h1>
   <p class="muted">متخصص مناسب خود را پیدا کنید و نوبت بگیرید</p>
   <form class="auth-box" style="margin-top:1.5rem;width:min(560px,100%)" method="get">

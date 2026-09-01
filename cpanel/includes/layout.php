@@ -1,7 +1,10 @@
 <?php
 declare(strict_types=1);
 
-global $pageTitle, $pageHead, $pageScripts, $content;
+$pageTitle = $GLOBALS['pageTitle'] ?? ($pageTitle ?? null);
+$pageHead = $GLOBALS['pageHead'] ?? ($pageHead ?? '');
+$pageScripts = $GLOBALS['pageScripts'] ?? ($pageScripts ?? '');
+$content = $GLOBALS['content'] ?? ($content ?? '');
 
 $user = current_user();
 $panelHref = panel_href_for($user);

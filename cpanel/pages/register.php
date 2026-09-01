@@ -56,7 +56,7 @@ ob_start();
       <div>
         <label class="label label-ltr" for="name_en">نام (انگلیسی)</label>
         <input class="input" name="name_en" id="name_en" required dir="ltr" lang="en" autocomplete="off" placeholder="name">
-        <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">از روی نام فارسی با جستجوی آنلاین پر می‌شود؛ در صورت نیاز ویرایش کنید.</p>
+        <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">از روی نام فارسی (کاربران قبلی + جستجوی آنلاین) پر می‌شود؛ در صورت نیاز ویرایش کنید.</p>
       </div>
       <div>
         <label class="label" for="last_name">نام خانوادگی</label>
@@ -65,7 +65,7 @@ ob_start();
       <div>
         <label class="label label-ltr" for="surname">نام خانوادگی (انگلیسی)</label>
         <input class="input" name="surname" id="surname" required dir="ltr" lang="en" autocomplete="off" placeholder="surname">
-        <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">از روی نام خانوادگی فارسی با جستجوی آنلاین پر می‌شود؛ در صورت نیاز ویرایش کنید.</p>
+        <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">از روی نام خانوادگی فارسی (کاربران قبلی + جستجوی آنلاین) پر می‌شود؛ در صورت نیاز ویرایش کنید.</p>
       </div>
     </div>
 
@@ -172,13 +172,15 @@ $pageScripts = '
 
   function requestTransliteration(kind, persianText) {
     var reqId = ++requests[kind];
+    var sourceEl = kind === "first" ? firstNameEl : lastNameEl;
     var targetEl = kind === "first" ? nameEnEl : surnameEl;
     targetEl.placeholder = "در حال جستجو...";
 
-    fetch(transliterateUrl + "?name=" + encodeURIComponent(persianText))
+    fetch(transliterateUrl + "?name=" + encodeURIComponent(persianText) + "&part=" + kind)
       .then(function(r){ return r.json().then(function(j){ return { ok: r.ok, j: j }; }); })
       .then(function(res){
         if (reqId !== requests[kind]) return;
+        if (sourceEl.value.trim() !== persianText) return;
         targetEl.placeholder = kind === "first" ? "name" : "surname";
         if (!res.ok || !res.j.latin) return;
         if (kind === "first" && !nameEnTouched) nameEnEl.value = res.j.latin;
@@ -198,12 +200,26 @@ $pageScripts = '
     }, 400);
   }
 
+  function clearTransliteration(kind) {
+    requests[kind]++;
+    clearTimeout(timers[kind]);
+    timers[kind] = null;
+    if (kind === "first") {
+      nameEnEl.value = "";
+      nameEnEl.placeholder = "name";
+      nameEnTouched = false;
+    } else {
+      surnameEl.value = "";
+      surnameEl.placeholder = "surname";
+      surnameTouched = false;
+    }
+    applyUsername();
+  }
+
   function onFirstNameInput() {
     var val = firstNameEl.value.trim();
     if (!val) {
-      nameEnEl.value = "";
-      nameEnTouched = false;
-      applyUsername();
+      clearTransliteration("first");
       return;
     }
     if (!nameEnTouched) scheduleTransliteration("first", val);
@@ -213,9 +229,7 @@ $pageScripts = '
   function onLastNameInput() {
     var val = lastNameEl.value.trim();
     if (!val) {
-      surnameEl.value = "";
-      surnameTouched = false;
-      applyUsername();
+      clearTransliteration("last");
       return;
     }
     if (!surnameTouched) scheduleTransliteration("last", val);

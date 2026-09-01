@@ -12,10 +12,10 @@ $lastName = trim(post('last_name'));
 $nameEn = trim(post('name_en'));
 $surname = trim(post('surname'));
 if ($nameEn === '' && $firstName !== '') {
-    $nameEn = transliterate_persian_name($firstName);
+    $nameEn = transliterate_persian_name($pdo, $firstName, 'first');
 }
 if ($surname === '' && $lastName !== '') {
-    $surname = transliterate_persian_name($lastName);
+    $surname = transliterate_persian_name($pdo, $lastName, 'last');
 }
 $name = trim($firstName . ' ' . $lastName);
 $username = mb_strtolower(post('username'));

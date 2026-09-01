@@ -350,11 +350,16 @@ function format_latin_name(string $value): string
     return implode(' ', $parts);
 }
 
-function transliterate_persian_name(string $name): string
+function transliterate_persian_name(PDO $pdo, string $name, string $part = 'first'): string
 {
     $name = trim($name);
     if ($name === '') {
         return '';
+    }
+
+    $fromDb = lookup_latin_from_registered_users($pdo, $name, $part);
+    if ($fromDb !== null && $fromDb !== '') {
+        return $fromDb;
     }
 
     $translated = fetch_online_translation($name);
@@ -367,6 +372,82 @@ function transliterate_persian_name(string $name): string
 
     $fallback = clean_latin_name(persian_to_latin($name));
     return format_latin_name($fallback);
+}
+
+function lookup_latin_from_registered_users(PDO $pdo, string $persianPart, string $part = 'first'): ?string
+{
+    $persianPart = trim($persianPart);
+    if ($persianPart === '') {
+        return null;
+    }
+
+    if ($part === 'first') {
+        $stmt = $pdo->prepare("
+            SELECT username, name FROM users
+            WHERE username IS NOT NULL AND username <> ''
+              AND SUBSTRING_INDEX(TRIM(name), ' ', 1) = ?
+            ORDER BY created_at DESC
+            LIMIT 20
+        ");
+    } else {
+        $stmt = $pdo->prepare("
+            SELECT username, name FROM users
+            WHERE username IS NOT NULL AND username <> ''
+              AND SUBSTRING_INDEX(TRIM(name), ' ', -1) = ?
+            ORDER BY created_at DESC
+            LIMIT 20
+        ");
+    }
+    $stmt->execute([$persianPart]);
+    $rows = $stmt->fetchAll();
+    if (!$rows) {
+        return null;
+    }
+
+    foreach ($rows as $row) {
+        $username = strtolower((string) $row['username']);
+        $fullName = trim((string) $row['name']);
+        $nameParts = preg_split('/\s+/u', $fullName) ?: [];
+
+        if (!preg_match('/^[a-z][a-z0-9._-]{1,31}$/', $username)) {
+            continue;
+        }
+
+        if ($part === 'first') {
+            if (($nameParts[0] ?? '') !== $persianPart) {
+                continue;
+            }
+            $surnameLatin = count($nameParts) > 1 ? latin_suffix_from_username($username) : null;
+            if (count($nameParts) === 1 || $surnameLatin === null || !str_ends_with($username, $surnameLatin)) {
+                return format_latin_name($username);
+            }
+            continue;
+        }
+
+        if (($nameParts[count($nameParts) - 1] ?? '') !== $persianPart) {
+            continue;
+        }
+
+        $surnameLatin = latin_suffix_from_username($username);
+        if ($surnameLatin !== null) {
+            return format_latin_name($surnameLatin);
+        }
+    }
+
+    return null;
+}
+
+function latin_suffix_from_username(string $username): ?string
+{
+    if (strlen($username) < 4) {
+        return null;
+    }
+    $suffix = substr($username, 1);
+    if ($suffix === '' || !preg_match('/^[a-z][a-z0-9._-]{2,30}$/', $suffix)) {
+        return null;
+    }
+
+    return $suffix;
 }
 
 function gregorian_to_jalali(int $gy, int $gm, int $gd): array

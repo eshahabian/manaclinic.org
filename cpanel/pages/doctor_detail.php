@@ -26,6 +26,7 @@ $articles->execute([$doctor['user_id']]);
 $articles = $articles->fetchAll();
 
 $currentUser = current_user();
+$isPatientViewer = $currentUser && ($currentUser['role'] ?? '') === 'PATIENT';
 $pageTitle = $doctor['name'];
 $pageHead = '
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
@@ -33,7 +34,7 @@ $pageHead = '
 
 ob_start();
 ?>
-<div class="section" style="padding:0">
+<div class="<?= $isPatientViewer ? 'section patient-panel-inner' : 'container-page section' ?>">
   <a href="<?= e(url('/doctors')) ?>" style="color:var(--primary);font-size:.9rem">← بازگشت به لیست</a>
   <div class="grid-2" style="margin-top:1.5rem;align-items:start">
     <div class="panel">
@@ -205,5 +206,7 @@ $pageScripts = '
   };
 })();
 </script>';
+$GLOBALS['pageHead'] = $pageHead;
+$GLOBALS['pageScripts'] = $pageScripts;
 require_once __DIR__ . '/../includes/patient_panel.php';
 finish_patient_or_public_page($pageTitle, $content);
