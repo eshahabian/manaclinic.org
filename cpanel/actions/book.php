@@ -10,6 +10,12 @@ if (!$user || $user['role'] !== 'PATIENT') {
     exit;
 }
 
+if (!online_payment_enabled($config)) {
+    http_response_code(503);
+    echo json_encode(['error' => online_payment_disabled_message()], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 $doctorId = post('doctorId');
 $date = post('date');
 $time = post('time');

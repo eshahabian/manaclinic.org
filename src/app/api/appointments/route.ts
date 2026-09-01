@@ -5,10 +5,17 @@ import { prisma } from "@/lib/prisma";
 import { addMinutes, combineDateTime, generateSlots } from "@/lib/utils";
 import { zarinpalRequest } from "@/lib/zarinpal";
 
+const ONLINE_PAYMENT_ENABLED = process.env.ONLINE_PAYMENT_ENABLED === "true";
+const PAYMENT_DISABLED_MESSAGE = "پرداخت آنلاین فعلاً فعال نیست.";
+
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user || session.user.role !== "PATIENT") {
     return NextResponse.json({ error: "لطفاً با حساب مراجع وارد شوید." }, { status: 401 });
+  }
+
+  if (!ONLINE_PAYMENT_ENABLED) {
+    return NextResponse.json({ error: PAYMENT_DISABLED_MESSAGE }, { status: 503 });
   }
 
   const body = await req.json();

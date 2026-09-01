@@ -64,6 +64,7 @@ ob_start();
 
     <div class="panel stack" id="booking-box">
       <h2 style="margin:0">رزرو نوبت آنلاین</h2>
+      <p class="muted" style="margin:.35rem 0 0;font-size:.9rem;line-height:1.7">پرداخت آنلاین فعلاً فعال نیست.</p>
       <div>
         <label class="label" for="book-date-view">انتخاب تاریخ</label>
         <input
@@ -85,7 +86,7 @@ ob_start();
       </div>
       <input type="hidden" id="book-time" value="">
       <p id="book-error" style="color:var(--danger);font-size:.9rem;display:none"></p>
-      <button type="button" class="btn btn-primary" id="book-submit">رزرو و پرداخت</button>
+      <button type="button" class="btn btn-primary" id="book-submit">رزرو نوبت</button>
     </div>
   </div>
 </div>
@@ -199,8 +200,7 @@ $pageScripts = '
       .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
       .then(function(res){
         if (!res.ok) { errEl.textContent = res.j.error || "رزرو ناموفق بود"; errEl.style.display="block"; return; }
-        if (res.j.paymentUrl) location.href = res.j.paymentUrl;
-        else location.href = ' . json_encode(url('/dashboard/appointments')) . ';
+        location.href = ' . json_encode(url('/dashboard/appointments')) . ';
       })
       .catch(function(){ errEl.textContent = "خطای شبکه"; errEl.style.display="block"; });
   };

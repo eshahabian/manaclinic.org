@@ -92,10 +92,6 @@ export function BookingForm({
       return;
     }
 
-    if (data.paymentUrl) {
-      window.location.href = data.paymentUrl;
-      return;
-    }
     router.push("/dashboard/appointments");
   }
 
@@ -103,6 +99,7 @@ export function BookingForm({
     <div className="panel space-y-4">
       <h2 className="text-xl font-bold">رزرو نوبت آنلاین</h2>
       <p className="text-sm text-muted">هزینه جلسه: {formatPrice(sessionPrice)}</p>
+      <p className="text-sm leading-7 text-muted">پرداخت آنلاین فعلاً فعال نیست.</p>
 
       <div>
         <label className="label">انتخاب تاریخ</label>
@@ -183,7 +180,7 @@ export function BookingForm({
         onClick={book}
         disabled={loading}
       >
-        {loading ? "در حال انتقال به پرداخت..." : "رزرو و پرداخت"}
+        {loading ? "در حال ثبت..." : "رزرو نوبت"}
       </button>
     </div>
   );

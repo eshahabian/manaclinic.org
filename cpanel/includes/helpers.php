@@ -88,6 +88,16 @@ function role_label(string $role): string
     };
 }
 
+function online_payment_enabled(array $config): bool
+{
+    return !empty($config['online_payment_enabled']);
+}
+
+function online_payment_disabled_message(): string
+{
+    return 'پرداخت آنلاین فعلاً فعال نیست.';
+}
+
 function format_fa_datetime(string $datetime): string
 {
     $ts = strtotime($datetime);

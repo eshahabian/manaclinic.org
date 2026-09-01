@@ -14,6 +14,7 @@ return [
 
     'zarinpal_merchant_id' => 'XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX',
     'zarinpal_sandbox' => true, // بعد از گرفتن مرچنت واقعی false کنید
+    'online_payment_enabled' => false, // پرداخت آنلاین زرین‌پال
 
     'session_name' => 'mana_clinic_sess',
 ];
