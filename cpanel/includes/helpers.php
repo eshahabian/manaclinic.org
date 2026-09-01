@@ -357,6 +357,11 @@ function transliterate_persian_name(PDO $pdo, string $name, string $part = 'firs
         return '';
     }
 
+    $fromDictionary = lookup_name_transliteration($pdo, $name, $part);
+    if ($fromDictionary !== null && $fromDictionary !== '') {
+        return $fromDictionary;
+    }
+
     $fromDb = lookup_latin_from_registered_users($pdo, $name, $part);
     if ($fromDb !== null && $fromDb !== '') {
         return $fromDb;

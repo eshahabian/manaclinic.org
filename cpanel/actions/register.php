@@ -81,12 +81,15 @@ if ($role === 'DOCTOR') {
         ->execute([$id, $username, $name, $email, $phone, password_hash($password, PASSWORD_DEFAULT), 'DOCTOR', null]);
     $pdo->prepare('INSERT INTO doctor_profiles (id,user_id,specialty,bio,session_price,is_approved,is_active) VALUES (?,?,?,?,?,?,?)')
         ->execute([cuid(), $id, $specialty, '', 3000000, 0, 0]);
+    remember_registration_name_transliterations($pdo, $firstName, $lastName, $nameEn, $surname);
     flash_set('success', 'درخواست ثبت‌نام شما ثبت شد. پس از تأیید مدیر سایت می‌توانید وارد شوید.');
     redirect('/login');
 }
 
 $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,preferred_doctor_id,must_change_password) VALUES (?,?,?,?,?,?,?,?,0)')
     ->execute([$id, $username, $name, $email, $phone, password_hash($password, PASSWORD_DEFAULT), 'PATIENT', $preferredDoctorId]);
+
+remember_registration_name_transliterations($pdo, $firstName, $lastName, $nameEn, $surname);
 
 $docNameStmt = $pdo->prepare('SELECT u.name FROM doctor_profiles dp JOIN users u ON u.id = dp.user_id WHERE dp.id = ?');
 $docNameStmt->execute([$preferredDoctorId]);

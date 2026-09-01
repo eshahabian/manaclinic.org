@@ -63,4 +63,9 @@ function db_ensure_schema(PDO $pdo): void
         }
     } catch (Throwable $ignored) {
     }
+
+    try {
+        ensure_name_transliterations_schema($pdo);
+    } catch (Throwable $ignored) {
+    }
 }

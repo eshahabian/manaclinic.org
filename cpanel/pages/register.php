@@ -56,7 +56,7 @@ ob_start();
       <div>
         <label class="label label-ltr" for="name_en">نام (انگلیسی)</label>
         <input class="input" name="name_en" id="name_en" required dir="ltr" lang="en" autocomplete="off" placeholder="name">
-        <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">از روی نام فارسی (کاربران قبلی + جستجوی آنلاین) پر می‌شود؛ در صورت نیاز ویرایش کنید.</p>
+        <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">از دیتابیس نام‌ها و جستجوی آنلاین پیشنهاد می‌شود؛ در صورت نیاز ویرایش کنید.</p>
       </div>
       <div>
         <label class="label" for="last_name">نام خانوادگی</label>
@@ -65,7 +65,7 @@ ob_start();
       <div>
         <label class="label label-ltr" for="surname">نام خانوادگی (انگلیسی)</label>
         <input class="input" name="surname" id="surname" required dir="ltr" lang="en" autocomplete="off" placeholder="surname">
-        <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">از روی نام خانوادگی فارسی (کاربران قبلی + جستجوی آنلاین) پر می‌شود؛ در صورت نیاز ویرایش کنید.</p>
+        <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">از دیتابیس نام‌ها و جستجوی آنلاین پیشنهاد می‌شود؛ در صورت نیاز ویرایش کنید.</p>
       </div>
     </div>
 

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 // install.php از index هم قابل دسترسی است
 require_once __DIR__ . '/includes/helpers.php';
+require_once __DIR__ . '/includes/name_transliterations.php';
 
 $config = require __DIR__ . '/config.php';
 $error = null;
@@ -143,6 +144,19 @@ try {
         INDEX idx_hl_doctor_patient (doctor_id, patient_id),
         CONSTRAINT fk_hl_doctor FOREIGN KEY (doctor_id) REFERENCES doctor_profiles(id) ON DELETE CASCADE,
         CONSTRAINT fk_hl_patient FOREIGN KEY (patient_id) REFERENCES users(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+      CREATE TABLE IF NOT EXISTS name_transliterations (
+        id VARCHAR(32) PRIMARY KEY,
+        persian VARCHAR(100) NOT NULL,
+        latin VARCHAR(100) NOT NULL,
+        part ENUM('first','last','any') NOT NULL DEFAULT 'any',
+        source VARCHAR(32) NOT NULL DEFAULT 'seed',
+        hits INT UNSIGNED NOT NULL DEFAULT 1,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_name_latin_part (persian, latin, part),
+        INDEX idx_lookup (persian, part, hits DESC)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
 
@@ -332,6 +346,8 @@ try {
             }
         }
     }
+
+    ensure_name_transliterations_schema($pdo);
 
     $ok = true;
 } catch (Throwable $e) {
