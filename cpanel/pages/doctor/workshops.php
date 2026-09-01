@@ -42,7 +42,7 @@ if ($editWorkshop) {
     $endParts = workshop_datetime_parts((string) $editWorkshop['ends_at']);
 } else {
     $startParts = ['date' => '', 'time' => '10:00', 'jalali' => ''];
-    $endParts = ['date' => '', 'time' => '12:00', 'jalali' => ''];
+    $endParts = ['date' => '', 'time' => '18:00', 'jalali' => ''];
 }
 
 ob_start();
@@ -90,8 +90,10 @@ ob_start();
           <?php endif; ?>
           <?php if (!$workshop['is_published'] || $workshop['status'] !== 'PUBLISHED'): ?>
             <p style="color:var(--danger);font-size:.8rem;margin-top:.5rem">مراجعان این کارگاه را نمی‌بینند — دکمه «انتشار» را بزنید.</p>
+          <?php elseif (strtotime((string) $workshop['ends_at']) <= time()): ?>
+            <p style="color:var(--muted);font-size:.8rem;margin-top:.5rem">زمان پایان گذشته — در لیست مراجعان نمایش داده نمی‌شود.</p>
           <?php elseif (strtotime((string) $workshop['starts_at']) <= time()): ?>
-            <p style="color:var(--muted);font-size:.8rem;margin-top:.5rem">زمان شروع گذشته — در لیست ثبت‌نام مراجعان نمایش داده نمی‌شود.</p>
+            <p style="color:var(--warning,#b45309);font-size:.8rem;margin-top:.5rem">شروع شده — مراجعان می‌بینند اما ثبت‌نام بسته است.</p>
           <?php else: ?>
             <p style="color:var(--success);font-size:.8rem;margin-top:.5rem">برای مراجعان در «دوره‌های من» → تب <?= e(workshop_type_label($workshop['type'])) ?> قابل مشاهده است.</p>
           <?php endif; ?>
@@ -232,7 +234,7 @@ ob_start();
     <?php if ($editWorkshop): ?>
       <span class="muted">وضعیت انتشار: <strong><?= $editWorkshop['is_published'] ? 'منتشر شده' : 'پیش‌نویس' ?></strong> — برای تغییر از دکمه «انتشار / لغو انتشار» در لیست بالا استفاده کنید.</span>
     <?php else: ?>
-      <input type="checkbox" name="published" checked> انتشار برای مراجعان (در «دوره‌های من» نمایش داده شود)
+      <span class="muted">کارگاه جدید بلافاصله برای مراجعان در «دوره‌های من» منتشر می‌شود.</span>
     <?php endif; ?>
   </label>
   <button class="btn btn-primary" type="submit"><?= e($formSubmit) ?></button>

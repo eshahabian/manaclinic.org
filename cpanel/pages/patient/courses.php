@@ -22,7 +22,7 @@ $dbType = workshop_type_from_tab($active);
 $tabCounts = $pdo->query("
   SELECT w.type, COUNT(*) AS cnt
   FROM workshops w
-  WHERE w.is_published = 1 AND w.status = 'PUBLISHED' AND w.starts_at > NOW()
+  WHERE " . workshop_patient_list_sql('w') . "
   GROUP BY w.type
 ")->fetchAll(PDO::FETCH_KEY_PAIR);
 $countForTab = static function (string $tab): int {
@@ -36,7 +36,7 @@ $available = $pdo->prepare("
   FROM workshops w
   JOIN doctor_profiles dp ON dp.id = w.doctor_id
   JOIN users u ON u.id = dp.user_id
-  WHERE w.type = ? AND w.is_published = 1 AND w.status = 'PUBLISHED' AND w.starts_at > NOW()
+  WHERE w.type = ? AND " . workshop_patient_list_sql('w') . "
   ORDER BY w.starts_at ASC
 ");
 $available->execute([$dbType]);
@@ -101,8 +101,10 @@ ob_start();
           <?php endif; ?>
         </div>
         <div>
-          <?php if (!$enrolled): ?>
+          <?php if (!$enrolled && workshop_can_enroll($w)): ?>
             <button type="button" class="btn btn-primary btn-sm enroll-btn" data-id="<?= e($w['id']) ?>">ثبت‌نام</button>
+          <?php elseif (!$enrolled): ?>
+            <span class="badge">شروع شده — ثبت‌نام بسته</span>
           <?php else: ?>
             <span class="badge">ثبت‌نام شده</span>
           <?php endif; ?>
@@ -113,7 +115,7 @@ ob_start();
       <p class="muted">کارگاه فعالی برای ثبت‌نام در این دسته نیست.</p>
       <ul class="muted" style="font-size:.85rem;margin:.5rem 0 0;padding-right:1.1rem">
         <li>کارگاه <strong>حضوری</strong> را در تب «دوره‌های حضوری»، <strong>آنلاین</strong> و <strong>آفلاین</strong> را در تب مربوطه ببینید.</li>
-        <li>پزشک باید کارگاه را <strong>منتشر</strong> کرده باشد و زمان شروع هنوز نگذشته باشد.</li>
+        <li>پزشک باید کارگاه را <strong>منتشر</strong> کرده باشد و زمان <strong>پایان</strong> هنوز نگذشته باشد.</li>
       </ul>
     <?php endif; ?>
   </section>

@@ -25,8 +25,8 @@ function workshop_save_fields_from_post(): array
         throw new RuntimeException('اطلاعات کارگاه ناقص است.');
     }
 
-    $startsAt = $startDate . ' ' . $startTime . ':00';
-    $endsAt = $endDate . ' ' . $endTime . ':00';
+    $startsAt = workshop_datetime_from_post($startDate, $startTime);
+    $endsAt = workshop_datetime_from_post($endDate, $endTime);
     if (strtotime($endsAt) <= strtotime($startsAt)) {
         throw new RuntimeException('زمان پایان باید بعد از شروع باشد.');
     }
@@ -88,8 +88,8 @@ if ($action === 'create') {
         $data['location'],
         $data['meeting_url'],
         $data['content_url'],
-        $data['published'] ? 1 : 0,
-        $data['published'] ? 'PUBLISHED' : 'DRAFT',
+        1,
+        'PUBLISHED',
     ]);
     flash_set('success', 'کارگاه ایجاد شد.');
     redirect('/doctor/workshops');

@@ -57,6 +57,50 @@ function ensure_workshop_schema(PDO $pdo): void
         CONSTRAINT fk_wpay_enrollment FOREIGN KEY (enrollment_id) REFERENCES workshop_enrollments(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
+    workshop_sync_publish_flags($pdo);
+}
+
+/** هم‌خوان‌سازی وضعیت انتشار (رفع ناسازگاری is_published و status) */
+function workshop_sync_publish_flags(PDO $pdo): void
+{
+    $pdo->exec("UPDATE workshops SET status = 'PUBLISHED' WHERE is_published = 1 AND status = 'DRAFT'");
+}
+
+/** کارگاه‌هایی که مراجع در لیست «دوره‌های من» می‌بیند (هنوز تمام نشده) */
+function workshop_patient_list_sql(string $alias = 'w'): string
+{
+    $a = $alias;
+    return "{$a}.is_published = 1 AND {$a}.status NOT IN ('CANCELLED', 'COMPLETED') AND {$a}.ends_at > NOW()";
+}
+
+function workshop_can_enroll(array $workshop): bool
+{
+    return strtotime((string) $workshop['starts_at']) > time();
+}
+
+function workshop_normalize_time(string $time): string
+{
+    $time = trim($time);
+    if (preg_match('/^\d{1,2}:\d{2}:\d{2}$/', $time)) {
+        return $time;
+    }
+    if (preg_match('/^\d{1,2}:\d{2}$/', $time)) {
+        return $time . ':00';
+    }
+    throw new RuntimeException('ساعت نامعتبر است.');
+}
+
+function workshop_datetime_from_post(string $date, string $time): string
+{
+    $date = trim($date);
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+        throw new RuntimeException('تاریخ را از تقویم شمسی انتخاب کنید.');
+    }
+    $dt = $date . ' ' . workshop_normalize_time($time);
+    if (!strtotime($dt)) {
+        throw new RuntimeException('زمان کارگاه نامعتبر است.');
+    }
+    return $dt;
 }
 
 function workshop_type_from_tab(string $tab): string

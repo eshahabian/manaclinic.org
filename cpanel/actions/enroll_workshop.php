@@ -22,13 +22,19 @@ if ($workshopId === '') {
 
 $stmt = $pdo->prepare('
   SELECT w.* FROM workshops w
-  WHERE w.id = ? AND w.is_published = 1 AND w.status = "PUBLISHED" AND w.starts_at > NOW()
-');
+  WHERE w.id = ? AND ' . workshop_patient_list_sql('w')
+);
 $stmt->execute([$workshopId]);
 $workshop = $stmt->fetch();
 if (!$workshop) {
     http_response_code(404);
     echo json_encode(['error' => 'کارگاه یافت نشد یا ثبت‌نام بسته شده است.'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+if (!workshop_can_enroll($workshop)) {
+    http_response_code(409);
+    echo json_encode(['error' => 'زمان شروع کارگاه گذشته — ثبت‌نام بسته است.'], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
