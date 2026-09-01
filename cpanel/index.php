@@ -27,9 +27,11 @@ require_once __DIR__ . '/includes/notifications.php';
 require_once __DIR__ . '/includes/psych_tests.php';
 require_once __DIR__ . '/includes/wallet.php';
 require_once __DIR__ . '/includes/workshops.php';
+require_once __DIR__ . '/includes/workshop_media.php';
 
 $pdo = db_connect($config);
 ensure_workshop_schema($pdo);
+ensure_workshop_media_schema($pdo);
 
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 $base = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/\\');
@@ -62,6 +64,7 @@ $routes = [
     'GET /dashboard' => 'pages/patient/dashboard.php',
     'GET /dashboard/appointments' => 'pages/patient/appointments.php',
     'GET /dashboard/courses' => 'pages/patient/courses.php',
+    'GET /dashboard/courses/offline' => 'pages/patient/offline_course.php',
     'GET /dashboard/wallet' => 'pages/patient/wallet.php',
     'GET /dashboard/profile' => 'pages/patient/profile.php',
     'POST /dashboard/profile' => 'actions/patient_profile.php',
@@ -88,6 +91,7 @@ $routes = [
     'POST /doctor/appointments' => 'actions/doctor_appointments.php',
     'GET /doctor/workshops' => 'pages/doctor/workshops.php',
     'POST /doctor/workshops' => 'actions/doctor_workshops.php',
+    'POST /doctor/workshop-media' => 'actions/doctor_workshop_media.php',
     'GET /doctor/articles' => 'pages/doctor/articles.php',
     'POST /doctor/articles' => 'actions/doctor_articles.php',
     'GET /doctor/patients' => 'pages/doctor/patients.php',
@@ -124,6 +128,10 @@ if (preg_match('#^/articles/([a-zA-Z0-9_-]+)$#', $path, $m) && $method === 'GET'
 if (preg_match('#^/tests/([a-zA-Z0-9_-]+)$#', $path, $m) && $method === 'GET') {
     $_GET['slug'] = $m[1];
     require __DIR__ . '/pages/test_detail.php';
+    exit;
+}
+if (preg_match('#^/workshop-media/stream$#', $path) && $method === 'GET') {
+    require __DIR__ . '/actions/workshop_media_stream.php';
     exit;
 }
 

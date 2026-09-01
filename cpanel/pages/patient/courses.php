@@ -135,11 +135,13 @@ ob_start();
           <?php if ($e['amount']): ?>
             <div class="muted" style="font-size:.85rem;margin-top:.35rem"><?= e(format_price((int)$e['amount'])) ?></div>
           <?php endif; ?>
-          <?php if ($e['status'] === 'CONFIRMED'): ?>
+          <?php if ($e['status'] === 'CONFIRMED' || $e['status'] === 'COMPLETED'): ?>
             <?php if ($e['type'] === 'ONLINE' && $e['meeting_url']): ?>
               <div style="font-size:.85rem;margin-top:.35rem"><a href="<?= e($e['meeting_url']) ?>" target="_blank" rel="noopener">ورود به جلسه آنلاین</a></div>
-            <?php elseif ($e['type'] === 'OFFLINE' && $e['content_url']): ?>
-              <div style="font-size:.85rem;margin-top:.35rem"><a href="<?= e($e['content_url']) ?>" target="_blank" rel="noopener">دریافت محتوا</a></div>
+            <?php elseif ($e['type'] === 'OFFLINE'): ?>
+              <div style="font-size:.85rem;margin-top:.35rem">
+                <a class="btn btn-outline btn-sm" href="<?= e(url('/dashboard/courses/offline?enrollment=' . $e['id'])) ?>">مشاهده محتوای آفلاین</a>
+              </div>
             <?php elseif ($e['type'] === 'IN_PERSON' && ($e['location'] || workshop_navigation_uri_from_row($e))): ?>
               <div class="enrollment-location">
                 <?php if ($e['location']): ?>
@@ -151,6 +153,8 @@ ob_start();
                 <?php endif; ?>
               </div>
             <?php endif; ?>
+          <?php elseif ($e['status'] === 'PENDING_PAYMENT' && $e['type'] === 'OFFLINE'): ?>
+            <p class="muted" style="font-size:.8rem;margin-top:.35rem">پس از پرداخت، محتوای آفلاین فعال می‌شود.</p>
           <?php endif; ?>
         </div>
         <div class="enrollment-card-actions">

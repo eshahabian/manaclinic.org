@@ -34,9 +34,6 @@ function workshop_save_fields_from_post(): array
     if ($type === 'ONLINE' && trim(post('meeting_url')) === '') {
         throw new RuntimeException('برای کارگاه آنلاین، لینک جلسه الزامی است.');
     }
-    if ($type === 'OFFLINE' && trim(post('content_url')) === '') {
-        throw new RuntimeException('برای کارگاه آفلاین، لینک محتوا الزامی است.');
-    }
     if ($type === 'IN_PERSON' && trim(post('location')) === '') {
         throw new RuntimeException('برای کارگاه حضوری، آدرس محل برگزاری را بنویسید.');
     }
@@ -112,6 +109,9 @@ if ($action === 'create') {
         $data['starts_at']
     );
     flash_set('success', 'کارگاه ایجاد شد.');
+    if ($data['type'] === 'OFFLINE') {
+        redirect('/doctor/workshops?edit=' . urlencode($id) . '#offline-media');
+    }
     redirect('/doctor/workshops');
 }
 
