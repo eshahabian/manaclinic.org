@@ -19,7 +19,9 @@ function ensure_workshop_schema(PDO $pdo): void
         description TEXT NULL,
         price INT NOT NULL DEFAULT 0,
         capacity INT NULL,
-        location VARCHAR(255) NULL,
+        location TEXT NULL,
+        location_lat DECIMAL(10, 7) NULL,
+        location_lng DECIMAL(10, 7) NULL,
         meeting_url VARCHAR(500) NULL,
         content_url VARCHAR(500) NULL,
         is_published TINYINT(1) NOT NULL DEFAULT 0,
@@ -72,6 +74,15 @@ function workshop_ensure_columns(PDO $pdo): void
     if (!$hasEnrollmentOpen) {
         $pdo->exec('ALTER TABLE workshops ADD COLUMN enrollment_open TINYINT(1) NOT NULL DEFAULT 1 AFTER is_published');
     }
+    $hasLocationLat = $pdo->query("SHOW COLUMNS FROM workshops LIKE 'location_lat'")->fetch();
+    if (!$hasLocationLat) {
+        $pdo->exec('ALTER TABLE workshops ADD COLUMN location_lat DECIMAL(10, 7) NULL AFTER location');
+        $pdo->exec('ALTER TABLE workshops ADD COLUMN location_lng DECIMAL(10, 7) NULL AFTER location_lat');
+    }
+    $locationCol = $pdo->query("SHOW COLUMNS FROM workshops LIKE 'location'")->fetch();
+    if ($locationCol && stripos((string) $locationCol['Type'], 'varchar') !== false) {
+        $pdo->exec('ALTER TABLE workshops MODIFY location TEXT NULL');
+    }
     $ready = true;
 }
 
@@ -107,19 +118,48 @@ function workshop_can_enroll(array $workshop): bool
     return (bool) ($workshop['enrollment_open'] ?? 1);
 }
 
-/** لینک مسیریابی برای آدرس یا مختصات محل کارگاه */
-function workshop_location_navigation_url(string $location): string
+/** لینک geo برای انتخاب اپ مسیریابی روی موبایل */
+function workshop_navigation_geo_uri(?float $lat, ?float $lng, ?string $address = null): ?string
 {
-    $location = trim($location);
-    if ($location === '') {
-        return '#';
+    if ($lat !== null && $lng !== null && $lat >= -90 && $lat <= 90 && $lng >= -180 && $lng <= 180) {
+        return 'geo:' . rtrim(rtrim(sprintf('%.7F', $lat), '0'), '.')
+            . ',' . rtrim(rtrim(sprintf('%.7F', $lng), '0'), '.');
     }
-    if (preg_match('/(-?\d+(?:\.\d+)?)\s*[,،]\s*(-?\d+(?:\.\d+)?)/', $location, $m)) {
-        $lat = $m[1];
-        $lng = $m[2];
-        return 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode($lat . ',' . $lng);
+    $address = trim((string) $address);
+    if ($address !== '') {
+        return 'geo:0,0?q=' . rawurlencode($address);
     }
-    return 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode($location);
+    return null;
+}
+
+function workshop_coords_from_row(array $row): ?array
+{
+    if (!isset($row['location_lat'], $row['location_lng']) || $row['location_lat'] === null || $row['location_lng'] === null) {
+        return null;
+    }
+    return [(float) $row['location_lat'], (float) $row['location_lng']];
+}
+
+function workshop_navigation_uri_from_row(array $row): ?string
+{
+    $coords = workshop_coords_from_row($row);
+    if ($coords) {
+        return workshop_navigation_geo_uri($coords[0], $coords[1], (string) ($row['location'] ?? ''));
+    }
+    return workshop_navigation_geo_uri(null, null, (string) ($row['location'] ?? ''));
+}
+
+function workshop_location_from_post(string $type): array
+{
+    if ($type !== 'IN_PERSON') {
+        return [null, null, null];
+    }
+    $location = trim(post('location')) ?: null;
+    $latRaw = trim(post('location_lat'));
+    $lngRaw = trim(post('location_lng'));
+    $lat = $latRaw !== '' ? (float) $latRaw : null;
+    $lng = $lngRaw !== '' ? (float) $lngRaw : null;
+    return [$location, $lat, $lng];
 }
 
 function patient_courses_new_count(PDO $pdo, string $patientId): int
@@ -257,17 +297,21 @@ function workshop_has_capacity(PDO $pdo, array $workshop): bool
 
 function workshop_type_urls_from_post(string $type): array
 {
-    $location = null;
     $meetingUrl = null;
     $contentUrl = null;
-    if ($type === 'IN_PERSON') {
-        $location = trim(post('location')) ?: null;
-    } elseif ($type === 'ONLINE') {
+    [$location, $lat, $lng] = workshop_location_from_post($type);
+    if ($type === 'ONLINE') {
         $meetingUrl = trim(post('meeting_url')) ?: null;
+        $location = null;
+        $lat = null;
+        $lng = null;
     } elseif ($type === 'OFFLINE') {
         $contentUrl = trim(post('content_url')) ?: null;
+        $location = null;
+        $lat = null;
+        $lng = null;
     }
-    return [$location, $meetingUrl, $contentUrl];
+    return [$location, $meetingUrl, $contentUrl, $lat, $lng];
 }
 
 function workshop_datetime_parts(string $datetime): array

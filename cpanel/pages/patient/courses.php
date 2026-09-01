@@ -45,6 +45,7 @@ $availableWorkshops = $available->fetchAll();
 
 $mine = $pdo->prepare("
   SELECT e.*, w.title, w.starts_at, w.ends_at, w.type, w.meeting_url, w.content_url, w.location,
+         w.location_lat, w.location_lng,
          wp.amount, wp.wallet_amount, wp.status AS pay_status, u.name AS doctor_name
   FROM workshop_enrollments e
   JOIN workshops w ON w.id = e.workshop_id
@@ -139,13 +140,15 @@ ob_start();
               <div style="font-size:.85rem;margin-top:.35rem"><a href="<?= e($e['meeting_url']) ?>" target="_blank" rel="noopener">ورود به جلسه آنلاین</a></div>
             <?php elseif ($e['type'] === 'OFFLINE' && $e['content_url']): ?>
               <div style="font-size:.85rem;margin-top:.35rem"><a href="<?= e($e['content_url']) ?>" target="_blank" rel="noopener">دریافت محتوا</a></div>
-            <?php elseif ($e['type'] === 'IN_PERSON' && $e['location']): ?>
-              <div class="enrollment-location" style="font-size:.85rem;margin-top:.35rem">
-                <span>محل:</span>
-                <a href="<?= e(workshop_location_navigation_url((string) $e['location'])) ?>" target="_blank" rel="noopener noreferrer" class="enrollment-location-link">
-                  <?= e($e['location']) ?>
-                </a>
-                <span class="muted" style="font-size:.75rem;display:block;margin-top:.2rem">برای مسیریابی با گوشی، روی آدرس بزنید</span>
+            <?php elseif ($e['type'] === 'IN_PERSON' && ($e['location'] || workshop_navigation_uri_from_row($e))): ?>
+              <div class="enrollment-location">
+                <?php if ($e['location']): ?>
+                  <div class="enrollment-address"><span class="enrollment-label">محل:</span> <?= e($e['location']) ?></div>
+                <?php endif; ?>
+                <?php $navUri = workshop_navigation_uri_from_row($e); ?>
+                <?php if ($navUri): ?>
+                  <a href="<?= e($navUri) ?>" class="btn btn-outline btn-sm enrollment-nav-btn">مسیر‌یابی</a>
+                <?php endif; ?>
               </div>
             <?php endif; ?>
           <?php endif; ?>
@@ -183,41 +186,71 @@ ob_start();
   .course-flash.ok { color: var(--success); border-color: var(--success); background: #f0fdf4; }
   .course-flash.err { color: var(--danger); border-color: var(--danger); background: #fef2f2; }
   .enrollment-card {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: .75rem;
     border: 1px solid var(--line);
     border-radius: .75rem;
     padding: .85rem;
+    display: grid;
+    gap: .75rem;
+    grid-template-columns: 1fr;
   }
-  .enrollment-card-main { flex: 1; min-width: 0; }
+  .enrollment-card-main { min-width: 0; width: 100%; grid-row: 2; }
   .enrollment-card-actions {
-    flex-shrink: 0;
     display: flex;
     flex-direction: column;
     align-items: flex-start;
     gap: .5rem;
-    order: 1;
+    width: 100%;
+    grid-row: 1;
+    padding-bottom: .75rem;
+    border-bottom: 1px solid var(--line);
+  }
+  @media (min-width: 640px) {
+    .enrollment-card {
+      grid-template-columns: 1fr minmax(9rem, 12rem);
+      align-items: start;
+      gap: 1rem;
+    }
+    .enrollment-card-main { grid-row: auto; }
+    .enrollment-card-actions {
+      grid-row: auto;
+      border-bottom: none;
+      padding-bottom: 0;
+      padding-top: 0;
+      border-top: none;
+    }
   }
   .enrollment-wallet-label {
     display: flex;
     gap: .35rem;
     align-items: center;
     font-size: .8rem;
+    flex-wrap: wrap;
   }
   .enrollment-refund-note {
     font-size: .75rem;
     margin: 0;
-    white-space: nowrap;
+    line-height: 1.4;
   }
-  .enrollment-location-link {
-    color: var(--primary);
-    text-decoration: underline;
+  .enrollment-location {
+    margin-top: .5rem;
+    font-size: .85rem;
+    display: flex;
+    flex-direction: column;
+    gap: .5rem;
+    align-items: flex-start;
+  }
+  .enrollment-address {
+    line-height: 1.65;
     word-break: break-word;
   }
-  .enrollment-location-link:hover { color: var(--primary-dark, #1d4d3f); }
+  .enrollment-label {
+    font-weight: 600;
+    margin-right: .25rem;
+  }
+  .enrollment-nav-btn {
+    width: auto;
+    max-width: 100%;
+  }
 </style>
 <?php
 $coursesContent = ob_get_clean();

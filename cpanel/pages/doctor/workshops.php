@@ -232,20 +232,20 @@ ob_start();
   </div>
 
   <div id="field-in-person" class="workshop-type-block" hidden>
-    <label class="label" for="workshop-location">محل برگزاری</label>
+    <label class="label" for="workshop-location">آدرس محل برگزاری (دستی)</label>
     <textarea
       class="input"
       name="location"
       id="workshop-location"
-      rows="2"
-      placeholder="آدرس کامل محل برگزاری را بنویسید"
+      rows="3"
+      placeholder="آدرس را خودتان بنویسید — مثلاً: تجریش، خیابان ..."
     ><?= e((string) ($formData['location'] ?? '')) ?></textarea>
-    <p class="muted" style="font-size:.8rem;margin:.5rem 0 0;line-height:1.6">
-      آدرس را دستی بنویسید یا با کلیک روی نقشه، موقعیت را انتخاب کنید (در صورت امکان آدرس خودکار پر می‌شود).
-    </p>
-    <button type="button" class="btn btn-outline btn-sm" id="toggle-workshop-map" style="margin-top:.5rem">انتخاب روی نقشه</button>
+    <input type="hidden" name="location_lat" id="workshop-location-lat" value="<?= e((string) ($formData['location_lat'] ?? '')) ?>">
+    <input type="hidden" name="location_lng" id="workshop-location-lng" value="<?= e((string) ($formData['location_lng'] ?? '')) ?>">
+    <p class="muted" id="workshop-coords-hint" style="font-size:.8rem;margin:.5rem 0 0;line-height:1.6"></p>
+    <button type="button" class="btn btn-outline btn-sm" id="toggle-workshop-map" style="margin-top:.5rem">انتخاب موقعیت روی نقشه</button>
     <div id="workshop-map-wrap" hidden style="margin-top:.75rem">
-      <div id="workshop-map" style="height:280px;border-radius:.75rem;border:1px solid var(--line);z-index:1"></div>
+      <div id="workshop-map" class="workshop-map-panel"></div>
     </div>
   </div>
 
@@ -305,10 +305,36 @@ ob_start();
   var blockOnline = document.getElementById("field-online");
   var blockOffline = document.getElementById("field-offline");
   var locationInput = document.getElementById("workshop-location");
+  var locationLatInput = document.getElementById("workshop-location-lat");
+  var locationLngInput = document.getElementById("workshop-location-lng");
+  var coordsHint = document.getElementById("workshop-coords-hint");
   var mapWrap = document.getElementById("workshop-map-wrap");
   var mapToggle = document.getElementById("toggle-workshop-map");
   var mapInstance = null;
   var mapMarker = null;
+
+  function updateCoordsHint(){
+    if (!coordsHint) return;
+    var lat = locationLatInput && locationLatInput.value;
+    var lng = locationLngInput && locationLngInput.value;
+    if (lat && lng) {
+      coordsHint.textContent = "موقعیت نقشه ثبت شد: " + lat + " ، " + lng;
+    } else {
+      coordsHint.textContent = "هنوز موقعیت روی نقشه انتخاب نشده است.";
+    }
+  }
+
+  function setMapCoords(lat, lng, pan){
+    if (locationLatInput) locationLatInput.value = Number(lat).toFixed(6);
+    if (locationLngInput) locationLngInput.value = Number(lng).toFixed(6);
+    updateCoordsHint();
+    if (mapInstance) {
+      var ll = L.latLng(lat, lng);
+      if (mapMarker) mapMarker.setLatLng(ll);
+      else mapMarker = L.marker(ll).addTo(mapInstance);
+      if (pan) mapInstance.setView(ll, 15);
+    }
+  }
 
   function syncTypeBlocks(){
     if (!typeSelect) return;
@@ -325,38 +351,24 @@ ob_start();
     if (mapInstance || !window.L) return;
     var el = document.getElementById("workshop-map");
     if (!el) return;
-    mapInstance = L.map(el, { scrollWheelZoom: true }).setView([35.6892, 51.3890], 11);
+    var lat = locationLatInput && locationLatInput.value ? parseFloat(locationLatInput.value) : 35.6892;
+    var lng = locationLngInput && locationLngInput.value ? parseFloat(locationLngInput.value) : 51.3890;
+    var zoom = (locationLatInput && locationLatInput.value) ? 15 : 11;
+    mapInstance = L.map(el, { scrollWheelZoom: true }).setView([lat, lng], zoom);
     L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
       maxZoom: 19,
       attribution: "&copy; OpenStreetMap"
     }).addTo(mapInstance);
+    if (locationLatInput && locationLatInput.value && locationLngInput && locationLngInput.value) {
+      mapMarker = L.marker([lat, lng]).addTo(mapInstance);
+    }
     mapInstance.on("click", function(e){
-      var lat = e.latlng.lat;
-      var lng = e.latlng.lng;
-      if (mapMarker) mapMarker.setLatLng(e.latlng);
-      else mapMarker = L.marker(e.latlng).addTo(mapInstance);
-      if (locationInput) {
-        locationInput.value = "در حال دریافت آدرس...";
-      }
-      fetch("https://nominatim.openstreetmap.org/reverse?format=json&lat=" + lat + "&lon=" + lng + "&accept-language=fa", {
-        headers: { "Accept-Language": "fa" }
-      })
-        .then(function(r){ return r.json(); })
-        .then(function(data){
-          if (locationInput && data && data.display_name) {
-            locationInput.value = data.display_name;
-          } else if (locationInput) {
-            locationInput.value = lat.toFixed(5) + ", " + lng.toFixed(5);
-          }
-        })
-        .catch(function(){
-          if (locationInput) {
-            locationInput.value = lat.toFixed(5) + ", " + lng.toFixed(5) + " (آدرس را تکمیل کنید)";
-          }
-        });
+      setMapCoords(e.latlng.lat, e.latlng.lng, false);
     });
     setTimeout(function(){ mapInstance.invalidateSize(); }, 200);
   }
+
+  updateCoordsHint();
 
   if (mapToggle && mapWrap) {
     mapToggle.addEventListener("click", function(){
@@ -409,6 +421,15 @@ ob_start();
       if (typeSelect && typeSelect.value === "IN_PERSON" && locationInput && !locationInput.value.trim()) {
         e.preventDefault();
         alert("آدرس محل برگزاری را بنویسید.");
+        return;
+      }
+      if (typeSelect && typeSelect.value === "IN_PERSON") {
+        var lat = locationLatInput && locationLatInput.value;
+        var lng = locationLngInput && locationLngInput.value;
+        if (!lat || !lng) {
+          e.preventDefault();
+          alert("روی نقشه موقعیت کارگاه را انتخاب کنید.");
+        }
       }
     });
   }

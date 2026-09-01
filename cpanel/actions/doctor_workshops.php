@@ -40,8 +40,15 @@ function workshop_save_fields_from_post(): array
     if ($type === 'IN_PERSON' && trim(post('location')) === '') {
         throw new RuntimeException('برای کارگاه حضوری، آدرس محل برگزاری را بنویسید.');
     }
+    if ($type === 'IN_PERSON') {
+        $latRaw = trim(post('location_lat'));
+        $lngRaw = trim(post('location_lng'));
+        if ($latRaw === '' || $lngRaw === '') {
+            throw new RuntimeException('روی نقشه موقعیت کارگاه را انتخاب کنید.');
+        }
+    }
 
-    [$location, $meetingUrl, $contentUrl] = workshop_type_urls_from_post($type);
+    [$location, $meetingUrl, $contentUrl, $locationLat, $locationLng] = workshop_type_urls_from_post($type);
 
     return [
         'title' => $title,
@@ -55,6 +62,8 @@ function workshop_save_fields_from_post(): array
         'notes' => trim(post('notes')) ?: null,
         'description' => trim(post('description')) ?: null,
         'location' => $location,
+        'location_lat' => $locationLat,
+        'location_lng' => $locationLng,
         'meeting_url' => $meetingUrl,
         'content_url' => $contentUrl,
     ];
@@ -71,8 +80,8 @@ if ($action === 'create') {
     $id = cuid();
     $pdo->prepare('
       INSERT INTO workshops
-        (id, doctor_id, title, type, starts_at, ends_at, items_to_bring, notes, description, price, capacity, location, meeting_url, content_url, is_published, enrollment_open, status)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        (id, doctor_id, title, type, starts_at, ends_at, items_to_bring, notes, description, price, capacity, location, location_lat, location_lng, meeting_url, content_url, is_published, enrollment_open, status)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ')->execute([
         $id,
         $ctx['profile']['id'],
@@ -86,6 +95,8 @@ if ($action === 'create') {
         $data['price'],
         $data['capacity'],
         $data['location'],
+        $data['location_lat'],
+        $data['location_lng'],
         $data['meeting_url'],
         $data['content_url'],
         1,
@@ -134,7 +145,7 @@ if ($action === 'update') {
     $pdo->prepare('
       UPDATE workshops SET
         title=?, type=?, starts_at=?, ends_at=?, items_to_bring=?, notes=?, description=?,
-        price=?, capacity=?, location=?, meeting_url=?, content_url=?
+        price=?, capacity=?, location=?, location_lat=?, location_lng=?, meeting_url=?, content_url=?
       WHERE id=? AND doctor_id=?
     ')->execute([
         $data['title'],
@@ -147,6 +158,8 @@ if ($action === 'update') {
         $data['price'],
         $data['capacity'],
         $data['location'],
+        $data['location_lat'],
+        $data['location_lng'],
         $data['meeting_url'],
         $data['content_url'],
         $id,

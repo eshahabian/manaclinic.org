@@ -406,9 +406,13 @@ jdp-container, .jdp-container, [class*="jdp"] {
   font-family: Vazirmatn, Tahoma, sans-serif !important;
   z-index: 100000 !important;
 }
-input[data-jdp] {
-  cursor: pointer;
-  background: #fff;
+.workshop-map-panel {
+  width: 100%;
+  min-height: 12rem;
+  height: clamp(12rem, 40vh, 18rem);
+  border-radius: .75rem;
+  border: 1px solid var(--line);
+  z-index: 1;
 }
 
 .table { width: 100%; border-collapse: collapse; font-size: .9rem; }
