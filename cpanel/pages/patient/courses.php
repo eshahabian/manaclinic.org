@@ -125,8 +125,8 @@ ob_start();
   <section class="panel stack">
     <h2 style="margin:0;font-size:1.1rem">ثبت‌نام‌های من</h2>
     <?php foreach ($myEnrollments as $e): ?>
-      <div class="row-between" style="border:1px solid var(--line);border-radius:.75rem;padding:.85rem;align-items:flex-start">
-        <div>
+      <div class="enrollment-card">
+        <div class="enrollment-card-main">
           <strong><?= e($e['title']) ?></strong>
           <div class="muted" style="font-size:.85rem;margin-top:.25rem"><?= e($e['doctor_name']) ?></div>
           <div style="font-size:.85rem;margin-top:.35rem"><?= e(format_fa_datetime($e['starts_at'])) ?></div>
@@ -140,22 +140,28 @@ ob_start();
             <?php elseif ($e['type'] === 'OFFLINE' && $e['content_url']): ?>
               <div style="font-size:.85rem;margin-top:.35rem"><a href="<?= e($e['content_url']) ?>" target="_blank" rel="noopener">دریافت محتوا</a></div>
             <?php elseif ($e['type'] === 'IN_PERSON' && $e['location']): ?>
-              <div style="font-size:.85rem;margin-top:.35rem">محل: <?= e($e['location']) ?></div>
+              <div class="enrollment-location" style="font-size:.85rem;margin-top:.35rem">
+                <span>محل:</span>
+                <a href="<?= e(workshop_location_navigation_url((string) $e['location'])) ?>" target="_blank" rel="noopener noreferrer" class="enrollment-location-link">
+                  <?= e($e['location']) ?>
+                </a>
+                <span class="muted" style="font-size:.75rem;display:block;margin-top:.2rem">برای مسیریابی با گوشی، روی آدرس بزنید</span>
+              </div>
             <?php endif; ?>
           <?php endif; ?>
         </div>
-        <div style="text-align:left">
+        <div class="enrollment-card-actions">
           <?php if ($e['status'] === 'PENDING_PAYMENT'): ?>
-            <label style="display:flex;gap:.35rem;align-items:center;font-size:.8rem;margin-bottom:.5rem">
+            <label class="enrollment-wallet-label">
               <input type="checkbox" class="use-wallet" data-id="<?= e($e['id']) ?>" <?= (int)$wallet['balance'] > 0 ? '' : 'disabled' ?>>
               استفاده از کیف پول (<?= e(format_price((int)$wallet['balance'])) ?>)
             </label>
             <button type="button" class="btn btn-primary btn-sm pay-btn" data-id="<?= e($e['id']) ?>">پرداخت آنلاین</button>
           <?php endif; ?>
           <?php if (in_array($e['status'], ['PENDING_PAYMENT', 'CONFIRMED'], true)): ?>
-            <button type="button" class="btn btn-outline btn-sm cancel-btn" data-id="<?= e($e['id']) ?>" style="margin-top:.5rem">لغو ثبت‌نام</button>
+            <button type="button" class="btn btn-outline btn-sm cancel-btn" data-id="<?= e($e['id']) ?>">لغو ثبت‌نام</button>
             <?php if ($e['status'] === 'CONFIRMED' && !workshop_refund_allowed($e['starts_at'])): ?>
-              <p class="muted" style="font-size:.75rem;margin-top:.35rem;max-width:12rem">کمتر از ۲۴ ساعت مانده — بازگشت وجه نیست.</p>
+              <p class="muted enrollment-refund-note">کمتر از ۲۴ ساعت مانده — بازگشت وجه نیست.</p>
             <?php endif; ?>
           <?php endif; ?>
         </div>
@@ -176,6 +182,42 @@ ob_start();
   .course-flash { font-size: .9rem; padding: .65rem .85rem; border-radius: .65rem; border: 1px solid var(--line); margin-top: .75rem; }
   .course-flash.ok { color: var(--success); border-color: var(--success); background: #f0fdf4; }
   .course-flash.err { color: var(--danger); border-color: var(--danger); background: #fef2f2; }
+  .enrollment-card {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: .75rem;
+    border: 1px solid var(--line);
+    border-radius: .75rem;
+    padding: .85rem;
+  }
+  .enrollment-card-main { flex: 1; min-width: 0; }
+  .enrollment-card-actions {
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: .5rem;
+    order: 1;
+  }
+  .enrollment-wallet-label {
+    display: flex;
+    gap: .35rem;
+    align-items: center;
+    font-size: .8rem;
+  }
+  .enrollment-refund-note {
+    font-size: .75rem;
+    margin: 0;
+    white-space: nowrap;
+  }
+  .enrollment-location-link {
+    color: var(--primary);
+    text-decoration: underline;
+    word-break: break-word;
+  }
+  .enrollment-location-link:hover { color: var(--primary-dark, #1d4d3f); }
 </style>
 <?php
 $coursesContent = ob_get_clean();

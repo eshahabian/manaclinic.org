@@ -107,7 +107,21 @@ function workshop_can_enroll(array $workshop): bool
     return (bool) ($workshop['enrollment_open'] ?? 1);
 }
 
-/** تعداد کارگاه‌های جدید قابل ثبت‌نام برای مراجع (همه درمانگران) */
+/** لینک مسیریابی برای آدرس یا مختصات محل کارگاه */
+function workshop_location_navigation_url(string $location): string
+{
+    $location = trim($location);
+    if ($location === '') {
+        return '#';
+    }
+    if (preg_match('/(-?\d+(?:\.\d+)?)\s*[,،]\s*(-?\d+(?:\.\d+)?)/', $location, $m)) {
+        $lat = $m[1];
+        $lng = $m[2];
+        return 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode($lat . ',' . $lng);
+    }
+    return 'https://www.google.com/maps/search/?api=1&query=' . rawurlencode($location);
+}
+
 function patient_courses_new_count(PDO $pdo, string $patientId): int
 {
     ensure_workshop_schema($pdo);
