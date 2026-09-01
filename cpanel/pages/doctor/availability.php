@@ -33,7 +33,13 @@ ob_start();
         </label>
       <?php endforeach; ?>
     </div>
-    <p class="muted" style="font-size:.8rem;margin:.5rem 0 0;line-height:1.6">هر جلسه یک ساعت کامل است (مثلاً ۱۰ یعنی ۱۰:۰۰ تا ۱۱:۰۰).</p>
+    <p class="muted" style="font-size:.8rem;margin:.5rem 0 0;line-height:1.6">
+      ساعت‌های ۱۰ تا ۱۷ — هر جلسه یک ساعت کامل است (مثلاً ۱۷ یعنی ۱۷:۰۰ تا ۱۸:۰۰).
+    </p>
+    <div style="margin-top:.5rem;display:flex;gap:.5rem;flex-wrap:wrap">
+      <button type="button" class="btn btn-outline btn-sm" id="select-all-hours">انتخاب همه (۱۰–۱۷)</button>
+      <button type="button" class="btn btn-outline btn-sm" id="clear-all-hours">پاک کردن</button>
+    </div>
   </div>
   <button class="btn btn-primary" type="submit">افزودن / به‌روزرسانی</button>
 </form>
@@ -82,6 +88,20 @@ ob_start();
   });
   view.addEventListener("jdp:change", sync);
   view.addEventListener("change", sync);
+
+  var selectAllBtn = document.getElementById("select-all-hours");
+  var clearAllBtn = document.getElementById("clear-all-hours");
+  if (selectAllBtn) {
+    selectAllBtn.addEventListener("click", function(){
+      document.querySelectorAll('#hour-picker input[name="hours[]"]').forEach(function(cb){ cb.checked = true; });
+    });
+  }
+  if (clearAllBtn) {
+    clearAllBtn.addEventListener("click", function(){
+      document.querySelectorAll('#hour-picker input[name="hours[]"]').forEach(function(cb){ cb.checked = false; });
+    });
+  }
+
   view.closest("form").addEventListener("submit", function(e){
     sync();
     if (!hidden.value) {

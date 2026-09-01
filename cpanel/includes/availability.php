@@ -11,6 +11,17 @@ function ensure_availability_schema(PDO $pdo): void
     if (!$col) {
         $pdo->exec('ALTER TABLE availabilities ADD COLUMN available_hours VARCHAR(64) NULL AFTER slot_minutes');
     }
+
+    $defaultHours = appointment_hours_encode(appointment_booking_hours());
+    $pdo->prepare("
+      UPDATE availabilities
+      SET start_time = '10:00',
+          end_time = '18:00',
+          slot_minutes = 60,
+          available_hours = ?
+      WHERE available_hours IS NULL OR TRIM(available_hours) = ''
+    ")->execute([$defaultHours]);
+
     $ready = true;
 }
 
@@ -66,21 +77,7 @@ function appointment_availability_hours(array $availability): array
         return $hours;
     }
 
-    $times = generate_slots(
-        (string) $availability['start_time'],
-        (string) $availability['end_time'],
-        (int) ($availability['slot_minutes'] ?? appointment_slot_minutes())
-    );
-    $allowed = appointment_booking_hours();
-    $derived = [];
-    foreach ($times as $time) {
-        $hour = (int) substr($time, 0, 2);
-        if (in_array($hour, $allowed, true)) {
-            $derived[] = $hour;
-        }
-    }
-
-    return array_values(array_unique($derived));
+    return appointment_booking_hours();
 }
 
 function appointment_slots_from_availability(array $availability): array
