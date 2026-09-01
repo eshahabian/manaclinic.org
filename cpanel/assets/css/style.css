@@ -361,8 +361,13 @@ select {
 .side-nav { height: fit-content; position: sticky; top: 88px; }
 .side-nav-title { font-weight: 700; color: var(--primary); margin: 0 0 1rem; font-size: 1.1rem; }
 .side-nav nav { display: grid; gap: .35rem; }
-.side-nav a { padding: .55rem .75rem; border-radius: .65rem; color: var(--muted); font-size: .9rem; }
+.side-nav a { padding: .55rem .75rem; border-radius: .65rem; color: var(--muted); font-size: .9rem; display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
 .side-nav a:hover { background: var(--bg-soft); color: var(--primary); }
+.side-nav-badge {
+  min-width: 1.35rem; height: 1.35rem; padding: 0 .35rem;
+  border-radius: 999px; background: var(--primary); color: #fff;
+  font-size: .72rem; font-weight: 700; line-height: 1.35rem; text-align: center;
+}
 
 .slots { display: flex; flex-wrap: wrap; gap: .5rem; }
 .slot-btn {

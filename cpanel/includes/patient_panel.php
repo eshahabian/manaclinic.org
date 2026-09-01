@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/workshops.php';
+
 function patient_nav(): array
 {
     return [
@@ -15,7 +17,15 @@ function patient_nav(): array
 
 function render_patient_page(string $title, string $innerHtml): void
 {
+    global $pdo;
+
     $nav = patient_nav();
+    $coursesBadge = 0;
+    $user = current_user();
+    if ($pdo && $user && ($user['role'] ?? '') === 'PATIENT') {
+        $coursesBadge = patient_courses_new_count($pdo, (string) $user['id']);
+    }
+
     if ($title !== '') {
         $GLOBALS['pageTitle'] = $title;
     }
@@ -24,7 +34,16 @@ function render_patient_page(string $title, string $innerHtml): void
     <div class="container-page panel-layout">
       <aside class="panel side-nav">
         <p class="side-nav-title">پنل مراجع</p>
-        <nav><?php foreach ($nav as $item): ?><a href="<?= e(url($item['href'])) ?>"><?= e($item['label']) ?></a><?php endforeach; ?></nav>
+        <nav>
+          <?php foreach ($nav as $item): ?>
+            <a href="<?= e(url($item['href'])) ?>">
+              <?= e($item['label']) ?>
+              <?php if ($item['href'] === '/dashboard/courses' && $coursesBadge > 0): ?>
+                <span class="side-nav-badge"><?= (int) $coursesBadge ?></span>
+              <?php endif; ?>
+            </a>
+          <?php endforeach; ?>
+        </nav>
       </aside>
       <div class="panel-main"><?= $innerHtml ?></div>
     </div>

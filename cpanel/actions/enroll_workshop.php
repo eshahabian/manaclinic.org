@@ -34,7 +34,7 @@ if (!$workshop) {
 
 if (!workshop_can_enroll($workshop)) {
     http_response_code(409);
-    echo json_encode(['error' => 'زمان شروع کارگاه گذشته — ثبت‌نام بسته است.'], JSON_UNESCAPED_UNICODE);
+    echo json_encode(['error' => 'درمانگر ثبت‌نام این کارگاه را بسته است.'], JSON_UNESCAPED_UNICODE);
     exit;
 }
 

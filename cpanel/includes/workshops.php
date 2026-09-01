@@ -23,6 +23,7 @@ function ensure_workshop_schema(PDO $pdo): void
         meeting_url VARCHAR(500) NULL,
         content_url VARCHAR(500) NULL,
         is_published TINYINT(1) NOT NULL DEFAULT 0,
+        enrollment_open TINYINT(1) NOT NULL DEFAULT 1,
         status ENUM('DRAFT','PUBLISHED','CANCELLED','COMPLETED') NOT NULL DEFAULT 'DRAFT',
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -57,13 +58,34 @@ function ensure_workshop_schema(PDO $pdo): void
         CONSTRAINT fk_wpay_enrollment FOREIGN KEY (enrollment_id) REFERENCES workshop_enrollments(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
+    workshop_ensure_columns($pdo);
     workshop_sync_publish_flags($pdo);
+}
+
+function workshop_ensure_columns(PDO $pdo): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $hasEnrollmentOpen = $pdo->query("SHOW COLUMNS FROM workshops LIKE 'enrollment_open'")->fetch();
+    if (!$hasEnrollmentOpen) {
+        $pdo->exec('ALTER TABLE workshops ADD COLUMN enrollment_open TINYINT(1) NOT NULL DEFAULT 1 AFTER is_published');
+    }
+    $ready = true;
 }
 
 /** هم‌خوان‌سازی وضعیت انتشار (رفع ناسازگاری is_published و status) */
 function workshop_sync_publish_flags(PDO $pdo): void
 {
     $pdo->exec("UPDATE workshops SET status = 'PUBLISHED' WHERE is_published = 1 AND status = 'DRAFT'");
+}
+
+/** JOIN درمانگران تأییدشده و فعال */
+function workshop_active_doctor_join(string $workshopAlias = 'w'): string
+{
+    $a = $workshopAlias;
+    return "JOIN doctor_profiles dp ON dp.id = {$a}.doctor_id AND dp.is_approved = 1 AND dp.is_active = 1";
 }
 
 /** کارگاه‌هایی که مراجع در لیست «دوره‌های من» می‌بیند (هنوز تمام نشده) */
@@ -73,9 +95,63 @@ function workshop_patient_list_sql(string $alias = 'w'): string
     return "{$a}.is_published = 1 AND {$a}.status NOT IN ('CANCELLED', 'COMPLETED') AND {$a}.ends_at > NOW()";
 }
 
+/** کارگاه‌هایی که مراجع هنوز می‌تواند ثبت‌نام کند (تا دکتر ببندد) */
+function workshop_patient_enrollable_sql(string $alias = 'w'): string
+{
+    $a = $alias;
+    return workshop_patient_list_sql($a) . " AND {$a}.enrollment_open = 1";
+}
+
 function workshop_can_enroll(array $workshop): bool
 {
-    return strtotime((string) $workshop['starts_at']) > time();
+    return (bool) ($workshop['enrollment_open'] ?? 1);
+}
+
+/** تعداد کارگاه‌های جدید قابل ثبت‌نام برای مراجع (همه درمانگران) */
+function patient_courses_new_count(PDO $pdo, string $patientId): int
+{
+    ensure_workshop_schema($pdo);
+    $stmt = $pdo->prepare('
+      SELECT COUNT(*) FROM workshops w
+      ' . workshop_active_doctor_join('w') . '
+      WHERE ' . workshop_patient_enrollable_sql('w') . '
+        AND NOT EXISTS (
+          SELECT 1 FROM workshop_enrollments e
+          WHERE e.workshop_id = w.id AND e.patient_id = ?
+            AND e.status IN ("PENDING_PAYMENT","CONFIRMED","COMPLETED")
+        )
+    ');
+    $stmt->execute([$patientId]);
+    return (int) $stmt->fetchColumn();
+}
+
+/** اطلاع سایر درمانگران از کارگاه جدید */
+function workshop_notify_other_doctors(
+    PDO $pdo,
+    string $excludeDoctorProfileId,
+    string $creatorName,
+    string $title,
+    string $type,
+    string $startsAt
+): void {
+    require_once __DIR__ . '/notifications.php';
+    $stmt = $pdo->prepare('
+      SELECT dp.user_id FROM doctor_profiles dp
+      WHERE dp.id != ? AND dp.is_approved = 1 AND dp.is_active = 1
+    ');
+    $stmt->execute([$excludeDoctorProfileId]);
+    $when = format_fa_datetime($startsAt);
+    $typeLabel = workshop_type_label($type);
+    $body = "«{$creatorName}» کارگاه {$typeLabel} «{$title}» ({$when}) منتشر کرد. مراجعان در «دوره‌های من» می‌بینند.";
+    foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $userId) {
+        notify_user(
+            $pdo,
+            (string) $userId,
+            'کارگاه جدید',
+            $body,
+            '/doctor/workshops'
+        );
+    }
 }
 
 function workshop_normalize_time(string $time): string
@@ -346,6 +422,6 @@ function complete_workshop(PDO $pdo, string $workshopId, string $doctorProfileId
         $settled++;
     }
 
-    $pdo->prepare("UPDATE workshops SET status='COMPLETED' WHERE id=?")->execute([$workshopId]);
+    $pdo->prepare("UPDATE workshops SET status='COMPLETED', enrollment_open=0 WHERE id=?")->execute([$workshopId]);
     return $settled;
 }

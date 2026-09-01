@@ -71,8 +71,8 @@ if ($action === 'create') {
     $id = cuid();
     $pdo->prepare('
       INSERT INTO workshops
-        (id, doctor_id, title, type, starts_at, ends_at, items_to_bring, notes, description, price, capacity, location, meeting_url, content_url, is_published, status)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        (id, doctor_id, title, type, starts_at, ends_at, items_to_bring, notes, description, price, capacity, location, meeting_url, content_url, is_published, enrollment_open, status)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
     ')->execute([
         $id,
         $ctx['profile']['id'],
@@ -89,8 +89,17 @@ if ($action === 'create') {
         $data['meeting_url'],
         $data['content_url'],
         1,
+        1,
         'PUBLISHED',
     ]);
+    workshop_notify_other_doctors(
+        $pdo,
+        $ctx['profile']['id'],
+        $ctx['user']['name'],
+        $data['title'],
+        $data['type'],
+        $data['starts_at']
+    );
     flash_set('success', 'کارگاه ایجاد شد.');
     redirect('/doctor/workshops');
 }
@@ -160,12 +169,34 @@ if (!$own->fetch()) {
 }
 
 if ($action === 'toggle') {
-    $row = $pdo->prepare('SELECT is_published FROM workshops WHERE id=?');
+    $row = $pdo->prepare('SELECT is_published, title, type, starts_at FROM workshops WHERE id=?');
     $row->execute([$id]);
-    $pub = !(bool) $row->fetchColumn();
+    $workshopRow = $row->fetch();
+    if (!$workshopRow) {
+        flash_set('error', 'کارگاه یافت نشد.');
+        redirect('/doctor/workshops');
+    }
+    $pub = !(bool) $workshopRow['is_published'];
     $pdo->prepare('UPDATE workshops SET is_published=?, status=? WHERE id=?')
         ->execute([$pub ? 1 : 0, $pub ? 'PUBLISHED' : 'DRAFT', $id]);
+    if ($pub) {
+        workshop_notify_other_doctors(
+            $pdo,
+            $ctx['profile']['id'],
+            $ctx['user']['name'],
+            (string) $workshopRow['title'],
+            (string) $workshopRow['type'],
+            (string) $workshopRow['starts_at']
+        );
+    }
     flash_set('success', $pub ? 'کارگاه منتشر شد.' : 'انتشار لغو شد.');
+} elseif ($action === 'toggle_enrollment') {
+    $row = $pdo->prepare('SELECT enrollment_open FROM workshops WHERE id=?');
+    $row->execute([$id]);
+    $open = !(bool) $row->fetchColumn();
+    $pdo->prepare('UPDATE workshops SET enrollment_open=? WHERE id=?')
+        ->execute([$open ? 1 : 0, $id]);
+    flash_set('success', $open ? 'ثبت‌نام باز شد.' : 'ثبت‌نام بسته شد.');
 } elseif ($action === 'delete') {
     $pdo->prepare('DELETE FROM workshops WHERE id=?')->execute([$id]);
     flash_set('success', 'کارگاه حذف شد.');

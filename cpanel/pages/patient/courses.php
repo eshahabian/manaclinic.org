@@ -22,7 +22,8 @@ $dbType = workshop_type_from_tab($active);
 $tabCounts = $pdo->query("
   SELECT w.type, COUNT(*) AS cnt
   FROM workshops w
-  WHERE " . workshop_patient_list_sql('w') . "
+  " . workshop_active_doctor_join('w') . "
+  WHERE " . workshop_patient_enrollable_sql('w') . "
   GROUP BY w.type
 ")->fetchAll(PDO::FETCH_KEY_PAIR);
 $countForTab = static function (string $tab): int {
@@ -34,7 +35,7 @@ $countForTab = static function (string $tab): int {
 $available = $pdo->prepare("
   SELECT w.*, u.name AS doctor_name
   FROM workshops w
-  JOIN doctor_profiles dp ON dp.id = w.doctor_id
+  " . workshop_active_doctor_join('w') . "
   JOIN users u ON u.id = dp.user_id
   WHERE w.type = ? AND " . workshop_patient_list_sql('w') . "
   ORDER BY w.starts_at ASC
@@ -65,7 +66,7 @@ ob_start();
 ?>
 <div class="stack">
   <h1>دوره‌های من</h1>
-  <p class="muted">کارگاه‌های حضوری، آنلاین و آفلاین — ثبت‌نام و پرداخت از اینجا.</p>
+  <p class="muted">کارگاه‌های حضوری، آنلاین و آفلاین همه درمانگران — ثبت‌نام و پرداخت از اینجا.</p>
 
   <nav class="course-tabs" aria-label="دسته‌بندی دوره‌ها">
     <?php foreach ($sections as $key => $label): ?>
@@ -104,7 +105,7 @@ ob_start();
           <?php if (!$enrolled && workshop_can_enroll($w)): ?>
             <button type="button" class="btn btn-primary btn-sm enroll-btn" data-id="<?= e($w['id']) ?>">ثبت‌نام</button>
           <?php elseif (!$enrolled): ?>
-            <span class="badge">شروع شده — ثبت‌نام بسته</span>
+            <span class="badge">ثبت‌نام بسته</span>
           <?php else: ?>
             <span class="badge">ثبت‌نام شده</span>
           <?php endif; ?>
@@ -114,8 +115,8 @@ ob_start();
     <?php if (!$availableWorkshops): ?>
       <p class="muted">کارگاه فعالی برای ثبت‌نام در این دسته نیست.</p>
       <ul class="muted" style="font-size:.85rem;margin:.5rem 0 0;padding-right:1.1rem">
-        <li>کارگاه <strong>حضوری</strong> را در تب «دوره‌های حضوری»، <strong>آنلاین</strong> و <strong>آفلاین</strong> را در تب مربوطه ببینید.</li>
-        <li>پزشک باید کارگاه را <strong>منتشر</strong> کرده باشد و زمان <strong>پایان</strong> هنوز نگذشته باشد.</li>
+        <li>کارگاه همه <strong>درمانگران</strong> اینجا نمایش داده می‌شود — نوع را در تب مناسب انتخاب کنید.</li>
+        <li>ثبت‌نام تا زمانی که درمانگر آن را <strong>باز</strong> نگه دارد و کارگاه تمام نشده باشد فعال است.</li>
       </ul>
     <?php endif; ?>
   </section>

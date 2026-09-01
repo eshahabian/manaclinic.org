@@ -29,6 +29,21 @@ $stmt = $pdo->prepare('
 ');
 $stmt->execute([$ctx['profile']['id']]);
 $workshops = $stmt->fetchAll();
+
+$otherWorkshops = $pdo->prepare('
+  SELECT w.*, u.name AS doctor_name,
+    (SELECT COUNT(*) FROM workshop_enrollments e
+     WHERE e.workshop_id = w.id AND e.status IN ("PENDING_PAYMENT","CONFIRMED","COMPLETED")) AS enrolled_count
+  FROM workshops w
+  ' . workshop_active_doctor_join('w') . '
+  JOIN users u ON u.id = dp.user_id
+  WHERE w.doctor_id != ? AND ' . workshop_patient_list_sql('w') . '
+  ORDER BY w.starts_at ASC
+  LIMIT 20
+');
+$otherWorkshops->execute([$ctx['profile']['id']]);
+$peerWorkshops = $otherWorkshops->fetchAll();
+
 $doctorWallet = ensure_wallet($pdo, $ctx['user']['id']);
 $flash = flash_get();
 
@@ -50,7 +65,7 @@ ob_start();
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <h1>کارگاه‌ها و دوره‌ها</h1>
-<p class="muted" style="margin-top:.35rem;font-size:.9rem">کارگاه برگزار کنید؛ مراجعان از بخش «دوره‌های من» ثبت‌نام می‌کنند.</p>
+<p class="muted" style="margin-top:.35rem;font-size:.9rem">کارگاه برگزار کنید؛ همه مراجعان و سایر درمانگران از کارگاه‌های منتشرشده مطلع می‌شوند.</p>
 
 <?php if ($flash): ?>
   <div class="panel" style="margin-top:1rem;font-size:.9rem;border-color:<?= $flash['type'] === 'success' ? 'var(--success)' : 'var(--danger)' ?>;color:<?= $flash['type'] === 'success' ? 'var(--success)' : 'var(--danger)' ?>">
@@ -83,6 +98,7 @@ ob_start();
             <?= e(format_price((int)$workshop['price'])) ?>
             · ثبت‌نام: <?= (int)$workshop['enrolled_count'] ?><?= $workshop['capacity'] ? ' / ' . (int)$workshop['capacity'] : '' ?>
             · <?= $workshop['is_published'] ? 'منتشر شده' : 'پیش‌نویس' ?>
+            · <?= !empty($workshop['enrollment_open']) ? 'ثبت‌نام باز' : 'ثبت‌نام بسته' ?>
             · <?= $workshop['status'] === 'COMPLETED' ? 'برگزار شده' : ($workshop['status'] === 'CANCELLED' ? 'لغو شده' : 'فعال') ?>
           </div>
           <?php if ($workshop['type'] === 'IN_PERSON' && $workshop['location']): ?>
@@ -92,15 +108,20 @@ ob_start();
             <p style="color:var(--danger);font-size:.8rem;margin-top:.5rem">مراجعان این کارگاه را نمی‌بینند — دکمه «انتشار» را بزنید.</p>
           <?php elseif (strtotime((string) $workshop['ends_at']) <= time()): ?>
             <p style="color:var(--muted);font-size:.8rem;margin-top:.5rem">زمان پایان گذشته — در لیست مراجعان نمایش داده نمی‌شود.</p>
-          <?php elseif (strtotime((string) $workshop['starts_at']) <= time()): ?>
-            <p style="color:var(--warning,#b45309);font-size:.8rem;margin-top:.5rem">شروع شده — مراجعان می‌بینند اما ثبت‌نام بسته است.</p>
+          <?php elseif (empty($workshop['enrollment_open'])): ?>
+            <p style="color:var(--warning,#b45309);font-size:.8rem;margin-top:.5rem">ثبت‌نام بسته — مراجعان می‌بینند اما نمی‌توانند ثبت‌نام کنند.</p>
           <?php else: ?>
-            <p style="color:var(--success);font-size:.8rem;margin-top:.5rem">برای مراجعان در «دوره‌های من» → تب <?= e(workshop_type_label($workshop['type'])) ?> قابل مشاهده است.</p>
+            <p style="color:var(--success);font-size:.8rem;margin-top:.5rem">برای همه مراجعان در «دوره‌های من» → تب <?= e(workshop_type_label($workshop['type'])) ?> قابل مشاهده و ثبت‌نام است.</p>
           <?php endif; ?>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:.5rem;justify-content:flex-end">
           <?php if ($workshop['status'] !== 'COMPLETED' && $workshop['status'] !== 'CANCELLED'): ?>
             <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/workshops?edit=' . $workshop['id'])) ?>#workshop-form">ویرایش</a>
+            <form method="post" action="<?= e(url('/doctor/workshops')) ?>">
+              <input type="hidden" name="action" value="toggle_enrollment">
+              <input type="hidden" name="id" value="<?= e($workshop['id']) ?>">
+              <button class="btn btn-outline btn-sm" type="submit"><?= !empty($workshop['enrollment_open']) ? 'بستن ثبت‌نام' : 'باز کردن ثبت‌نام' ?></button>
+            </form>
           <?php endif; ?>
           <?php if ($workshop['status'] === 'PUBLISHED' || ($workshop['is_published'] && $workshop['status'] !== 'COMPLETED' && $workshop['status'] !== 'CANCELLED')): ?>
             <form method="post" action="<?= e(url('/doctor/workshops')) ?>">
@@ -132,7 +153,27 @@ ob_start();
   <?php if (!$workshops): ?><p class="muted">هنوز کارگاهی ثبت نشده است.</p><?php endif; ?>
 </div>
 
-<form class="panel form-stack" id="workshop-form" method="post" action="<?= e(url('/doctor/workshops')) ?>" style="margin-top:1.5rem">
+<?php if ($peerWorkshops): ?>
+<div class="stack" style="margin-top:1.5rem">
+  <h2 style="margin:0;font-size:1.05rem">کارگاه‌های سایر درمانگران</h2>
+  <p class="muted" style="font-size:.85rem;margin:.35rem 0 0">کارگاه‌های منتشرشده که مراجعان هم در «دوره‌های من» می‌بینند.</p>
+  <?php foreach ($peerWorkshops as $peer): ?>
+    <div class="panel" style="font-size:.9rem">
+      <strong><?= e($peer['title']) ?></strong>
+      <span class="badge" style="margin-right:.5rem"><?= e(workshop_type_label($peer['type'])) ?></span>
+      <div class="muted" style="font-size:.85rem;margin-top:.35rem">درمانگر: <?= e($peer['doctor_name']) ?></div>
+      <div class="muted" style="font-size:.85rem;margin-top:.25rem">
+        <?= e(format_workshop_datetime_fa($peer['starts_at'])) ?> — <?= e(format_workshop_datetime_fa($peer['ends_at'])) ?>
+        · <?= e(format_price((int)$peer['price'])) ?>
+        · <?= !empty($peer['enrollment_open']) ? 'ثبت‌نام باز' : 'ثبت‌نام بسته' ?>
+      </div>
+    </div>
+  <?php endforeach; ?>
+</div>
+<?php endif; ?>
+
+<div class="stack" style="margin-top:1.5rem">
+<form class="panel form-stack" id="workshop-form" method="post" action="<?= e(url('/doctor/workshops')) ?>">
   <input type="hidden" name="action" value="<?= e($formAction) ?>">
   <?php if ($editWorkshop): ?>
     <input type="hidden" name="id" value="<?= e($editWorkshop['id']) ?>">
@@ -239,6 +280,7 @@ ob_start();
   </label>
   <button class="btn btn-primary" type="submit"><?= e($formSubmit) ?></button>
 </form>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
