@@ -91,6 +91,89 @@ function workshop_media_count(PDO $pdo, string $workshopId): int
     return (int) $stmt->fetchColumn();
 }
 
+/** تعداد ویدیو و صوت بارگذاری‌شده برای هر کارگاه */
+function workshop_media_kind_counts(PDO $pdo, string $workshopId): array
+{
+    ensure_workshop_media_schema($pdo);
+    $stmt = $pdo->prepare("
+      SELECT kind, COUNT(*) AS cnt
+      FROM workshop_media_items
+      WHERE workshop_id = ?
+      GROUP BY kind
+    ");
+    $stmt->execute([$workshopId]);
+    $counts = ['video' => 0, 'audio' => 0, 'total' => 0];
+    foreach ($stmt->fetchAll() as $row) {
+        if ($row['kind'] === 'VIDEO') {
+            $counts['video'] = (int) $row['cnt'];
+        } elseif ($row['kind'] === 'AUDIO') {
+            $counts['audio'] = (int) $row['cnt'];
+        }
+    }
+    $counts['total'] = $counts['video'] + $counts['audio'];
+    return $counts;
+}
+
+function workshop_media_kind_counts_from_list(array $items): array
+{
+    $counts = ['video' => 0, 'audio' => 0, 'total' => 0];
+    foreach ($items as $item) {
+        if (($item['kind'] ?? '') === 'VIDEO') {
+            $counts['video']++;
+        } elseif (($item['kind'] ?? '') === 'AUDIO') {
+            $counts['audio']++;
+        }
+    }
+    $counts['total'] = $counts['video'] + $counts['audio'];
+    return $counts;
+}
+
+function workshop_media_counts_from_row(array $row): array
+{
+    $video = (int) ($row['video_count'] ?? $row['media_video_count'] ?? 0);
+    $audio = (int) ($row['audio_count'] ?? $row['media_audio_count'] ?? 0);
+    $total = (int) ($row['media_count'] ?? 0);
+    if ($total < 1) {
+        $total = $video + $audio;
+    }
+    return ['video' => $video, 'audio' => $audio, 'total' => $total];
+}
+
+/** نمایشگر تعداد ویدیو/صوت */
+function workshop_media_counts_html(array $counts, bool $hideWhenEmpty = true): string
+{
+    $video = (int) ($counts['video'] ?? 0);
+    $audio = (int) ($counts['audio'] ?? 0);
+    $total = $video + $audio;
+    if ($hideWhenEmpty && $total < 1) {
+        return '';
+    }
+
+    $parts = [];
+    if ($video > 0) {
+        $parts[] = '<span class="media-stat media-stat-video" title="تعداد ویدیو">'
+            . '<span class="media-stat-icon" aria-hidden="true">▶</span>'
+            . '<span class="media-stat-num">' . $video . '</span>'
+            . '<span class="media-stat-label">ویدیو</span></span>';
+    }
+    if ($audio > 0) {
+        $parts[] = '<span class="media-stat media-stat-audio" title="تعداد صوت">'
+            . '<span class="media-stat-icon" aria-hidden="true">♫</span>'
+            . '<span class="media-stat-num">' . $audio . '</span>'
+            . '<span class="media-stat-label">صوت</span></span>';
+    }
+    if (!$parts && !$hideWhenEmpty) {
+        $parts[] = '<span class="media-stat media-stat-empty">بدون فایل</span>';
+    }
+    if (!$parts) {
+        return '';
+    }
+
+    return '<span class="media-stats" role="group" aria-label="تعداد فایل‌های بارگذاری‌شده">'
+        . implode('', $parts)
+        . '</span>';
+}
+
 function workshop_media_doctor_owns(PDO $pdo, string $workshopId, string $doctorProfileId): bool
 {
     $stmt = $pdo->prepare('SELECT id FROM workshops WHERE id=? AND doctor_id=? LIMIT 1');

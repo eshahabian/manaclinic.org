@@ -24,7 +24,9 @@ if ($editId !== '') {
 $stmt = $pdo->prepare('
   SELECT w.*,
     (SELECT COUNT(*) FROM workshop_enrollments e
-     WHERE e.workshop_id = w.id AND e.status IN ("PENDING_PAYMENT","CONFIRMED","COMPLETED")) AS enrolled_count
+     WHERE e.workshop_id = w.id AND e.status IN ("PENDING_PAYMENT","CONFIRMED","COMPLETED")) AS enrolled_count,
+    (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = "VIDEO") AS video_count,
+    (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = "AUDIO") AS audio_count
   FROM workshops w
   WHERE w.doctor_id = ?
   ORDER BY w.created_at DESC
@@ -100,14 +102,14 @@ ob_start();
         <div>
           <strong><?= e($workshop['title']) ?></strong>
           <span class="badge" style="margin-right:.5rem"><?= e(workshop_type_label($workshop['type'])) ?></span>
+          <?php $workshopMediaStats = workshop_media_counts_html(workshop_media_counts_from_row($workshop)); if ($workshopMediaStats): ?>
+            <div style="margin-top:.4rem"><?= $workshopMediaStats ?></div>
+          <?php endif; ?>
           <div class="muted" style="font-size:.85rem;margin-top:.35rem">
             <?php if ($workshop['type'] === 'OFFLINE'): ?>
               دوره آفلاین
             <?php else: ?>
               <?= e(format_workshop_datetime_fa($workshop['starts_at'])) ?> — <?= e(format_workshop_datetime_fa($workshop['ends_at'])) ?>
-            <?php endif; ?>
-            <?php $mediaCnt = workshop_media_count($pdo, (string) $workshop['id']); if ($mediaCnt > 0): ?>
-              · <?= $mediaCnt ?> ویدیو/صوت
             <?php endif; ?>
           </div>
           <div class="muted" style="font-size:.85rem;margin-top:.25rem">
@@ -194,8 +196,12 @@ ob_start();
 
 <div class="stack" style="margin-top:1.5rem">
 <?php if ($editWorkshop && $workshopMedia): ?>
+  <?php $editMediaCounts = workshop_media_kind_counts_from_list($workshopMedia); ?>
   <section class="panel stack" style="margin-bottom:0">
-    <h3 style="margin:0;font-size:.95rem">فایل‌های بارگذاری‌شده</h3>
+    <div class="row-between" style="align-items:center;gap:.75rem;flex-wrap:wrap">
+      <h3 style="margin:0;font-size:.95rem">فایل‌های بارگذاری‌شده</h3>
+      <?= workshop_media_counts_html($editMediaCounts, false) ?>
+    </div>
     <?php foreach ($workshopMedia as $media): ?>
       <div class="panel" style="padding:.75rem;font-size:.9rem">
         <div class="row-between" style="align-items:flex-start;gap:.75rem">
@@ -299,7 +305,12 @@ ob_start();
   </div>
 
   <div id="field-session-media" class="panel" style="padding:1rem;background:var(--bg-soft,#f8fafc);border-style:dashed">
-    <h3 style="margin:0;font-size:.95rem">ضبط جلسات (ویدیو / صوت)</h3>
+    <div class="row-between" style="align-items:center;gap:.75rem;flex-wrap:wrap;margin-bottom:.35rem">
+      <h3 style="margin:0;font-size:.95rem">ضبط جلسات (ویدیو / صوت)</h3>
+      <?php if ($editWorkshop && $workshopMedia): ?>
+        <?= workshop_media_counts_html(workshop_media_kind_counts_from_list($workshopMedia), false) ?>
+      <?php endif; ?>
+    </div>
     <p class="muted session-media-hint-offline" style="font-size:.85rem;line-height:1.65;margin:.35rem 0 0">
       برای دوره آفلاین، حداقل یک ویدیو یا صوت الزامی است. مراجع پس از ثبت‌نام به محتوا دسترسی دارد.
     </p>

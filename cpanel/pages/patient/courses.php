@@ -35,7 +35,9 @@ $countForTab = static function (string $tab): int {
 };
 
 $available = $pdo->prepare("
-  SELECT w.*, u.name AS doctor_name
+  SELECT w.*, u.name AS doctor_name,
+    (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = 'VIDEO') AS video_count,
+    (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = 'AUDIO') AS audio_count
   FROM workshops w
   " . workshop_active_doctor_join('w') . "
   JOIN users u ON u.id = dp.user_id
@@ -48,7 +50,8 @@ $availableWorkshops = $available->fetchAll();
 $mine = $pdo->prepare("
   SELECT e.*, w.title, w.starts_at, w.ends_at, w.type, w.meeting_url, w.content_url, w.location,
          w.location_lat, w.location_lng,
-         (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id) AS media_count,
+         (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = 'VIDEO') AS video_count,
+         (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = 'AUDIO') AS audio_count,
          wp.amount, wp.wallet_amount, wp.status AS pay_status, u.name AS doctor_name
   FROM workshop_enrollments e
   JOIN workshops w ON w.id = e.workshop_id
@@ -96,6 +99,9 @@ ob_start();
       <div class="row-between" style="border:1px solid var(--line);border-radius:.75rem;padding:.85rem">
         <div>
           <strong><?= e($w['title']) ?></strong>
+          <?php $availableMediaStats = workshop_media_counts_html(workshop_media_counts_from_row($w)); if ($availableMediaStats): ?>
+            <div style="margin-top:.35rem"><?= $availableMediaStats ?></div>
+          <?php endif; ?>
           <div class="muted" style="font-size:.85rem;margin-top:.25rem"><?= e($w['doctor_name']) ?></div>
           <div style="font-size:.85rem;margin-top:.35rem">
             <?php if ($w['type'] === 'OFFLINE'): ?>
@@ -138,6 +144,9 @@ ob_start();
       <div class="enrollment-card">
         <div class="enrollment-card-main">
           <strong><?= e($e['title']) ?></strong>
+          <?php $enrollmentStats = workshop_media_counts_html(workshop_media_counts_from_row($e)); if ($enrollmentStats): ?>
+            <div style="margin-top:.35rem"><?= $enrollmentStats ?></div>
+          <?php endif; ?>
           <div class="muted" style="font-size:.85rem;margin-top:.25rem"><?= e($e['doctor_name']) ?></div>
           <?php if ($e['type'] !== 'OFFLINE'): ?>
             <div style="font-size:.85rem;margin-top:.35rem"><?= e(format_fa_datetime($e['starts_at'])) ?></div>
@@ -161,7 +170,11 @@ ob_start();
                 <?php endif; ?>
               </div>
             <?php endif; ?>
-            <?php if ((int) ($e['media_count'] ?? 0) > 0 || $e['type'] === 'OFFLINE'): ?>
+            <?php
+              $enrollmentMedia = workshop_media_counts_from_row($e);
+              $hasMedia = $enrollmentMedia['total'] > 0;
+            ?>
+            <?php if ($hasMedia || $e['type'] === 'OFFLINE'): ?>
               <div style="font-size:.85rem;margin-top:.35rem">
                 <a class="btn btn-outline btn-sm" href="<?= e(workshop_media_course_url((string) $e['id'])) ?>">
                   <?= $e['type'] === 'OFFLINE' ? 'مشاهده محتوای آفلاین' : 'مشاهده ضبط جلسات' ?>

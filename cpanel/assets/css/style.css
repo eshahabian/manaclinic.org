@@ -98,6 +98,30 @@ select {
   display: inline-flex; border-radius: 999px; padding: .2rem .7rem;
   font-size: .8rem; background: var(--bg-soft); color: var(--primary-dark);
 }
+.media-stats {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  align-items: center;
+}
+.media-stat {
+  display: inline-flex;
+  align-items: center;
+  gap: .25rem;
+  border-radius: 999px;
+  padding: .15rem .55rem;
+  font-size: .75rem;
+  line-height: 1.4;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--muted);
+}
+.media-stat-video { border-color: #bfdbfe; background: #eff6ff; color: #1d4ed8; }
+.media-stat-audio { border-color: #ddd6fe; background: #f5f3ff; color: #6d28d9; }
+.media-stat-empty { background: var(--bg-soft); color: var(--muted); }
+.media-stat-icon { font-size: .7rem; opacity: .85; }
+.media-stat-num { font-weight: 700; }
+.media-stat-label { font-size: .72rem; }
 .muted { color: var(--muted); }
 .grid-3 { display: grid; gap: 1.25rem; }
 .grid-2 { display: grid; gap: 1.25rem; }

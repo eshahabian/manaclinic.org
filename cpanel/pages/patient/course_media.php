@@ -20,6 +20,7 @@ if (!$enrollment) {
 }
 
 $mediaItems = workshop_media_list($pdo, (string) $enrollment['workshop_id']);
+$mediaCounts = workshop_media_kind_counts_from_list($mediaItems);
 $watermark = workshop_media_watermark_for_user($user);
 $backTab = workshop_courses_tab_for_type((string) $enrollment['type']);
 $backUrl = url('/dashboard/courses?type=' . $backTab);
@@ -43,7 +44,10 @@ ob_start();
 <div class="stack offline-course-page">
   <a href="<?= e($backUrl) ?>" style="font-size:.9rem;color:var(--primary)">← بازگشت به دوره‌های من</a>
   <h1><?= e($enrollment['title']) ?></h1>
-  <p class="muted"><?= e($pageLabel) ?> — فقط پخش آنلاین برای حساب شما. لینک‌ها موقت هستند و قابل اشتراک‌گذاری نیستند.</p>
+  <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;margin-top:.35rem">
+    <?= workshop_media_counts_html($mediaCounts, false) ?>
+  </div>
+  <p class="muted" style="margin-top:.5rem"><?= e($pageLabel) ?> — فقط پخش آنلاین برای حساب شما. لینک‌ها موقت هستند و قابل اشتراک‌گذاری نیستند.</p>
 
   <?php if (!$mediaItems): ?>
     <div class="panel">
