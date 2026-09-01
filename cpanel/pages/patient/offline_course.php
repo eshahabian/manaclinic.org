@@ -24,12 +24,19 @@ if ($watermark === '') {
     $watermark = trim((string) ($user['name'] ?? 'کاربر'));
 }
 
+$audioStreams = [];
+foreach ($mediaItems as $item) {
+    if ($item['kind'] === 'AUDIO') {
+        $audioStreams[$item['id']] = workshop_media_stream_url((string) $item['id'], $user);
+    }
+}
+
 ob_start();
 ?>
-<div class="stack">
+<div class="stack offline-course-page">
   <a href="<?= e(url('/dashboard/courses?type=offline')) ?>" style="font-size:.9rem;color:var(--primary)">← بازگشت به دوره‌های آفلاین</a>
   <h1><?= e($enrollment['title']) ?></h1>
-  <p class="muted">محتوای آفلاین — فقط برای حساب شما قابل مشاهده است.</p>
+  <p class="muted">محتوای آفلاین — فقط پخش آنلاین برای حساب شما. لینک‌ها موقت هستند و قابل اشتراک‌گذاری نیستند.</p>
 
   <?php if (!$mediaItems): ?>
     <div class="panel">
@@ -49,7 +56,15 @@ ob_start();
 
       <?php if ($item['kind'] === 'VIDEO'): ?>
         <div class="wm-video-box">
-          <video controls playsinline preload="metadata" src="<?= e(workshop_media_stream_url($item['id'])) ?>"></video>
+          <video
+            controls
+            playsinline
+            preload="metadata"
+            controlsList="nodownload noplaybackrate"
+            disablePictureInPicture
+            oncontextmenu="return false;"
+            src="<?= e(workshop_media_stream_url((string) $item['id'], $user)) ?>"
+          ></video>
           <div class="wm-overlay" aria-hidden="true">
             <?php for ($i = 0; $i < 15; $i++): ?>
               <span><?= e($watermark) ?></span>
@@ -57,9 +72,19 @@ ob_start();
           </div>
         </div>
       <?php else: ?>
-        <div class="offline-audio-box">
-          <audio controls preload="metadata" src="<?= e(workshop_media_stream_url($item['id'])) ?>" style="width:100%"></audio>
-          <p class="muted offline-audio-wm">شناسه پخش: <?= e($watermark) ?></p>
+        <div class="offline-audio-box" data-audio-id="<?= e($item['id']) ?>">
+          <p class="muted offline-audio-status" id="audio-status-<?= e($item['id']) ?>">برای پخش، دکمه زیر را بزنید.</p>
+          <button type="button" class="btn btn-primary btn-sm audio-play-btn" data-audio-id="<?= e($item['id']) ?>">پخش صوت</button>
+          <audio
+            id="audio-<?= e($item['id']) ?>"
+            class="protected-audio"
+            controls
+            controlsList="nodownload noplaybackrate"
+            preload="none"
+            oncontextmenu="return false;"
+            style="width:100%;margin-top:.5rem;display:none"
+          ></audio>
+          <p class="muted offline-audio-wm">شناسه پخش: <?= e($watermark) ?> — دانلود مستقیم غیرفعال است.</p>
         </div>
       <?php endif; ?>
     </article>
@@ -81,12 +106,65 @@ ob_start();
     user-select:none; white-space:nowrap;
   }
   .offline-audio-box { margin-top:.5rem; }
-  .offline-audio-wm { font-size:.75rem; margin:.35rem 0 0; }
+  .offline-audio-wm { font-size:.75rem; margin:.35rem 0 0; line-height:1.5; }
+  .offline-audio-status { font-size:.85rem; margin:0 0 .5rem; }
+  .offline-course-page { user-select:none; }
+  .offline-course-page .offline-lesson-desc { user-select:text; }
 </style>
-<script>
-document.querySelectorAll(".wm-video-box video").forEach(function(v){
-  v.addEventListener("contextmenu", function(e){ e.preventDefault(); });
-});
-</script>
 <?php
-render_patient_page('محتوای آفلاین', ob_get_clean());
+$offlineContent = ob_get_clean();
+
+$GLOBALS['pageScripts'] = '
+<script>
+(function(){
+  var audioStreams = ' . json_encode($audioStreams, JSON_UNESCAPED_UNICODE) . ';
+  var blobUrls = [];
+
+  function revokeAllBlobs() {
+    blobUrls.forEach(function(u){ try { URL.revokeObjectURL(u); } catch(e) {} });
+    blobUrls = [];
+  }
+  window.addEventListener("pagehide", revokeAllBlobs);
+
+  document.querySelectorAll(".wm-video-box video").forEach(function(v){
+    v.addEventListener("contextmenu", function(e){ e.preventDefault(); });
+  });
+
+  document.querySelectorAll(".audio-play-btn").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var id = btn.getAttribute("data-audio-id");
+      var audio = document.getElementById("audio-" + id);
+      var status = document.getElementById("audio-status-" + id);
+      var streamUrl = audioStreams[id];
+      if (!audio || !streamUrl) return;
+      btn.disabled = true;
+      if (status) status.textContent = "در حال آماده‌سازی پخش...";
+      fetch(streamUrl, { credentials: "same-origin", cache: "no-store" })
+        .then(function(res){
+          if (!res.ok) throw new Error("stream");
+          return res.blob();
+        })
+        .then(function(blob){
+          var blobUrl = URL.createObjectURL(blob);
+          blobUrls.push(blobUrl);
+          audio.src = blobUrl;
+          audio.style.display = "block";
+          btn.style.display = "none";
+          if (status) status.textContent = "در حال پخش — فقط برای حساب شما.";
+          return audio.play();
+        })
+        .catch(function(){
+          btn.disabled = false;
+          if (status) status.textContent = "خطا در پخش. صفحه را رفرش کنید.";
+        });
+    });
+  });
+
+  document.querySelectorAll(".protected-audio").forEach(function(audio){
+    audio.addEventListener("contextmenu", function(e){ e.preventDefault(); });
+    audio.addEventListener("dragstart", function(e){ e.preventDefault(); });
+  });
+})();
+</script>';
+
+render_patient_page('محتوای آفلاین', $offlineContent);

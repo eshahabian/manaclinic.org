@@ -22,8 +22,17 @@ if (!$item) {
     exit('Not found');
 }
 
+$exp = (int) ($_GET['exp'] ?? 0);
+$sig = (string) ($_GET['sig'] ?? '');
+
 $allowed = false;
+$isPatient = false;
 if ($user['role'] === 'PATIENT') {
+    $isPatient = true;
+    if ($exp <= 0 || $sig === '' || !workshop_media_verify_stream_token($itemId, (string) $user['id'], $exp, $sig)) {
+        http_response_code(403);
+        exit('Link expired');
+    }
     $allowed = workshop_media_patient_can_access($pdo, (string) $user['id'], $itemId);
 } elseif ($user['role'] === 'DOCTOR') {
     require_once __DIR__ . '/../includes/doctor_panel.php';
@@ -73,9 +82,15 @@ if (isset($_SERVER['HTTP_RANGE']) && preg_match('/bytes=(\d*)-(\d*)/', $_SERVER[
 header('Content-Type: ' . $mime);
 header('Accept-Ranges: bytes');
 header('Content-Length: ' . $length);
-header('Content-Disposition: inline; filename="' . basename((string) $item['original_name']) . '"');
-header('Cache-Control: private, no-store');
+if ($isPatient) {
+    header('Content-Disposition: inline');
+} else {
+    header('Content-Disposition: inline; filename="' . basename((string) $item['original_name']) . '"');
+}
+header('Cache-Control: private, no-store, no-cache, must-revalidate');
+header('Pragma: no-cache');
 header('X-Content-Type-Options: nosniff');
+header('X-Robots-Tag: noindex, nofollow');
 
 $fp = fopen($path, 'rb');
 if (!$fp) {

@@ -217,14 +217,49 @@ function workshop_media_delete(PDO $pdo, string $itemId, string $doctorProfileId
     $pdo->prepare('DELETE FROM workshop_media_items WHERE id=?')->execute([$itemId]);
 }
 
+function workshop_media_stream_secret(): string
+{
+    global $config;
+    if (!empty($config['media_stream_secret'])) {
+        return (string) $config['media_stream_secret'];
+    }
+    return hash('sha256', ($config['app_url'] ?? '') . '|' . ($config['session_name'] ?? 'mana_clinic_sess'));
+}
+
+function workshop_media_stream_token(string $itemId, string $userId, int $ttl = 14400): array
+{
+    $exp = time() + $ttl;
+    $payload = $itemId . '|' . $userId . '|' . $exp;
+    return [
+        'exp' => $exp,
+        'sig' => hash_hmac('sha256', $payload, workshop_media_stream_secret()),
+    ];
+}
+
+function workshop_media_verify_stream_token(string $itemId, string $userId, int $exp, string $sig): bool
+{
+    if ($exp < time()) {
+        return false;
+    }
+    $payload = $itemId . '|' . $userId . '|' . $exp;
+    $expected = hash_hmac('sha256', $payload, workshop_media_stream_secret());
+    return hash_equals($expected, $sig);
+}
+
 function workshop_media_stream_path(array $item): string
 {
     return workshop_media_storage_root() . '/' . $item['file_path'];
 }
 
-function workshop_media_stream_url(string $itemId): string
+function workshop_media_stream_url(string $itemId, ?array $user = null): string
 {
-    return url('/workshop-media/stream?id=' . rawurlencode($itemId));
+    $user = $user ?? current_user();
+    $query = 'id=' . rawurlencode($itemId);
+    if ($user && isset($user['id'])) {
+        $token = workshop_media_stream_token($itemId, (string) $user['id']);
+        $query .= '&exp=' . $token['exp'] . '&sig=' . rawurlencode($token['sig']);
+    }
+    return url('/workshop-media/stream?' . $query);
 }
 
 function workshop_media_format_size(int $bytes): string
