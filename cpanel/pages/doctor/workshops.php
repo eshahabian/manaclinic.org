@@ -127,6 +127,9 @@ ob_start();
           <?php endif; ?>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:.5rem;justify-content:flex-end">
+          <?php if ($workshop['type'] === 'OFFLINE'): ?>
+            <a class="btn btn-primary btn-sm" href="<?= e(url('/doctor/workshops?edit=' . $workshop['id'])) ?>#offline-media">بارگذاری ویدیو / صوت</a>
+          <?php endif; ?>
           <?php if ($workshop['status'] !== 'COMPLETED' && $workshop['status'] !== 'CANCELLED'): ?>
             <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/workshops?edit=' . $workshop['id'])) ?>#workshop-form">ویرایش</a>
             <form method="post" action="<?= e(url('/doctor/workshops')) ?>">
@@ -184,7 +187,81 @@ ob_start();
 </div>
 <?php endif; ?>
 
+<?php
+$showOfflineMedia = $editWorkshop && ($editWorkshop['type'] ?? '') === 'OFFLINE';
+$offlineMediaPartial = static function () use ($editWorkshop, $offlineMedia, $mediaMaxMb): void {
+    if (!$editWorkshop) {
+        return;
+    }
+    ?>
+  <section class="panel form-stack" id="offline-media" style="margin-top:0;border:2px solid var(--primary);box-shadow:0 0 0 1px rgba(0,0,0,.04)">
+    <h2 style="margin:0;font-size:1.05rem">بارگذاری محتوای آفلاین (ویدیو / صوت)</h2>
+    <p class="muted" style="font-size:.85rem;margin:.35rem 0 0;line-height:1.65">
+      فایل‌های این بخش برای مراجعان ثبت‌نام‌شده پخش می‌شوند. حداکثر حجم هر فایل: <?= (int) $mediaMaxMb ?> مگابایت — mp4, webm, mp3, m4a, ogg, wav
+    </p>
+
+    <?php if ($offlineMedia): ?>
+      <div class="stack" style="margin-top:1rem">
+        <?php foreach ($offlineMedia as $media): ?>
+          <div class="panel" style="padding:.75rem;font-size:.9rem">
+            <div class="row-between" style="align-items:flex-start;gap:.75rem">
+              <div style="min-width:0">
+                <strong><?= e($media['title']) ?></strong>
+                <span class="badge" style="margin-right:.35rem"><?= e(workshop_media_kind_label($media['kind'])) ?></span>
+                <div class="muted" style="font-size:.8rem;margin-top:.25rem"><?= e($media['original_name']) ?> · <?= e(workshop_media_format_size((int)$media['file_size'])) ?></div>
+                <?php if ($media['description']): ?>
+                  <p style="font-size:.85rem;margin:.5rem 0 0;line-height:1.6"><?= nl2br(e($media['description'])) ?></p>
+                <?php endif; ?>
+              </div>
+              <form method="post" action="<?= e(url('/doctor/workshop-media')) ?>" onsubmit="return confirm('این فایل حذف شود؟')">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="workshop_id" value="<?= e($editWorkshop['id']) ?>">
+                <input type="hidden" name="item_id" value="<?= e($media['id']) ?>">
+                <button type="submit" class="btn btn-danger btn-sm">حذف</button>
+              </form>
+            </div>
+          </div>
+        <?php endforeach; ?>
+      </div>
+    <?php else: ?>
+      <p class="muted" style="margin-top:.75rem">هنوز فایلی بارگذاری نشده — فرم زیر را پر کنید.</p>
+    <?php endif; ?>
+
+    <form class="form-stack" method="post" action="<?= e(url('/doctor/workshop-media')) ?>" enctype="multipart/form-data" style="margin-top:1rem;border-top:1px solid var(--line);padding-top:1rem">
+      <input type="hidden" name="action" value="upload">
+      <input type="hidden" name="workshop_id" value="<?= e($editWorkshop['id']) ?>">
+      <div class="grid-2">
+        <div>
+          <label class="label">نوع فایل</label>
+          <select class="input" name="kind" required>
+            <option value="VIDEO">ویدیو</option>
+            <option value="AUDIO">صوت</option>
+          </select>
+        </div>
+        <div>
+          <label class="label">عنوان</label>
+          <input class="input" name="title" required placeholder="مثلاً: جلسه اول">
+        </div>
+      </div>
+      <div>
+        <label class="label">توضیح</label>
+        <textarea class="input" name="description" rows="3" placeholder="توضیح کوتاه درباره این ویدیو یا فایل صوتی"></textarea>
+      </div>
+      <div>
+        <label class="label">انتخاب فایل</label>
+        <input class="input" type="file" name="media_file" required accept="video/*,audio/*,.mp3,.m4a,.wav,.ogg,.mp4,.webm,.mov">
+      </div>
+      <button type="submit" class="btn btn-primary">افزودن فایل</button>
+    </form>
+  </section>
+    <?php
+};
+?>
+
 <div class="stack" style="margin-top:1.5rem">
+<?php if ($showOfflineMedia): ?>
+  <?php $offlineMediaPartial(); ?>
+<?php endif; ?>
 <form class="panel form-stack" id="workshop-form" method="post" action="<?= e(url('/doctor/workshops')) ?>">
   <input type="hidden" name="action" value="<?= e($formAction) ?>">
   <?php if ($editWorkshop): ?>
@@ -267,9 +344,15 @@ ob_start();
   </div>
 
   <div id="field-offline" class="workshop-type-block" hidden>
-    <p class="muted" style="font-size:.85rem;line-height:1.65;margin:0 0 .75rem">
-      برای دوره آفلاین، ویدیو و فایل صوتی را با توضیح بارگذاری کنید. مراجعان پس از ثبت‌نام و پرداخت به محتوا دسترسی دارند.
-    </p>
+    <div class="panel" style="padding:.85rem;background:var(--bg-soft,#f8fafc);border-style:dashed">
+      <strong style="font-size:.9rem">مرحله ۱: ذخیره کارگاه</strong>
+      <p class="muted" style="font-size:.85rem;line-height:1.65;margin:.35rem 0 0">
+        ابتدا فرم را پر کنید و «ایجاد کارگاه» را بزنید. سپس به‌طور خودکار به بخش <strong>بارگذاری ویدیو / صوت</strong> می‌روید.
+      </p>
+      <p class="muted" style="font-size:.85rem;line-height:1.65;margin:.5rem 0 0">
+        مراجعان پس از ثبت‌نام به محتوا دسترسی دارند؛ فایل‌ها از پنل شما آپلود می‌شوند، نه لینک خارجی.
+      </p>
+    </div>
   </div>
 
   <div>
@@ -294,67 +377,10 @@ ob_start();
   <button class="btn btn-primary" type="submit"><?= e($formSubmit) ?></button>
 </form>
 
-<?php if ($editWorkshop && ($editWorkshop['type'] ?? '') === 'OFFLINE'): ?>
-  <section class="panel form-stack" id="offline-media" style="margin-top:1.25rem">
-    <h2 style="margin:0;font-size:1.05rem">محتوای آفلاین (ویدیو / صوت)</h2>
-    <p class="muted" style="font-size:.85rem;margin:.35rem 0 0">حداکثر حجم هر فایل: <?= (int) $mediaMaxMb ?> مگابایت — فرمت‌های رایج mp4, webm, mp3, m4a, ogg, wav</p>
-
-    <?php if ($offlineMedia): ?>
-      <div class="stack" style="margin-top:1rem">
-        <?php foreach ($offlineMedia as $media): ?>
-          <div class="panel" style="padding:.75rem;font-size:.9rem">
-            <div class="row-between" style="align-items:flex-start;gap:.75rem">
-              <div style="min-width:0">
-                <strong><?= e($media['title']) ?></strong>
-                <span class="badge" style="margin-right:.35rem"><?= e(workshop_media_kind_label($media['kind'])) ?></span>
-                <div class="muted" style="font-size:.8rem;margin-top:.25rem"><?= e($media['original_name']) ?> · <?= e(workshop_media_format_size((int)$media['file_size'])) ?></div>
-                <?php if ($media['description']): ?>
-                  <p style="font-size:.85rem;margin:.5rem 0 0;line-height:1.6"><?= nl2br(e($media['description'])) ?></p>
-                <?php endif; ?>
-              </div>
-              <form method="post" action="<?= e(url('/doctor/workshop-media')) ?>" onsubmit="return confirm('این فایل حذف شود؟')">
-                <input type="hidden" name="action" value="delete">
-                <input type="hidden" name="workshop_id" value="<?= e($editWorkshop['id']) ?>">
-                <input type="hidden" name="item_id" value="<?= e($media['id']) ?>">
-                <button type="submit" class="btn btn-danger btn-sm">حذف</button>
-              </form>
-            </div>
-          </div>
-        <?php endforeach; ?>
-      </div>
-    <?php else: ?>
-      <p class="muted" style="margin-top:.75rem">هنوز فایلی بارگذاری نشده است.</p>
-    <?php endif; ?>
-
-    <form class="form-stack" method="post" action="<?= e(url('/doctor/workshop-media')) ?>" enctype="multipart/form-data" style="margin-top:1rem;border-top:1px solid var(--line);padding-top:1rem">
-      <input type="hidden" name="action" value="upload">
-      <input type="hidden" name="workshop_id" value="<?= e($editWorkshop['id']) ?>">
-      <div class="grid-2">
-        <div>
-          <label class="label">نوع فایل</label>
-          <select class="input" name="kind" required>
-            <option value="VIDEO">ویدیو</option>
-            <option value="AUDIO">صوت</option>
-          </select>
-        </div>
-        <div>
-          <label class="label">عنوان</label>
-          <input class="input" name="title" required placeholder="مثلاً: جلسه اول">
-        </div>
-      </div>
-      <div>
-        <label class="label">توضیح</label>
-        <textarea class="input" name="description" rows="3" placeholder="توضیح کوتاه درباره این ویدیو یا فایل صوتی"></textarea>
-      </div>
-      <div>
-        <label class="label">فایل</label>
-        <input class="input" type="file" name="media_file" required accept="video/*,audio/*,.mp3,.m4a,.wav,.ogg,.mp4,.webm,.mov">
-      </div>
-      <button type="submit" class="btn btn-primary btn-sm">افزودن فایل</button>
-    </form>
-  </section>
-<?php elseif ($formData && ($formData['type'] ?? '') === 'OFFLINE' && !$editWorkshop): ?>
-  <p class="muted" style="margin-top:.75rem;font-size:.85rem">پس از ایجاد کارگاه آفلاین، به صفحه ویرایش هدایت می‌شوید تا ویدیو و صوت بارگذاری کنید.</p>
+<?php if ($showOfflineMedia): ?>
+  <p class="muted" style="font-size:.85rem;margin:.5rem 0 0">
+    <a href="#offline-media" style="color:var(--primary)">↑ بازگشت به بخش بارگذاری</a>
+  </p>
 <?php endif; ?>
 </div>
 
@@ -458,6 +484,13 @@ ob_start();
   if (typeSelect) {
     typeSelect.addEventListener("change", syncTypeBlocks);
     syncTypeBlocks();
+  }
+
+  if (window.location.hash === "#offline-media") {
+    var offlineSection = document.getElementById("offline-media");
+    if (offlineSection) {
+      setTimeout(function(){ offlineSection.scrollIntoView({ behavior: "smooth", block: "start" }); }, 150);
+    }
   }
 
   jalaliDatepicker.startWatch({

@@ -108,7 +108,7 @@ if ($action === 'create') {
         $data['type'],
         $data['starts_at']
     );
-    flash_set('success', 'کارگاه ایجاد شد.');
+    flash_set('success', 'کارگاه ایجاد شد. اکنون ویدیو یا فایل صوتی را بارگذاری کنید.');
     if ($data['type'] === 'OFFLINE') {
         redirect('/doctor/workshops?edit=' . urlencode($id) . '#offline-media');
     }
