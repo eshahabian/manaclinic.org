@@ -4,6 +4,7 @@ declare(strict_types=1);
 header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/../includes/workshops.php';
+require_once __DIR__ . '/../includes/notifications.php';
 
 $user = current_user();
 if (!$user || $user['role'] !== 'PATIENT') {
@@ -22,19 +23,14 @@ if ($workshopId === '') {
 
 $stmt = $pdo->prepare('
   SELECT w.* FROM workshops w
-  WHERE w.id = ? AND ' . workshop_patient_list_sql('w')
+  ' . workshop_active_doctor_join('w') . '
+  WHERE w.id = ? AND ' . workshop_patient_enrollable_sql('w')
 );
 $stmt->execute([$workshopId]);
 $workshop = $stmt->fetch();
 if (!$workshop) {
     http_response_code(404);
     echo json_encode(['error' => 'کارگاه یافت نشد یا ثبت‌نام بسته شده است.'], JSON_UNESCAPED_UNICODE);
-    exit;
-}
-
-if (!workshop_can_enroll($workshop)) {
-    http_response_code(409);
-    echo json_encode(['error' => 'درمانگر ثبت‌نام این کارگاه را بسته است.'], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
@@ -59,22 +55,36 @@ if ($existing && in_array($existing['status'], ['PENDING_PAYMENT', 'CONFIRMED', 
 $enrollmentId = cuid();
 $paymentId = cuid();
 $amount = (int) $workshop['price'];
+$needsPayment = $amount > 0;
 
-$pdo->beginTransaction();
 try {
+    $pdo->beginTransaction();
+
     if ($existing && in_array($existing['status'], ['CANCELLED', 'REFUNDED'], true)) {
         $enrollmentId = $existing['id'];
         $pdo->prepare("UPDATE workshop_enrollments SET status='PENDING_PAYMENT', enrolled_at=NOW() WHERE id=?")
             ->execute([$enrollmentId]);
-        $pdo->prepare("DELETE FROM workshop_payments WHERE enrollment_id=?")->execute([$enrollmentId]);
+        $pdo->prepare('DELETE FROM workshop_payments WHERE enrollment_id=?')->execute([$enrollmentId]);
     } else {
         $pdo->prepare('INSERT INTO workshop_enrollments (id, workshop_id, patient_id) VALUES (?,?,?)')
             ->execute([$enrollmentId, $workshopId, $user['id']]);
     }
+
     $pdo->prepare('INSERT INTO workshop_payments (id, enrollment_id, amount) VALUES (?,?,?)')
         ->execute([$paymentId, $enrollmentId, $amount]);
 
-    if ($amount <= 0) {
+    $pdo->commit();
+} catch (Throwable $e) {
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    http_response_code(500);
+    echo json_encode(['error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+if (!$needsPayment) {
+    try {
         confirm_workshop_payment($pdo, [
             'id' => $paymentId,
             'enrollment_id' => $enrollmentId,
@@ -82,19 +92,17 @@ try {
             'wallet_amount' => 0,
             'ref_id' => null,
         ]);
+    } catch (Throwable $e) {
+        http_response_code(500);
+        echo json_encode(['error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        exit;
     }
-
-    $pdo->commit();
-
-    echo json_encode([
-        'enrollmentId' => $enrollmentId,
-        'message' => $amount > 0
-            ? 'ثبت‌نام انجام شد. برای تکمیل، پرداخت را از بخش دوره‌های من انجام دهید.'
-            : 'ثبت‌نام رایگان با موفقیت انجام شد.',
-        'needsPayment' => $amount > 0,
-    ], JSON_UNESCAPED_UNICODE);
-} catch (Throwable $e) {
-    $pdo->rollBack();
-    http_response_code(500);
-    echo json_encode(['error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
 }
+
+echo json_encode([
+    'enrollmentId' => $enrollmentId,
+    'message' => $needsPayment
+        ? 'ثبت‌نام انجام شد. برای تکمیل، پرداخت را از بخش «ثبت‌نام‌های من» انجام دهید.'
+        : 'ثبت‌نام رایگان با موفقیت انجام شد.',
+    'needsPayment' => $needsPayment,
+], JSON_UNESCAPED_UNICODE);

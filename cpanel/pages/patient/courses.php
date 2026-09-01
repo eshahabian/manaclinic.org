@@ -67,6 +67,7 @@ ob_start();
 <div class="stack">
   <h1>دوره‌های من</h1>
   <p class="muted">کارگاه‌های حضوری، آنلاین و آفلاین همه درمانگران — ثبت‌نام و پرداخت از اینجا.</p>
+  <p id="course-msg" class="course-flash" style="display:none" role="status"></p>
 
   <nav class="course-tabs" aria-label="دسته‌بندی دوره‌ها">
     <?php foreach ($sections as $key => $label): ?>
@@ -123,7 +124,6 @@ ob_start();
 
   <section class="panel stack">
     <h2 style="margin:0;font-size:1.1rem">ثبت‌نام‌های من</h2>
-    <p id="course-msg" style="font-size:.9rem;display:none"></p>
     <?php foreach ($myEnrollments as $e): ?>
       <div class="row-between" style="border:1px solid var(--line);border-radius:.75rem;padding:.85rem;align-items:flex-start">
         <div>
@@ -173,49 +173,109 @@ ob_start();
   .course-tab.active { background: var(--primary); border-color: var(--primary); color: #fff; }
   .course-tab-count { font-size: .75rem; opacity: .9; }
   .course-tab.active .course-tab-count { opacity: 1; }
-  #course-msg.ok { color: var(--success); }
-  #course-msg.err { color: var(--danger); }
+  .course-flash { font-size: .9rem; padding: .65rem .85rem; border-radius: .65rem; border: 1px solid var(--line); margin-top: .75rem; }
+  .course-flash.ok { color: var(--success); border-color: var(--success); background: #f0fdf4; }
+  .course-flash.err { color: var(--danger); border-color: var(--danger); background: #fef2f2; }
 </style>
+<?php
+$coursesContent = ob_get_clean();
+
+$GLOBALS['pageScripts'] = '
 <script>
 (function(){
-  var enrollUrl = <?= json_encode($enrollUrl, JSON_UNESCAPED_UNICODE) ?>;
-  var payUrl = <?= json_encode($payUrl, JSON_UNESCAPED_UNICODE) ?>;
-  var cancelUrl = <?= json_encode($cancelUrl, JSON_UNESCAPED_UNICODE) ?>;
+  var enrollUrl = ' . json_encode($enrollUrl, JSON_UNESCAPED_UNICODE) . ';
+  var payUrl = ' . json_encode($payUrl, JSON_UNESCAPED_UNICODE) . ';
+  var cancelUrl = ' . json_encode($cancelUrl, JSON_UNESCAPED_UNICODE) . ';
   var msgEl = document.getElementById("course-msg");
-  function showMsg(text, ok){ msgEl.textContent=text; msgEl.className=ok?"ok":"err"; msgEl.style.display="block"; }
 
-  document.querySelectorAll(".enroll-btn").forEach(function(btn){
-    btn.onclick=function(){
-      var fd=new FormData(); fd.append("workshopId", btn.getAttribute("data-id"));
-      fetch(enrollUrl,{method:"POST",body:fd}).then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j};});})
-        .then(function(res){ if(!res.ok){showMsg(res.j.error||"خطا",false);return;} location.reload(); })
-        .catch(function(){showMsg("خطای شبکه",false);});
-    };
+  function showMsg(text, ok) {
+    if (!msgEl) return;
+    msgEl.textContent = text;
+    msgEl.className = "course-flash " + (ok ? "ok" : "err");
+    msgEl.style.display = "block";
+    msgEl.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  function readJsonResponse(r) {
+    return r.text().then(function(text) {
+      var j = {};
+      try { j = text ? JSON.parse(text) : {}; } catch (e) {
+        j = { error: "پاسخ نامعتبر از سرور" };
+      }
+      return { ok: r.ok, j: j };
+    });
+  }
+
+  document.querySelectorAll(".enroll-btn").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      var workshopId = btn.getAttribute("data-id");
+      if (!workshopId) return;
+      btn.disabled = true;
+      var oldLabel = btn.textContent;
+      btn.textContent = "در حال ثبت‌نام...";
+      var fd = new FormData();
+      fd.append("workshopId", workshopId);
+      fetch(enrollUrl, { method: "POST", body: fd, credentials: "same-origin" })
+        .then(readJsonResponse)
+        .then(function(res) {
+          if (!res.ok) {
+            btn.disabled = false;
+            btn.textContent = oldLabel;
+            showMsg(res.j.error || "ثبت‌نام ناموفق بود", false);
+            return;
+          }
+          if (res.j.message) showMsg(res.j.message, true);
+          setTimeout(function() { location.reload(); }, res.j.message ? 800 : 0);
+        })
+        .catch(function() {
+          btn.disabled = false;
+          btn.textContent = oldLabel;
+          showMsg("خطای شبکه — دوباره تلاش کنید", false);
+        });
+    });
   });
-  document.querySelectorAll(".pay-btn").forEach(function(btn){
-    btn.onclick=function(){
-      var id=btn.getAttribute("data-id");
-      var useWallet=document.querySelector('.use-wallet[data-id="'+id+'"]');
-      var fd=new FormData(); fd.append("enrollmentId", id);
-      if(useWallet && useWallet.checked) fd.append("use_wallet","1");
-      fetch(payUrl,{method:"POST",body:fd}).then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j};});})
-        .then(function(res){
-          if(!res.ok){showMsg(res.j.error||"پرداخت ناموفق",false);return;}
-          if(res.j.paymentUrl){location.href=res.j.paymentUrl;return;}
+
+  document.querySelectorAll(".pay-btn").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      var id = btn.getAttribute("data-id");
+      var useWallet = document.querySelector(".use-wallet[data-id=\"" + id + "\"]");
+      var fd = new FormData();
+      fd.append("enrollmentId", id);
+      if (useWallet && useWallet.checked) fd.append("use_wallet", "1");
+      btn.disabled = true;
+      fetch(payUrl, { method: "POST", body: fd, credentials: "same-origin" })
+        .then(readJsonResponse)
+        .then(function(res) {
+          if (!res.ok) {
+            btn.disabled = false;
+            showMsg(res.j.error || "پرداخت ناموفق", false);
+            return;
+          }
+          if (res.j.paymentUrl) { location.href = res.j.paymentUrl; return; }
           location.reload();
-        }).catch(function(){showMsg("خطای شبکه",false);});
-    };
+        })
+        .catch(function() {
+          btn.disabled = false;
+          showMsg("خطای شبکه", false);
+        });
+    });
   });
-  document.querySelectorAll(".cancel-btn").forEach(function(btn){
-    btn.onclick=function(){
-      if(!confirm("ثبت‌نام لغو شود؟")) return;
-      var fd=new FormData(); fd.append("enrollmentId", btn.getAttribute("data-id"));
-      fetch(cancelUrl,{method:"POST",body:fd}).then(function(r){return r.json().then(function(j){return{ok:r.ok,j:j};});})
-        .then(function(res){ if(!res.ok){showMsg(res.j.error||"خطا",false);return;} location.reload(); })
-        .catch(function(){showMsg("خطای شبکه",false);});
-    };
+
+  document.querySelectorAll(".cancel-btn").forEach(function(btn) {
+    btn.addEventListener("click", function() {
+      if (!confirm("ثبت‌نام لغو شود؟")) return;
+      var fd = new FormData();
+      fd.append("enrollmentId", btn.getAttribute("data-id"));
+      fetch(cancelUrl, { method: "POST", body: fd, credentials: "same-origin" })
+        .then(readJsonResponse)
+        .then(function(res) {
+          if (!res.ok) { showMsg(res.j.error || "خطا", false); return; }
+          location.reload();
+        })
+        .catch(function() { showMsg("خطای شبکه", false); });
+    });
   });
 })();
-</script>
-<?php
-render_patient_page('دوره‌های من', ob_get_clean());
+</script>';
+
+render_patient_page('دوره‌های من', $coursesContent);

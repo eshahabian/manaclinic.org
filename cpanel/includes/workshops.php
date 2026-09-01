@@ -275,6 +275,8 @@ function workshop_datetime_parts(string $datetime): array
 
 function confirm_workshop_payment(PDO $pdo, array $paymentRow): void
 {
+    require_once __DIR__ . '/notifications.php';
+
     $pdo->prepare("UPDATE workshop_payments SET status='PAID', ref_id=? WHERE id=?")
         ->execute([$paymentRow['ref_id'] ?? null, $paymentRow['id']]);
     $pdo->prepare("UPDATE workshop_enrollments SET status='CONFIRMED' WHERE id=?")
