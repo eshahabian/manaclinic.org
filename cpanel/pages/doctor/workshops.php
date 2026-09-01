@@ -20,6 +20,7 @@ $doctorWallet = ensure_wallet($pdo, $ctx['user']['id']);
 
 ob_start();
 ?>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
 <h1>کارگاه‌ها و دوره‌ها</h1>
 <p class="muted" style="margin-top:.35rem;font-size:.9rem">کارگاه برگزار کنید؛ مراجعان از بخش «دوره‌های من» ثبت‌نام می‌کنند.</p>
 <div class="panel row-between" style="margin-top:1rem;font-size:.9rem">
@@ -32,7 +33,7 @@ ob_start();
   </div>
 </div>
 
-<form class="panel form-stack" method="post" action="<?= e(url('/doctor/workshops')) ?>" style="margin-top:1rem">
+<form class="panel form-stack" id="workshop-form" method="post" action="<?= e(url('/doctor/workshops')) ?>" style="margin-top:1rem">
   <input type="hidden" name="action" value="create">
   <h2 style="margin:0;font-size:1.05rem">کارگاه جدید</h2>
   <div><label class="label">نام کارگاه</label><input class="input" name="title" required></div>
@@ -46,22 +47,44 @@ ob_start();
   </div>
   <div class="grid-2">
     <div>
-      <label class="label">شروع — تاریخ</label>
-      <input class="input" type="date" name="start_date" required>
+      <label class="label">شروع — تاریخ (شمسی)</label>
+      <input
+        class="input"
+        type="text"
+        id="workshop-start-date-view"
+        data-jdp
+        data-jdp-only-date
+        autocomplete="off"
+        readonly
+        placeholder="انتخاب تاریخ"
+        required
+      >
+      <input type="hidden" name="start_date" id="workshop-start-date" value="">
     </div>
     <div>
       <label class="label">شروع — ساعت</label>
-      <input class="input" type="time" name="start_time" required>
+      <input class="input" type="time" name="start_time" value="10:00" required>
     </div>
   </div>
   <div class="grid-2">
     <div>
-      <label class="label">پایان — تاریخ</label>
-      <input class="input" type="date" name="end_date" required>
+      <label class="label">پایان — تاریخ (شمسی)</label>
+      <input
+        class="input"
+        type="text"
+        id="workshop-end-date-view"
+        data-jdp
+        data-jdp-only-date
+        autocomplete="off"
+        readonly
+        placeholder="انتخاب تاریخ"
+        required
+      >
+      <input type="hidden" name="end_date" id="workshop-end-date" value="">
     </div>
     <div>
       <label class="label">پایان — ساعت</label>
-      <input class="input" type="time" name="end_time" required>
+      <input class="input" type="time" name="end_time" value="12:00" required>
     </div>
   </div>
   <div class="grid-2">
@@ -103,7 +126,7 @@ ob_start();
           <strong><?= e($w['title']) ?></strong>
           <span class="badge" style="margin-right:.5rem"><?= e(workshop_type_label($w['type'])) ?></span>
           <div class="muted" style="font-size:.85rem;margin-top:.35rem">
-            <?= e(format_fa_datetime($w['starts_at'])) ?> — <?= e(format_fa_datetime($w['ends_at'])) ?>
+            <?= e(format_workshop_datetime_fa($w['starts_at'])) ?> — <?= e(format_workshop_datetime_fa($w['ends_at'])) ?>
           </div>
           <div class="muted" style="font-size:.85rem;margin-top:.25rem">
             <?= e(format_price((int)$w['price'])) ?>
@@ -142,5 +165,56 @@ ob_start();
   <?php endforeach; ?>
   <?php if (!$workshops): ?><p class="muted">هنوز کارگاهی ثبت نشده است.</p><?php endif; ?>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
+<script>
+(function(){
+  function faToEn(str){ return String(str).replace(/[۰-۹]/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹".indexOf(d); }); }
+  function pad(n){ return (n < 10 ? "0" : "") + n; }
+  function syncJalali(viewId, hiddenId){
+    var view = document.getElementById(viewId);
+    var hidden = document.getElementById(hiddenId);
+    if (!view || !hidden) return;
+    var t = faToEn(view.value).replace(/-/g, "/").trim();
+    var p = t.split("/");
+    if (p.length !== 3) { hidden.value = ""; return; }
+    var g = jalaali.toGregorian(parseInt(p[0],10), parseInt(p[1],10), parseInt(p[2],10));
+    hidden.value = g.gy + "-" + pad(g.gm) + "-" + pad(g.gd);
+  }
+  jalaliDatepicker.startWatch({
+    selector: "#workshop-start-date-view, #workshop-end-date-view",
+    time: false,
+    hideAfterChange: true,
+    showTodayBtn: true,
+    showEmptyBtn: true,
+    autoReadOnlyInput: true,
+    zIndex: 100000,
+    container: "body"
+  });
+  var startView = document.getElementById("workshop-start-date-view");
+  var endView = document.getElementById("workshop-end-date-view");
+  if (startView) {
+    startView.addEventListener("jdp:change", function(){ syncJalali("workshop-start-date-view", "workshop-start-date"); });
+    startView.addEventListener("change", function(){ syncJalali("workshop-start-date-view", "workshop-start-date"); });
+  }
+  if (endView) {
+    endView.addEventListener("jdp:change", function(){ syncJalali("workshop-end-date-view", "workshop-end-date"); });
+    endView.addEventListener("change", function(){ syncJalali("workshop-end-date-view", "workshop-end-date"); });
+  }
+  var form = document.getElementById("workshop-form");
+  if (form) {
+    form.addEventListener("submit", function(e){
+      syncJalali("workshop-start-date-view", "workshop-start-date");
+      syncJalali("workshop-end-date-view", "workshop-end-date");
+      var sd = document.getElementById("workshop-start-date");
+      var ed = document.getElementById("workshop-end-date");
+      if (!sd || !sd.value || !ed || !ed.value) {
+        e.preventDefault();
+        alert("تاریخ شروع و پایان را از تقویم شمسی انتخاب کنید.");
+      }
+    });
+  }
+})();
+</script>
 <?php
 render_doctor_page('کارگاه‌ها', ob_get_clean());

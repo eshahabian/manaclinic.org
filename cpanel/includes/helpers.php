@@ -107,6 +107,18 @@ function format_fa_datetime(string $datetime): string
     return date('Y/m/d H:i', $ts);
 }
 
+/** تاریخ و ساعت کارگاه با تقویم شمسی */
+function format_workshop_datetime_fa(string $datetime): string
+{
+    $ts = strtotime($datetime);
+    if (!$ts) {
+        return $datetime;
+    }
+    $ymd = date('Y-m-d', $ts);
+    $time = date('H:i', $ts);
+    return to_jalali_label($ymd) . ' — ' . to_fa_digits($time);
+}
+
 function cuid(): string
 {
     return bin2hex(random_bytes(12));
