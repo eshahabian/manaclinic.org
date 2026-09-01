@@ -24,8 +24,46 @@ function ensure_name_transliterations_schema(PDO $pdo): void
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
 
-    sync_name_transliterations_seed($pdo);
-    sync_name_transliterations_from_users($pdo);
+    $count = (int) $pdo->query('SELECT COUNT(*) FROM name_transliterations')->fetchColumn();
+    if ($count === 0) {
+        sync_name_transliterations_seed($pdo);
+        sync_name_transliterations_from_users($pdo);
+    }
+}
+
+/** نقشه نام‌ها برای جستجوی فوری در مرورگر (بدون درخواست شبکه) */
+function build_name_transliterations_client_map(PDO $pdo): array
+{
+    ensure_name_transliterations_schema($pdo);
+
+    $stmt = $pdo->query('
+        SELECT persian, latin, part, hits
+        FROM name_transliterations
+        ORDER BY hits DESC, updated_at DESC
+    ');
+    $map = ['first' => [], 'last' => []];
+    foreach ($stmt->fetchAll() as $row) {
+        $fa = normalize_persian_name_part((string) $row['persian']);
+        if ($fa === '') {
+            continue;
+        }
+        $latin = format_latin_name((string) $row['latin']);
+        $part = (string) $row['part'];
+        if ($part === 'last') {
+            if (!isset($map['last'][$fa])) {
+                $map['last'][$fa] = $latin;
+            }
+            continue;
+        }
+        if (!isset($map['first'][$fa])) {
+            $map['first'][$fa] = $latin;
+        }
+        if ($part === 'any' && !isset($map['last'][$fa])) {
+            $map['last'][$fa] = $latin;
+        }
+    }
+
+    return $map;
 }
 
 function normalize_persian_name_part(string $value): string
@@ -258,10 +296,21 @@ function sync_name_transliterations_from_users(PDO $pdo): void
 
 function lookup_name_transliteration(PDO $pdo, string $persian, string $part = 'first'): ?string
 {
-    ensure_name_transliterations_schema($pdo);
+    static $schemaReady = false;
+    if (!$schemaReady) {
+        ensure_name_transliterations_schema($pdo);
+        $schemaReady = true;
+    }
+
+    static $cache = [];
     $persian = normalize_persian_name_part($persian);
     if ($persian === '') {
         return null;
+    }
+
+    $key = $part . '|' . $persian;
+    if (isset($cache[$key])) {
+        return $cache[$key];
     }
 
     $stmt = $pdo->prepare("
@@ -273,10 +322,12 @@ function lookup_name_transliteration(PDO $pdo, string $persian, string $part = '
     $stmt->execute([$persian, $part, $part]);
     $latin = $stmt->fetchColumn();
     if (!$latin) {
+        $cache[$key] = null;
         return null;
     }
 
-    return format_latin_name((string) $latin);
+    $cache[$key] = format_latin_name((string) $latin);
+    return $cache[$key];
 }
 
 function remember_name_transliteration(

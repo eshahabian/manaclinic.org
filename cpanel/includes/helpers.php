@@ -304,7 +304,7 @@ function fetch_online_translation(string $text, string $from = 'fa', string $to 
 
     $ctx = stream_context_create([
         'http' => [
-            'timeout' => 6,
+            'timeout' => 2,
             'header' => "User-Agent: ManaClinic/1.0\r\n",
         ],
         'ssl' => [
@@ -352,31 +352,38 @@ function format_latin_name(string $value): string
 
 function transliterate_persian_name(PDO $pdo, string $name, string $part = 'first'): string
 {
+    static $cache = [];
+
     $name = trim($name);
     if ($name === '') {
         return '';
     }
 
-    $fromDictionary = lookup_name_transliteration($pdo, $name, $part);
-    if ($fromDictionary !== null && $fromDictionary !== '') {
-        return $fromDictionary;
+    $key = $part . '|' . normalize_persian_name_part($name);
+    if (isset($cache[$key])) {
+        return $cache[$key];
     }
 
-    $fromDb = lookup_latin_from_registered_users($pdo, $name, $part);
-    if ($fromDb !== null && $fromDb !== '') {
-        return $fromDb;
+    $fromDictionary = lookup_name_transliteration($pdo, $name, $part);
+    if ($fromDictionary !== null && $fromDictionary !== '') {
+        $cache[$key] = $fromDictionary;
+        return $fromDictionary;
     }
 
     $translated = fetch_online_translation($name);
     if ($translated !== null) {
         $clean = clean_latin_name($translated);
         if ($clean !== '') {
-            return format_latin_name($clean);
+            $result = format_latin_name($clean);
+            upsert_name_transliteration($pdo, $name, $result, $part, 'online', 4, false);
+            $cache[$key] = $result;
+            return $result;
         }
     }
 
-    $fallback = clean_latin_name(persian_to_latin($name));
-    return format_latin_name($fallback);
+    $fallback = format_latin_name(clean_latin_name(persian_to_latin($name)));
+    $cache[$key] = $fallback;
+    return $fallback;
 }
 
 function lookup_latin_from_registered_users(PDO $pdo, string $persianPart, string $part = 'first'): ?string

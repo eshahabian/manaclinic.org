@@ -13,6 +13,7 @@ $doctors = $pdo->query("
   WHERE dp.is_active = 1 AND dp.is_approved = 1
   ORDER BY u.name ASC
 ")->fetchAll();
+$nameDict = build_name_transliterations_client_map($pdo);
 ob_start();
 ?>
 <div class="auth-wrap">
@@ -111,6 +112,8 @@ $pageScripts = '
 (function(){
   var takenUsernames = ' . json_encode(array_values(array_map(static fn($u) => mb_strtolower((string) $u), $takenUsernames)), JSON_UNESCAPED_UNICODE) . ';
   var transliterateUrl = ' . json_encode(url('/api/transliterate-name')) . ';
+  var nameDict = ' . json_encode($nameDict, JSON_UNESCAPED_UNICODE) . ';
+  var remoteCache = {};
   var takenSet = {};
   takenUsernames.forEach(function(u){ if (u) takenSet[u] = true; });
 
@@ -170,7 +173,31 @@ $pageScripts = '
       : "نام کاربری (بدون تکرار): " + suggested;
   }
 
+  function normalizeFa(text) {
+    return String(text || "").trim().replace(/[\u200c]/g, "").replace(/ي/g, "ی").replace(/ك/g, "ک");
+  }
+
+  function lookupLocal(kind, persianText) {
+    var key = normalizeFa(persianText);
+    if (!key) return "";
+    var map = kind === "first" ? (nameDict.first || {}) : (nameDict.last || {});
+    return map[key] || "";
+  }
+
+  function applyLatin(kind, latin) {
+    if (!latin) return;
+    if (kind === "first" && !nameEnTouched) nameEnEl.value = latin;
+    if (kind === "last" && !surnameTouched) surnameEl.value = latin;
+    applyUsername();
+  }
+
   function requestTransliteration(kind, persianText) {
+    var cacheKey = kind + "|" + normalizeFa(persianText);
+    if (remoteCache[cacheKey]) {
+      applyLatin(kind, remoteCache[cacheKey]);
+      return;
+    }
+
     var reqId = ++requests[kind];
     var sourceEl = kind === "first" ? firstNameEl : lastNameEl;
     var targetEl = kind === "first" ? nameEnEl : surnameEl;
@@ -180,12 +207,11 @@ $pageScripts = '
       .then(function(r){ return r.json().then(function(j){ return { ok: r.ok, j: j }; }); })
       .then(function(res){
         if (reqId !== requests[kind]) return;
-        if (sourceEl.value.trim() !== persianText) return;
+        if (normalizeFa(sourceEl.value) !== normalizeFa(persianText)) return;
         targetEl.placeholder = kind === "first" ? "name" : "surname";
         if (!res.ok || !res.j.latin) return;
-        if (kind === "first" && !nameEnTouched) nameEnEl.value = res.j.latin;
-        if (kind === "last" && !surnameTouched) surnameEl.value = res.j.latin;
-        applyUsername();
+        remoteCache[cacheKey] = res.j.latin;
+        applyLatin(kind, res.j.latin);
       })
       .catch(function(){
         if (reqId !== requests[kind]) return;
@@ -197,7 +223,7 @@ $pageScripts = '
     clearTimeout(timers[kind]);
     timers[kind] = setTimeout(function(){
       requestTransliteration(kind, persianText);
-    }, 400);
+    }, 250);
   }
 
   function clearTransliteration(kind) {
@@ -217,22 +243,36 @@ $pageScripts = '
   }
 
   function onFirstNameInput() {
-    var val = firstNameEl.value.trim();
+    var val = normalizeFa(firstNameEl.value);
     if (!val) {
       clearTransliteration("first");
       return;
     }
-    if (!nameEnTouched) scheduleTransliteration("first", val);
+    if (!nameEnTouched) {
+      var local = lookupLocal("first", val);
+      if (local) {
+        applyLatin("first", local);
+        return;
+      }
+      scheduleTransliteration("first", val);
+    }
     applyUsername();
   }
 
   function onLastNameInput() {
-    var val = lastNameEl.value.trim();
+    var val = normalizeFa(lastNameEl.value);
     if (!val) {
       clearTransliteration("last");
       return;
     }
-    if (!surnameTouched) scheduleTransliteration("last", val);
+    if (!surnameTouched) {
+      var local = lookupLocal("last", val);
+      if (local) {
+        applyLatin("last", local);
+        return;
+      }
+      scheduleTransliteration("last", val);
+    }
     applyUsername();
   }
 
