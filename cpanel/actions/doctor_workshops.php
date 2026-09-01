@@ -3,9 +3,11 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/doctor_panel.php';
 require_once __DIR__ . '/../includes/workshops.php';
+require_once __DIR__ . '/../includes/workshop_media.php';
 
 $ctx = require_doctor_profile($pdo);
 ensure_workshop_schema($pdo);
+ensure_workshop_media_schema($pdo);
 $action = post('action');
 
 function workshop_save_fields_from_post(): array
@@ -25,10 +27,16 @@ function workshop_save_fields_from_post(): array
         throw new RuntimeException('اطلاعات کارگاه ناقص است.');
     }
 
-    $startsAt = workshop_datetime_from_post($startDate, $startTime);
-    $endsAt = workshop_datetime_from_post($endDate, $endTime);
-    if (strtotime($endsAt) <= strtotime($startsAt)) {
-        throw new RuntimeException('زمان پایان باید بعد از شروع باشد.');
+    if (workshop_is_offline($type)) {
+        $placeholders = workshop_offline_datetimes();
+        $startsAt = $placeholders['starts_at'];
+        $endsAt = $placeholders['ends_at'];
+    } else {
+        $startsAt = workshop_datetime_from_post($startDate, $startTime);
+        $endsAt = workshop_datetime_from_post($endDate, $endTime);
+        if (strtotime($endsAt) <= strtotime($startsAt)) {
+            throw new RuntimeException('زمان پایان باید بعد از شروع باشد.');
+        }
     }
 
     if ($type === 'ONLINE' && trim(post('meeting_url')) === '') {
@@ -74,32 +82,68 @@ if ($action === 'create') {
         redirect('/doctor/workshops');
     }
 
+    if (workshop_is_offline($data['type'])) {
+        $hasFile = false;
+        $files = $_FILES['media_files'] ?? [];
+        if (is_array($files['error'] ?? null)) {
+            foreach ($files['error'] as $err) {
+                if ((int) $err === UPLOAD_ERR_OK) {
+                    $hasFile = true;
+                    break;
+                }
+            }
+        }
+        if (!$hasFile) {
+            flash_set('error', 'برای دوره آفلاین حداقل یک ویدیو یا فایل صوتی بارگذاری کنید.');
+            redirect('/doctor/workshops');
+        }
+    }
+
     $id = cuid();
-    $pdo->prepare('
-      INSERT INTO workshops
-        (id, doctor_id, title, type, starts_at, ends_at, items_to_bring, notes, description, price, capacity, location, location_lat, location_lng, meeting_url, content_url, is_published, enrollment_open, status)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
-    ')->execute([
-        $id,
-        $ctx['profile']['id'],
-        $data['title'],
-        $data['type'],
-        $data['starts_at'],
-        $data['ends_at'],
-        $data['items_to_bring'],
-        $data['notes'],
-        $data['description'],
-        $data['price'],
-        $data['capacity'],
-        $data['location'],
-        $data['location_lat'],
-        $data['location_lng'],
-        $data['meeting_url'],
-        $data['content_url'],
-        1,
-        1,
-        'PUBLISHED',
-    ]);
+    try {
+        $pdo->beginTransaction();
+        $pdo->prepare('
+          INSERT INTO workshops
+            (id, doctor_id, title, type, starts_at, ends_at, items_to_bring, notes, description, price, capacity, location, location_lat, location_lng, meeting_url, content_url, is_published, enrollment_open, status)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        ')->execute([
+            $id,
+            $ctx['profile']['id'],
+            $data['title'],
+            $data['type'],
+            $data['starts_at'],
+            $data['ends_at'],
+            $data['items_to_bring'],
+            $data['notes'],
+            $data['description'],
+            $data['price'],
+            $data['capacity'],
+            $data['location'],
+            $data['location_lat'],
+            $data['location_lng'],
+            $data['meeting_url'],
+            $data['content_url'],
+            1,
+            1,
+            'PUBLISHED',
+        ]);
+
+        if (workshop_is_offline($data['type'])) {
+            $uploaded = workshop_media_process_form_uploads($pdo, $id, $ctx['profile']['id']);
+            if ($uploaded < 1) {
+                throw new RuntimeException('برای دوره آفلاین حداقل یک ویدیو یا فایل صوتی بارگذاری کنید.');
+            }
+        }
+
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        flash_set('error', $e->getMessage());
+        redirect('/doctor/workshops');
+    }
+
     workshop_notify_other_doctors(
         $pdo,
         $ctx['profile']['id'],
@@ -108,10 +152,7 @@ if ($action === 'create') {
         $data['type'],
         $data['starts_at']
     );
-    flash_set('success', 'کارگاه ایجاد شد. اکنون ویدیو یا فایل صوتی را بارگذاری کنید.');
-    if ($data['type'] === 'OFFLINE') {
-        redirect('/doctor/workshops?edit=' . urlencode($id) . '#offline-media');
-    }
+    flash_set('success', workshop_is_offline($data['type']) ? 'دوره آفلاین با محتوا ایجاد شد.' : 'کارگاه ایجاد شد.');
     redirect('/doctor/workshops');
 }
 
@@ -122,7 +163,7 @@ if ($action === 'update') {
         redirect('/doctor/workshops');
     }
 
-    $own = $pdo->prepare('SELECT id, status FROM workshops WHERE id=? AND doctor_id=?');
+    $own = $pdo->prepare('SELECT id, status, type FROM workshops WHERE id=? AND doctor_id=?');
     $own->execute([$id, $ctx['profile']['id']]);
     $existing = $own->fetch();
     if (!$existing) {
@@ -141,30 +182,48 @@ if ($action === 'update') {
         redirect('/doctor/workshops?edit=' . urlencode($id));
     }
 
-    // ویرایش محتوا — وضعیت انتشار فقط با دکمه «انتشار / لغو انتشار» تغییر می‌کند
-    $pdo->prepare('
-      UPDATE workshops SET
-        title=?, type=?, starts_at=?, ends_at=?, items_to_bring=?, notes=?, description=?,
-        price=?, capacity=?, location=?, location_lat=?, location_lng=?, meeting_url=?, content_url=?
-      WHERE id=? AND doctor_id=?
-    ')->execute([
-        $data['title'],
-        $data['type'],
-        $data['starts_at'],
-        $data['ends_at'],
-        $data['items_to_bring'],
-        $data['notes'],
-        $data['description'],
-        $data['price'],
-        $data['capacity'],
-        $data['location'],
-        $data['location_lat'],
-        $data['location_lng'],
-        $data['meeting_url'],
-        $data['content_url'],
-        $id,
-        $ctx['profile']['id'],
-    ]);
+    try {
+        $pdo->beginTransaction();
+        $pdo->prepare('
+          UPDATE workshops SET
+            title=?, type=?, starts_at=?, ends_at=?, items_to_bring=?, notes=?, description=?,
+            price=?, capacity=?, location=?, location_lat=?, location_lng=?, meeting_url=?, content_url=?
+          WHERE id=? AND doctor_id=?
+        ')->execute([
+            $data['title'],
+            $data['type'],
+            $data['starts_at'],
+            $data['ends_at'],
+            $data['items_to_bring'],
+            $data['notes'],
+            $data['description'],
+            $data['price'],
+            $data['capacity'],
+            $data['location'],
+            $data['location_lat'],
+            $data['location_lng'],
+            $data['meeting_url'],
+            $data['content_url'],
+            $id,
+            $ctx['profile']['id'],
+        ]);
+
+        if (workshop_is_offline($data['type'])) {
+            workshop_media_process_form_uploads($pdo, $id, $ctx['profile']['id']);
+            if (workshop_media_count($pdo, $id) < 1) {
+                throw new RuntimeException('دوره آفلاین باید حداقل یک ویدیو یا فایل صوتی داشته باشد.');
+            }
+        }
+
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        flash_set('error', $e->getMessage());
+        redirect('/doctor/workshops?edit=' . urlencode($id));
+    }
+
     flash_set('success', 'تغییرات کارگاه ذخیره شد.');
     redirect('/doctor/workshops');
 }

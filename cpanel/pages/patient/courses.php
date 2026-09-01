@@ -38,7 +38,7 @@ $available = $pdo->prepare("
   " . workshop_active_doctor_join('w') . "
   JOIN users u ON u.id = dp.user_id
   WHERE w.type = ? AND " . workshop_patient_list_sql('w') . "
-  ORDER BY w.starts_at ASC
+  ORDER BY " . ($dbType === 'OFFLINE' ? 'w.created_at DESC' : 'w.starts_at ASC') . "
 ");
 $available->execute([$dbType]);
 $availableWorkshops = $available->fetchAll();
@@ -53,7 +53,7 @@ $mine = $pdo->prepare("
   JOIN users u ON u.id = dp.user_id
   LEFT JOIN workshop_payments wp ON wp.enrollment_id = e.id
   WHERE e.patient_id = ? AND w.type = ?
-  ORDER BY w.starts_at DESC
+  ORDER BY " . ($dbType === 'OFFLINE' ? 'e.enrolled_at DESC' : 'w.starts_at DESC') . "
 ");
 $mine->execute([$user['id'], $dbType]);
 $myEnrollments = $mine->fetchAll();
@@ -94,7 +94,13 @@ ob_start();
         <div>
           <strong><?= e($w['title']) ?></strong>
           <div class="muted" style="font-size:.85rem;margin-top:.25rem"><?= e($w['doctor_name']) ?></div>
-          <div style="font-size:.85rem;margin-top:.35rem"><?= e(format_fa_datetime($w['starts_at'])) ?> — <?= e(format_fa_datetime($w['ends_at'])) ?></div>
+          <div style="font-size:.85rem;margin-top:.35rem">
+            <?php if ($w['type'] === 'OFFLINE'): ?>
+              <span class="muted">دوره آفلاین — دسترسی به ویدیوها پس از ثبت‌نام</span>
+            <?php else: ?>
+              <?= e(format_fa_datetime($w['starts_at'])) ?> — <?= e(format_fa_datetime($w['ends_at'])) ?>
+            <?php endif; ?>
+          </div>
           <div class="muted" style="font-size:.85rem;margin-top:.25rem"><?= e(format_price((int)$w['price'])) ?></div>
           <?php if ($w['items_to_bring']): ?>
             <div style="font-size:.8rem;margin-top:.35rem"><strong>همراه داشته باشید:</strong> <?= e($w['items_to_bring']) ?></div>
@@ -118,7 +124,7 @@ ob_start();
       <p class="muted">کارگاه فعالی برای ثبت‌نام در این دسته نیست.</p>
       <ul class="muted" style="font-size:.85rem;margin:.5rem 0 0;padding-right:1.1rem">
         <li>کارگاه همه <strong>درمانگران</strong> اینجا نمایش داده می‌شود — نوع را در تب مناسب انتخاب کنید.</li>
-        <li>ثبت‌نام تا زمانی که درمانگر آن را <strong>باز</strong> نگه دارد و کارگاه تمام نشده باشد فعال است.</li>
+        <li>ثبت‌نام تا زمانی که درمانگر آن را <strong>باز</strong> نگه دارد فعال است<?= $dbType === 'OFFLINE' ? '' : ' و کارگاه تمام نشده باشد' ?>.</li>
       </ul>
     <?php endif; ?>
   </section>
@@ -130,7 +136,9 @@ ob_start();
         <div class="enrollment-card-main">
           <strong><?= e($e['title']) ?></strong>
           <div class="muted" style="font-size:.85rem;margin-top:.25rem"><?= e($e['doctor_name']) ?></div>
-          <div style="font-size:.85rem;margin-top:.35rem"><?= e(format_fa_datetime($e['starts_at'])) ?></div>
+          <?php if ($e['type'] !== 'OFFLINE'): ?>
+            <div style="font-size:.85rem;margin-top:.35rem"><?= e(format_fa_datetime($e['starts_at'])) ?></div>
+          <?php endif; ?>
           <span class="badge" style="margin-top:.5rem;display:inline-block"><?= e(enrollment_status_label($e['status'])) ?></span>
           <?php if ($e['amount']): ?>
             <div class="muted" style="font-size:.85rem;margin-top:.35rem"><?= e(format_price((int)$e['amount'])) ?></div>
@@ -167,7 +175,7 @@ ob_start();
           <?php endif; ?>
           <?php if (in_array($e['status'], ['PENDING_PAYMENT', 'CONFIRMED'], true)): ?>
             <button type="button" class="btn btn-outline btn-sm cancel-btn" data-id="<?= e($e['id']) ?>">لغو ثبت‌نام</button>
-            <?php if ($e['status'] === 'CONFIRMED' && !workshop_refund_allowed($e['starts_at'])): ?>
+            <?php if ($e['status'] === 'CONFIRMED' && $e['type'] !== 'OFFLINE' && !workshop_refund_allowed($e['starts_at'])): ?>
               <p class="muted enrollment-refund-note">کمتر از ۲۴ ساعت مانده — بازگشت وجه نیست.</p>
             <?php endif; ?>
           <?php endif; ?>

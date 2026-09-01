@@ -14,7 +14,7 @@ if ($workshopId === '') {
     redirect('/doctor/workshops');
 }
 
-$back = '/doctor/workshops?edit=' . urlencode($workshopId) . '#offline-media';
+$back = '/doctor/workshops?edit=' . urlencode($workshopId) . '#workshop-form';
 
 if ($action === 'upload') {
     try {

@@ -101,7 +101,11 @@ ob_start();
           <strong><?= e($workshop['title']) ?></strong>
           <span class="badge" style="margin-right:.5rem"><?= e(workshop_type_label($workshop['type'])) ?></span>
           <div class="muted" style="font-size:.85rem;margin-top:.35rem">
-            <?= e(format_workshop_datetime_fa($workshop['starts_at'])) ?> — <?= e(format_workshop_datetime_fa($workshop['ends_at'])) ?>
+            <?php if ($workshop['type'] === 'OFFLINE'): ?>
+              دوره آفلاین · <?= workshop_media_count($pdo, (string) $workshop['id']) ?> ویدیو/صوت
+            <?php else: ?>
+              <?= e(format_workshop_datetime_fa($workshop['starts_at'])) ?> — <?= e(format_workshop_datetime_fa($workshop['ends_at'])) ?>
+            <?php endif; ?>
           </div>
           <div class="muted" style="font-size:.85rem;margin-top:.25rem">
             <?= e(format_price((int)$workshop['price'])) ?>
@@ -118,7 +122,7 @@ ob_start();
           <?php endif; ?>
           <?php if (!$workshop['is_published'] || $workshop['status'] !== 'PUBLISHED'): ?>
             <p style="color:var(--danger);font-size:.8rem;margin-top:.5rem">مراجعان این کارگاه را نمی‌بینند — دکمه «انتشار» را بزنید.</p>
-          <?php elseif (strtotime((string) $workshop['ends_at']) <= time()): ?>
+          <?php elseif ($workshop['type'] !== 'OFFLINE' && strtotime((string) $workshop['ends_at']) <= time()): ?>
             <p style="color:var(--muted);font-size:.8rem;margin-top:.5rem">زمان پایان گذشته — در لیست مراجعان نمایش داده نمی‌شود.</p>
           <?php elseif (empty($workshop['enrollment_open'])): ?>
             <p style="color:var(--warning,#b45309);font-size:.8rem;margin-top:.5rem">ثبت‌نام بسته — مراجعان می‌بینند اما نمی‌توانند ثبت‌نام کنند.</p>
@@ -127,9 +131,6 @@ ob_start();
           <?php endif; ?>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:.5rem;justify-content:flex-end">
-          <?php if ($workshop['type'] === 'OFFLINE'): ?>
-            <a class="btn btn-primary btn-sm" href="<?= e(url('/doctor/workshops?edit=' . $workshop['id'])) ?>#offline-media">بارگذاری ویدیو / صوت</a>
-          <?php endif; ?>
           <?php if ($workshop['status'] !== 'COMPLETED' && $workshop['status'] !== 'CANCELLED'): ?>
             <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/workshops?edit=' . $workshop['id'])) ?>#workshop-form">ویرایش</a>
             <form method="post" action="<?= e(url('/doctor/workshops')) ?>">
@@ -178,7 +179,11 @@ ob_start();
       <span class="badge" style="margin-right:.5rem"><?= e(workshop_type_label($peer['type'])) ?></span>
       <div class="muted" style="font-size:.85rem;margin-top:.35rem">درمانگر: <?= e($peer['doctor_name']) ?></div>
       <div class="muted" style="font-size:.85rem;margin-top:.25rem">
-        <?= e(format_workshop_datetime_fa($peer['starts_at'])) ?> — <?= e(format_workshop_datetime_fa($peer['ends_at'])) ?>
+        <?php if ($peer['type'] === 'OFFLINE'): ?>
+          دوره آفلاین
+        <?php else: ?>
+          <?= e(format_workshop_datetime_fa($peer['starts_at'])) ?> — <?= e(format_workshop_datetime_fa($peer['ends_at'])) ?>
+        <?php endif; ?>
         · <?= e(format_price((int)$peer['price'])) ?>
         · <?= !empty($peer['enrollment_open']) ? 'ثبت‌نام باز' : 'ثبت‌نام بسته' ?>
       </div>
@@ -187,82 +192,30 @@ ob_start();
 </div>
 <?php endif; ?>
 
-<?php
-$showOfflineMedia = $editWorkshop && ($editWorkshop['type'] ?? '') === 'OFFLINE';
-$offlineMediaPartial = static function () use ($editWorkshop, $offlineMedia, $mediaMaxMb): void {
-    if (!$editWorkshop) {
-        return;
-    }
-    ?>
-  <section class="panel form-stack" id="offline-media" style="margin-top:0;border:2px solid var(--primary);box-shadow:0 0 0 1px rgba(0,0,0,.04)">
-    <h2 style="margin:0;font-size:1.05rem">بارگذاری محتوای آفلاین (ویدیو / صوت)</h2>
-    <p class="muted" style="font-size:.85rem;margin:.35rem 0 0;line-height:1.65">
-      فایل‌های این بخش برای مراجعان ثبت‌نام‌شده پخش می‌شوند. حداکثر حجم هر فایل: <?= (int) $mediaMaxMb ?> مگابایت — mp4, webm, mp3, m4a, ogg, wav
-    </p>
-
-    <?php if ($offlineMedia): ?>
-      <div class="stack" style="margin-top:1rem">
-        <?php foreach ($offlineMedia as $media): ?>
-          <div class="panel" style="padding:.75rem;font-size:.9rem">
-            <div class="row-between" style="align-items:flex-start;gap:.75rem">
-              <div style="min-width:0">
-                <strong><?= e($media['title']) ?></strong>
-                <span class="badge" style="margin-right:.35rem"><?= e(workshop_media_kind_label($media['kind'])) ?></span>
-                <div class="muted" style="font-size:.8rem;margin-top:.25rem"><?= e($media['original_name']) ?> · <?= e(workshop_media_format_size((int)$media['file_size'])) ?></div>
-                <?php if ($media['description']): ?>
-                  <p style="font-size:.85rem;margin:.5rem 0 0;line-height:1.6"><?= nl2br(e($media['description'])) ?></p>
-                <?php endif; ?>
-              </div>
-              <form method="post" action="<?= e(url('/doctor/workshop-media')) ?>" onsubmit="return confirm('این فایل حذف شود؟')">
-                <input type="hidden" name="action" value="delete">
-                <input type="hidden" name="workshop_id" value="<?= e($editWorkshop['id']) ?>">
-                <input type="hidden" name="item_id" value="<?= e($media['id']) ?>">
-                <button type="submit" class="btn btn-danger btn-sm">حذف</button>
-              </form>
-            </div>
-          </div>
-        <?php endforeach; ?>
-      </div>
-    <?php else: ?>
-      <p class="muted" style="margin-top:.75rem">هنوز فایلی بارگذاری نشده — فرم زیر را پر کنید.</p>
-    <?php endif; ?>
-
-    <form class="form-stack" method="post" action="<?= e(url('/doctor/workshop-media')) ?>" enctype="multipart/form-data" style="margin-top:1rem;border-top:1px solid var(--line);padding-top:1rem">
-      <input type="hidden" name="action" value="upload">
-      <input type="hidden" name="workshop_id" value="<?= e($editWorkshop['id']) ?>">
-      <div class="grid-2">
-        <div>
-          <label class="label">نوع فایل</label>
-          <select class="input" name="kind" required>
-            <option value="VIDEO">ویدیو</option>
-            <option value="AUDIO">صوت</option>
-          </select>
-        </div>
-        <div>
-          <label class="label">عنوان</label>
-          <input class="input" name="title" required placeholder="مثلاً: جلسه اول">
-        </div>
-      </div>
-      <div>
-        <label class="label">توضیح</label>
-        <textarea class="input" name="description" rows="3" placeholder="توضیح کوتاه درباره این ویدیو یا فایل صوتی"></textarea>
-      </div>
-      <div>
-        <label class="label">انتخاب فایل</label>
-        <input class="input" type="file" name="media_file" required accept="video/*,audio/*,.mp3,.m4a,.wav,.ogg,.mp4,.webm,.mov">
-      </div>
-      <button type="submit" class="btn btn-primary">افزودن فایل</button>
-    </form>
-  </section>
-    <?php
-};
-?>
-
 <div class="stack" style="margin-top:1.5rem">
-<?php if ($showOfflineMedia): ?>
-  <?php $offlineMediaPartial(); ?>
+<?php if ($editWorkshop && ($editWorkshop['type'] ?? '') === 'OFFLINE' && $offlineMedia): ?>
+  <section class="panel stack" style="margin-bottom:0">
+    <h3 style="margin:0;font-size:.95rem">فایل‌های بارگذاری‌شده</h3>
+    <?php foreach ($offlineMedia as $media): ?>
+      <div class="panel" style="padding:.75rem;font-size:.9rem">
+        <div class="row-between" style="align-items:flex-start;gap:.75rem">
+          <div style="min-width:0">
+            <strong><?= e($media['title']) ?></strong>
+            <span class="badge" style="margin-right:.35rem"><?= e(workshop_media_kind_label($media['kind'])) ?></span>
+            <div class="muted" style="font-size:.8rem;margin-top:.25rem"><?= e($media['original_name']) ?> · <?= e(workshop_media_format_size((int)$media['file_size'])) ?></div>
+          </div>
+          <form method="post" action="<?= e(url('/doctor/workshop-media')) ?>" onsubmit="return confirm('این فایل حذف شود؟')">
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="workshop_id" value="<?= e($editWorkshop['id']) ?>">
+            <input type="hidden" name="item_id" value="<?= e($media['id']) ?>">
+            <button type="submit" class="btn btn-danger btn-sm">حذف</button>
+          </form>
+        </div>
+      </div>
+    <?php endforeach; ?>
+  </section>
 <?php endif; ?>
-<form class="panel form-stack" id="workshop-form" method="post" action="<?= e(url('/doctor/workshops')) ?>">
+<form class="panel form-stack" id="workshop-form" method="post" action="<?= e(url('/doctor/workshops')) ?>" enctype="multipart/form-data">
   <input type="hidden" name="action" value="<?= e($formAction) ?>">
   <?php if ($editWorkshop): ?>
     <input type="hidden" name="id" value="<?= e($editWorkshop['id']) ?>">
@@ -287,26 +240,28 @@ $offlineMediaPartial = static function () use ($editWorkshop, $offlineMedia, $me
       <?php endforeach; ?>
     </select>
   </div>
-  <div class="grid-2">
-    <div>
-      <label class="label">شروع — تاریخ (شمسی)</label>
-      <input class="input workshop-date-view" type="text" id="workshop-start-date-view" data-jdp data-jdp-only-date autocomplete="off" readonly placeholder="انتخاب تاریخ" required value="<?= e($startParts['jalali']) ?>">
-      <input type="hidden" name="start_date" id="workshop-start-date" value="<?= e($startParts['date']) ?>">
+  <div id="field-schedule" class="workshop-type-block">
+    <div class="grid-2">
+      <div>
+        <label class="label">شروع — تاریخ (شمسی)</label>
+        <input class="input workshop-date-view" type="text" id="workshop-start-date-view" data-jdp data-jdp-only-date autocomplete="off" readonly placeholder="انتخاب تاریخ" value="<?= e($startParts['jalali']) ?>">
+        <input type="hidden" name="start_date" id="workshop-start-date" value="<?= e($startParts['date']) ?>">
+      </div>
+      <div>
+        <label class="label">شروع — ساعت</label>
+        <input class="input" type="time" name="start_time" id="workshop-start-time" value="<?= e($startParts['time']) ?>">
+      </div>
     </div>
-    <div>
-      <label class="label">شروع — ساعت</label>
-      <input class="input" type="time" name="start_time" value="<?= e($startParts['time']) ?>" required>
-    </div>
-  </div>
-  <div class="grid-2">
-    <div>
-      <label class="label">پایان — تاریخ (شمسی)</label>
-      <input class="input workshop-date-view" type="text" id="workshop-end-date-view" data-jdp data-jdp-only-date autocomplete="off" readonly placeholder="انتخاب تاریخ" required value="<?= e($endParts['jalali']) ?>">
-      <input type="hidden" name="end_date" id="workshop-end-date" value="<?= e($endParts['date']) ?>">
-    </div>
-    <div>
-      <label class="label">پایان — ساعت</label>
-      <input class="input" type="time" name="end_time" value="<?= e($endParts['time']) ?>" required>
+    <div class="grid-2" style="margin-top:.75rem">
+      <div>
+        <label class="label">پایان — تاریخ (شمسی)</label>
+        <input class="input workshop-date-view" type="text" id="workshop-end-date-view" data-jdp data-jdp-only-date autocomplete="off" readonly placeholder="انتخاب تاریخ" value="<?= e($endParts['jalali']) ?>">
+        <input type="hidden" name="end_date" id="workshop-end-date" value="<?= e($endParts['date']) ?>">
+      </div>
+      <div>
+        <label class="label">پایان — ساعت</label>
+        <input class="input" type="time" name="end_time" id="workshop-end-time" value="<?= e($endParts['time']) ?>">
+      </div>
     </div>
   </div>
   <div class="grid-2">
@@ -344,14 +299,14 @@ $offlineMediaPartial = static function () use ($editWorkshop, $offlineMedia, $me
   </div>
 
   <div id="field-offline" class="workshop-type-block" hidden>
-    <div class="panel" style="padding:.85rem;background:var(--bg-soft,#f8fafc);border-style:dashed">
-      <strong style="font-size:.9rem">مرحله ۱: ذخیره کارگاه</strong>
+    <div style="border:1px solid var(--line);border-radius:.75rem;padding:1rem;background:var(--bg-soft,#f8fafc)">
+      <h3 style="margin:0;font-size:.95rem">ویدیوها و فایل‌های صوتی</h3>
       <p class="muted" style="font-size:.85rem;line-height:1.65;margin:.35rem 0 0">
-        ابتدا فرم را پر کنید و «ایجاد کارگاه» را بزنید. سپس به‌طور خودکار به بخش <strong>بارگذاری ویدیو / صوت</strong> می‌روید.
+        مراجع پس از خرید به این محتوا دسترسی دارد. حداکثر <?= (int) $mediaMaxMb ?> مگابایت برای هر فایل — mp4, webm, mp3, m4a, ogg, wav
       </p>
-      <p class="muted" style="font-size:.85rem;line-height:1.65;margin:.5rem 0 0">
-        مراجعان پس از ثبت‌نام به محتوا دسترسی دارند؛ فایل‌ها از پنل شما آپلود می‌شوند، نه لینک خارجی.
-      </p>
+
+      <div id="offline-media-rows" class="stack" style="margin-top:1rem"></div>
+      <button type="button" class="btn btn-outline btn-sm" id="add-offline-media-row" style="margin-top:.75rem">+ افزودن ویدیو / صوت</button>
     </div>
   </div>
 
@@ -376,13 +331,34 @@ $offlineMediaPartial = static function () use ($editWorkshop, $offlineMedia, $me
   </label>
   <button class="btn btn-primary" type="submit"><?= e($formSubmit) ?></button>
 </form>
-
-<?php if ($showOfflineMedia): ?>
-  <p class="muted" style="font-size:.85rem;margin:.5rem 0 0">
-    <a href="#offline-media" style="color:var(--primary)">↑ بازگشت به بخش بارگذاری</a>
-  </p>
-<?php endif; ?>
 </div>
+
+<template id="offline-media-row-template">
+  <div class="offline-media-row panel" style="padding:.75rem;font-size:.9rem;background:#fff">
+    <div class="grid-2">
+      <div>
+        <label class="label">نوع</label>
+        <select class="input" name="media_kind[]">
+          <option value="VIDEO">ویدیو</option>
+          <option value="AUDIO">صوت</option>
+        </select>
+      </div>
+      <div>
+        <label class="label">عنوان</label>
+        <input class="input" name="media_title[]" placeholder="مثلاً: جلسه اول">
+      </div>
+    </div>
+    <div style="margin-top:.5rem">
+      <label class="label">توضیح (اختیاری)</label>
+      <textarea class="input" name="media_description[]" rows="2" placeholder="توضیح کوتاه"></textarea>
+    </div>
+    <div style="margin-top:.5rem">
+      <label class="label">فایل</label>
+      <input class="input offline-media-file" type="file" name="media_files[]" accept="video/*,audio/*,.mp3,.m4a,.wav,.ogg,.mp4,.webm,.mov">
+    </div>
+    <button type="button" class="btn btn-outline btn-sm remove-offline-media-row" style="margin-top:.5rem">حذف این ردیف</button>
+  </div>
+</template>
 
 <script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
@@ -403,9 +379,18 @@ $offlineMediaPartial = static function () use ($editWorkshop, $offlineMedia, $me
   }
 
   var typeSelect = document.getElementById("workshop-type");
+  var blockSchedule = document.getElementById("field-schedule");
   var blockInPerson = document.getElementById("field-in-person");
   var blockOnline = document.getElementById("field-online");
   var blockOffline = document.getElementById("field-offline");
+  var offlineRows = document.getElementById("offline-media-rows");
+  var offlineRowTemplate = document.getElementById("offline-media-row-template");
+  var addOfflineRowBtn = document.getElementById("add-offline-media-row");
+  var startView = document.getElementById("workshop-start-date-view");
+  var endView = document.getElementById("workshop-end-date-view");
+  var startTime = document.getElementById("workshop-start-time");
+  var endTime = document.getElementById("workshop-end-time");
+  var hasExistingOfflineMedia = <?= $editWorkshop && $offlineMedia ? 'true' : 'false' ?>;
   var locationInput = document.getElementById("workshop-location");
   var locationLatInput = document.getElementById("workshop-location-lat");
   var locationLngInput = document.getElementById("workshop-location-lng");
@@ -438,14 +423,43 @@ $offlineMediaPartial = static function () use ($editWorkshop, $offlineMedia, $me
     }
   }
 
+  function addOfflineMediaRow(){
+    if (!offlineRows || !offlineRowTemplate) return;
+    var node = offlineRowTemplate.content.cloneNode(true);
+    offlineRows.appendChild(node);
+    var rows = offlineRows.querySelectorAll(".offline-media-row");
+    var last = rows[rows.length - 1];
+    if (last) {
+      var removeBtn = last.querySelector(".remove-offline-media-row");
+      if (removeBtn) {
+        removeBtn.addEventListener("click", function(){
+          if (offlineRows.querySelectorAll(".offline-media-row").length <= 1 && !hasExistingOfflineMedia) {
+            alert("حداقل یک فایل برای دوره آفلاین لازم است.");
+            return;
+          }
+          last.remove();
+        });
+      }
+    }
+  }
+
   function syncTypeBlocks(){
     if (!typeSelect) return;
     var t = typeSelect.value;
+    var isOffline = t === "OFFLINE";
+    if (blockSchedule) blockSchedule.hidden = isOffline;
     if (blockInPerson) blockInPerson.hidden = t !== "IN_PERSON";
     if (blockOnline) blockOnline.hidden = t !== "ONLINE";
-    if (blockOffline) blockOffline.hidden = t !== "OFFLINE";
+    if (blockOffline) blockOffline.hidden = !isOffline;
     if (locationInput) {
       locationInput.required = t === "IN_PERSON";
+    }
+    if (startView) startView.required = !isOffline;
+    if (endView) endView.required = !isOffline;
+    if (startTime) startTime.required = !isOffline;
+    if (endTime) endTime.required = !isOffline;
+    if (isOffline && offlineRows && !offlineRows.children.length) {
+      addOfflineMediaRow();
     }
   }
 
@@ -481,16 +495,13 @@ $offlineMediaPartial = static function () use ($editWorkshop, $offlineMedia, $me
     });
   }
 
+  if (addOfflineRowBtn) {
+    addOfflineRowBtn.addEventListener("click", addOfflineMediaRow);
+  }
+
   if (typeSelect) {
     typeSelect.addEventListener("change", syncTypeBlocks);
     syncTypeBlocks();
-  }
-
-  if (window.location.hash === "#offline-media") {
-    var offlineSection = document.getElementById("offline-media");
-    if (offlineSection) {
-      setTimeout(function(){ offlineSection.scrollIntoView({ behavior: "smooth", block: "start" }); }, 150);
-    }
   }
 
   jalaliDatepicker.startWatch({
@@ -504,28 +515,59 @@ $offlineMediaPartial = static function () use ($editWorkshop, $offlineMedia, $me
     container: "body"
   });
 
-  var startView = document.getElementById("workshop-start-date-view");
-  var endView = document.getElementById("workshop-end-date-view");
-  if (startView) {
-    startView.addEventListener("jdp:change", function(){ syncJalali("workshop-start-date-view", "workshop-start-date"); });
-    startView.addEventListener("change", function(){ syncJalali("workshop-start-date-view", "workshop-start-date"); });
+  var startViewEl = document.getElementById("workshop-start-date-view");
+  var endViewEl = document.getElementById("workshop-end-date-view");
+  if (startViewEl) {
+    startViewEl.addEventListener("jdp:change", function(){ syncJalali("workshop-start-date-view", "workshop-start-date"); });
+    startViewEl.addEventListener("change", function(){ syncJalali("workshop-start-date-view", "workshop-start-date"); });
   }
-  if (endView) {
-    endView.addEventListener("jdp:change", function(){ syncJalali("workshop-end-date-view", "workshop-end-date"); });
-    endView.addEventListener("change", function(){ syncJalali("workshop-end-date-view", "workshop-end-date"); });
+  if (endViewEl) {
+    endViewEl.addEventListener("jdp:change", function(){ syncJalali("workshop-end-date-view", "workshop-end-date"); });
+    endViewEl.addEventListener("change", function(){ syncJalali("workshop-end-date-view", "workshop-end-date"); });
   }
 
   var form = document.getElementById("workshop-form");
   if (form) {
     form.addEventListener("submit", function(e){
-      syncJalali("workshop-start-date-view", "workshop-start-date");
-      syncJalali("workshop-end-date-view", "workshop-end-date");
-      var sd = document.getElementById("workshop-start-date");
-      var ed = document.getElementById("workshop-end-date");
-      if (!sd || !sd.value || !ed || !ed.value) {
-        e.preventDefault();
-        alert("تاریخ شروع و پایان را از تقویم شمسی انتخاب کنید.");
-        return;
+      var t = typeSelect ? typeSelect.value : "";
+      if (t !== "OFFLINE") {
+        syncJalali("workshop-start-date-view", "workshop-start-date");
+        syncJalali("workshop-end-date-view", "workshop-end-date");
+        var sd = document.getElementById("workshop-start-date");
+        var ed = document.getElementById("workshop-end-date");
+        if (!sd || !sd.value || !ed || !ed.value) {
+          e.preventDefault();
+          alert("تاریخ شروع و پایان را از تقویم شمسی انتخاب کنید.");
+          return;
+        }
+      } else {
+        var hasNewFile = false;
+        if (offlineRows) {
+          offlineRows.querySelectorAll(".offline-media-file").forEach(function(input){
+            if (input.files && input.files.length) hasNewFile = true;
+          });
+        }
+        if (!hasNewFile && !hasExistingOfflineMedia) {
+          e.preventDefault();
+          alert("حداقل یک ویدیو یا فایل صوتی انتخاب کنید.");
+          return;
+        }
+        if (offlineRows) {
+          var invalid = false;
+          offlineRows.querySelectorAll(".offline-media-row").forEach(function(row){
+            var fileInput = row.querySelector(".offline-media-file");
+            var titleInput = row.querySelector('input[name="media_title[]"]');
+            if (fileInput && fileInput.files && fileInput.files.length) {
+              if (!titleInput || !titleInput.value.trim()) {
+                invalid = true;
+              }
+            }
+          });
+          if (invalid) {
+            e.preventDefault();
+            alert("برای هر فایل، عنوان را هم بنویسید.");
+          }
+        }
       }
       if (typeSelect && typeSelect.value === "IN_PERSON" && locationInput && !locationInput.value.trim()) {
         e.preventDefault();

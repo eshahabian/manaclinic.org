@@ -204,6 +204,45 @@ function workshop_media_save_upload(PDO $pdo, string $workshopId, string $doctor
     return $id;
 }
 
+/** بارگذاری چند فایل از فرم ایجاد/ویرایش کارگاه آفلاین */
+function workshop_media_process_form_uploads(PDO $pdo, string $workshopId, string $doctorProfileId): int
+{
+    $kinds = $_POST['media_kind'] ?? [];
+    $titles = $_POST['media_title'] ?? [];
+    $descriptions = $_POST['media_description'] ?? [];
+    $files = $_FILES['media_files'] ?? [];
+
+    if (!is_array($kinds) || !is_array($files['name'] ?? null)) {
+        return 0;
+    }
+
+    $saved = 0;
+    foreach ($kinds as $i => $kind) {
+        $kind = (string) $kind;
+        $title = trim((string) ($titles[$i] ?? ''));
+        $description = trim((string) ($descriptions[$i] ?? '')) ?: null;
+        $file = [
+            'name' => (string) ($files['name'][$i] ?? ''),
+            'type' => (string) ($files['type'][$i] ?? ''),
+            'tmp_name' => (string) ($files['tmp_name'][$i] ?? ''),
+            'error' => (int) ($files['error'][$i] ?? UPLOAD_ERR_NO_FILE),
+            'size' => (int) ($files['size'][$i] ?? 0),
+        ];
+
+        if ($file['error'] === UPLOAD_ERR_NO_FILE) {
+            if ($title !== '' || $kind !== '') {
+                throw new RuntimeException('برای هر ردیف محتوا، فایل را هم انتخاب کنید.');
+            }
+            continue;
+        }
+
+        workshop_media_save_upload($pdo, $workshopId, $doctorProfileId, $kind, $title, $description, $file);
+        $saved++;
+    }
+
+    return $saved;
+}
+
 function workshop_media_delete(PDO $pdo, string $itemId, string $doctorProfileId): void
 {
     $item = workshop_media_get($pdo, $itemId);
