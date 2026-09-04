@@ -351,6 +351,29 @@ select {
   font-weight: 600;
   margin: 0;
 }
+.footer-social {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  margin-top: .7rem;
+}
+.footer-social-link {
+  display: inline-flex !important;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  margin: 0 !important;
+  border-radius: .65rem;
+  color: #fff !important;
+  transition: transform .15s ease, opacity .15s ease;
+}
+.footer-social-link:hover {
+  transform: translateY(-1px);
+  opacity: .92;
+}
+.footer-social-whatsapp { background: #25d366; }
+.footer-social-telegram { background: #2aabee; }
 .footer-address {
   line-height: 1.85;
   margin: .65rem 0 0;
