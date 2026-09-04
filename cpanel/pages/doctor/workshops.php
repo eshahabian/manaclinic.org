@@ -48,6 +48,17 @@ $otherWorkshops = $pdo->prepare('
 $otherWorkshops->execute([$ctx['profile']['id']]);
 $peerWorkshops = $otherWorkshops->fetchAll();
 
+$grouped = workshop_group_for_tabs($workshops);
+$peerGrouped = workshop_group_for_tabs($peerWorkshops);
+$tabParam = trim((string) ($_GET['tab'] ?? ''));
+if ($editWorkshop) {
+    $binderInitial = 'new';
+} elseif (in_array($tabParam, ['in-person', 'online', 'offline', 'new', 'archive'], true)) {
+    $binderInitial = $tabParam;
+} else {
+    $binderInitial = '';
+}
+
 $doctorWallet = ensure_wallet($pdo, $ctx['user']['id']);
 $flash = flash_get();
 
@@ -78,7 +89,7 @@ ob_start();
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <h1>کارگاه‌ها و دوره‌ها</h1>
-<p class="muted" style="margin-top:.35rem;font-size:.9rem">کارگاه برگزار کنید؛ همه مراجعان و سایر درمانگران از کارگاه‌های منتشرشده مطلع می‌شوند.</p>
+<p class="muted" style="margin-top:.35rem;font-size:.9rem">کارگاه‌ها را از تب‌های رنگی بالا جدا ببینید. وقتی زمان کارگاه حضوری یا آنلاین تمام شود، خودکار به آرشیو می‌رود.</p>
 
 <?php if ($flash): ?>
   <div class="panel" style="margin-top:1rem;font-size:.9rem;border-color:<?= $flash['type'] === 'success' ? 'var(--success)' : 'var(--danger)' ?>;color:<?= $flash['type'] === 'success' ? 'var(--success)' : 'var(--danger)' ?>">
@@ -96,111 +107,43 @@ ob_start();
   </div>
 </div>
 
-<div class="stack" style="margin-top:1.5rem">
-  <h2 style="margin:0;font-size:1.05rem">کارگاه‌های من</h2>
-  <?php foreach ($workshops as $workshop): ?>
-    <div class="panel" id="workshop-<?= e($workshop['id']) ?>">
-      <div class="workshop-card-row">
-        <div class="workshop-card-main">
-          <strong><?= e($workshop['title']) ?></strong>
-          <span class="badge" style="margin-right:.5rem"><?= e(workshop_type_label($workshop['type'])) ?></span>
-          <?php $workshopMediaStats = workshop_media_counts_html(workshop_media_counts_from_row($workshop)); if ($workshopMediaStats): ?>
-            <div style="margin-top:.4rem"><?= $workshopMediaStats ?></div>
-          <?php endif; ?>
-          <div class="muted" style="font-size:.85rem;margin-top:.35rem">
-            <?php if ($workshop['type'] === 'OFFLINE'): ?>
-              دوره آفلاین
-            <?php else: ?>
-              <?= e(format_workshop_datetime_fa($workshop['starts_at'])) ?> — <?= e(format_workshop_datetime_fa($workshop['ends_at'])) ?>
-            <?php endif; ?>
-          </div>
-          <div class="muted" style="font-size:.85rem;margin-top:.25rem">
-            <?= e(format_price((int)$workshop['price'])) ?>
-            · ثبت‌نام: <?= (int)$workshop['enrolled_count'] ?><?= $workshop['capacity'] ? ' / ' . (int)$workshop['capacity'] : '' ?>
-            · <?= $workshop['is_published'] ? 'منتشر شده' : 'پیش‌نویس' ?>
-            · <?= !empty($workshop['enrollment_open']) ? 'ثبت‌نام باز' : 'ثبت‌نام بسته' ?>
-            · <?= $workshop['status'] === 'COMPLETED' ? 'برگزار شده' : ($workshop['status'] === 'CANCELLED' ? 'لغو شده' : 'فعال') ?>
-          </div>
-          <?php if ($workshop['type'] === 'IN_PERSON' && $workshop['location']): ?>
-            <div class="muted" style="font-size:.8rem;margin-top:.35rem">محل: <?= e($workshop['location']) ?></div>
-          <?php endif; ?>
-          <?php if (!$workshop['is_published'] || $workshop['status'] !== 'PUBLISHED'): ?>
-            <p style="color:var(--danger);font-size:.8rem;margin-top:.5rem">مراجعان این کارگاه را نمی‌بینند — دکمه «انتشار» را بزنید.</p>
-          <?php elseif ($workshop['type'] !== 'OFFLINE' && strtotime((string) $workshop['ends_at']) <= time()): ?>
-            <p style="color:var(--muted);font-size:.8rem;margin-top:.5rem">زمان پایان گذشته — در لیست مراجعان نمایش داده نمی‌شود.</p>
-          <?php elseif (empty($workshop['enrollment_open'])): ?>
-            <p style="color:var(--warning,#b45309);font-size:.8rem;margin-top:.5rem">ثبت‌نام بسته — مراجعان می‌بینند اما نمی‌توانند ثبت‌نام کنند.</p>
-          <?php else: ?>
-            <p style="color:var(--success);font-size:.8rem;margin-top:.5rem">برای همه مراجعان در «دوره‌های من» → تب <?= e(workshop_type_label($workshop['type'])) ?> قابل مشاهده و ثبت‌نام است.</p>
-          <?php endif; ?>
-        </div>
-        <div class="workshop-card-actions">
-          <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/workshop-export?id=' . $workshop['id'])) ?>">خروجی ثبت‌نام‌ها</a>
-          <?php if ($workshop['status'] !== 'CANCELLED'): ?>
-            <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/workshops?edit=' . $workshop['id'])) ?>#session-notes">یادداشت جلسات</a>
-          <?php endif; ?>
-          <?php if ($workshop['status'] !== 'COMPLETED' && $workshop['status'] !== 'CANCELLED'): ?>
-            <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/workshops?edit=' . $workshop['id'])) ?>#workshop-form">ویرایش</a>
-            <form method="post" action="<?= e(url('/doctor/workshops')) ?>">
-              <input type="hidden" name="action" value="toggle_enrollment">
-              <input type="hidden" name="id" value="<?= e($workshop['id']) ?>">
-              <button class="btn btn-outline btn-sm" type="submit"><?= !empty($workshop['enrollment_open']) ? 'بستن ثبت‌نام' : 'باز کردن ثبت‌نام' ?></button>
-            </form>
-          <?php endif; ?>
-          <?php if ($workshop['status'] === 'PUBLISHED' || ($workshop['is_published'] && $workshop['status'] !== 'COMPLETED' && $workshop['status'] !== 'CANCELLED')): ?>
-            <form method="post" action="<?= e(url('/doctor/workshops')) ?>">
-              <input type="hidden" name="action" value="complete">
-              <input type="hidden" name="id" value="<?= e($workshop['id']) ?>">
-              <button class="btn btn-outline btn-sm" type="submit">تسویه و پایان</button>
-            </form>
-          <?php endif; ?>
-          <form method="post" action="<?= e(url('/doctor/workshops')) ?>">
-            <input type="hidden" name="action" value="toggle">
-            <input type="hidden" name="id" value="<?= e($workshop['id']) ?>">
-            <button class="btn btn-outline btn-sm" type="submit"><?= $workshop['is_published'] ? 'لغو انتشار' : 'انتشار' ?></button>
-          </form>
-          <form method="post" action="<?= e(url('/doctor/workshops')) ?>" onsubmit="return confirm('حذف شود؟')">
-            <input type="hidden" name="action" value="delete">
-            <input type="hidden" name="id" value="<?= e($workshop['id']) ?>">
-            <button class="btn btn-danger btn-sm" type="submit">حذف</button>
-          </form>
-        </div>
-      </div>
-      <?php if ($workshop['items_to_bring']): ?>
-        <p style="font-size:.85rem;margin:.75rem 0 0"><strong>موارد همراه:</strong> <?= e($workshop['items_to_bring']) ?></p>
-      <?php endif; ?>
-      <?php if ($workshop['notes']): ?>
-        <p class="muted" style="font-size:.85rem;margin:.5rem 0 0"><strong>یادداشت:</strong> <?= e($workshop['notes']) ?></p>
-      <?php endif; ?>
-    </div>
-  <?php endforeach; ?>
-  <?php if (!$workshops): ?><p class="muted">هنوز کارگاهی ثبت نشده است.</p><?php endif; ?>
-</div>
-
-<?php if ($peerWorkshops): ?>
-<div class="stack" style="margin-top:1.5rem">
-  <h2 style="margin:0;font-size:1.05rem">کارگاه‌های سایر درمانگران</h2>
-  <p class="muted" style="font-size:.85rem;margin:.35rem 0 0">کارگاه‌های منتشرشده که مراجعان هم در «دوره‌های من» می‌بینند.</p>
-  <?php foreach ($peerWorkshops as $peer): ?>
-    <div class="panel" style="font-size:.9rem">
-      <strong><?= e($peer['title']) ?></strong>
-      <span class="badge" style="margin-right:.5rem"><?= e(workshop_type_label($peer['type'])) ?></span>
-      <div class="muted" style="font-size:.85rem;margin-top:.35rem">درمانگر: <?= e($peer['doctor_name']) ?></div>
-      <div class="muted" style="font-size:.85rem;margin-top:.25rem">
-        <?php if ($peer['type'] === 'OFFLINE'): ?>
-          دوره آفلاین
-        <?php else: ?>
-          <?= e(format_workshop_datetime_fa($peer['starts_at'])) ?> — <?= e(format_workshop_datetime_fa($peer['ends_at'])) ?>
-        <?php endif; ?>
-        · <?= e(format_price((int)$peer['price'])) ?>
-        · <?= !empty($peer['enrollment_open']) ? 'ثبت‌نام باز' : 'ثبت‌نام بسته' ?>
-      </div>
-    </div>
-  <?php endforeach; ?>
-</div>
-<?php endif; ?>
-
-<div class="stack" style="margin-top:1.5rem">
+<div class="binder-tile" data-binder-tabs data-binder-initial="<?= e($binderInitial) ?>" style="margin-top:1.5rem">
+  <div class="binder-tabs" role="tablist" aria-label="دسته‌بندی کارگاه‌ها">
+    <button type="button" class="binder-tab binder-tab-in-person is-active" role="tab" data-binder-tab="in-person" aria-selected="true">
+      حضوری <span class="binder-tab-count"><?= count($grouped['in-person']) ?></span>
+    </button>
+    <button type="button" class="binder-tab binder-tab-online" role="tab" data-binder-tab="online" aria-selected="false">
+      آنلاین <span class="binder-tab-count"><?= count($grouped['online']) ?></span>
+    </button>
+    <button type="button" class="binder-tab binder-tab-offline" role="tab" data-binder-tab="offline" aria-selected="false">
+      آفلاین <span class="binder-tab-count"><?= count($grouped['offline']) ?></span>
+    </button>
+    <button type="button" class="binder-tab binder-tab-new" role="tab" data-binder-tab="new" aria-selected="false">
+      <?= $editWorkshop ? 'ویرایش کارگاه' : 'کارگاه جدید' ?>
+    </button>
+    <button type="button" class="binder-tab binder-tab-archive" role="tab" data-binder-tab="archive" aria-selected="false">
+      آرشیو <span class="binder-tab-count"><?= count($grouped['archive']) ?></span>
+    </button>
+  </div>
+  <div class="binder-body">
+    <section class="binder-panel is-active" data-binder-panel="in-person" role="tabpanel">
+      <?php $workshopList = $grouped['in-person']; $workshopEmpty = 'کارگاه حضوری فعالی ندارید.'; $workshopRole = 'doctor'; require __DIR__ . '/../../includes/workshop_manage_cards.php'; ?>
+      <?php $peerList = $peerGrouped['in-person']; require __DIR__ . '/../../includes/workshop_peer_block.php'; ?>
+    </section>
+    <section class="binder-panel" data-binder-panel="online" role="tabpanel" hidden>
+      <?php $workshopList = $grouped['online']; $workshopEmpty = 'کارگاه آنلاین فعالی ندارید.'; $workshopRole = 'doctor'; require __DIR__ . '/../../includes/workshop_manage_cards.php'; ?>
+      <?php $peerList = $peerGrouped['online']; require __DIR__ . '/../../includes/workshop_peer_block.php'; ?>
+    </section>
+    <section class="binder-panel" data-binder-panel="offline" role="tabpanel" hidden>
+      <?php $workshopList = $grouped['offline']; $workshopEmpty = 'دوره آفلاین فعالی ندارید.'; $workshopRole = 'doctor'; require __DIR__ . '/../../includes/workshop_manage_cards.php'; ?>
+      <?php $peerList = $peerGrouped['offline']; require __DIR__ . '/../../includes/workshop_peer_block.php'; ?>
+    </section>
+    <section class="binder-panel" data-binder-panel="archive" role="tabpanel" hidden>
+      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">کارگاه‌هایی که زمانشان تمام شده یا پایان داده شده‌اند، خودکار اینجا می‌آیند.</p>
+      <?php $workshopList = $grouped['archive']; $workshopEmpty = 'هنوز کارگاهی در آرشیو نیست.'; $workshopRole = 'doctor'; require __DIR__ . '/../../includes/workshop_manage_cards.php'; ?>
+    </section>
+    <section class="binder-panel" data-binder-panel="new" role="tabpanel" hidden>
+      <div class="stack">
 <?php if ($editWorkshop && $workshopMedia): ?>
   <?php $editMediaCounts = workshop_media_kind_counts_from_list($workshopMedia); ?>
   <section class="panel stack" style="margin-bottom:0">
@@ -419,6 +362,9 @@ ob_start();
     </form>
   </section>
 <?php endif; ?>
+      </div>
+    </section>
+  </div>
 </div>
 
 <template id="session-media-row-template">
@@ -448,6 +394,7 @@ ob_start();
   </div>
 </template>
 
+<script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260904p"></script>
 <script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
@@ -576,6 +523,12 @@ ob_start();
   }
 
   updateCoordsHint();
+
+  window.addEventListener("binder-tab-change", function (e) {
+    if (e.detail === "new" && mapInstance) {
+      setTimeout(function () { mapInstance.invalidateSize(); }, 80);
+    }
+  });
 
   if (mapToggle && mapWrap) {
     mapToggle.addEventListener("click", function(){

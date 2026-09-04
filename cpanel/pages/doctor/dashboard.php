@@ -60,16 +60,16 @@ $unreadCount = count_unread_notifications($pdo, $userId);
 
 // کارگاه‌های خودم
 $wsStmt = $pdo->prepare("
-  SELECT w.id, w.title, w.type, w.is_published, w.status, w.starts_at,
+  SELECT w.id, w.title, w.type, w.is_published, w.status, w.starts_at, w.ends_at,
     (SELECT COUNT(*) FROM workshop_enrollments e
      WHERE e.workshop_id = w.id AND e.status IN ('PENDING_PAYMENT','CONFIRMED','COMPLETED')) AS enrolled_count
   FROM workshops w
   WHERE w.doctor_id = ?
   ORDER BY w.created_at DESC
-  LIMIT 5
 ");
 $wsStmt->execute([$doctorId]);
 $workshops = $wsStmt->fetchAll();
+$wsGrouped = workshop_group_for_tabs($workshops);
 
 $wsCountStmt = $pdo->prepare("
   SELECT COUNT(*) FROM workshops
@@ -77,6 +77,8 @@ $wsCountStmt = $pdo->prepare("
 ");
 $wsCountStmt->execute([$doctorId]);
 $wsActive = (int) $wsCountStmt->fetchColumn();
+
+$wsArchiveCount = count($wsGrouped['archive']);
 
 ob_start();
 ?>
@@ -268,45 +270,75 @@ ob_start();
       </div>
 
       <div class="doctor-dash-stats">
-        <div class="doctor-dash-stat">
+        <a class="doctor-dash-stat" href="<?= e(url('/doctor/workshops')) ?>">
           <strong><?= (int) $wsActive ?></strong>
           <span>کارگاه فعال</span>
-        </div>
-        <div class="doctor-dash-stat">
-          <a href="<?= e(url('/doctor/workshops')) ?>">+ کارگاه جدید</a>
-          <span>ایجاد / ویرایش</span>
-        </div>
+        </a>
+        <a class="doctor-dash-stat" href="<?= e(url('/doctor/workshops?tab=archive')) ?>">
+          <strong><?= (int) $wsArchiveCount ?></strong>
+          <span>آرشیو کارگاه‌ها</span>
+        </a>
       </div>
 
-      <h3 class="doctor-dash-sub">آخرین کارگاه‌های شما</h3>
-      <?php if (!$workshops): ?>
-        <p class="muted doctor-dash-empty">هنوز کارگاهی نساخته‌اید.</p>
-      <?php else: ?>
-        <ul class="doctor-dash-list">
-          <?php foreach ($workshops as $w): ?>
-            <li>
-              <a href="<?= e(url('/doctor/workshops?edit=' . urlencode((string) $w['id']))) ?>">
-                <strong><?= e((string) $w['title']) ?></strong>
-                <span class="muted">
-                  <?= e(workshop_type_label((string) $w['type'])) ?>
-                  · <?= (int) ($w['enrolled_count'] ?? 0) ?> نفر
-                  · <?= !empty($w['is_published']) && !in_array((string) ($w['status'] ?? ''), ['CANCELLED', 'COMPLETED'], true) ? 'منتشرشده' : 'پیش‌نویس/غیرفعال' ?>
-                </span>
-              </a>
-            </li>
+      <div class="binder-tile binder-tile--nested" data-binder-tabs data-binder-hash="0">
+        <div class="binder-tabs" role="tablist" aria-label="کارگاه‌های شما">
+          <button type="button" class="binder-tab binder-tab-in-person is-active" role="tab" data-binder-tab="ws-in-person" aria-selected="true">
+            حضوری <span class="binder-tab-count"><?= count($wsGrouped['in-person']) ?></span>
+          </button>
+          <button type="button" class="binder-tab binder-tab-online" role="tab" data-binder-tab="ws-online" aria-selected="false">
+            آنلاین <span class="binder-tab-count"><?= count($wsGrouped['online']) ?></span>
+          </button>
+          <button type="button" class="binder-tab binder-tab-offline" role="tab" data-binder-tab="ws-offline" aria-selected="false">
+            آفلاین <span class="binder-tab-count"><?= count($wsGrouped['offline']) ?></span>
+          </button>
+          <button type="button" class="binder-tab binder-tab-archive" role="tab" data-binder-tab="ws-archive" aria-selected="false">
+            آرشیو <span class="binder-tab-count"><?= count($wsGrouped['archive']) ?></span>
+          </button>
+        </div>
+        <div class="binder-body">
+          <?php
+            $dashWsTabs = [
+              'ws-in-person' => ['list' => $wsGrouped['in-person'], 'empty' => 'کارگاه حضوری فعالی ندارید.', 'active' => true],
+              'ws-online' => ['list' => $wsGrouped['online'], 'empty' => 'کارگاه آنلاین فعالی ندارید.', 'active' => false],
+              'ws-offline' => ['list' => $wsGrouped['offline'], 'empty' => 'دوره آفلاین فعالی ندارید.', 'active' => false],
+              'ws-archive' => ['list' => $wsGrouped['archive'], 'empty' => 'هنوز کارگاهی در آرشیو نیست.', 'active' => false],
+            ];
+          ?>
+          <?php foreach ($dashWsTabs as $tabId => $tabData): ?>
+            <section class="binder-panel<?= !empty($tabData['active']) ? ' is-active' : '' ?>" data-binder-panel="<?= e($tabId) ?>" role="tabpanel"<?= empty($tabData['active']) ? ' hidden' : '' ?>>
+              <?php if (!$tabData['list']): ?>
+                <p class="muted doctor-dash-empty"><?= e($tabData['empty']) ?></p>
+              <?php else: ?>
+                <ul class="doctor-dash-list">
+                  <?php foreach (array_slice($tabData['list'], 0, 8) as $w): ?>
+                    <li>
+                      <a href="<?= e(url('/doctor/workshops?edit=' . urlencode((string) $w['id']))) ?>">
+                        <strong><?= e((string) $w['title']) ?></strong>
+                        <span class="muted">
+                          <?= e(workshop_type_label((string) $w['type'])) ?>
+                          · <?= (int) ($w['enrolled_count'] ?? 0) ?> نفر
+                          · <?= workshop_is_archived($w) ? 'آرشیو' : (!empty($w['is_published']) ? 'منتشرشده' : 'پیش‌نویس') ?>
+                        </span>
+                      </a>
+                    </li>
+                  <?php endforeach; ?>
+                </ul>
+              <?php endif; ?>
+            </section>
           <?php endforeach; ?>
-        </ul>
-      <?php endif; ?>
+        </div>
+      </div>
     </section>
     </div>
   </div>
 </div>
+<script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260904p"></script>
 <script>
 (function () {
   var root = document.querySelector('[data-dash-tabs]');
   if (!root) return;
-  var tabs = root.querySelectorAll('[role="tab"]');
-  var panels = root.querySelectorAll('[data-panel]');
+  var tabs = root.querySelectorAll('.doctor-dash-tabs [role="tab"]');
+  var panels = root.querySelectorAll('.doctor-dash-panels > [data-panel]');
   function activate(id) {
     tabs.forEach(function (tab) {
       var on = tab.getAttribute('data-tab') === id;

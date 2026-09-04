@@ -216,6 +216,7 @@ if ($action === 'toggle') {
         $count = complete_workshop($pdo, $id, $ctx['profile']['id']);
         $pdo->commit();
         flash_set('success', "کارگاه پایان یافت. {$count} ثبت‌نام تسویه شد.");
+        redirect('/doctor/workshops?tab=archive');
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();

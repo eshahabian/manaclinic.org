@@ -63,6 +63,7 @@ function ensure_workshop_schema(PDO $pdo): void
     workshop_ensure_columns($pdo);
     workshop_sync_publish_flags($pdo);
     ensure_workshop_session_notes_schema($pdo);
+    workshop_archive_expired($pdo);
 }
 
 function ensure_workshop_session_notes_schema(PDO $pdo): void
@@ -721,4 +722,76 @@ function complete_workshop(PDO $pdo, string $workshopId, string $doctorProfileId
 
     $pdo->prepare("UPDATE workshops SET status='COMPLETED', enrollment_open=0 WHERE id=?")->execute([$workshopId]);
     return $settled;
+}
+
+/** کارگاه تمام‌شده یا لغوشده در آرشیو دیده می‌شود */
+function workshop_is_archived(array $workshop): bool
+{
+    $status = (string) ($workshop['status'] ?? '');
+    if (in_array($status, ['COMPLETED', 'CANCELLED'], true)) {
+        return true;
+    }
+    if ((string) ($workshop['type'] ?? '') === 'OFFLINE') {
+        return false;
+    }
+    $end = strtotime((string) ($workshop['ends_at'] ?? ''));
+    return $end !== false && $end <= time();
+}
+
+/** کارگاه حضوری/آنلاین که زمانش گذشته، تسویه و به آرشیو می‌رود */
+function workshop_archive_expired(PDO $pdo): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    try {
+        $rows = $pdo->query("
+          SELECT id, doctor_id FROM workshops
+          WHERE status NOT IN ('COMPLETED','CANCELLED')
+            AND type <> 'OFFLINE'
+            AND ends_at <= NOW()
+        ")->fetchAll();
+    } catch (Throwable $e) {
+        return;
+    }
+    foreach ($rows as $row) {
+        $id = (string) ($row['id'] ?? '');
+        $doctorId = (string) ($row['doctor_id'] ?? '');
+        if ($id === '' || $doctorId === '') {
+            continue;
+        }
+        try {
+            complete_workshop($pdo, $id, $doctorId);
+        } catch (Throwable $e) {
+            // اگر تسویه نشد، فقط در تب آرشیو دیده می‌شود تا درمانگر دستی «تسویه و پایان» بزند
+        }
+    }
+}
+
+/** گروه‌بندی برای تب‌های رنگی کارگاه */
+function workshop_group_for_tabs(array $workshops): array
+{
+    $out = [
+        'in-person' => [],
+        'online' => [],
+        'offline' => [],
+        'archive' => [],
+    ];
+    foreach ($workshops as $workshop) {
+        if (workshop_is_archived($workshop)) {
+            $out['archive'][] = $workshop;
+            continue;
+        }
+        $type = (string) ($workshop['type'] ?? '');
+        if ($type === 'ONLINE') {
+            $out['online'][] = $workshop;
+        } elseif ($type === 'OFFLINE') {
+            $out['offline'][] = $workshop;
+        } else {
+            $out['in-person'][] = $workshop;
+        }
+    }
+    return $out;
 }

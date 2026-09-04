@@ -1005,6 +1005,89 @@ jdp-container, .jdp-container, [class*="jdp"] {
   font-size: .78rem;
 }
 
+.binder-tile {
+  background: #fff;
+  border: 1px solid var(--line);
+  border-radius: 0 0 1rem 1rem;
+  overflow: hidden;
+}
+.binder-tile--nested {
+  border-radius: .85rem;
+  margin-top: .35rem;
+}
+.binder-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .28rem;
+  padding: .5rem .5rem 0;
+  background: #efe8d8;
+  border-bottom: 1px solid var(--line);
+}
+.binder-tab {
+  appearance: none;
+  font-family: inherit;
+  font-weight: 700;
+  font-size: .86rem;
+  border: 0;
+  border-radius: .6rem .6rem 0 0;
+  padding: .68rem .95rem .6rem;
+  cursor: pointer;
+  color: #1a2e28;
+  margin-bottom: -1px;
+  white-space: nowrap;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.45);
+}
+.binder-tab:hover { filter: brightness(1.05); }
+.binder-tab.is-active {
+  position: relative;
+  z-index: 1;
+  padding-bottom: .72rem;
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.55), 0 1px 0 #fff;
+}
+.binder-tab-in-person { background: #8ec6ea; }
+.binder-tab-online { background: #4ec4bf; }
+.binder-tab-offline { background: #f2d24d; }
+.binder-tab-new { background: #ee5aa8; color: #fff; }
+.binder-tab-archive { background: #ee9540; color: #fff; }
+.binder-tab-count {
+  display: inline-flex;
+  min-width: 1.15rem;
+  margin-right: .28rem;
+  padding: 0 .28rem;
+  border-radius: 999px;
+  font-size: .72rem;
+  font-weight: 700;
+  background: rgba(255,255,255,.45);
+  color: #134437;
+  justify-content: center;
+}
+.binder-tab-new .binder-tab-count,
+.binder-tab-archive .binder-tab-count {
+  background: rgba(255,255,255,.28);
+  color: #fff;
+}
+.binder-body { padding: 1.15rem; }
+.binder-panel { display: none; }
+.binder-panel.is-active { display: block; }
+.binder-empty { margin: 0; }
+.binder-sub {
+  margin: 1.25rem 0 .35rem;
+  font-size: .95rem;
+  color: var(--primary-dark);
+}
+.workshop-binder-card {
+  border: 1px solid var(--line);
+  border-radius: .85rem;
+  padding: 1rem;
+  background: #fff;
+}
+.workshop-binder-card.is-archived {
+  background: #faf8f3;
+}
+.workshop-binder-card--peer {
+  font-size: .9rem;
+}
+
 /* ادیتور شرح حال */
 .clinical-board {
   display: grid;

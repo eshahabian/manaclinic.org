@@ -34,6 +34,16 @@ $workshops = $pdo->query('
   ORDER BY w.created_at DESC
 ')->fetchAll();
 
+$grouped = workshop_group_for_tabs($workshops);
+$tabParam = trim((string) ($_GET['tab'] ?? ''));
+if ($editWorkshop) {
+    $binderInitial = 'new';
+} elseif (in_array($tabParam, ['in-person', 'online', 'offline', 'new', 'archive'], true)) {
+    $binderInitial = $tabParam;
+} else {
+    $binderInitial = '';
+}
+
 $flash = flash_get();
 $formAction = $editWorkshop ? 'update' : 'create';
 $formTitle = $editWorkshop ? 'ویرایش کارگاه' : 'کارگاه جدید';
@@ -61,7 +71,7 @@ ob_start();
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <h1>کارگاه‌ها و دوره‌ها</h1>
-<p class="muted" style="margin-top:.35rem;font-size:.9rem">کارگاه بسازید، درمانگر مسئول را انتخاب کنید و فایل جلسات را بارگذاری کنید. پس از ایجاد، به همه درمانگران اطلاع داده می‌شود.</p>
+<p class="muted" style="margin-top:.35rem;font-size:.9rem">کارگاه‌ها را از تب‌های رنگی جدا ببینید. کارگاه حضوری و آنلاین پس از پایان زمان، خودکار به آرشیو می‌رود.</p>
 
 <?php if ($flash): ?>
   <div class="panel" style="margin-top:1rem;font-size:.9rem;border-color:<?= $flash['type'] === 'success' ? 'var(--success)' : 'var(--danger)' ?>;color:<?= $flash['type'] === 'success' ? 'var(--success)' : 'var(--danger)' ?>">
@@ -69,62 +79,40 @@ ob_start();
   </div>
 <?php endif; ?>
 
-<div class="stack" style="margin-top:1.5rem">
-  <h2 style="margin:0;font-size:1.05rem">همه کارگاه‌ها</h2>
-  <?php foreach ($workshops as $workshop): ?>
-    <div class="panel" id="workshop-<?= e($workshop['id']) ?>">
-      <div class="workshop-card-row">
-        <div class="workshop-card-main">
-          <strong><?= e($workshop['title']) ?></strong>
-          <span class="badge" style="margin-right:.5rem"><?= e(workshop_type_label($workshop['type'])) ?></span>
-          <?php $stats = workshop_media_counts_html(workshop_media_counts_from_row($workshop)); if ($stats): ?>
-            <div style="margin-top:.4rem"><?= $stats ?></div>
-          <?php endif; ?>
-          <div class="muted" style="font-size:.85rem;margin-top:.35rem">درمانگر: <?= e($workshop['doctor_name']) ?></div>
-          <div class="muted" style="font-size:.85rem;margin-top:.25rem">
-            <?php if ($workshop['type'] === 'OFFLINE'): ?>
-              دوره آفلاین
-            <?php else: ?>
-              <?= e(format_workshop_datetime_fa($workshop['starts_at'])) ?> — <?= e(format_workshop_datetime_fa($workshop['ends_at'])) ?>
-            <?php endif; ?>
-            · <?= e(format_price((int)$workshop['price'])) ?>
-            · ثبت‌نام: <?= (int)$workshop['enrolled_count'] ?>
-            · <?= $workshop['is_published'] ? 'منتشر شده' : 'پیش‌نویس' ?>
-            · <?= !empty($workshop['enrollment_open']) ? 'ثبت‌نام باز' : 'ثبت‌نام بسته' ?>
-          </div>
-          <?php if (!empty($workshop['group_url'])): ?>
-            <div class="muted" style="font-size:.8rem;margin-top:.35rem">
-              گروه: <a href="<?= e($workshop['group_url']) ?>" target="_blank" rel="noopener" dir="ltr"><?= e($workshop['group_url']) ?></a>
-            </div>
-          <?php endif; ?>
-        </div>
-        <div class="workshop-card-actions">
-          <?php if ($workshop['status'] !== 'COMPLETED' && $workshop['status'] !== 'CANCELLED'): ?>
-            <a class="btn btn-outline btn-sm" href="<?= e(url('/secretary/workshops?edit=' . $workshop['id'])) ?>#workshop-form">ویرایش / فایل</a>
-            <form method="post" action="<?= e(url('/secretary/workshops')) ?>">
-              <input type="hidden" name="action" value="toggle_enrollment">
-              <input type="hidden" name="id" value="<?= e($workshop['id']) ?>">
-              <button class="btn btn-outline btn-sm" type="submit"><?= !empty($workshop['enrollment_open']) ? 'بستن ثبت‌نام' : 'باز کردن ثبت‌نام' ?></button>
-            </form>
-          <?php endif; ?>
-          <form method="post" action="<?= e(url('/secretary/workshops')) ?>">
-            <input type="hidden" name="action" value="toggle">
-            <input type="hidden" name="id" value="<?= e($workshop['id']) ?>">
-            <button class="btn btn-outline btn-sm" type="submit"><?= $workshop['is_published'] ? 'لغو انتشار' : 'انتشار' ?></button>
-          </form>
-          <form method="post" action="<?= e(url('/secretary/workshops')) ?>" onsubmit="return confirm('حذف شود؟')">
-            <input type="hidden" name="action" value="delete">
-            <input type="hidden" name="id" value="<?= e($workshop['id']) ?>">
-            <button class="btn btn-danger btn-sm" type="submit">حذف</button>
-          </form>
-        </div>
-      </div>
-    </div>
-  <?php endforeach; ?>
-  <?php if (!$workshops): ?><p class="muted">هنوز کارگاهی ثبت نشده است.</p><?php endif; ?>
-</div>
-
-<div class="stack" style="margin-top:1.5rem">
+<div class="binder-tile" data-binder-tabs data-binder-initial="<?= e($binderInitial) ?>" style="margin-top:1.5rem">
+  <div class="binder-tabs" role="tablist" aria-label="دسته‌بندی کارگاه‌ها">
+    <button type="button" class="binder-tab binder-tab-in-person is-active" role="tab" data-binder-tab="in-person" aria-selected="true">
+      حضوری <span class="binder-tab-count"><?= count($grouped['in-person']) ?></span>
+    </button>
+    <button type="button" class="binder-tab binder-tab-online" role="tab" data-binder-tab="online" aria-selected="false">
+      آنلاین <span class="binder-tab-count"><?= count($grouped['online']) ?></span>
+    </button>
+    <button type="button" class="binder-tab binder-tab-offline" role="tab" data-binder-tab="offline" aria-selected="false">
+      آفلاین <span class="binder-tab-count"><?= count($grouped['offline']) ?></span>
+    </button>
+    <button type="button" class="binder-tab binder-tab-new" role="tab" data-binder-tab="new" aria-selected="false">
+      <?= $editWorkshop ? 'ویرایش کارگاه' : 'کارگاه جدید' ?>
+    </button>
+    <button type="button" class="binder-tab binder-tab-archive" role="tab" data-binder-tab="archive" aria-selected="false">
+      آرشیو <span class="binder-tab-count"><?= count($grouped['archive']) ?></span>
+    </button>
+  </div>
+  <div class="binder-body">
+    <section class="binder-panel is-active" data-binder-panel="in-person" role="tabpanel">
+      <?php $workshopList = $grouped['in-person']; $workshopEmpty = 'کارگاه حضوری فعالی نیست.'; $workshopRole = 'secretary'; require __DIR__ . '/../../includes/workshop_manage_cards.php'; ?>
+    </section>
+    <section class="binder-panel" data-binder-panel="online" role="tabpanel" hidden>
+      <?php $workshopList = $grouped['online']; $workshopEmpty = 'کارگاه آنلاین فعالی نیست.'; $workshopRole = 'secretary'; require __DIR__ . '/../../includes/workshop_manage_cards.php'; ?>
+    </section>
+    <section class="binder-panel" data-binder-panel="offline" role="tabpanel" hidden>
+      <?php $workshopList = $grouped['offline']; $workshopEmpty = 'دوره آفلاین فعالی نیست.'; $workshopRole = 'secretary'; require __DIR__ . '/../../includes/workshop_manage_cards.php'; ?>
+    </section>
+    <section class="binder-panel" data-binder-panel="archive" role="tabpanel" hidden>
+      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">کارگاه‌هایی که زمانشان تمام شده، خودکار به آرشیو می‌آیند.</p>
+      <?php $workshopList = $grouped['archive']; $workshopEmpty = 'هنوز کارگاهی در آرشیو نیست.'; $workshopRole = 'secretary'; require __DIR__ . '/../../includes/workshop_manage_cards.php'; ?>
+    </section>
+    <section class="binder-panel" data-binder-panel="new" role="tabpanel" hidden>
+      <div class="stack">
 <?php if ($editWorkshop && $workshopMedia): ?>
   <section class="panel stack" style="margin-bottom:0">
     <div class="row-between" style="align-items:center;gap:.75rem;flex-wrap:wrap">
@@ -265,6 +253,9 @@ ob_start();
   </div>
   <button class="btn btn-primary" type="submit"><?= e($formSubmit) ?></button>
 </form>
+      </div>
+    </section>
+  </div>
 </div>
 
 <template id="session-media-row-template">
@@ -294,6 +285,7 @@ ob_start();
   </div>
 </template>
 
+<script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260904p"></script>
 <script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
