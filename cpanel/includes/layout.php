@@ -11,6 +11,7 @@ $content = $GLOBALS['content'] ?? ($content ?? '');
 $user = current_user();
 $panelHref = panel_href_for($user);
 $flash = flash_get();
+$colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'eshahabian') === 0;
 ?>
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
@@ -25,7 +26,7 @@ $flash = flash_get();
     <?= $pageHead ?>
   <?php endif; ?>
 </head>
-<body>
+<body<?= $colorfulParticles ? ' data-particles="colorful"' : '' ?>>
 <canvas id="particle-canvas" aria-hidden="true"></canvas>
 <div class="site-layer">
   <header class="site-header">
@@ -119,7 +120,7 @@ $flash = flash_get();
     </div>
   </footer>
 </div>
-<script src="<?= e(url('/assets/js/particles.js')) ?>"></script>
+<script src="<?= e(url('/assets/js/particles.js')) ?>?v=20260904t"></script>
 <?php if (!empty($pageScripts)): ?>
   <?= $pageScripts ?>
 <?php endif; ?>

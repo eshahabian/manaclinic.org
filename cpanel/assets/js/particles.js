@@ -9,6 +9,28 @@
   var particles = [];
   var animId = 0;
   var mouse = { x: null, y: null, radius: 160 };
+  var colorful = document.body.getAttribute('data-particles') === 'colorful';
+  var palette = colorful
+    ? [
+        [110, 184, 232],
+        [45, 189, 184],
+        [245, 201, 58],
+        [240, 74, 163],
+        [240, 134, 40],
+        [124, 92, 232]
+      ]
+    : [[201, 151, 59]];
+
+  function rgba(rgb, a) {
+    return 'rgba(' + rgb[0] + ',' + rgb[1] + ',' + rgb[2] + ',' + a + ')';
+  }
+  function mixRgb(a, b) {
+    return [
+      Math.round((a[0] + b[0]) / 2),
+      Math.round((a[1] + b[1]) / 2),
+      Math.round((a[2] + b[2]) / 2)
+    ];
+  }
 
   function Particle() {
     this.x = Math.random() * canvas.width;
@@ -16,11 +38,12 @@
     this.vx = (Math.random() - 0.5) * 0.35;
     this.vy = (Math.random() - 0.5) * 0.35;
     this.r = Math.random() * 1.6 + 0.7;
+    this.rgb = palette[Math.floor(Math.random() * palette.length)];
   }
   Particle.prototype.draw = function () {
     ctx.beginPath();
     ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
-    ctx.fillStyle = 'rgba(201, 151, 59, 0.65)';
+    ctx.fillStyle = rgba(this.rgb, colorful ? 0.78 : 0.65);
     ctx.fill();
   };
   Particle.prototype.update = function () {
@@ -49,16 +72,20 @@
         var dy = particles[a].y - particles[b].y;
         var d = dx * dx + dy * dy;
         if (d < maxD) {
-          var op = (1 - d / maxD) * 0.5;
+          var op = (1 - d / maxD) * (colorful ? 0.62 : 0.5);
           var near = false;
           if (mouse.x !== null) {
             var mx = particles[a].x - mouse.x;
             var my = particles[a].y - mouse.y;
             if (Math.sqrt(mx * mx + my * my) < mouse.radius) near = true;
           }
-          ctx.strokeStyle = near
-            ? 'rgba(201, 151, 59,' + op + ')'
-            : 'rgba(27, 94, 75,' + (op * 0.55) + ')';
+          if (colorful) {
+            ctx.strokeStyle = rgba(mixRgb(particles[a].rgb, particles[b].rgb), near ? Math.min(1, op + 0.2) : op);
+          } else {
+            ctx.strokeStyle = near
+              ? 'rgba(201, 151, 59,' + op + ')'
+              : 'rgba(27, 94, 75,' + (op * 0.55) + ')';
+          }
           ctx.lineWidth = 0.7;
           ctx.beginPath();
           ctx.moveTo(particles[a].x, particles[a].y);
