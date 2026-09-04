@@ -470,46 +470,36 @@ jdp-container, .jdp-container, [class*="jdp"] {
 
 .workshop-card-row {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: .75rem 1rem;
   align-items: flex-start;
   justify-content: space-between;
 }
 .workshop-card-main {
-  flex: 1 1 auto;
+  flex: 1 1 14rem;
   min-width: 0;
 }
 .workshop-card-actions {
   display: flex;
+  flex-direction: row;
   flex-wrap: nowrap;
-  gap: .45rem;
+  gap: .4rem;
   justify-content: flex-end;
   align-items: center;
   flex: 0 0 auto;
-  max-width: none;
-}
-.workshop-card-actions .btn {
-  white-space: nowrap;
 }
 .workshop-card-actions form {
+  display: contents;
+}
+.workshop-card-actions .btn,
+.workshop-card-actions a.btn {
   display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+  flex: 0 0 auto;
   margin: 0;
-}
-@media (max-width: 900px) {
-  .workshop-card-actions {
-    flex-wrap: wrap;
-    max-width: min(100%, 28rem);
-  }
-}
-@media (max-width: 720px) {
-  .workshop-card-row {
-    flex-wrap: wrap;
-  }
-  .workshop-card-actions {
-    width: 100%;
-    max-width: none;
-    justify-content: flex-start;
-  }
+  padding: .35rem .55rem;
+  font-size: .78rem;
 }
 
 /* ادیتور شرح حال */
