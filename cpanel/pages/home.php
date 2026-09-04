@@ -121,19 +121,19 @@ ob_start();
         <div class="articles-showcase">
           <?php if ($leadArticle): ?>
             <div class="articles-lead-col">
-              <a class="panel card-link" href="<?= e(url('/articles/' . $leadArticle['slug'])) ?>">
+              <a class="panel card-link article-card" href="<?= e(url('/articles/' . $leadArticle['slug'])) ?>">
                 <span class="badge"><?= e($leadArticle['author_name']) ?></span>
-                <h3 style="margin:.75rem 0 0;line-height:1.7"><?= e($leadArticle['title']) ?></h3>
-                <p class="muted line-clamp-3" style="font-size:.9rem;line-height:1.8;margin-top:.75rem"><?= e($leadArticle['excerpt']) ?></p>
+                <h3 class="article-card-title"><?= e($leadArticle['title']) ?></h3>
+                <p class="muted article-card-excerpt"><?= e($leadArticle['excerpt']) ?></p>
               </a>
               <a class="articles-all-link" href="<?= e(url('/articles')) ?>">همه مقالات</a>
             </div>
           <?php endif; ?>
           <?php foreach ($moreArticles as $article): ?>
-            <a class="panel card-link" href="<?= e(url('/articles/' . $article['slug'])) ?>">
+            <a class="panel card-link article-card" href="<?= e(url('/articles/' . $article['slug'])) ?>">
               <span class="badge"><?= e($article['author_name']) ?></span>
-              <h3 style="margin:.75rem 0 0;line-height:1.7"><?= e($article['title']) ?></h3>
-              <p class="muted line-clamp-3" style="font-size:.9rem;line-height:1.8;margin-top:.75rem"><?= e($article['excerpt']) ?></p>
+              <h3 class="article-card-title"><?= e($article['title']) ?></h3>
+              <p class="muted article-card-excerpt"><?= e($article['excerpt']) ?></p>
             </a>
           <?php endforeach; ?>
         </div>

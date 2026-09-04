@@ -128,12 +128,41 @@ select {
 .articles-showcase {
   display: grid;
   gap: 1.25rem;
-  align-items: start;
+  align-items: stretch;
 }
 .articles-lead-col {
   display: flex;
   flex-direction: column;
   gap: 1.25rem;
+  height: 100%;
+}
+.articles-lead-col .article-card {
+  flex: 1;
+}
+.article-card {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+.article-card-title {
+  margin: .75rem 0 0;
+  line-height: 1.7;
+  min-height: calc(1.7em * 2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.article-card-excerpt {
+  margin-top: .75rem;
+  margin-bottom: 0;
+  font-size: .9rem;
+  line-height: 1.8;
+  min-height: calc(1.8em * 3);
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .articles-all-link {
   display: inline-block;
