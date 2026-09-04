@@ -2,64 +2,46 @@
 declare(strict_types=1);
 
 /**
- * نویسنده مقاله را پیدا یا ایجاد می‌کند.
+ * پیدا کردن دکتر واقعی عطیه گارسچی (بدون ساختن کاربر جدید)
  */
-function seed_article_author_id(PDO $pdo, string $name, string $usernameHint = ''): ?string
+function find_doctor_atiyeh_garsichi_id(PDO $pdo): ?string
 {
-    $stmt = $pdo->prepare("SELECT id FROM users WHERE name=? AND role='DOCTOR' LIMIT 1");
-    $stmt->execute([$name]);
+    // اولویت با حساب واقعی: نه یوزرنیم ساختگی، نه ایمیل @manaclinic.local
+    $stmt = $pdo->prepare("
+      SELECT u.id
+      FROM users u
+      JOIN doctor_profiles dp ON dp.user_id = u.id
+      WHERE u.role = 'DOCTOR'
+        AND u.name LIKE ?
+        AND u.username NOT LIKE 'atiyeh_garsichi%'
+        AND (u.email IS NULL OR u.email NOT LIKE '%@manaclinic.local')
+      ORDER BY dp.is_approved DESC, dp.is_active DESC, u.created_at ASC
+      LIMIT 1
+    ");
+    $stmt->execute(['%گارسچی%']);
     $id = $stmt->fetchColumn();
     if ($id) {
-        $pdo->prepare('
-          UPDATE doctor_profiles
-          SET is_approved=1, is_active=1,
-              specialty=COALESCE(NULLIF(specialty,\'\'), ?),
-              bio=COALESCE(NULLIF(bio,\'\'), ?)
-          WHERE user_id=?
-        ')->execute([
-            'روانشناسی بالینی و روان‌درمانی',
-            'تمرکز بر اضطراب، تنظیم هیجان و همراهی تخصصی در مسیر درمان.',
-            (string) $id,
-        ]);
         return (string) $id;
     }
 
-    $base = $usernameHint !== '' ? $usernameHint : 'doctor_' . substr(md5($name), 0, 8);
-    $username = $base;
-    $n = 1;
-    while (true) {
-        $c = $pdo->prepare('SELECT id FROM users WHERE username=? LIMIT 1');
-        $c->execute([$username]);
-        if (!$c->fetch()) {
-            break;
-        }
-        $username = $base . $n;
-        $n++;
-    }
-
-    $userId = cuid();
-    $email = $username . '@manaclinic.local';
-    $pass = password_hash(bin2hex(random_bytes(8)), PASSWORD_DEFAULT);
-    $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,must_change_password) VALUES (?,?,?,?,?,?,?,1)')
-        ->execute([$userId, $username, $name, $email, '09100000000', $pass, 'DOCTOR']);
-
-    $pdo->prepare('INSERT INTO doctor_profiles (id,user_id,specialty,bio,session_price,is_approved,is_active,created_at) VALUES (?,?,?,?,?,?,?,?)')
-        ->execute([
-            cuid(),
-            $userId,
-            'روانشناسی بالینی و روان‌درمانی',
-            'تمرکز بر اضطراب، تنظیم هیجان و همراهی تخصصی در مسیر درمان.',
-            3000000,
-            1,
-            1,
-            '2020-01-01 00:00:00',
-        ]);
-
-    return $userId;
+    // اگر فقط یک گارسچی مانده (حتی اگر یوزرنیم اشتباه داشته باشد) همان را نگه دار
+    $fallback = $pdo->prepare("
+      SELECT u.id
+      FROM users u
+      JOIN doctor_profiles dp ON dp.user_id = u.id
+      WHERE u.role = 'DOCTOR' AND u.name LIKE ?
+      ORDER BY u.created_at ASC
+      LIMIT 1
+    ");
+    $fallback->execute(['%گارسچی%']);
+    $id = $fallback->fetchColumn();
+    return $id ? (string) $id : null;
 }
 
-/** دکتر عطیه گارسچی را برای نمایش در کاشی متخصصان فعال و اول می‌کند */
-function ensure_doctor_atiyeh_garsichi(PDO $pdo): void
+/**
+ * حذف دکتر ساختگی که برای مقاله ساخته شده بود
+ */
+function cleanup_fake_atiyeh_garsichi(PDO $pdo): void
 {
     static $done = false;
     if ($done) {
@@ -67,19 +49,39 @@ function ensure_doctor_atiyeh_garsichi(PDO $pdo): void
     }
     $done = true;
 
-    $userId = seed_article_author_id($pdo, 'دکتر عطیه گارسچی', 'atiyeh_garsichi');
-    if (!$userId) {
-        return;
-    }
+    $realId = find_doctor_atiyeh_garsichi_id($pdo);
 
-    $pdo->prepare("
-      UPDATE doctor_profiles
-      SET is_approved=1, is_active=1,
-          specialty='روانشناسی بالینی و روان‌درمانی',
-          bio='تمرکز بر اضطراب، تنظیم هیجان و همراهی تخصصی در مسیر درمان.',
-          created_at='2020-01-01 00:00:00'
-      WHERE user_id=?
-    ")->execute([$userId]);
+    $fake = $pdo->query("
+      SELECT id FROM users
+      WHERE role='DOCTOR'
+        AND (
+          username LIKE 'atiyeh_garsichi%'
+          OR email LIKE '%@manaclinic.local'
+        )
+        AND name LIKE '%گارسچی%'
+    ")->fetchAll(PDO::FETCH_COLUMN);
+
+    require_once __DIR__ . '/user_cleanup.php';
+    foreach ($fake as $fakeId) {
+        $fakeId = (string) $fakeId;
+        if ($realId && $realId === $fakeId) {
+            continue;
+        }
+        if ($realId) {
+            $pdo->prepare('UPDATE articles SET author_id=? WHERE author_id=?')->execute([$realId, $fakeId]);
+        } else {
+            $pdo->prepare('DELETE FROM articles WHERE author_id=?')->execute([$fakeId]);
+        }
+        delete_user_cascade($pdo, $fakeId);
+    }
+}
+
+/**
+ * نویسنده مقاله تنظیم هیجان = فقط دکتر موجود گارسچی
+ */
+function seed_garsichi_article_author_id(PDO $pdo): ?string
+{
+    return find_doctor_atiyeh_garsichi_id($pdo);
 }
 
 /**
@@ -93,7 +95,7 @@ function ensure_featured_psychology_article(PDO $pdo): void
     }
     $done = true;
 
-    ensure_doctor_atiyeh_garsichi($pdo);
+    cleanup_fake_atiyeh_garsichi($pdo);
 
     $cards = [
         'modiriat-ezterab' => [
@@ -154,15 +156,20 @@ HTML;
         }
     }
 
-    // مقاله دکتر عطیه گارسچی — تنظیم هیجان
+    // مقاله تنظیم هیجان — نویسنده فقط دکتر موجود گارسچی
     $slug2 = 'tanzim-hayajan-va-ezterab';
     $check->execute([$slug2]);
-    if ($check->fetch()) {
+    $existingArticle = $check->fetch();
+    $realGarsichi = seed_garsichi_article_author_id($pdo);
+
+    if ($existingArticle && $realGarsichi) {
+        $pdo->prepare('UPDATE articles SET author_id=? WHERE slug=?')->execute([$realGarsichi, $slug2]);
         return;
     }
-
-    $authorId = seed_article_author_id($pdo, 'دکتر عطیه گارسچی', 'atiyeh_garsichi');
-    if (!$authorId) {
+    if ($existingArticle) {
+        return;
+    }
+    if (!$realGarsichi) {
         return;
     }
 
@@ -208,6 +215,6 @@ HTML;
         $slug2,
         $content2,
         $cards[$slug2]['excerpt'],
-        $authorId,
+        $realGarsichi,
     ]);
 }

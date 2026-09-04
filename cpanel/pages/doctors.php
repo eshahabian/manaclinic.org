@@ -8,7 +8,7 @@ if ($q !== '') {
       FROM doctor_profiles dp
       JOIN users u ON u.id = dp.user_id
       WHERE dp.is_active = 1 AND dp.is_approved = 1 AND (dp.specialty LIKE ? OR dp.bio LIKE ? OR u.name LIKE ?)
-      ORDER BY CASE WHEN u.name LIKE '%عطیه گارسچی%' THEN 0 ELSE 1 END, dp.created_at ASC
+      ORDER BY CASE WHEN u.name LIKE '%گارسچی%' THEN 0 ELSE 1 END, dp.created_at ASC
     ");
     $like = '%' . $q . '%';
     $stmt->execute([$like, $like, $like]);
@@ -19,7 +19,7 @@ if ($q !== '') {
       FROM doctor_profiles dp
       JOIN users u ON u.id = dp.user_id
       WHERE dp.is_active = 1 AND dp.is_approved = 1
-      ORDER BY CASE WHEN u.name LIKE '%عطیه گارسچی%' THEN 0 ELSE 1 END, dp.created_at ASC
+      ORDER BY CASE WHEN u.name LIKE '%گارسچی%' THEN 0 ELSE 1 END, dp.created_at ASC
     ")->fetchAll();
 }
 
