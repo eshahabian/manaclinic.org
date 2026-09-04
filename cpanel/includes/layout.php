@@ -78,16 +78,6 @@ $flash = flash_get();
         </p>
       </div>
       <div>
-        <p class="footer-title">دسترسی سریع</p>
-        <a href="<?= e(url('/')) ?>">صفحه اصلی</a>
-        <a href="<?= e(url('/doctors')) ?>">متخصصان</a>
-        <a href="<?= e(url('/articles')) ?>">مقالات</a>
-        <a href="<?= e(url('/tests')) ?>">آزمون‌ها</a>
-        <a href="<?= e(url('/about')) ?>">درباره ما</a>
-        <a href="<?= e(url('/contact')) ?>">تماس با ما</a>
-        <a href="<?= e(url('/register')) ?>">ثبت‌نام</a>
-      </div>
-      <div>
         <p class="footer-title">موقعیت مطب</p>
         <a class="footer-map" href="https://www.google.com/maps?q=35.772637,51.377568" target="_blank" rel="noopener noreferrer" aria-label="باز کردن موقعیت مانا کلینیک در گوگل‌مپ">
           <iframe
@@ -98,6 +88,16 @@ $flash = flash_get();
             tabindex="-1"
           ></iframe>
         </a>
+      </div>
+      <div>
+        <p class="footer-title">دسترسی سریع</p>
+        <a href="<?= e(url('/')) ?>">صفحه اصلی</a>
+        <a href="<?= e(url('/doctors')) ?>">متخصصان</a>
+        <a href="<?= e(url('/articles')) ?>">مقالات</a>
+        <a href="<?= e(url('/tests')) ?>">آزمون‌ها</a>
+        <a href="<?= e(url('/about')) ?>">درباره ما</a>
+        <a href="<?= e(url('/contact')) ?>">تماس با ما</a>
+        <a href="<?= e(url('/register')) ?>">ثبت‌نام</a>
       </div>
     </div>
     <div class="footer-copy">
