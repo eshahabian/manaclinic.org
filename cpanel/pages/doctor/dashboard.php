@@ -65,7 +65,7 @@ $unreadCount = count_unread_notifications($pdo, $userId);
 
 // کارگاه‌های خودم
 $wsStmt = $pdo->prepare("
-  SELECT w.id, w.title, w.type, w.is_active, w.starts_at,
+  SELECT w.id, w.title, w.type, w.is_published, w.status, w.starts_at,
     (SELECT COUNT(*) FROM workshop_enrollments e
      WHERE e.workshop_id = w.id AND e.status IN ('PENDING_PAYMENT','CONFIRMED','COMPLETED')) AS enrolled_count
   FROM workshops w
@@ -76,7 +76,10 @@ $wsStmt = $pdo->prepare("
 $wsStmt->execute([$doctorId]);
 $workshops = $wsStmt->fetchAll();
 
-$wsCountStmt = $pdo->prepare('SELECT COUNT(*) FROM workshops WHERE doctor_id=? AND is_active=1');
+$wsCountStmt = $pdo->prepare("
+  SELECT COUNT(*) FROM workshops
+  WHERE doctor_id=? AND is_published=1 AND status NOT IN ('CANCELLED','COMPLETED')
+");
 $wsCountStmt->execute([$doctorId]);
 $wsActive = (int) $wsCountStmt->fetchColumn();
 
@@ -268,7 +271,7 @@ ob_start();
                 <span class="muted">
                   <?= e(workshop_type_label((string) $w['type'])) ?>
                   · <?= (int) ($w['enrolled_count'] ?? 0) ?> نفر
-                  · <?= !empty($w['is_active']) ? 'فعال' : 'غیرفعال' ?>
+                  · <?= !empty($w['is_published']) && !in_array((string) ($w['status'] ?? ''), ['CANCELLED', 'COMPLETED'], true) ? 'منتشرشده' : 'پیش‌نویس/غیرفعال' ?>
                 </span>
               </a>
             </li>
