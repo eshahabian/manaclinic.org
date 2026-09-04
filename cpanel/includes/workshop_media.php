@@ -264,10 +264,21 @@ function workshop_media_detect_mime(string $tmpPath): string
     return strtolower($mime);
 }
 
-function workshop_media_save_upload(PDO $pdo, string $workshopId, string $doctorProfileId, string $kind, string $title, ?string $description, array $file): string
+function workshop_media_workshop_exists(PDO $pdo, string $workshopId): bool
+{
+    $stmt = $pdo->prepare('SELECT id FROM workshops WHERE id=? LIMIT 1');
+    $stmt->execute([$workshopId]);
+    return (bool) $stmt->fetch();
+}
+
+function workshop_media_save_upload(PDO $pdo, string $workshopId, ?string $doctorProfileId, string $kind, string $title, ?string $description, array $file): string
 {
     ensure_workshop_media_schema($pdo);
-    if (!workshop_media_doctor_owns($pdo, $workshopId, $doctorProfileId)) {
+    if ($doctorProfileId !== null) {
+        if (!workshop_media_doctor_owns($pdo, $workshopId, $doctorProfileId)) {
+            throw new RuntimeException('کارگاه یافت نشد.');
+        }
+    } elseif (!workshop_media_workshop_exists($pdo, $workshopId)) {
         throw new RuntimeException('کارگاه یافت نشد.');
     }
     if (!in_array($kind, ['VIDEO', 'AUDIO'], true)) {
@@ -322,8 +333,8 @@ function workshop_media_save_upload(PDO $pdo, string $workshopId, string $doctor
     return $id;
 }
 
-/** بارگذاری چند فایل از فرم ایجاد/ویرایش کارگاه */
-function workshop_media_process_form_uploads(PDO $pdo, string $workshopId, string $doctorProfileId): int
+/** بارگذاری چند فایل از فرم ایجاد/ویرایش کارگاه — doctorProfileId=null یعنی دسترسی منشی */
+function workshop_media_process_form_uploads(PDO $pdo, string $workshopId, ?string $doctorProfileId): int
 {
     $kinds = $_POST['media_kind'] ?? [];
     $titles = $_POST['media_title'] ?? [];
@@ -348,7 +359,7 @@ function workshop_media_process_form_uploads(PDO $pdo, string $workshopId, strin
         ];
 
         if ($file['error'] === UPLOAD_ERR_NO_FILE) {
-            if ($title !== '' || $kind !== '') {
+            if ($title !== '') {
                 throw new RuntimeException('برای هر ردیف محتوا، فایل را هم انتخاب کنید.');
             }
             continue;
@@ -361,10 +372,13 @@ function workshop_media_process_form_uploads(PDO $pdo, string $workshopId, strin
     return $saved;
 }
 
-function workshop_media_delete(PDO $pdo, string $itemId, string $doctorProfileId): void
+function workshop_media_delete(PDO $pdo, string $itemId, ?string $doctorProfileId): void
 {
     $item = workshop_media_get($pdo, $itemId);
-    if (!$item || !workshop_media_doctor_owns($pdo, (string) $item['workshop_id'], $doctorProfileId)) {
+    if (!$item) {
+        throw new RuntimeException('فایل یافت نشد.');
+    }
+    if ($doctorProfileId !== null && !workshop_media_doctor_owns($pdo, (string) $item['workshop_id'], $doctorProfileId)) {
         throw new RuntimeException('فایل یافت نشد.');
     }
     $abs = workshop_media_storage_root() . '/' . $item['file_path'];

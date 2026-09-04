@@ -65,8 +65,10 @@ if ($editWorkshop) {
 }
 
 $workshopMedia = [];
+$sessionNotes = [];
 if ($editWorkshop) {
     $workshopMedia = workshop_media_list($pdo, (string) $editWorkshop['id']);
+    $sessionNotes = workshop_session_notes_list($pdo, (string) $editWorkshop['id']);
 }
 global $config;
 $mediaMaxMb = (int) ($config['workshop_media_max_mb'] ?? 300);
@@ -133,6 +135,10 @@ ob_start();
           <?php endif; ?>
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:.5rem;justify-content:flex-end">
+          <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/workshop-export?id=' . $workshop['id'])) ?>">خروجی ثبت‌نام‌ها</a>
+          <?php if ($workshop['status'] !== 'CANCELLED'): ?>
+            <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/workshops?edit=' . $workshop['id'])) ?>#session-notes">یادداشت جلسات</a>
+          <?php endif; ?>
           <?php if ($workshop['status'] !== 'COMPLETED' && $workshop['status'] !== 'CANCELLED'): ?>
             <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/workshops?edit=' . $workshop['id'])) ?>#workshop-form">ویرایش</a>
             <form method="post" action="<?= e(url('/doctor/workshops')) ?>">
@@ -344,6 +350,69 @@ ob_start();
   </label>
   <button class="btn btn-primary" type="submit"><?= e($formSubmit) ?></button>
 </form>
+
+<?php if ($editWorkshop): ?>
+  <section class="panel form-stack" id="session-notes" style="margin-top:1.25rem">
+    <h2 style="margin:0;font-size:1.05rem">یادداشت جلسات برگزارشده</h2>
+    <p class="muted" style="font-size:.85rem;margin:.35rem 0 0;line-height:1.65">
+      برای هر جلسه‌ای که برگزار می‌شود می‌توانید عنوان، تاریخ و یادداشت ثبت کنید.
+    </p>
+
+    <?php if ($sessionNotes): ?>
+      <div class="stack" style="margin-top:1rem">
+        <?php foreach ($sessionNotes as $note): ?>
+          <div class="panel" style="padding:.85rem;font-size:.9rem">
+            <div class="row-between" style="align-items:flex-start;gap:.75rem">
+              <div style="min-width:0">
+                <strong><?= e($note['session_title']) ?></strong>
+                <?php if (!empty($note['session_at'])): ?>
+                  <div class="muted" style="font-size:.8rem;margin-top:.25rem"><?= e(format_workshop_datetime_fa((string) $note['session_at'])) ?></div>
+                <?php endif; ?>
+                <p style="margin:.5rem 0 0;line-height:1.7;white-space:pre-wrap"><?= e($note['note_text']) ?></p>
+              </div>
+              <form method="post" action="<?= e(url('/doctor/workshop-session-note')) ?>" onsubmit="return confirm('این یادداشت حذف شود؟')">
+                <input type="hidden" name="action" value="delete">
+                <input type="hidden" name="workshop_id" value="<?= e($editWorkshop['id']) ?>">
+                <input type="hidden" name="note_id" value="<?= e($note['id']) ?>">
+                <button type="submit" class="btn btn-danger btn-sm">حذف</button>
+              </form>
+            </div>
+          </div>
+        <?php endforeach; ?>
+      </div>
+    <?php else: ?>
+      <p class="muted" style="margin-top:.75rem">هنوز یادداشت جلسه‌ای ثبت نشده است.</p>
+    <?php endif; ?>
+
+    <form class="form-stack" method="post" action="<?= e(url('/doctor/workshop-session-note')) ?>" style="margin-top:1rem;border-top:1px solid var(--line);padding-top:1rem">
+      <input type="hidden" name="action" value="save">
+      <input type="hidden" name="workshop_id" value="<?= e($editWorkshop['id']) ?>">
+      <div>
+        <label class="label">عنوان جلسه</label>
+        <input class="input" name="session_title" required placeholder="مثلاً: جلسه دوم — تمرین گروهی">
+      </div>
+      <div class="grid-2">
+        <div>
+          <label class="label">تاریخ جلسه (شمسی — اختیاری)</label>
+          <input class="input workshop-date-view" type="text" id="session-note-date-view" data-jdp data-jdp-only-date autocomplete="off" readonly placeholder="انتخاب تاریخ">
+          <input type="hidden" name="session_date" id="session-note-date" value="">
+        </div>
+        <div>
+          <label class="label">ساعت (اختیاری)</label>
+          <input class="input" type="time" name="session_time" value="10:00">
+        </div>
+      </div>
+      <div>
+        <label class="label">یادداشت</label>
+        <textarea class="input" name="note_text" rows="4" required placeholder="شرح جلسه، نکات مهم، وضعیت گروه..."></textarea>
+      </div>
+      <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center">
+        <button type="submit" class="btn btn-primary btn-sm">ثبت یادداشت جلسه</button>
+        <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/workshop-export?id=' . $editWorkshop['id'])) ?>">خروجی ثبت‌نام‌شدگان (CSV)</a>
+      </div>
+    </form>
+  </section>
+<?php endif; ?>
 </div>
 
 <template id="session-media-row-template">
@@ -530,6 +599,23 @@ ob_start();
     zIndex: 100000,
     container: "body"
   });
+
+  var sessionNoteDateView = document.getElementById("session-note-date-view");
+  if (sessionNoteDateView) {
+    sessionNoteDateView.addEventListener("jdp:change", function(){ syncJalali("session-note-date-view", "session-note-date"); });
+    sessionNoteDateView.addEventListener("change", function(){ syncJalali("session-note-date-view", "session-note-date"); });
+    var noteForm = sessionNoteDateView.closest("form");
+    if (noteForm) {
+      noteForm.addEventListener("submit", function(){ syncJalali("session-note-date-view", "session-note-date"); });
+    }
+  }
+
+  if (window.location.hash === "#session-notes") {
+    var notesSection = document.getElementById("session-notes");
+    if (notesSection) {
+      setTimeout(function(){ notesSection.scrollIntoView({ behavior: "smooth", block: "start" }); }, 150);
+    }
+  }
 
   var startViewEl = document.getElementById("workshop-start-date-view");
   var endViewEl = document.getElementById("workshop-end-date-view");
