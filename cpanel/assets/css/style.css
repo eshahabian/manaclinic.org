@@ -1088,6 +1088,82 @@ jdp-container, .jdp-container, [class*="jdp"] {
   font-size: .9rem;
 }
 
+.course-flash {
+  font-size: .9rem;
+  padding: .65rem .85rem;
+  border-radius: .65rem;
+  border: 1px solid var(--line);
+  margin-top: .75rem;
+}
+.course-flash.ok { color: var(--success); border-color: var(--success); background: #f0fdf4; }
+.course-flash.err { color: var(--danger); border-color: var(--danger); background: #fef2f2; }
+.enrollment-card {
+  border: 1px solid var(--line);
+  border-radius: .75rem;
+  padding: .85rem;
+  display: grid;
+  gap: .75rem;
+  grid-template-columns: 1fr;
+}
+.enrollment-card-main { min-width: 0; width: 100%; grid-row: 2; }
+.enrollment-card-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: .5rem;
+  width: 100%;
+  grid-row: 1;
+  padding-bottom: .75rem;
+  border-bottom: 1px solid var(--line);
+}
+@media (min-width: 640px) {
+  .enrollment-card {
+    grid-template-columns: 1fr minmax(9rem, 12rem);
+    align-items: start;
+    gap: 1rem;
+  }
+  .enrollment-card-main { grid-row: auto; }
+  .enrollment-card-actions {
+    grid-row: auto;
+    border-bottom: none;
+    padding-bottom: 0;
+    padding-top: 0;
+    border-top: none;
+  }
+}
+.enrollment-wallet-label {
+  display: flex;
+  gap: .35rem;
+  align-items: center;
+  font-size: .8rem;
+  flex-wrap: wrap;
+}
+.enrollment-refund-note {
+  font-size: .75rem;
+  margin: 0;
+  line-height: 1.4;
+}
+.enrollment-location {
+  margin-top: .5rem;
+  font-size: .85rem;
+  display: flex;
+  flex-direction: column;
+  gap: .5rem;
+  align-items: flex-start;
+}
+.enrollment-address {
+  line-height: 1.65;
+  word-break: break-word;
+}
+.enrollment-label {
+  font-weight: 600;
+  margin-left: .25rem;
+}
+.enrollment-nav-btn {
+  width: auto;
+  max-width: 100%;
+}
+
 /* ادیتور شرح حال */
 .clinical-board {
   display: grid;

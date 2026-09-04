@@ -22,7 +22,11 @@ if (!$enrollment) {
 $mediaItems = workshop_media_list($pdo, (string) $enrollment['workshop_id']);
 $mediaCounts = workshop_media_kind_counts_from_list($mediaItems);
 $watermark = workshop_media_watermark_for_user($user, $pdo);
-$backTab = workshop_courses_tab_for_type((string) $enrollment['type']);
+$backTab = workshop_is_archived([
+    'status' => (string) ($enrollment['workshop_status'] ?? ''),
+    'type' => (string) ($enrollment['type'] ?? ''),
+    'ends_at' => (string) ($enrollment['ends_at'] ?? ''),
+]) ? 'archive' : workshop_courses_tab_for_type((string) $enrollment['type']);
 $backUrl = url('/dashboard/courses?type=' . $backTab);
 
 $pageLabels = [
