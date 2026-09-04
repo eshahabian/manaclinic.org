@@ -18,7 +18,7 @@ $flash = flash_get();
   <title><?= e(($pageTitle ?? 'مانا کلینیک') . ' | مانا کلینیک') ?></title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260904c">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260904e">
   <?php if (!empty($pageHead)): ?>
     <?= $pageHead ?>
   <?php endif; ?>
@@ -81,8 +81,17 @@ $flash = flash_get();
         <a href="<?= e(url('/register')) ?>">ثبت‌نام</a>
       </div>
       <div>
-        <p class="footer-title">تماس</p>
-        <p class="muted">ایمیل: info@manaclinic.org<br>پشتیبانی همه روزه ۹ تا ۱۸</p>
+        <p class="footer-title">تماس و مطب</p>
+        <p class="footer-contact muted">
+          <a href="tel:09101387838" dir="ltr">۰۹۱۰ ۱۳۸ ۷۸۳۸</a><br>
+          <a href="tel:02122065774" dir="ltr">۰۲۱ ۲۲۰۶ ۵۷۷۴</a><br>
+          <a href="mailto:info@manaclinic.org" dir="ltr">info@manaclinic.org</a>
+        </p>
+        <p class="footer-address muted">
+          سعادت‌آباد، خیابان ۳۱ شرقی (جندونی)، روبروی ساختمان پزشکان روزبه، پلاک ۴، واحد ۵، طبقه ۵
+        </p>
+        <a class="footer-map-link" href="https://www.google.com/maps?q=35.772637,51.377568" target="_blank" rel="noopener noreferrer">مشاهده موقعیت روی نقشه</a>
+        <p class="muted" style="margin-top:.65rem;font-size:.85rem">پشتیبانی همه روزه ۹ تا ۱۸</p>
       </div>
     </div>
     <div class="footer-copy">© <?= date('Y') ?> مانا کلینیک — همه حقوق محفوظ است.</div>
