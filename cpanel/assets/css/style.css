@@ -1003,17 +1003,17 @@ jdp-container, .jdp-container, [class*="jdp"] {
 }
 
 .binder-tile {
-  background: #eaf4fb;
+  background: #dceef9;
   border: none;
   border-radius: 1rem;
   overflow: hidden;
   box-shadow: none;
 }
-.binder-tile[data-binder-tone="in-person"] { background: #e7f3fb; }
-.binder-tile[data-binder-tone="online"] { background: #e3f6f5; }
-.binder-tile[data-binder-tone="offline"] { background: #fdf6d4; }
-.binder-tile[data-binder-tone="archive"] { background: #fde9d2; }
-.binder-tile[data-binder-tone="new"] { background: #fde8f3; }
+.binder-tile[data-binder-tone="in-person"] { background: #d5ebf8; }
+.binder-tile[data-binder-tone="online"] { background: #d4f3f1; }
+.binder-tile[data-binder-tone="offline"] { background: #fbeeb0; }
+.binder-tile[data-binder-tone="archive"] { background: #fcd9b0; }
+.binder-tile[data-binder-tone="new"] { background: #fbd5ea; }
 .binder-tile--nested {
   border-radius: .85rem;
   margin-top: .35rem;
@@ -1038,25 +1038,27 @@ jdp-container, .jdp-container, [class*="jdp"] {
   cursor: pointer;
   color: #1a2e28;
   white-space: nowrap;
-  opacity: .48;
-  filter: saturate(.55);
+  opacity: .62;
+  filter: saturate(.85);
+  background-image: linear-gradient(180deg, rgba(255,255,255,.38), rgba(255,255,255,0) 55%);
   box-shadow: none;
 }
-.binder-tab:hover { opacity: .78; filter: saturate(.8); }
+.binder-tab:hover { opacity: .88; filter: saturate(1); }
 .binder-tab.is-active {
   position: relative;
   z-index: 1;
   opacity: 1;
-  filter: none;
-  border-color: rgba(26, 46, 40, .22);
-  box-shadow: 0 4px 0 rgba(26, 46, 40, .12);
+  filter: saturate(1.12);
+  border-color: rgba(26, 46, 40, .18);
+  background-image: linear-gradient(180deg, rgba(255,255,255,.5), rgba(255,255,255,.08) 52%, rgba(0,0,0,.04));
+  box-shadow: 0 4px 0 rgba(26, 46, 40, .1);
   transform: translateY(2px);
 }
-.binder-tab-in-person { background: #8ec6ea; }
-.binder-tab-online { background: #4ec4bf; }
-.binder-tab-offline { background: #f2d24d; }
-.binder-tab-new { background: #ee5aa8; color: #fff; }
-.binder-tab-archive { background: #ee9540; color: #fff; }
+.binder-tab-in-person { background-color: #6eb8e8; }
+.binder-tab-online { background-color: #2dbdb8; }
+.binder-tab-offline { background-color: #f5c93a; }
+.binder-tab-new { background-color: #f04aa3; color: #fff; }
+.binder-tab-archive { background-color: #f08628; color: #fff; }
 .binder-tab-count {
   display: inline-flex;
   min-width: 1.15rem;
