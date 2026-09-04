@@ -106,6 +106,7 @@ $routes = [
 
     'GET /doctor' => 'pages/doctor/dashboard.php',
     'GET /doctor/intakes' => 'pages/doctor/intakes.php',
+    'GET /doctor/notifications' => 'pages/doctor/notifications.php',
     'GET /doctor/profile' => 'pages/doctor/profile.php',
     'POST /doctor/profile' => 'actions/doctor_profile.php',
     'GET /doctor/availability' => 'pages/doctor/availability.php',

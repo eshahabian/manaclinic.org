@@ -51,6 +51,18 @@ function notify_doctor_profile(PDO $pdo, string $doctorProfileId, string $title,
     }
 }
 
+/** اعلان مربوط به گفتگوی دستیار است یا پیام سیستمی دیگر */
+function notification_is_assistant(array $n): bool
+{
+    $link = (string) ($n['link'] ?? '');
+    $blob = ((string) ($n['title'] ?? '')) . ' ' . ((string) ($n['body'] ?? '')) . ' ' . $link;
+    return (mb_stripos($blob, 'دستیار') !== false)
+        || (mb_stripos($blob, 'گفتگو') !== false)
+        || (mb_stripos($link, '/doctor/intakes') !== false)
+        || (mb_stripos($link, '/secretary/intakes') !== false)
+        || (mb_stripos($link, '/assistant') !== false);
+}
+
 function fetch_notifications(PDO $pdo, string $userId, int $limit = 20, bool $unreadOnly = false): array
 {
     ensure_notifications_table($pdo);

@@ -50,12 +50,7 @@ $allNotifs = fetch_notifications($pdo, $userId, 20);
 $aiNotifs = [];
 $otherNotifs = [];
 foreach ($allNotifs as $n) {
-    $blob = ((string) ($n['title'] ?? '')) . ' ' . ((string) ($n['body'] ?? '')) . ' ' . ((string) ($n['link'] ?? ''));
-    $isAi = (mb_stripos($blob, 'دستیار') !== false)
-        || (mb_stripos($blob, 'گفتگو') !== false)
-        || (mb_stripos((string) ($n['link'] ?? ''), '/doctor/intakes') !== false)
-        || (mb_stripos((string) ($n['link'] ?? ''), '/assistant') !== false);
-    if ($isAi) {
+    if (notification_is_assistant($n)) {
         $aiNotifs[] = $n;
     } else {
         $otherNotifs[] = $n;
@@ -120,18 +115,21 @@ ob_start();
           <p class="doctor-dash-kicker">هوش مصنوعی</p>
           <h2>گفتگوها و پیام‌های دستیار</h2>
         </div>
-        <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/intakes')) ?>">همه گفتگوها</a>
+        <div class="doctor-dash-card-actions">
+          <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/intakes')) ?>">همه گفتگوها</a>
+          <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/notifications?kind=assistant')) ?>">اعلان‌ها</a>
+        </div>
       </div>
 
       <div class="doctor-dash-stats">
-        <div class="doctor-dash-stat">
+        <a class="doctor-dash-stat" href="<?= e(url('/doctor/intakes')) ?>">
           <strong><?= (int) $intakeTotal ?></strong>
           <span>گفتگوی ارسال‌شده</span>
-        </div>
-        <div class="doctor-dash-stat">
+        </a>
+        <a class="doctor-dash-stat" href="<?= e(url('/doctor/notifications?kind=assistant')) ?>">
           <strong><?= count($aiNotifs) ?></strong>
           <span>اعلان دستیار</span>
-        </div>
+        </a>
       </div>
 
       <h3 class="doctor-dash-sub">آخرین گفتگوها</h3>
@@ -160,6 +158,9 @@ ob_start();
 
       <?php if ($aiNotifs): ?>
         <h3 class="doctor-dash-sub">اعلان‌های دستیار</h3>
+        <p class="muted" style="margin:0 0 .55rem;font-size:.85rem">
+          <a href="<?= e(url('/doctor/notifications?kind=assistant')) ?>">مشاهده جداگانه اعلان‌ها</a>
+        </p>
         <ul class="doctor-dash-list doctor-dash-list--compact">
           <?php foreach (array_slice($aiNotifs, 0, 4) as $n): ?>
             <li class="<?= !(int) $n['is_read'] ? 'is-unread' : '' ?>">
@@ -193,6 +194,9 @@ ob_start();
               </li>
             <?php endforeach; ?>
           </ul>
+          <p style="margin-top:.75rem">
+            <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/notifications?kind=other')) ?>">همه پیام‌های سیستم</a>
+          </p>
           <form method="post" action="<?= e(url('/doctor/notifications/read')) ?>" style="margin-top:.75rem">
             <input type="hidden" name="mark_all" value="1">
             <button type="submit" class="btn btn-outline btn-sm">خواندن همه پیام‌ها</button>

@@ -7,6 +7,7 @@ function doctor_nav(): array
         ['type' => 'link', 'href' => '/doctor', 'label' => 'خلاصه'],
         ['type' => 'group', 'label' => 'گفتگو و پیام'],
         ['type' => 'link', 'href' => '/doctor/intakes', 'label' => 'گفتگوهای دستیار'],
+        ['type' => 'link', 'href' => '/doctor/notifications', 'label' => 'اعلان‌ها'],
         ['type' => 'group', 'label' => 'نوبت و پرونده'],
         ['type' => 'link', 'href' => '/doctor/appointments', 'label' => 'نوبت‌ها'],
         ['type' => 'link', 'href' => '/doctor/availability', 'label' => 'روزهای خالی'],
