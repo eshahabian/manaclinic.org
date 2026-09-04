@@ -61,7 +61,7 @@ ob_start();
     </div>
 
     <p class="muted" style="font-size:.85rem">
-      وضعیت: <?= e($session['status'] === 'SENT' ? 'ارسال‌شده به درمانگر' : 'تکمیل‌شده — در انتظار ارسال') ?>
+      وضعیت: <?= e($session['status'] === 'SENT' ? 'ارسال‌شده برای درمانگران' : 'تکمیل‌شده') ?>
       · شناسه: <?= e($sessionId) ?>
     </p>
 

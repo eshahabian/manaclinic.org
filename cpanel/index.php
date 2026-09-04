@@ -105,6 +105,7 @@ $routes = [
     'GET /secretary/intakes' => 'pages/secretary/intakes.php',
 
     'GET /doctor' => 'pages/doctor/dashboard.php',
+    'GET /doctor/intakes' => 'pages/doctor/intakes.php',
     'GET /doctor/profile' => 'pages/doctor/profile.php',
     'POST /doctor/profile' => 'actions/doctor_profile.php',
     'GET /doctor/availability' => 'pages/doctor/availability.php',
@@ -167,6 +168,12 @@ if (preg_match('#^/secretary/intakes/([a-zA-Z0-9_-]+)$#', $path, $m) && $method 
 if (preg_match('#^/secretary/intakes/([a-zA-Z0-9_-]+)/assign$#', $path, $m) && $method === 'POST') {
     $_GET['id'] = $m[1];
     require __DIR__ . '/actions/secretary_intake_assign.php';
+    exit;
+}
+
+if (preg_match('#^/doctor/intakes/([a-zA-Z0-9_-]+)$#', $path, $m) && $method === 'GET') {
+    $_GET['id'] = $m[1];
+    require __DIR__ . '/pages/doctor/intake_detail.php';
     exit;
 }
 

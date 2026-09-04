@@ -4,6 +4,7 @@ declare(strict_types=1);
 function doctor_nav(): array {
     return [
         ['href' => '/doctor', 'label' => 'خلاصه'],
+        ['href' => '/doctor/intakes', 'label' => 'گفتگوهای دستیار'],
         ['href' => '/doctor/patients', 'label' => 'پرونده بیماران'],
         ['href' => '/doctor/profile', 'label' => 'پروفایل حرفه‌ای'],
         ['href' => '/doctor/availability', 'label' => 'روزهای خالی'],

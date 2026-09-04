@@ -782,17 +782,158 @@ function assistant_complete_matching(PDO $pdo, string $sessionId, array $answers
         $aiSummary,
         $sessionId,
     ]);
+
+    // خودکار: یک نسخه برای همه درمانگران فعال (با/بدون ثبت‌نام)
+    $session = assistant_session_get($pdo, $sessionId);
+    if ($session) {
+        try {
+            $patientId = trim((string) ($session['patient_id'] ?? '')) ?: null;
+            if (!$patientId) {
+                $cu = function_exists('current_user') ? current_user() : null;
+                if ($cu && ($cu['role'] ?? '') === 'PATIENT') {
+                    $patientId = (string) $cu['id'];
+                }
+            }
+            assistant_deliver_copy_to_all_doctors($pdo, $session, $patientId);
+        } catch (Throwable $e) {
+            // پیشنهادها به کاربر نشان داده شود حتی اگر اعلان شکست بخورد
+        }
+    }
+
     return [
         'doctors' => $doctors,
         'workshops' => $workshops,
         'intake_text' => $intake,
         'ai_summary' => $aiSummary,
+        'status' => 'SENT',
+        'delivered' => true,
     ];
+}
+
+/** همه درمانگران فعال و تأییدشده */
+function assistant_list_active_doctors(PDO $pdo): array
+{
+    return $pdo->query("
+      SELECT dp.id, dp.user_id, u.name, dp.specialty
+      FROM doctor_profiles dp
+      JOIN users u ON u.id = dp.user_id
+      WHERE dp.is_active = 1 AND dp.is_approved = 1
+      ORDER BY u.name ASC
+    ")->fetchAll() ?: [];
+}
+
+/**
+ * ارسال خودکار یک نسخه از گفتگو به همه درمانگران فعال (+ منشی)
+ * ثبت‌نام لازم نیست؛ اگر patient_id باشد در پرونده هر دو هم ثبت می‌شود.
+ */
+function assistant_deliver_copy_to_all_doctors(PDO $pdo, array $session, ?string $patientId = null): void
+{
+    // قبلاً ارسال شده — دوباره اعلان نفرست
+    if (!empty($session['sent_at'])) {
+        if ($patientId) {
+            $pdo->prepare('UPDATE assistant_sessions SET patient_id=COALESCE(patient_id, ?) WHERE id=?')
+                ->execute([$patientId, (string) ($session['id'] ?? '')]);
+        }
+        return;
+    }
+
+    $sessionId = (string) ($session['id'] ?? '');
+    if ($sessionId === '') {
+        throw new RuntimeException('جلسه نامعتبر است.');
+    }
+
+    if ($patientId === null || $patientId === '') {
+        $patientId = trim((string) ($session['patient_id'] ?? '')) ?: null;
+    }
+
+    $answers = assistant_answers_decode($session['answers_json'] ?? null);
+    $doctorsMatched = json_decode((string) ($session['matched_doctors_json'] ?? '[]'), true) ?: [];
+    $workshops = json_decode((string) ($session['matched_workshops_json'] ?? '[]'), true) ?: [];
+    $messages = assistant_messages_decode($session['messages_json'] ?? null);
+    $aiSummary = trim((string) ($session['ai_summary'] ?? ''));
+
+    $intake = trim((string) ($session['intake_text'] ?? ''));
+    if ($intake === '') {
+        $intake = assistant_build_intake_text(
+            $session,
+            $answers,
+            $doctorsMatched,
+            $workshops,
+            null,
+            $messages ?: null,
+            $aiSummary !== '' ? $aiSummary : null
+        );
+    }
+
+    $guestNote = '';
+    if (!$patientId) {
+        $guestNote = "\n\n— وضعیت مراجع: مهمان (بدون ورود/ثبت‌نام) —";
+        $intake .= $guestNote;
+    }
+
+    $pdo->prepare('
+      UPDATE assistant_sessions
+      SET status=?, patient_id=COALESCE(?, patient_id), intake_text=?, sent_at=NOW()
+      WHERE id=?
+    ')->execute(['SENT', $patientId, $intake, $sessionId]);
+
+    $activeDoctors = assistant_list_active_doctors($pdo);
+    $short = $aiSummary !== '' ? $aiSummary : mb_substr($intake, 0, 400);
+    $who = $patientId ? 'مراجع ثبت‌نام‌شده' : 'مراجع مهمان';
+    $doctorLink = '/doctor/intakes/' . $sessionId;
+    $secretaryLink = '/secretary/intakes/' . $sessionId;
+
+    notify_role(
+        $pdo,
+        'SECRETARY',
+        'گفتگوی دستیار — نسخه برای درمانگران ارسال شد',
+        $who . ': ' . $short,
+        $secretaryLink
+    );
+
+    foreach ($activeDoctors as $doc) {
+        $docId = (string) ($doc['id'] ?? '');
+        if ($docId === '') {
+            continue;
+        }
+        // متن کامل‌تر در اعلان تا نسخه چت نزد درمانگر بماند
+        $body = $who . "\n\n" . mb_substr($intake, 0, 3500);
+        notify_doctor_profile(
+            $pdo,
+            $docId,
+            'نسخه گفتگوی دستیار مانا',
+            $body,
+            $doctorLink
+        );
+
+        if ($patientId) {
+            try {
+                $chart = get_or_create_patient_chart($pdo, $docId, $patientId);
+                $existing = trim((string) ($chart['history_text'] ?? ''));
+                $block = "=== نسخه گفتگوی دستیار ({$sessionId}) ===\n" . $intake;
+                $newHistory = $existing === '' ? $block : ($existing . "\n\n" . $block);
+                $pdo->prepare('UPDATE doctor_patient_charts SET history_text=? WHERE id=?')
+                    ->execute([$newHistory, $chart['id']]);
+            } catch (Throwable $e) {
+                // اعلان ارسال شده؛ پرونده را رد نکن
+            }
+        }
+    }
 }
 
 /** ارسال خلاصه به کلینیک (منشی) — ارجاع نهایی با منشی است */
 function assistant_send_to_clinic(PDO $pdo, array $session, string $patientId, ?string $preferredDoctorId = null): void
 {
+    // اگر قبلاً خودکار ارسال شده، فقط patient/ترجیح را به‌روز کن
+    if (!empty($session['sent_at'])) {
+        $pdo->prepare('
+          UPDATE assistant_sessions
+          SET patient_id=?, selected_doctor_id=COALESCE(?, selected_doctor_id), status=?
+          WHERE id=?
+        ')->execute([$patientId, $preferredDoctorId, 'SENT', $session['id']]);
+        return;
+    }
+
     $answers = assistant_answers_decode($session['answers_json'] ?? null);
     $doctors = json_decode((string) ($session['matched_doctors_json'] ?? '[]'), true) ?: [];
     $workshops = json_decode((string) ($session['matched_workshops_json'] ?? '[]'), true) ?: [];
@@ -824,39 +965,19 @@ function assistant_send_to_clinic(PDO $pdo, array $session, string $patientId, ?
         $aiSummary !== '' ? $aiSummary : null
     );
 
-    $patient = $pdo->prepare('SELECT name, phone FROM users WHERE id=? LIMIT 1');
-    $patient->execute([$patientId]);
-    $p = $patient->fetch() ?: ['name' => 'مراجع', 'phone' => ''];
-
     $pdo->prepare('
       UPDATE assistant_sessions
-      SET status=?, patient_id=?, selected_doctor_id=?, intake_text=?, sent_at=NOW(), assigned_at=NULL
+      SET status=?, patient_id=?, selected_doctor_id=?, intake_text=?
       WHERE id=?
-    ')->execute(['SENT', $patientId, $preferredDoctorId, $intake, $session['id']]);
+    ')->execute(['COMPLETED', $patientId, $preferredDoctorId, $intake, $session['id']]);
 
-    $prefNote = $preferredName ? ("ترجیح مراجع: «{$preferredName}». ") : 'هنوز درمانگر نهایی انتخاب نشده. ';
-    $short = $aiSummary !== '' ? $aiSummary : mb_substr($intake, 0, 280);
+    $session = assistant_session_get($pdo, (string) $session['id']) ?: $session;
+    $session['intake_text'] = $intake;
+    $session['patient_id'] = $patientId;
+    $session['selected_doctor_id'] = $preferredDoctorId;
 
-    notify_role(
-        $pdo,
-        'SECRETARY',
-        'خلاصه گفتگوی دستیار — نیازمند ارجاع',
-        $prefNote . 'مراجع «' . ($p['name'] ?? '') . '»: ' . $short,
-        '/secretary/intakes/' . $session['id']
-    );
-
-    // اطلاع کوتاه به درمانگران پیشنهادی (بدون ثبت پرونده تا ارجاع منشی)
-    foreach (array_slice($doctors, 0, 3) as $d) {
-        if (!empty($d['id'])) {
-            notify_doctor_profile(
-                $pdo,
-                (string) $d['id'],
-                'گفتگوی اولیه جدید در کلینیک',
-                'یک خلاصه گفتگو برای ارجاع منشی ثبت شد' . ($preferredName ? " (ترجیح: {$preferredName})" : '') . '.',
-                '/doctor'
-            );
-        }
-    }
+    // همیشه نسخه برای همه درمانگران فعال
+    assistant_deliver_copy_to_all_doctors($pdo, $session, $patientId);
 }
 
 /** ارجاع منشی به درمانگر مشخص + ثبت در پرونده */

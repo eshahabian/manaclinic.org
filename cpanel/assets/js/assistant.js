@@ -285,37 +285,29 @@
     }
 
     html += '<div class="assistant-actions" style="margin-top:1.25rem">';
-    if (data.status === "SENT") {
+    if (data.status === "SENT" || data.delivered) {
       html +=
-        '<p class="flash flash-success" style="margin:0">خلاصه برای کلینیک ارسال شده؛ منشی ارجاع را انجام می‌دهد.</p>';
+        '<p class="flash flash-success" style="margin:0">نسخه گفتگو برای هر دو درمانگر (و منشی) ارسال شد — ثبت‌نام لازم نبود.</p>';
       html +=
         '<a class="btn btn-outline" href="' +
         esc(reportBase + "?session=" + encodeURIComponent(sessionId)) +
         '">مشاهده / چاپ گزارش</a>';
     } else if (loggedIn || data.loggedIn) {
       html +=
-        '<button type="button" class="btn btn-primary" id="assistant-send-btn">ارسال خلاصه به کلینیک</button>';
+        '<button type="button" class="btn btn-primary" id="assistant-send-btn">ارسال مجدد به کلینیک</button>';
       html +=
         '<a class="btn btn-outline" href="' +
         esc(reportBase + "?session=" + encodeURIComponent(sessionId)) +
         '">پیش‌نمایش چاپ</a>';
-      html +=
-        '<p class="muted" style="width:100%;margin:.35rem 0 0;font-size:.82rem">منشی خلاصه را می‌بیند و در صورت نیاز به درمانگر ارجاع می‌دهد. انتخاب درمانگر اختیاری است (ترجیح شما).</p>';
     } else {
       html +=
-        '<p class="muted" style="width:100%;margin:0 0 .5rem">برای ارسال خلاصه به کلینیک، وارد شوید یا ثبت‌نام کنید.</p>';
-      html +=
-        '<a class="btn btn-primary" href="' +
-        esc(data.loginUrl || loginUrl) +
-        '">ورود</a>';
-      html +=
-        '<a class="btn btn-outline" href="' +
-        esc(data.registerUrl || registerUrl) +
-        '">ثبت‌نام</a>';
-      html +=
         '<a class="btn btn-outline" href="' +
         esc(reportBase + "?session=" + encodeURIComponent(sessionId)) +
-        '">پیش‌نمایش چاپ</a>';
+        '">مشاهده / چاپ گزارش</a>';
+      html +=
+        '<a class="btn btn-outline" href="' +
+        esc(data.loginUrl || loginUrl) +
+        '">ورود (اختیاری)</a>';
     }
     html += "</div></div>";
     resultsEl.innerHTML = html;

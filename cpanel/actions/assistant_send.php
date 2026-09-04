@@ -51,7 +51,7 @@ try {
 
     echo json_encode([
         'ok' => true,
-        'message' => 'خلاصه گفتگو برای منشی و تیم کلینیک ارسال شد. منشی در صورت نیاز به درمانگر ارجاع می‌دهد.',
+        'message' => 'نسخه گفتگو برای همه درمانگران فعال ارسال شد.',
         'reportUrl' => url('/assistant/report?session=' . rawurlencode($sessionId)),
     ], JSON_UNESCAPED_UNICODE);
 } catch (Throwable $e) {
