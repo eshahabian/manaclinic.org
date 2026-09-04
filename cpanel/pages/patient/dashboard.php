@@ -36,7 +36,7 @@ ob_start();
   <p class="muted">نوبت‌ها را ماه‌به‌ماه ببینید و کارگاه‌ها را از تب رنگی ثبت‌نام کنید.</p>
   <p id="course-msg" class="course-flash" style="display:none" role="status"></p>
 
-  <div class="binder-tile" data-binder-tabs data-binder-initial="<?= e($outerInitial) ?>" data-binder-tone="<?= e($outerInitial) ?>">
+  <div class="binder-tile binder-tile--patient-dash" data-binder-tabs data-binder-initial="<?= e($outerInitial) ?>" data-binder-tone="<?= e($outerInitial) ?>">
     <div class="binder-tabs" role="tablist" aria-label="بخش‌های پنل">
       <button type="button" class="binder-tab binder-tab-appts<?= $outerInitial === 'appts' ? ' is-active' : '' ?>" role="tab" data-binder-tab="appts" data-binder-tone="appts" aria-selected="<?= $outerInitial === 'appts' ? 'true' : 'false' ?>">
         نوبت‌ها
@@ -50,9 +50,8 @@ ob_start();
     <div class="binder-body">
       <section class="binder-panel<?= $outerInitial === 'appts' ? ' is-active' : '' ?>" data-binder-panel="appts" role="tabpanel"<?= $outerInitial === 'appts' ? '' : ' hidden' ?>>
         <div class="patient-dash-panel-head">
-          <div>
+          <div class="patient-dash-panel-copy">
             <h2 class="binder-sub" style="margin:0">نوبت‌های شما</h2>
-            <p class="muted" style="margin:.3rem 0 0;font-size:.85rem">ماه را انتخاب کنید؛ مثلاً شهریور.</p>
           </div>
           <div class="patient-dash-panel-actions">
             <a class="btn btn-outline btn-sm" href="<?= e(url('/dashboard/appointments')) ?>">همه نوبت‌ها</a>
@@ -69,11 +68,12 @@ ob_start();
 
       <section class="binder-panel<?= $outerInitial === 'workshops' ? ' is-active' : '' ?>" data-binder-panel="workshops" role="tabpanel"<?= $outerInitial === 'workshops' ? '' : ' hidden' ?>>
         <div class="patient-dash-panel-head">
-          <div>
+          <div class="patient-dash-panel-copy">
             <h2 class="binder-sub" style="margin:0">کارگاه‌ها و دوره‌ها</h2>
-            <p class="muted" style="margin:.3rem 0 0;font-size:.85rem">اول نوع کارگاه را انتخاب کنید، بعد لیست همان تب.</p>
           </div>
-          <a class="btn btn-outline btn-sm" href="<?= e(url('/dashboard/courses')) ?>">دوره‌های من</a>
+          <div class="patient-dash-panel-actions">
+            <a class="btn btn-outline btn-sm" href="<?= e(url('/dashboard/courses')) ?>">دوره‌های من</a>
+          </div>
         </div>
         <div data-patient-courses data-enroll-url="<?= e($ws['enrollUrl']) ?>" data-pay-url="<?= e($ws['payUrl']) ?>" data-cancel-url="<?= e($ws['cancelUrl']) ?>">
           <?php
