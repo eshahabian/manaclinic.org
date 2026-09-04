@@ -220,6 +220,125 @@ function rich_html_for_display(?string $raw): string
     return sanitize_rich_html($raw);
 }
 
+/** نام ماه‌های شمسی */
+function jalali_month_names(): array
+{
+    return [
+        1 => 'فروردین', 2 => 'اردیبهشت', 3 => 'خرداد',
+        4 => 'تیر', 5 => 'مرداد', 6 => 'شهریور',
+        7 => 'مهر', 8 => 'آبان', 9 => 'آذر',
+        10 => 'دی', 11 => 'بهمن', 12 => 'اسفند',
+    ];
+}
+
+/** رنگ تب ماه — چرخش بین همان پالت کارگاه‌ها */
+function binder_month_tab_meta(int $month): array
+{
+    $cycle = [
+        ['class' => 'binder-tab-in-person', 'tone' => 'in-person'],
+        ['class' => 'binder-tab-online', 'tone' => 'online'],
+        ['class' => 'binder-tab-offline', 'tone' => 'offline'],
+        ['class' => 'binder-tab-archive', 'tone' => 'archive'],
+        ['class' => 'binder-tab-new', 'tone' => 'new'],
+    ];
+    $index = (($month < 1 ? 1 : $month) - 1) % count($cycle);
+    return $cycle[$index];
+}
+
+/** سال و ماه شمسی از یک تاریخ میلادی */
+function jalali_month_meta_from_datetime(string $datetime): ?array
+{
+    $ts = strtotime($datetime);
+    if (!$ts) {
+        return null;
+    }
+    [$jy, $jm] = gregorian_to_jalali((int) date('Y', $ts), (int) date('n', $ts), (int) date('j', $ts));
+    $months = jalali_month_names();
+    $style = binder_month_tab_meta($jm);
+    return [
+        'key' => sprintf('%04d-%02d', $jy, $jm),
+        'id' => sprintf('m-%04d-%02d', $jy, $jm),
+        'label' => ($months[$jm] ?? (string) $jm) . ' ' . to_fa_digits((string) $jy),
+        'short' => $months[$jm] ?? (string) $jm,
+        'tab_label' => $months[$jm] ?? (string) $jm,
+        'sort' => ($jy * 100) + $jm,
+        'year' => $jy,
+        'month' => $jm,
+        'class' => $style['class'],
+        'tone' => $style['tone'],
+    ];
+}
+
+function jalali_current_month_meta(): array
+{
+    return jalali_month_meta_from_datetime(date('Y-m-d H:i:s')) ?? [
+        'key' => '',
+        'id' => 'm-current',
+        'label' => 'این ماه',
+        'short' => 'این ماه',
+        'tab_label' => 'این ماه',
+        'sort' => 0,
+        'year' => 0,
+        'month' => 1,
+        'class' => 'binder-tab-in-person',
+        'tone' => 'in-person',
+    ];
+}
+
+/**
+ * گروه‌بندی نوبت‌ها بر اساس ماه شمسی (جدیدترین ماه اول).
+ * ماه جاری همیشه هست، حتی اگر خالی باشد.
+ *
+ * @param array<int, array<string, mixed>> $appointments
+ * @return array{months: array<string, array<string, mixed>>, default_id: string}
+ */
+function group_appointments_by_jalali_month(array $appointments): array
+{
+    $current = jalali_current_month_meta();
+    $months = [];
+    foreach ($appointments as $appointment) {
+        $meta = jalali_month_meta_from_datetime((string) ($appointment['starts_at'] ?? ''));
+        if (!$meta) {
+            continue;
+        }
+        $id = $meta['id'];
+        if (!isset($months[$id])) {
+            $months[$id] = $meta + ['items' => []];
+        }
+        $months[$id]['items'][] = $appointment;
+    }
+    if (!isset($months[$current['id']])) {
+        $months[$current['id']] = $current + ['items' => []];
+    }
+    uasort($months, static function (array $a, array $b): int {
+        return ((int) $b['sort']) <=> ((int) $a['sort']);
+    });
+
+    $nameCounts = [];
+    foreach ($months as $bucket) {
+        $short = (string) ($bucket['short'] ?? '');
+        $nameCounts[$short] = ($nameCounts[$short] ?? 0) + 1;
+    }
+    foreach ($months as $id => $bucket) {
+        $short = (string) ($bucket['short'] ?? '');
+        $months[$id]['tab_label'] = ($nameCounts[$short] > 1)
+            ? (string) ($bucket['label'] ?? $short)
+            : $short;
+    }
+
+    $defaultId = $current['id'];
+    if (empty($months[$defaultId]['items'])) {
+        foreach ($months as $id => $bucket) {
+            if (!empty($bucket['items'])) {
+                $defaultId = $id;
+                break;
+            }
+        }
+    }
+
+    return ['months' => $months, 'default_id' => $defaultId];
+}
+
 /** تبدیل تاریخ میلادی Y-m-d به شمسی با ارقام فارسی */
 function to_jalali_label(string $ymd): string
 {
@@ -229,12 +348,7 @@ function to_jalali_label(string $ymd): string
     }
     [$gy, $gm, $gd] = array_map('intval', $parts);
     [$jy, $jm, $jd] = gregorian_to_jalali($gy, $gm, $gd);
-    $months = [
-        1 => 'فروردین', 2 => 'اردیبهشت', 3 => 'خرداد',
-        4 => 'تیر', 5 => 'مرداد', 6 => 'شهریور',
-        7 => 'مهر', 8 => 'آبان', 9 => 'آذر',
-        10 => 'دی', 11 => 'بهمن', 12 => 'اسفند',
-    ];
+    $months = jalali_month_names();
     $label = $jd . ' ' . ($months[$jm] ?? $jm) . ' ' . $jy;
     return to_fa_digits($label);
 }

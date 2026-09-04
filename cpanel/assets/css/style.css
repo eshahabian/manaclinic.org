@@ -1014,6 +1014,8 @@ jdp-container, .jdp-container, [class*="jdp"] {
 .binder-tile[data-binder-tone="offline"] { background: #fbeeb0; }
 .binder-tile[data-binder-tone="archive"] { background: #fcd9b0; }
 .binder-tile[data-binder-tone="new"] { background: #fbd5ea; }
+.binder-tile[data-binder-tone="appts"] { background: #d4f0e0; }
+.binder-tile[data-binder-tone="workshops"] { background: #d5ebf8; }
 .binder-tile--nested {
   border-radius: .85rem;
   margin-top: .35rem;
@@ -1059,6 +1061,8 @@ jdp-container, .jdp-container, [class*="jdp"] {
 .binder-tab-offline { background-color: #f5c93a; }
 .binder-tab-new { background-color: #f04aa3; color: #fff; }
 .binder-tab-archive { background-color: #f08628; color: #fff; }
+.binder-tab-appts { background-color: #3dba7a; color: #fff; }
+.binder-tab-workshops { background-color: #6eb8e8; }
 .binder-tab-count {
   display: inline-flex;
   min-width: 1.15rem;
@@ -1072,11 +1076,46 @@ jdp-container, .jdp-container, [class*="jdp"] {
   justify-content: center;
 }
 .binder-tab-new .binder-tab-count,
-.binder-tab-archive .binder-tab-count {
+.binder-tab-archive .binder-tab-count,
+.binder-tab-appts .binder-tab-count {
   background: rgba(255,255,255,.28);
   color: #fff;
 }
+.patient-dash-panel-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: .75rem;
+  flex-wrap: wrap;
+  margin-bottom: .75rem;
+}
+.patient-dash-panel-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+}
+.patient-appt-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: .75rem;
+  border: 1px solid rgba(26, 46, 40, .08);
+  border-radius: .85rem;
+  padding: .85rem 1rem;
+  background: #fff;
+}
+.patient-appt-row--manage {
+  align-items: flex-start;
+}
+.patient-appt-row-actions {
+  text-align: left;
+  font-size: .85rem;
+  flex: 0 0 auto;
+}
 .binder-body { padding: 1.05rem 1.15rem 1.2rem; }
+.binder-panel > .binder-tile--nested {
+  margin-top: 0;
+}
 .binder-panel { display: none; }
 .binder-panel.is-active { display: block; }
 .binder-empty { margin: 0; }

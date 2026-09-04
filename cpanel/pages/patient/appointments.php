@@ -17,6 +17,9 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute([$user['id']]);
 $appointments = $stmt->fetchAll();
+$monthPack = group_appointments_by_jalali_month($appointments);
+$monthGroups = $monthPack['months'];
+$defaultMonthId = $monthPack['default_id'];
 $booked = isset($_GET['booked']);
 $payUrl = url('/dashboard/pay');
 $cancelUrl = url('/cancel-appointment');
@@ -53,50 +56,18 @@ ob_start();
   <?php endif; ?>
   <p id="pay-error" style="color:var(--danger);font-size:.9rem;display:none"></p>
   <p id="cancel-msg" style="font-size:.9rem;display:none"></p>
-  <?php foreach ($appointments as $a): ?>
-    <div class="panel row-between">
-      <div>
-        <strong><?= e($a['doctor_name']) ?></strong>
-        <div class="muted" style="font-size:.85rem"><?= e($a['specialty']) ?></div>
-        <div style="margin-top:.5rem;font-size:.9rem"><?= e(format_fa_datetime($a['starts_at'])) ?></div>
-      </div>
-      <div style="text-align:left;font-size:.85rem">
-        <span class="badge"><?= e(appointment_status_label($a['status'])) ?></span>
-        <?php if ($a['amount']): ?>
-          <div class="muted" style="margin-top:.5rem">
-            <?= e(format_price((int)$a['amount'])) ?> — <?= e(payment_status_label((string)$a['pay_status'])) ?>
-            <?= $a['ref_id'] ? ' (پیگیری: ' . e((string)$a['ref_id']) . ')' : '' ?>
-          </div>
-        <?php endif; ?>
-        <?php if ($a['status'] === 'PENDING_PAYMENT' && ($a['pay_status'] ?? '') === 'PENDING'): ?>
-          <button
-            type="button"
-            class="btn btn-primary btn-sm pay-btn"
-            style="margin-top:.75rem"
-            data-id="<?= e($a['id']) ?>"
-            disabled
-          >پرداخت آنلاین</button>
-        <?php endif; ?>
-        <?php if (patient_can_cancel_appointment($a['status'])): ?>
-          <button
-            type="button"
-            class="btn btn-outline btn-sm cancel-app-btn"
-            style="margin-top:.5rem"
-            data-id="<?= e($a['id']) ?>"
-          >لغو نوبت</button>
-          <?php if ($a['status'] === 'CONFIRMED' && ($a['pay_status'] ?? '') === 'PAID'): ?>
-            <p class="muted" style="font-size:.75rem;margin-top:.35rem;max-width:14rem"><?= e(appointment_refund_hint($a['starts_at'])) ?></p>
-          <?php endif; ?>
-        <?php endif; ?>
-      </div>
-    </div>
-  <?php endforeach; ?>
-  <?php if (!$appointments): ?><p class="muted">نوبتی ثبت نشده است.</p><?php endif; ?>
+  <?php
+    $monthBinderNested = false;
+    $appointmentItemMode = 'manage';
+    $monthBinderAria = 'انتخاب ماه نوبت';
+    require __DIR__ . '/../../includes/patient_appointments_month_binder.php';
+  ?>
 </div>
 <?php if ($hasPendingPay): ?>
 <?= booking_terms_modal_html('terms-modal') ?>
 <?= booking_terms_styles() ?>
 <?php endif; ?>
+<script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260904u"></script>
 <script>
 (function(){
   var payUrl = <?= json_encode($payUrl, JSON_UNESCAPED_UNICODE) ?>;

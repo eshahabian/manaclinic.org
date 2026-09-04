@@ -795,3 +795,105 @@ function workshop_group_for_tabs(array $workshops): array
     }
     return $out;
 }
+
+/**
+ * داده تب‌های کارگاه برای پنل مراجع (داشبورد و دوره‌های من).
+ *
+ * @return array{
+ *   wallet: array,
+ *   grouped: array<string, array>,
+ *   enrollmentsByTab: array<string, array>,
+ *   enrollByWorkshop: array<string, array>,
+ *   binderTabs: array<string, array{label: string, class: string, empty: string}>,
+ *   enrollUrl: string,
+ *   payUrl: string,
+ *   cancelUrl: string
+ * }
+ */
+function patient_workshop_tab_data(PDO $pdo, string $patientId): array
+{
+    require_once __DIR__ . '/workshop_media.php';
+    ensure_workshop_schema($pdo);
+    ensure_workshop_media_schema($pdo);
+    $wallet = ensure_wallet($pdo, $patientId);
+
+    $published = $pdo->query("
+      SELECT w.*, u.name AS doctor_name,
+        (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = 'VIDEO') AS video_count,
+        (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = 'AUDIO') AS audio_count
+      FROM workshops w
+      " . workshop_active_doctor_join('w') . "
+      JOIN users u ON u.id = dp.user_id
+      WHERE w.is_published = 1
+      ORDER BY w.starts_at DESC
+    ")->fetchAll();
+
+    $mine = $pdo->prepare("
+      SELECT e.*, w.title, w.starts_at, w.ends_at, w.type, w.status AS workshop_status,
+             w.meeting_url, w.content_url, w.group_url, w.location,
+             w.location_lat, w.location_lng,
+             (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = 'VIDEO') AS video_count,
+             (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = 'AUDIO') AS audio_count,
+             wp.amount, wp.wallet_amount, wp.status AS pay_status, u.name AS doctor_name
+      FROM workshop_enrollments e
+      JOIN workshops w ON w.id = e.workshop_id
+      JOIN doctor_profiles dp ON dp.id = w.doctor_id
+      JOIN users u ON u.id = dp.user_id
+      LEFT JOIN workshop_payments wp ON wp.enrollment_id = e.id
+      WHERE e.patient_id = ?
+      ORDER BY e.enrolled_at DESC
+    ");
+    $mine->execute([$patientId]);
+    $myEnrollments = $mine->fetchAll();
+
+    $enrollByWorkshop = [];
+    foreach ($myEnrollments as $row) {
+        $wid = (string) ($row['workshop_id'] ?? '');
+        if ($wid !== '' && !isset($enrollByWorkshop[$wid])) {
+            $enrollByWorkshop[$wid] = $row;
+        }
+    }
+
+    $visible = [];
+    foreach ($published as $workshop) {
+        if ((string) ($workshop['status'] ?? '') === 'CANCELLED' && empty($enrollByWorkshop[(string) $workshop['id']])) {
+            continue;
+        }
+        $visible[] = $workshop;
+    }
+    $grouped = workshop_group_for_tabs($visible);
+
+    $enrollmentsByTab = [
+        'in-person' => [],
+        'online' => [],
+        'offline' => [],
+        'archive' => [],
+    ];
+    foreach ($myEnrollments as $row) {
+        if (workshop_is_archived([
+            'status' => (string) ($row['workshop_status'] ?? ''),
+            'type' => (string) ($row['type'] ?? ''),
+            'ends_at' => (string) ($row['ends_at'] ?? ''),
+        ])) {
+            $enrollmentsByTab['archive'][] = $row;
+            continue;
+        }
+        $tab = workshop_tab_from_type((string) ($row['type'] ?? ''));
+        $enrollmentsByTab[$tab][] = $row;
+    }
+
+    return [
+        'wallet' => $wallet,
+        'grouped' => $grouped,
+        'enrollmentsByTab' => $enrollmentsByTab,
+        'enrollByWorkshop' => $enrollByWorkshop,
+        'binderTabs' => [
+            'in-person' => ['label' => 'حضوری', 'class' => 'binder-tab-in-person', 'empty' => 'کارگاه حضوری فعالی برای ثبت‌نام نیست.'],
+            'online' => ['label' => 'آنلاین', 'class' => 'binder-tab-online', 'empty' => 'کارگاه آنلاین فعالی برای ثبت‌نام نیست.'],
+            'offline' => ['label' => 'آفلاین', 'class' => 'binder-tab-offline', 'empty' => 'دوره آفلاین فعالی برای ثبت‌نام نیست.'],
+        ],
+        'enrollUrl' => url('/enroll-workshop'),
+        'payUrl' => url('/pay-workshop'),
+        'cancelUrl' => url('/cancel-enrollment'),
+    ];
+}

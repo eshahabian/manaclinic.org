@@ -332,7 +332,7 @@ ob_start();
     </div>
   </div>
 </div>
-<script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260904r"></script>
+<script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260904u"></script>
 <script>
 (function () {
   var root = document.querySelector('[data-dash-tabs]');
