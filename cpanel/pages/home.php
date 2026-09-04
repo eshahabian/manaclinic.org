@@ -24,6 +24,9 @@ $leadArticle = $articles[0] ?? null;
 $moreArticles = array_slice($articles, 1);
 
 $pageTitle = 'خانه';
+$pageDescription = 'مانا کلینیک سعادت‌آباد؛ روانشناسی، روان‌درمانی، زوج‌درمانی و رزرو نوبت آنلاین. مقالات تخصصی و دستیار هوشمند سلامت روان.';
+$pageCanonical = url('/');
+$pageKeywords = 'مانا کلینیک, روانشناس سعادت آباد, رزرو نوبت روانشناسی, زوج درمانی, مشاوره اضطراب, دکتر عطیه گارسچی';
 $heroSlides = [
     url('/assets/img/hero.png'),
     url('/assets/img/slide-1.png'),

@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/seo.php';
+
 $pageTitle = $GLOBALS['pageTitle'] ?? ($pageTitle ?? null);
 $pageHead = $GLOBALS['pageHead'] ?? ($pageHead ?? '');
 $pageScripts = $GLOBALS['pageScripts'] ?? ($pageScripts ?? '');
@@ -15,7 +17,7 @@ $flash = flash_get();
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title><?= e(($pageTitle ?? 'مانا کلینیک') . ' | مانا کلینیک') ?></title>
+  <?= seo_render_head() ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260904m">

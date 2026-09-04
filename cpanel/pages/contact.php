@@ -2,6 +2,9 @@
 declare(strict_types=1);
 
 $pageTitle = 'تماس با ما';
+$pageDescription = 'تماس با مانا کلینیک سعادت‌آباد: ۰۹۱۰۱۳۸۷۸۳۸ و ۰۲۱۲۲۰۶۵۷۷۴. آدرس مطب و موقعیت روی نقشه.';
+$pageCanonical = url('/contact');
+$pageKeywords = 'تماس مانا کلینیک, آدرس مانا کلینیک, روانشناس سعادت آباد';
 $mapUrl = 'https://www.google.com/maps?q=35.772637,51.377568';
 $mapEmbed = 'https://maps.google.com/maps?q=35.772637,51.377568&z=16&output=embed';
 ob_start();

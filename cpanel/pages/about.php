@@ -2,6 +2,8 @@
 declare(strict_types=1);
 
 $pageTitle = 'درباره ما';
+$pageDescription = 'درباره مانا کلینیک؛ فضای امن برای مشاوره روانشناسی، روان‌درمانی و رشد فردی در تهران.';
+$pageCanonical = url('/about');
 ob_start();
 ?>
 <div class="container-page section" style="max-width:48rem">

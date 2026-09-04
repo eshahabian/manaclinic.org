@@ -30,6 +30,7 @@ require_once __DIR__ . '/includes/workshops.php';
 require_once __DIR__ . '/includes/workshop_media.php';
 require_once __DIR__ . '/includes/assistant.php';
 require_once __DIR__ . '/includes/seed_articles.php';
+require_once __DIR__ . '/includes/seo.php';
 
 $pdo = db_connect($config);
 ensure_workshop_schema($pdo);
@@ -56,6 +57,7 @@ $routes = [
     'GET /' => 'pages/home.php',
     'GET /doctors' => 'pages/doctors.php',
     'GET /articles' => 'pages/articles.php',
+    'GET /sitemap.xml' => 'pages/sitemap.php',
     'GET /tests' => 'pages/tests.php',
     'GET /about' => 'pages/about.php',
     'GET /contact' => 'pages/contact.php',

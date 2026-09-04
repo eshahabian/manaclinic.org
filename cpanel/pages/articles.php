@@ -10,6 +10,9 @@ $articles = $pdo->query("
 ")->fetchAll();
 
 $pageTitle = 'مقالات';
+$pageDescription = 'مقالات تخصصی روانشناسی و روان‌درمانی مانا کلینیک؛ اضطراب، خواب، مهربانی با خود، تنظیم هیجان و سلامت روان.';
+$pageCanonical = url('/articles');
+$pageKeywords = 'مقالات روانشناسی, سلامت روان, اضطراب, تنظیم هیجان, مانا کلینیک';
 ob_start();
 ?>
 <div class="container-page section">

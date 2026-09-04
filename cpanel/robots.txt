@@ -1,0 +1,16 @@
+User-agent: *
+Allow: /
+
+Disallow: /admin
+Disallow: /doctor
+Disallow: /secretary
+Disallow: /dashboard
+Disallow: /login
+Disallow: /register
+Disallow: /logout
+Disallow: /install
+Disallow: /change-password
+Disallow: /assistant/chat
+Disallow: /assistant/send
+
+Sitemap: https://manaclinic.org/sitemap.xml

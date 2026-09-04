@@ -24,6 +24,9 @@ if ($q !== '') {
 }
 
 $pageTitle = 'متخصصان';
+$pageDescription = 'لیست متخصصان مانا کلینیک؛ انتخاب روانشناس و رزرو نوبت آنلاین برای مشاوره فردی و زوج‌درمانی.';
+$pageCanonical = url('/doctors');
+$pageKeywords = 'روانشناس, متخصص روانشناسی, رزرو نوبت, مانا کلینیک';
 $currentUser = current_user();
 $isPatientViewer = $currentUser && ($currentUser['role'] ?? '') === 'PATIENT';
 ob_start();
