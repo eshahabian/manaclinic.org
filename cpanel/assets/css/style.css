@@ -617,11 +617,164 @@ select {
 .side-nav nav { display: grid; gap: .35rem; }
 .side-nav a { padding: .55rem .75rem; border-radius: .65rem; color: var(--muted); font-size: .9rem; display: flex; align-items: center; justify-content: space-between; gap: .5rem; }
 .side-nav a:hover { background: var(--bg-soft); color: var(--primary); }
+.side-nav a.is-active { background: var(--bg-soft); color: var(--primary); font-weight: 700; }
+.side-nav-group {
+  margin: .85rem 0 .25rem;
+  padding: 0 .75rem;
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .02em;
+  color: var(--muted);
+  opacity: .85;
+}
+.side-nav-group:first-child { margin-top: 0; }
 .side-nav-badge {
   min-width: 1.35rem; height: 1.35rem; padding: 0 .35rem;
   border-radius: 999px; background: var(--primary); color: #fff;
   font-size: .72rem; font-weight: 700; line-height: 1.35rem; text-align: center;
 }
+
+/* پنل دکتر — خلاصه جدا شده */
+.doctor-dash-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .75rem 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: 1.25rem;
+}
+.doctor-dash-head h1 { margin: 0; font-size: 1.45rem; }
+.doctor-dash-head .muted { margin: .35rem 0 0; }
+.doctor-dash-badge { align-self: center; }
+.doctor-dash-grid {
+  display: grid;
+  gap: 1.1rem;
+}
+@media (min-width: 1100px) {
+  .doctor-dash-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    align-items: start;
+  }
+}
+.doctor-dash-card {
+  display: flex;
+  flex-direction: column;
+  min-height: 100%;
+  border-top: 3px solid var(--line);
+}
+.doctor-dash-card--ai { border-top-color: #2d8a6e; }
+.doctor-dash-card--appts { border-top-color: #3a6ea5; }
+.doctor-dash-card--workshops { border-top-color: #b7791f; }
+.doctor-dash-card-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .65rem;
+  align-items: flex-start;
+  justify-content: space-between;
+  margin-bottom: .85rem;
+}
+.doctor-dash-card-head h2 {
+  margin: .15rem 0 0;
+  font-size: 1.15rem;
+}
+.doctor-dash-kicker {
+  margin: 0;
+  font-size: .75rem;
+  font-weight: 700;
+  color: var(--primary);
+}
+.doctor-dash-stats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .65rem;
+  margin-bottom: .85rem;
+}
+.doctor-dash-stat {
+  background: var(--bg-soft);
+  border-radius: .75rem;
+  padding: .7rem .8rem;
+}
+.doctor-dash-stat strong,
+.doctor-dash-stat > a {
+  display: block;
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--primary-dark);
+  text-decoration: none;
+}
+.doctor-dash-stat span {
+  display: block;
+  margin-top: .2rem;
+  font-size: .78rem;
+  color: var(--muted);
+}
+.doctor-dash-sub {
+  margin: .5rem 0 .55rem;
+  font-size: .92rem;
+  color: var(--primary-dark);
+}
+.doctor-dash-empty { margin: 0; font-size: .9rem; }
+.doctor-dash-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: .55rem;
+}
+.doctor-dash-list > li {
+  border: 1px solid var(--line);
+  border-radius: .75rem;
+  background: #fff;
+}
+.doctor-dash-list > li.is-unread {
+  background: var(--bg-soft);
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--line));
+}
+.doctor-dash-list a,
+.doctor-dash-list > li > div {
+  display: block;
+  padding: .7rem .8rem;
+  color: inherit;
+  text-decoration: none;
+}
+.doctor-dash-list strong { display: block; font-size: .95rem; }
+.doctor-dash-list .muted { display: block; font-size: .78rem; margin-top: .15rem; }
+.doctor-dash-list p {
+  margin: .35rem 0 0;
+  font-size: .86rem;
+  line-height: 1.65;
+  color: var(--muted);
+}
+.doctor-dash-list--compact a,
+.doctor-dash-list--compact > li > div {
+  padding: .55rem .7rem;
+}
+.doctor-dash-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .55rem;
+  align-items: center;
+  justify-content: space-between;
+  padding: .7rem .8rem;
+}
+.doctor-dash-row-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+  align-items: center;
+}
+.doctor-dash-other {
+  margin-top: 1rem;
+  border-top: 1px dashed var(--line);
+  padding-top: .75rem;
+}
+.doctor-dash-other summary {
+  cursor: pointer;
+  font-size: .88rem;
+  color: var(--muted);
+  user-select: none;
+}
+.doctor-dash-other[open] summary { margin-bottom: .55rem; color: var(--primary-dark); }
 
 .slots { display: flex; flex-wrap: wrap; gap: .5rem; }
 .slot-btn {
