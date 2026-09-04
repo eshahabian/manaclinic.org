@@ -225,80 +225,10 @@ function assistant_messages_save(PDO $pdo, string $sessionId, array $messages): 
         ->execute([json_encode($messages, JSON_UNESCAPED_UNICODE), $sessionId]);
 }
 
-/**
- * فهرست کوتاه درمانگران و کارگاه‌های فعال از دیتابیس سایت
- */
-function assistant_catalog_brief(PDO $pdo): string
+function assistant_ai_system_prompt(): string
 {
-    $lines = [];
-    $lines[] = '— درمانگران فعال مانا کلینیک —';
-    try {
-        $docs = $pdo->query("
-          SELECT u.name, dp.specialty, LEFT(COALESCE(dp.bio,''), 160) AS bio
-          FROM doctor_profiles dp
-          JOIN users u ON u.id = dp.user_id
-          WHERE dp.is_active = 1 AND dp.is_approved = 1
-          ORDER BY u.name ASC
-          LIMIT 20
-        ")->fetchAll();
-        if ($docs) {
-            foreach ($docs as $i => $d) {
-                $lines[] = ($i + 1) . '. ' . trim((string) $d['name'])
-                    . ' | تخصص: ' . trim((string) ($d['specialty'] ?? '—'))
-                    . ' | ' . trim((string) ($d['bio'] ?? ''));
-            }
-        } else {
-            $lines[] = '(فعلاً درمانگر فعالی در فهرست نیست — به صفحه /doctors ارجاع بده.)';
-        }
-    } catch (Throwable $e) {
-        $lines[] = '(خطا در خواندن درمانگران)';
-    }
-
-    $lines[] = '';
-    $lines[] = '— کارگاه‌ها و دوره‌های فعال مانا کلینیک —';
-    try {
-        ensure_workshop_schema($pdo);
-        $sql = '
-          SELECT w.title, w.type, w.description, u.name AS doctor_name
-          FROM workshops w
-          ' . workshop_active_doctor_join('w') . '
-          JOIN users u ON u.id = dp.user_id
-          WHERE ' . workshop_patient_list_sql('w') . '
-          ORDER BY w.created_at DESC
-          LIMIT 25
-        ';
-        $ws = $pdo->query($sql)->fetchAll();
-        if ($ws) {
-            foreach ($ws as $i => $w) {
-                $typeLabel = function_exists('workshop_type_label')
-                    ? workshop_type_label((string) $w['type'])
-                    : (string) $w['type'];
-                $desc = trim(mb_substr((string) ($w['description'] ?? ''), 0, 120));
-                $lines[] = ($i + 1) . '. «' . trim((string) $w['title']) . '»'
-                    . ' (' . $typeLabel . ')'
-                    . ' — مدرس: ' . trim((string) ($w['doctor_name'] ?? '—'))
-                    . ($desc !== '' ? ' | ' . $desc : '');
-            }
-        } else {
-            $lines[] = '(فعلاً کارگاه فعالی نیست — در صورت نیاز زوج‌درمانی/مشاوره فردی را از فهرست درمانگران پیشنهاد بده.)';
-        }
-    } catch (Throwable $e) {
-        $lines[] = '(خطا در خواندن کارگاه‌ها)';
-    }
-
-    return implode("\n", $lines);
-}
-
-function assistant_ai_system_prompt(?string $catalog = null): string
-{
-    $catalog = trim((string) $catalog);
-    if ($catalog === '') {
-        $catalog = 'فهرست در دسترس نیست؛ کاربر را به صفحات متخصصان و کارگاه‌های مانا کلینیک راهنمایی کن.';
-    }
-
-    return <<<PROMPT
+    return <<<'PROMPT'
 تو دستیار گفت‌وگوی اولیه «مانا کلینیک» هستی. فقط به فارسی، با لحن گرم، کوتاه و محترمانه صحبت کن.
-تو نماینده همین کلینیک هستی و باید خدمات خود مانا کلینیک را معرفی کنی.
 
 ======= محدوده پاسخ (اجباری) =======
 فقط درباره این موضوعات حرف بزن و کمک کن:
@@ -311,17 +241,6 @@ function assistant_ai_system_prompt(?string $catalog = null): string
 1) مودبانه بگو فقط درباره موضوعات روانشناسی و روان‌درمانی می‌توانی کمک کنی.
 2) یک سوال کوتاه برای برگرداندن گفتگو به حال روانی / نیاز مشاوره‌ای بپرس.
 3) به موضوع غیرمرتبط جواب محتوایی نده.
-
-======= پیشنهاد از دیتابیس مانا کلینیک (اجباری) =======
-فقط از فهرست زیر پیشنهاد بده. این داده‌های واقعی سایت است:
-{$catalog}
-
-قواعد پیشنهاد:
-- اگر مشکل زوجی / با همسر / خانم / شوهر / ازدواج بود: حتماً تگ couple بگذار و از فهرست، درمانگر مرتبط با زوج‌درمانی/رابطه و هر کارگاه زوجی یا رابطه را با نام دقیق معرفی کن.
-- اگر کارگاه مرتبط نبود، صریح بگو و به‌جای آن جلسه زوج‌درمانی یا مشاوره فردی با نام درمانگر از همین فهرست پیشنهاد بده.
-- هرگز نگو «نمی‌توانم درمانگر خاصی معرفی کنم» یا «نمی‌توانم کارگاه پیشنهاد دهم» یا «خیلی از مراکز آنلاین…».
-- مراکز دیگر، لینک خارجی، یا پیشنهاد کلی خارج از مانا کلینیک ممنوع است.
-- در پیام‌های میانی هم می‌توانی ۱–۲ نام مرتبط از فهرست را کوتاه بگویی؛ در پایان با <<<READY>>> پیشنهاد نهایی را قطعی کن.
 
 ======= ممنوع =======
 - تشخیص قطعی اختلال نده
@@ -338,7 +257,7 @@ function assistant_ai_system_prompt(?string $catalog = null): string
 وقتی حداقل موضوع اصلی + شدت/نیاز و ترجیح جلسه را فهمیدی، جمع‌بندی همدلانه بنویس و دقیقاً در انتهای پیام این بلوک را بگذار:
 
 <<<READY>>>
-{"tags":["couple","relationship","therapy","moderate"],"summary":"خلاصه کوتاه فارسی از وضعیت و نیاز مراجع"}
+{"tags":["anxiety","moderate","therapy","ONLINE"],"summary":"خلاصه کوتاه فارسی از وضعیت و نیاز مراجع"}
 
 تگ‌های مجاز: anxiety, depression, stress, burnout, couple, relationship, family, parenting, growth, self, mild, moderate, high, urgent, recent, months, chronic, individual, therapy, workshop, group, unsure, IN_PERSON, ONLINE, OFFLINE, sleep, support, mood.
 PROMPT;
@@ -480,10 +399,9 @@ function assistant_answers_from_ai_tags(array $tags, string $summary): array
     return $answers;
 }
 
-function assistant_openai_messages_for_api(array $stored, ?PDO $pdo = null): array
+function assistant_openai_messages_for_api(array $stored): array
 {
-    $catalog = $pdo ? assistant_catalog_brief($pdo) : '';
-    $out = [['role' => 'system', 'content' => assistant_ai_system_prompt($catalog)]];
+    $out = [['role' => 'system', 'content' => assistant_ai_system_prompt()]];
     foreach ($stored as $m) {
         $role = ($m['role'] ?? '') === 'assistant' ? 'assistant' : 'user';
         $content = trim((string) ($m['content'] ?? ''));
@@ -497,19 +415,11 @@ function assistant_openai_messages_for_api(array $stored, ?PDO $pdo = null): arr
 
 function assistant_complete_from_ai(PDO $pdo, string $sessionId, array $messages, array $tags, string $summary): array
 {
-    $transcript = assistant_transcript_plain($messages);
-    $inferred = assistant_infer_tags_from_text($transcript . "\n" . $summary);
-    foreach ($inferred as $tag => $weight) {
-        if (!in_array((string) $tag, $tags, true)) {
-            $tags[] = (string) $tag;
-        }
-    }
-
     if ($tags === []) {
         // استخراج اجباری با یک درخواست کوتاه
         $extractPrompt = [
-            ['role' => 'system', 'content' => 'از گفتگو تگ و خلاصه بساز. فقط JSON معتبر برگردان: {"tags":[...],"summary":"..."} تگ‌ها فقط از لیست مجاز دستیار مانا کلینیک. اگر مشکل زوجی/همسر بود حتماً couple و relationship بگذار.'],
-            ['role' => 'user', 'content' => "گفتگو:\n" . $transcript . "\n\nJSON:"],
+            ['role' => 'system', 'content' => 'از گفتگو تگ و خلاصه بساز. فقط JSON معتبر برگردان: {"tags":[...],"summary":"..."} تگ‌ها فقط از لیست مجاز دستیار مانا کلینیک.'],
+            ['role' => 'user', 'content' => "گفتگو:\n" . assistant_transcript_plain($messages) . "\n\nJSON:"],
         ];
         try {
             $raw = assistant_ai_chat($extractPrompt, 400);
@@ -573,52 +483,18 @@ function assistant_keyword_map(): array
         'anxiety' => ['اضطراب', 'نگرانی', 'panic', 'فوبیا', 'ترس'],
         'depression' => ['افسردگی', 'خلق', 'بی‌حوصلگی', 'mood'],
         'stress' => ['استرس', 'فرسودگی', 'burnout', 'فشار'],
-        'couple' => [
-            'زوج', 'ازدواج', 'زناشویی', 'زوج‌درمانی', 'زوج درمانی', 'زوجین',
-            'همسر', 'خانومم', 'خانمم', 'شوهرم', 'زنم', 'با خانوم', 'با همسر',
-            'مشکل با خانم', 'مشکل با زن',
-        ],
-        'relationship' => ['رابطه', 'عاطفی', 'عشق', 'ارتباط زوجی', 'مهارت ارتباطی'],
+        'couple' => ['زوج', 'ازدواج', 'عاطفی', 'رابطه', 'زوج‌درمانی', 'زوج درمانی'],
+        'relationship' => ['رابطه', 'عاطفی', 'عشق'],
         'family' => ['خانواده', 'فرزند', 'والدین', 'کودک'],
         'parenting' => ['فرزندپروری', 'فرزند', 'کودک'],
         'growth' => ['رشد', 'خودشناسی', 'مهارت'],
         'sleep' => ['خواب', 'بی‌خوابی'],
-        'therapy' => ['درمان', 'مشاوره', 'روان‌درمانی', 'روانشناس', 'درمانگر'],
-        'workshop' => ['کارگاه', 'دوره', 'گروه', 'کلاس'],
+        'therapy' => ['درمان', 'مشاوره', 'روان‌درمانی'],
+        'workshop' => ['کارگاه', 'دوره', 'گروه'],
         'IN_PERSON' => ['حضوری'],
         'ONLINE' => ['آنلاین'],
         'OFFLINE' => ['آفلاین', 'ویدیو'],
     ];
-}
-
-/** استخراج تگ از متن آزاد گفتگو (مثل «با خانومم مشکل دارم») */
-function assistant_infer_tags_from_text(string $text): array
-{
-    $text = trim($text);
-    if ($text === '') {
-        return [];
-    }
-    $found = [];
-    foreach (assistant_keyword_map() as $tag => $keywords) {
-        foreach ($keywords as $kw) {
-            if ($kw !== '' && mb_stripos($text, (string) $kw) !== false) {
-                $found[$tag] = ($found[$tag] ?? 0) + 2;
-                break;
-            }
-        }
-    }
-    return $found;
-}
-
-function assistant_merge_tag_maps(array ...$maps): array
-{
-    $out = [];
-    foreach ($maps as $map) {
-        foreach ($map as $tag => $weight) {
-            $out[(string) $tag] = ($out[(string) $tag] ?? 0) + (int) $weight;
-        }
-    }
-    return $out;
 }
 
 function assistant_score_text(string $haystack, array $tags): int
@@ -637,12 +513,9 @@ function assistant_score_text(string $haystack, array $tags): int
     return $score;
 }
 
-function assistant_match_doctors(PDO $pdo, array $answers, int $limit = 5, string $extraText = ''): array
+function assistant_match_doctors(PDO $pdo, array $answers, int $limit = 5): array
 {
-    $tags = assistant_merge_tag_maps(
-        assistant_collect_tags($answers),
-        assistant_infer_tags_from_text($extraText)
-    );
+    $tags = assistant_collect_tags($answers);
     $stmt = $pdo->query("
       SELECT dp.id, dp.specialty, dp.bio, dp.session_price, dp.avatar_url, u.name
       FROM doctor_profiles dp
@@ -652,20 +525,13 @@ function assistant_match_doctors(PDO $pdo, array $answers, int $limit = 5, strin
     ");
     $rows = $stmt->fetchAll();
     $scored = [];
-    $wantCouple = isset($tags['couple']) || isset($tags['relationship']);
     foreach ($rows as $row) {
         $blob = ((string) $row['specialty']) . ' ' . ((string) ($row['bio'] ?? '')) . ' ' . ((string) $row['name']);
         $score = assistant_score_text($blob, $tags);
-        if ($wantCouple) {
-            if (mb_stripos($blob, 'زوج') !== false || mb_stripos($blob, 'رابطه') !== false || mb_stripos($blob, 'خانواده') !== false) {
-                $score += 5;
-            } else {
-                // مشکل زوجی است؛ حتی بدون کلمه «زوج» در پروفایل هم پیشنهاد بده
-                $score += 1;
+        if (isset($tags['couple']) || isset($tags['relationship'])) {
+            if (mb_stripos($blob, 'زوج') !== false) {
+                $score += 4;
             }
-        }
-        if (isset($tags['therapy']) || isset($tags['anxiety']) || isset($tags['depression']) || isset($tags['stress'])) {
-            $score += 1;
         }
         $scored[] = [
             'id' => $row['id'],
@@ -681,28 +547,24 @@ function assistant_match_doctors(PDO $pdo, array $answers, int $limit = 5, strin
     if (!$scored) {
         return [];
     }
+    // فقط موارد واقعاً مرتبط؛ اگر هیچ امتیازی نبود لیست خالی (نه همه درمانگران)
     $positive = array_values(array_filter($scored, static fn ($r) => ($r['score'] ?? 0) > 0));
     if (!$positive) {
-        // fallback: حداقل چند درمانگر کلینیک را نشان بده
-        return array_slice($scored, 0, min(3, $limit));
+        return [];
     }
     return array_slice($positive, 0, min(3, $limit));
 }
 
-function assistant_match_workshops(PDO $pdo, array $answers, int $limit = 5, string $extraText = ''): array
+function assistant_match_workshops(PDO $pdo, array $answers, int $limit = 5): array
 {
     ensure_workshop_schema($pdo);
-    $tags = assistant_merge_tag_maps(
-        assistant_collect_tags($answers),
-        assistant_infer_tags_from_text($extraText)
-    );
+    $tags = assistant_collect_tags($answers);
     $preferTypes = [];
     foreach (['IN_PERSON', 'ONLINE', 'OFFLINE'] as $t) {
         if (isset($tags[$t])) {
             $preferTypes[] = $t;
         }
     }
-    $wantCouple = isset($tags['couple']) || isset($tags['relationship']);
 
     $sql = '
       SELECT w.id, w.title, w.type, w.price, w.description, w.starts_at, u.name AS doctor_name
@@ -723,17 +585,6 @@ function assistant_match_workshops(PDO $pdo, array $answers, int $limit = 5, str
         }
         if (isset($tags['workshop']) || isset($tags['group'])) {
             $score += 1;
-        }
-        if ($wantCouple) {
-            if (
-                mb_stripos($blob, 'زوج') !== false
-                || mb_stripos($blob, 'ازدواج') !== false
-                || mb_stripos($blob, 'رابطه') !== false
-                || mb_stripos($blob, 'همسر') !== false
-                || mb_stripos($blob, 'زناشویی') !== false
-            ) {
-                $score += 6;
-            }
         }
         $scored[] = [
             'id' => $row['id'],
@@ -889,24 +740,19 @@ function assistant_filter_by_ids(array $items, array $ids): array
 
 function assistant_complete_matching(PDO $pdo, string $sessionId, array $answers, ?array $messages = null, ?string $aiSummary = null): array
 {
-    $extraText = trim((string) $aiSummary);
-    if ($messages) {
-        $extraText .= "\n" . assistant_transcript_plain($messages);
-    }
-
-    $doctors = assistant_match_doctors($pdo, $answers, 8, $extraText);
-    $workshops = assistant_match_workshops($pdo, $answers, 8, $extraText);
+    $doctors = assistant_match_doctors($pdo, $answers, 8);
+    $workshops = assistant_match_workshops($pdo, $answers, 8);
     $summary = trim((string) $aiSummary);
     if ($summary === '' && $messages) {
         $summary = mb_substr(assistant_transcript_plain($messages), 0, 800);
     }
 
     if ($doctors) {
-        $docIds = assistant_ai_pick_ids($summary !== '' ? $summary : 'نیاز مشاوره روانشناسی در مانا کلینیک', $doctors, 'doctor', 3);
+        $docIds = assistant_ai_pick_ids($summary !== '' ? $summary : 'نیاز مشاوره روانشناسی', $doctors, 'doctor', 3);
         $doctors = assistant_filter_by_ids($doctors, $docIds);
     }
     if ($workshops) {
-        $wsIds = assistant_ai_pick_ids($summary !== '' ? $summary : 'نیاز کارگاه در مانا کلینیک', $workshops, 'workshop', 3);
+        $wsIds = assistant_ai_pick_ids($summary !== '' ? $summary : 'نیاز کارگاه', $workshops, 'workshop', 3);
         $workshops = assistant_filter_by_ids($workshops, $wsIds);
     }
 
