@@ -93,6 +93,7 @@ $routes = [
     'GET /secretary/workshops' => 'pages/secretary/workshops.php',
     'POST /secretary/workshops' => 'actions/secretary_workshops.php',
     'POST /secretary/workshop-media' => 'actions/secretary_workshop_media.php',
+    'GET /secretary/intakes' => 'pages/secretary/intakes.php',
 
     'GET /doctor' => 'pages/doctor/dashboard.php',
     'GET /doctor/profile' => 'pages/doctor/profile.php',
@@ -146,6 +147,17 @@ if (preg_match('#^/tests/([a-zA-Z0-9_-]+)$#', $path, $m) && $method === 'GET') {
 }
 if (preg_match('#^/workshop-media/stream$#', $path) && $method === 'GET') {
     require __DIR__ . '/actions/workshop_media_stream.php';
+    exit;
+}
+
+if (preg_match('#^/secretary/intakes/([a-zA-Z0-9_-]+)$#', $path, $m) && $method === 'GET') {
+    $_GET['id'] = $m[1];
+    require __DIR__ . '/pages/secretary/intake_detail.php';
+    exit;
+}
+if (preg_match('#^/secretary/intakes/([a-zA-Z0-9_-]+)/assign$#', $path, $m) && $method === 'POST') {
+    $_GET['id'] = $m[1];
+    require __DIR__ . '/actions/secretary_intake_assign.php';
     exit;
 }
 

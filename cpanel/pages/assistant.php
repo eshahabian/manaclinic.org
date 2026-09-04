@@ -34,7 +34,7 @@ ob_start();
     <p class="muted">
       <?= assistant_ai_available()
         ? 'گفتگوی واقعی با دستیار هوشمند برای پیدا کردن درمانگر یا کارگاه مناسب'
-        : 'گفتگوی کوتاه و هدایت‌شده برای پیدا کردن درمانگر یا کارگاه مناسب' ?>
+        : 'توجه: کلید API روی سرور تنظیم نشده — فعلاً حالت سوال‌های ثابت فعال است. برای هوش مصنوعی واقعی، openai_api_key را در config.php سرور بگذارید.' ?>
     </p>
   </div>
 
@@ -51,6 +51,6 @@ ob_start();
 $content = ob_get_clean();
 
 $pageScripts = '<script>window.__ASSISTANT__ = ' . json_encode($assistantConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . ';</script>'
-    . '<script src="' . e(url('/assets/js/assistant.js')) . '?v=20260904c"></script>';
+    . '<script src="' . e(url('/assets/js/assistant.js')) . '?v=20260904d"></script>';
 
 require __DIR__ . '/../includes/layout.php';

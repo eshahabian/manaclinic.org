@@ -15,7 +15,7 @@ $user = current_user();
 if (!$user || ($user['role'] ?? '') !== 'PATIENT') {
     http_response_code(401);
     echo json_encode([
-        'error' => 'برای ارسال شرح‌حال به درمانگر، ابتدا وارد شوید.',
+        'error' => 'برای ارسال خلاصه به کلینیک، ابتدا وارد شوید.',
         'loginUrl' => url('/login') . '?next=' . rawurlencode(url('/assistant')),
     ], JSON_UNESCAPED_UNICODE);
     exit;
@@ -23,7 +23,7 @@ if (!$user || ($user['role'] ?? '') !== 'PATIENT') {
 
 ensure_assistant_schema($pdo);
 $sessionId = trim(post('sessionId'));
-$doctorId = trim(post('doctorId'));
+$doctorId = trim(post('doctorId')); // اختیاری — فقط ترجیح
 
 try {
     $session = assistant_session_get($pdo, $sessionId);
@@ -33,7 +33,7 @@ try {
     if ($session['status'] === 'SENT') {
         echo json_encode([
             'ok' => true,
-            'message' => 'شرح‌حال قبلاً ارسال شده است.',
+            'message' => 'خلاصه قبلاً برای کلینیک ارسال شده است. منشی ارجاع را انجام می‌دهد.',
             'reportUrl' => url('/assistant/report?session=' . rawurlencode($sessionId)),
         ], JSON_UNESCAPED_UNICODE);
         exit;
@@ -41,17 +41,18 @@ try {
     if ($session['status'] !== 'COMPLETED') {
         throw new RuntimeException('ابتدا گفتگو را کامل کنید.');
     }
-    if ($doctorId === '') {
-        throw new RuntimeException('یک درمانگر را انتخاب کنید.');
-    }
 
-    assistant_send_to_doctor($pdo, $session, (string) $user['id'], $doctorId);
+    assistant_send_to_clinic(
+        $pdo,
+        $session,
+        (string) $user['id'],
+        $doctorId !== '' ? $doctorId : null
+    );
 
     echo json_encode([
         'ok' => true,
-        'message' => 'شرح‌حال به پرونده درمانگر ارسال شد.',
+        'message' => 'خلاصه گفتگو برای منشی و تیم کلینیک ارسال شد. منشی در صورت نیاز به درمانگر ارجاع می‌دهد.',
         'reportUrl' => url('/assistant/report?session=' . rawurlencode($sessionId)),
-        'doctorPatientsUrl' => url('/dashboard'),
     ], JSON_UNESCAPED_UNICODE);
 } catch (Throwable $e) {
     http_response_code(400);

@@ -6,6 +6,7 @@ function secretary_nav(): array
     return [
         ['href' => '/secretary', 'label' => 'خلاصه'],
         ['href' => '/secretary/book', 'label' => 'رزرو برای بیمار'],
+        ['href' => '/secretary/intakes', 'label' => 'گفتگوهای دستیار'],
         ['href' => '/secretary/workshops', 'label' => 'کارگاه‌ها'],
         ['href' => '/secretary/appointments', 'label' => 'نوبت‌ها'],
     ];

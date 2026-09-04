@@ -24,7 +24,7 @@ return [
     // دستیار گفت‌وگوی «با من حرف بزن»
     'assistant_enabled' => true,
     // Metis AI / درگاه OpenAI-compatible — کلید را فقط در config.php بگذارید (نه در git)
-    'openai_api_key' => '',
+    'openai_api_key' => '', // روی سرور واقعی حتماً کلید Metis را بگذارید؛ بدون آن سوال‌ها ثابت می‌مانند
     'openai_base_url' => 'https://api.metisai.ir/openai/v1',
     'openai_model' => 'gpt-4o-mini',
 ];

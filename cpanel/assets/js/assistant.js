@@ -7,7 +7,7 @@
   var registerUrl = cfg.registerUrl || "";
   var resumeSession = cfg.resumeSession || "";
   var loggedIn = !!cfg.loggedIn;
-  var preferAi = cfg.aiEnabled !== false;
+  var preferAi = !!cfg.aiEnabled;
 
   var messagesEl = document.getElementById("assistant-messages");
   var controlsEl = document.getElementById("assistant-controls");
@@ -211,16 +211,18 @@
     var doctors = data.doctors || [];
     var workshops = data.workshops || [];
     var html = '<div class="assistant-match">';
-    html += "<h2>پیشنهاد درمانگر</h2>";
+    html += "<h2>پیشنهاد درمانگر (مرتبط)</h2>";
     if (!doctors.length) {
       html +=
-        '<p class="muted">فعلاً درمانگر پیشنهادی یافت نشد. از صفحه متخصصان می‌توانید انتخاب کنید.</p>';
+        '<p class="muted">پیشنهاد دقیقی پیدا نشد — منشی پس از دریافت خلاصه، درمانگر مناسب را انتخاب می‌کند.</p>';
     } else {
       html += '<div class="assistant-doctor-list">';
-      doctors.forEach(function (d, i) {
-        var checked =
-          selectedDoctorId === d.id || (!selectedDoctorId && i === 0) ? " checked" : "";
-        if (checked.trim()) selectedDoctorId = d.id;
+      html +=
+        '<label class="assistant-doctor-card"><input type="radio" name="doctorPick" value=""' +
+        (!selectedDoctorId ? " checked" : "") +
+        '><span><strong>بدون ترجیح</strong><br><span class="muted">منشی تصمیم بگیرد</span></span></label>';
+      doctors.forEach(function (d) {
+        var checked = selectedDoctorId === d.id ? " checked" : "";
         html +=
           '<label class="assistant-doctor-card">' +
           '<input type="radio" name="doctorPick" value="' +
@@ -264,21 +266,23 @@
     html += '<div class="assistant-actions" style="margin-top:1.25rem">';
     if (data.status === "SENT") {
       html +=
-        '<p class="flash flash-success" style="margin:0">شرح‌حال ارسال شده است.</p>';
+        '<p class="flash flash-success" style="margin:0">خلاصه برای کلینیک ارسال شده؛ منشی ارجاع را انجام می‌دهد.</p>';
       html +=
         '<a class="btn btn-outline" href="' +
         esc(reportBase + "?session=" + encodeURIComponent(sessionId)) +
         '">مشاهده / چاپ گزارش</a>';
     } else if (loggedIn || data.loggedIn) {
       html +=
-        '<button type="button" class="btn btn-primary" id="assistant-send-btn">ارسال شرح‌حال به درمانگر</button>';
+        '<button type="button" class="btn btn-primary" id="assistant-send-btn">ارسال خلاصه به کلینیک</button>';
       html +=
         '<a class="btn btn-outline" href="' +
         esc(reportBase + "?session=" + encodeURIComponent(sessionId)) +
         '">پیش‌نمایش چاپ</a>';
+      html +=
+        '<p class="muted" style="width:100%;margin:.35rem 0 0;font-size:.82rem">منشی خلاصه را می‌بیند و در صورت نیاز به درمانگر ارجاع می‌دهد. انتخاب درمانگر اختیاری است (ترجیح شما).</p>';
     } else {
       html +=
-        '<p class="muted" style="width:100%;margin:0 0 .5rem">برای ارسال شرح‌حال به درمانگر، وارد شوید یا ثبت‌نام کنید.</p>';
+        '<p class="muted" style="width:100%;margin:0 0 .5rem">برای ارسال خلاصه به کلینیک، وارد شوید یا ثبت‌نام کنید.</p>';
       html +=
         '<a class="btn btn-primary" href="' +
         esc(data.loginUrl || loginUrl) +
@@ -297,18 +301,20 @@
 
     resultsEl.querySelectorAll("input[name=doctorPick]").forEach(function (inp) {
       inp.addEventListener("change", function () {
-        selectedDoctorId = inp.value;
+        selectedDoctorId = inp.value || "";
       });
     });
+    selectedDoctorId = "";
+    var checked = resultsEl.querySelector("input[name=doctorPick]:checked");
+    if (checked) selectedDoctorId = checked.value || "";
     var sendBtn = document.getElementById("assistant-send-btn");
     if (sendBtn) {
       sendBtn.addEventListener("click", function () {
-        if (!selectedDoctorId) {
-          alert("یک درمانگر را انتخاب کنید.");
-          return;
-        }
         setBusy(true);
-        postForm(sendUrl, { sessionId: sessionId, doctorId: selectedDoctorId })
+        postForm(sendUrl, {
+          sessionId: sessionId,
+          doctorId: selectedDoctorId || "",
+        })
           .then(function (res) {
             addMsg("bot", res.message || "ارسال شد.");
             window.location.href =

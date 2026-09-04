@@ -58,7 +58,23 @@ function ensure_assistant_schema(PDO $pdo): void
             $pdo->exec('ALTER TABLE assistant_sessions ADD COLUMN messages_json MEDIUMTEXT NULL AFTER answers_json');
         }
     } catch (Throwable $e) {
-        // ignore migration race
+        // ignore
+    }
+    try {
+        $cols = $pdo->query('SHOW COLUMNS FROM assistant_sessions LIKE \'assigned_at\'')->fetchAll();
+        if (!$cols) {
+            $pdo->exec('ALTER TABLE assistant_sessions ADD COLUMN assigned_at DATETIME NULL AFTER sent_at');
+        }
+    } catch (Throwable $e) {
+        // ignore
+    }
+    try {
+        $cols = $pdo->query('SHOW COLUMNS FROM assistant_sessions LIKE \'ai_summary\'')->fetchAll();
+        if (!$cols) {
+            $pdo->exec('ALTER TABLE assistant_sessions ADD COLUMN ai_summary TEXT NULL AFTER intake_text');
+        }
+    } catch (Throwable $e) {
+        // ignore
     }
     $ready = true;
 }
@@ -212,18 +228,21 @@ function assistant_messages_save(PDO $pdo, string $sessionId, array $messages): 
 function assistant_ai_system_prompt(): string
 {
     return <<<'PROMPT'
-تو دستیار گفت‌وگوی اولیه «مانا کلینیک» هستی. با لحن گرم، کوتاه و محترمانه به فارسی صحبت کن.
+تو دستیار گفت‌وگوی اولیه «مانا کلینیک» هستی. با لحن گرم، کوتاه و محترمانه به فارسی حرف بزن.
 هدف: فهمیدن نیاز مراجع برای پیشنهاد درمانگر یا کارگاه — نه تشخیص پزشکی و نه درمان.
-قواعد:
-- تشخیص نده، دارو پیشنهاد نده، بحران را جدی بگیر و در صورت خطر به اورژانس ۱۱۵ ارجاع بده.
-- هر بار معمولاً یک سوال کوتاه بپرس.
-- درباره موضوع اصلی، شدت، مدت، ترجیح فردی/زوجی/کارگاه، حضوری/آنلاین/آفلاین، خواب، حمایت، و هدف مراجع بپرس.
-- وقتی اطلاعات کافی برای پیشنهاد گرفتی، یک خلاصه کوتاه همدلانه بنویس و در انتهای پیام دقیقاً این بلوک را اضافه کن (بدون توضیح اضافه بعد از آن):
+
+قواعد خیلی مهم:
+- تشخیص نده، دارو پیشنهاد نده.
+- اگر بحران یا خطر جدی بود، به اورژانس ۱۱۵ ارجاع بده.
+- هر پیام حداکثر ۱ یا ۲ جمله سوال داشته باشد.
+- سوال تکراری نپرس؛ اگر قبلاً جواب داده، موضوع بعدی را بپرس.
+- موضوعات مفید (به ترتیب نیاز، نه لزوماً همه): موضوع اصلی، شدت، مدت، فردی/زوجی/کارگاه، حضوری/آنلاین/آفلاین، خواب/حمایت، هدف از مراجعه.
+- وقتی حداقل موضوع اصلی + شدت/نیاز و ترجیح جلسه را فهمیدی، جمع‌بندی کن و بلوک زیر را دقیقاً در انتهای پیام بگذار:
 
 <<<READY>>>
 {"tags":["anxiety","moderate","therapy","ONLINE"],"summary":"خلاصه کوتاه فارسی از وضعیت و نیاز مراجع"}
 
-تگ‌های مجاز (فقط از این‌ها استفاده کن): anxiety, depression, stress, burnout, couple, relationship, family, parenting, growth, self, mild, moderate, high, urgent, recent, months, chronic, individual, therapy, workshop, group, unsure, IN_PERSON, ONLINE, OFFLINE, sleep, support, mood.
+تگ‌های مجاز: anxiety, depression, stress, burnout, couple, relationship, family, parenting, growth, self, mild, moderate, high, urgent, recent, months, chronic, individual, therapy, workshop, group, unsure, IN_PERSON, ONLINE, OFFLINE, sleep, support, mood.
 PROMPT;
 }
 
@@ -511,11 +530,12 @@ function assistant_match_doctors(PDO $pdo, array $answers, int $limit = 5): arra
     if (!$scored) {
         return [];
     }
-    // اگر همه صفر بودند، همچنان چند درمانگر اول را برگردان
-    if (($scored[0]['score'] ?? 0) === 0) {
-        return array_slice($scored, 0, min(3, $limit));
+    // فقط موارد واقعاً مرتبط؛ اگر هیچ امتیازی نبود لیست خالی (نه همه درمانگران)
+    $positive = array_values(array_filter($scored, static fn ($r) => ($r['score'] ?? 0) > 0));
+    if (!$positive) {
+        return [];
     }
-    return array_slice($scored, 0, $limit);
+    return array_slice($positive, 0, min(3, $limit));
 }
 
 function assistant_match_workshops(PDO $pdo, array $answers, int $limit = 5): array
@@ -564,10 +584,11 @@ function assistant_match_workshops(PDO $pdo, array $answers, int $limit = 5): ar
     if (!$scored) {
         return [];
     }
-    if (($scored[0]['score'] ?? 0) === 0) {
-        return array_slice($scored, 0, min(3, $limit));
+    $positive = array_values(array_filter($scored, static fn ($r) => ($r['score'] ?? 0) > 0));
+    if (!$positive) {
+        return [];
     }
-    return array_slice(array_filter($scored, static fn ($r) => $r['score'] > 0) ?: array_slice($scored, 0, 3), 0, $limit);
+    return array_slice($positive, 0, min(3, $limit));
 }
 
 function assistant_answer_label(array $answer): string
@@ -650,14 +671,78 @@ function assistant_save_progress(PDO $pdo, string $sessionId, int $step, array $
     $pdo->prepare("UPDATE assistant_sessions SET {$fields} WHERE id=?")->execute($params);
 }
 
+function assistant_ai_pick_ids(string $summary, array $candidates, string $kind, int $limit = 3): array
+{
+    if (!assistant_ai_available() || $candidates === [] || trim($summary) === '') {
+        return array_slice(array_column($candidates, 'id'), 0, $limit);
+    }
+    $lines = [];
+    foreach ($candidates as $i => $c) {
+        if ($kind === 'doctor') {
+            $lines[] = ($i + 1) . '. id=' . $c['id'] . ' | ' . ($c['name'] ?? '') . ' | ' . ($c['specialty'] ?? '') . ' | score=' . ($c['score'] ?? 0);
+        } else {
+            $lines[] = ($i + 1) . '. id=' . $c['id'] . ' | ' . ($c['title'] ?? '') . ' | ' . ($c['type_label'] ?? $c['type'] ?? '') . ' | score=' . ($c['score'] ?? 0);
+        }
+    }
+    $prompt = [
+        ['role' => 'system', 'content' => 'فقط JSON برگردان: {"ids":["id1","id2"]} حداکثر ' . $limit . ' مورد مرتبط‌ترین را انتخاب کن. اگر هیچ‌کدام مرتبط نبود {"ids":[]}.'],
+        ['role' => 'user', 'content' => "خلاصه نیاز مراجع:\n{$summary}\n\nنامزدها ({$kind}):\n" . implode("\n", $lines)],
+    ];
+    try {
+        $raw = assistant_ai_chat($prompt, 200);
+        if (preg_match('/\{.*\}/s', $raw, $m)) {
+            $meta = json_decode($m[0], true);
+            $ids = array_values(array_filter(array_map('strval', $meta['ids'] ?? [])));
+            $allowed = array_column($candidates, 'id');
+            $ids = array_values(array_filter($ids, static fn ($id) => in_array($id, $allowed, true)));
+            return array_slice($ids, 0, $limit);
+        }
+    } catch (Throwable $e) {
+        // fallback keyword order
+    }
+    return array_slice(array_column($candidates, 'id'), 0, $limit);
+}
+
+function assistant_filter_by_ids(array $items, array $ids): array
+{
+    if ($ids === []) {
+        return [];
+    }
+    $map = [];
+    foreach ($items as $item) {
+        $map[(string) ($item['id'] ?? '')] = $item;
+    }
+    $out = [];
+    foreach ($ids as $id) {
+        if (isset($map[$id])) {
+            $out[] = $map[$id];
+        }
+    }
+    return $out;
+}
+
 function assistant_complete_matching(PDO $pdo, string $sessionId, array $answers, ?array $messages = null, ?string $aiSummary = null): array
 {
-    $doctors = assistant_match_doctors($pdo, $answers);
-    $workshops = assistant_match_workshops($pdo, $answers);
+    $doctors = assistant_match_doctors($pdo, $answers, 8);
+    $workshops = assistant_match_workshops($pdo, $answers, 8);
+    $summary = trim((string) $aiSummary);
+    if ($summary === '' && $messages) {
+        $summary = mb_substr(assistant_transcript_plain($messages), 0, 800);
+    }
+
+    if ($doctors) {
+        $docIds = assistant_ai_pick_ids($summary !== '' ? $summary : 'نیاز مشاوره روانشناسی', $doctors, 'doctor', 3);
+        $doctors = assistant_filter_by_ids($doctors, $docIds);
+    }
+    if ($workshops) {
+        $wsIds = assistant_ai_pick_ids($summary !== '' ? $summary : 'نیاز کارگاه', $workshops, 'workshop', 3);
+        $workshops = assistant_filter_by_ids($workshops, $wsIds);
+    }
+
     $intake = assistant_build_intake_text(['id' => $sessionId], $answers, $doctors, $workshops, null, $messages, $aiSummary);
     $pdo->prepare('
       UPDATE assistant_sessions
-      SET status=?, current_step=?, answers_json=?, matched_doctors_json=?, matched_workshops_json=?, intake_text=?
+      SET status=?, current_step=?, answers_json=?, matched_doctors_json=?, matched_workshops_json=?, intake_text=?, ai_summary=?
       WHERE id=?
     ')->execute([
         'COMPLETED',
@@ -666,20 +751,99 @@ function assistant_complete_matching(PDO $pdo, string $sessionId, array $answers
         json_encode($doctors, JSON_UNESCAPED_UNICODE),
         json_encode($workshops, JSON_UNESCAPED_UNICODE),
         $intake,
+        $aiSummary,
         $sessionId,
     ]);
     return [
         'doctors' => $doctors,
         'workshops' => $workshops,
         'intake_text' => $intake,
+        'ai_summary' => $aiSummary,
     ];
 }
 
-function assistant_send_to_doctor(PDO $pdo, array $session, string $patientId, string $doctorProfileId): void
+/** ارسال خلاصه به کلینیک (منشی) — ارجاع نهایی با منشی است */
+function assistant_send_to_clinic(PDO $pdo, array $session, string $patientId, ?string $preferredDoctorId = null): void
 {
     $answers = assistant_answers_decode($session['answers_json'] ?? null);
     $doctors = json_decode((string) ($session['matched_doctors_json'] ?? '[]'), true) ?: [];
     $workshops = json_decode((string) ($session['matched_workshops_json'] ?? '[]'), true) ?: [];
+    $messages = assistant_messages_decode($session['messages_json'] ?? null);
+    $aiSummary = trim((string) ($session['ai_summary'] ?? ''));
+
+    $preferredName = null;
+    if ($preferredDoctorId) {
+        $docStmt = $pdo->prepare("
+          SELECT dp.id, u.name FROM doctor_profiles dp
+          JOIN users u ON u.id = dp.user_id
+          WHERE dp.id=? AND dp.is_active=1 AND dp.is_approved=1 LIMIT 1
+        ");
+        $docStmt->execute([$preferredDoctorId]);
+        $doctor = $docStmt->fetch();
+        if (!$doctor) {
+            throw new RuntimeException('درمانگر انتخاب‌شده معتبر نیست.');
+        }
+        $preferredName = (string) $doctor['name'];
+    }
+
+    $intake = assistant_build_intake_text(
+        $session,
+        $answers,
+        $doctors,
+        $workshops,
+        $preferredName,
+        $messages ?: null,
+        $aiSummary !== '' ? $aiSummary : null
+    );
+
+    $patient = $pdo->prepare('SELECT name, phone FROM users WHERE id=? LIMIT 1');
+    $patient->execute([$patientId]);
+    $p = $patient->fetch() ?: ['name' => 'مراجع', 'phone' => ''];
+
+    $pdo->prepare('
+      UPDATE assistant_sessions
+      SET status=?, patient_id=?, selected_doctor_id=?, intake_text=?, sent_at=NOW(), assigned_at=NULL
+      WHERE id=?
+    ')->execute(['SENT', $patientId, $preferredDoctorId, $intake, $session['id']]);
+
+    $prefNote = $preferredName ? ("ترجیح مراجع: «{$preferredName}». ") : 'هنوز درمانگر نهایی انتخاب نشده. ';
+    $short = $aiSummary !== '' ? $aiSummary : mb_substr($intake, 0, 280);
+
+    notify_role(
+        $pdo,
+        'SECRETARY',
+        'خلاصه گفتگوی دستیار — نیازمند ارجاع',
+        $prefNote . 'مراجع «' . ($p['name'] ?? '') . '»: ' . $short,
+        '/secretary/intakes/' . $session['id']
+    );
+
+    // اطلاع کوتاه به درمانگران پیشنهادی (بدون ثبت پرونده تا ارجاع منشی)
+    foreach (array_slice($doctors, 0, 3) as $d) {
+        if (!empty($d['id'])) {
+            notify_doctor_profile(
+                $pdo,
+                (string) $d['id'],
+                'گفتگوی اولیه جدید در کلینیک',
+                'یک خلاصه گفتگو برای ارجاع منشی ثبت شد' . ($preferredName ? " (ترجیح: {$preferredName})" : '') . '.',
+                '/doctor'
+            );
+        }
+    }
+}
+
+/** ارجاع منشی به درمانگر مشخص + ثبت در پرونده */
+function assistant_assign_to_doctor(PDO $pdo, array $session, string $doctorProfileId, ?string $secretaryNote = null): void
+{
+    if (($session['status'] ?? '') !== 'SENT') {
+        throw new RuntimeException('این گفتگو برای ارجاع آماده نیست.');
+    }
+    if (!empty($session['assigned_at'])) {
+        throw new RuntimeException('قبلاً به درمانگر ارجاع شده است.');
+    }
+    $patientId = (string) ($session['patient_id'] ?? '');
+    if ($patientId === '') {
+        throw new RuntimeException('مراجع این جلسه مشخص نیست.');
+    }
 
     $docStmt = $pdo->prepare("
       SELECT dp.id, u.name FROM doctor_profiles dp
@@ -689,35 +853,42 @@ function assistant_send_to_doctor(PDO $pdo, array $session, string $patientId, s
     $docStmt->execute([$doctorProfileId]);
     $doctor = $docStmt->fetch();
     if (!$doctor) {
-        throw new RuntimeException('درمانگر انتخاب‌شده معتبر نیست.');
+        throw new RuntimeException('درمانگر معتبر نیست.');
     }
 
-    $intake = assistant_build_intake_text(
-        $session,
-        $answers,
-        $doctors,
-        $workshops,
-        (string) $doctor['name'],
-        assistant_messages_decode($session['messages_json'] ?? null) ?: null
-    );
+    $intake = trim((string) ($session['intake_text'] ?? ''));
+    if ($secretaryNote) {
+        $intake .= "\n\n— یادداشت منشی —\n" . trim($secretaryNote);
+    }
+    $intake .= "\nدرمانگر ارجاع‌شده: " . $doctor['name'];
+
     $chart = get_or_create_patient_chart($pdo, $doctorProfileId, $patientId);
     $existing = trim((string) ($chart['history_text'] ?? ''));
-    $block = "\n\n" . $intake . "\n";
-    $newHistory = $existing === '' ? $intake : ($existing . $block);
+    $newHistory = $existing === '' ? $intake : ($existing . "\n\n" . $intake);
     $pdo->prepare('UPDATE doctor_patient_charts SET history_text=? WHERE id=?')
         ->execute([$newHistory, $chart['id']]);
 
     $pdo->prepare('
       UPDATE assistant_sessions
-      SET status=?, patient_id=?, selected_doctor_id=?, intake_text=?, sent_at=NOW()
+      SET selected_doctor_id=?, intake_text=?, assigned_at=NOW()
       WHERE id=?
-    ')->execute(['SENT', $patientId, $doctorProfileId, $intake, $session['id']]);
+    ')->execute([$doctorProfileId, $intake, $session['id']]);
+
+    // ترجیح درمانگر مراجع
+    $pdo->prepare('UPDATE users SET preferred_doctor_id=? WHERE id=? AND role=?')
+        ->execute([$doctorProfileId, $patientId, 'PATIENT']);
 
     notify_doctor_profile(
         $pdo,
         $doctorProfileId,
-        'شرح‌حال اولیه از دستیار سایت',
-        'یک مراجع از طریق «با من حرف بزن» شرح‌حال اولیه ارسال کرد. در پرونده بیماران ببینید.',
+        'ارجاع شرح‌حال از منشی',
+        'منشی یک شرح‌حال گفتگوی اولیه را به شما ارجاع داد.',
         '/doctor/patients/' . $patientId
     );
+}
+
+/** سازگاری قدیمی */
+function assistant_send_to_doctor(PDO $pdo, array $session, string $patientId, string $doctorProfileId): void
+{
+    assistant_send_to_clinic($pdo, $session, $patientId, $doctorProfileId);
 }
