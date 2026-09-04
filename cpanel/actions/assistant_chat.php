@@ -47,7 +47,7 @@ try {
             $greeting = "سلام، خوش اومدید.\nمن دستیار مانا کلینیک هستم. با من حرف بزنید — هر چی الان روی دلتان است را بگویید تا کمک کنم درمانگر یا کارگاه مناسب پیدا کنیم.";
             try {
                 $aiText = assistant_ai_chat([
-                    ['role' => 'system', 'content' => assistant_ai_system_prompt()],
+                    ['role' => 'system', 'content' => assistant_ai_system_prompt(assistant_catalog_brief($pdo))],
                     ['role' => 'user', 'content' => 'گفتگو را با یک سلام کوتاه و دعوت به حرف زدن شروع کن. هنوز سوال تخصصی نپرس؛ فقط خوش‌آمد بگو.'],
                 ], 180);
                 $parsed = assistant_ai_parse_reply($aiText);
@@ -109,7 +109,7 @@ try {
 
         $messages = assistant_messages_decode($session['messages_json'] ?? null);
         $messages[] = ['role' => 'user', 'content' => $text];
-        $apiMessages = assistant_openai_messages_for_api($messages);
+        $apiMessages = assistant_openai_messages_for_api($messages, $pdo);
         $rawReply = assistant_ai_chat($apiMessages);
         $parsed = assistant_ai_parse_reply($rawReply);
         $messages[] = ['role' => 'assistant', 'content' => $parsed['text']];
@@ -153,8 +153,8 @@ try {
             throw new RuntimeException('لطفاً کمی بیشتر درباره وضعیتتان بنویسید.');
         }
         $messages[] = ['role' => 'user', 'content' => 'لطفاً جمع‌بندی کن و پیشنهاد درمانگر/کارگاه را آماده کن.'];
-        $apiMessages = assistant_openai_messages_for_api($messages);
-        $apiMessages[] = ['role' => 'system', 'content' => 'الان باید بلوک <<<READY>>> را با tags و summary برگردانی.'];
+        $apiMessages = assistant_openai_messages_for_api($messages, $pdo);
+        $apiMessages[] = ['role' => 'system', 'content' => 'الان باید بلوک <<<READY>>> را با tags و summary برگردانی. از فهرست مانا کلینیک پیشنهاد بده و هرگز نگو نمی‌توانی معرفی کنی.'];
         $rawReply = assistant_ai_chat($apiMessages, 500);
         $parsed = assistant_ai_parse_reply($rawReply);
         $messages[] = ['role' => 'assistant', 'content' => $parsed['text']];
