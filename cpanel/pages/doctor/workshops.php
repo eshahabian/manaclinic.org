@@ -100,8 +100,8 @@ ob_start();
   <h2 style="margin:0;font-size:1.05rem">کارگاه‌های من</h2>
   <?php foreach ($workshops as $workshop): ?>
     <div class="panel" id="workshop-<?= e($workshop['id']) ?>">
-      <div class="row-between" style="align-items:flex-start">
-        <div>
+      <div class="workshop-card-row">
+        <div class="workshop-card-main">
           <strong><?= e($workshop['title']) ?></strong>
           <span class="badge" style="margin-right:.5rem"><?= e(workshop_type_label($workshop['type'])) ?></span>
           <?php $workshopMediaStats = workshop_media_counts_html(workshop_media_counts_from_row($workshop)); if ($workshopMediaStats): ?>
@@ -134,7 +134,7 @@ ob_start();
             <p style="color:var(--success);font-size:.8rem;margin-top:.5rem">برای همه مراجعان در «دوره‌های من» → تب <?= e(workshop_type_label($workshop['type'])) ?> قابل مشاهده و ثبت‌نام است.</p>
           <?php endif; ?>
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:.5rem;justify-content:flex-end">
+        <div class="workshop-card-actions">
           <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/workshop-export?id=' . $workshop['id'])) ?>">خروجی ثبت‌نام‌ها</a>
           <?php if ($workshop['status'] !== 'CANCELLED'): ?>
             <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/workshops?edit=' . $workshop['id'])) ?>#session-notes">یادداشت جلسات</a>

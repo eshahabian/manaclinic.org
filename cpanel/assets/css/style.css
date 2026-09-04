@@ -468,6 +468,36 @@ jdp-container, .jdp-container, [class*="jdp"] {
 .stack { display: grid; gap: .75rem; }
 .row-between { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .75rem; align-items: start; }
 
+.workshop-card-row {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: .75rem 1rem;
+  align-items: flex-start;
+  justify-content: space-between;
+}
+.workshop-card-main {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.workshop-card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  justify-content: flex-end;
+  flex: 0 0 auto;
+  max-width: min(100%, 22rem);
+}
+@media (max-width: 720px) {
+  .workshop-card-row {
+    flex-wrap: wrap;
+  }
+  .workshop-card-actions {
+    width: 100%;
+    max-width: none;
+    justify-content: flex-start;
+  }
+}
+
 /* ادیتور شرح حال */
 .clinical-board {
   display: grid;

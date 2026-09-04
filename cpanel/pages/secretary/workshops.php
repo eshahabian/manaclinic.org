@@ -73,8 +73,8 @@ ob_start();
   <h2 style="margin:0;font-size:1.05rem">همه کارگاه‌ها</h2>
   <?php foreach ($workshops as $workshop): ?>
     <div class="panel" id="workshop-<?= e($workshop['id']) ?>">
-      <div class="row-between" style="align-items:flex-start">
-        <div>
+      <div class="workshop-card-row">
+        <div class="workshop-card-main">
           <strong><?= e($workshop['title']) ?></strong>
           <span class="badge" style="margin-right:.5rem"><?= e(workshop_type_label($workshop['type'])) ?></span>
           <?php $stats = workshop_media_counts_html(workshop_media_counts_from_row($workshop)); if ($stats): ?>
@@ -93,7 +93,7 @@ ob_start();
             · <?= !empty($workshop['enrollment_open']) ? 'ثبت‌نام باز' : 'ثبت‌نام بسته' ?>
           </div>
         </div>
-        <div style="display:flex;flex-wrap:wrap;gap:.5rem;justify-content:flex-end">
+        <div class="workshop-card-actions">
           <?php if ($workshop['status'] !== 'COMPLETED' && $workshop['status'] !== 'CANCELLED'): ?>
             <a class="btn btn-outline btn-sm" href="<?= e(url('/secretary/workshops?edit=' . $workshop['id'])) ?>#workshop-form">ویرایش / فایل</a>
             <form method="post" action="<?= e(url('/secretary/workshops')) ?>">
