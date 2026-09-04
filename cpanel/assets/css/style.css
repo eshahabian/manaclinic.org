@@ -481,11 +481,25 @@ jdp-container, .jdp-container, [class*="jdp"] {
 }
 .workshop-card-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: .5rem;
+  flex-wrap: nowrap;
+  gap: .45rem;
   justify-content: flex-end;
+  align-items: center;
   flex: 0 0 auto;
-  max-width: min(100%, 22rem);
+  max-width: none;
+}
+.workshop-card-actions .btn {
+  white-space: nowrap;
+}
+.workshop-card-actions form {
+  display: inline-flex;
+  margin: 0;
+}
+@media (max-width: 900px) {
+  .workshop-card-actions {
+    flex-wrap: wrap;
+    max-width: min(100%, 28rem);
+  }
 }
 @media (max-width: 720px) {
   .workshop-card-row {

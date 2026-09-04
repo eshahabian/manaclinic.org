@@ -108,6 +108,10 @@ function workshop_ensure_columns(PDO $pdo): void
     if ($locationCol && stripos((string) $locationCol['Type'], 'varchar') !== false) {
         $pdo->exec('ALTER TABLE workshops MODIFY location TEXT NULL');
     }
+    $hasGroupUrl = $pdo->query("SHOW COLUMNS FROM workshops LIKE 'group_url'")->fetch();
+    if (!$hasGroupUrl) {
+        $pdo->exec('ALTER TABLE workshops ADD COLUMN group_url VARCHAR(500) NULL AFTER content_url');
+    }
     $ready = true;
 }
 
@@ -313,6 +317,10 @@ function workshop_save_fields_from_post(): array
     }
 
     [$location, $meetingUrl, $contentUrl, $locationLat, $locationLng] = workshop_type_urls_from_post($type);
+    $groupUrl = trim(post('group_url')) ?: null;
+    if ($groupUrl !== null && !preg_match('#^https?://#i', $groupUrl)) {
+        throw new RuntimeException('لینک گروه باید با http:// یا https:// شروع شود.');
+    }
 
     return [
         'title' => $title,
@@ -330,11 +338,21 @@ function workshop_save_fields_from_post(): array
         'location_lng' => $locationLng,
         'meeting_url' => $meetingUrl,
         'content_url' => $contentUrl,
+        'group_url' => $groupUrl,
     ];
 }
 
-function workshop_approved_doctors(PDO $pdo): array
+function workshop_group_link_label(?string $url): string
 {
+    $url = strtolower((string) $url);
+    if (str_contains($url, 't.me') || str_contains($url, 'telegram')) {
+        return 'عضویت در گروه تلگرام';
+    }
+    if (str_contains($url, 'wa.me') || str_contains($url, 'whatsapp') || str_contains($url, 'chat.whatsapp')) {
+        return 'عضویت در گروه واتساپ';
+    }
+    return 'عضویت در گروه';
+}
     return $pdo->query("
       SELECT dp.id, u.name
       FROM doctor_profiles dp

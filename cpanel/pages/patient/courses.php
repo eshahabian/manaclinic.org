@@ -48,7 +48,7 @@ $available->execute([$dbType]);
 $availableWorkshops = $available->fetchAll();
 
 $mine = $pdo->prepare("
-  SELECT e.*, w.title, w.starts_at, w.ends_at, w.type, w.meeting_url, w.content_url, w.location,
+  SELECT e.*, w.title, w.starts_at, w.ends_at, w.type, w.meeting_url, w.content_url, w.group_url, w.location,
          w.location_lat, w.location_lng,
          (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = 'VIDEO') AS video_count,
          (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = 'AUDIO') AS audio_count,
@@ -158,6 +158,11 @@ ob_start();
           <?php if ($e['status'] === 'CONFIRMED' || $e['status'] === 'COMPLETED'): ?>
             <?php if ($e['type'] === 'ONLINE' && $e['meeting_url']): ?>
               <div style="font-size:.85rem;margin-top:.35rem"><a href="<?= e($e['meeting_url']) ?>" target="_blank" rel="noopener">ورود به جلسه آنلاین</a></div>
+            <?php endif; ?>
+            <?php if (!empty($e['group_url'])): ?>
+              <div style="font-size:.85rem;margin-top:.35rem">
+                <a class="btn btn-outline btn-sm" href="<?= e($e['group_url']) ?>" target="_blank" rel="noopener"><?= e(workshop_group_link_label((string) $e['group_url'])) ?></a>
+              </div>
             <?php endif; ?>
             <?php if ($e['type'] === 'IN_PERSON' && ($e['location'] || workshop_navigation_uri_from_row($e))): ?>
               <div class="enrollment-location">

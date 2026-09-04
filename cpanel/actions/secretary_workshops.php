@@ -62,8 +62,8 @@ if ($action === 'create') {
         $pdo->beginTransaction();
         $pdo->prepare('
           INSERT INTO workshops
-            (id, doctor_id, title, type, starts_at, ends_at, items_to_bring, notes, description, price, capacity, location, location_lat, location_lng, meeting_url, content_url, is_published, enrollment_open, status)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+            (id, doctor_id, title, type, starts_at, ends_at, items_to_bring, notes, description, price, capacity, location, location_lat, location_lng, meeting_url, content_url, group_url, is_published, enrollment_open, status)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
         ')->execute([
             $id,
             $doctor['id'],
@@ -81,6 +81,7 @@ if ($action === 'create') {
             $data['location_lng'],
             $data['meeting_url'],
             $data['content_url'],
+            $data['group_url'],
             1,
             1,
             'PUBLISHED',
@@ -152,7 +153,7 @@ if ($action === 'update') {
         $pdo->prepare('
           UPDATE workshops SET
             doctor_id=?, title=?, type=?, starts_at=?, ends_at=?, items_to_bring=?, notes=?, description=?,
-            price=?, capacity=?, location=?, location_lat=?, location_lng=?, meeting_url=?, content_url=?
+            price=?, capacity=?, location=?, location_lat=?, location_lng=?, meeting_url=?, content_url=?, group_url=?
           WHERE id=?
         ')->execute([
             $doctor['id'],
@@ -170,6 +171,7 @@ if ($action === 'update') {
             $data['location_lng'],
             $data['meeting_url'],
             $data['content_url'],
+            $data['group_url'],
             $id,
         ]);
         workshop_media_process_form_uploads($pdo, $id, null);

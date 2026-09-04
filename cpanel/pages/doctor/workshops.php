@@ -310,6 +310,12 @@ ob_start();
     <input class="input" name="meeting_url" dir="ltr" placeholder="https://..." value="<?= e((string) ($formData['meeting_url'] ?? '')) ?>">
   </div>
 
+  <div>
+    <label class="label">لینک گروه تلگرام / واتساپ (اختیاری)</label>
+    <input class="input" name="group_url" dir="ltr" placeholder="https://t.me/... یا https://chat.whatsapp.com/..." value="<?= e((string) ($formData['group_url'] ?? '')) ?>">
+    <p class="muted" style="font-size:.8rem;margin:.35rem 0 0;line-height:1.6">مراجعان پس از ثبت‌نام و تأیید، این لینک را برای عضویت در گروه می‌بینند.</p>
+  </div>
+
   <div id="field-session-media" class="panel" style="padding:1rem;background:var(--bg-soft,#f8fafc);border-style:dashed">
     <div class="row-between" style="align-items:center;gap:.75rem;flex-wrap:wrap;margin-bottom:.35rem">
       <h3 style="margin:0;font-size:.95rem">ضبط جلسات (ویدیو / صوت)</h3>
