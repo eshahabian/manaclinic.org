@@ -333,6 +333,8 @@ try {
                     $author['id'],
                 ]);
         }
+        require_once __DIR__ . '/includes/seed_articles.php';
+        ensure_featured_psychology_article($pdo);
 
         $dp = $pdo->prepare('SELECT id FROM doctor_profiles WHERE user_id=? LIMIT 1');
         $dp->execute([$author['id']]);

@@ -29,6 +29,7 @@ require_once __DIR__ . '/includes/wallet.php';
 require_once __DIR__ . '/includes/workshops.php';
 require_once __DIR__ . '/includes/workshop_media.php';
 require_once __DIR__ . '/includes/assistant.php';
+require_once __DIR__ . '/includes/seed_articles.php';
 
 $pdo = db_connect($config);
 ensure_workshop_schema($pdo);
@@ -36,6 +37,7 @@ ensure_workshop_media_schema($pdo);
 require_once __DIR__ . '/includes/availability.php';
 ensure_availability_schema($pdo);
 ensure_assistant_schema($pdo);
+ensure_featured_psychology_article($pdo);
 
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 $base = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/\\');
