@@ -353,6 +353,9 @@ function workshop_group_link_label(?string $url): string
     }
     return 'عضویت در گروه';
 }
+
+function workshop_approved_doctors(PDO $pdo): array
+{
     return $pdo->query("
       SELECT dp.id, u.name
       FROM doctor_profiles dp
