@@ -374,6 +374,9 @@ select {
 }
 .footer-social-whatsapp { background: #25d366; }
 .footer-social-telegram { background: #2aabee; }
+.footer-social-instagram {
+  background: linear-gradient(45deg, #f58529, #dd2a7b 50%, #8134af);
+}
 .footer-address {
   line-height: 1.85;
   margin: .65rem 0 0;
