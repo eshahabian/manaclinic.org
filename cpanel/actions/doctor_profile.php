@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-require_once __DIR__ . '/../../includes/doctor_panel.php';
+require_once __DIR__ . '/../includes/doctor_panel.php';
 $ctx = require_doctor_profile($pdo);
 $name = post('name');
 $specialty = post('specialty');
