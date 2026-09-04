@@ -89,17 +89,32 @@ ob_start();
   <header class="doctor-dash-head">
     <div>
       <h1>سلام، <?= e($ctx['user']['name']) ?></h1>
-      <p class="muted">خلاصه کار امروز — گفتگوهای دستیار، نوبت‌ها و کارگاه‌ها جدا از هم هستند.</p>
+      <p class="muted">خلاصه کار امروز — از تب بالا بین گفتگوها، نوبت‌ها و کارگاه‌ها جابه‌جا شوید.</p>
     </div>
     <?php if ($unreadCount > 0): ?>
       <span class="badge doctor-dash-badge"><?= (int) $unreadCount ?> پیام خوانده‌نشده</span>
     <?php endif; ?>
   </header>
 
-  <div class="doctor-dash-grid">
+  <div class="panel doctor-dash-tile" data-dash-tabs>
+    <div class="doctor-dash-tabs" role="tablist" aria-label="بخش‌های پنل">
+      <button type="button" class="doctor-dash-tab is-active" role="tab" id="dash-tab-ai" aria-controls="dash-panel-ai" aria-selected="true" data-tab="ai">
+        گفتگوها و پیام‌ها
+        <span class="doctor-dash-tab-count"><?= (int) $intakeTotal ?></span>
+      </button>
+      <button type="button" class="doctor-dash-tab" role="tab" id="dash-tab-appts" aria-controls="dash-panel-appts" aria-selected="false" data-tab="appts">
+        نوبت‌ها
+        <span class="doctor-dash-tab-count"><?= (int) $apptTotal ?></span>
+      </button>
+      <button type="button" class="doctor-dash-tab" role="tab" id="dash-tab-workshops" aria-controls="dash-panel-workshops" aria-selected="false" data-tab="workshops">
+        کارگاه‌ها
+        <span class="doctor-dash-tab-count"><?= (int) $wsActive ?></span>
+      </button>
+    </div>
 
+    <div class="doctor-dash-panels">
     <!-- ۱) پیام‌ها و هوش مصنوعی -->
-    <section class="panel doctor-dash-card doctor-dash-card--ai">
+    <section class="doctor-dash-panel is-active" id="dash-panel-ai" role="tabpanel" aria-labelledby="dash-tab-ai" data-panel="ai">
       <div class="doctor-dash-card-head">
         <div>
           <p class="doctor-dash-kicker">هوش مصنوعی</p>
@@ -192,7 +207,7 @@ ob_start();
     </section>
 
     <!-- ۲) نوبت‌ها -->
-    <section class="panel doctor-dash-card doctor-dash-card--appts">
+    <section class="doctor-dash-panel" id="dash-panel-appts" role="tabpanel" aria-labelledby="dash-tab-appts" data-panel="appts" hidden>
       <div class="doctor-dash-card-head">
         <div>
           <p class="doctor-dash-kicker">زمان‌بندی</p>
@@ -239,7 +254,7 @@ ob_start();
     </section>
 
     <!-- ۳) کارگاه‌ها -->
-    <section class="panel doctor-dash-card doctor-dash-card--workshops">
+    <section class="doctor-dash-panel" id="dash-panel-workshops" role="tabpanel" aria-labelledby="dash-tab-workshops" data-panel="workshops" hidden>
       <div class="doctor-dash-card-head">
         <div>
           <p class="doctor-dash-kicker">آموزش گروهی</p>
@@ -279,8 +294,39 @@ ob_start();
         </ul>
       <?php endif; ?>
     </section>
-
+    </div>
   </div>
 </div>
+<script>
+(function () {
+  var root = document.querySelector('[data-dash-tabs]');
+  if (!root) return;
+  var tabs = root.querySelectorAll('[role="tab"]');
+  var panels = root.querySelectorAll('[data-panel]');
+  function activate(id) {
+    tabs.forEach(function (tab) {
+      var on = tab.getAttribute('data-tab') === id;
+      tab.classList.toggle('is-active', on);
+      tab.setAttribute('aria-selected', on ? 'true' : 'false');
+    });
+    panels.forEach(function (panel) {
+      var on = panel.getAttribute('data-panel') === id;
+      panel.classList.toggle('is-active', on);
+      if (on) panel.removeAttribute('hidden');
+      else panel.setAttribute('hidden', '');
+    });
+    if (history.replaceState) history.replaceState(null, '', '#' + id);
+  }
+  tabs.forEach(function (tab) {
+    tab.addEventListener('click', function () { activate(tab.getAttribute('data-tab')); });
+  });
+  var fromHash = (location.hash || '').replace('#', '');
+  var valid = false;
+  panels.forEach(function (panel) {
+    if (panel.getAttribute('data-panel') === fromHash) valid = true;
+  });
+  if (valid) activate(fromHash);
+})();
+</script>
 <?php
 render_doctor_page('پنل دکتر', ob_get_clean());

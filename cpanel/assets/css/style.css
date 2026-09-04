@@ -634,7 +634,36 @@ select {
   font-size: .72rem; font-weight: 700; line-height: 1.35rem; text-align: center;
 }
 
-/* پنل دکتر — خلاصه جدا شده */
+.panel-back {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem;
+  margin: 0 0 .85rem;
+}
+.panel-back + h1 { margin-top: 0; }
+.intake-list {
+  display: grid;
+  gap: .75rem;
+  margin-top: 1rem;
+}
+.intake-item {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: .7rem;
+  border: 1px solid var(--line);
+  border-radius: .75rem;
+  padding: 1rem;
+  background: #fff;
+}
+.intake-item-meta { margin: .35rem 0 0; font-size: .85rem; }
+.intake-item-summary { margin: .5rem 0 0; line-height: 1.7; }
+.intake-item-btn {
+  align-self: flex-end;
+  margin-top: auto;
+}
+
+/* پنل دکتر — یک کاشی با تب */
 .doctor-dash-head {
   display: flex;
   flex-wrap: wrap;
@@ -646,25 +675,58 @@ select {
 .doctor-dash-head h1 { margin: 0; font-size: 1.45rem; }
 .doctor-dash-head .muted { margin: .35rem 0 0; }
 .doctor-dash-badge { align-self: center; }
-.doctor-dash-grid {
-  display: grid;
-  gap: 1.1rem;
+.doctor-dash-tile {
+  padding: 0;
+  overflow: hidden;
 }
-@media (min-width: 1100px) {
-  .doctor-dash-grid {
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    align-items: start;
-  }
-}
-.doctor-dash-card {
+.doctor-dash-tabs {
   display: flex;
-  flex-direction: column;
-  min-height: 100%;
-  border-top: 3px solid var(--line);
+  flex-wrap: wrap;
+  gap: .25rem;
+  padding: .45rem .55rem 0;
+  background: var(--bg-soft);
+  border-bottom: 1px solid var(--line);
 }
-.doctor-dash-card--ai { border-top-color: #2d8a6e; }
-.doctor-dash-card--appts { border-top-color: #3a6ea5; }
-.doctor-dash-card--workshops { border-top-color: #b7791f; }
+.doctor-dash-tab {
+  appearance: none;
+  font-family: inherit;
+  font-size: .92rem;
+  font-weight: 600;
+  color: var(--muted);
+  background: transparent;
+  border: 1px solid transparent;
+  border-bottom: none;
+  border-radius: .75rem .75rem 0 0;
+  padding: .7rem 1.05rem;
+  cursor: pointer;
+  margin-bottom: -1px;
+  white-space: nowrap;
+}
+.doctor-dash-tab:hover { color: var(--primary-dark); }
+.doctor-dash-tab.is-active {
+  background: #fff;
+  color: var(--primary-dark);
+  border-color: var(--line);
+  position: relative;
+  z-index: 1;
+}
+.doctor-dash-tab-count {
+  display: inline-flex;
+  min-width: 1.2rem;
+  margin-right: .35rem;
+  padding: 0 .3rem;
+  border-radius: 999px;
+  font-size: .75rem;
+  font-weight: 700;
+  background: color-mix(in srgb, var(--primary) 12%, #fff);
+  color: var(--primary-dark);
+}
+.doctor-dash-tab.is-active .doctor-dash-tab-count {
+  background: var(--bg-soft);
+}
+.doctor-dash-panels { padding: 1.25rem; }
+.doctor-dash-panel { display: none; }
+.doctor-dash-panel.is-active { display: block; }
 .doctor-dash-card-head {
   display: flex;
   flex-wrap: wrap;

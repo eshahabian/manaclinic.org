@@ -32,8 +32,11 @@ $intake = (string) ($session['intake_text'] ?? '');
 ob_start();
 ?>
 <div class="panel">
-  <p><a class="muted" href="<?= e(url('/doctor/intakes')) ?>">← بازگشت به فهرست</a></p>
-  <h1 style="margin-top:.75rem">نسخه گفتگوی دستیار</h1>
+  <p class="panel-back">
+    <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor')) ?>">بازگشت به پنل</a>
+    <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/intakes')) ?>">بازگشت به فهرست</a>
+  </p>
+  <h1>نسخه گفتگوی دستیار</h1>
   <p class="muted" style="margin-top:.35rem">
     <?= e($patientName) ?>
     <?php if ($patientPhone !== ''): ?> · <?= e($patientPhone) ?><?php endif; ?>

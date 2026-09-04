@@ -19,12 +19,15 @@ $rows = $pdo->query("
 ob_start();
 ?>
 <div class="panel">
+  <p class="panel-back">
+    <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor')) ?>">بازگشت به پنل</a>
+  </p>
   <h1>گفتگوهای دستیار</h1>
   <p class="muted">هر گفتگوی تکمیل‌شده به‌صورت خودکار برای همه درمانگران ارسال می‌شود.</p>
   <?php if (!$rows): ?>
     <p class="muted" style="margin-top:1rem">هنوز گفتگویی ارسال نشده است.</p>
   <?php else: ?>
-    <div class="stack" style="margin-top:1rem;display:grid;gap:.75rem">
+    <div class="intake-list">
       <?php foreach ($rows as $row): ?>
         <?php
           $summary = trim((string) ($row['ai_summary'] ?? ''));
@@ -33,19 +36,17 @@ ob_start();
           }
           $guest = empty($row['patient_id']);
         ?>
-        <div class="panel" style="padding:1rem">
-          <div style="display:flex;flex-wrap:wrap;gap:.5rem;justify-content:space-between;align-items:start">
-            <div>
-              <strong><?= e($guest ? 'مراجع مهمان' : ((string) ($row['patient_name'] ?? 'مراجع'))) ?></strong>
-              <?php if (!$guest && !empty($row['patient_phone'])): ?>
-                <span class="muted"> · <?= e((string) $row['patient_phone']) ?></span>
-              <?php endif; ?>
-              <p class="muted" style="margin:.35rem 0 0;font-size:.85rem"><?= e((string) ($row['sent_at'] ?? '')) ?></p>
-              <p style="margin:.5rem 0 0;line-height:1.7"><?= e($summary) ?><?= mb_strlen($summary) >= 180 ? '…' : '' ?></p>
-            </div>
-            <a class="btn btn-outline" href="<?= e(url('/doctor/intakes/' . $row['id'])) ?>">مشاهده کامل</a>
+        <article class="intake-item">
+          <div class="intake-item-body">
+            <strong><?= e($guest ? 'مراجع مهمان' : ((string) ($row['patient_name'] ?? 'مراجع'))) ?></strong>
+            <?php if (!$guest && !empty($row['patient_phone'])): ?>
+              <span class="muted"> · <?= e((string) $row['patient_phone']) ?></span>
+            <?php endif; ?>
+            <p class="muted intake-item-meta"><?= e(format_fa_datetime((string) ($row['sent_at'] ?? ''))) ?></p>
+            <p class="intake-item-summary"><?= e($summary) ?><?= mb_strlen($summary) >= 180 ? '…' : '' ?></p>
           </div>
-        </div>
+          <a class="btn btn-outline btn-sm intake-item-btn" href="<?= e(url('/doctor/intakes/' . $row['id'])) ?>">مشاهده کامل</a>
+        </article>
       <?php endforeach; ?>
     </div>
   <?php endif; ?>
