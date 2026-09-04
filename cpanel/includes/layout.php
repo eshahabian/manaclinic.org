@@ -18,7 +18,7 @@ $flash = flash_get();
   <title><?= e(($pageTitle ?? 'مانا کلینیک') . ' | مانا کلینیک') ?></title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260904j">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260904k">
   <?php if (!empty($pageHead)): ?>
     <?= $pageHead ?>
   <?php endif; ?>

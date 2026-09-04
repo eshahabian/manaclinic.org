@@ -17,6 +17,7 @@ $articles = $pdo->query("
   JOIN users u ON u.id = a.author_id
   WHERE a.published = 1
   ORDER BY a.published_at DESC
+  LIMIT 3
 ")->fetchAll();
 $leadArticle = $articles[0] ?? null;
 $moreArticles = array_slice($articles, 1);
@@ -119,17 +120,7 @@ ob_start();
           </div>
         </div>
         <div class="articles-showcase">
-          <?php if ($leadArticle): ?>
-            <div class="articles-lead-col">
-              <a class="panel card-link article-card" href="<?= e(url('/articles/' . $leadArticle['slug'])) ?>">
-                <span class="badge"><?= e($leadArticle['author_name']) ?></span>
-                <h3 class="article-card-title"><?= e($leadArticle['title']) ?></h3>
-                <p class="muted article-card-excerpt"><?= e($leadArticle['excerpt']) ?></p>
-              </a>
-              <a class="articles-all-link" href="<?= e(url('/articles')) ?>">همه مقالات</a>
-            </div>
-          <?php endif; ?>
-          <?php foreach ($moreArticles as $article): ?>
+          <?php foreach ($articles as $article): ?>
             <a class="panel card-link article-card" href="<?= e(url('/articles/' . $article['slug'])) ?>">
               <span class="badge"><?= e($article['author_name']) ?></span>
               <h3 class="article-card-title"><?= e($article['title']) ?></h3>
@@ -137,6 +128,11 @@ ob_start();
             </a>
           <?php endforeach; ?>
         </div>
+        <?php if ($articles): ?>
+          <div class="articles-footer-link">
+            <a class="articles-all-link" href="<?= e(url('/articles')) ?>">همه مقالات</a>
+          </div>
+        <?php endif; ?>
       </div>
 </section>
 <?php
