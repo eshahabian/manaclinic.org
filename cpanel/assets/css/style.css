@@ -131,8 +131,15 @@ select {
   align-items: stretch;
   grid-template-columns: 1fr;
 }
+.doctors-showcase {
+  display: grid;
+  gap: 1.25rem;
+  align-items: stretch;
+  grid-template-columns: 1fr;
+}
 @media (min-width: 768px) {
-  .articles-showcase {
+  .articles-showcase,
+  .doctors-showcase {
     grid-template-columns: repeat(3, minmax(0, 1fr));
   }
 }
@@ -142,6 +149,44 @@ select {
   display: flex;
   flex-direction: column;
   box-sizing: border-box;
+}
+.doctor-card {
+  height: 100%;
+  min-height: 17.5rem;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+}
+.doctor-card-name {
+  margin: .75rem 0 0;
+  line-height: 1.5;
+  height: calc(1.5em * 2);
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+.doctor-card-specialty {
+  color: var(--primary);
+  margin: .35rem 0 0;
+  font-size: .9rem;
+  line-height: 1.5;
+  height: 1.5em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.doctor-card-bio {
+  margin-top: .75rem;
+  margin-bottom: 0;
+  font-size: .9rem;
+  line-height: 1.8;
+  height: calc(1.8em * 3);
+  white-space: pre-wrap;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }
 .article-card-title {
   margin: .75rem 0 0;
