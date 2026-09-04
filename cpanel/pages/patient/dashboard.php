@@ -50,9 +50,6 @@ ob_start();
     <div class="binder-body">
       <section class="binder-panel<?= $outerInitial === 'appts' ? ' is-active' : '' ?>" data-binder-panel="appts" role="tabpanel"<?= $outerInitial === 'appts' ? '' : ' hidden' ?>>
         <div class="patient-dash-panel-head">
-          <div class="patient-dash-panel-copy">
-            <h2 class="binder-sub" style="margin:0">نوبت‌های شما</h2>
-          </div>
           <div class="patient-dash-panel-actions">
             <a class="btn btn-outline btn-sm" href="<?= e(url('/dashboard/appointments')) ?>">همه نوبت‌ها</a>
             <a class="btn btn-primary btn-sm" href="<?= e(url('/doctors')) ?>">رزرو جدید</a>
@@ -68,9 +65,6 @@ ob_start();
 
       <section class="binder-panel<?= $outerInitial === 'workshops' ? ' is-active' : '' ?>" data-binder-panel="workshops" role="tabpanel"<?= $outerInitial === 'workshops' ? '' : ' hidden' ?>>
         <div class="patient-dash-panel-head">
-          <div class="patient-dash-panel-copy">
-            <h2 class="binder-sub" style="margin:0">کارگاه‌ها و دوره‌ها</h2>
-          </div>
           <div class="patient-dash-panel-actions">
             <a class="btn btn-outline btn-sm" href="<?= e(url('/dashboard/courses')) ?>">دوره‌های من</a>
           </div>
