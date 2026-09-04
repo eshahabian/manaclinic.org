@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * درج مقالهٔ ویژهٔ «مهربانی با خود» اگر هنوز وجود نداشته باشد.
+ * هم‌تراز کردن خلاصه مقالات قدیمی + درج مقاله ویژه در صورت نبودن.
  */
 function ensure_featured_psychology_article(PDO $pdo): void
 {
@@ -11,6 +11,18 @@ function ensure_featured_psychology_article(PDO $pdo): void
         return;
     }
     $done = true;
+
+    // خلاصه‌های هم‌طول برای نمایش یکدست در صفحه خانه
+    $excerpts = [
+        'modiriat-ezterab' => 'اضطراب بخشی طبیعی از زندگی است؛ اما با تنفس آگاهانه، نظم روزانه و حمایت تخصصی می‌توان فشار آن را کم کرد — بدون اینکه جای درمان فردی را بگیرد.',
+        'khab-salem' => 'خواب کافی و باکیفیت پایهٔ تعادل هیجانی، تمرکز و خلق پایدار است؛ اختلال خواب می‌تواند اضطراب و بی‌حوصلگی را شدیدتر کند و نیاز به رسیدگی دارد.',
+        'mehrbani-ba-khod-va-ezterab' => 'بر اساس پژوهش‌های تازه روانشناسی، تقویت مهربانی با خود می‌تواند استرس، اضطراب و خلق پایین را کم کند — بدون اینکه جای درمان تخصصی را بگیرد.',
+    ];
+
+    $upd = $pdo->prepare('UPDATE articles SET excerpt=? WHERE slug=?');
+    foreach ($excerpts as $slug => $excerpt) {
+        $upd->execute([$excerpt, $slug]);
+    }
 
     $slug = 'mehrbani-ba-khod-va-ezterab';
     $check = $pdo->prepare('SELECT id FROM articles WHERE slug=? LIMIT 1');
@@ -28,7 +40,7 @@ function ensure_featured_psychology_article(PDO $pdo): void
     }
 
     $title = 'مهربانی با خود: چطور با اضطراب و صدای منتقد درونی آشتی کنیم؟';
-    $excerpt = 'بر اساس پژوهش‌های تازه روانشناسی، تقویت مهربانی با خود می‌تواند استرس، اضطراب و خلق پایین را کم کند — بدون اینکه جای درمان تخصصی را بگیرد.';
+    $excerpt = $excerpts[$slug];
 
     $content = <<<'HTML'
 <p>خیلی از ما وقتی اشتباه می‌کنیم یا احساس ضعف داریم، با خودمان سخت‌گیرتر از هر کس دیگری حرف می‌زنیم. این صدای تند درونی گاهی به‌اشتباه انگیزه به‌نظر می‌رسد، اما پژوهش‌های تازه روانشناسی نشان می‌دهد که <strong>مهربانی با خود (Self-Compassion)</strong> نه تنبلی است و نه خودخواهی؛ بلکه مهارتی آموختنی برای مراقبت از سلامت روان است.</p>
@@ -61,7 +73,6 @@ function ensure_featured_psychology_article(PDO $pdo): void
 <p><em>این مطلب جنبه آموزشی دارد و تشخیص یا درمان پزشکی محسوب نمی‌شود. برای دریافت راهنمایی شخصی، از متخصصان مانا کلینیک کمک بگیرید یا از دستیار هوشمند سایت شروع کنید.</em></p>
 HTML;
 
-    // published_at کمی جلوتر تا در صفحه خانه به‌عنوان جدیدترین مقاله دیده شود
     $pdo->prepare('
       INSERT INTO articles (id, title, slug, content, excerpt, published, published_at, author_id)
       VALUES (?,?,?,?,?,1, DATE_ADD(NOW(), INTERVAL 1 MINUTE), ?)
