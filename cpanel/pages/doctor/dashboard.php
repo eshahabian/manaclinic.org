@@ -280,7 +280,7 @@ ob_start();
         </a>
       </div>
 
-      <div class="binder-tile binder-tile--nested" data-binder-tabs data-binder-hash="0">
+      <div class="binder-tile binder-tile--nested" data-binder-tabs data-binder-hash="0" data-binder-tone="in-person">
         <div class="binder-tabs" role="tablist" aria-label="کارگاه‌های شما">
           <button type="button" class="binder-tab binder-tab-in-person is-active" role="tab" data-binder-tab="ws-in-person" aria-selected="true">
             حضوری <span class="binder-tab-count"><?= count($wsGrouped['in-person']) ?></span>
@@ -332,7 +332,7 @@ ob_start();
     </div>
   </div>
 </div>
-<script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260904p"></script>
+<script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260904r"></script>
 <script>
 (function () {
   var root = document.querySelector('[data-dash-tabs]');

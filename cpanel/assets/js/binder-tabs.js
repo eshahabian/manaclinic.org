@@ -1,4 +1,13 @@
 (function () {
+  function toneFromId(id) {
+    id = String(id || "");
+    if (id.indexOf("offline") !== -1) return "offline";
+    if (id.indexOf("online") !== -1) return "online";
+    if (id.indexOf("archive") !== -1) return "archive";
+    if (id === "new") return "new";
+    return "in-person";
+  }
+
   function initBinder(root) {
     var tabs = root.querySelectorAll("[data-binder-tab]");
     var panels = root.querySelectorAll("[data-binder-panel]");
@@ -23,6 +32,7 @@
         if (on) panel.removeAttribute("hidden");
         else panel.setAttribute("hidden", "");
       });
+      root.setAttribute("data-binder-tone", toneFromId(id));
       if (useHash && history.replaceState) {
         history.replaceState(null, "", "#" + id);
       }
@@ -40,6 +50,10 @@
     var initial = root.getAttribute("data-binder-initial") || "";
     if (hash) activate(hash);
     else if (initial) activate(initial);
+    else {
+      var current = root.querySelector("[data-binder-tab].is-active");
+      root.setAttribute("data-binder-tone", toneFromId(current ? current.getAttribute("data-binder-tab") : "in-person"));
+    }
   }
 
   document.querySelectorAll("[data-binder-tabs]").forEach(initBinder);

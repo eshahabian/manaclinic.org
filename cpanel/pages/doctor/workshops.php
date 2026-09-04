@@ -107,7 +107,7 @@ ob_start();
   </div>
 </div>
 
-<div class="binder-tile" data-binder-tabs data-binder-initial="<?= e($binderInitial) ?>" style="margin-top:1.5rem">
+<div class="binder-tile" data-binder-tabs data-binder-initial="<?= e($binderInitial) ?>" data-binder-tone="<?= e($binderInitial !== '' ? $binderInitial : 'in-person') ?>" style="margin-top:1.5rem">
   <div class="binder-tabs" role="tablist" aria-label="دسته‌بندی کارگاه‌ها">
     <button type="button" class="binder-tab binder-tab-in-person is-active" role="tab" data-binder-tab="in-person" aria-selected="true">
       حضوری <span class="binder-tab-count"><?= count($grouped['in-person']) ?></span>
@@ -394,7 +394,7 @@ ob_start();
   </div>
 </template>
 
-<script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260904p"></script>
+<script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260904r"></script>
 <script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>

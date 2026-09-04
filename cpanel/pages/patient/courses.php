@@ -101,7 +101,7 @@ ob_start();
   <p class="muted">کارگاه‌های همه درمانگران را از تب رنگی ببینید و اگر خواستید ثبت‌نام کنید. کارگاه تمام‌شده به آرشیو می‌رود.</p>
   <p id="course-msg" class="course-flash" style="display:none" role="status"></p>
 
-  <div class="binder-tile" data-binder-tabs data-binder-initial="<?= e($tabParam) ?>">
+  <div class="binder-tile" data-binder-tabs data-binder-initial="<?= e($tabParam) ?>" data-binder-tone="<?= e($tabParam) ?>">
     <div class="binder-tabs" role="tablist" aria-label="دسته‌بندی کارگاه‌ها">
       <?php foreach ($binderTabs as $id => $meta): ?>
         <button type="button" class="binder-tab <?= e($meta['class']) ?><?= $tabParam === $id ? ' is-active' : '' ?>" role="tab" data-binder-tab="<?= e($id) ?>" aria-selected="<?= $tabParam === $id ? 'true' : 'false' ?>">
@@ -156,7 +156,7 @@ ob_start();
 $coursesContent = ob_get_clean();
 
 $GLOBALS['pageScripts'] = '
-<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260904q"></script>
+<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260904r"></script>
 <script>
 (function(){
   var enrollUrl = ' . json_encode($enrollUrl, JSON_UNESCAPED_UNICODE) . ';
