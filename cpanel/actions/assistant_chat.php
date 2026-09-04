@@ -4,6 +4,11 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/assistant.php';
 
 header('Content-Type: application/json; charset=utf-8');
+header('X-Content-Type-Options: nosniff');
+
+// جلوگیری از نشت HTML به‌خاطر notice/warning
+@ini_set('display_errors', '0');
+@set_time_limit(90);
 
 if (!assistant_enabled()) {
     http_response_code(403);
@@ -11,7 +16,14 @@ if (!assistant_enabled()) {
     exit;
 }
 
-ensure_assistant_schema($pdo);
+try {
+    ensure_assistant_schema($pdo);
+} catch (Throwable $e) {
+    http_response_code(500);
+    echo json_encode(['error' => 'آماده‌سازی دستیار ناموفق بود.'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 $user = current_user();
 $action = post('action') ?: (string) ($_GET['action'] ?? '');
 $aiMode = assistant_ai_available();

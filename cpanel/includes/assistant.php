@@ -402,13 +402,24 @@ function assistant_answers_from_ai_tags(array $tags, string $summary): array
 function assistant_openai_messages_for_api(array $stored): array
 {
     $out = [['role' => 'system', 'content' => assistant_ai_system_prompt()]];
+    // فقط آخرین پیام‌ها را بفرست تا تایم‌اوت/HTML وسط گفتگو کمتر شود
+    $dialog = [];
     foreach ($stored as $m) {
         $role = ($m['role'] ?? '') === 'assistant' ? 'assistant' : 'user';
         $content = trim((string) ($m['content'] ?? ''));
         if ($content === '') {
             continue;
         }
-        $out[] = ['role' => $role, 'content' => $content];
+        if (mb_strlen($content) > 1500) {
+            $content = mb_substr($content, 0, 1500) . '…';
+        }
+        $dialog[] = ['role' => $role, 'content' => $content];
+    }
+    if (count($dialog) > 12) {
+        $dialog = array_slice($dialog, -12);
+    }
+    foreach ($dialog as $m) {
+        $out[] = $m;
     }
     return $out;
 }

@@ -38,7 +38,6 @@ ensure_workshop_media_schema($pdo);
 require_once __DIR__ . '/includes/availability.php';
 ensure_availability_schema($pdo);
 ensure_assistant_schema($pdo);
-ensure_featured_psychology_article($pdo);
 
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 $base = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/\\');
@@ -51,6 +50,12 @@ if ($path !== '/') {
 }
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+
+// seed مقالات فقط روی صفحات عمومی GET — نه روی API چت (جلوگیری از HTML/تایم‌اوت وسط گفتگو)
+$isAssistantApi = str_starts_with($path, '/assistant/chat') || str_starts_with($path, '/assistant/send');
+if ($method === 'GET' && !$isAssistantApi) {
+    ensure_featured_psychology_article($pdo);
+}
 
 // مسیرهای اکشن
 $routes = [

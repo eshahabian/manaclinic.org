@@ -56,8 +56,29 @@
       body: body.toString(),
       credentials: "same-origin",
     }).then(function (r) {
-      return r.json().then(function (j) {
-        if (!r.ok) throw new Error(j.error || "خطا در ارتباط");
+      return r.text().then(function (text) {
+        var j = null;
+        var trimmed = (text || "").trim();
+        if (trimmed) {
+          try {
+            j = JSON.parse(trimmed);
+          } catch (e) {
+            if (trimmed.charAt(0) === "<") {
+              throw new Error(
+                "سرور به‌جای پاسخ چت، صفحه HTML برگرداند. معمولاً تایم‌اوت یا خطای PHP است — دوباره پیام کوتاه‌تر بفرستید."
+              );
+            }
+            throw new Error("پاسخ نامعتبر از سرور");
+          }
+        } else {
+          j = {};
+        }
+        if (!r.ok) {
+          throw new Error((j && j.error) || "خطا در ارتباط (کد " + r.status + ")");
+        }
+        if (j && j.error && !j.botMessage && !j.sessionId) {
+          throw new Error(j.error);
+        }
         return j;
       });
     });
