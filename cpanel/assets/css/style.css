@@ -646,3 +646,107 @@ jdp-container, .jdp-container, [class*="jdp"] {
   border-radius: .2rem;
   padding: 0 .1rem;
 }
+
+/* دستیار گفتگو — با من حرف بزن */
+.assistant-page { max-width: 44rem; }
+.assistant-head { margin-bottom: 1.25rem; }
+.assistant-head h1 { margin: 0; }
+.assistant-head .muted { margin: .4rem 0 0; }
+.assistant-shell {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  padding: 1.1rem 1.15rem 1.25rem;
+}
+.assistant-messages {
+  min-height: 14rem;
+  max-height: min(52vh, 28rem);
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+  padding: .25rem .15rem;
+}
+.assistant-msg { display: flex; }
+.assistant-msg--bot { justify-content: flex-start; }
+.assistant-msg--user { justify-content: flex-end; }
+.assistant-bubble {
+  max-width: min(92%, 28rem);
+  padding: .7rem .95rem;
+  border-radius: 1rem;
+  line-height: 1.8;
+  font-size: .95rem;
+  background: #f3f7f5;
+  border: 1px solid var(--line);
+}
+.assistant-msg--user .assistant-bubble {
+  background: var(--primary);
+  color: #fff;
+  border-color: transparent;
+}
+.assistant-step { margin: 0 0 .5rem; font-size: .85rem; }
+.assistant-options {
+  display: grid;
+  gap: .55rem;
+}
+@media (min-width: 640px) {
+  .assistant-options { grid-template-columns: 1fr 1fr; }
+}
+.assistant-option {
+  text-align: right;
+  font-family: inherit;
+  font-size: .92rem;
+  line-height: 1.6;
+  padding: .7rem .85rem;
+  border-radius: .85rem;
+  border: 1px solid var(--line);
+  background: #fff;
+  cursor: pointer;
+  transition: border-color .15s ease, box-shadow .15s ease;
+}
+.assistant-option:hover {
+  border-color: var(--primary);
+  box-shadow: 0 6px 18px rgba(26, 46, 40, .08);
+}
+.assistant-text { width: 100%; resize: vertical; min-height: 4.5rem; }
+.assistant-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .55rem;
+  align-items: center;
+}
+.assistant-disclaimer {
+  margin: 0;
+  font-size: .78rem;
+  line-height: 1.75;
+  border-top: 1px solid var(--line);
+  padding-top: .85rem;
+}
+.assistant-doctor-list {
+  display: grid;
+  gap: .55rem;
+}
+.assistant-doctor-card {
+  display: flex;
+  gap: .75rem;
+  align-items: flex-start;
+  padding: .75rem .85rem;
+  border: 1px solid var(--line);
+  border-radius: .85rem;
+  cursor: pointer;
+  background: #fff;
+}
+.assistant-doctor-card:has(input:checked) {
+  border-color: var(--primary);
+  background: #f7fcf9;
+}
+.assistant-doctor-card input { margin-top: .35rem; }
+.assistant-workshop-list {
+  margin: 0;
+  padding-inline-start: 1.2rem;
+  line-height: 1.85;
+}
+.assistant-match h2 {
+  margin: 0 0 .65rem;
+  font-size: 1.05rem;
+}

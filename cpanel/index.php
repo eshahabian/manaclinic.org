@@ -28,12 +28,14 @@ require_once __DIR__ . '/includes/psych_tests.php';
 require_once __DIR__ . '/includes/wallet.php';
 require_once __DIR__ . '/includes/workshops.php';
 require_once __DIR__ . '/includes/workshop_media.php';
+require_once __DIR__ . '/includes/assistant.php';
 
 $pdo = db_connect($config);
 ensure_workshop_schema($pdo);
 ensure_workshop_media_schema($pdo);
 require_once __DIR__ . '/includes/availability.php';
 ensure_availability_schema($pdo);
+ensure_assistant_schema($pdo);
 
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 $base = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/\\');
@@ -55,6 +57,10 @@ $routes = [
     'GET /tests' => 'pages/tests.php',
     'GET /about' => 'pages/about.php',
     'GET /contact' => 'pages/contact.php',
+    'GET /assistant' => 'pages/assistant.php',
+    'POST /assistant/chat' => 'actions/assistant_chat.php',
+    'POST /assistant/send' => 'actions/assistant_send.php',
+    'GET /assistant/report' => 'pages/assistant_report.php',
     'GET /login' => 'pages/login.php',
     'GET /register' => 'pages/register.php',
     'GET /logout' => 'pages/logout.php',

@@ -5,6 +5,7 @@ if (current_user()) {
 }
 $pageTitle = 'ثبت‌نام';
 $role = (($_GET['role'] ?? '') === 'DOCTOR') ? 'DOCTOR' : 'PATIENT';
+$registerNext = (string) ($_GET['next'] ?? '');
 $takenUsernames = $pdo->query("SELECT username FROM users WHERE username IS NOT NULL AND username <> ''")->fetchAll(PDO::FETCH_COLUMN);
 $doctors = $pdo->query("
   SELECT dp.id, u.name, dp.specialty
@@ -20,12 +21,13 @@ ob_start();
   <form class="panel auth-box form-stack" method="post" action="<?= e(url('/register')) ?>" id="register-form" style="width:min(520px,100%)">
     <div>
       <h1>ثبت‌نام</h1>
-      <p class="muted">قبلاً ثبت‌نام کرده‌اید؟ <a href="<?= e(url('/login')) ?>" style="color:var(--primary);font-weight:600">ورود</a></p>
+      <p class="muted">قبلاً ثبت‌نام کرده‌اید؟ <a href="<?= e(url('/login') . ($registerNext !== '' ? ('?next=' . rawurlencode($registerNext)) : '')) ?>" style="color:var(--primary);font-weight:600">ورود</a></p>
     </div>
+    <input type="hidden" name="next" value="<?= e($registerNext) ?>">
 
     <div>
       <label class="label" for="role">نوع حساب</label>
-      <select class="input" id="role" name="role" required onchange="window.location.href='<?= e(url('/register')) ?>?role=' + this.value">
+      <select class="input" id="role" name="role" required onchange="window.location.href='<?= e(url('/register')) ?>?role=' + encodeURIComponent(this.value)<?= $registerNext !== '' ? " + '&next=' + encodeURIComponent(" . json_encode($registerNext, JSON_UNESCAPED_UNICODE) . ")" : '' ?>">
         <option value="PATIENT" <?= $role === 'PATIENT' ? 'selected' : '' ?>>مراجعه‌کننده</option>
         <option value="DOCTOR" <?= $role === 'DOCTOR' ? 'selected' : '' ?>>درمانگر</option>
       </select>

@@ -1,0 +1,304 @@
+(function () {
+  var cfg = window.__ASSISTANT__ || {};
+  var chatUrl = cfg.chatUrl || "";
+  var sendUrl = cfg.sendUrl || "";
+  var reportBase = cfg.reportBase || "";
+  var loginUrl = cfg.loginUrl || "";
+  var registerUrl = cfg.registerUrl || "";
+  var resumeSession = cfg.resumeSession || "";
+  var loggedIn = !!cfg.loggedIn;
+
+  var messagesEl = document.getElementById("assistant-messages");
+  var controlsEl = document.getElementById("assistant-controls");
+  var resultsEl = document.getElementById("assistant-results");
+  if (!messagesEl || !controlsEl || !resultsEl) return;
+
+  var sessionId = resumeSession || "";
+  var busy = false;
+  var selectedDoctorId = "";
+
+  function esc(s) {
+    var d = document.createElement("div");
+    d.textContent = s == null ? "" : String(s);
+    return d.innerHTML;
+  }
+
+  function addMsg(role, text) {
+    var div = document.createElement("div");
+    div.className = "assistant-msg assistant-msg--" + role;
+    div.innerHTML = '<div class="assistant-bubble">' + esc(text).replace(/\n/g, "<br>") + "</div>";
+    messagesEl.appendChild(div);
+    messagesEl.scrollTop = messagesEl.scrollHeight;
+  }
+
+  function setBusy(v) {
+    busy = v;
+    controlsEl.querySelectorAll("button, textarea").forEach(function (el) {
+      el.disabled = !!v;
+    });
+  }
+
+  function postForm(url, data) {
+    var body = new URLSearchParams();
+    Object.keys(data).forEach(function (k) {
+      if (data[k] != null) body.append(k, data[k]);
+    });
+    return fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded; charset=UTF-8",
+        Accept: "application/json",
+      },
+      body: body.toString(),
+      credentials: "same-origin",
+    }).then(function (r) {
+      return r.json().then(function (j) {
+        if (!r.ok) throw new Error(j.error || "خطا در ارتباط");
+        return j;
+      });
+    });
+  }
+
+  function renderQuestion(q, step, total) {
+    controlsEl.innerHTML = "";
+    if (!q) return;
+    var meta = document.createElement("p");
+    meta.className = "assistant-step muted";
+    meta.textContent = "سوال " + (step + 1) + " از " + total;
+    controlsEl.appendChild(meta);
+
+    if (q.type === "text") {
+      var ta = document.createElement("textarea");
+      ta.className = "input assistant-text";
+      ta.rows = 3;
+      ta.placeholder = q.placeholder || "پاسخ خود را بنویسید…";
+      controlsEl.appendChild(ta);
+      var row = document.createElement("div");
+      row.className = "assistant-actions";
+      var btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "btn btn-primary";
+      btn.textContent = q.optional ? "ادامه" : "ارسال";
+      btn.addEventListener("click", function () {
+        sendAnswer({ optionId: "", text: ta.value || "" });
+      });
+      row.appendChild(btn);
+      if (q.optional) {
+        var skip = document.createElement("button");
+        skip.type = "button";
+        skip.className = "btn btn-outline";
+        skip.textContent = "رد کردن";
+        skip.addEventListener("click", function () {
+          sendAnswer({ optionId: "", text: "" });
+        });
+        row.appendChild(skip);
+      }
+      controlsEl.appendChild(row);
+      return;
+    }
+
+    var grid = document.createElement("div");
+    grid.className = "assistant-options";
+    (q.options || []).forEach(function (opt) {
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "assistant-option";
+      b.textContent = opt.label;
+      b.addEventListener("click", function () {
+        addMsg("user", opt.label);
+        sendAnswer({ optionId: opt.id, text: "" });
+      });
+      grid.appendChild(b);
+    });
+    controlsEl.appendChild(grid);
+  }
+
+  function sendAnswer(payload) {
+    if (busy || !sessionId) return;
+    if (payload.text && payload.text.trim()) {
+      addMsg("user", payload.text.trim());
+    }
+    setBusy(true);
+    postForm(chatUrl, {
+      action: "answer",
+      sessionId: sessionId,
+      optionId: payload.optionId || "",
+      text: payload.text || "",
+    })
+      .then(handleChatResponse)
+      .catch(function (err) {
+        addMsg("bot", err.message || "خطا");
+        setBusy(false);
+      });
+  }
+
+  function renderResults(data) {
+    controlsEl.innerHTML = "";
+    resultsEl.hidden = false;
+    selectedDoctorId = data.selectedDoctorId || "";
+    var doctors = data.doctors || [];
+    var workshops = data.workshops || [];
+    var html = '<div class="assistant-match">';
+    html += "<h2>پیشنهاد درمانگر</h2>";
+    if (!doctors.length) {
+      html += '<p class="muted">فعلاً درمانگر پیشنهادی یافت نشد. از صفحه متخصصان می‌توانید انتخاب کنید.</p>';
+    } else {
+      html += '<div class="assistant-doctor-list">';
+      doctors.forEach(function (d, i) {
+        var checked =
+          selectedDoctorId === d.id || (!selectedDoctorId && i === 0) ? " checked" : "";
+        if (checked.trim()) selectedDoctorId = d.id;
+        html +=
+          '<label class="assistant-doctor-card">' +
+          '<input type="radio" name="doctorPick" value="' +
+          esc(d.id) +
+          '"' +
+          checked +
+          ">" +
+          "<span><strong>" +
+          esc(d.name) +
+          "</strong><br>" +
+          '<span class="muted">' +
+          esc(d.specialty || "") +
+          "</span>" +
+          (d.url
+            ? ' · <a href="' + esc(d.url) + '" target="_blank" rel="noopener">پروفایل</a>'
+            : "") +
+          "</span></label>";
+      });
+      html += "</div>";
+    }
+
+    html += '<h2 style="margin-top:1.25rem">پیشنهاد کارگاه</h2>';
+    if (!workshops.length) {
+      html += '<p class="muted">کارگاه مرتبطی پیدا نشد.</p>';
+    } else {
+      html += '<ul class="assistant-workshop-list">';
+      workshops.forEach(function (w) {
+        html +=
+          "<li><strong>" +
+          esc(w.title) +
+          "</strong> — " +
+          esc(w.type_label || w.type) +
+          " · " +
+          esc(w.doctor_name || "") +
+          (w.url ? ' · <a href="' + esc(w.url) + '">مشاهده دوره‌ها</a>' : "") +
+          "</li>";
+      });
+      html += "</ul>";
+    }
+
+    html += '<div class="assistant-actions" style="margin-top:1.25rem">';
+    if (data.status === "SENT") {
+      html +=
+        '<p class="flash flash-success" style="margin:0">شرح‌حال ارسال شده است.</p>';
+      html +=
+        '<a class="btn btn-outline" href="' +
+        esc(reportBase + "?session=" + encodeURIComponent(sessionId)) +
+        '">مشاهده / چاپ گزارش</a>';
+    } else if (loggedIn || data.loggedIn) {
+      html +=
+        '<button type="button" class="btn btn-primary" id="assistant-send-btn">ارسال شرح‌حال به درمانگر</button>';
+      html +=
+        '<a class="btn btn-outline" href="' +
+        esc(reportBase + "?session=" + encodeURIComponent(sessionId)) +
+        '">پیش‌نمایش چاپ</a>';
+    } else {
+      html +=
+        '<p class="muted" style="width:100%;margin:0 0 .5rem">برای ارسال شرح‌حال به درمانگر، وارد شوید یا ثبت‌نام کنید.</p>';
+      html +=
+        '<a class="btn btn-primary" href="' +
+        esc(data.loginUrl || loginUrl) +
+        '">ورود</a>';
+      html +=
+        '<a class="btn btn-outline" href="' +
+        esc(data.registerUrl || registerUrl) +
+        '">ثبت‌نام</a>';
+      html +=
+        '<a class="btn btn-outline" href="' +
+        esc(reportBase + "?session=" + encodeURIComponent(sessionId)) +
+        '">پیش‌نمایش چاپ</a>';
+    }
+    html += "</div></div>";
+    resultsEl.innerHTML = html;
+
+    resultsEl.querySelectorAll('input[name=doctorPick]').forEach(function (inp) {
+      inp.addEventListener("change", function () {
+        selectedDoctorId = inp.value;
+      });
+    });
+    var sendBtn = document.getElementById("assistant-send-btn");
+    if (sendBtn) {
+      sendBtn.addEventListener("click", function () {
+        if (!selectedDoctorId) {
+          alert("یک درمانگر را انتخاب کنید.");
+          return;
+        }
+        setBusy(true);
+        postForm(sendUrl, { sessionId: sessionId, doctorId: selectedDoctorId })
+          .then(function (res) {
+            addMsg("bot", res.message || "ارسال شد.");
+            window.location.href =
+              res.reportUrl || reportBase + "?session=" + encodeURIComponent(sessionId);
+          })
+          .catch(function (err) {
+            if (err.message && err.message.indexOf("وارد") !== -1) {
+              window.location.href = loginUrl;
+              return;
+            }
+            addMsg("bot", err.message || "خطا در ارسال");
+            setBusy(false);
+          });
+      });
+    }
+  }
+
+  function handleChatResponse(data) {
+    setBusy(false);
+    if (data.sessionId) sessionId = data.sessionId;
+    if (data.botMessage) addMsg("bot", data.botMessage);
+    if (data.done) {
+      renderResults(data);
+      return;
+    }
+    if (data.question) {
+      addMsg("bot", data.question.text);
+      renderQuestion(data.question, data.step || 0, data.total || 1);
+    }
+  }
+
+  function startFresh() {
+    setBusy(true);
+    postForm(chatUrl, { action: "start" })
+      .then(handleChatResponse)
+      .catch(function (err) {
+        addMsg("bot", err.message || "شروع گفتگو ممکن نشد.");
+        setBusy(false);
+      });
+  }
+
+  function resume() {
+    setBusy(true);
+    postForm(chatUrl, { action: "status", sessionId: sessionId })
+      .then(function (data) {
+        setBusy(false);
+        if (data.done) {
+          addMsg(
+            "bot",
+            "گفتگوی قبلی شما آماده است. پیشنهادها را ببینید و در صورت تمایل شرح‌حال را ارسال کنید."
+          );
+          renderResults(data);
+          return;
+        }
+        // جلسه ناتمام — از همان نقطه ادامه نمی‌دهیم تا ساده‌تر بماند؛ شروع تازه
+        sessionId = "";
+        startFresh();
+      })
+      .catch(function () {
+        startFresh();
+      });
+  }
+
+  if (resumeSession) resume();
+  else startFresh();
+})();
