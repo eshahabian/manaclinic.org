@@ -10,6 +10,17 @@ function seed_article_author_id(PDO $pdo, string $name, string $usernameHint = '
     $stmt->execute([$name]);
     $id = $stmt->fetchColumn();
     if ($id) {
+        $pdo->prepare('
+          UPDATE doctor_profiles
+          SET is_approved=1, is_active=1,
+              specialty=COALESCE(NULLIF(specialty,\'\'), ?),
+              bio=COALESCE(NULLIF(bio,\'\'), ?)
+          WHERE user_id=?
+        ')->execute([
+            'روانشناسی بالینی و روان‌درمانی',
+            'تمرکز بر اضطراب، تنظیم هیجان و همراهی تخصصی در مسیر درمان.',
+            (string) $id,
+        ]);
         return (string) $id;
     }
 
@@ -32,10 +43,43 @@ function seed_article_author_id(PDO $pdo, string $name, string $usernameHint = '
     $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,must_change_password) VALUES (?,?,?,?,?,?,?,1)')
         ->execute([$userId, $username, $name, $email, '09100000000', $pass, 'DOCTOR']);
 
-    $pdo->prepare('INSERT INTO doctor_profiles (id,user_id,specialty,bio,session_price,is_approved,is_active) VALUES (?,?,?,?,?,?,?)')
-        ->execute([cuid(), $userId, 'روانشناسی و روان‌درمانی', 'نویسنده و متخصص حوزه سلامت روان', 3000000, 1, 0]);
+    $pdo->prepare('INSERT INTO doctor_profiles (id,user_id,specialty,bio,session_price,is_approved,is_active,created_at) VALUES (?,?,?,?,?,?,?,?)')
+        ->execute([
+            cuid(),
+            $userId,
+            'روانشناسی بالینی و روان‌درمانی',
+            'تمرکز بر اضطراب، تنظیم هیجان و همراهی تخصصی در مسیر درمان.',
+            3000000,
+            1,
+            1,
+            '2020-01-01 00:00:00',
+        ]);
 
     return $userId;
+}
+
+/** دکتر عطیه گارسچی را برای نمایش در کاشی متخصصان فعال و اول می‌کند */
+function ensure_doctor_atiyeh_garsichi(PDO $pdo): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+
+    $userId = seed_article_author_id($pdo, 'دکتر عطیه گارسچی', 'atiyeh_garsichi');
+    if (!$userId) {
+        return;
+    }
+
+    $pdo->prepare("
+      UPDATE doctor_profiles
+      SET is_approved=1, is_active=1,
+          specialty='روانشناسی بالینی و روان‌درمانی',
+          bio='تمرکز بر اضطراب، تنظیم هیجان و همراهی تخصصی در مسیر درمان.',
+          created_at='2020-01-01 00:00:00'
+      WHERE user_id=?
+    ")->execute([$userId]);
 }
 
 /**
@@ -48,6 +92,8 @@ function ensure_featured_psychology_article(PDO $pdo): void
         return;
     }
     $done = true;
+
+    ensure_doctor_atiyeh_garsichi($pdo);
 
     $cards = [
         'modiriat-ezterab' => [

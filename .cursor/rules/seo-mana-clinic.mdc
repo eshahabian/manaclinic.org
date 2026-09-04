@@ -1,0 +1,24 @@
+---
+description: SEO standards for Mana Clinic — apply on every public page/content change
+alwaysApply: true
+---
+
+# SEO for مانا کلینیک
+
+Do **not** wait for the user to remind you about SEO. On any public-facing change (pages, articles, doctors, routes, layout), keep or improve SEO automatically.
+
+## Always do
+- Set `$pageTitle`, `$pageDescription`, `$pageCanonical` (and keywords when useful) on public pages
+- Use `includes/seo.php` helpers (`seo_render_head`, `seo_absolute_url`) — do not remove them from `layout.php`
+- Keep `robots.txt` and `/sitemap.xml` in sync when adding public routes/pages
+- Prefer meaningful Persian titles/H1s; one clear H1 per page
+- New articles: unique slug, strong excerpt (~140–180 chars), author name, published=1
+- Local clinic facts when relevant: سعادت‌آباد، تلفن‌ها، مختصات، Instagram `mana_clinic`
+
+## Never
+- `noindex` public marketing pages by default
+- Duplicate identical meta descriptions across many pages
+- Promise “page 1 Google” as guaranteed — ship technical SEO + content quality instead
+
+## After public content changes
+Mention briefly if sitemap/meta needs upload or Search Console refresh.
