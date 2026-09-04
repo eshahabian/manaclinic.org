@@ -18,7 +18,7 @@ $flash = flash_get();
   <title><?= e(($pageTitle ?? 'مانا کلینیک') . ' | مانا کلینیک') ?></title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260904h">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260904i">
   <?php if (!empty($pageHead)): ?>
     <?= $pageHead ?>
   <?php endif; ?>
@@ -35,7 +35,7 @@ $flash = flash_get();
         <a href="<?= e(url('/articles')) ?>">مقالات</a>
         <a href="<?= e(url('/tests')) ?>">آزمون‌ها</a>
         <?php if (function_exists('assistant_enabled') ? assistant_enabled() : false): ?>
-          <a href="<?= e(url('/assistant')) ?>">با من حرف بزن</a>
+          <a href="<?= e(url('/assistant')) ?>">دستیار هوشمند</a>
         <?php endif; ?>
         <a href="<?= e(url('/about')) ?>">درباره ما</a>
         <a href="<?= e(url('/contact')) ?>">تماس با ما</a>
