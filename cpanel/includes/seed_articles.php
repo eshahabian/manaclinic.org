@@ -85,6 +85,29 @@ function seed_garsichi_article_author_id(PDO $pdo): ?string
 }
 
 /**
+ * فقط «دکتر» را اول اسم عطیه گارسچی بگذار (بدون ساختن حساب جدید)
+ */
+function ensure_garsichi_name_has_doctor_prefix(PDO $pdo): void
+{
+    $rows = $pdo->query("
+      SELECT id, name FROM users
+      WHERE role='DOCTOR' AND name LIKE '%گارسچی%'
+    ")->fetchAll();
+
+    $upd = $pdo->prepare('UPDATE users SET name=? WHERE id=?');
+    foreach ($rows as $row) {
+        $name = trim((string) ($row['name'] ?? ''));
+        if ($name === '') {
+            continue;
+        }
+        if (str_starts_with($name, 'دکتر')) {
+            continue;
+        }
+        $upd->execute(['دکتر ' . $name, $row['id']]);
+    }
+}
+
+/**
  * هم‌تراز کردن خلاصه مقالات + درج مقالات ویژه.
  */
 function ensure_featured_psychology_article(PDO $pdo): void
@@ -96,6 +119,7 @@ function ensure_featured_psychology_article(PDO $pdo): void
     $done = true;
 
     cleanup_fake_atiyeh_garsichi($pdo);
+    ensure_garsichi_name_has_doctor_prefix($pdo);
 
     $cards = [
         'modiriat-ezterab' => [

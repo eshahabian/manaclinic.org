@@ -7,12 +7,10 @@ $doctors = $pdo->query("
   JOIN users u ON u.id = dp.user_id
   WHERE dp.is_active = 1 AND dp.is_approved = 1
   ORDER BY
-    CASE WHEN u.name LIKE '%گارسچی%' THEN 0 ELSE 1 END,
+    CASE WHEN u.name LIKE '%گرانمایه%' THEN 0 ELSE 1 END,
     dp.created_at ASC
   LIMIT 3
 ")->fetchAll();
-$leadDoctor = $doctors[0] ?? null;
-$moreDoctors = array_slice($doctors, 1);
 
 $articles = $pdo->query("
   SELECT a.*, u.name AS author_name
