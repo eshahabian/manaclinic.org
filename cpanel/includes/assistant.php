@@ -11,6 +11,22 @@ function assistant_enabled(): bool
     return (bool) ($config['assistant_enabled'] ?? true);
 }
 
+function assistant_ai_config(): array
+{
+    global $config;
+    return [
+        'api_key' => trim((string) ($config['openai_api_key'] ?? '')),
+        'base_url' => rtrim((string) ($config['openai_base_url'] ?? 'https://api.metisai.ir/openai/v1'), '/'),
+        'model' => trim((string) ($config['openai_model'] ?? 'gpt-4o-mini')) ?: 'gpt-4o-mini',
+    ];
+}
+
+function assistant_ai_available(): bool
+{
+    $cfg = assistant_ai_config();
+    return $cfg['api_key'] !== '';
+}
+
 function ensure_assistant_schema(PDO $pdo): void
 {
     static $ready = false;
@@ -24,6 +40,7 @@ function ensure_assistant_schema(PDO $pdo): void
         status ENUM('IN_PROGRESS','COMPLETED','SENT') NOT NULL DEFAULT 'IN_PROGRESS',
         current_step INT NOT NULL DEFAULT 0,
         answers_json MEDIUMTEXT NULL,
+        messages_json MEDIUMTEXT NULL,
         matched_doctors_json MEDIUMTEXT NULL,
         matched_workshops_json MEDIUMTEXT NULL,
         selected_doctor_id VARCHAR(32) NULL,
@@ -35,6 +52,14 @@ function ensure_assistant_schema(PDO $pdo): void
         INDEX idx_assistant_status (status)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
+    try {
+        $cols = $pdo->query('SHOW COLUMNS FROM assistant_sessions LIKE \'messages_json\'')->fetchAll();
+        if (!$cols) {
+            $pdo->exec('ALTER TABLE assistant_sessions ADD COLUMN messages_json MEDIUMTEXT NULL AFTER answers_json');
+        }
+    } catch (Throwable $e) {
+        // ignore migration race
+    }
     $ready = true;
 }
 
@@ -167,6 +192,232 @@ function assistant_answers_decode(?string $json): array
     }
     $data = json_decode($json, true);
     return is_array($data) ? $data : [];
+}
+
+function assistant_messages_decode(?string $json): array
+{
+    if ($json === null || $json === '') {
+        return [];
+    }
+    $data = json_decode($json, true);
+    return is_array($data) ? $data : [];
+}
+
+function assistant_messages_save(PDO $pdo, string $sessionId, array $messages): void
+{
+    $pdo->prepare('UPDATE assistant_sessions SET messages_json=? WHERE id=?')
+        ->execute([json_encode($messages, JSON_UNESCAPED_UNICODE), $sessionId]);
+}
+
+function assistant_ai_system_prompt(): string
+{
+    return <<<'PROMPT'
+تو دستیار گفت‌وگوی اولیه «مانا کلینیک» هستی. با لحن گرم، کوتاه و محترمانه به فارسی صحبت کن.
+هدف: فهمیدن نیاز مراجع برای پیشنهاد درمانگر یا کارگاه — نه تشخیص پزشکی و نه درمان.
+قواعد:
+- تشخیص نده، دارو پیشنهاد نده، بحران را جدی بگیر و در صورت خطر به اورژانس ۱۱۵ ارجاع بده.
+- هر بار معمولاً یک سوال کوتاه بپرس.
+- درباره موضوع اصلی، شدت، مدت، ترجیح فردی/زوجی/کارگاه، حضوری/آنلاین/آفلاین، خواب، حمایت، و هدف مراجع بپرس.
+- وقتی اطلاعات کافی برای پیشنهاد گرفتی، یک خلاصه کوتاه همدلانه بنویس و در انتهای پیام دقیقاً این بلوک را اضافه کن (بدون توضیح اضافه بعد از آن):
+
+<<<READY>>>
+{"tags":["anxiety","moderate","therapy","ONLINE"],"summary":"خلاصه کوتاه فارسی از وضعیت و نیاز مراجع"}
+
+تگ‌های مجاز (فقط از این‌ها استفاده کن): anxiety, depression, stress, burnout, couple, relationship, family, parenting, growth, self, mild, moderate, high, urgent, recent, months, chronic, individual, therapy, workshop, group, unsure, IN_PERSON, ONLINE, OFFLINE, sleep, support, mood.
+PROMPT;
+}
+
+/**
+ * فراخوانی Chat Completions سازگار با OpenAI (Metis و مشابه)
+ * @param list<array{role:string,content:string}> $messages
+ */
+function assistant_ai_chat(array $messages, int $maxTokens = 700): string
+{
+    $cfg = assistant_ai_config();
+    if ($cfg['api_key'] === '') {
+        throw new RuntimeException('کلید API هوش مصنوعی تنظیم نشده است.');
+    }
+
+    $url = $cfg['base_url'] . '/chat/completions';
+    $payload = [
+        'model' => $cfg['model'],
+        'messages' => $messages,
+        'temperature' => 0.6,
+        'max_tokens' => $maxTokens,
+    ];
+    $json = json_encode($payload, JSON_UNESCAPED_UNICODE);
+    $headers = [
+        'Content-Type: application/json',
+        'Authorization: Bearer ' . $cfg['api_key'],
+        'x-api-key: ' . $cfg['api_key'],
+    ];
+
+    $raw = false;
+    $httpCode = 0;
+    if (function_exists('curl_init')) {
+        $ch = curl_init($url);
+        curl_setopt_array($ch, [
+            CURLOPT_POST => true,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_POSTFIELDS => $json,
+            CURLOPT_TIMEOUT => 60,
+        ]);
+        $raw = curl_exec($ch);
+        $httpCode = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+    } else {
+        $ctx = stream_context_create([
+            'http' => [
+                'method' => 'POST',
+                'header' => implode("\r\n", $headers) . "\r\n",
+                'content' => $json,
+                'timeout' => 60,
+                'ignore_errors' => true,
+            ],
+        ]);
+        $raw = @file_get_contents($url, false, $ctx);
+        if (isset($http_response_header[0]) && preg_match('/\s(\d{3})\s/', $http_response_header[0], $m)) {
+            $httpCode = (int) $m[1];
+        }
+    }
+
+    if ($raw === false || $raw === '') {
+        throw new RuntimeException('ارتباط با سرویس هوش مصنوعی برقرار نشد.');
+    }
+    $data = json_decode($raw, true);
+    if (!is_array($data)) {
+        throw new RuntimeException('پاسخ نامعتبر از سرویس هوش مصنوعی.');
+    }
+    if ($httpCode >= 400 || isset($data['error'])) {
+        $msg = is_array($data['error'] ?? null)
+            ? (string) ($data['error']['message'] ?? 'خطای API')
+            : (string) ($data['message'] ?? $data['error'] ?? 'خطای API');
+        throw new RuntimeException('هوش مصنوعی: ' . $msg);
+    }
+    $content = $data['choices'][0]['message']['content'] ?? '';
+    if (!is_string($content) || trim($content) === '') {
+        throw new RuntimeException('پاسخ خالی از مدل دریافت شد.');
+    }
+    return trim($content);
+}
+
+/** @return array{text:string,ready:bool,tags:list<string>,summary:string} */
+function assistant_ai_parse_reply(string $content): array
+{
+    $ready = false;
+    $tags = [];
+    $summary = '';
+    $text = $content;
+
+    if (preg_match('/<<<READY>>>\s*(\{.*\})\s*$/s', $content, $m)) {
+        $ready = true;
+        $text = trim(preg_replace('/<<<READY>>>\s*\{.*\}\s*$/s', '', $content) ?? $content);
+        $meta = json_decode($m[1], true);
+        if (is_array($meta)) {
+            $tags = array_values(array_filter(array_map('strval', $meta['tags'] ?? [])));
+            $summary = trim((string) ($meta['summary'] ?? ''));
+        }
+    }
+
+    return [
+        'text' => $text !== '' ? $text : 'متوجه شدم. لطفاً کمی بیشتر توضیح دهید.',
+        'ready' => $ready,
+        'tags' => $tags,
+        'summary' => $summary,
+    ];
+}
+
+function assistant_answers_from_ai_tags(array $tags, string $summary): array
+{
+    $tagSet = [];
+    foreach ($tags as $t) {
+        $tagSet[(string) $t] = true;
+    }
+    $answers = [];
+    foreach (assistant_questions() as $q) {
+        if (($q['type'] ?? '') === 'text') {
+            if ($summary !== '') {
+                $answers[] = ['question_id' => $q['id'], 'text' => $summary];
+            }
+            continue;
+        }
+        $bestId = null;
+        $bestScore = 0;
+        foreach ($q['options'] ?? [] as $opt) {
+            $score = 0;
+            foreach ($opt['tags'] ?? [] as $t) {
+                if (isset($tagSet[(string) $t])) {
+                    $score++;
+                }
+            }
+            if ($score > $bestScore) {
+                $bestScore = $score;
+                $bestId = $opt['id'];
+            }
+        }
+        if ($bestId !== null) {
+            $answers[] = ['question_id' => $q['id'], 'option_id' => $bestId];
+        }
+    }
+    return $answers;
+}
+
+function assistant_openai_messages_for_api(array $stored): array
+{
+    $out = [['role' => 'system', 'content' => assistant_ai_system_prompt()]];
+    foreach ($stored as $m) {
+        $role = ($m['role'] ?? '') === 'assistant' ? 'assistant' : 'user';
+        $content = trim((string) ($m['content'] ?? ''));
+        if ($content === '') {
+            continue;
+        }
+        $out[] = ['role' => $role, 'content' => $content];
+    }
+    return $out;
+}
+
+function assistant_complete_from_ai(PDO $pdo, string $sessionId, array $messages, array $tags, string $summary): array
+{
+    if ($tags === []) {
+        // استخراج اجباری با یک درخواست کوتاه
+        $extractPrompt = [
+            ['role' => 'system', 'content' => 'از گفتگو تگ و خلاصه بساز. فقط JSON معتبر برگردان: {"tags":[...],"summary":"..."} تگ‌ها فقط از لیست مجاز دستیار مانا کلینیک.'],
+            ['role' => 'user', 'content' => "گفتگو:\n" . assistant_transcript_plain($messages) . "\n\nJSON:"],
+        ];
+        try {
+            $raw = assistant_ai_chat($extractPrompt, 400);
+            if (preg_match('/\{.*\}/s', $raw, $m)) {
+                $meta = json_decode($m[0], true);
+                if (is_array($meta)) {
+                    $tags = array_values(array_filter(array_map('strval', $meta['tags'] ?? [])));
+                    if ($summary === '') {
+                        $summary = trim((string) ($meta['summary'] ?? ''));
+                    }
+                }
+            }
+        } catch (Throwable $e) {
+            // ادامه با تگ خالی → پیشنهاد عمومی
+        }
+    }
+
+    $answers = assistant_answers_from_ai_tags($tags, $summary);
+    if ($summary !== '' && $answers === []) {
+        $answers[] = ['question_id' => 'free_note', 'text' => $summary];
+    }
+    $result = assistant_complete_matching($pdo, $sessionId, $answers, $messages, $summary);
+    assistant_messages_save($pdo, $sessionId, $messages);
+    return $result;
+}
+
+function assistant_transcript_plain(array $messages): string
+{
+    $lines = [];
+    foreach ($messages as $m) {
+        $who = ($m['role'] ?? '') === 'assistant' ? 'دستیار' : 'مراجع';
+        $lines[] = $who . ': ' . trim((string) ($m['content'] ?? ''));
+    }
+    return implode("\n", $lines);
 }
 
 function assistant_collect_tags(array $answers): array
@@ -338,7 +589,7 @@ function assistant_answer_label(array $answer): string
     return $oid;
 }
 
-function assistant_build_intake_text(array $session, array $answers, array $doctors, array $workshops, ?string $selectedDoctorName = null): string
+function assistant_build_intake_text(array $session, array $answers, array $doctors, array $workshops, ?string $selectedDoctorName = null, ?array $messages = null, ?string $aiSummary = null): string
 {
     $lines = [];
     $lines[] = '=== شرح‌حال اولیه — دستیار گفت‌وگوی مانا کلینیک ===';
@@ -348,14 +599,26 @@ function assistant_build_intake_text(array $session, array $answers, array $doct
         $lines[] = 'درمانگر انتخاب‌شده توسط مراجع: ' . $selectedDoctorName;
     }
     $lines[] = '';
-    $lines[] = '— پاسخ‌های گفتگو —';
-    foreach ($answers as $ans) {
-        $qid = (string) ($ans['question_id'] ?? '');
-        $q = assistant_question_by_id($qid);
-        $qText = $q['text'] ?? $qid;
-        $lines[] = 'سوال: ' . $qText;
-        $lines[] = 'پاسخ: ' . assistant_answer_label($ans);
+    if ($aiSummary) {
+        $lines[] = '— خلاصه هوش مصنوعی —';
+        $lines[] = $aiSummary;
         $lines[] = '';
+    }
+    if ($messages) {
+        $lines[] = '— متن گفتگو —';
+        $lines[] = assistant_transcript_plain($messages);
+        $lines[] = '';
+    }
+    if ($answers) {
+        $lines[] = '— پاسخ‌های ساخت‌یافته —';
+        foreach ($answers as $ans) {
+            $qid = (string) ($ans['question_id'] ?? '');
+            $q = assistant_question_by_id($qid);
+            $qText = $q['text'] ?? $qid;
+            $lines[] = 'سوال: ' . $qText;
+            $lines[] = 'پاسخ: ' . assistant_answer_label($ans);
+            $lines[] = '';
+        }
     }
     if ($doctors) {
         $lines[] = '— پیشنهادهای درمانگر (سیستم) —';
@@ -387,11 +650,11 @@ function assistant_save_progress(PDO $pdo, string $sessionId, int $step, array $
     $pdo->prepare("UPDATE assistant_sessions SET {$fields} WHERE id=?")->execute($params);
 }
 
-function assistant_complete_matching(PDO $pdo, string $sessionId, array $answers): array
+function assistant_complete_matching(PDO $pdo, string $sessionId, array $answers, ?array $messages = null, ?string $aiSummary = null): array
 {
     $doctors = assistant_match_doctors($pdo, $answers);
     $workshops = assistant_match_workshops($pdo, $answers);
-    $intake = assistant_build_intake_text(['id' => $sessionId], $answers, $doctors, $workshops);
+    $intake = assistant_build_intake_text(['id' => $sessionId], $answers, $doctors, $workshops, null, $messages, $aiSummary);
     $pdo->prepare('
       UPDATE assistant_sessions
       SET status=?, current_step=?, answers_json=?, matched_doctors_json=?, matched_workshops_json=?, intake_text=?
@@ -429,7 +692,14 @@ function assistant_send_to_doctor(PDO $pdo, array $session, string $patientId, s
         throw new RuntimeException('درمانگر انتخاب‌شده معتبر نیست.');
     }
 
-    $intake = assistant_build_intake_text($session, $answers, $doctors, $workshops, (string) $doctor['name']);
+    $intake = assistant_build_intake_text(
+        $session,
+        $answers,
+        $doctors,
+        $workshops,
+        (string) $doctor['name'],
+        assistant_messages_decode($session['messages_json'] ?? null) ?: null
+    );
     $chart = get_or_create_patient_chart($pdo, $doctorProfileId, $patientId);
     $existing = trim((string) ($chart['history_text'] ?? ''));
     $block = "\n\n" . $intake . "\n";

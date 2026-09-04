@@ -23,6 +23,7 @@ $assistantConfig = [
     'registerUrl' => url('/register') . '?next=' . rawurlencode(url('/assistant' . ($resumeSession !== '' ? '?session=' . $resumeSession : ''))),
     'resumeSession' => $resumeSession,
     'loggedIn' => (bool) $isPatient,
+    'aiEnabled' => assistant_ai_available(),
 ];
 
 ob_start();
@@ -30,7 +31,11 @@ ob_start();
 <section class="container-page section assistant-page">
   <div class="assistant-head">
     <h1>با من حرف بزن</h1>
-    <p class="muted">گفتگوی کوتاه و هدایت‌شده برای پیدا کردن درمانگر یا کارگاه مناسب</p>
+    <p class="muted">
+      <?= assistant_ai_available()
+        ? 'گفتگوی واقعی با دستیار هوشمند برای پیدا کردن درمانگر یا کارگاه مناسب'
+        : 'گفتگوی کوتاه و هدایت‌شده برای پیدا کردن درمانگر یا کارگاه مناسب' ?>
+    </p>
   </div>
 
   <div class="assistant-shell panel">
@@ -46,6 +51,6 @@ ob_start();
 $content = ob_get_clean();
 
 $pageScripts = '<script>window.__ASSISTANT__ = ' . json_encode($assistantConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . ';</script>'
-    . '<script src="' . e(url('/assets/js/assistant.js')) . '?v=20260904b"></script>';
+    . '<script src="' . e(url('/assets/js/assistant.js')) . '?v=20260904c"></script>';
 
 require __DIR__ . '/../includes/layout.php';

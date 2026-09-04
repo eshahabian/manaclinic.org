@@ -21,7 +21,10 @@ return [
 
     'session_name' => 'mana_clinic_sess',
 
-    // دستیار گفت‌وگوی «با من حرف بزن» (پرسش‌نامه هدایت‌شده؛ بدون API خارجی در این فاز)
+    // دستیار گفت‌وگوی «با من حرف بزن»
     'assistant_enabled' => true,
-    // 'openai_api_key' => '', // رزرو برای فاز بعد — فعلاً استفاده نمی‌شود
+    // Metis AI / درگاه OpenAI-compatible — کلید را فقط در config.php بگذارید (نه در git)
+    'openai_api_key' => '',
+    'openai_base_url' => 'https://api.metisai.ir/openai/v1',
+    'openai_model' => 'gpt-4o-mini',
 ];

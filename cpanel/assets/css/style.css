@@ -750,3 +750,4 @@ jdp-container, .jdp-container, [class*="jdp"] {
   margin: 0 0 .65rem;
   font-size: 1.05rem;
 }
+.assistant-composer { display: flex; flex-direction: column; gap: .65rem; }

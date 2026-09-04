@@ -7,6 +7,7 @@
   var registerUrl = cfg.registerUrl || "";
   var resumeSession = cfg.resumeSession || "";
   var loggedIn = !!cfg.loggedIn;
+  var preferAi = cfg.aiEnabled !== false;
 
   var messagesEl = document.getElementById("assistant-messages");
   var controlsEl = document.getElementById("assistant-controls");
@@ -16,6 +17,8 @@
   var sessionId = resumeSession || "";
   var busy = false;
   var selectedDoctorId = "";
+  var mode = preferAi ? "ai" : "guided";
+  var canComplete = false;
 
   function esc(s) {
     var d = document.createElement("div");
@@ -26,14 +29,15 @@
   function addMsg(role, text) {
     var div = document.createElement("div");
     div.className = "assistant-msg assistant-msg--" + role;
-    div.innerHTML = '<div class="assistant-bubble">' + esc(text).replace(/\n/g, "<br>") + "</div>";
+    div.innerHTML =
+      '<div class="assistant-bubble">' + esc(text).replace(/\n/g, "<br>") + "</div>";
     messagesEl.appendChild(div);
     messagesEl.scrollTop = messagesEl.scrollHeight;
   }
 
   function setBusy(v) {
     busy = v;
-    controlsEl.querySelectorAll("button, textarea").forEach(function (el) {
+    controlsEl.querySelectorAll("button, textarea, input").forEach(function (el) {
       el.disabled = !!v;
     });
   }
@@ -57,6 +61,74 @@
         return j;
       });
     });
+  }
+
+  function renderAiComposer() {
+    controlsEl.innerHTML = "";
+    var wrap = document.createElement("div");
+    wrap.className = "assistant-composer";
+
+    var ta = document.createElement("textarea");
+    ta.className = "input assistant-text";
+    ta.rows = 3;
+    ta.placeholder = "اینجا بنویسید… مثلاً این روزها اضطراب دارم";
+    wrap.appendChild(ta);
+
+    var row = document.createElement("div");
+    row.className = "assistant-actions";
+
+    var send = document.createElement("button");
+    send.type = "button";
+    send.className = "btn btn-primary";
+    send.textContent = "ارسال";
+    send.addEventListener("click", function () {
+      var text = (ta.value || "").trim();
+      if (!text) return;
+      ta.value = "";
+      sendAiMessage(text);
+    });
+    row.appendChild(send);
+
+    var finish = document.createElement("button");
+    finish.type = "button";
+    finish.className = "btn btn-outline";
+    finish.id = "assistant-finish-btn";
+    finish.textContent = "پیشنهاد درمانگر";
+    finish.disabled = !canComplete;
+    finish.addEventListener("click", function () {
+      if (busy || !sessionId) return;
+      setBusy(true);
+      postForm(chatUrl, { action: "complete", sessionId: sessionId })
+        .then(handleChatResponse)
+        .catch(function (err) {
+          addMsg("bot", err.message || "خطا");
+          setBusy(false);
+        });
+    });
+    row.appendChild(finish);
+
+    wrap.appendChild(row);
+    controlsEl.appendChild(wrap);
+
+    ta.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        send.click();
+      }
+    });
+  }
+
+  function sendAiMessage(text) {
+    if (busy || !sessionId) return;
+    addMsg("user", text);
+    setBusy(true);
+    postForm(chatUrl, { action: "message", sessionId: sessionId, text: text })
+      .then(handleChatResponse)
+      .catch(function (err) {
+        addMsg("bot", err.message || "خطا");
+        setBusy(false);
+        renderAiComposer();
+      });
   }
 
   function renderQuestion(q, step, total) {
@@ -141,7 +213,8 @@
     var html = '<div class="assistant-match">';
     html += "<h2>پیشنهاد درمانگر</h2>";
     if (!doctors.length) {
-      html += '<p class="muted">فعلاً درمانگر پیشنهادی یافت نشد. از صفحه متخصصان می‌توانید انتخاب کنید.</p>';
+      html +=
+        '<p class="muted">فعلاً درمانگر پیشنهادی یافت نشد. از صفحه متخصصان می‌توانید انتخاب کنید.</p>';
     } else {
       html += '<div class="assistant-doctor-list">';
       doctors.forEach(function (d, i) {
@@ -222,7 +295,7 @@
     html += "</div></div>";
     resultsEl.innerHTML = html;
 
-    resultsEl.querySelectorAll('input[name=doctorPick]').forEach(function (inp) {
+    resultsEl.querySelectorAll("input[name=doctorPick]").forEach(function (inp) {
       inp.addEventListener("change", function () {
         selectedDoctorId = inp.value;
       });
@@ -256,9 +329,15 @@
   function handleChatResponse(data) {
     setBusy(false);
     if (data.sessionId) sessionId = data.sessionId;
+    if (data.mode) mode = data.mode;
+    if (typeof data.canComplete === "boolean") canComplete = data.canComplete;
     if (data.botMessage) addMsg("bot", data.botMessage);
     if (data.done) {
       renderResults(data);
+      return;
+    }
+    if (mode === "ai") {
+      renderAiComposer();
       return;
     }
     if (data.question) {
@@ -282,6 +361,7 @@
     postForm(chatUrl, { action: "status", sessionId: sessionId })
       .then(function (data) {
         setBusy(false);
+        if (data.mode) mode = data.mode;
         if (data.done) {
           addMsg(
             "bot",
@@ -290,7 +370,16 @@
           renderResults(data);
           return;
         }
-        // جلسه ناتمام — از همان نقطه ادامه نمی‌دهیم تا ساده‌تر بماند؛ شروع تازه
+        if (mode === "ai" && data.messages && data.messages.length) {
+          data.messages.forEach(function (m) {
+            addMsg(m.role === "assistant" ? "bot" : "user", m.content || "");
+          });
+          canComplete = (data.messages || []).filter(function (m) {
+            return m.role === "user";
+          }).length >= 2;
+          renderAiComposer();
+          return;
+        }
         sessionId = "";
         startFresh();
       })
