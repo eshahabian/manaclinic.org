@@ -22,13 +22,13 @@ $notes = post('notes') ?: null;
 
 if ($doctorId === '' || $date === '' || $time === '') {
     flash_set('error', 'اطلاعات نوبت ناقص است.');
-    redirect('/secretary/book');
+    redirect('/secretary/appointments?tab=new');
 }
 
 if ($patientId === '') {
     if ($firstName === '' || $lastName === '' || $nameEn === '' || $surname === '') {
         flash_set('error', 'نام، نام خانوادگی، name و surname الزامی هستند.');
-        redirect('/secretary/book');
+        redirect('/secretary/appointments?tab=new');
     }
     if ($preferredDoctorId === null || $preferredDoctorId === '') {
         $preferredDoctorId = $doctorId;
@@ -37,33 +37,33 @@ if ($patientId === '') {
     $prefDoc->execute([$preferredDoctorId]);
     if (!$prefDoc->fetch()) {
         flash_set('error', 'درمانگر مربوط به مراجعه‌کننده معتبر نیست.');
-        redirect('/secretary/book');
+        redirect('/secretary/appointments?tab=new');
     }
     if (!preg_match('/^09[0-9]{9}$/', $newPhone)) {
         flash_set('error', 'موبایل الزامی است و باید ۱۱ رقم با ۰۹ باشد.');
-        redirect('/secretary/book');
+        redirect('/secretary/appointments?tab=new');
     }
     if ($newUsername === '') {
         flash_set('error', 'نام کاربری بیمار جدید الزامی است.');
-        redirect('/secretary/book');
+        redirect('/secretary/appointments?tab=new');
     }
     if (!preg_match('/^[a-z0-9._-]{3,32}$/', $newUsername)) {
         flash_set('error', 'نام کاربری نامعتبر است. فقط حروف انگلیسی، عدد و ._- (۳ تا ۳۲ کاراکتر).');
-        redirect('/secretary/book');
+        redirect('/secretary/appointments?tab=new');
     }
     if (strlen($newPassword) < 6) {
         flash_set('error', 'رمز عبور حداقل ۶ کاراکتر باشد.');
-        redirect('/secretary/book');
+        redirect('/secretary/appointments?tab=new');
     }
     if ($newPassword !== $newPasswordConfirm) {
         flash_set('error', 'رمز عبور و تکرار آن یکسان نیست.');
-        redirect('/secretary/book');
+        redirect('/secretary/appointments?tab=new');
     }
     $exists = $pdo->prepare('SELECT id FROM users WHERE username=?');
     $exists->execute([$newUsername]);
     if ($exists->fetch()) {
         flash_set('error', 'این نام کاربری قبلاً ثبت شده است.');
-        redirect('/secretary/book');
+        redirect('/secretary/appointments?tab=new');
     }
     $patientId = cuid();
     $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,preferred_doctor_id,created_by_user_id,must_change_password) VALUES (?,?,?,?,?,?,?,?,?,0)')
@@ -93,7 +93,7 @@ $doc->execute([$doctorId]);
 $doctor = $doc->fetch();
 if (!$doctor) {
     flash_set('error', 'دکتر یافت نشد.');
-    redirect('/secretary/book');
+    redirect('/secretary/appointments?tab=new');
 }
 
 $av = $pdo->prepare('SELECT * FROM availabilities WHERE doctor_id=? AND date=?');
@@ -101,13 +101,13 @@ $av->execute([$doctorId, $date]);
 $availability = $av->fetch();
 if (!$availability) {
     flash_set('error', 'این روز برای دکتر خالی نیست.');
-    redirect('/secretary/book');
+    redirect('/secretary/appointments?tab=new');
 }
 
 $valid = appointment_slots_from_availability($availability);
 if (!in_array($time, $valid, true)) {
     flash_set('error', 'ساعت نامعتبر است.');
-    redirect('/secretary/book');
+    redirect('/secretary/appointments?tab=new');
 }
 
 $startsAt = $date . ' ' . $time . ':00';
@@ -120,7 +120,7 @@ $conflict = $pdo->prepare("
 $conflict->execute([$doctorId, $startsAt]);
 if ($conflict->fetch()) {
     flash_set('error', 'این ساعت قبلاً رزرو شده است.');
-    redirect('/secretary/book');
+    redirect('/secretary/appointments?tab=new');
 }
 
 $appointmentId = cuid();
@@ -151,8 +151,9 @@ try {
     );
 
     flash_set('success', 'نوبت با موفقیت ثبت و تأیید شد.');
+    redirect('/secretary/appointments?tab=upcoming');
 } catch (Throwable $e) {
     $pdo->rollBack();
     flash_set('error', 'خطا در ثبت نوبت: ' . $e->getMessage());
+    redirect('/secretary/appointments?tab=new');
 }
-redirect('/secretary/appointments');

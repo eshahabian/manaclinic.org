@@ -9,7 +9,13 @@ if ($paymentId === '') {
     redirect('/secretary/appointments');
 }
 
-$stmt = $pdo->prepare('SELECT id, receipt_path FROM payments WHERE id=? LIMIT 1');
+$stmt = $pdo->prepare('
+  SELECT p.id, p.receipt_path, a.starts_at, a.status
+  FROM payments p
+  JOIN appointments a ON a.id = p.appointment_id
+  WHERE p.id=?
+  LIMIT 1
+');
 $stmt->execute([$paymentId]);
 $payment = $stmt->fetch();
 if (!$payment) {
@@ -28,9 +34,12 @@ try {
     $pdo->prepare('UPDATE payments SET receipt_path=?, recorded_by_user_id=COALESCE(recorded_by_user_id, ?) WHERE id=?')
         ->execute([$relative, $user['id'], $paymentId]);
     staff_log_action($pdo, (string) $user['id'], 'receipt_upload', 'payment', $paymentId);
-    flash_set('success', 'فیش واریزی ذخیره شد.');
+    flash_set('success', 'رسید پرداخت ذخیره شد.');
 } catch (RuntimeException $e) {
     flash_set('error', $e->getMessage());
 }
 
-redirect('/secretary/appointments');
+$status = (string) ($payment['status'] ?? '');
+$start = strtotime((string) ($payment['starts_at'] ?? '')) ?: 0;
+$tab = (!in_array($status, ['CANCELLED', 'COMPLETED'], true) && $start >= time()) ? 'upcoming' : 'done';
+redirect('/secretary/appointments?tab=' . $tab);

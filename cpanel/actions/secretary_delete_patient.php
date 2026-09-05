@@ -12,7 +12,7 @@ if ($action === 'delete_patient') {
     $user = $row->fetch();
     if (!$user) {
         flash_set('error', 'بیمار یافت نشد.');
-        redirect('/secretary/book');
+        redirect('/secretary/appointments?tab=new');
     }
     try {
         $pdo->beginTransaction();
@@ -28,7 +28,7 @@ if ($action === 'delete_patient') {
         }
         flash_set('error', 'حذف ناموفق: ' . $e->getMessage());
     }
-    redirect('/secretary/book');
+    redirect('/secretary/appointments?tab=new');
 }
 
 if ($action === 'purge_test_patients') {
@@ -83,8 +83,8 @@ if ($action === 'purge_test_patients') {
         }
         flash_set('error', 'حذف ناموفق: ' . $e->getMessage());
     }
-    redirect('/secretary/book');
+    redirect('/secretary/appointments?tab=new');
 }
 
 flash_set('error', 'درخواست نامعتبر.');
-redirect('/secretary/book');
+redirect('/secretary/appointments?tab=new');
