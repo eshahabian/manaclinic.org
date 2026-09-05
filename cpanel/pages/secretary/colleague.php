@@ -12,7 +12,6 @@ ob_start();
 <h1>پیام به همکار</h1>
 <p class="muted" style="margin-top:.35rem;font-size:.9rem;line-height:1.8">
   متن برای همه منشی‌های دیگر می‌رود. با ورود بعدی، کل صفحه را می‌بینند و تا «خواندم» نزنند وارد پورتال نمی‌شوند.
-  یک کپی هم برای دکتر و ادمین می‌رود.
 </p>
 
 <div class="panel" style="margin-top:1rem;border-color:var(--primary)">

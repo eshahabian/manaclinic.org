@@ -27,7 +27,7 @@ $doctorId = trim(post('doctorId')); // اختیاری — فقط ترجیح
 
 try {
     $session = assistant_session_get($pdo, $sessionId);
-    if (!$session) {
+    if (!$session || !assistant_session_accessible($session, $user)) {
         throw new RuntimeException('جلسه گفتگو یافت نشد.');
     }
     if ($session['status'] === 'SENT') {

@@ -43,6 +43,7 @@ ob_start();
 <p class="muted" style="margin:0 0 1rem">ابتدا دکتر را انتخاب کنید؛ فقط روزهایی که دکتر وقت خالی گذاشته قابل انتخاب هستند.</p>
 
 <form class="panel form-stack" method="post" action="<?= e(url('/secretary/book')) ?>" id="secretary-book-form" style="margin-top:0;max-width:44rem" enctype="multipart/form-data">
+  <?= csrf_field() ?>
   <div>
     <label class="label">مراجعه‌کننده</label>
     <select class="input" name="patient_id" id="patient_id">

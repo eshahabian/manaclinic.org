@@ -21,7 +21,7 @@ $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'es
   <?= seo_render_head() ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260906h">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260906i">
   <?php if (!empty($pageHead)): ?>
     <?= $pageHead ?>
   <?php endif; ?>
@@ -49,7 +49,6 @@ $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'es
       <div class="header-actions">
         <?php if ($user): ?>
           <span class="user-name"><?= e($user['name']) ?></span>
-          <a class="btn btn-outline" href="<?= e(url('/change-password')) ?>">تغییر رمز عبور</a>
           <a class="btn btn-outline" href="<?= e(url('/logout')) ?>">خروج</a>
         <?php else: ?>
           <a class="btn btn-outline" href="<?= e(url('/login')) ?>">ورود</a>

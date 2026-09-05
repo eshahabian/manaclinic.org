@@ -11,7 +11,7 @@ if (!assistant_enabled()) {
 ensure_assistant_schema($pdo);
 $sessionId = trim((string) ($_GET['session'] ?? ''));
 $session = $sessionId !== '' ? assistant_session_get($pdo, $sessionId) : null;
-if (!$session || !in_array($session['status'], ['COMPLETED', 'SENT'], true)) {
+if (!$session || !in_array($session['status'], ['COMPLETED', 'SENT'], true) || !assistant_session_accessible($session)) {
     flash_set('error', 'گزارش گفتگو یافت نشد.');
     redirect('/assistant');
 }

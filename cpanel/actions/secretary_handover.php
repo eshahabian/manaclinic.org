@@ -7,7 +7,7 @@ $body = trim((string) ($_POST['body'] ?? ''));
 
 try {
     $count = handover_send($pdo, (string) $user['id'], (string) $user['name'], $body);
-    flash_set('success', "پیام برای {$count} همکار ارسال شد. یک نسخه برای دکتر و ادمین هم رفت.");
+    flash_set('success', "پیام برای {$count} همکار ارسال شد.");
 } catch (Throwable $e) {
     flash_set('error', $e->getMessage());
 }

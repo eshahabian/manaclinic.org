@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 $user = require_login(['SECRETARY']);
+csrf_verify();
 $actorId = (string) $user['id'];
 $actorName = staff_actor_label($user);
 

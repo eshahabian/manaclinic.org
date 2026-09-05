@@ -1,3 +1,4 @@
+Options -Indexes
 RewriteEngine On
 
 # فیش و فایل خصوصی مستقیم از وب باز نشود

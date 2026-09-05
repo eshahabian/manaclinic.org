@@ -101,7 +101,7 @@ try {
         $sessionId = trim(post('sessionId'));
         $text = trim(post('text'));
         $session = assistant_session_get($pdo, $sessionId);
-        if (!$session || in_array($session['status'], ['SENT'], true)) {
+        if (!$session || !assistant_session_accessible($session, $user) || in_array($session['status'], ['SENT'], true)) {
             throw new RuntimeException('جلسه گفتگو یافت نشد.');
         }
         if ($session['status'] === 'COMPLETED') {
@@ -150,7 +150,7 @@ try {
     if ($action === 'complete' && $aiMode) {
         $sessionId = trim(post('sessionId'));
         $session = assistant_session_get($pdo, $sessionId);
-        if (!$session || $session['status'] === 'SENT') {
+        if (!$session || !assistant_session_accessible($session, $user) || $session['status'] === 'SENT') {
             throw new RuntimeException('جلسه گفتگو یافت نشد.');
         }
         if ($session['status'] === 'COMPLETED') {
@@ -183,7 +183,7 @@ try {
         }
         $sessionId = trim(post('sessionId'));
         $session = assistant_session_get($pdo, $sessionId);
-        if (!$session || in_array($session['status'], ['SENT'], true)) {
+        if (!$session || !assistant_session_accessible($session, $user) || in_array($session['status'], ['SENT'], true)) {
             throw new RuntimeException('جلسه گفتگو یافت نشد.');
         }
 
@@ -276,7 +276,7 @@ try {
     if ($action === 'status') {
         $sessionId = trim(post('sessionId') ?: (string) ($_GET['sessionId'] ?? ''));
         $session = assistant_session_get($pdo, $sessionId);
-        if (!$session) {
+        if (!$session || !assistant_session_accessible($session, $user)) {
             throw new RuntimeException('جلسه یافت نشد.');
         }
         echo json_encode([

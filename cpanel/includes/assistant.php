@@ -189,6 +189,22 @@ function assistant_question_by_id(string $id): ?array
     return null;
 }
 
+function assistant_session_accessible(?array $session, ?array $user = null): bool
+{
+    if (!$session) {
+        return false;
+    }
+    $owner = trim((string) ($session['patient_id'] ?? ''));
+    if ($owner === '') {
+        return true;
+    }
+    $user = $user ?? (function_exists('current_user') ? current_user() : null);
+    if (function_exists('is_admin_user') && is_admin_user($user)) {
+        return true;
+    }
+    return $user && ($user['role'] ?? '') === 'PATIENT' && (string) $user['id'] === $owner;
+}
+
 function assistant_session_get(PDO $pdo, string $id): ?array
 {
     ensure_assistant_schema($pdo);

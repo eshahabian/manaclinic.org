@@ -87,8 +87,8 @@ ob_start();
               <div class="stack">
                 <?php foreach (($day['items'] ?? []) as $a): ?>
                   <?php $time = jalali_day_parts((string) $a['starts_at']); ?>
-                  <div class="panel stack">
-                    <div class="row-between">
+                  <div class="panel appt-card">
+                    <div class="appt-card-top">
                       <div>
                         <strong><?= e($a['patient_name']) ?></strong>
                         <div class="muted" style="font-size:.85rem"><?= e((string) ($a['phone'] ?: $a['email'])) ?></div>
@@ -97,14 +97,14 @@ ob_start();
                         </div>
                         <?= staff_sign_html(['name' => $a['actor_name'] ?? '', 'username' => $a['actor_username'] ?? '']) ?>
                       </div>
-                      <div style="font-size:.85rem">
+                      <div class="appt-card-meta">
                         <span class="badge"><?= e(appointment_status_label($a['status'])) ?></span>
                         <?php if ($a['amount']): ?>
-                          <div class="muted" style="margin-top:.35rem"><?= e(format_price((int) $a['amount'])) ?> — <?= e(payment_status_label((string) $a['pay_status'])) ?></div>
+                          <div class="muted"><?= e(format_price((int) $a['amount'])) ?> — <?= e(payment_status_label((string) $a['pay_status'])) ?></div>
                         <?php endif; ?>
                       </div>
                     </div>
-                    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+                    <div class="appt-card-actions">
                       <?= staff_receipt_view_html($a['payment_id'] ?? null, $a['receipt_path'] ?? null, false) ?>
                       <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/patients/' . $a['patient_id'])) ?>">پرونده مراجعه‌کننده</a>
                       <?= function_exists('admin_appointment_delete_form') ? admin_appointment_delete_form((string) $a['id'], '/doctor/appointments') : '' ?>

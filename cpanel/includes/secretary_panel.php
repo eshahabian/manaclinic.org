@@ -42,7 +42,7 @@ function render_secretary_page(string $title, string $innerHtml): void
           </div>
         <?php endif; ?>
       </aside>
-      <div><?= $innerHtml ?></div>
+      <div class="panel-main"><?= $innerHtml ?></div>
     </div>
     <?php
     $content = ob_get_clean();
