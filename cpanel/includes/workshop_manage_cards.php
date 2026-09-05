@@ -8,6 +8,7 @@ declare(strict_types=1);
 $workshopList = $workshopList ?? [];
 $workshopEmpty = $workshopEmpty ?? 'کارگاهی در این بخش نیست.';
 $workshopRole = $workshopRole ?? 'doctor';
+$workshopEnrollmentsById = $workshopEnrollmentsById ?? [];
 $workshopEditBase = $workshopRole === 'secretary' ? '/secretary/workshops' : '/doctor/workshops';
 $workshopPostBase = $workshopEditBase;
 $workshopMediaPost = $workshopRole === 'secretary' ? '/secretary/workshop-media' : '/doctor/workshop-media';
@@ -101,6 +102,12 @@ $workshopMediaPost = $workshopRole === 'secretary' ? '/secretary/workshop-media'
         <?php endif; ?>
         <?php if ($workshopRole === 'doctor' && !empty($workshop['notes'])): ?>
           <p class="muted" style="font-size:.85rem;margin:.5rem 0 0"><strong>یادداشت:</strong> <?= e($workshop['notes']) ?></p>
+        <?php endif; ?>
+        <?php if ($workshopRole === 'secretary'): ?>
+          <?php
+            $enrollmentList = $workshopEnrollmentsById[(string) $workshop['id']] ?? [];
+            require __DIR__ . '/workshop_enrollment_desk.php';
+          ?>
         <?php endif; ?>
       </article>
     <?php endforeach; ?>

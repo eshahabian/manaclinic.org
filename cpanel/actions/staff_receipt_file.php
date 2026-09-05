@@ -10,10 +10,22 @@ if ($paymentId === '') {
     exit;
 }
 
-$stmt = $pdo->prepare('SELECT receipt_path FROM payments WHERE id=? LIMIT 1');
-$stmt->execute([$paymentId]);
+$kind = trim((string) ($_GET['kind'] ?? ''));
+if ($kind === 'workshop') {
+    $stmt = $pdo->prepare('SELECT receipt_path FROM workshop_payments WHERE id=? LIMIT 1');
+    $stmt->execute([$paymentId]);
+} else {
+    $stmt = $pdo->prepare('SELECT receipt_path FROM payments WHERE id=? LIMIT 1');
+    $stmt->execute([$paymentId]);
+}
 $row = $stmt->fetch();
 $relative = trim((string) ($row['receipt_path'] ?? ''));
+if ($relative === '' && $kind !== 'workshop') {
+    $stmt = $pdo->prepare('SELECT receipt_path FROM workshop_payments WHERE id=? LIMIT 1');
+    $stmt->execute([$paymentId]);
+    $row = $stmt->fetch();
+    $relative = trim((string) ($row['receipt_path'] ?? ''));
+}
 if ($relative === '') {
     http_response_code(404);
     echo 'فیشی برای این پرداخت ثبت نشده است.';

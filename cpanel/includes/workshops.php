@@ -125,6 +125,14 @@ function workshop_ensure_columns(PDO $pdo): void
     if (!$hasEnrollCreatedBy) {
         $pdo->exec('ALTER TABLE workshop_enrollments ADD COLUMN created_by_user_id VARCHAR(32) NULL AFTER patient_id');
     }
+    $hasPayReceipt = $pdo->query("SHOW COLUMNS FROM workshop_payments LIKE 'receipt_path'")->fetch();
+    if (!$hasPayReceipt) {
+        $pdo->exec('ALTER TABLE workshop_payments ADD COLUMN receipt_path VARCHAR(255) NULL AFTER ref_id');
+    }
+    $hasPayRecorder = $pdo->query("SHOW COLUMNS FROM workshop_payments LIKE 'recorded_by_user_id'")->fetch();
+    if (!$hasPayRecorder) {
+        $pdo->exec('ALTER TABLE workshop_payments ADD COLUMN recorded_by_user_id VARCHAR(32) NULL AFTER receipt_path');
+    }
     $ready = true;
 }
 
@@ -702,8 +710,8 @@ function workshop_enroll_by_staff(PDO $pdo, string $workshopId, string $patientI
             $pdo->prepare('INSERT INTO workshop_enrollments (id, workshop_id, patient_id, status, created_by_user_id) VALUES (?,?,?,?,?)')
                 ->execute([$enrollmentId, $workshopId, $patientId, 'CONFIRMED', $staffUserId]);
         }
-        $pdo->prepare('INSERT INTO workshop_payments (id, enrollment_id, amount, status, ref_id) VALUES (?,?,?,?,?)')
-            ->execute([$paymentId, $enrollmentId, $amount, 'PAID', 'SECRETARY']);
+        $pdo->prepare('INSERT INTO workshop_payments (id, enrollment_id, amount, status, ref_id, recorded_by_user_id) VALUES (?,?,?,?,?,?)')
+            ->execute([$paymentId, $enrollmentId, $amount, 'PAID', 'SECRETARY', $staffUserId]);
         $pdo->commit();
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
@@ -733,6 +741,100 @@ function workshop_enroll_by_staff(PDO $pdo, string $workshopId, string $patientI
     );
 
     return $enrollmentId;
+}
+
+function workshop_staff_enrollments_grouped(PDO $pdo): array
+{
+    ensure_workshop_schema($pdo);
+    $rows = $pdo->query("
+      SELECT e.id, e.workshop_id, e.status, e.enrolled_at, e.created_by_user_id,
+             u.name AS patient_name, u.phone AS patient_phone, u.username AS patient_username,
+             wp.id AS payment_id, wp.amount, wp.status AS pay_status, wp.receipt_path, wp.ref_id,
+             cu.name AS actor_name, cu.username AS actor_username,
+             ru.name AS recorder_name, ru.username AS recorder_username
+      FROM workshop_enrollments e
+      JOIN users u ON u.id = e.patient_id
+      LEFT JOIN workshop_payments wp ON wp.enrollment_id = e.id
+      LEFT JOIN users cu ON cu.id = e.created_by_user_id
+      LEFT JOIN users ru ON ru.id = wp.recorded_by_user_id
+      WHERE e.status IN ('PENDING_PAYMENT','CONFIRMED','COMPLETED')
+      ORDER BY e.enrolled_at DESC
+    ")->fetchAll();
+    $grouped = [];
+    foreach ($rows as $row) {
+        $grouped[(string) $row['workshop_id']][] = $row;
+    }
+    return $grouped;
+}
+
+/** ثبت پرداخت نقدی/فیش کارگاه توسط منشی */
+function workshop_mark_paid_by_staff(PDO $pdo, string $enrollmentId, string $staffUserId, string $staffLabel, array $file): void
+{
+    ensure_workshop_schema($pdo);
+    $stmt = $pdo->prepare("
+      SELECT e.*, w.title, w.starts_at, w.doctor_id,
+             wp.id AS payment_id, wp.amount, wp.status AS pay_status, wp.receipt_path, wp.wallet_amount,
+             u.name AS patient_name
+      FROM workshop_enrollments e
+      JOIN workshops w ON w.id = e.workshop_id
+      JOIN users u ON u.id = e.patient_id
+      LEFT JOIN workshop_payments wp ON wp.enrollment_id = e.id
+      WHERE e.id = ?
+      LIMIT 1
+    ");
+    $stmt->execute([$enrollmentId]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        throw new RuntimeException('ثبت‌نام یافت نشد.');
+    }
+    if (in_array((string) $row['status'], ['CANCELLED', 'REFUNDED'], true)) {
+        throw new RuntimeException('این ثبت‌نام لغو شده است.');
+    }
+
+    $relative = staff_save_receipt($file, (string) ($row['payment_id'] ?: $enrollmentId));
+    if (!empty($row['receipt_path'])) {
+        $old = staff_receipt_abs((string) $row['receipt_path']);
+        if (is_file($old)) {
+            @unlink($old);
+        }
+    }
+
+    $paymentId = (string) ($row['payment_id'] ?? '');
+    $wasPending = ((string) ($row['pay_status'] ?? '') !== 'PAID')
+        || in_array((string) $row['status'], ['PENDING_PAYMENT'], true);
+
+    if ($paymentId === '') {
+        $paymentId = cuid();
+        $pdo->prepare('INSERT INTO workshop_payments (id, enrollment_id, amount, status, ref_id, receipt_path, recorded_by_user_id) VALUES (?,?,?,?,?,?,?)')
+            ->execute([$paymentId, $enrollmentId, 0, 'PAID', 'SECRETARY', $relative, $staffUserId]);
+        $pdo->prepare("UPDATE workshop_enrollments SET status='CONFIRMED' WHERE id=?")->execute([$enrollmentId]);
+    } else {
+        $pdo->prepare('UPDATE workshop_payments SET receipt_path=?, recorded_by_user_id=COALESCE(recorded_by_user_id, ?) WHERE id=?')
+            ->execute([$relative, $staffUserId, $paymentId]);
+        if ($wasPending) {
+            confirm_workshop_payment($pdo, [
+                'id' => $paymentId,
+                'enrollment_id' => $enrollmentId,
+                'amount' => (int) ($row['amount'] ?? 0),
+                'wallet_amount' => (int) ($row['wallet_amount'] ?? 0),
+                'ref_id' => 'SECRETARY',
+            ]);
+            $pdo->prepare('UPDATE workshop_payments SET recorded_by_user_id=COALESCE(recorded_by_user_id, ?) WHERE id=?')
+                ->execute([$staffUserId, $paymentId]);
+        }
+    }
+
+    if ($wasPending) {
+        $when = format_fa_datetime((string) $row['starts_at']);
+        notify_role(
+            $pdo,
+            'SECRETARY',
+            'پرداخت کارگاه توسط منشی',
+            "پرداخت «{$row['patient_name']}» برای کارگاه «{$row['title']}» ({$when}) توسط {$staffLabel} با فیش ثبت شد.",
+            '/secretary/workshops',
+            'workshop'
+        );
+    }
 }
 
 function cancel_workshop_enrollment(PDO $pdo, string $enrollmentId, bool $forceNoRefund = false): array

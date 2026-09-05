@@ -206,6 +206,24 @@ if ($action === 'update') {
     redirect($base);
 }
 
+if ($action === 'mark_paid') {
+    $enrollmentId = post('enrollment_id');
+    try {
+        workshop_mark_paid_by_staff(
+            $pdo,
+            $enrollmentId,
+            (string) $user['id'],
+            staff_actor_label($user),
+            $_FILES['receipt'] ?? []
+        );
+        staff_log_action($pdo, (string) $user['id'], 'workshop_mark_paid', 'enrollment', $enrollmentId);
+        flash_set('success', 'پرداخت با فیش ثبت شد و برای منشی‌های دیگر هم دیده می‌شود.');
+    } catch (RuntimeException $e) {
+        flash_set('error', $e->getMessage());
+    }
+    redirect($base);
+}
+
 if ($action === 'enroll') {
     $workshopId = post('workshop_id');
     $patientId = post('patient_id');

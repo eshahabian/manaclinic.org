@@ -1774,3 +1774,32 @@ html[dir="ltr"] .binder-body {
   border-radius: .75rem;
   margin-bottom: .85rem;
 }
+.workshop-enroll-desk {
+  margin-top: .9rem;
+  padding-top: .75rem;
+  border-top: 1px dashed var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: .55rem;
+}
+.workshop-enroll-desk-title {
+  margin: 0;
+  font-size: .95rem;
+}
+.workshop-enroll-desk-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: .75rem;
+  flex-wrap: wrap;
+  border: 1px solid var(--line);
+  border-radius: .7rem;
+  padding: .7rem .8rem;
+  background: #fff;
+}
+.workshop-enroll-desk-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: .4rem;
+}

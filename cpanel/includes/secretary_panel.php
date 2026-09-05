@@ -4,8 +4,8 @@ declare(strict_types=1);
 function secretary_nav(): array
 {
     return [
-        ['href' => '/secretary', 'label' => 'خلاصه'],
         ['href' => '/secretary/messages', 'label' => 'پیام‌ها'],
+        ['href' => '/secretary/patients', 'label' => 'مراجعه‌کنندگان'],
         ['href' => '/secretary/appointments', 'label' => 'نوبت‌ها'],
         ['href' => '/secretary/workshops', 'label' => 'کارگاه‌ها'],
         ['href' => '/secretary/articles', 'label' => 'مقالات'],

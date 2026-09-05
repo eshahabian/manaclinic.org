@@ -206,15 +206,17 @@ function secretary_recent_shared_enrollments(PDO $pdo, int $limit = 30): array
     $stmt = $pdo->query("
       SELECT e.id, e.enrolled_at, e.status,
              w.title AS workshop_title, w.starts_at,
-             pu.name AS patient_name,
+             pu.name AS patient_name, pu.phone AS patient_phone,
              du.name AS doctor_name,
-             cu.name AS actor_name, cu.username AS actor_username
+             cu.name AS actor_name, cu.username AS actor_username,
+             wp.status AS pay_status, wp.receipt_path
       FROM workshop_enrollments e
       JOIN workshops w ON w.id = e.workshop_id
       JOIN users pu ON pu.id = e.patient_id
       JOIN doctor_profiles dp ON dp.id = w.doctor_id
       JOIN users du ON du.id = dp.user_id
       LEFT JOIN users cu ON cu.id = e.created_by_user_id
+      LEFT JOIN workshop_payments wp ON wp.enrollment_id = e.id
       WHERE e.status IN ('PENDING_PAYMENT','CONFIRMED','COMPLETED')
       ORDER BY e.enrolled_at DESC
       LIMIT {$limit}
@@ -253,7 +255,7 @@ function render_notification_rows(array $items): string
 /** رندر بلوک پیام‌ها برای پنل */
 function render_notifications_panel(array $items, string $markReadUrl): string
 {
-    return render_secretary_messages_panel($items, $markReadUrl, [], [], 'appointment', '/secretary');
+    return render_secretary_messages_panel($items, $markReadUrl, [], [], 'appointment', '/secretary/messages');
 }
 
 function render_secretary_messages_panel(
@@ -262,13 +264,13 @@ function render_secretary_messages_panel(
     array $recentAppointments = [],
     array $recentEnrollments = [],
     string $activeTab = 'appointment',
-    string $pagePath = '/secretary'
+    string $pagePath = '/secretary/messages'
 ): string {
     $split = secretary_split_notifications($items);
     $appointmentNotifs = $split['appointment'];
     $workshopNotifs = $split['workshop'];
     $activeTab = $activeTab === 'workshop' ? 'workshop' : 'appointment';
-    $base = $pagePath === '/secretary/messages' ? '/secretary/messages' : '/secretary';
+    $base = str_starts_with($pagePath, '/secretary') ? $pagePath : '/secretary/messages';
     $unread = secretary_unread_desk_count($items);
 
     ob_start();

@@ -59,6 +59,7 @@ foreach ($workshops as $w) {
     }
 }
 $recentEnrollments = secretary_recent_shared_enrollments($pdo, 25);
+$workshopEnrollmentsById = workshop_staff_enrollments_grouped($pdo);
 
 $flash = flash_get();
 $formAction = $editWorkshop ? 'update' : 'create';
@@ -163,6 +164,9 @@ ob_start();
           <div class="row-between" style="border:1px solid var(--line);border-radius:.75rem;padding:.75rem;background:#fff">
             <div>
               <strong><?= e((string) $row['patient_name']) ?></strong>
+              <?php if (!empty($row['patient_phone'])): ?>
+                <div class="muted" style="font-size:.85rem"><a href="tel:<?= e((string) $row['patient_phone']) ?>" dir="ltr" style="color:inherit"><?= e((string) $row['patient_phone']) ?></a></div>
+              <?php endif; ?>
               <div class="muted" style="font-size:.85rem">کارگاه: <?= e((string) $row['workshop_title']) ?></div>
               <div class="muted" style="font-size:.85rem">دکتر: <?= e((string) $row['doctor_name']) ?></div>
               <div style="font-size:.85rem;margin-top:.25rem"><?= e(format_fa_datetime((string) $row['enrolled_at'])) ?></div>
@@ -172,7 +176,13 @@ ob_start();
                 <span class="staff-sign">ثبت‌نام آنلاین توسط مراجعه‌کننده</span>
               <?php endif; ?>
             </div>
-            <span class="badge"><?= e(enrollment_status_label((string) $row['status'])) ?></span>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.35rem">
+              <span class="badge"><?= e(enrollment_status_label((string) $row['status'])) ?></span>
+              <span class="muted" style="font-size:.8rem"><?= ((string) ($row['pay_status'] ?? '') === 'PAID') ? 'پرداخت شده' : 'بدون پرداخت' ?></span>
+              <?php if (!empty($row['receipt_path']) && !empty($row['id'])): ?>
+                <span class="muted" style="font-size:.75rem">فیش ثبت شده</span>
+              <?php endif; ?>
+            </div>
           </div>
         <?php endforeach; ?>
         <?php if (!$recentEnrollments): ?><p class="muted">هنوز ورودی ثبت نشده است.</p><?php endif; ?>

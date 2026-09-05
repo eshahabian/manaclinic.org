@@ -102,6 +102,7 @@ $routes = [
     'POST /secretary/book' => 'actions/secretary_book.php',
     'POST /secretary/delete-patient' => 'actions/secretary_delete_patient.php',
     'GET /secretary/appointments' => 'pages/secretary/appointments.php',
+    'GET /secretary/patients' => 'pages/secretary/patients.php',
     'GET /secretary/messages' => 'pages/secretary/messages.php',
     'POST /secretary/notifications/read' => 'actions/secretary_notifications.php',
     'GET /secretary/workshops' => 'pages/secretary/workshops.php',
@@ -170,6 +171,12 @@ if (preg_match('#^/tests/([a-zA-Z0-9_-]+)$#', $path, $m) && $method === 'GET') {
 }
 if (preg_match('#^/workshop-media/stream$#', $path) && $method === 'GET') {
     require __DIR__ . '/actions/workshop_media_stream.php';
+    exit;
+}
+
+if (preg_match('#^/secretary/patients/([a-zA-Z0-9_-]+)$#', $path, $m) && $method === 'GET') {
+    $_GET['id'] = $m[1];
+    require __DIR__ . '/pages/secretary/patient_detail.php';
     exit;
 }
 
