@@ -153,6 +153,7 @@ $routes = [
     'GET /doctor/patients' => 'pages/doctor/patients.php',
     'POST /doctor/notifications/read' => 'actions/doctor_notifications.php',
     'GET /doctor/staff-hours' => 'pages/doctor/staff_hours.php',
+    'GET /doctor/staff-messages' => 'pages/doctor/staff_messages.php',
 
     'GET /admin' => 'pages/admin/dashboard.php',
     'GET /admin/doctors' => 'pages/admin/doctors.php',
@@ -165,6 +166,9 @@ $routes = [
     'POST /admin/appointments' => 'actions/admin_appointments.php',
     'GET /admin/messages' => 'pages/admin/messages.php',
     'POST /admin/messages' => 'actions/admin_messages.php',
+    'GET /admin/staff-hours' => 'pages/admin/staff_hours.php',
+    'GET /admin/staff-messages' => 'pages/admin/staff_messages.php',
+    'POST /admin/staff-messages' => 'actions/admin_messages.php',
     'POST /secretary/handover' => 'actions/secretary_handover.php',
     'POST /secretary/handover/ack' => 'actions/secretary_handover_ack.php',
 

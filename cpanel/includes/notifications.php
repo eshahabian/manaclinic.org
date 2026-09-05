@@ -63,9 +63,24 @@ function notify_doctor_profile(PDO $pdo, string $doctorProfileId, string $title,
 function notification_normalize_kind(string $kind): string
 {
     $kind = strtolower(trim($kind));
-    return in_array($kind, ['appointment', 'workshop', 'assistant', 'article', 'handover', 'other'], true)
+    return in_array($kind, ['appointment', 'workshop', 'assistant', 'article', 'handover', 'handover_copy', 'other'], true)
         ? $kind
         : 'other';
+}
+
+/** کپی پیام منشی‌ها برای دکتر گرانمایه پور / ادمین */
+function notification_is_staff_copy(array $n): bool
+{
+    $kind = notification_kind($n);
+    if ($kind === 'handover_copy') {
+        return true;
+    }
+    $link = (string) ($n['link'] ?? '');
+    return $kind === 'handover' && (
+        str_contains($link, '/staff-messages')
+        || str_contains($link, '/admin/messages')
+        || str_contains($link, '/doctor/notifications')
+    );
 }
 
 /** اعلان مربوط به گفتگوی دستیار است یا پیام سیستمی دیگر */
@@ -101,6 +116,11 @@ function notification_kind(array $n): string
         || (mb_stripos($link, '/articles') !== false)
     ) {
         return 'article';
+    }
+    if ((mb_stripos($blob, 'کپی پیام منشی') !== false)
+        || (mb_stripos($link, '/staff-messages') !== false)
+    ) {
+        return 'handover_copy';
     }
     if ((mb_stripos($blob, 'همکار') !== false)
         || (mb_stripos($blob, 'تحویل شیفت') !== false)
@@ -176,6 +196,55 @@ function fetch_all_notifications(PDO $pdo, int $limit = 80): array
     ")->fetchAll();
 }
 
+/** کپی پیام منشی‌ها برای دکتر گرانمایه پور و ادمین */
+function fetch_staff_message_copies(PDO $pdo, ?string $userId = null, int $limit = 80): array
+{
+    ensure_notifications_table($pdo);
+    $limit = max(1, min(200, $limit));
+    $sql = "
+      SELECT n.*, u.name AS recipient_name, u.role AS recipient_role, u.username AS recipient_username
+      FROM notifications n
+      JOIN users u ON u.id = n.recipient_user_id
+      WHERE u.role IN ('DOCTOR', 'ADMIN')
+        AND (
+          n.kind IN ('handover_copy', 'handover')
+          OR n.link LIKE '%/staff-messages%'
+          OR n.title LIKE '%کپی پیام منشی%'
+        )
+    ";
+    $params = [];
+    if ($userId) {
+        $sql .= ' AND n.recipient_user_id = ?';
+        $params[] = $userId;
+    }
+    $sql .= " ORDER BY n.created_at DESC LIMIT {$limit}";
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $rows = [];
+    foreach ($stmt->fetchAll() as $row) {
+        if (notification_is_staff_copy($row) || notification_kind($row) === 'handover') {
+            $rows[] = $row;
+        }
+    }
+    return $rows;
+}
+
+function mark_notifications_read_kinds(PDO $pdo, string $userId, array $kinds): void
+{
+    ensure_notifications_table($pdo);
+    $kinds = array_values(array_filter($kinds, static fn($k) => is_string($k) && $k !== ''));
+    if (!$kinds) {
+        return;
+    }
+    $place = implode(',', array_fill(0, count($kinds), '?'));
+    $stmt = $pdo->prepare("
+      UPDATE notifications
+      SET is_read = 1
+      WHERE recipient_user_id = ? AND is_read = 0 AND kind IN ({$place})
+    ");
+    $stmt->execute(array_merge([$userId], $kinds));
+}
+
 function mark_notifications_read(PDO $pdo, string $userId, ?string $notificationId = null): void
 {
     ensure_notifications_table($pdo);
@@ -195,7 +264,7 @@ function secretary_split_notifications(array $items): array
     $workshop = [];
     foreach ($items as $n) {
         $kind = notification_kind($n);
-        if ($kind === 'assistant' || $kind === 'handover') {
+        if ($kind === 'assistant' || $kind === 'handover' || $kind === 'handover_copy') {
             continue;
         }
         if ($kind === 'workshop') {

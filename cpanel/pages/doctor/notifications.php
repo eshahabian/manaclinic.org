@@ -17,7 +17,7 @@ $otherNotifs = [];
 foreach ($allNotifs as $n) {
     if (notification_is_assistant($n)) {
         $aiNotifs[] = $n;
-    } else {
+    } elseif (!notification_is_staff_copy($n) && notification_kind($n) !== 'handover') {
         $otherNotifs[] = $n;
     }
 }

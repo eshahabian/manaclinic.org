@@ -64,10 +64,43 @@ function handover_send(PDO $pdo, string $fromUserId, string $fromLabel, string $
         $insert->execute([cuid(), $groupId, $fromUserId, (string) $target['id'], $body]);
         notify_user($pdo, (string) $target['id'], $title, $body, '/secretary/messages?msg=colleague', 'handover');
     }
-    notify_role($pdo, 'DOCTOR', $title, $body, '/doctor/notifications?kind=other', 'handover');
-    notify_role($pdo, 'ADMIN', $title, $body, '/admin/messages', 'handover');
+
+    $peerNames = [];
+    foreach ($peers as $target) {
+        $peerNames[] = staff_actor_label($target);
+    }
+    $copyTitle = 'کپی پیام منشی‌ها از ' . $fromLabel;
+    $copyBody = 'از ' . $fromLabel . ' برای ' . implode('، ', $peerNames) . ":\n\n" . $body;
+    foreach (handover_copy_watchers($pdo) as $watcher) {
+        $role = strtoupper((string) ($watcher['role'] ?? ''));
+        $link = $role === 'ADMIN' ? '/admin/staff-messages' : '/doctor/staff-messages';
+        notify_user($pdo, (string) $watcher['id'], $copyTitle, $copyBody, $link, 'handover_copy');
+    }
 
     return count($peers);
+}
+
+/** کپی پیام منشی‌ها فقط برای دکتر گرانمایه پور و ادمین سایت */
+function handover_copy_watchers(PDO $pdo): array
+{
+    $rows = $pdo->query("
+      SELECT id, name, username, role
+      FROM users
+      WHERE role = 'ADMIN'
+         OR (role = 'DOCTOR' AND (name LIKE '%گرانمایه%' OR username = 'doctor'))
+      ORDER BY role ASC, name ASC
+    ")->fetchAll();
+    $seen = [];
+    $out = [];
+    foreach ($rows as $row) {
+        $id = (string) ($row['id'] ?? '');
+        if ($id === '' || isset($seen[$id])) {
+            continue;
+        }
+        $seen[$id] = true;
+        $out[] = $row;
+    }
+    return $out;
 }
 
 function handover_ack(PDO $pdo, string $userId, string $noteId): void

@@ -350,6 +350,154 @@ function staff_action_label(string $action): string
     };
 }
 
+/** داده ساعت کاری همه منشی‌ها برای پنل دکتر و ادمین */
+function staff_hours_collect(PDO $pdo): array
+{
+    staff_close_stale_shifts($pdo);
+    ensure_secretary_day_reports($pdo);
+
+    $secretaries = $pdo->query("
+      SELECT id, name, username
+      FROM users
+      WHERE role='SECRETARY'
+      ORDER BY username ASC
+    ")->fetchAll();
+
+    $byUser = [];
+    foreach ($secretaries as $sec) {
+        $uid = (string) $sec['id'];
+        $open = staff_current_shift($pdo, $uid);
+        $today = $pdo->prepare("
+          SELECT * FROM staff_shifts
+          WHERE user_id=? AND DATE(started_at)=CURDATE()
+          ORDER BY started_at ASC
+        ");
+        $today->execute([$uid]);
+        $todayRows = $today->fetchAll();
+        $todaySeconds = 0;
+        foreach ($todayRows as $row) {
+            $todaySeconds += staff_shift_seconds($row);
+        }
+        $hist = $pdo->prepare("
+          SELECT * FROM staff_shifts
+          WHERE user_id=?
+          ORDER BY started_at DESC
+          LIMIT 400
+        ");
+        $hist->execute([$uid]);
+        $histRows = $hist->fetchAll();
+        $reports = $pdo->prepare("
+          SELECT report_date, body, updated_at
+          FROM secretary_day_reports
+          WHERE user_id=?
+          ORDER BY report_date DESC
+          LIMIT 80
+        ");
+        $reports->execute([$uid]);
+        $reportRows = $reports->fetchAll();
+        $reportsByDate = [];
+        foreach ($reportRows as $rep) {
+            $reportsByDate[(string) $rep['report_date']] = $rep;
+        }
+        $byUser[] = [
+            'user' => $sec,
+            'open' => $open,
+            'today_seconds' => $todaySeconds,
+            'today_rows' => $todayRows,
+            'days' => staff_shifts_grouped_by_day($histRows),
+            'reports' => $reportRows,
+            'reports_by_date' => $reportsByDate,
+        ];
+    }
+    return $byUser;
+}
+
+/** ماه و روز شمسی از روی ورودها و گزارش‌ها */
+function staff_hours_month_groups(array $byUser): array
+{
+    $today = date('Y-m-d');
+    $dates = [$today => true];
+    foreach ($byUser as $block) {
+        foreach (($block['days'] ?? []) as $day) {
+            $d = (string) ($day['date'] ?? '');
+            if ($d !== '' && $d !== 'other') {
+                $dates[$d] = true;
+            }
+        }
+        foreach (($block['reports'] ?? []) as $rep) {
+            $d = (string) ($rep['report_date'] ?? '');
+            if ($d !== '') {
+                $dates[$d] = true;
+            }
+        }
+    }
+
+    $months = [];
+    foreach (array_keys($dates) as $gdate) {
+        $meta = jalali_month_meta_from_datetime($gdate . ' 12:00:00');
+        $parts = jalali_day_parts($gdate . ' 12:00:00');
+        if (!$meta || !$parts) {
+            continue;
+        }
+        $id = (string) $meta['id'];
+        if (!isset($months[$id])) {
+            $months[$id] = $meta + ['days' => []];
+        }
+        if (!isset($months[$id]['days'][$gdate])) {
+            $months[$id]['days'][$gdate] = [
+                'id' => 'd-' . $gdate,
+                'date' => $gdate,
+                'label' => (string) ($parts['label'] ?? $gdate),
+                'tab_label' => $gdate === $today ? 'امروز' : (string) ($parts['day_fa'] ?? $parts['day']),
+                'is_today' => $gdate === $today,
+            ];
+        }
+    }
+
+    $current = jalali_current_month_meta();
+    if (!isset($months[$current['id']])) {
+        $months[$current['id']] = $current + ['days' => []];
+        $parts = jalali_day_parts($today . ' 12:00:00');
+        $months[$current['id']]['days'][$today] = [
+            'id' => 'd-' . $today,
+            'date' => $today,
+            'label' => (string) (($parts['label'] ?? '') . ' ' . to_fa_digits((string) ($parts['year'] ?? ''))),
+            'tab_label' => 'امروز',
+            'is_today' => true,
+        ];
+    }
+
+    uasort($months, static fn(array $a, array $b): int => ((int) ($b['sort'] ?? 0)) <=> ((int) ($a['sort'] ?? 0)));
+    $nameCounts = [];
+    foreach ($months as $bucket) {
+        $short = (string) ($bucket['short'] ?? '');
+        $nameCounts[$short] = ($nameCounts[$short] ?? 0) + 1;
+    }
+    foreach ($months as $id => $bucket) {
+        $short = (string) ($bucket['short'] ?? '');
+        $months[$id]['tab_label'] = ($nameCounts[$short] > 1)
+            ? (string) ($bucket['label'] ?? $short)
+            : $short;
+        uasort($months[$id]['days'], static fn(array $a, array $b): int => strcmp((string) $b['date'], (string) $a['date']));
+    }
+
+    $defaultMonthId = isset($months[$current['id']]) ? (string) $current['id'] : (string) (array_key_first($months) ?? '');
+    $defaultDayId = 'd-' . $today;
+    if ($defaultMonthId !== '' && !isset($months[$defaultMonthId]['days'][$today])) {
+        $firstDay = array_key_first($months[$defaultMonthId]['days'] ?? []);
+        $defaultDayId = $firstDay
+            ? (string) ($months[$defaultMonthId]['days'][$firstDay]['id'] ?? $defaultDayId)
+            : $defaultDayId;
+    }
+
+    return [
+        'months' => $months,
+        'default_month_id' => $defaultMonthId,
+        'default_day_id' => $defaultDayId,
+        'today' => $today,
+    ];
+}
+
 /** هر ورود جداگانه زیر همان روز شمسی */
 function staff_shifts_grouped_by_day(array $rows): array
 {

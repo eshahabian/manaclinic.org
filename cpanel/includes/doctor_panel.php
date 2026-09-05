@@ -18,6 +18,7 @@ function doctor_nav(): array
         ['type' => 'link', 'href' => '/doctor/profile', 'label' => 'پروفایل حرفه‌ای'],
         ['type' => 'group', 'label' => 'حساب'],
         ['type' => 'link', 'href' => '/doctor/staff-hours', 'label' => 'ساعت کاری منشی‌ها'],
+        ['type' => 'link', 'href' => '/doctor/staff-messages', 'label' => 'پیام‌ها'],
         ['type' => 'link', 'href' => '/change-password', 'label' => 'تغییر رمز عبور'],
     ];
 }
