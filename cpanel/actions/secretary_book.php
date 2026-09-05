@@ -77,14 +77,16 @@ if ($patientId === '') {
         'SECRETARY',
         'مراجعه‌کننده جدید توسط منشی',
         "مراجعه‌کننده «{$newName}» توسط {$actorName} ثبت شد (درمانگر: {$doctorName}).",
-        '/secretary/appointments'
+        '/secretary/appointments',
+        'appointment'
     );
     notify_doctor_profile(
         $pdo,
         $preferredDoctorId,
         'مراجعه‌کننده جدید',
         "مراجعه‌کننده «{$newName}» به شما اختصاص داده شد.",
-        '/doctor/patients/' . $patientId
+        '/doctor/patients/' . $patientId,
+        'appointment'
     );
 }
 
@@ -142,12 +144,21 @@ try {
     $patientNameStmt->execute([$patientId]);
     $patientName = (string) ($patientNameStmt->fetchColumn() ?: 'مراجعه‌کننده');
     $when = format_fa_datetime($startsAt);
+    notify_role(
+        $pdo,
+        'SECRETARY',
+        'نوبت جدید توسط منشی',
+        "نوبت «{$patientName}» برای {$when} توسط {$actorName} ثبت و تأیید شد.",
+        '/secretary/appointments',
+        'appointment'
+    );
     notify_doctor_profile(
         $pdo,
         $doctorId,
         'نوبت جدید توسط منشی',
         "نوبت «{$patientName}» برای {$when} توسط {$actorName} ثبت و تأیید شد.",
-        '/doctor/appointments'
+        '/doctor/appointments',
+        'appointment'
     );
 
     flash_set('success', 'نوبت با موفقیت ثبت و تأیید شد.');

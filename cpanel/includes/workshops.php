@@ -121,6 +121,10 @@ function workshop_ensure_columns(PDO $pdo): void
     if (!$hasUpdatedBy) {
         $pdo->exec('ALTER TABLE workshops ADD COLUMN updated_by_user_id VARCHAR(32) NULL AFTER created_by_user_id');
     }
+    $hasEnrollCreatedBy = $pdo->query("SHOW COLUMNS FROM workshop_enrollments LIKE 'created_by_user_id'")->fetch();
+    if (!$hasEnrollCreatedBy) {
+        $pdo->exec('ALTER TABLE workshop_enrollments ADD COLUMN created_by_user_id VARCHAR(32) NULL AFTER patient_id');
+    }
     $ready = true;
 }
 
@@ -264,7 +268,8 @@ function workshop_notify_doctors(
             (string) $userId,
             'کارگاه جدید',
             $body,
-            '/doctor/workshops'
+            '/doctor/workshops',
+            'workshop'
         );
     }
 }
@@ -634,15 +639,100 @@ function confirm_workshop_payment(PDO $pdo, array $paymentRow): void
         'SECRETARY',
         'ثبت‌نام کارگاه',
         "«{$patientName}» در کارگاه «{$row['title']}» ({$when}) ثبت‌نام و پرداخت کرد.",
-        '/secretary/appointments'
+        '/secretary/workshops?tab=enroll',
+        'workshop'
     );
     notify_doctor_profile(
         $pdo,
         (string) $row['doctor_id'],
         'ثبت‌نام کارگاه',
         "«{$patientName}» در کارگاه «{$row['title']}» ({$when}) ثبت‌نام کرد.",
-        '/doctor/workshops'
+        '/doctor/workshops',
+        'workshop'
     );
+}
+
+/** ثبت ورودی کارگاه توسط منشی — برای همه منشی‌ها دیده می‌شود */
+function workshop_enroll_by_staff(PDO $pdo, string $workshopId, string $patientId, string $staffUserId, string $staffLabel): string
+{
+    $stmt = $pdo->prepare('
+      SELECT w.* FROM workshops w
+      ' . workshop_active_doctor_join('w') . '
+      WHERE w.id = ? AND ' . workshop_patient_list_sql('w') . '
+      LIMIT 1
+    ');
+    $stmt->execute([$workshopId]);
+    $workshop = $stmt->fetch();
+    if (!$workshop) {
+        throw new RuntimeException('کارگاه برای ثبت ورودی در دسترس نیست.');
+    }
+    if (!workshop_has_capacity($pdo, $workshop)) {
+        throw new RuntimeException('ظرفیت این کارگاه تکمیل شده است.');
+    }
+
+    $exists = $pdo->prepare('
+      SELECT id, status FROM workshop_enrollments
+      WHERE workshop_id = ? AND patient_id = ?
+    ');
+    $exists->execute([$workshopId, $patientId]);
+    $existing = $exists->fetch();
+    if ($existing && in_array((string) $existing['status'], ['PENDING_PAYMENT', 'CONFIRMED', 'COMPLETED'], true)) {
+        throw new RuntimeException('این مراجعه‌کننده قبلاً در این کارگاه ثبت شده است.');
+    }
+
+    $patientStmt = $pdo->prepare("SELECT id, name FROM users WHERE id=? AND role='PATIENT' LIMIT 1");
+    $patientStmt->execute([$patientId]);
+    $patient = $patientStmt->fetch();
+    if (!$patient) {
+        throw new RuntimeException('مراجعه‌کننده معتبر نیست.');
+    }
+
+    $enrollmentId = cuid();
+    $paymentId = cuid();
+    $amount = (int) $workshop['price'];
+
+    $pdo->beginTransaction();
+    try {
+        if ($existing && in_array((string) $existing['status'], ['CANCELLED', 'REFUNDED'], true)) {
+            $enrollmentId = (string) $existing['id'];
+            $pdo->prepare("UPDATE workshop_enrollments SET status='CONFIRMED', enrolled_at=NOW(), created_by_user_id=? WHERE id=?")
+                ->execute([$staffUserId, $enrollmentId]);
+            $pdo->prepare('DELETE FROM workshop_payments WHERE enrollment_id=?')->execute([$enrollmentId]);
+        } else {
+            $pdo->prepare('INSERT INTO workshop_enrollments (id, workshop_id, patient_id, status, created_by_user_id) VALUES (?,?,?,?,?)')
+                ->execute([$enrollmentId, $workshopId, $patientId, 'CONFIRMED', $staffUserId]);
+        }
+        $pdo->prepare('INSERT INTO workshop_payments (id, enrollment_id, amount, status, ref_id) VALUES (?,?,?,?,?)')
+            ->execute([$paymentId, $enrollmentId, $amount, 'PAID', 'SECRETARY']);
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw new RuntimeException('ثبت ورودی کارگاه انجام نشد: ' . $e->getMessage());
+    }
+
+    $when = format_fa_datetime((string) $workshop['starts_at']);
+    $patientName = (string) $patient['name'];
+    $title = (string) $workshop['title'];
+    notify_role(
+        $pdo,
+        'SECRETARY',
+        'ورودی کارگاه توسط منشی',
+        "«{$patientName}» در کارگاه «{$title}» ({$when}) توسط {$staffLabel} ثبت شد.",
+        '/secretary/workshops?tab=enroll',
+        'workshop'
+    );
+    notify_doctor_profile(
+        $pdo,
+        (string) $workshop['doctor_id'],
+        'ورودی کارگاه توسط منشی',
+        "«{$patientName}» در کارگاه «{$title}» ({$when}) توسط {$staffLabel} ثبت شد.",
+        '/doctor/workshops',
+        'workshop'
+    );
+
+    return $enrollmentId;
 }
 
 function cancel_workshop_enrollment(PDO $pdo, string $enrollmentId, bool $forceNoRefund = false): array

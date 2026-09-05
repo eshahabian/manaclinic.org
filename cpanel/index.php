@@ -31,11 +31,13 @@ require_once __DIR__ . '/includes/workshops.php';
 require_once __DIR__ . '/includes/workshop_media.php';
 require_once __DIR__ . '/includes/assistant.php';
 require_once __DIR__ . '/includes/seed_articles.php';
+require_once __DIR__ . '/includes/articles.php';
 require_once __DIR__ . '/includes/seo.php';
 
 $pdo = db_connect($config);
 ensure_workshop_schema($pdo);
 ensure_workshop_media_schema($pdo);
+ensure_articles_schema($pdo);
 require_once __DIR__ . '/includes/availability.php';
 ensure_availability_schema($pdo);
 ensure_assistant_schema($pdo);
@@ -100,10 +102,13 @@ $routes = [
     'POST /secretary/book' => 'actions/secretary_book.php',
     'POST /secretary/delete-patient' => 'actions/secretary_delete_patient.php',
     'GET /secretary/appointments' => 'pages/secretary/appointments.php',
+    'GET /secretary/messages' => 'pages/secretary/messages.php',
     'POST /secretary/notifications/read' => 'actions/secretary_notifications.php',
     'GET /secretary/workshops' => 'pages/secretary/workshops.php',
     'POST /secretary/workshops' => 'actions/secretary_workshops.php',
     'POST /secretary/workshop-media' => 'actions/secretary_workshop_media.php',
+    'GET /secretary/articles' => 'pages/secretary/articles.php',
+    'POST /secretary/articles' => 'actions/secretary_articles.php',
     'GET /secretary/intakes' => 'pages/secretary/intakes.php',
     'GET /secretary/hours' => 'pages/secretary/hours.php',
     'POST /secretary/heartbeat' => 'actions/secretary_heartbeat.php',

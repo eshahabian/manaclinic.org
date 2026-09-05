@@ -1,13 +1,66 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/../../includes/doctor_panel.php';
+require_once __DIR__ . '/../../includes/articles.php';
 $ctx = require_doctor_profile($pdo);
-$stmt = $pdo->prepare('SELECT * FROM articles WHERE author_id=? ORDER BY created_at DESC');
+ensure_articles_schema($pdo);
+$stmt = $pdo->prepare("
+  SELECT a.*, su.name AS submitter_name
+  FROM articles a
+  LEFT JOIN users su ON su.id = a.submitted_by_user_id
+  WHERE a.author_id=?
+  ORDER BY a.created_at DESC
+");
 $stmt->execute([$ctx['user']['id']]);
 $articles = $stmt->fetchAll();
+$pending = [];
+$others = [];
+foreach ($articles as $a) {
+    if ((string) ($a['approval_status'] ?? '') === 'PENDING' && !(int) $a['published']) {
+        $pending[] = $a;
+    } else {
+        $others[] = $a;
+    }
+}
 ob_start();
 ?>
 <h1>مقالات من</h1>
+<?php if ($pending): ?>
+<div class="stack" style="margin-top:1rem">
+  <h2 style="margin:0;font-size:1.05rem">در انتظار تأیید شما</h2>
+  <p class="muted" style="margin:0;font-size:.85rem">منشی مقاله را آماده کرده؛ فقط پس از تأیید شما در سایت دیده می‌شود.</p>
+  <?php foreach ($pending as $a): ?>
+    <div class="panel stack">
+      <div class="row-between" style="align-items:flex-start;gap:1rem">
+        <div>
+          <strong><?= e($a['title']) ?></strong>
+          <div class="muted" style="font-size:.85rem">ارسال‌شده توسط <?= e($a['submitter_name'] ?: 'منشی') ?></div>
+          <?php if (!empty($a['excerpt'])): ?>
+            <p style="margin:.5rem 0 0;font-size:.9rem;line-height:1.7"><?= e($a['excerpt']) ?></p>
+          <?php endif; ?>
+        </div>
+        <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+          <form method="post" action="<?= e(url('/doctor/articles')) ?>">
+            <input type="hidden" name="action" value="approve"><input type="hidden" name="id" value="<?= e($a['id']) ?>">
+            <button class="btn btn-primary btn-sm" type="submit">تأیید و انتشار</button>
+          </form>
+          <form method="post" action="<?= e(url('/doctor/articles')) ?>">
+            <input type="hidden" name="action" value="reject"><input type="hidden" name="id" value="<?= e($a['id']) ?>">
+            <button class="btn btn-outline btn-sm" type="submit">رد</button>
+          </form>
+        </div>
+      </div>
+      <?php if (!empty($a['cover_url'])): ?>
+        <img class="article-media-preview" src="<?= e(url($a['cover_url'])) ?>" alt="">
+      <?php endif; ?>
+      <?php if (!empty($a['video_url'])): ?>
+        <video class="article-media-preview" src="<?= e(url($a['video_url'])) ?>" controls></video>
+      <?php endif; ?>
+      <div class="article-body" style="line-height:1.9;font-size:.95rem"><?= rich_html_for_display($a['content']) ?></div>
+    </div>
+  <?php endforeach; ?>
+</div>
+<?php endif; ?>
 <form class="panel form-stack" method="post" action="<?= e(url('/doctor/articles')) ?>" id="article-form" style="margin-top:1rem">
   <input type="hidden" name="action" value="create">
   <h2 style="margin:0;font-size:1.05rem">مقاله جدید</h2>
@@ -45,11 +98,11 @@ ob_start();
   <button class="btn btn-primary" type="submit">ذخیره مقاله</button>
 </form>
 <div class="stack" style="margin-top:1.5rem">
-<?php foreach ($articles as $a): ?>
+<?php foreach ($others as $a): ?>
   <div class="panel row-between">
     <div>
       <strong><?= e($a['title']) ?></strong>
-      <div class="muted" style="font-size:.85rem"><?= $a['published'] ? 'منتشر شده' : 'پیش‌نویس' ?></div>
+      <div class="muted" style="font-size:.85rem"><?= e(article_approval_label((string) ($a['approval_status'] ?? 'NONE'), (int) $a['published'])) ?><?= !empty($a['submitter_name']) ? ' · منشی: ' . e($a['submitter_name']) : '' ?></div>
       <?php if ($a['published']): ?><a href="<?= e(url('/articles/' . $a['slug'])) ?>" style="color:var(--primary);font-size:.85rem">مشاهده</a><?php endif; ?>
     </div>
     <div style="display:flex;gap:.5rem">

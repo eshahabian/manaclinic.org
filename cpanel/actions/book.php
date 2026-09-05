@@ -88,14 +88,16 @@ try {
         'SECRETARY',
         'رزرو نوبت جدید',
         "مراجعه‌کننده «{$patientName}» نوبت رزرو کرد ({$when}) — در انتظار پرداخت.",
-        '/secretary/appointments'
+        '/secretary/appointments',
+        'appointment'
     );
     notify_doctor_profile(
         $pdo,
         $doctorId,
         'رزرو نوبت جدید',
         "مراجعه‌کننده «{$patientName}» برای {$when} نوبت رزرو کرد (در انتظار پرداخت).",
-        '/doctor/appointments'
+        '/doctor/appointments',
+        'appointment'
     );
 
     if (!online_payment_enabled($config)) {

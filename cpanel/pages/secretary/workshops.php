@@ -40,11 +40,25 @@ $grouped = workshop_group_for_tabs($workshops);
 $tabParam = trim((string) ($_GET['tab'] ?? ''));
 if ($editWorkshop) {
     $binderInitial = 'new';
-} elseif (in_array($tabParam, ['in-person', 'online', 'offline', 'new', 'archive'], true)) {
+} elseif (in_array($tabParam, ['in-person', 'online', 'offline', 'new', 'archive', 'enroll'], true)) {
     $binderInitial = $tabParam;
 } else {
     $binderInitial = '';
 }
+
+$enrollPatients = $pdo->query("
+  SELECT u.id, u.name, u.username
+  FROM users u
+  WHERE u.role='PATIENT'
+  ORDER BY u.name ASC
+")->fetchAll();
+$enrollWorkshops = [];
+foreach ($workshops as $w) {
+    if (!workshop_is_archived($w) && (int) ($w['is_published'] ?? 0) === 1 && ($w['status'] ?? '') !== 'CANCELLED') {
+        $enrollWorkshops[] = $w;
+    }
+}
+$recentEnrollments = secretary_recent_shared_enrollments($pdo, 25);
 
 $flash = flash_get();
 $formAction = $editWorkshop ? 'update' : 'create';
@@ -92,6 +106,9 @@ ob_start();
     <button type="button" class="binder-tab binder-tab-offline" role="tab" data-binder-tab="offline" aria-selected="false">
       آفلاین <span class="binder-tab-count"><?= count($grouped['offline']) ?></span>
     </button>
+    <button type="button" class="binder-tab binder-tab-appts" role="tab" data-binder-tab="enroll" data-binder-tone="appts" aria-selected="false">
+      ثبت ورودی <span class="binder-tab-count"><?= count($recentEnrollments) ?></span>
+    </button>
     <button type="button" class="binder-tab binder-tab-new" role="tab" data-binder-tab="new" aria-selected="false">
       <?= $editWorkshop ? 'ویرایش کارگاه' : 'کارگاه جدید' ?>
     </button>
@@ -112,6 +129,54 @@ ob_start();
     <section class="binder-panel" data-binder-panel="archive" role="tabpanel" hidden>
       <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">کارگاه‌هایی که زمانشان تمام شده، خودکار به آرشیو می‌آیند.</p>
       <?php $workshopList = $grouped['archive']; $workshopEmpty = 'هنوز کارگاهی در آرشیو نیست.'; $workshopRole = 'secretary'; require __DIR__ . '/../../includes/workshop_manage_cards.php'; ?>
+    </section>
+    <section class="binder-panel" data-binder-panel="enroll" role="tabpanel" hidden>
+      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem;line-height:1.7">ورودی کارگاه را اینجا ثبت کنید. همان لحظه برای منشی‌های دیگر هم دیده می‌شود تا ثبت تکراری پیش نیاید.</p>
+      <form class="panel form-stack" method="post" action="<?= e(url('/secretary/workshops')) ?>" style="margin:0 0 1.25rem">
+        <input type="hidden" name="action" value="enroll">
+        <div>
+          <label class="label" for="enroll_patient_id">مراجعه‌کننده</label>
+          <select class="input" name="patient_id" id="enroll_patient_id" required>
+            <option value="">— انتخاب مراجعه‌کننده —</option>
+            <?php foreach ($enrollPatients as $p): ?>
+              <option value="<?= e($p['id']) ?>"><?= e($p['name']) ?> (<?= e((string) $p['username']) ?>)</option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <div>
+          <label class="label" for="enroll_workshop_id">کارگاه</label>
+          <select class="input" name="workshop_id" id="enroll_workshop_id" required>
+            <option value="">— انتخاب کارگاه —</option>
+            <?php foreach ($enrollWorkshops as $w): ?>
+              <option value="<?= e($w['id']) ?>">
+                <?= e($w['title']) ?> — <?= e($w['doctor_name'] ?? '') ?>
+                <?= !empty($w['capacity']) ? ' · ظرفیت ' . (int) $w['enrolled_count'] . '/' . (int) $w['capacity'] : '' ?>
+              </option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <button class="btn btn-primary" type="submit">ثبت ورودی</button>
+      </form>
+      <h3 style="margin:0 0 .75rem;font-size:1rem">ثبت‌نام‌های اخیر همه منشی‌ها</h3>
+      <div class="stack">
+        <?php foreach ($recentEnrollments as $row): ?>
+          <div class="row-between" style="border:1px solid var(--line);border-radius:.75rem;padding:.75rem;background:#fff">
+            <div>
+              <strong><?= e((string) $row['patient_name']) ?></strong>
+              <div class="muted" style="font-size:.85rem">کارگاه: <?= e((string) $row['workshop_title']) ?></div>
+              <div class="muted" style="font-size:.85rem">دکتر: <?= e((string) $row['doctor_name']) ?></div>
+              <div style="font-size:.85rem;margin-top:.25rem"><?= e(format_fa_datetime((string) $row['enrolled_at'])) ?></div>
+              <?php if (!empty($row['actor_name']) || !empty($row['actor_username'])): ?>
+                <?= staff_sign_html(['name' => $row['actor_name'] ?? '', 'username' => $row['actor_username'] ?? ''], 'ثبت توسط') ?>
+              <?php else: ?>
+                <span class="staff-sign">ثبت‌نام آنلاین توسط مراجعه‌کننده</span>
+              <?php endif; ?>
+            </div>
+            <span class="badge"><?= e(enrollment_status_label((string) $row['status'])) ?></span>
+          </div>
+        <?php endforeach; ?>
+        <?php if (!$recentEnrollments): ?><p class="muted">هنوز ورودی ثبت نشده است.</p><?php endif; ?>
+      </div>
     </section>
     <section class="binder-panel" data-binder-panel="new" role="tabpanel" hidden>
       <div class="stack">
@@ -287,12 +352,17 @@ ob_start();
   </div>
 </template>
 
-<script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260904u"></script>
+<script src="<?= e(url('/assets/js/search-select.js')) ?>?v=20260905a"></script>
+<script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260906d"></script>
 <script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
 (function(){
+  if (window.enhanceSearchSelect) {
+    enhanceSearchSelect(document.getElementById("enroll_patient_id"), { placeholder: "جستجو یا انتخاب مراجعه‌کننده" });
+    enhanceSearchSelect(document.getElementById("enroll_workshop_id"), { placeholder: "جستجو یا انتخاب کارگاه" });
+  }
   function faToEn(str){ return String(str).replace(/[۰-۹]/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹".indexOf(d); }); }
   function pad(n){ return (n < 10 ? "0" : "") + n; }
   function syncJalali(viewId, hiddenId){

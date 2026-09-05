@@ -8,6 +8,7 @@
     if (id.indexOf("online") !== -1) return "online";
     if (id.indexOf("archive") !== -1) return "archive";
     if (id === "new") return "new";
+    if (id === "enroll") return "appts";
     return "in-person";
   }
 

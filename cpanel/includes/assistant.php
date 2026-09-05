@@ -886,18 +886,8 @@ function assistant_deliver_copy_to_all_doctors(PDO $pdo, array $session, ?string
     ')->execute(['SENT', $patientId, $intake, $sessionId]);
 
     $activeDoctors = assistant_list_active_doctors($pdo);
-    $short = $aiSummary !== '' ? $aiSummary : mb_substr($intake, 0, 400);
     $who = $patientId ? 'مراجعه‌کننده ثبت‌نام‌شده' : 'مراجعه‌کننده مهمان';
     $doctorLink = '/doctor/intakes/' . $sessionId;
-    $secretaryLink = '/secretary/intakes/' . $sessionId;
-
-    notify_role(
-        $pdo,
-        'SECRETARY',
-        'گفتگوی دستیار — نسخه برای درمانگران ارسال شد',
-        $who . ': ' . $short,
-        $secretaryLink
-    );
 
     foreach ($activeDoctors as $doc) {
         $docId = (string) ($doc['id'] ?? '');
@@ -911,7 +901,8 @@ function assistant_deliver_copy_to_all_doctors(PDO $pdo, array $session, ?string
             $docId,
             'نسخه گفتگوی دستیار مانا',
             $body,
-            $patientId ? ('/doctor/patients/' . $patientId . '#intakes') : $doctorLink
+            $patientId ? ('/doctor/patients/' . $patientId . '#intakes') : $doctorLink,
+            'assistant'
         );
     }
 }
@@ -1021,7 +1012,8 @@ function assistant_assign_to_doctor(PDO $pdo, array $session, string $doctorProf
         $doctorProfileId,
         'ارجاع شرح‌حال از منشی',
         'منشی یک شرح‌حال گفتگوی اولیه را به شما ارجاع داد.',
-        '/doctor/patients/' . $patientId . '#intakes'
+        '/doctor/patients/' . $patientId . '#intakes',
+        'assistant'
     );
 }
 

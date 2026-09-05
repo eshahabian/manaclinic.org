@@ -85,7 +85,8 @@ notify_role(
     'SECRETARY',
     'ثبت‌نام مراجعه‌کننده جدید',
     "مراجعه‌کننده «{$name}» ثبت‌نام کرد. درمانگر را بعداً با ایشان هماهنگ کنید.",
-    '/secretary/appointments'
+    '/secretary/appointments',
+    'appointment'
 );
 
 login_user([

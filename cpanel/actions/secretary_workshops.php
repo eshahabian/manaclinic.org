@@ -118,7 +118,16 @@ if ($action === 'create') {
         (string) $doctor['id'],
         'کارگاه جدید برای شما',
         staff_actor_label($user) . " کارگاه «{$data['title']}» را به نام شما ثبت کرد.",
-        '/doctor/workshops'
+        '/doctor/workshops',
+        'workshop'
+    );
+    notify_role(
+        $pdo,
+        'SECRETARY',
+        'کارگاه جدید',
+        staff_actor_label($user) . " کارگاه «{$data['title']}» را ثبت کرد.",
+        '/secretary/workshops',
+        'workshop'
     );
 
     flash_set('success', 'کارگاه ایجاد شد و به درمانگران اطلاع داده شد.');
@@ -195,6 +204,25 @@ if ($action === 'update') {
 
     flash_set('success', 'تغییرات کارگاه ذخیره شد.');
     redirect($base);
+}
+
+if ($action === 'enroll') {
+    $workshopId = post('workshop_id');
+    $patientId = post('patient_id');
+    try {
+        workshop_enroll_by_staff(
+            $pdo,
+            $workshopId,
+            $patientId,
+            (string) $user['id'],
+            staff_actor_label($user)
+        );
+        staff_log_action($pdo, (string) $user['id'], 'workshop_enroll', 'workshop', $workshopId);
+        flash_set('success', 'ورودی کارگاه ثبت شد و برای همه منشی‌ها نمایش داده می‌شود.');
+    } catch (RuntimeException $e) {
+        flash_set('error', $e->getMessage());
+    }
+    redirect($base . '?tab=enroll');
 }
 
 $id = post('id');

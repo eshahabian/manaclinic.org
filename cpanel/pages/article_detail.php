@@ -23,6 +23,9 @@ $pageDescription = trim((string) ($article['excerpt'] ?: mb_substr(strip_tags((s
 $pageKeywords = 'مانا کلینیک, ' . $article['title'] . ', روانشناسی, ' . $article['author_name'];
 $pageCanonical = url('/articles/' . $article['slug']);
 $pageOgType = 'article';
+if (!empty($article['cover_url'])) {
+    $pageImage = seo_absolute_url(url((string) $article['cover_url']));
+}
 $pageJsonLd = [
     '@type' => 'Article',
     'headline' => $article['title'],
@@ -40,6 +43,9 @@ $pageJsonLd = [
     ],
     'mainEntityOfPage' => seo_absolute_url($pageCanonical),
 ];
+if (!empty($article['cover_url'])) {
+    $pageJsonLd['image'] = seo_absolute_url(url((string) $article['cover_url']));
+}
 
 ob_start();
 ?>
@@ -54,6 +60,12 @@ ob_start();
       </time>
     <?php endif; ?>
   </div>
+  <?php if (!empty($article['cover_url'])): ?>
+    <img class="article-hero-media" src="<?= e(url((string) $article['cover_url'])) ?>" alt="<?= e($article['title']) ?>" itemprop="image">
+  <?php endif; ?>
+  <?php if (!empty($article['video_url'])): ?>
+    <video class="article-hero-media" src="<?= e(url((string) $article['video_url'])) ?>" controls playsinline></video>
+  <?php endif; ?>
   <div class="panel article-body" style="margin-top:2rem;max-width:48rem;line-height:1.9" itemprop="articleBody">
     <?= rich_html_for_display($article['content']) ?>
   </div>

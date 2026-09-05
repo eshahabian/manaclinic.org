@@ -59,9 +59,12 @@ try {
         content MEDIUMTEXT NOT NULL,
         excerpt TEXT NOT NULL,
         cover_url VARCHAR(255) NULL,
+        video_url VARCHAR(500) NULL,
         published TINYINT(1) NOT NULL DEFAULT 0,
         published_at DATETIME NULL,
         author_id VARCHAR(32) NOT NULL,
+        submitted_by_user_id VARCHAR(32) NULL,
+        approval_status VARCHAR(20) NOT NULL DEFAULT 'NONE',
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         CONSTRAINT fk_article_author FOREIGN KEY (author_id) REFERENCES users(id) ON DELETE CASCADE

@@ -5,9 +5,10 @@ function secretary_nav(): array
 {
     return [
         ['href' => '/secretary', 'label' => 'خلاصه'],
-        ['href' => '/secretary/intakes', 'label' => 'گفتگوهای دستیار'],
-        ['href' => '/secretary/workshops', 'label' => 'کارگاه‌ها'],
+        ['href' => '/secretary/messages', 'label' => 'پیام‌ها'],
         ['href' => '/secretary/appointments', 'label' => 'نوبت‌ها'],
+        ['href' => '/secretary/workshops', 'label' => 'کارگاه‌ها'],
+        ['href' => '/secretary/articles', 'label' => 'مقالات'],
         ['href' => '/secretary/hours', 'label' => 'ساعت کاری'],
     ];
 }
@@ -17,6 +18,7 @@ function render_secretary_page(string $title, string $innerHtml): void
     global $pageScripts, $pageHead, $pdo;
     $nav = secretary_nav();
     $pageTitle = $title;
+    $GLOBALS['pageRobots'] = 'noindex,nofollow';
     $user = current_user();
     $shift = ($user && $pdo instanceof PDO) ? staff_current_shift($pdo, (string) $user['id']) : null;
     ob_start();

@@ -97,14 +97,16 @@ if ($appInfo) {
         'SECRETARY',
         'تأیید نوبت پس از پرداخت',
         "نوبت «{$patientName}» برای {$when} پرداخت و تأیید شد.",
-        '/secretary/appointments'
+        '/secretary/appointments',
+        'appointment'
     );
     notify_doctor_profile(
         $pdo,
         (string) $appInfo['doctor_id'],
         'تأیید نوبت',
         "نوبت «{$patientName}» برای {$when} پرداخت و تأیید شد.",
-        '/doctor/appointments'
+        '/doctor/appointments',
+        'appointment'
     );
 }
 

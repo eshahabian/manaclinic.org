@@ -16,7 +16,7 @@ $urls = [
 ];
 
 $articles = $pdo->query("
-  SELECT slug, COALESCE_FORMAT(COALESCE(published_at, created_at), '%Y-%m-%d') AS lastmod
+  SELECT slug, DATE_FORMAT(COALESCE(published_at, created_at), '%Y-%m-%d') AS lastmod
   FROM articles
   WHERE published = 1
   ORDER BY published_at DESC

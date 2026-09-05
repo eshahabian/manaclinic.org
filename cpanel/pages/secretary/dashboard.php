@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__ . '/../../includes/secretary_panel.php';
 $user = require_login(['SECRETARY']);
+ensure_workshop_schema($pdo);
 
 $upcoming = $pdo->query("
   SELECT a.*, pu.name AS patient_name, du.name AS doctor_name,
@@ -16,15 +17,32 @@ $upcoming = $pdo->query("
   LIMIT 8
 ")->fetchAll();
 
-$notifications = fetch_notifications($pdo, (string) $user['id'], 15);
-$unreadCount = count_unread_notifications($pdo, (string) $user['id']);
+$msgTab = trim((string) ($_GET['msg'] ?? 'appointment'));
+if (!in_array($msgTab, ['appointment', 'workshop'], true)) {
+    $msgTab = 'appointment';
+}
+
+$notifications = fetch_notifications($pdo, (string) $user['id'], 40);
+$recentAppointments = secretary_recent_shared_appointments($pdo, 12);
+$recentEnrollments = secretary_recent_shared_enrollments($pdo, 12);
+$unreadCount = secretary_unread_desk_count($notifications);
 
 ob_start();
 ?>
 <h1>سلام <?= e($user['name']) ?></h1>
-<p class="muted">از اینجا می‌توانید برای مراجعه‌کنندگان نوبت ثبت کنید.<?= $unreadCount ? ' · ' . $unreadCount . ' پیام خوانده‌نشده' : '' ?></p>
-<p style="margin-top:1rem"><a class="btn btn-primary" href="<?= e(url('/secretary/appointments?tab=new')) ?>">رزرو نوبت برای مراجعه‌کننده</a></p>
-<?= render_notifications_panel($notifications, url('/secretary/notifications/read')) ?>
+<p class="muted">از اینجا می‌توانید برای مراجعه‌کنندگان نوبت و ورودی کارگاه ثبت کنید.<?= $unreadCount ? ' · ' . $unreadCount . ' پیام خوانده‌نشده' : '' ?></p>
+<p style="margin-top:1rem;display:flex;flex-wrap:wrap;gap:.5rem">
+  <a class="btn btn-primary" href="<?= e(url('/secretary/appointments?tab=new')) ?>">رزرو نوبت برای مراجعه‌کننده</a>
+  <a class="btn btn-outline" href="<?= e(url('/secretary/workshops?tab=enroll')) ?>">ثبت ورودی کارگاه</a>
+</p>
+<?= render_secretary_messages_panel(
+    $notifications,
+    url('/secretary/notifications/read'),
+    $recentAppointments,
+    $recentEnrollments,
+    $msgTab,
+    '/secretary'
+) ?>
 <div class="panel stack" style="margin-top:1.5rem">
   <h2 style="margin:0;font-size:1.1rem">نوبت‌های پیش‌رو</h2>
   <?php foreach ($upcoming as $a): ?>
