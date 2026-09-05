@@ -44,7 +44,9 @@ $intakeRows = $pdo->query("
   SELECT s.*, u.name AS patient_name, u.phone AS patient_phone
   FROM assistant_sessions s
   LEFT JOIN users u ON u.id = s.patient_id
-  WHERE s.status = 'SENT' AND s.sent_at IS NOT NULL
+  WHERE s.status = 'SENT'
+    AND s.sent_at IS NOT NULL
+    AND (s.patient_id IS NULL OR s.patient_id = '')
   ORDER BY s.sent_at DESC
   LIMIT 100
 ")->fetchAll();
@@ -93,7 +95,7 @@ ob_start();
       </div>
     </section>
     <section class="binder-panel<?= $binderInitial === 'intakes' ? ' is-active' : '' ?>" data-binder-panel="intakes" role="tabpanel"<?= $binderInitial === 'intakes' ? '' : ' hidden' ?>>
-      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">گفتگوها بر اساس ماه و تاریخ جدا شده‌اند. روی روز بزنید تا ببینید چه کسی با دستیار حرف زده است.</p>
+      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">اینجا فقط گفتگوهای مهمان است. گفتگوی مراجعه‌کننده ثبت‌نام‌شده را از پرونده همان فرد ببینید.</p>
       <?php
         $intakeMonthPack = doctor_intake_month_groups($intakeRows);
         $intakeMonthGroups = $intakeMonthPack['months'];

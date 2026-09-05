@@ -751,6 +751,23 @@ select option {
   gap: .45rem;
   margin: 1rem 0 0;
 }
+.panel-subtabs-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .45rem;
+  margin: 1rem 0 0;
+}
+.panel-subtabs-row .panel-subtabs {
+  margin: 0;
+}
+.panel-subtabs-row .panel-subtabs-action {
+  margin: 0;
+}
+.panel-subtabs-row .panel-subtabs-action .btn {
+  height: 100%;
+  min-height: 2.45rem;
+}
 .panel-subtab {
   display: inline-flex;
   align-items: center;
@@ -1542,6 +1559,17 @@ html[dir="ltr"] .binder-body {
 }
 .intake-day-box {
   width: min(100%, 16.5rem);
+}
+.appt-day-block {
+  margin-bottom: 1.25rem;
+}
+.appt-day-block:last-child {
+  margin-bottom: 0;
+}
+.appt-day-title {
+  margin: 0 0 .65rem;
+  font-size: 1rem;
+  color: var(--primary-dark);
 }
 .session-note-box.open .session-note-toggle {
   border-color: var(--primary);

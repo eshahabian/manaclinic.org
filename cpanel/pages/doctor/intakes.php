@@ -11,7 +11,9 @@ $rows = $pdo->query("
   SELECT s.*, u.name AS patient_name, u.phone AS patient_phone
   FROM assistant_sessions s
   LEFT JOIN users u ON u.id = s.patient_id
-  WHERE s.status = 'SENT' AND s.sent_at IS NOT NULL
+  WHERE s.status = 'SENT'
+    AND s.sent_at IS NOT NULL
+    AND (s.patient_id IS NULL OR s.patient_id = '')
   ORDER BY s.sent_at DESC
   LIMIT 100
 ")->fetchAll();
@@ -23,7 +25,7 @@ ob_start();
     <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor')) ?>">بازگشت به پنل</a>
   </p>
   <h1>گفتگوهای دستیار</h1>
-  <p class="muted">هر گفتگوی تکمیل‌شده به‌صورت خودکار برای همه درمانگران ارسال می‌شود.</p>
+  <p class="muted">فقط گفتگوهای مهمان (بدون ورود) اینجا دیده می‌شود. گفتگوی مراجعه‌کننده ثبت‌نام‌شده در پرونده همان فرد است.</p>
   <?php if (!$rows): ?>
     <p class="muted" style="margin-top:1rem">هنوز گفتگویی ارسال نشده است.</p>
   <?php else: ?>
@@ -34,14 +36,10 @@ ob_start();
           if ($summary === '') {
               $summary = mb_substr((string) ($row['intake_text'] ?? ''), 0, 180);
           }
-          $guest = empty($row['patient_id']);
         ?>
         <article class="intake-item">
           <div class="intake-item-body">
-            <strong><?= e($guest ? 'مراجعه‌کننده مهمان' : ((string) ($row['patient_name'] ?? 'مراجعه‌کننده'))) ?></strong>
-            <?php if (!$guest && !empty($row['patient_phone'])): ?>
-              <span class="muted"> · <?= e((string) $row['patient_phone']) ?></span>
-            <?php endif; ?>
+            <strong>مراجعه‌کننده مهمان</strong>
             <p class="muted intake-item-meta"><?= e(format_fa_datetime((string) ($row['sent_at'] ?? ''))) ?></p>
             <p class="intake-item-summary"><?= e($summary) ?><?= mb_strlen($summary) >= 180 ? '…' : '' ?></p>
           </div>

@@ -12,12 +12,12 @@ function doctor_nav(): array
         ['type' => 'link', 'href' => '/doctor/appointments', 'label' => 'نوبت‌ها'],
         ['type' => 'link', 'href' => '/doctor/availability', 'label' => 'روزهای خالی'],
         ['type' => 'link', 'href' => '/doctor/patients', 'label' => 'پرونده مراجعه‌کنندگان'],
-        ['type' => 'group', 'label' => 'کارگاه و محتوا'],
         ['type' => 'link', 'href' => '/doctor/workshops', 'label' => 'کارگاه‌ها'],
+        ['type' => 'group', 'label' => 'پروفایل من'],
         ['type' => 'link', 'href' => '/doctor/articles', 'label' => 'مقالات'],
+        ['type' => 'link', 'href' => '/doctor/profile', 'label' => 'پروفایل حرفه‌ای'],
         ['type' => 'group', 'label' => 'حساب'],
         ['type' => 'link', 'href' => '/doctor/staff-hours', 'label' => 'ساعت کاری منشی‌ها'],
-        ['type' => 'link', 'href' => '/doctor/profile', 'label' => 'پروفایل حرفه‌ای'],
     ];
 }
 

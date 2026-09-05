@@ -38,13 +38,17 @@ $intakeRows = $pdo->query("
   SELECT s.id, s.sent_at, s.ai_summary, s.intake_text, s.patient_id, u.name AS patient_name
   FROM assistant_sessions s
   LEFT JOIN users u ON u.id = s.patient_id
-  WHERE s.status = 'SENT' AND s.sent_at IS NOT NULL
+  WHERE s.status = 'SENT'
+    AND s.sent_at IS NOT NULL
+    AND (s.patient_id IS NULL OR s.patient_id = '')
   ORDER BY s.sent_at DESC
   LIMIT 5
 ")->fetchAll();
 
 $intakeTotal = (int) $pdo->query("
-  SELECT COUNT(*) FROM assistant_sessions WHERE status='SENT' AND sent_at IS NOT NULL
+  SELECT COUNT(*) FROM assistant_sessions
+  WHERE status='SENT' AND sent_at IS NOT NULL
+    AND (patient_id IS NULL OR patient_id = '')
 ")->fetchColumn();
 
 // اعلان‌ها — جداسازی دستیار از بقیه
@@ -138,7 +142,7 @@ ob_start();
 
       <h3 class="doctor-dash-sub">آخرین گفتگوها</h3>
       <?php if (!$intakeRows): ?>
-        <p class="muted doctor-dash-empty">هنوز گفتگویی از دستیار نرسیده است.</p>
+        <p class="muted doctor-dash-empty">هنوز گفتگوی مهمانی از دستیار نرسیده است.</p>
       <?php else: ?>
         <ul class="doctor-dash-list">
           <?php foreach ($intakeRows as $row): ?>
