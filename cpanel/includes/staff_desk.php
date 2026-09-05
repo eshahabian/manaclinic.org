@@ -363,11 +363,11 @@ function staff_receipt_view_html(?string $paymentId, ?string $receiptPath, bool 
     ob_start();
     if ($receiptPath) {
         ?>
-        <a class="btn btn-outline btn-sm" href="<?= e(url('/staff/receipt?id=' . $paymentId)) ?>" target="_blank" rel="noopener">مشاهده فیش</a>
+        <a class="btn btn-outline btn-sm" href="<?= e(url('/staff/receipt?id=' . $paymentId)) ?>" target="_blank" rel="noopener">مشاهده رسید</a>
         <?php
     } else {
         ?>
-        <span class="muted" style="font-size:.8rem">فیش ثبت نشده</span>
+        <span class="muted" style="font-size:.8rem">رسید ثبت نشده</span>
         <?php
     }
     if ($canUpload) {
@@ -375,7 +375,7 @@ function staff_receipt_view_html(?string $paymentId, ?string $receiptPath, bool 
         <form class="staff-receipt-form" method="post" action="<?= e(url('/secretary/receipt')) ?>" enctype="multipart/form-data">
           <input type="hidden" name="payment_id" value="<?= e($paymentId) ?>">
           <label class="btn btn-outline btn-sm staff-receipt-pick">
-            <?= $receiptPath ? 'تعویض فیش' : 'آپلود فیش' ?>
+            <?= $receiptPath ? 'تعویض رسید' : 'رسید پرداخت' ?>
             <input type="file" name="receipt" accept="image/jpeg,image/png,image/webp,application/pdf" required onchange="this.form.submit()">
           </label>
         </form>

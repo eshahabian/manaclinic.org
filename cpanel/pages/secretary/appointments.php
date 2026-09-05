@@ -29,10 +29,10 @@ ob_start();
         <div class="muted" style="font-size:.85rem;margin-top:.35rem"><?= e(format_fa_datetime($a['starts_at'])) ?></div>
         <?= staff_sign_html(['name' => $a['actor_name'] ?? '', 'username' => $a['actor_username'] ?? '']) ?>
       </div>
-      <div style="font-size:.85rem">
+      <div class="appt-status">
         <span class="badge"><?= e(appointment_status_label($a['status'])) ?></span>
         <?php if ($a['amount'] !== null): ?>
-          <div class="muted" style="margin-top:.35rem"><?= e(payment_status_label((string)$a['pay_status'])) ?></div>
+          <div class="appt-pay-status muted"><?= e(payment_status_label((string)$a['pay_status'])) ?></div>
         <?php endif; ?>
       </div>
     </div>
