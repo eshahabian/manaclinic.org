@@ -34,7 +34,10 @@ ob_start();
 <div class="panel">
   <p class="panel-back">
     <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor')) ?>">بازگشت به پنل</a>
-    <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/intakes')) ?>">بازگشت به فهرست</a>
+    <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/patients#intakes')) ?>">گفتگوهای دستیار</a>
+    <?php if (!empty($session['patient_id'])): ?>
+      <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/patients/' . $session['patient_id'] . '#intakes')) ?>">پرونده مراجعه‌کننده</a>
+    <?php endif; ?>
   </p>
   <h1>نسخه گفتگوی دستیار</h1>
   <p class="muted" style="margin-top:.35rem">

@@ -1497,6 +1497,12 @@ html[dir="ltr"] .binder-body {
   flex-wrap: wrap;
   gap: .65rem;
 }
+.binder-panel .clinical-session-grid {
+  position: relative;
+}
+.binder-body:has(.session-note-box.open) {
+  overflow: visible;
+}
 .session-note-box {
   position: relative;
   width: min(100%, 11.5rem);

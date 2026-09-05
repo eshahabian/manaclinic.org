@@ -83,6 +83,41 @@ function require_doctor_patient_access(PDO $pdo, array $ctx, string $patientId):
     ];
 }
 
+/** گفتگوهای ارسال‌شده دستیار برای یک مراجعه‌کننده */
+function doctor_patient_assistant_sessions(PDO $pdo, string $patientId): array
+{
+    if (function_exists('ensure_assistant_schema')) {
+        ensure_assistant_schema($pdo);
+    }
+    $stmt = $pdo->prepare("
+      SELECT s.*, u.name AS patient_name, u.phone AS patient_phone
+      FROM assistant_sessions s
+      LEFT JOIN users u ON u.id = s.patient_id
+      WHERE s.patient_id = ?
+        AND s.status = 'SENT'
+        AND s.sent_at IS NOT NULL
+      ORDER BY s.sent_at DESC
+    ");
+    $stmt->execute([$patientId]);
+    return $stmt->fetchAll();
+}
+
+/**
+ * ماه‌های شمسی جلسات پرونده — فقط ماه‌هایی که مراجعه داشته (به‌علاوه ماه جاری).
+ * @param array<int, array<string, mixed>> $appointments
+ * @return array{months: array<string, array<string, mixed>>, default_id: string}
+ */
+function doctor_session_month_groups(array $appointments): array
+{
+    $pack = group_appointments_by_jalali_month($appointments, false);
+    foreach ($pack['months'] as $id => $bucket) {
+        $base = (string) ($bucket['tab_label'] ?? $bucket['short'] ?? '');
+        $pack['months'][$id]['tab_label'] = 'جلسات ' . $base;
+        $pack['months'][$id]['label'] = 'جلسات ' . (string) ($bucket['label'] ?? $base);
+    }
+    return $pack;
+}
+
 function get_or_create_patient_chart(PDO $pdo, string $doctorId, string $patientId): array
 {
     ensure_doctor_clinical_tables($pdo);

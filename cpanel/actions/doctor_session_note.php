@@ -13,14 +13,14 @@ $noteText = (string) ($_POST['note_text'] ?? '');
 
 if ($appointmentId === '') {
     flash_set('error', 'نوبت مشخص نیست.');
-    redirect('/doctor/patients/' . $patientId);
+    redirect('/doctor/patients/' . $patientId . '#chart');
 }
 
 $app = $pdo->prepare('SELECT id FROM appointments WHERE id=? AND doctor_id=? AND patient_id=? LIMIT 1');
 $app->execute([$appointmentId, $doctorId, $patientId]);
 if (!$app->fetch()) {
     flash_set('error', 'این نوبت متعلق به پرونده شما نیست.');
-    redirect('/doctor/patients/' . $patientId);
+    redirect('/doctor/patients/' . $patientId . '#chart');
 }
 
 $existing = $pdo->prepare('SELECT id FROM doctor_session_notes WHERE appointment_id=? AND doctor_id=? LIMIT 1');
@@ -36,4 +36,4 @@ if ($row) {
 }
 
 flash_set('success', 'یادداشت جلسه ذخیره شد.');
-redirect('/doctor/patients/' . $patientId);
+redirect('/doctor/patients/' . $patientId . '#chart');

@@ -15,4 +15,4 @@ $pdo->prepare('UPDATE doctor_patient_charts SET history_text=? WHERE id=? AND do
     ->execute([$history, $chart['id'], $doctorId]);
 
 flash_set('success', 'شرح حال ذخیره شد.');
-redirect('/doctor/patients/' . $patientId);
+redirect('/doctor/patients/' . $patientId . '#chart');

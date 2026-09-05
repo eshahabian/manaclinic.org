@@ -362,6 +362,26 @@ function group_appointments_by_jalali_month(array $appointments, bool $fillRestO
     return ['months' => $months, 'default_id' => $defaultId];
 }
 
+/** روز و ساعت شمسی یک تاریخ میلادی — برای کارت جلسه */
+function jalali_day_parts(string $datetime): ?array
+{
+    $ts = strtotime($datetime);
+    if (!$ts) {
+        return null;
+    }
+    [$jy, $jm, $jd] = gregorian_to_jalali((int) date('Y', $ts), (int) date('n', $ts), (int) date('j', $ts));
+    $months = jalali_month_names();
+    $month = $months[$jm] ?? (string) $jm;
+    return [
+        'day' => $jd,
+        'day_fa' => to_fa_digits((string) $jd),
+        'month' => $month,
+        'year' => $jy,
+        'time_fa' => to_fa_digits(date('H:i', $ts)),
+        'label' => to_fa_digits((string) $jd) . ' ' . $month,
+    ];
+}
+
 /** تبدیل تاریخ میلادی Y-m-d به شمسی با ارقام فارسی */
 function to_jalali_label(string $ymd): string
 {
