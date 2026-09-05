@@ -70,6 +70,7 @@ if ($action === 'create') {
         );
     }
 
+    staff_log_action($pdo, (string) $user['id'], 'article_submit', 'article', $id, $title);
     flash_set('success', 'مقاله برای تأیید دکتر ارسال شد و هنوز منتشر نشده است.');
     redirect('/secretary/articles');
 }
@@ -82,6 +83,7 @@ if ($action === 'delete') {
     if ($article && (string) $article['approval_status'] === 'PENDING' && !(int) $article['published']) {
         article_delete_files($article);
         $pdo->prepare('DELETE FROM articles WHERE id=?')->execute([$id]);
+        staff_log_action($pdo, (string) $user['id'], 'article_delete', 'article', $id, (string) ($article['title'] ?? ''));
         flash_set('success', 'پیش‌نویس حذف شد.');
     } else {
         flash_set('error', 'فقط پیش‌نویس در انتظار تأیید قابل حذف است.');

@@ -138,11 +138,11 @@ try {
     $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,status,ref_id,recorded_by_user_id,receipt_path) VALUES (?,?,?,?,?,?,?)')
         ->execute([$paymentId, $appointmentId, (int)$doctor['session_price'], 'PAID', 'SECRETARY', $actorId, $receiptPath]);
     $pdo->commit();
-    staff_log_action($pdo, $actorId, 'book_appointment', 'appointment', $appointmentId);
 
     $patientNameStmt = $pdo->prepare('SELECT name FROM users WHERE id = ?');
     $patientNameStmt->execute([$patientId]);
     $patientName = (string) ($patientNameStmt->fetchColumn() ?: 'مراجعه‌کننده');
+    staff_log_action($pdo, $actorId, 'book_appointment', 'appointment', $appointmentId, $patientName);
     $when = format_fa_datetime($startsAt);
     notify_role(
         $pdo,

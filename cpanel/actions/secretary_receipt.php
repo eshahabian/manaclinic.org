@@ -31,7 +31,7 @@ try {
             @unlink($old);
         }
     }
-    $pdo->prepare('UPDATE payments SET receipt_path=?, recorded_by_user_id=COALESCE(recorded_by_user_id, ?) WHERE id=?')
+    $pdo->prepare('UPDATE payments SET receipt_path=?, recorded_by_user_id=? WHERE id=?')
         ->execute([$relative, $user['id'], $paymentId]);
     staff_log_action($pdo, (string) $user['id'], 'receipt_upload', 'payment', $paymentId);
     flash_set('success', 'رسید پرداخت ذخیره شد.');
@@ -39,6 +39,10 @@ try {
     flash_set('error', $e->getMessage());
 }
 
+$next = trim((string) ($_POST['next'] ?? ''));
+if ($next !== '' && str_starts_with($next, '/secretary')) {
+    redirect($next);
+}
 $status = (string) ($payment['status'] ?? '');
 $start = strtotime((string) ($payment['starts_at'] ?? '')) ?: 0;
 $tab = (!in_array($status, ['CANCELLED', 'COMPLETED'], true) && $start >= time()) ? 'upcoming' : 'done';

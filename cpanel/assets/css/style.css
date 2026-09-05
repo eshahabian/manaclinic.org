@@ -1803,3 +1803,41 @@ html[dir="ltr"] .binder-body {
   align-items: flex-end;
   gap: .4rem;
 }
+.staff-shift-lines {
+  margin: 0;
+  padding-inline-start: 1.2rem;
+  display: flex;
+  flex-direction: column;
+  gap: .45rem;
+  line-height: 1.7;
+  font-size: .92rem;
+}
+.staff-day-block {
+  padding: .65rem 0;
+  border-bottom: 1px dashed var(--line);
+}
+.staff-day-block:last-child {
+  border-bottom: 0;
+  padding-bottom: 0;
+}
+.staff-day-report {
+  background: var(--bg-soft);
+  border-radius: .7rem;
+  padding: .75rem .85rem;
+  font-size: .9rem;
+  line-height: 1.8;
+}
+.staff-day-report p {
+  margin: .4rem 0 0;
+  white-space: pre-wrap;
+}
+.staff-report-draft {
+  margin: .5rem 0 0;
+  white-space: pre-wrap;
+  font-family: inherit;
+  font-size: .85rem;
+  line-height: 1.7;
+  background: var(--bg-soft);
+  border-radius: .6rem;
+  padding: .7rem .8rem;
+}

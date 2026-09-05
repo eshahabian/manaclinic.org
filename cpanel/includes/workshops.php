@@ -809,7 +809,7 @@ function workshop_mark_paid_by_staff(PDO $pdo, string $enrollmentId, string $sta
             ->execute([$paymentId, $enrollmentId, 0, 'PAID', 'SECRETARY', $relative, $staffUserId]);
         $pdo->prepare("UPDATE workshop_enrollments SET status='CONFIRMED' WHERE id=?")->execute([$enrollmentId]);
     } else {
-        $pdo->prepare('UPDATE workshop_payments SET receipt_path=?, recorded_by_user_id=COALESCE(recorded_by_user_id, ?) WHERE id=?')
+        $pdo->prepare('UPDATE workshop_payments SET receipt_path=?, recorded_by_user_id=? WHERE id=?')
             ->execute([$relative, $staffUserId, $paymentId]);
         if ($wasPending) {
             confirm_workshop_payment($pdo, [
@@ -819,7 +819,7 @@ function workshop_mark_paid_by_staff(PDO $pdo, string $enrollmentId, string $sta
                 'wallet_amount' => (int) ($row['wallet_amount'] ?? 0),
                 'ref_id' => 'SECRETARY',
             ]);
-            $pdo->prepare('UPDATE workshop_payments SET recorded_by_user_id=COALESCE(recorded_by_user_id, ?) WHERE id=?')
+            $pdo->prepare('UPDATE workshop_payments SET recorded_by_user_id=? WHERE id=?')
                 ->execute([$staffUserId, $paymentId]);
         }
     }

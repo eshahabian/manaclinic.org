@@ -362,6 +362,37 @@ function group_appointments_by_jalali_month(array $appointments, bool $fillRestO
     return ['months' => $months, 'default_id' => $defaultId];
 }
 
+/** فقط ماه‌هایی که آیتم دارند + گروه‌بندی روز داخل ماه */
+function attach_jalali_days_to_month_groups(array $monthGroups, string $datetimeKey = 'starts_at'): array
+{
+    foreach ($monthGroups as $id => $bucket) {
+        $items = $bucket['items'] ?? [];
+        if (!$items) {
+            unset($monthGroups[$id]);
+            continue;
+        }
+        usort($items, static fn(array $a, array $b): int => strcmp((string) ($a[$datetimeKey] ?? ''), (string) ($b[$datetimeKey] ?? '')));
+        $days = [];
+        foreach ($items as $row) {
+            $dt = (string) ($row[$datetimeKey] ?? '');
+            $ts = strtotime($dt) ?: 0;
+            $gkey = $ts ? date('Y-m-d', $ts) : 'other';
+            $day = jalali_day_parts($dt);
+            if (!isset($days[$gkey])) {
+                $days[$gkey] = [
+                    'label' => $day['label'] ?? ($dt !== '' ? format_fa_datetime($dt) : 'بدون تاریخ'),
+                    'items' => [],
+                ];
+            }
+            $days[$gkey]['items'][] = $row;
+        }
+        ksort($days);
+        $monthGroups[$id]['items'] = $items;
+        $monthGroups[$id]['days'] = $days;
+    }
+    return $monthGroups;
+}
+
 /** روز و ساعت شمسی یک تاریخ میلادی — برای کارت جلسه */
 function jalali_day_parts(string $datetime): ?array
 {

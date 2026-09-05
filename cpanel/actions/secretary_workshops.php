@@ -221,6 +221,10 @@ if ($action === 'mark_paid') {
     } catch (RuntimeException $e) {
         flash_set('error', $e->getMessage());
     }
+    $next = trim((string) ($_POST['next'] ?? ''));
+    if ($next !== '' && str_starts_with($next, '/secretary')) {
+        redirect($next);
+    }
     redirect($base);
 }
 

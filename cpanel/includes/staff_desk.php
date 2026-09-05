@@ -68,6 +68,31 @@ function ensure_staff_desk_schema(PDO $pdo): void
     }
 
     ensure_secretary_accounts($pdo);
+    ensure_secretary_day_reports($pdo);
+}
+
+function ensure_secretary_day_reports(PDO $pdo): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    try {
+        $pdo->exec("
+          CREATE TABLE IF NOT EXISTS secretary_day_reports (
+            id VARCHAR(32) PRIMARY KEY,
+            user_id VARCHAR(32) NOT NULL,
+            report_date DATE NOT NULL,
+            body TEXT NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_sec_day_report (user_id, report_date),
+            INDEX idx_sec_report_date (report_date)
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+    } catch (Throwable $ignored) {
+    }
+    $ready = true;
 }
 
 function ensure_secretary_accounts(PDO $pdo): void
@@ -295,10 +320,108 @@ function staff_shift_reason_label(?string $reason): string
 {
     return match ($reason) {
         'logout' => 'خروج',
-        'idle' => 'قطع به‌خاطر بی‌فعالیتی',
+        'idle' => 'قطع به‌خاطر ۱۰ دقیقه بی‌فعالیتی',
         'login_replace' => 'ورود دوباره',
         default => 'در حال کار',
     };
+}
+
+function staff_action_label(string $action): string
+{
+    return match ($action) {
+        'book_appointment' => 'ثبت نوبت',
+        'receipt_upload' => 'بارگذاری فیش نوبت',
+        'workshop_enroll' => 'ثبت ورودی کارگاه',
+        'workshop_mark_paid' => 'ثبت پرداخت کارگاه با فیش',
+        'workshop_create' => 'ایجاد کارگاه',
+        'workshop_update' => 'ویرایش کارگاه',
+        'workshop_publish' => 'انتشار کارگاه',
+        'workshop_unpublish' => 'لغو انتشار کارگاه',
+        'workshop_enroll_open' => 'باز کردن ثبت‌نام کارگاه',
+        'workshop_enroll_close' => 'بستن ثبت‌نام کارگاه',
+        'workshop_delete' => 'حذف کارگاه',
+        'workshop_media_upload' => 'بارگذاری فایل کارگاه',
+        'workshop_media_delete' => 'حذف فایل کارگاه',
+        'article_submit' => 'ارسال مقاله برای تأیید دکتر',
+        'article_delete' => 'حذف پیش‌نویس مقاله',
+        'delete_patient' => 'حذف مراجعه‌کننده',
+        'day_report' => 'ثبت گزارش پایان روز',
+        default => $action,
+    };
+}
+
+/** هر ورود جداگانه زیر همان روز شمسی */
+function staff_shifts_grouped_by_day(array $rows): array
+{
+    $days = [];
+    foreach ($rows as $row) {
+        $dt = (string) ($row['started_at'] ?? '');
+        $ts = strtotime($dt) ?: 0;
+        $key = $ts ? date('Y-m-d', $ts) : 'other';
+        $parts = jalali_day_parts($dt);
+        if (!isset($days[$key])) {
+            $days[$key] = [
+                'date' => $key,
+                'label' => $parts ? ((string) $parts['label'] . ' ' . to_fa_digits((string) $parts['year'])) : format_fa_datetime($dt),
+                'items' => [],
+            ];
+        }
+        $days[$key]['items'][] = $row;
+    }
+    foreach ($days as $k => $day) {
+        usort($days[$k]['items'], static fn(array $a, array $b): int => strcmp((string) ($a['started_at'] ?? ''), (string) ($b['started_at'] ?? '')));
+    }
+    krsort($days);
+    return $days;
+}
+
+function staff_today_action_draft(PDO $pdo, string $userId): string
+{
+    try {
+        $stmt = $pdo->prepare("
+          SELECT action, note, created_at
+          FROM secretary_action_log
+          WHERE user_id=? AND DATE(created_at)=CURDATE()
+          ORDER BY created_at ASC
+        ");
+        $stmt->execute([$userId]);
+        $rows = $stmt->fetchAll();
+    } catch (Throwable $e) {
+        return '';
+    }
+    if (!$rows) {
+        return '';
+    }
+    $lines = [];
+    foreach ($rows as $row) {
+        $when = format_fa_datetime((string) $row['created_at']);
+        $label = staff_action_label((string) $row['action']);
+        $note = trim((string) ($row['note'] ?? ''));
+        $lines[] = '• ' . $when . ' — ' . $label . ($note !== '' ? ' (' . $note . ')' : '');
+    }
+    return implode("\n", $lines);
+}
+
+function staff_get_day_report(PDO $pdo, string $userId, string $date): ?array
+{
+    ensure_secretary_day_reports($pdo);
+    $stmt = $pdo->prepare('SELECT * FROM secretary_day_reports WHERE user_id=? AND report_date=? LIMIT 1');
+    $stmt->execute([$userId, $date]);
+    $row = $stmt->fetch();
+    return $row ?: null;
+}
+
+function staff_save_day_report(PDO $pdo, string $userId, string $date, string $body): void
+{
+    ensure_secretary_day_reports($pdo);
+    $existing = staff_get_day_report($pdo, $userId, $date);
+    if ($existing) {
+        $pdo->prepare('UPDATE secretary_day_reports SET body=? WHERE id=?')
+            ->execute([$body, $existing['id']]);
+        return;
+    }
+    $pdo->prepare('INSERT INTO secretary_day_reports (id, user_id, report_date, body) VALUES (?,?,?,?)')
+        ->execute([cuid(), $userId, $date, $body]);
 }
 
 function staff_receipt_root(): string
@@ -355,7 +478,7 @@ function staff_receipt_abs(string $relative): string
     return staff_receipt_root() . '/' . basename($relative);
 }
 
-function staff_receipt_view_html(?string $paymentId, ?string $receiptPath, bool $canUpload = false): string
+function staff_receipt_view_html(?string $paymentId, ?string $receiptPath, bool $canUpload = false, ?string $next = null): string
 {
     if (!$paymentId) {
         return '';
@@ -363,19 +486,22 @@ function staff_receipt_view_html(?string $paymentId, ?string $receiptPath, bool 
     ob_start();
     if ($receiptPath) {
         ?>
-        <a class="btn btn-outline btn-sm" href="<?= e(url('/staff/receipt?id=' . $paymentId)) ?>" target="_blank" rel="noopener">مشاهده رسید</a>
+        <a class="btn btn-outline btn-sm" href="<?= e(url('/staff/receipt?id=' . $paymentId)) ?>" target="_blank" rel="noopener">مشاهده فیش</a>
         <?php
     } else {
         ?>
-        <span class="muted" style="font-size:.8rem">رسید ثبت نشده</span>
+        <span class="muted" style="font-size:.8rem">فیش ثبت نشده</span>
         <?php
     }
     if ($canUpload) {
         ?>
         <form class="staff-receipt-form" method="post" action="<?= e(url('/secretary/receipt')) ?>" enctype="multipart/form-data">
           <input type="hidden" name="payment_id" value="<?= e($paymentId) ?>">
+          <?php if ($next): ?>
+            <input type="hidden" name="next" value="<?= e($next) ?>">
+          <?php endif; ?>
           <label class="btn btn-outline btn-sm staff-receipt-pick">
-            <?= $receiptPath ? 'تعویض رسید' : 'رسید پرداخت' ?>
+            <?= $receiptPath ? 'تعویض فیش' : 'بارگذاری فیش' ?>
             <input type="file" name="receipt" accept="image/jpeg,image/png,image/webp,application/pdf" required onchange="this.form.submit()">
           </label>
         </form>
