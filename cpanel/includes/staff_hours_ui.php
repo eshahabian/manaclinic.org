@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 function staff_hours_scripts(): string
 {
-    return '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260906m"></script>';
+    return '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260906n"></script>';
 }
 
 function staff_hours_render(array $slots, array $opts = []): string
@@ -44,7 +44,7 @@ function staff_hours_render(array $slots, array $opts = []): string
   <?php endif; ?>
 </div>
 
-<div class="binder-tile" data-binder-tabs data-binder-initial="<?= e($defaultSlotId) ?>" data-binder-tone="appts" style="margin-top:1.25rem">
+<div class="binder-tile" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($defaultSlotId) ?>" data-binder-tone="appts" style="margin-top:1.25rem">
   <div class="binder-tabs" role="tablist" aria-label="منشی">
     <?php foreach ([1, 2] as $slot): ?>
       <?php
