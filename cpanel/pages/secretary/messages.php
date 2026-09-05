@@ -7,7 +7,7 @@ $user = require_login(['SECRETARY']);
 ensure_workshop_schema($pdo);
 
 $msgTab = trim((string) ($_GET['msg'] ?? 'appointment'));
-if (!in_array($msgTab, ['appointment', 'workshop'], true)) {
+if (!in_array($msgTab, ['appointment', 'workshop', 'colleague'], true)) {
     $msgTab = 'appointment';
 }
 
@@ -15,12 +15,17 @@ $notifications = fetch_notifications($pdo, (string) $user['id'], 80);
 $recentAppointments = secretary_recent_shared_appointments($pdo, 40);
 $recentEnrollments = secretary_recent_shared_enrollments($pdo, 40);
 $unreadCount = secretary_unread_desk_count($notifications);
+$colleague = [
+    'peers' => handover_other_secretaries($pdo, (string) $user['id']),
+    'inbox' => handover_inbox_for($pdo, (string) $user['id'], 30),
+    'sent' => handover_sent_grouped($pdo, (string) $user['id'], 20),
+];
 
 ob_start();
 ?>
 <h1>پیام‌ها</h1>
 <p class="muted" style="margin-top:.35rem;font-size:.9rem">
-  نوبت‌ها و ثبت‌نام کارگاه‌ها جدا هستند.<?= $unreadCount ? ' · ' . $unreadCount . ' پیام خوانده‌نشده' : '' ?>
+  نوبت‌ها، کارگاه‌ها و پیام همکار جدا هستند.<?= $unreadCount ? ' · ' . $unreadCount . ' پیام خوانده‌نشده' : '' ?>
 </p>
 <?= render_secretary_messages_panel(
     $notifications,
@@ -28,7 +33,13 @@ ob_start();
     $recentAppointments,
     $recentEnrollments,
     $msgTab,
-    '/secretary/messages'
+    '/secretary/messages',
+    $colleague
 ) ?>
 <?php
-render_secretary_page($msgTab === 'workshop' ? 'پیام‌های کارگاه' : 'پیام‌های نوبت', ob_get_clean());
+$titles = [
+    'workshop' => 'پیام‌های کارگاه',
+    'colleague' => 'پیام همکار',
+    'appointment' => 'پیام‌های نوبت',
+];
+render_secretary_page($titles[$msgTab] ?? 'پیام‌ها', ob_get_clean());

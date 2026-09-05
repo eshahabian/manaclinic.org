@@ -5,7 +5,6 @@ function secretary_nav(): array
 {
     return [
         ['href' => '/secretary/messages', 'label' => 'پیام‌ها'],
-        ['href' => '/secretary/colleague', 'label' => 'پیام به همکار'],
         ['href' => '/secretary/patients', 'label' => 'مراجعه‌کنندگان'],
         ['href' => '/secretary/appointments', 'label' => 'نوبت‌ها'],
         ['href' => '/secretary/workshops', 'label' => 'کارگاه‌ها'],

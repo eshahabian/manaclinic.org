@@ -16,6 +16,7 @@ function admin_nav(): array {
 }
 
 function render_admin_page(string $title, string $innerHtml): void {
+    global $pageScripts, $pageHead;
     $nav = admin_nav();
     $pageTitle = $title;
     $GLOBALS['pageRobots'] = 'noindex,nofollow';

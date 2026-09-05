@@ -63,7 +63,7 @@ function notify_doctor_profile(PDO $pdo, string $doctorProfileId, string $title,
 function notification_normalize_kind(string $kind): string
 {
     $kind = strtolower(trim($kind));
-    return in_array($kind, ['appointment', 'workshop', 'assistant', 'article', 'other'], true)
+    return in_array($kind, ['appointment', 'workshop', 'assistant', 'article', 'handover', 'other'], true)
         ? $kind
         : 'other';
 }
@@ -101,6 +101,13 @@ function notification_kind(array $n): string
         || (mb_stripos($link, '/articles') !== false)
     ) {
         return 'article';
+    }
+    if ((mb_stripos($blob, 'همکار') !== false)
+        || (mb_stripos($blob, 'تحویل شیفت') !== false)
+        || (mb_stripos($link, 'colleague') !== false)
+        || (mb_stripos($link, 'handover') !== false)
+    ) {
+        return 'handover';
     }
     if ((mb_stripos($blob, 'نوبت') !== false)
         || (mb_stripos($blob, 'مراجعه‌کننده') !== false)
@@ -188,7 +195,7 @@ function secretary_split_notifications(array $items): array
     $workshop = [];
     foreach ($items as $n) {
         $kind = notification_kind($n);
-        if ($kind === 'assistant') {
+        if ($kind === 'assistant' || $kind === 'handover') {
             continue;
         }
         if ($kind === 'workshop') {
@@ -259,6 +266,21 @@ function secretary_recent_shared_enrollments(PDO $pdo, int $limit = 30): array
     return $stmt->fetchAll();
 }
 
+function render_delivery_ticks(bool $delivered, bool $read, ?string $deliveredLabel = null, ?string $readLabel = null): string
+{
+    if (!$delivered) {
+        return '';
+    }
+    $title = $read
+        ? ($readLabel ?: 'خوانده شد')
+        : ($deliveredLabel ?: 'رسید');
+    $cls = $read ? 'is-read' : 'is-delivered';
+    $marks = $read ? '✓✓' : '✓';
+    return '<span class="msg-ticks ' . $cls . '" title="' . e($title) . '" aria-label="' . e($title) . '">'
+        . $marks
+        . '</span>';
+}
+
 function render_notification_rows(array $items): string
 {
     if (!$items) {
@@ -266,15 +288,20 @@ function render_notification_rows(array $items): string
     }
     ob_start();
     foreach ($items as $n):
+        $isRead = (int) ($n['is_read'] ?? 0) === 1;
         ?>
-        <div class="row-between" style="border:1px solid var(--line);border-radius:.75rem;padding:.75rem;background:<?= !(int)$n['is_read'] ? 'var(--bg-soft)' : '#fff' ?>">
+        <div class="row-between" style="border:1px solid var(--line);border-radius:.75rem;padding:.75rem;background:<?= $isRead ? '#fff' : 'var(--bg-soft)' ?>">
           <div style="flex:1;min-width:0">
             <strong><?= e($n['title']) ?></strong>
-            <div style="font-size:.9rem;line-height:1.7;margin-top:.25rem"><?= e($n['body']) ?></div>
-            <div class="muted" style="font-size:.75rem;margin-top:.35rem"><?= e(format_fa_datetime($n['created_at'])) ?></div>
+            <div style="font-size:.9rem;line-height:1.7;margin-top:.25rem;white-space:pre-wrap"><?= e($n['body']) ?></div>
+            <div class="muted" style="font-size:.75rem;margin-top:.35rem;display:flex;flex-wrap:wrap;gap:.45rem;align-items:center">
+              <span><?= e(format_fa_datetime($n['created_at'])) ?></span>
+              <?= render_delivery_ticks(true, $isRead) ?>
+              <span><?= $isRead ? 'خوانده شد' : 'رسید' ?></span>
+            </div>
           </div>
           <div style="display:flex;flex-direction:column;gap:.4rem;align-items:flex-end">
-            <?php if (!(int)$n['is_read']): ?>
+            <?php if (!$isRead): ?>
               <span class="badge">جدید</span>
             <?php endif; ?>
             <?php if (!empty($n['link'])): ?>
@@ -299,14 +326,24 @@ function render_secretary_messages_panel(
     array $recentAppointments = [],
     array $recentEnrollments = [],
     string $activeTab = 'appointment',
-    string $pagePath = '/secretary/messages'
+    string $pagePath = '/secretary/messages',
+    array $colleague = []
 ): string {
     $split = secretary_split_notifications($items);
     $appointmentNotifs = $split['appointment'];
     $workshopNotifs = $split['workshop'];
-    $activeTab = $activeTab === 'workshop' ? 'workshop' : 'appointment';
+    $activeTab = in_array($activeTab, ['workshop', 'colleague'], true) ? $activeTab : 'appointment';
     $base = str_starts_with($pagePath, '/secretary') ? $pagePath : '/secretary/messages';
     $unread = secretary_unread_desk_count($items);
+    $peers = $colleague['peers'] ?? [];
+    $inbox = $colleague['inbox'] ?? [];
+    $sent = $colleague['sent'] ?? [];
+    $colleagueUnread = 0;
+    foreach ($inbox as $note) {
+        if (empty($note['read_at'])) {
+            $colleagueUnread++;
+        }
+    }
 
     ob_start();
     ?>
@@ -322,16 +359,26 @@ function render_secretary_messages_panel(
             کارگاه‌ها
             <span class="panel-subtab-count"><?= count($workshopNotifs) + count($recentEnrollments) ?></span>
           </a>
+          <a class="panel-subtab<?= $activeTab === 'colleague' ? ' is-active' : '' ?>" href="<?= e(url($base . '?msg=colleague')) ?>#secretary-messages">
+            پیام همکار
+            <span class="panel-subtab-count"><?= count($inbox) + count($sent) ?></span>
+          </a>
         </nav>
+        <?php if ($activeTab !== 'colleague'): ?>
         <form method="post" action="<?= e($markReadUrl) ?>" class="panel-subtabs-action" style="margin:0">
+          <?= csrf_field() ?>
           <input type="hidden" name="mark_all" value="1">
           <input type="hidden" name="next" value="<?= e($base . '?msg=' . $activeTab) ?>">
           <button type="submit" class="btn btn-outline btn-sm"<?= $unread > 0 ? '' : ' disabled' ?>>خواندن همه</button>
         </form>
+        <?php endif; ?>
       </div>
+      <?php if ($activeTab !== 'colleague'): ?>
       <p class="muted" style="margin:0;font-size:.85rem;line-height:1.7">
         هر نوبت یا ثبت‌نام کارگاه را همه منشی‌ها می‌بینند تا وقت تکراری ثبت نشود.
+        ✓ رسید · ✓✓ خوانده شد
       </p>
+      <?php endif; ?>
 
       <?php if ($activeTab === 'appointment'): ?>
         <?php if ($appointmentNotifs): ?>
@@ -357,7 +404,7 @@ function render_secretary_messages_panel(
             </div>
           <?php endforeach; ?>
         <?php endif; ?>
-      <?php else: ?>
+      <?php elseif ($activeTab === 'workshop'): ?>
         <?php if ($workshopNotifs): ?>
           <?= render_notification_rows($workshopNotifs) ?>
         <?php endif; ?>
@@ -379,6 +426,82 @@ function render_secretary_messages_panel(
                 <?php endif; ?>
               </div>
               <span class="badge"><?= e(function_exists('enrollment_status_label') ? enrollment_status_label((string) $row['status']) : $row['status']) ?></span>
+            </div>
+          <?php endforeach; ?>
+        <?php endif; ?>
+      <?php else: ?>
+        <p class="muted" style="margin:0;font-size:.85rem;line-height:1.8">
+          متن برای همه منشی‌های دیگر می‌رود. با ورود بعدی، کل صفحه را می‌بینند و تا «خواندم» نزنند وارد پورتال نمی‌شوند.
+          <?= $colleagueUnread ? ' · ' . $colleagueUnread . ' پیام خوانده‌نشده' : '' ?>
+        </p>
+        <?php if (!$peers): ?>
+          <p class="muted" style="margin:0">منشی دیگری برای ارسال نیست.</p>
+        <?php else: ?>
+          <form method="post" action="<?= e(url('/secretary/handover')) ?>" class="form-stack">
+            <?= csrf_field() ?>
+            <div>
+              <label class="label">متن پیام</label>
+              <textarea class="input" name="body" rows="5" required placeholder="مثلاً وضعیت نوبت‌ها، کار باقی‌مانده، یا نکته شیفت…"></textarea>
+            </div>
+            <button type="submit" class="btn btn-primary">ارسال پیام به همکاران</button>
+          </form>
+        <?php endif; ?>
+
+        <h3 style="margin:.5rem 0 0;font-size:1rem">تاریخچه دریافت‌شده</h3>
+        <?php if (!$inbox): ?>
+          <p class="muted" style="margin:0">پیام همکاری دریافت نشده است.</p>
+        <?php else: ?>
+          <?php foreach ($inbox as $note): ?>
+            <?php $noteRead = !empty($note['read_at']); ?>
+            <div class="row-between" style="border:1px solid var(--line);border-radius:.75rem;padding:.75rem;background:<?= $noteRead ? '#fff' : 'var(--bg-soft)' ?>">
+              <div style="flex:1;min-width:0">
+                <strong>از <?= e((string) ($note['from_name'] ?? 'منشی')) ?></strong>
+                <div style="font-size:.95rem;line-height:1.8;margin-top:.4rem;white-space:pre-wrap"><?= e((string) $note['body']) ?></div>
+                <div class="muted" style="font-size:.75rem;margin-top:.4rem;display:flex;flex-wrap:wrap;gap:.45rem;align-items:center">
+                  <span><?= e(format_fa_datetime((string) $note['created_at'])) ?></span>
+                  <?= render_delivery_ticks(true, $noteRead) ?>
+                  <span><?= $noteRead ? 'خوانده شد' : 'رسید' ?></span>
+                </div>
+              </div>
+              <?php if (!$noteRead): ?>
+                <form method="post" action="<?= e(url('/secretary/handover/ack')) ?>" style="margin:0">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="note_id" value="<?= e((string) $note['id']) ?>">
+                  <button type="submit" class="btn btn-primary btn-sm">خواندم</button>
+                </form>
+              <?php endif; ?>
+            </div>
+          <?php endforeach; ?>
+        <?php endif; ?>
+
+        <h3 style="margin:.5rem 0 0;font-size:1rem">تاریخچه ارسال‌های شما</h3>
+        <?php if (!$sent): ?>
+          <p class="muted" style="margin:0">هنوز پیامی نفرستاده‌اید.</p>
+        <?php else: ?>
+          <?php foreach ($sent as $note): ?>
+            <?php
+              $recips = $note['recipients'] ?? [];
+              $allRead = $recips && (int) ($note['unread_count'] ?? 0) === 0;
+            ?>
+            <div style="border:1px solid var(--line);border-radius:.75rem;padding:.75rem .85rem">
+              <div style="font-size:.95rem;line-height:1.8;white-space:pre-wrap"><?= e((string) $note['body']) ?></div>
+              <div class="muted" style="font-size:.75rem;margin-top:.45rem;display:flex;flex-wrap:wrap;gap:.45rem;align-items:center">
+                <span><?= e(format_fa_datetime((string) $note['created_at'])) ?></span>
+                <?= render_delivery_ticks(true, $allRead) ?>
+                <span><?= $allRead ? 'همه خواندند' : ((int) $note['recipient_count'] . ' رسید') ?></span>
+              </div>
+              <?php if ($recips): ?>
+                <ul class="msg-tick-list">
+                  <?php foreach ($recips as $r): ?>
+                    <?php $rRead = !empty($r['read_at']); ?>
+                    <li>
+                      <?= e((string) ($r['to_name'] ?? 'منشی')) ?>
+                      <?= render_delivery_ticks(true, $rRead) ?>
+                      <span class="muted"><?= $rRead ? 'خوانده شد' : 'رسید' ?></span>
+                    </li>
+                  <?php endforeach; ?>
+                </ul>
+              <?php endif; ?>
             </div>
           <?php endforeach; ?>
         <?php endif; ?>

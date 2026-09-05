@@ -163,9 +163,11 @@ try {
     );
 
     flash_set('success', 'نوبت با موفقیت ثبت و تأیید شد.');
-    redirect('/secretary/appointments?tab=upcoming');
+    $desk = is_admin_user($user) ? '/admin/appointments' : '/secretary/appointments';
+    redirect($desk . '?tab=upcoming');
 } catch (Throwable $e) {
     $pdo->rollBack();
     flash_set('error', 'خطا در ثبت نوبت: ' . $e->getMessage());
-    redirect('/secretary/appointments?tab=new');
+    $desk = is_admin_user($user) ? '/admin/appointments' : '/secretary/appointments';
+    redirect($desk . '?tab=new');
 }

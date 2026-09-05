@@ -29,7 +29,7 @@ $appointmentEmpty = $appointmentEmpty ?? 'نوبتی نیست.';
         </div>
         <div class="appt-card-actions">
           <?= staff_receipt_view_html($a['payment_id'] ?? null, $a['receipt_path'] ?? null, true) ?>
-          <?= admin_appointment_delete_form((string) ($a['id'] ?? ''), '/secretary/appointments') ?>
+          <?= admin_appointment_delete_form((string) ($a['id'] ?? ''), $appointmentsDeskNext ?? '/secretary/appointments') ?>
         </div>
       </div>
     <?php endforeach; ?>

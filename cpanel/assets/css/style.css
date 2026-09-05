@@ -1099,6 +1099,31 @@ jdp-container, .jdp-container, [class*="jdp"] {
   align-items: center;
   margin-top: 1rem;
 }
+.msg-ticks {
+  display: inline-flex;
+  align-items: center;
+  letter-spacing: -.12em;
+  font-size: .85rem;
+  font-weight: 700;
+  line-height: 1;
+}
+.msg-ticks.is-delivered { color: var(--muted); }
+.msg-ticks.is-read { color: var(--primary); }
+.msg-tick-list {
+  margin: .55rem 0 0;
+  padding: 0;
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: .3rem;
+  font-size: .82rem;
+}
+.msg-tick-list li {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+  align-items: center;
+}
 .appt-status {
   display: inline-flex;
   flex-direction: column;
