@@ -93,15 +93,44 @@ ob_start();
       </div>
     </section>
     <section class="binder-panel<?= $binderInitial === 'intakes' ? ' is-active' : '' ?>" data-binder-panel="intakes" role="tabpanel"<?= $binderInitial === 'intakes' ? '' : ' hidden' ?>>
-      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">گفتگوهای تکمیل‌شده دستیار که برای درمانگران ارسال شده است.</p>
+      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">گفتگوها بر اساس ماه و تاریخ جدا شده‌اند. روی روز بزنید تا ببینید چه کسی با دستیار حرف زده است.</p>
       <?php
-        $intakeList = $intakeRows;
-        $intakeEmpty = 'هنوز گفتگویی ارسال نشده است.';
-        require __DIR__ . '/../../includes/doctor_intake_items.php';
+        $intakeMonthPack = doctor_intake_month_groups($intakeRows);
+        $intakeMonthGroups = $intakeMonthPack['months'];
+        $intakeMonthDefault = $intakeMonthPack['default_id'];
+        $intakeMonthEmpty = 'هنوز گفتگویی ارسال نشده است.';
+        require __DIR__ . '/../../includes/doctor_intake_month_binder.php';
       ?>
     </section>
   </div>
 </div>
 <?php
-$pageScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260905c"></script>';
+$pageScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260905c"></script>
+<script>
+(function(){
+  document.addEventListener("click", function(e){
+    var closeBtn = e.target.closest("[data-close]");
+    var toggle = e.target.closest("[data-toggle]");
+    var box = e.target.closest("[data-box]");
+    var grids = document.querySelectorAll("[data-session-note-grid]");
+    if (closeBtn && box) {
+      box.classList.remove("open");
+      return;
+    }
+    if (toggle && box) {
+      var wasOpen = box.classList.contains("open");
+      grids.forEach(function(grid){
+        grid.querySelectorAll("[data-box].open").forEach(function(b){ b.classList.remove("open"); });
+      });
+      if (!wasOpen) box.classList.add("open");
+      return;
+    }
+    if (!box) {
+      grids.forEach(function(grid){
+        grid.querySelectorAll("[data-box].open").forEach(function(b){ b.classList.remove("open"); });
+      });
+    }
+  });
+})();
+</script>';
 render_doctor_page('پرونده مراجعه‌کنندگان', ob_get_clean());

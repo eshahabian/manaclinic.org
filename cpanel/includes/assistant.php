@@ -832,7 +832,7 @@ function assistant_list_active_doctors(PDO $pdo): array
 
 /**
  * ارسال خودکار یک نسخه از گفتگو به همه درمانگران فعال (+ منشی)
- * ثبت‌نام لازم نیست؛ اگر patient_id باشد در پرونده هر دو هم ثبت می‌شود.
+ * ثبت‌نام لازم نیست؛ گفتگو در تب دستیار پرونده می‌ماند، نه داخل شرح حال.
  */
 function assistant_deliver_copy_to_all_doctors(PDO $pdo, array $session, ?string $patientId = null): void
 {
@@ -911,21 +911,8 @@ function assistant_deliver_copy_to_all_doctors(PDO $pdo, array $session, ?string
             $docId,
             'نسخه گفتگوی دستیار مانا',
             $body,
-            $doctorLink
+            $patientId ? ('/doctor/patients/' . $patientId . '#intakes') : $doctorLink
         );
-
-        if ($patientId) {
-            try {
-                $chart = get_or_create_patient_chart($pdo, $docId, $patientId);
-                $existing = trim((string) ($chart['history_text'] ?? ''));
-                $block = "=== نسخه گفتگوی دستیار ({$sessionId}) ===\n" . $intake;
-                $newHistory = $existing === '' ? $block : ($existing . "\n\n" . $block);
-                $pdo->prepare('UPDATE doctor_patient_charts SET history_text=? WHERE id=?')
-                    ->execute([$newHistory, $chart['id']]);
-            } catch (Throwable $e) {
-                // اعلان ارسال شده؛ پرونده را رد نکن
-            }
-        }
     }
 }
 
@@ -1019,12 +1006,6 @@ function assistant_assign_to_doctor(PDO $pdo, array $session, string $doctorProf
     }
     $intake .= "\nدرمانگر ارجاع‌شده: " . $doctor['name'];
 
-    $chart = get_or_create_patient_chart($pdo, $doctorProfileId, $patientId);
-    $existing = trim((string) ($chart['history_text'] ?? ''));
-    $newHistory = $existing === '' ? $intake : ($existing . "\n\n" . $intake);
-    $pdo->prepare('UPDATE doctor_patient_charts SET history_text=? WHERE id=?')
-        ->execute([$newHistory, $chart['id']]);
-
     $pdo->prepare('
       UPDATE assistant_sessions
       SET selected_doctor_id=?, intake_text=?, assigned_at=NOW()
@@ -1040,7 +1021,7 @@ function assistant_assign_to_doctor(PDO $pdo, array $session, string $doctorProf
         $doctorProfileId,
         'ارجاع شرح‌حال از منشی',
         'منشی یک شرح‌حال گفتگوی اولیه را به شما ارجاع داد.',
-        '/doctor/patients/' . $patientId
+        '/doctor/patients/' . $patientId . '#intakes'
     );
 }
 

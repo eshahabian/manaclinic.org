@@ -83,22 +83,91 @@ function require_doctor_patient_access(PDO $pdo, array $ctx, string $patientId):
     ];
 }
 
+/** شناسه گفتگوهای دستیار که قبلاً داخل شرح حال کپی شده‌اند */
+function extract_assistant_session_ids_from_history(string $raw): array
+{
+    $ids = [];
+    if (preg_match_all('/نسخه گفتگوی دستیار \(([^)]+)\)/u', $raw, $m)) {
+        $ids = array_merge($ids, $m[1]);
+    }
+    if (preg_match_all('/شناسه جلسه:\s*([A-Za-z0-9_-]+)/u', $raw, $m2)) {
+        $ids = array_merge($ids, $m2[1]);
+    }
+    $ids = array_values(array_unique(array_filter(array_map('trim', $ids))));
+    return $ids;
+}
+
+/** گفتگوی دستیار را از متن شرح حال جدا می‌کند */
+function strip_assistant_blocks_from_history(string $raw): string
+{
+    $text = (string) $raw;
+    if (trim($text) === '') {
+        return '';
+    }
+    $text = preg_replace(
+        '/=== نسخه گفتگوی دستیار \([^)]+\) ===.*?(?=(?:=== نسخه گفتگوی دستیار|=== شرح‌حال اولیه|$))/su',
+        '',
+        $text
+    ) ?? $text;
+    $text = preg_replace(
+        '/=== شرح‌حال اولیه[^\n<]*دستیار.*?(?:توجه: این متن تشخیص پزشکی نیست[^\n<]*|(?=(?:=== |$)))/su',
+        '',
+        $text
+    ) ?? $text;
+    $text = preg_replace('/— یادداشت منشی —.*?(?=(?:=== |$))/su', '', $text) ?? $text;
+    $text = preg_replace('/درمانگر ارجاع‌شده:[^\n<]*/u', '', $text) ?? $text;
+    $text = preg_replace('/<p[^>]*>\s*(?:<br\s*\/?>)?\s*<\/p>/iu', '', $text) ?? $text;
+    $text = preg_replace('/(?:<br\s*\/?>\s*){3,}/iu', '<br><br>', $text) ?? $text;
+    $text = preg_replace("/(?:\\r?\\n[ \\t]*){3,}/", "\n\n", $text) ?? $text;
+    return trim($text);
+}
+
+/** شرح حال را از کپی گفتگوی دستیار پاک می‌کند و در دیتابیس می‌نویسد */
+function doctor_chart_detach_assistant_history(PDO $pdo, array $chart, string $patientId): string
+{
+    $raw = (string) ($chart['history_text'] ?? '');
+    $ids = extract_assistant_session_ids_from_history($raw);
+    if ($ids && $patientId !== '') {
+        foreach ($ids as $sid) {
+            try {
+                $pdo->prepare('UPDATE assistant_sessions SET patient_id=COALESCE(patient_id, ?) WHERE id=?')
+                    ->execute([$patientId, $sid]);
+            } catch (Throwable $e) {
+                // جلسه ممکن است دیگر نباشد
+            }
+        }
+    }
+    $clean = strip_assistant_blocks_from_history($raw);
+    if ($clean !== trim($raw) && !empty($chart['id'])) {
+        $pdo->prepare('UPDATE doctor_patient_charts SET history_text=? WHERE id=?')
+            ->execute([$clean, (string) $chart['id']]);
+    }
+    return $clean;
+}
+
 /** گفتگوهای ارسال‌شده دستیار برای یک مراجعه‌کننده */
-function doctor_patient_assistant_sessions(PDO $pdo, string $patientId): array
+function doctor_patient_assistant_sessions(PDO $pdo, string $patientId, array $extraIds = []): array
 {
     if (function_exists('ensure_assistant_schema')) {
         ensure_assistant_schema($pdo);
     }
-    $stmt = $pdo->prepare("
+    $extraIds = array_values(array_unique(array_filter(array_map('strval', $extraIds))));
+    $sql = "
       SELECT s.*, u.name AS patient_name, u.phone AS patient_phone
       FROM assistant_sessions s
       LEFT JOIN users u ON u.id = s.patient_id
-      WHERE s.patient_id = ?
-        AND s.status = 'SENT'
-        AND s.sent_at IS NOT NULL
-      ORDER BY s.sent_at DESC
-    ");
-    $stmt->execute([$patientId]);
+      WHERE (
+        (s.patient_id = ? AND s.status = 'SENT' AND s.sent_at IS NOT NULL)
+    ";
+    $params = [$patientId];
+    if ($extraIds) {
+        $place = implode(',', array_fill(0, count($extraIds), '?'));
+        $sql .= " OR s.id IN ({$place})";
+        $params = array_merge($params, $extraIds);
+    }
+    $sql .= ') ORDER BY COALESCE(s.sent_at, s.created_at) DESC';
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
     return $stmt->fetchAll();
 }
 
@@ -114,6 +183,38 @@ function doctor_session_month_groups(array $appointments): array
         $base = (string) ($bucket['tab_label'] ?? $bucket['short'] ?? '');
         $pack['months'][$id]['tab_label'] = 'جلسات ' . $base;
         $pack['months'][$id]['label'] = 'جلسات ' . (string) ($bucket['label'] ?? $base);
+    }
+    return $pack;
+}
+
+/**
+ * ماه‌های شمسی گفتگوهای دستیار — فقط ماه‌هایی که گفتگو بوده.
+ * @param array<int, array<string, mixed>> $sessions
+ * @return array{months: array<string, array<string, mixed>>, default_id: string}
+ */
+function doctor_intake_month_groups(array $sessions): array
+{
+    $mapped = [];
+    foreach ($sessions as $session) {
+        $session['starts_at'] = (string) (($session['sent_at'] ?? '') ?: ($session['created_at'] ?? ''));
+        $mapped[] = $session;
+    }
+    $pack = group_appointments_by_jalali_month($mapped, false);
+    foreach ($pack['months'] as $id => $bucket) {
+        if (empty($bucket['items'])) {
+            unset($pack['months'][$id]);
+            continue;
+        }
+        $base = (string) ($bucket['tab_label'] ?? $bucket['short'] ?? '');
+        $pack['months'][$id]['tab_label'] = $base;
+        $pack['months'][$id]['label'] = 'گفتگوهای ' . (string) ($bucket['label'] ?? $base);
+    }
+    if ($pack['months'] && !isset($pack['months'][$pack['default_id']])) {
+        $keys = array_keys($pack['months']);
+        $pack['default_id'] = (string) end($keys);
+    }
+    if (!$pack['months']) {
+        $pack['default_id'] = '';
     }
     return $pack;
 }

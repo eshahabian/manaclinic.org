@@ -16,7 +16,9 @@ $appointments = $access['appointments'];
 $doctorId = $ctx['profile']['id'];
 
 $chart = get_or_create_patient_chart($pdo, $doctorId, $patientId);
-$historyHtml = history_html_for_editor($chart['history_text'] ?? '');
+$historyExtraIds = extract_assistant_session_ids_from_history((string) ($chart['history_text'] ?? ''));
+$historyClean = doctor_chart_detach_assistant_history($pdo, $chart, $patientId);
+$historyHtml = history_html_for_editor($historyClean);
 
 $notesStmt = $pdo->prepare('SELECT * FROM doctor_session_notes WHERE doctor_id=? AND patient_id=?');
 $notesStmt->execute([$doctorId, $patientId]);
@@ -28,7 +30,10 @@ foreach ($notesStmt->fetchAll() as $n) {
 $monthPack = doctor_session_month_groups($appointments);
 $monthGroups = $monthPack['months'];
 $defaultMonthId = $monthPack['default_id'];
-$intakes = doctor_patient_assistant_sessions($pdo, $patientId);
+$intakes = doctor_patient_assistant_sessions($pdo, $patientId, $historyExtraIds);
+$intakeMonthPack = doctor_intake_month_groups($intakes);
+$intakeMonthGroups = $intakeMonthPack['months'];
+$intakeMonthDefault = $intakeMonthPack['default_id'];
 
 $tabParam = trim((string) ($_GET['tab'] ?? ''));
 $binderInitial = in_array($tabParam, ['chart', 'intakes'], true) ? $tabParam : 'chart';
@@ -170,11 +175,10 @@ ob_start();
       </div>
     </section>
     <section class="binder-panel<?= $binderInitial === 'intakes' ? ' is-active' : '' ?>" data-binder-panel="intakes" role="tabpanel"<?= $binderInitial === 'intakes' ? '' : ' hidden' ?>>
-      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">گفتگوهایی که این مراجعه‌کننده با دستیار داشته و برای درمانگران ارسال شده است.</p>
+      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">گفتگوها ماه‌به‌ماه جدا شده‌اند. روی تاریخ بزنید تا ببینید <?= e($patient['name']) ?> کی با دستیار حرف زده است.</p>
       <?php
-        $intakeList = $intakes;
-        $intakeEmpty = 'هنوز گفتگویی از دستیار برای این مراجعه‌کننده ارسال نشده است.';
-        require __DIR__ . '/../../includes/doctor_intake_items.php';
+        $intakeMonthEmpty = 'هنوز گفتگویی از دستیار برای این مراجعه‌کننده ارسال نشده است.';
+        require __DIR__ . '/../../includes/doctor_intake_month_binder.php';
       ?>
     </section>
   </div>
