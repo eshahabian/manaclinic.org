@@ -98,8 +98,8 @@ login_user([
     'must_change_password' => 0,
 ]);
 flash_set('success', 'ثبت‌نام با موفقیت انجام شد.');
-$next = post('next');
-if ($next && str_starts_with($next, '/')) {
+$next = safe_next_path(post('next'));
+if ($next) {
     redirect($next);
 }
 redirect('/dashboard');

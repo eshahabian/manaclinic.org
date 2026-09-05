@@ -19,6 +19,7 @@ ob_start();
     رمز هر حساب را از اینجا عوض کنید. اگر «در ورود بعدی عوض شود» را بزنید، همان کاربر با رمز جدید وارد می‌شود و باید رمز خودش را بسازد.
   </p>
   <form method="post" action="<?= e(url('/admin/users')) ?>" class="form-stack" autocomplete="off">
+    <?= csrf_field() ?>
     <input type="hidden" name="action" value="set_password">
     <div>
       <label class="label">کاربر</label>
@@ -65,6 +66,7 @@ ob_start();
     <p class="muted" style="font-size:.85rem">با الگو پیدا نشد؛ از لیست پایین تیک بزن و حذف کن.</p>
   <?php endif; ?>
   <form method="post" action="<?= e(url('/admin/users')) ?>" style="display:inline" onsubmit="return confirm('کاربران پیدا شده + تمام نوبت‌ها حذف شوند؟');">
+    <?= csrf_field() ?>
     <input type="hidden" name="action" value="cleanup_named_and_appointments">
     <button type="submit" class="btn btn-danger">حذف کاربران پیدا شده + تمام نوبت‌ها</button>
   </form>
@@ -74,6 +76,7 @@ ob_start();
 <div class="panel" style="margin-top:1rem">
   <h2 style="margin:0 0 .75rem;font-size:1rem">حذف دستی مراجعه‌کنندگان (لیست منشی از اینجا می‌آید)</h2>
   <form method="post" action="<?= e(url('/admin/users')) ?>" onsubmit="return confirm('مراجعه‌کنندگان انتخاب‌شده حذف شوند؟');">
+    <?= csrf_field() ?>
     <input type="hidden" name="action" value="delete_selected">
     <div class="stack" style="margin-bottom:1rem">
       <?php foreach ($patients as $p): ?>
@@ -101,6 +104,7 @@ ob_start();
           <td><?= e(format_fa_datetime($u['created_at'])) ?></td>
           <td>
             <form method="post" action="<?= e(url('/admin/users')) ?>" class="admin-pass-form" autocomplete="off">
+              <?= csrf_field() ?>
               <input type="hidden" name="action" value="set_password">
               <input type="hidden" name="user_id" value="<?= e($u['id']) ?>">
               <input class="input" type="password" name="new_password" required minlength="6" dir="ltr" placeholder="رمز جدید" autocomplete="new-password">
@@ -111,6 +115,7 @@ ob_start();
             <div class="admin-user-actions">
             <?php if ($u['role'] !== 'ADMIN'): ?>
               <form method="post" action="<?= e(url('/admin/users')) ?>" style="margin:0" onsubmit="return confirm('این کاربر و نوبت‌هایش حذف شود؟');">
+                <?= csrf_field() ?>
                 <input type="hidden" name="action" value="delete_user">
                 <input type="hidden" name="user_id" value="<?= e($u['id']) ?>">
                 <button type="submit" class="btn btn-outline btn-sm" style="color:var(--danger)">حذف</button>

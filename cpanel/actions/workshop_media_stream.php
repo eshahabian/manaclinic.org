@@ -48,7 +48,7 @@ if (!$allowed) {
 }
 
 $path = workshop_media_stream_path($item);
-if (!is_file($path)) {
+if ($path === '' || !is_file($path)) {
     http_response_code(404);
     exit('File missing');
 }

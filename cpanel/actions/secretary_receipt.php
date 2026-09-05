@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 $user = require_login(['SECRETARY']);
+csrf_verify();
 
 $paymentId = trim(post('payment_id'));
 if ($paymentId === '') {
@@ -39,8 +40,8 @@ try {
     flash_set('error', $e->getMessage());
 }
 
-$next = trim((string) ($_POST['next'] ?? ''));
-if ($next !== '' && str_starts_with($next, '/secretary')) {
+$next = safe_next_path((string) ($_POST['next'] ?? ''));
+if ($next && str_starts_with($next, '/secretary')) {
     redirect($next);
 }
 $status = (string) ($payment['status'] ?? '');

@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../../includes/doctor_panel.php';
+require_once __DIR__ . '/../../includes/doctor_clinical.php';
 require_once __DIR__ . '/../../includes/assistant.php';
 
 $ctx = require_doctor_profile($pdo);
@@ -12,6 +13,12 @@ $session = $id !== '' ? assistant_session_get($pdo, $id) : null;
 if (!$session || ($session['status'] ?? '') !== 'SENT') {
     flash_set('error', 'گفتگو یافت نشد.');
     redirect('/doctor/intakes');
+}
+
+$patientId = trim((string) ($session['patient_id'] ?? ''));
+$isAdmin = is_admin_user($ctx['user'] ?? null) || !empty($ctx['admin_mode']);
+if ($patientId !== '' && !$isAdmin) {
+    require_doctor_patient_access($pdo, $ctx, $patientId);
 }
 
 $patientName = 'مراجعه‌کننده مهمان';

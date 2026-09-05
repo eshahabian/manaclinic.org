@@ -419,7 +419,20 @@ function workshop_media_verify_stream_token(string $itemId, string $userId, int 
 
 function workshop_media_stream_path(array $item): string
 {
-    return workshop_media_storage_root() . '/' . $item['file_path'];
+    $root = realpath(workshop_media_storage_root());
+    if ($root === false) {
+        return '';
+    }
+    $relative = str_replace('\\', '/', (string) ($item['file_path'] ?? ''));
+    if ($relative === '' || str_contains($relative, '..')) {
+        return '';
+    }
+    $abs = $root . DIRECTORY_SEPARATOR . str_replace('/', DIRECTORY_SEPARATOR, $relative);
+    $real = realpath($abs);
+    if ($real === false || !str_starts_with($real, $root)) {
+        return '';
+    }
+    return $real;
 }
 
 function workshop_media_stream_url(string $itemId, ?array $user = null): string

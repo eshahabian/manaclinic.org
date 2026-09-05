@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 $user = require_login();
+csrf_verify();
 $forced = !empty($user['must_change_password']);
 $current = normalize_input((string) ($_POST['current_password'] ?? ''));
 $new = normalize_input((string) ($_POST['new_password'] ?? ''));

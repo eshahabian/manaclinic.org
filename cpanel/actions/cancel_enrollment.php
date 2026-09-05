@@ -36,7 +36,7 @@ if ($user['role'] === 'PATIENT' && $row['patient_id'] === $user['id']) {
     $doc = $pdo->prepare('SELECT id FROM doctor_profiles WHERE user_id=? AND id=?');
     $doc->execute([$user['id'], $row['doctor_id']]);
     $allowed = (bool) $doc->fetch();
-} elseif ($user['role'] === 'SECRETARY') {
+} elseif ($user['role'] === 'SECRETARY' || $user['role'] === 'ADMIN') {
     $allowed = true;
 }
 

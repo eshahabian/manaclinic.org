@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__ . '/../includes/user_cleanup.php';
 $actor = require_login(['SECRETARY', 'ADMIN']);
+csrf_verify();
 
 $action = post('action');
 
@@ -32,6 +33,10 @@ if ($action === 'delete_patient') {
 }
 
 if ($action === 'purge_test_patients') {
+    if (($actor['role'] ?? '') !== 'ADMIN') {
+        flash_set('error', 'این پاک‌سازی فقط برای ادمین است.');
+        redirect('/secretary/appointments?tab=new');
+    }
     $deleted = 0;
     $names = [];
     try {

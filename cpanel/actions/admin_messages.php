@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/admin_panel.php';
 require_login(['ADMIN']);
+csrf_verify();
 
 $action = post('action');
 

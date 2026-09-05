@@ -14,8 +14,22 @@ date_default_timezone_set($config['timezone'] ?? 'Asia/Tehran');
 
 session_name($config['session_name'] ?? 'mana_clinic_sess');
 if (session_status() !== PHP_SESSION_ACTIVE) {
+    $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || ((string) ($_SERVER['SERVER_PORT'] ?? '') === '443');
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => '/',
+        'secure' => $secure,
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
     session_start();
 }
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: SAMEORIGIN');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+header('X-XSS-Protection: 0');
+header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
 
 require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/helpers.php';
@@ -106,6 +120,7 @@ $routes = [
     'GET /secretary/appointments' => 'pages/secretary/appointments.php',
     'GET /secretary/patients' => 'pages/secretary/patients.php',
     'GET /secretary/messages' => 'pages/secretary/messages.php',
+    'GET /secretary/colleague' => 'pages/secretary/colleague.php',
     'POST /secretary/notifications/read' => 'actions/secretary_notifications.php',
     'GET /secretary/workshops' => 'pages/secretary/workshops.php',
     'POST /secretary/workshops' => 'actions/secretary_workshops.php',
@@ -158,6 +173,12 @@ $routes = [
     'GET /payments/verify' => 'actions/payment_verify.php',
     'GET /install' => 'install.php',
 ];
+if ($path === '/install' && empty($config['allow_install'])) {
+    http_response_code(404);
+    $pageTitle = 'یافت نشد';
+    require __DIR__ . '/pages/404.php';
+    exit;
+}
 
 $key = $method . ' ' . $path;
 

@@ -8,6 +8,7 @@ ob_start();
 ?>
 <div class="auth-wrap">
   <form class="panel auth-box form-stack" method="post" action="<?= e(url('/change-password')) ?>" autocomplete="off">
+    <?= csrf_field() ?>
     <div>
       <h1>تغییر رمز عبور</h1>
       <?php if ($forced): ?>

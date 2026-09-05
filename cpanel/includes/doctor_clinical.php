@@ -69,7 +69,8 @@ function require_doctor_patient_access(PDO $pdo, array $ctx, string $patientId):
     $check->execute([$doctorId, $patientId]);
     $hasAppointment = (int) $check->fetchColumn() > 0;
     $isPreferred = (string) ($patient['preferred_doctor_id'] ?? '') === (string) $doctorId;
-    if (!$hasAppointment && !$isPreferred) {
+    $isAdmin = is_admin_user($ctx['user'] ?? null) || !empty($ctx['admin_mode']);
+    if (!$hasAppointment && !$isPreferred && !$isAdmin) {
         flash_set('error', 'دسترسی به پرونده این مراجعه‌کننده برای شما مجاز نیست.');
         redirect('/doctor/patients');
     }

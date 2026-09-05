@@ -1,15 +1,18 @@
 <?php
 declare(strict_types=1);
 
+login_throttle_guard();
+
 $username = mb_strtolower(normalize_input(post('username')));
 $password = normalize_input((string) ($_POST['password'] ?? ''));
-$next = post('next');
+$next = safe_next_path(post('next'));
 
 $stmt = $pdo->prepare('SELECT * FROM users WHERE username = ? LIMIT 1');
 $stmt->execute([$username]);
 $user = $stmt->fetch();
 
 if (!$user || $password === '' || !password_verify($password, $user['password_hash'])) {
+    login_throttle_fail();
     flash_set('error', 'نام کاربری یا رمز عبور نادرست است.');
     redirect('/login');
 }
@@ -24,7 +27,9 @@ if ($user['role'] === 'DOCTOR') {
     }
 }
 
+session_regenerate_id(true);
 login_user($user);
+login_throttle_clear();
 
 if (!empty($user['must_change_password'])) {
     flash_set('info', 'برای ادامه، لطفاً رمز عبور خود را تغییر دهید.');

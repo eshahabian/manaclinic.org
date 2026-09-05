@@ -17,6 +17,7 @@ ob_start();
 <h1>نوبت‌ها و پرداخت‌ها</h1>
 <?php if ($rows): ?>
   <form method="post" action="<?= e(url('/admin/appointments')) ?>" style="margin-top:1rem" onsubmit="return confirm('همه نوبت‌ها برای همیشه حذف شوند؟');">
+    <?= csrf_field() ?>
     <input type="hidden" name="action" value="delete_all">
     <button type="submit" class="btn btn-danger">حذف همه نوبت‌ها</button>
   </form>

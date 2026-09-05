@@ -14,6 +14,7 @@ ob_start();
 
 <?php if ($rows): ?>
   <form method="post" action="<?= e(url('/admin/messages')) ?>" style="margin-top:1rem" onsubmit="return confirm('همه پیام‌ها حذف شوند؟');">
+    <?= csrf_field() ?>
     <input type="hidden" name="action" value="delete_all">
     <button type="submit" class="btn btn-danger">حذف همه پیام‌ها</button>
   </form>
@@ -33,6 +34,7 @@ ob_start();
       </div>
     </div>
     <form method="post" action="<?= e(url('/admin/messages')) ?>" style="margin:0" onsubmit="return confirm('این پیام حذف شود؟');">
+      <?= csrf_field() ?>
       <input type="hidden" name="action" value="delete">
       <input type="hidden" name="notification_id" value="<?= e((string) $n['id']) ?>">
       <button type="submit" class="btn btn-danger btn-sm">حذف</button>

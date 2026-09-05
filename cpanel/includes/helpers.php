@@ -10,9 +10,16 @@ function redirect(string $path): never
 {
     global $config, $base;
     $prefix = ($base && $base !== '/') ? $base : '';
-    if (str_starts_with($path, 'http')) {
-        header('Location: ' . $path);
-        exit;
+    if (preg_match('/[\r\n]/', $path) || str_starts_with($path, '//')) {
+        $path = '/';
+    }
+    if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+        $app = rtrim((string) ($config['app_url'] ?? ''), '/');
+        if ($app !== '' && ($path === $app || str_starts_with($path, $app . '/'))) {
+            header('Location: ' . $path);
+            exit;
+        }
+        $path = '/';
     }
     header('Location: ' . $prefix . $path);
     exit;
@@ -148,6 +155,43 @@ function flash_get(): ?array
 function post(string $key, string $default = ''): string
 {
     return trim((string) ($_POST[$key] ?? $default));
+}
+
+function csrf_token(): string
+{
+    if (empty($_SESSION['_csrf']) || !is_string($_SESSION['_csrf'])) {
+        $_SESSION['_csrf'] = bin2hex(random_bytes(16));
+    }
+    return $_SESSION['_csrf'];
+}
+
+function csrf_field(): string
+{
+    return '<input type="hidden" name="_csrf" value="' . e(csrf_token()) . '">';
+}
+
+function csrf_verify(): void
+{
+    $sent = (string) ($_POST['_csrf'] ?? '');
+    if ($sent === '' || !hash_equals(csrf_token(), $sent)) {
+        flash_set('error', 'نشست منقضی شد. صفحه را تازه کنید و دوباره تلاش کنید.');
+        $back = $_SERVER['HTTP_REFERER'] ?? '';
+        $path = parse_url($back, PHP_URL_PATH);
+        redirect(is_string($path) && str_starts_with($path, '/') && !str_starts_with($path, '//') ? $path : '/');
+    }
+}
+
+/** فقط مسیر داخلی؛ جلوگیری از //evil.com */
+function safe_next_path(?string $next): ?string
+{
+    $next = trim((string) $next);
+    if ($next === '' || !str_starts_with($next, '/') || str_starts_with($next, '//') || str_contains($next, '\\')) {
+        return null;
+    }
+    if (preg_match('/[\r\n]/', $next)) {
+        return null;
+    }
+    return $next;
 }
 
 /** ارقام فارسی/عربی → انگلیسی (برای رمز و نام کاربری) */

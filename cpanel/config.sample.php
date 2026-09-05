@@ -20,6 +20,7 @@ return [
     // 'media_stream_secret' => 'یک رشته تصادفی طولانی', // اختیاری — برای لینک‌های موقت پخش
 
     'session_name' => 'mana_clinic_sess',
+    'allow_install' => false, // فقط هنگام نصب اولیه true کنید؛ بعد حتماً false بماند
 
     // دستیار گفت‌وگوی «با من حرف بزن»
     'assistant_enabled' => true,

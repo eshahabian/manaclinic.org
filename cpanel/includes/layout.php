@@ -21,7 +21,7 @@ $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'es
   <?= seo_render_head() ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260906g">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260906h">
   <?php if (!empty($pageHead)): ?>
     <?= $pageHead ?>
   <?php endif; ?>
@@ -131,7 +131,7 @@ if ($handoverBlock && $user && ($user['role'] ?? '') === 'SECRETARY'):
 ?>
 <div class="handover-overlay" role="dialog" aria-modal="true" aria-labelledby="handover-title">
   <div class="handover-card">
-    <p class="handover-kicker">پیام تحویل شیفت</p>
+    <p class="handover-kicker">پیام همکار</p>
     <h1 id="handover-title">پیامی از <?= e((string) ($handoverBlock['from_name'] ?? 'منشی')) ?></h1>
     <p class="muted" style="margin:.35rem 0 0;font-size:.85rem">
       <?= e(format_fa_datetime((string) ($handoverBlock['created_at'] ?? ''))) ?>
@@ -142,6 +142,7 @@ if ($handoverBlock && $user && ($user['role'] ?? '') === 'SECRETARY'):
     <div class="handover-body"><?= nl2br(e((string) ($handoverBlock['body'] ?? ''))) ?></div>
     <form method="post" action="<?= e(url('/secretary/handover/ack')) ?>" class="handover-actions">
       <input type="hidden" name="note_id" value="<?= e((string) ($handoverBlock['id'] ?? '')) ?>">
+      <?= csrf_field() ?>
       <button type="submit" class="btn btn-primary">خواندم</button>
       <a class="btn btn-outline" href="<?= e(url('/logout')) ?>">خروج</a>
     </form>

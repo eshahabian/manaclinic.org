@@ -78,6 +78,49 @@ function is_admin_user(?array $user = null): bool
     return $user && ($user['role'] ?? '') === 'ADMIN';
 }
 
+function login_throttle_file(): string
+{
+    $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '0');
+    return sys_get_temp_dir() . '/mana_login_' . hash('sha256', $ip);
+}
+
+function login_throttle_hits(): array
+{
+    $file = login_throttle_file();
+    if (!is_file($file)) {
+        return [];
+    }
+    $hits = json_decode((string) @file_get_contents($file), true);
+    if (!is_array($hits)) {
+        return [];
+    }
+    $since = time() - 600;
+    return array_values(array_filter($hits, static fn($t): bool => is_int($t) && $t > $since));
+}
+
+function login_throttle_guard(): void
+{
+    if (count(login_throttle_hits()) >= 8) {
+        flash_set('error', 'تلاش ورود زیاد بود. چند دقیقه بعد دوباره تلاش کنید.');
+        redirect('/login');
+    }
+}
+
+function login_throttle_fail(): void
+{
+    $hits = login_throttle_hits();
+    $hits[] = time();
+    @file_put_contents(login_throttle_file(), json_encode($hits), LOCK_EX);
+}
+
+function login_throttle_clear(): void
+{
+    $file = login_throttle_file();
+    if (is_file($file)) {
+        @unlink($file);
+    }
+}
+
 function panel_href_for(?array $user): ?string
 {
     if (!$user) {

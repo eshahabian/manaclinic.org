@@ -7,7 +7,11 @@ require_once __DIR__ . '/includes/name_transliterations.php';
 require_once __DIR__ . '/includes/wallet.php';
 require_once __DIR__ . '/includes/workshops.php';
 
-$config = require __DIR__ . '/config.php';
+$config = $config ?? require __DIR__ . '/config.php';
+if (empty($config['allow_install'])) {
+    http_response_code(404);
+    exit('نصب غیرفعال است.');
+}
 $error = null;
 $ok = false;
 $resetPasswords = false;

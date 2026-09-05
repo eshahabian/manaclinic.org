@@ -145,6 +145,7 @@ function admin_appointment_delete_form(string $appointmentId, string $next = '/a
     ob_start();
     ?>
     <form method="post" action="<?= e(url('/admin/appointments')) ?>" style="margin:0" onsubmit="return confirm('این نوبت برای همیشه حذف شود؟');">
+      <?= csrf_field() ?>
       <input type="hidden" name="action" value="delete">
       <input type="hidden" name="appointment_id" value="<?= e($appointmentId) ?>">
       <input type="hidden" name="next" value="<?= e($next) ?>">

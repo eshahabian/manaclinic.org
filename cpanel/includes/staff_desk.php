@@ -475,7 +475,54 @@ function staff_save_receipt(array $file, string $paymentId): string
 
 function staff_receipt_abs(string $relative): string
 {
-    return staff_receipt_root() . '/' . basename($relative);
+    $root = realpath(staff_receipt_root()) ?: staff_receipt_root();
+    $abs = $root . DIRECTORY_SEPARATOR . basename($relative);
+    $real = realpath($abs);
+    if ($real === false || !str_starts_with($real, $root)) {
+        return $root . DIRECTORY_SEPARATOR . 'missing';
+    }
+    return $real;
+}
+
+function staff_receipt_user_can_view(PDO $pdo, array $user, string $paymentId): bool
+{
+    if ($paymentId === '') {
+        return false;
+    }
+    $role = (string) ($user['role'] ?? '');
+    if ($role === 'ADMIN' || $role === 'SECRETARY') {
+        return true;
+    }
+    if ($role !== 'DOCTOR') {
+        return false;
+    }
+    $dp = $pdo->prepare('SELECT id FROM doctor_profiles WHERE user_id=? LIMIT 1');
+    $dp->execute([(string) $user['id']]);
+    $doctorId = (string) ($dp->fetchColumn() ?: '');
+    if ($doctorId === '') {
+        return false;
+    }
+    $appt = $pdo->prepare("
+      SELECT p.id
+      FROM payments p
+      JOIN appointments a ON a.id = p.appointment_id
+      WHERE p.id=? AND a.doctor_id=?
+      LIMIT 1
+    ");
+    $appt->execute([$paymentId, $doctorId]);
+    if ($appt->fetch()) {
+        return true;
+    }
+    $ws = $pdo->prepare("
+      SELECT wp.id
+      FROM workshop_payments wp
+      JOIN workshop_enrollments e ON e.id = wp.enrollment_id
+      JOIN workshops w ON w.id = e.workshop_id
+      WHERE wp.id=? AND w.doctor_id=?
+      LIMIT 1
+    ");
+    $ws->execute([$paymentId, $doctorId]);
+    return (bool) $ws->fetch();
 }
 
 function staff_receipt_view_html(?string $paymentId, ?string $receiptPath, bool $canUpload = false, ?string $next = null): string
@@ -496,6 +543,7 @@ function staff_receipt_view_html(?string $paymentId, ?string $receiptPath, bool 
     if ($canUpload) {
         ?>
         <form class="staff-receipt-form" method="post" action="<?= e(url('/secretary/receipt')) ?>" enctype="multipart/form-data">
+          <?= csrf_field() ?>
           <input type="hidden" name="payment_id" value="<?= e($paymentId) ?>">
           <?php if ($next): ?>
             <input type="hidden" name="next" value="<?= e($next) ?>">

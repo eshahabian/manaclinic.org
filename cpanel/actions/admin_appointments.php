@@ -4,12 +4,10 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/admin_panel.php';
 require_once __DIR__ . '/../includes/user_cleanup.php';
 require_login(['ADMIN']);
+csrf_verify();
 
 $action = post('action');
-$next = trim((string) ($_POST['next'] ?? '/admin/appointments'));
-if ($next === '' || !str_starts_with($next, '/')) {
-    $next = '/admin/appointments';
-}
+$next = safe_next_path((string) ($_POST['next'] ?? '')) ?: '/admin/appointments';
 
 if ($action === 'delete') {
     $id = post('appointment_id');

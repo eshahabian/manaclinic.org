@@ -1,5 +1,14 @@
 RewriteEngine On
 
+# فیش و فایل خصوصی مستقیم از وب باز نشود
+RewriteRule ^uploads/receipts(/|$) - [F]
+RewriteRule ^storage(/|$) - [F]
+
+# فایل‌های PHP به‌جز index.php مستقیم اجرا نشوند
+RewriteCond %{REQUEST_FILENAME} -f
+RewriteCond %{REQUEST_URI} !/index\.php$ [NC]
+RewriteRule \.php$ - [F]
+
 # اگر فایل/پوشه واقعی بود، همان را سرو کن
 RewriteCond %{REQUEST_FILENAME} -f [OR]
 RewriteCond %{REQUEST_FILENAME} -d

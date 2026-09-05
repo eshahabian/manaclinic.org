@@ -10,6 +10,7 @@ function ensure_handover_schema(PDO $pdo): void
     $pdo->exec("
       CREATE TABLE IF NOT EXISTS staff_handover_notes (
         id VARCHAR(32) PRIMARY KEY,
+        group_id VARCHAR(32) NULL,
         from_user_id VARCHAR(32) NOT NULL,
         to_user_id VARCHAR(32) NOT NULL,
         body TEXT NOT NULL,
@@ -18,6 +19,13 @@ function ensure_handover_schema(PDO $pdo): void
         INDEX idx_handover_to_unread (to_user_id, read_at, created_at)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
+    try {
+        $hasGroup = $pdo->query("SHOW COLUMNS FROM staff_handover_notes LIKE 'group_id'")->fetch();
+        if (!$hasGroup) {
+            $pdo->exec('ALTER TABLE staff_handover_notes ADD COLUMN group_id VARCHAR(32) NULL AFTER id');
+        }
+    } catch (Throwable $ignored) {
+    }
     $ready = true;
 }
 
@@ -37,35 +45,29 @@ function handover_pending_for(PDO $pdo, string $userId): ?array
     return $row ?: null;
 }
 
-function handover_send(PDO $pdo, string $fromUserId, string $fromLabel, string $toUserId, string $body): string
+function handover_send(PDO $pdo, string $fromUserId, string $fromLabel, string $body): int
 {
     ensure_handover_schema($pdo);
     $body = trim($body);
     if ($body === '') {
         throw new RuntimeException('متن پیام را بنویسید.');
     }
-    if ($toUserId === '' || $toUserId === $fromUserId) {
-        throw new RuntimeException('منشی گیرنده را انتخاب کنید.');
-    }
-    $to = $pdo->prepare("SELECT id, name FROM users WHERE id=? AND role='SECRETARY' LIMIT 1");
-    $to->execute([$toUserId]);
-    $target = $to->fetch();
-    if (!$target) {
-        throw new RuntimeException('منشی گیرنده معتبر نیست.');
+    $peers = handover_other_secretaries($pdo, $fromUserId);
+    if (!$peers) {
+        throw new RuntimeException('منشی دیگری برای ارسال نیست.');
     }
 
-    $id = cuid();
-    $pdo->prepare('INSERT INTO staff_handover_notes (id, from_user_id, to_user_id, body) VALUES (?,?,?,?)')
-        ->execute([$id, $fromUserId, $toUserId, $body]);
+    $groupId = cuid();
+    $title = 'پیام همکار از ' . $fromLabel;
+    $insert = $pdo->prepare('INSERT INTO staff_handover_notes (id, group_id, from_user_id, to_user_id, body) VALUES (?,?,?,?,?)');
+    foreach ($peers as $target) {
+        $insert->execute([cuid(), $groupId, $fromUserId, (string) $target['id'], $body]);
+        notify_user($pdo, (string) $target['id'], $title, $body, '/secretary/colleague', 'other');
+    }
+    notify_role($pdo, 'DOCTOR', $title, $body, '/doctor/notifications?kind=other', 'other');
+    notify_role($pdo, 'ADMIN', $title, $body, '/admin/messages', 'other');
 
-    $title = 'پیام تحویل شیفت از ' . $fromLabel;
-    $copy = "برای منشی «{$target['name']}»:\n\n" . $body;
-
-    notify_user($pdo, $toUserId, $title, $body, '/secretary/messages', 'other');
-    notify_role($pdo, 'DOCTOR', $title, $copy, '/doctor/notifications?kind=other', 'other');
-    notify_role($pdo, 'ADMIN', $title, $copy, '/admin/messages', 'other');
-
-    return $id;
+    return count($peers);
 }
 
 function handover_ack(PDO $pdo, string $userId, string $noteId): void
@@ -80,11 +82,16 @@ function handover_sent_recent(PDO $pdo, string $fromUserId, int $limit = 15): ar
     ensure_handover_schema($pdo);
     $limit = max(1, min(40, $limit));
     $stmt = $pdo->prepare("
-      SELECT h.*, tu.name AS to_name
+      SELECT
+        COALESCE(h.group_id, h.id) AS group_id,
+        h.body,
+        MIN(h.created_at) AS created_at,
+        SUM(CASE WHEN h.read_at IS NULL THEN 1 ELSE 0 END) AS unread_count,
+        COUNT(*) AS recipient_count
       FROM staff_handover_notes h
-      JOIN users tu ON tu.id = h.to_user_id
       WHERE h.from_user_id = ?
-      ORDER BY h.created_at DESC
+      GROUP BY COALESCE(h.group_id, h.id), h.body
+      ORDER BY MIN(h.created_at) DESC
       LIMIT {$limit}
     ");
     $stmt->execute([$fromUserId]);

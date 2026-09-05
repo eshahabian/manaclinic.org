@@ -9,6 +9,11 @@ if ($paymentId === '') {
     echo 'فیش یافت نشد.';
     exit;
 }
+if (!staff_receipt_user_can_view($pdo, $user, $paymentId)) {
+    http_response_code(403);
+    echo 'دسترسی به این فیش مجاز نیست.';
+    exit;
+}
 
 $kind = trim((string) ($_GET['kind'] ?? ''));
 if ($kind === 'workshop') {
