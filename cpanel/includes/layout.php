@@ -21,7 +21,7 @@ $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'es
   <?= seo_render_head() ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260905b">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260905d">
   <?php if (!empty($pageHead)): ?>
     <?= $pageHead ?>
   <?php endif; ?>

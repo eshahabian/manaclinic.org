@@ -44,9 +44,9 @@ ob_start();
 
 <form class="panel form-stack" method="post" action="<?= e(url('/secretary/book')) ?>" id="secretary-book-form" style="margin-top:0;max-width:44rem" enctype="multipart/form-data">
   <div>
-    <label class="label">بیمار موجود</label>
+    <label class="label">مراجعه‌کننده</label>
     <select class="input" name="patient_id" id="patient_id">
-      <option value="">— انتخاب بیمار —</option>
+      <option value="">— انتخاب مراجعه‌کننده —</option>
       <?php foreach ($patients as $p): ?>
         <option value="<?= e($p['id']) ?>"><?= e($p['name']) ?> (<?= e((string)$p['username']) ?>)<?= !empty($p['doctor_name']) ? ' — ' . e($p['doctor_name']) : '' ?></option>
       <?php endforeach; ?>
@@ -150,6 +150,7 @@ ob_start();
 $secretaryBookFormHtml = ob_get_clean();
 
 $secretaryBookScripts = '
+<script src="' . e(url('/assets/js/search-select.js')) . '?v=20260905a"></script>
 <script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
 <script>
@@ -173,6 +174,12 @@ $secretaryBookScripts = '
   var suggestBtn = document.getElementById("suggest-username");
   var usernameHint = document.getElementById("username-hint");
   var usernameTouched = false;
+
+  if (window.enhanceSearchSelect) {
+    enhanceSearchSelect(patientEl, { placeholder: "جستجو یا انتخاب مراجعه‌کننده" });
+    enhanceSearchSelect(preferredDoctorEl, { placeholder: "جستجو یا انتخاب درمانگر" });
+    enhanceSearchSelect(doctorEl, { placeholder: "جستجو یا انتخاب دکتر" });
+  }
 
   function latinWord(value) {
     return String(value || "").toLowerCase().replace(/[^a-z]/g, "");
@@ -427,7 +434,7 @@ $secretaryBookScripts = '
     var newPassConfirm = newPassConfirmEl.value;
     if (!patientId && !newName) {
       e.preventDefault();
-      errEl.textContent = "بیمار موجود را انتخاب کنید یا نام و نام خانوادگی بیمار جدید را وارد کنید.";
+      errEl.textContent = "مراجعه‌کننده را انتخاب کنید یا نام و نام خانوادگی مراجعه‌کننده جدید را وارد کنید.";
       errEl.style.display = "block";
       return;
     }
@@ -488,6 +495,14 @@ $secretaryBookScripts = '
         newPassConfirmEl.focus();
         return;
       }
+    }
+    if (!doctorEl.value) {
+      e.preventDefault();
+      errEl.textContent = "دکتر را انتخاب کنید.";
+      errEl.style.display = "block";
+      var doctorInput = doctorEl.closest(".search-select") && doctorEl.closest(".search-select").querySelector(".search-select-input");
+      (doctorInput || doctorEl).focus();
+      return;
     }
     if (!dateEl.value || !timeEl.value) {
       e.preventDefault();
