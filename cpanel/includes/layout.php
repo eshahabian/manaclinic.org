@@ -21,7 +21,7 @@ $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'es
   <?= seo_render_head() ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260906f">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260906g">
   <?php if (!empty($pageHead)): ?>
     <?= $pageHead ?>
   <?php endif; ?>
@@ -49,6 +49,7 @@ $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'es
       <div class="header-actions">
         <?php if ($user): ?>
           <span class="user-name"><?= e($user['name']) ?></span>
+          <a class="btn btn-outline" href="<?= e(url('/change-password')) ?>">تغییر رمز عبور</a>
           <a class="btn btn-outline" href="<?= e(url('/logout')) ?>">خروج</a>
         <?php else: ?>
           <a class="btn btn-outline" href="<?= e(url('/login')) ?>">ورود</a>
@@ -123,6 +124,29 @@ $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'es
 <script src="<?= e(url('/assets/js/particles.js')) ?>?v=20260904t"></script>
 <?php if ($user && ($user['role'] ?? '') === 'SECRETARY'): ?>
 <script src="<?= e(url('/assets/js/secretary-idle.js')) ?>?v=20260905c"></script>
+<?php endif; ?>
+<?php
+$handoverBlock = $GLOBALS['handoverBlock'] ?? null;
+if ($handoverBlock && $user && ($user['role'] ?? '') === 'SECRETARY'):
+?>
+<div class="handover-overlay" role="dialog" aria-modal="true" aria-labelledby="handover-title">
+  <div class="handover-card">
+    <p class="handover-kicker">پیام تحویل شیفت</p>
+    <h1 id="handover-title">پیامی از <?= e((string) ($handoverBlock['from_name'] ?? 'منشی')) ?></h1>
+    <p class="muted" style="margin:.35rem 0 0;font-size:.85rem">
+      <?= e(format_fa_datetime((string) ($handoverBlock['created_at'] ?? ''))) ?>
+      <?php if (!empty($handoverBlock['from_username'])): ?>
+        · <span dir="ltr"><?= e((string) $handoverBlock['from_username']) ?></span>
+      <?php endif; ?>
+    </p>
+    <div class="handover-body"><?= nl2br(e((string) ($handoverBlock['body'] ?? ''))) ?></div>
+    <form method="post" action="<?= e(url('/secretary/handover/ack')) ?>" class="handover-actions">
+      <input type="hidden" name="note_id" value="<?= e((string) ($handoverBlock['id'] ?? '')) ?>">
+      <button type="submit" class="btn btn-primary">خواندم</button>
+      <a class="btn btn-outline" href="<?= e(url('/logout')) ?>">خروج</a>
+    </form>
+  </div>
+</div>
 <?php endif; ?>
 <?php if (!empty($pageScripts)): ?>
   <?= $pageScripts ?>

@@ -10,6 +10,7 @@ function secretary_nav(): array
         ['href' => '/secretary/workshops', 'label' => 'کارگاه‌ها'],
         ['href' => '/secretary/articles', 'label' => 'مقالات'],
         ['href' => '/secretary/hours', 'label' => 'ساعت کاری'],
+        ['href' => '/change-password', 'label' => 'تغییر رمز عبور'],
     ];
 }
 

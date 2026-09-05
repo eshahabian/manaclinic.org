@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/user_cleanup.php';
 
 /** @var array $appointmentList */
 /** @var string $appointmentEmpty */
@@ -28,6 +29,7 @@ $appointmentEmpty = $appointmentEmpty ?? 'نوبتی نیست.';
         </div>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
           <?= staff_receipt_view_html($a['payment_id'] ?? null, $a['receipt_path'] ?? null, true) ?>
+          <?= admin_appointment_delete_form((string) ($a['id'] ?? ''), '/secretary/appointments') ?>
         </div>
       </div>
     <?php endforeach; ?>

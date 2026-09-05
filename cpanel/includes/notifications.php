@@ -134,6 +134,41 @@ function count_unread_notifications(PDO $pdo, string $userId): int
     return (int) $stmt->fetchColumn();
 }
 
+function delete_notification(PDO $pdo, string $notificationId, ?string $userId = null): void
+{
+    ensure_notifications_table($pdo);
+    if ($userId) {
+        $pdo->prepare('DELETE FROM notifications WHERE id=? AND recipient_user_id=?')
+            ->execute([$notificationId, $userId]);
+        return;
+    }
+    $pdo->prepare('DELETE FROM notifications WHERE id=?')->execute([$notificationId]);
+}
+
+function delete_all_notifications(PDO $pdo, ?string $userId = null): int
+{
+    ensure_notifications_table($pdo);
+    if ($userId) {
+        $stmt = $pdo->prepare('DELETE FROM notifications WHERE recipient_user_id=?');
+        $stmt->execute([$userId]);
+        return $stmt->rowCount();
+    }
+    return (int) $pdo->exec('DELETE FROM notifications');
+}
+
+function fetch_all_notifications(PDO $pdo, int $limit = 80): array
+{
+    ensure_notifications_table($pdo);
+    $limit = max(1, min(200, $limit));
+    return $pdo->query("
+      SELECT n.*, u.name AS recipient_name, u.role AS recipient_role, u.username AS recipient_username
+      FROM notifications n
+      JOIN users u ON u.id = n.recipient_user_id
+      ORDER BY n.created_at DESC
+      LIMIT {$limit}
+    ")->fetchAll();
+}
+
 function mark_notifications_read(PDO $pdo, string $userId, ?string $notificationId = null): void
 {
     ensure_notifications_table($pdo);

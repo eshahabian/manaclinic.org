@@ -18,12 +18,28 @@ function doctor_nav(): array
         ['type' => 'link', 'href' => '/doctor/profile', 'label' => 'پروفایل حرفه‌ای'],
         ['type' => 'group', 'label' => 'حساب'],
         ['type' => 'link', 'href' => '/doctor/staff-hours', 'label' => 'ساعت کاری منشی‌ها'],
+        ['type' => 'link', 'href' => '/change-password', 'label' => 'تغییر رمز عبور'],
     ];
 }
 
 function require_doctor_profile(PDO $pdo): array
 {
     $user = require_login(['DOCTOR']);
+    if (($user['role'] ?? '') === 'ADMIN') {
+        $profile = $pdo->query("
+          SELECT dp.*, u.name, u.email
+          FROM doctor_profiles dp
+          JOIN users u ON u.id = dp.user_id
+          WHERE dp.is_active = 1 AND dp.is_approved = 1
+          ORDER BY u.name ASC
+          LIMIT 1
+        ")->fetch();
+        if (!$profile) {
+            flash_set('error', 'هنوز درمانگر فعالی نیست.');
+            redirect('/admin');
+        }
+        return ['user' => $user, 'profile' => $profile, 'admin_mode' => true];
+    }
     $stmt = $pdo->prepare('SELECT dp.*, u.name, u.email FROM doctor_profiles dp JOIN users u ON u.id=dp.user_id WHERE dp.user_id=?');
     $stmt->execute([$user['id']]);
     $profile = $stmt->fetch();

@@ -49,15 +49,33 @@ function require_login(?array $roles = null): array
         $user = current_user() ?? $user;
     }
     if (!empty($user['must_change_password'])) {
-        $allowed = ['/change-password', '/logout', '/secretary/heartbeat'];
+        $allowed = ['/change-password', '/logout', '/secretary/heartbeat', '/secretary/handover/ack'];
         if (!in_array($path ?? '', $allowed, true)) {
             redirect('/change-password');
         }
     }
-    if ($roles && !in_array($user['role'], $roles, true)) {
+    if (($user['role'] ?? '') === 'SECRETARY' && $pdo instanceof PDO && function_exists('handover_pending_for')) {
+        $pending = handover_pending_for($pdo, (string) $user['id']);
+        if ($pending) {
+            $GLOBALS['handoverBlock'] = $pending;
+            $handoverAllowed = ['/secretary/handover/ack', '/logout', '/secretary/heartbeat'];
+            $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+            if ($method === 'POST' && !in_array($path ?? '', $handoverAllowed, true)) {
+                flash_set('error', 'ابتدا پیام تحویل شیفت را بخوانید و «خواندم» را بزنید.');
+                redirect('/secretary/messages');
+            }
+        }
+    }
+    if ($roles && !in_array($user['role'], $roles, true) && ($user['role'] ?? '') !== 'ADMIN') {
         redirect('/');
     }
     return $user;
+}
+
+function is_admin_user(?array $user = null): bool
+{
+    $user = $user ?? current_user();
+    return $user && ($user['role'] ?? '') === 'ADMIN';
 }
 
 function panel_href_for(?array $user): ?string

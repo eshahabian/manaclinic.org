@@ -1841,3 +1841,68 @@ html[dir="ltr"] .binder-body {
   border-radius: .6rem;
   padding: .7rem .8rem;
 }
+.handover-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 12000;
+  background: rgba(18, 28, 24, .88);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+}
+.handover-card {
+  width: min(40rem, 100%);
+  max-height: 90vh;
+  overflow: auto;
+  background: #fff;
+  border-radius: 1.1rem;
+  padding: 1.4rem 1.35rem 1.25rem;
+  box-shadow: 0 18px 48px rgba(0, 0, 0, .28);
+}
+.handover-kicker {
+  margin: 0;
+  font-size: .8rem;
+  letter-spacing: .04em;
+  color: var(--primary-dark);
+  font-weight: 700;
+}
+.handover-card h1 {
+  margin: .35rem 0 0;
+  font-size: 1.25rem;
+  line-height: 1.6;
+}
+.handover-body {
+  margin: 1rem 0 0;
+  padding: 1rem 1.05rem;
+  background: var(--bg-soft);
+  border-radius: .8rem;
+  line-height: 2;
+  white-space: pre-wrap;
+  font-size: 1rem;
+}
+.handover-actions {
+  display: flex;
+  gap: .6rem;
+  flex-wrap: wrap;
+  margin-top: 1.15rem;
+}
+.admin-pass-form {
+  display: flex;
+  gap: .4rem;
+  flex-wrap: wrap;
+  align-items: center;
+  margin: 0;
+}
+.admin-pass-form .input {
+  width: 8.5rem;
+  min-width: 7rem;
+  padding: .4rem .55rem;
+  font-size: .85rem;
+}
+.admin-user-actions {
+  display: flex;
+  flex-direction: column;
+  gap: .45rem;
+  align-items: flex-start;
+}

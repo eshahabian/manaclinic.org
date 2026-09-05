@@ -11,7 +11,42 @@ $patients = array_values(array_filter($users, static fn($u) => $u['role'] === 'P
 
 ob_start();
 ?>
-<h1>کاربران</h1>
+<h1>کاربران و رمز عبور</h1>
+
+<div class="panel" style="margin-top:1rem">
+  <h2 style="margin:0 0 .5rem;font-size:1rem">تغییر رمز هر کاربر</h2>
+  <p class="muted" style="font-size:.9rem;line-height:1.8;margin:0 0 .75rem">
+    رمز هر حساب را از اینجا عوض کنید. اگر «در ورود بعدی عوض شود» را بزنید، همان کاربر با رمز جدید وارد می‌شود و باید رمز خودش را بسازد.
+  </p>
+  <form method="post" action="<?= e(url('/admin/users')) ?>" class="form-stack" autocomplete="off">
+    <input type="hidden" name="action" value="set_password">
+    <div>
+      <label class="label">کاربر</label>
+      <select class="input" name="user_id" required>
+        <option value="">انتخاب کنید</option>
+        <?php foreach ($users as $u): ?>
+          <option value="<?= e($u['id']) ?>">
+            <?= e($u['name']) ?> — <?= e(role_label($u['role'])) ?>
+            <?php if (!empty($u['username'])): ?> (<?= e((string) $u['username']) ?>)<?php endif; ?>
+          </option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div>
+      <label class="label">رمز جدید</label>
+      <input class="input" type="password" name="new_password" required minlength="6" dir="ltr" autocomplete="new-password">
+    </div>
+    <div>
+      <label class="label">تکرار رمز جدید</label>
+      <input class="input" type="password" name="new_password_confirm" required minlength="6" dir="ltr" autocomplete="new-password">
+    </div>
+    <label style="display:flex;gap:.5rem;align-items:center;font-size:.9rem">
+      <input type="checkbox" name="must_change_password" value="1" checked>
+      در ورود بعدی رمز را عوض کند
+    </label>
+    <button type="submit" class="btn btn-primary">ذخیره رمز</button>
+  </form>
+</div>
 
 <div class="panel" style="margin-top:1rem;border-color:var(--danger)">
   <h2 style="margin:0 0 .5rem;font-size:1rem">پاک‌سازی سریع</h2>
@@ -56,7 +91,7 @@ ob_start();
 
 <div class="panel" style="padding:0;overflow:auto;margin-top:1rem">
   <table class="table">
-    <thead><tr><th>نام</th><th>نام کاربری</th><th>نقش</th><th>عضویت</th><th></th></tr></thead>
+    <thead><tr><th>نام</th><th>نام کاربری</th><th>نقش</th><th>عضویت</th><th>تغییر رمز</th><th></th></tr></thead>
     <tbody>
       <?php foreach ($users as $u): ?>
         <tr>
@@ -65,6 +100,15 @@ ob_start();
           <td><?= e(role_label($u['role'])) ?></td>
           <td><?= e(format_fa_datetime($u['created_at'])) ?></td>
           <td>
+            <form method="post" action="<?= e(url('/admin/users')) ?>" class="admin-pass-form" autocomplete="off">
+              <input type="hidden" name="action" value="set_password">
+              <input type="hidden" name="user_id" value="<?= e($u['id']) ?>">
+              <input class="input" type="password" name="new_password" required minlength="6" dir="ltr" placeholder="رمز جدید" autocomplete="new-password">
+              <button type="submit" class="btn btn-outline btn-sm">ثبت رمز</button>
+            </form>
+          </td>
+          <td>
+            <div class="admin-user-actions">
             <?php if ($u['role'] !== 'ADMIN'): ?>
               <form method="post" action="<?= e(url('/admin/users')) ?>" style="margin:0" onsubmit="return confirm('این کاربر و نوبت‌هایش حذف شود؟');">
                 <input type="hidden" name="action" value="delete_user">
@@ -72,6 +116,7 @@ ob_start();
                 <button type="submit" class="btn btn-outline btn-sm" style="color:var(--danger)">حذف</button>
               </form>
             <?php endif; ?>
+            </div>
           </td>
         </tr>
       <?php endforeach; ?>
@@ -79,4 +124,4 @@ ob_start();
   </table>
 </div>
 <?php
-render_admin_page('کاربران', ob_get_clean());
+render_admin_page('کاربران و رمز عبور', ob_get_clean());

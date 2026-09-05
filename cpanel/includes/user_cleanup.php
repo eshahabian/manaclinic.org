@@ -15,6 +15,12 @@ function delete_user_cascade(PDO $pdo, string $userId): void
     } catch (Throwable $ignored) {
     }
 
+    try {
+        $pdo->prepare('DELETE FROM staff_handover_notes WHERE from_user_id = ? OR to_user_id = ?')
+            ->execute([$userId, $userId]);
+    } catch (Throwable $ignored) {
+    }
+
     // پرداخت‌های نوبت‌های این مراجعه‌کننده
     try {
         $pdo->prepare("
@@ -129,6 +135,39 @@ function find_cleanup_test_users(PDO $pdo): array
         }
     }
     return $out;
+}
+
+function admin_appointment_delete_form(string $appointmentId, string $next = '/admin/appointments'): string
+{
+    if ($appointmentId === '' || !function_exists('is_admin_user') || !is_admin_user()) {
+        return '';
+    }
+    ob_start();
+    ?>
+    <form method="post" action="<?= e(url('/admin/appointments')) ?>" style="margin:0" onsubmit="return confirm('این نوبت برای همیشه حذف شود؟');">
+      <input type="hidden" name="action" value="delete">
+      <input type="hidden" name="appointment_id" value="<?= e($appointmentId) ?>">
+      <input type="hidden" name="next" value="<?= e($next) ?>">
+      <button type="submit" class="btn btn-danger btn-sm">حذف نوبت</button>
+    </form>
+    <?php
+    return (string) ob_get_clean();
+}
+
+/** حذف یک نوبت و پرداخت مرتبط */
+function delete_appointment_by_id(PDO $pdo, string $appointmentId): void
+{
+    if ($appointmentId === '') {
+        throw new RuntimeException('نوبت مشخص نیست.');
+    }
+    foreach (['doctor_session_notes', 'doctor_highlights'] as $table) {
+        try {
+            $pdo->prepare("DELETE FROM {$table} WHERE appointment_id=?")->execute([$appointmentId]);
+        } catch (Throwable $ignored) {
+        }
+    }
+    $pdo->prepare('DELETE FROM payments WHERE appointment_id=?')->execute([$appointmentId]);
+    $pdo->prepare('DELETE FROM appointments WHERE id=?')->execute([$appointmentId]);
 }
 
 /** حذف همه نوبت‌ها و پرداخت‌ها */

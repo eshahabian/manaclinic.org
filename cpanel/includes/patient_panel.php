@@ -12,6 +12,7 @@ function patient_nav(): array
         ['href' => '/dashboard/courses', 'label' => 'دوره‌های من'],
         ['href' => '/dashboard/wallet', 'label' => 'کیف پول'],
         ['href' => '/dashboard/profile', 'label' => 'پروفایل'],
+        ['href' => '/change-password', 'label' => 'تغییر رمز عبور'],
     ];
 }
 

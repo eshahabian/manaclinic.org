@@ -6,6 +6,58 @@ require_login(['ADMIN']);
 
 $action = post('action');
 
+if ($action === 'set_password') {
+    $id = post('user_id');
+    $new = normalize_input((string) ($_POST['new_password'] ?? ''));
+    $confirm = normalize_input((string) ($_POST['new_password_confirm'] ?? ''));
+    $forceChange = !empty($_POST['must_change_password']);
+
+    if ($id === '') {
+        flash_set('error', 'کاربر مشخص نیست.');
+        redirect('/admin/users');
+    }
+    if (strlen($new) < 6) {
+        flash_set('error', 'رمز جدید حداقل ۶ کاراکتر باشد.');
+        redirect('/admin/users');
+    }
+    if ($confirm !== '' && $new !== $confirm) {
+        flash_set('error', 'تکرار رمز جدید مطابقت ندارد.');
+        redirect('/admin/users');
+    }
+
+    $row = $pdo->prepare('SELECT id, name FROM users WHERE id = ?');
+    $row->execute([$id]);
+    $target = $row->fetch();
+    if (!$target) {
+        flash_set('error', 'کاربر یافت نشد.');
+        redirect('/admin/users');
+    }
+
+    $me = current_user();
+    if ($me && (string) $me['id'] === $id) {
+        $forceChange = false;
+    }
+
+    $hash = password_hash($new, PASSWORD_DEFAULT);
+    $pdo->prepare('UPDATE users SET password_hash=?, must_change_password=? WHERE id=?')
+        ->execute([$hash, $forceChange ? 1 : 0, $id]);
+
+    $check = $pdo->prepare('SELECT password_hash FROM users WHERE id=?');
+    $check->execute([$id]);
+    $saved = $check->fetchColumn();
+    if (!$saved || !password_verify($new, (string) $saved)) {
+        flash_set('error', 'ذخیره رمز ناموفق بود.');
+        redirect('/admin/users');
+    }
+
+    if ($me && (string) $me['id'] === $id) {
+        $_SESSION['user']['must_change_password'] = 0;
+    }
+
+    flash_set('success', 'رمز عبور «' . $target['name'] . '» تغییر کرد.');
+    redirect('/admin/users');
+}
+
 if ($action === 'delete_user') {
     $id = post('user_id');
     if ($id === '') {

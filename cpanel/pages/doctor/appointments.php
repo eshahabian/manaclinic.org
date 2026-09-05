@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/../../includes/doctor_panel.php';
+require_once __DIR__ . '/../../includes/user_cleanup.php';
 $ctx = require_doctor_profile($pdo);
 $stmt = $pdo->prepare("
   SELECT a.*, u.name AS patient_name, u.phone, u.email,
@@ -106,6 +107,7 @@ ob_start();
                     <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
                       <?= staff_receipt_view_html($a['payment_id'] ?? null, $a['receipt_path'] ?? null, false) ?>
                       <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/patients/' . $a['patient_id'])) ?>">پرونده مراجعه‌کننده</a>
+                      <?= function_exists('admin_appointment_delete_form') ? admin_appointment_delete_form((string) $a['id'], '/doctor/appointments') : '' ?>
                       <?php if ($a['status'] !== 'CANCELLED'): ?>
                         <form method="post" action="<?= e(url('/doctor/appointments')) ?>">
                           <input type="hidden" name="id" value="<?= e($a['id']) ?>">

@@ -4,16 +4,21 @@ declare(strict_types=1);
 function admin_nav(): array {
     return [
         ['href' => '/admin', 'label' => 'خلاصه'],
-        ['href' => '/admin/doctors', 'label' => 'مدیریت درمانگرها'],
-        ['href' => '/admin/users', 'label' => 'کاربران'],
-        ['href' => '/admin/articles', 'label' => 'مقالات'],
+        ['href' => '/admin/users', 'label' => 'کاربران و رمز عبور'],
         ['href' => '/admin/appointments', 'label' => 'نوبت‌ها و پرداخت‌ها'],
+        ['href' => '/admin/messages', 'label' => 'پیام‌ها'],
+        ['href' => '/admin/doctors', 'label' => 'مدیریت درمانگرها'],
+        ['href' => '/admin/articles', 'label' => 'مقالات'],
+        ['href' => '/secretary/messages', 'label' => 'پنل منشی'],
+        ['href' => '/doctor', 'label' => 'پنل دکتر'],
+        ['href' => '/change-password', 'label' => 'تغییر رمز عبور من'],
     ];
 }
 
 function render_admin_page(string $title, string $innerHtml): void {
     $nav = admin_nav();
     $pageTitle = $title;
+    $GLOBALS['pageRobots'] = 'noindex,nofollow';
     ob_start();
     ?>
     <div class="container-page panel-layout">

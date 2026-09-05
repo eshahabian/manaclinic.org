@@ -32,6 +32,7 @@ require_once __DIR__ . '/includes/workshop_media.php';
 require_once __DIR__ . '/includes/assistant.php';
 require_once __DIR__ . '/includes/seed_articles.php';
 require_once __DIR__ . '/includes/articles.php';
+require_once __DIR__ . '/includes/handover.php';
 require_once __DIR__ . '/includes/seo.php';
 
 $pdo = db_connect($config);
@@ -42,6 +43,7 @@ require_once __DIR__ . '/includes/availability.php';
 ensure_availability_schema($pdo);
 ensure_assistant_schema($pdo);
 ensure_staff_desk_schema($pdo);
+ensure_handover_schema($pdo);
 
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 $base = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/\\');
@@ -145,6 +147,11 @@ $routes = [
     'GET /admin/articles' => 'pages/admin/articles.php',
     'POST /admin/articles' => 'actions/admin_articles.php',
     'GET /admin/appointments' => 'pages/admin/appointments.php',
+    'POST /admin/appointments' => 'actions/admin_appointments.php',
+    'GET /admin/messages' => 'pages/admin/messages.php',
+    'POST /admin/messages' => 'actions/admin_messages.php',
+    'POST /secretary/handover' => 'actions/secretary_handover.php',
+    'POST /secretary/handover/ack' => 'actions/secretary_handover_ack.php',
 
     'GET /api/slots' => 'actions/slots.php',
     'GET /api/transliterate-name' => 'actions/transliterate_name.php',
