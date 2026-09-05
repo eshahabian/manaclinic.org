@@ -185,7 +185,7 @@ if (preg_match('#^/doctor/intakes/([a-zA-Z0-9_-]+)$#', $path, $m) && $method ===
     exit;
 }
 
-// پرونده خصوصی بیمار — فقط دکتر
+// پرونده خصوصی مراجعه‌کننده — فقط دکتر
 if (preg_match('#^/doctor/patients/([a-zA-Z0-9_-]+)$#', $path, $m)) {
     $_GET['id'] = $m[1];
     if ($method === 'GET') {

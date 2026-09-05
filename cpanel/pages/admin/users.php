@@ -37,8 +37,8 @@ ob_start();
 
 <?php if ($patients): ?>
 <div class="panel" style="margin-top:1rem">
-  <h2 style="margin:0 0 .75rem;font-size:1rem">حذف دستی بیماران (لیست منشی از اینجا می‌آید)</h2>
-  <form method="post" action="<?= e(url('/admin/users')) ?>" onsubmit="return confirm('بیماران انتخاب‌شده حذف شوند؟');">
+  <h2 style="margin:0 0 .75rem;font-size:1rem">حذف دستی مراجعه‌کنندگان (لیست منشی از اینجا می‌آید)</h2>
+  <form method="post" action="<?= e(url('/admin/users')) ?>" onsubmit="return confirm('مراجعه‌کنندگان انتخاب‌شده حذف شوند؟');">
     <input type="hidden" name="action" value="delete_selected">
     <div class="stack" style="margin-bottom:1rem">
       <?php foreach ($patients as $p): ?>

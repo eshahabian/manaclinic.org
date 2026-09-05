@@ -40,7 +40,7 @@ foreach ($nc->fetchAll() as $row) {
 
 ob_start();
 ?>
-<h1>پرونده بیماران</h1>
+<h1>پرونده مراجعه‌کنندگان</h1>
 <p class="muted">این بخش کاملاً خصوصی است؛ فقط شما می‌توانید شرح حال، یادداشت جلسات و هایلایت‌ها را ببینید.</p>
 
 <div class="stack" style="margin-top:1rem">
@@ -63,8 +63,8 @@ ob_start();
   </a>
 <?php endforeach; ?>
 <?php if (!$patients): ?>
-  <p class="muted">هنوز بیمار اختصاص‌یافته یا نوبت‌داری برای شما ثبت نشده است.</p>
+  <p class="muted">هنوز مراجعه‌کننده اختصاص‌یافته یا نوبت‌داری برای شما ثبت نشده است.</p>
 <?php endif; ?>
 </div>
 <?php
-render_doctor_page('پرونده بیماران', ob_get_clean());
+render_doctor_page('پرونده مراجعه‌کنندگان', ob_get_clean());

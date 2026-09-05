@@ -11,7 +11,7 @@ if ($action === 'delete_patient') {
     $row->execute([$id]);
     $user = $row->fetch();
     if (!$user) {
-        flash_set('error', 'بیمار یافت نشد.');
+        flash_set('error', 'مراجعه‌کننده یافت نشد.');
         redirect('/secretary/appointments?tab=new');
     }
     try {
@@ -21,7 +21,7 @@ if ($action === 'delete_patient') {
         if (($actor['role'] ?? '') === 'SECRETARY') {
             staff_log_action($pdo, (string) $actor['id'], 'delete_patient', 'user', $id, (string) $user['name']);
         }
-        flash_set('success', 'بیمار «' . $user['name'] . '» از لیست حذف شد.');
+        flash_set('success', 'مراجعه‌کننده «' . $user['name'] . '» از لیست حذف شد.');
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();

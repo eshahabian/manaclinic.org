@@ -87,7 +87,7 @@ function wallet_log_tx(
     ]);
 }
 
-/** پرداخت مراجع — از موجودی قابل برداشت */
+/** پرداخت مراجعه‌کننده — از موجودی قابل برداشت */
 function wallet_debit_balance(
     PDO $pdo,
     string $userId,
@@ -148,7 +148,7 @@ function wallet_hold_for_doctor(
     wallet_log_tx($pdo, $wallet['id'], 'HOLD', $amount, $balanceAfter, $heldAfter, $referenceType, $referenceId, $description);
 }
 
-/** لغو قبل از ۲۴ ساعت — از امانی دکتر به کیف پول مراجع */
+/** لغو قبل از ۲۴ ساعت — از امانی دکتر به کیف پول مراجعه‌کننده */
 function wallet_refund_from_doctor_hold(
     PDO $pdo,
     string $doctorUserId,

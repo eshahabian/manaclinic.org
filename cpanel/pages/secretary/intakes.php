@@ -39,7 +39,7 @@ ob_start();
     ?>
     <div class="row-between" style="border:1px solid var(--line);border-radius:.75rem;padding:.85rem;gap:1rem;align-items:flex-start">
       <div style="flex:1;min-width:0">
-        <strong><?= e($row['patient_name'] ?: 'مراجع') ?></strong>
+        <strong><?= e($row['patient_name'] ?: 'مراجعه‌کننده') ?></strong>
         <?php if (!empty($row['patient_phone'])): ?>
           <span class="muted" style="font-size:.85rem"> · <?= e($row['patient_phone']) ?></span>
         <?php endif; ?>
@@ -50,7 +50,7 @@ ob_start();
           <?php else: ?>
             · در انتظار ارجاع
             <?php if ($row['doctor_name']): ?>
-              · ترجیح مراجع: <?= e($row['doctor_name']) ?>
+              · ترجیح مراجعه‌کننده: <?= e($row['doctor_name']) ?>
             <?php endif; ?>
           <?php endif; ?>
         </div>

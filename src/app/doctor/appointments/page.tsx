@@ -32,7 +32,7 @@ export default async function DoctorAppointmentsPage() {
 
   return (
     <div className="space-y-4">
-      <h1 className="text-2xl font-bold">نوبت‌های بیماران</h1>
+      <h1 className="text-2xl font-bold">نوبت‌های مراجعه‌کنندگان</h1>
       {appointments.map((a) => (
         <div key={a.id} className="panel space-y-3">
           <div className="flex flex-wrap items-start justify-between gap-3">

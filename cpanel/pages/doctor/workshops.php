@@ -260,7 +260,7 @@ ob_start();
   <div>
     <label class="label">لینک گروه تلگرام / واتساپ (اختیاری)</label>
     <input class="input" name="group_url" dir="ltr" placeholder="https://t.me/... یا https://chat.whatsapp.com/..." value="<?= e((string) ($formData['group_url'] ?? '')) ?>">
-    <p class="muted" style="font-size:.8rem;margin:.35rem 0 0;line-height:1.6">مراجعان پس از ثبت‌نام و تأیید، این لینک را برای عضویت در گروه می‌بینند.</p>
+    <p class="muted" style="font-size:.8rem;margin:.35rem 0 0;line-height:1.6">مراجعه‌کنندگان پس از ثبت‌نام و تأیید، این لینک را برای عضویت در گروه می‌بینند.</p>
   </div>
 
   <div id="field-session-media" class="panel" style="padding:1rem;background:var(--bg-soft,#f8fafc);border-style:dashed">
@@ -271,10 +271,10 @@ ob_start();
       <?php endif; ?>
     </div>
     <p class="muted session-media-hint-offline" style="font-size:.85rem;line-height:1.65;margin:.35rem 0 0">
-      برای دوره آفلاین، حداقل یک ویدیو یا صوت الزامی است. مراجع پس از ثبت‌نام به محتوا دسترسی دارد.
+      برای دوره آفلاین، حداقل یک ویدیو یا صوت الزامی است. مراجعه‌کننده پس از ثبت‌نام به محتوا دسترسی دارد.
     </p>
     <p class="muted session-media-hint-scheduled" style="font-size:.85rem;line-height:1.65;margin:.35rem 0 0;display:none">
-      پس از برگزاری کارگاه می‌توانید ضبط جلسات را بارگذاری کنید. مراجعان ثبت‌نام‌شده به آن‌ها دسترسی دارند.
+      پس از برگزاری کارگاه می‌توانید ضبط جلسات را بارگذاری کنید. مراجعه‌کنندگان ثبت‌نام‌شده به آن‌ها دسترسی دارند.
     </p>
     <p class="muted" style="font-size:.8rem;margin:.35rem 0 0">حداکثر <?= (int) $mediaMaxMb ?> مگابایت برای هر فایل — mp4, webm, mp3, m4a, ogg, wav</p>
 
@@ -298,7 +298,7 @@ ob_start();
     <?php if ($editWorkshop): ?>
       <span class="muted">وضعیت انتشار: <strong><?= $editWorkshop['is_published'] ? 'منتشر شده' : 'پیش‌نویس' ?></strong> — برای تغییر از دکمه «انتشار / لغو انتشار» در لیست بالا استفاده کنید.</span>
     <?php else: ?>
-      <span class="muted">کارگاه جدید بلافاصله برای مراجعان در «دوره‌های من» منتشر می‌شود.</span>
+      <span class="muted">کارگاه جدید بلافاصله برای مراجعه‌کنندگان در «دوره‌های من» منتشر می‌شود.</span>
     <?php endif; ?>
   </label>
   <button class="btn btn-primary" type="submit"><?= e($formSubmit) ?></button>

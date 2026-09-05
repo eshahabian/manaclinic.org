@@ -11,7 +11,7 @@ function doctor_nav(): array
         ['type' => 'group', 'label' => 'نوبت و پرونده'],
         ['type' => 'link', 'href' => '/doctor/appointments', 'label' => 'نوبت‌ها'],
         ['type' => 'link', 'href' => '/doctor/availability', 'label' => 'روزهای خالی'],
-        ['type' => 'link', 'href' => '/doctor/patients', 'label' => 'پرونده بیماران'],
+        ['type' => 'link', 'href' => '/doctor/patients', 'label' => 'پرونده مراجعه‌کنندگان'],
         ['type' => 'group', 'label' => 'کارگاه و محتوا'],
         ['type' => 'link', 'href' => '/doctor/workshops', 'label' => 'کارگاه‌ها'],
         ['type' => 'link', 'href' => '/doctor/articles', 'label' => 'مقالات'],
@@ -60,7 +60,7 @@ function render_doctor_page(string $title, string $innerHtml): void
             <?php endif; ?>
           <?php endforeach; ?>
         </nav>
-        <p class="muted" style="font-size:.75rem;margin-top:1rem;line-height:1.6">پرونده بیماران فقط برای شما قابل مشاهده است.</p>
+        <p class="muted" style="font-size:.75rem;margin-top:1rem;line-height:1.6">پرونده مراجعه‌کنندگان فقط برای شما قابل مشاهده است.</p>
       </aside>
       <div class="panel-main"><?= $innerHtml ?></div>
     </div>

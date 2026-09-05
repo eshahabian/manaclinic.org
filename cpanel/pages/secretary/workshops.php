@@ -231,7 +231,7 @@ ob_start();
   <div>
     <label class="label">لینک گروه تلگرام / واتساپ (اختیاری)</label>
     <input class="input" name="group_url" dir="ltr" placeholder="https://t.me/... یا https://chat.whatsapp.com/..." value="<?= e((string) ($formData['group_url'] ?? '')) ?>">
-    <p class="muted" style="font-size:.8rem;margin:.35rem 0 0;line-height:1.6">مراجعان پس از ثبت‌نام و تأیید، این لینک را برای عضویت در گروه می‌بینند.</p>
+    <p class="muted" style="font-size:.8rem;margin:.35rem 0 0;line-height:1.6">مراجعه‌کنندگان پس از ثبت‌نام و تأیید، این لینک را برای عضویت در گروه می‌بینند.</p>
   </div>
 
   <div id="field-session-media" class="panel" style="padding:1rem;background:var(--bg-soft,#f8fafc);border-style:dashed">

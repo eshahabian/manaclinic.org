@@ -265,7 +265,7 @@ function assistant_ai_system_prompt(): string
 وقتی حداقل موضوع اصلی + شدت/نیاز و ترجیح جلسه را فهمیدی، جمع‌بندی همدلانه بنویس و دقیقاً در انتهای پیام این بلوک را بگذار:
 
 <<<READY>>>
-{"tags":["anxiety","moderate","therapy","ONLINE"],"summary":"خلاصه کوتاه فارسی از وضعیت و نیاز مراجع"}
+{"tags":["anxiety","moderate","therapy","ONLINE"],"summary":"خلاصه کوتاه فارسی از وضعیت و نیاز مراجعه‌کننده"}
 
 تگ‌های مجاز: anxiety, depression, stress, burnout, couple, relationship, family, parenting, growth, self, mild, moderate, high, urgent, recent, months, chronic, individual, therapy, workshop, group, unsure, IN_PERSON, ONLINE, OFFLINE, sleep, support, mood.
 PROMPT;
@@ -469,7 +469,7 @@ function assistant_transcript_plain(array $messages): string
 {
     $lines = [];
     foreach ($messages as $m) {
-        $who = ($m['role'] ?? '') === 'assistant' ? 'دستیار' : 'مراجع';
+        $who = ($m['role'] ?? '') === 'assistant' ? 'دستیار' : 'مراجعه‌کننده';
         $lines[] = $who . ': ' . trim((string) ($m['content'] ?? ''));
     }
     return implode("\n", $lines);
@@ -653,7 +653,7 @@ function assistant_build_intake_text(array $session, array $answers, array $doct
     $lines[] = 'تاریخ: ' . date('Y-m-d H:i');
     $lines[] = 'شناسه جلسه: ' . ($session['id'] ?? '');
     if ($selectedDoctorName) {
-        $lines[] = 'درمانگر انتخاب‌شده توسط مراجع: ' . $selectedDoctorName;
+        $lines[] = 'درمانگر انتخاب‌شده توسط مراجعه‌کننده: ' . $selectedDoctorName;
     }
     $lines[] = '';
     if ($aiSummary) {
@@ -691,7 +691,7 @@ function assistant_build_intake_text(array $session, array $answers, array $doct
         }
         $lines[] = '';
     }
-    $lines[] = 'توجه: این متن تشخیص پزشکی نیست و صرفاً خلاصه گفتگوی اولیه مراجع در سایت است.';
+    $lines[] = 'توجه: این متن تشخیص پزشکی نیست و صرفاً خلاصه گفتگوی اولیه مراجعه‌کننده در سایت است.';
     return implode("\n", $lines);
 }
 
@@ -722,7 +722,7 @@ function assistant_ai_pick_ids(string $summary, array $candidates, string $kind,
     }
     $prompt = [
         ['role' => 'system', 'content' => 'فقط JSON برگردان: {"ids":["id1","id2"]} حداکثر ' . $limit . ' مورد مرتبط‌ترین را انتخاب کن. اگر هیچ‌کدام مرتبط نبود {"ids":[]}.'],
-        ['role' => 'user', 'content' => "خلاصه نیاز مراجع:\n{$summary}\n\nنامزدها ({$kind}):\n" . implode("\n", $lines)],
+        ['role' => 'user', 'content' => "خلاصه نیاز مراجعه‌کننده:\n{$summary}\n\nنامزدها ({$kind}):\n" . implode("\n", $lines)],
     ];
     try {
         $raw = assistant_ai_chat($prompt, 200);
@@ -875,7 +875,7 @@ function assistant_deliver_copy_to_all_doctors(PDO $pdo, array $session, ?string
 
     $guestNote = '';
     if (!$patientId) {
-        $guestNote = "\n\n— وضعیت مراجع: مهمان (بدون ورود/ثبت‌نام) —";
+        $guestNote = "\n\n— وضعیت مراجعه‌کننده: مهمان (بدون ورود/ثبت‌نام) —";
         $intake .= $guestNote;
     }
 
@@ -887,7 +887,7 @@ function assistant_deliver_copy_to_all_doctors(PDO $pdo, array $session, ?string
 
     $activeDoctors = assistant_list_active_doctors($pdo);
     $short = $aiSummary !== '' ? $aiSummary : mb_substr($intake, 0, 400);
-    $who = $patientId ? 'مراجع ثبت‌نام‌شده' : 'مراجع مهمان';
+    $who = $patientId ? 'مراجعه‌کننده ثبت‌نام‌شده' : 'مراجعه‌کننده مهمان';
     $doctorLink = '/doctor/intakes/' . $sessionId;
     $secretaryLink = '/secretary/intakes/' . $sessionId;
 
@@ -999,7 +999,7 @@ function assistant_assign_to_doctor(PDO $pdo, array $session, string $doctorProf
     }
     $patientId = (string) ($session['patient_id'] ?? '');
     if ($patientId === '') {
-        throw new RuntimeException('مراجع این جلسه مشخص نیست.');
+        throw new RuntimeException('مراجعه‌کننده این جلسه مشخص نیست.');
     }
 
     $docStmt = $pdo->prepare("
@@ -1031,7 +1031,7 @@ function assistant_assign_to_doctor(PDO $pdo, array $session, string $doctorProf
       WHERE id=?
     ')->execute([$doctorProfileId, $intake, $session['id']]);
 
-    // ترجیح درمانگر مراجع
+    // ترجیح درمانگر مراجعه‌کننده
     $pdo->prepare('UPDATE users SET preferred_doctor_id=? WHERE id=? AND role=?')
         ->execute([$doctorProfileId, $patientId, 'PATIENT']);
 

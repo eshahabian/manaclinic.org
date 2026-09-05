@@ -55,11 +55,11 @@ $workshopMediaPost = $workshopRole === 'secretary' ? '/secretary/workshop-media'
             <?php if ($archived): ?>
               <p class="muted" style="font-size:.8rem;margin-top:.5rem">این کارگاه در آرشیو است — زمانش تمام شده یا پایان داده شده.</p>
             <?php elseif (!$workshop['is_published'] || $workshop['status'] !== 'PUBLISHED'): ?>
-              <p style="color:var(--danger);font-size:.8rem;margin-top:.5rem">مراجعان این کارگاه را نمی‌بینند — دکمه «انتشار» را بزنید.</p>
+              <p style="color:var(--danger);font-size:.8rem;margin-top:.5rem">مراجعه‌کنندگان این کارگاه را نمی‌بینند — دکمه «انتشار» را بزنید.</p>
             <?php elseif (empty($workshop['enrollment_open'])): ?>
-              <p style="color:var(--warning,#b45309);font-size:.8rem;margin-top:.5rem">ثبت‌نام بسته — مراجعان می‌بینند اما نمی‌توانند ثبت‌نام کنند.</p>
+              <p style="color:var(--warning,#b45309);font-size:.8rem;margin-top:.5rem">ثبت‌نام بسته — مراجعه‌کنندگان می‌بینند اما نمی‌توانند ثبت‌نام کنند.</p>
             <?php elseif ($workshopRole === 'doctor'): ?>
-              <p style="color:var(--success);font-size:.8rem;margin-top:.5rem">برای همه مراجعان در «دوره‌های من» → تب <?= e(workshop_type_label($workshop['type'])) ?> قابل مشاهده و ثبت‌نام است.</p>
+              <p style="color:var(--success);font-size:.8rem;margin-top:.5rem">برای همه مراجعه‌کنندگان در «دوره‌های من» → تب <?= e(workshop_type_label($workshop['type'])) ?> قابل مشاهده و ثبت‌نام است.</p>
             <?php endif; ?>
           </div>
           <div class="workshop-card-actions">

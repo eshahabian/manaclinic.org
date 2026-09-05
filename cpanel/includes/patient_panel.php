@@ -33,7 +33,7 @@ function render_patient_page(string $title, string $innerHtml): void
     ?>
     <div class="container-page panel-layout">
       <aside class="panel side-nav">
-        <p class="side-nav-title">پنل مراجع</p>
+        <p class="side-nav-title">پنل مراجعه‌کننده</p>
         <nav>
           <?php foreach ($nav as $item): ?>
             <a href="<?= e(url($item['href'])) ?>">

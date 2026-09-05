@@ -393,7 +393,7 @@ try {
       <ul>
         <li>ادمین: <code>admin</code></li>
         <li>دکتر: <code>doctor</code></li>
-        <li>بیمار: <code>patient</code></li>
+        <li>مراجعه‌کننده: <code>patient</code></li>
         <li>منشی ۱: <code>secretary1</code></li>
         <li>منشی ۲: <code>secretary2</code> (رمز اولیه <code>123</code> — باید عوض شود)</li>
       </ul>

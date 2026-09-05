@@ -7,7 +7,7 @@ if (!$peerList) {
 }
 ?>
 <h3 class="binder-sub">کارگاه‌های سایر درمانگران</h3>
-<p class="muted" style="font-size:.85rem;margin:.2rem 0 .65rem">کارگاه‌های منتشرشده که مراجعان هم در «دوره‌های من» می‌بینند.</p>
+<p class="muted" style="font-size:.85rem;margin:.2rem 0 .65rem">کارگاه‌های منتشرشده که مراجعه‌کنندگان هم در «دوره‌های من» می‌بینند.</p>
 <div class="stack">
   <?php foreach ($peerList as $peer): ?>
     <article class="workshop-binder-card workshop-binder-card--peer">

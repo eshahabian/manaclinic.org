@@ -17,7 +17,7 @@ $stmt->execute([$ctx['profile']['id']]);
 $rows = $stmt->fetchAll();
 ob_start();
 ?>
-<h1>نوبت‌های بیماران</h1>
+<h1>نوبت‌های مراجعه‌کنندگان</h1>
 <div class="stack" style="margin-top:1rem">
 <?php foreach ($rows as $a): ?>
   <div class="panel stack">
@@ -37,7 +37,7 @@ ob_start();
     </div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
       <?= staff_receipt_view_html($a['payment_id'] ?? null, $a['receipt_path'] ?? null, false) ?>
-      <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/patients/' . $a['patient_id'])) ?>">پرونده بیمار</a>
+      <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/patients/' . $a['patient_id'])) ?>">پرونده مراجعه‌کننده</a>
       <?php if ($a['status'] !== 'CANCELLED'): ?>
         <form method="post" action="<?= e(url('/doctor/appointments')) ?>">
           <input type="hidden" name="id" value="<?= e($a['id']) ?>">

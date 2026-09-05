@@ -26,7 +26,7 @@ foreach ($notesStmt->fetchAll() as $n) {
 
 ob_start();
 ?>
-<p style="margin:0 0 .75rem"><a href="<?= e(url('/doctor/patients')) ?>" class="muted" style="font-size:.9rem">← بازگشت به لیست بیماران</a></p>
+<p style="margin:0 0 .75rem"><a href="<?= e(url('/doctor/patients')) ?>" class="muted" style="font-size:.9rem">← بازگشت به لیست مراجعه‌کنندگان</a></p>
 <div class="row-between" style="align-items:flex-start;margin-bottom:1rem">
   <div>
     <h1 style="margin:0"><?= e($patient['name']) ?></h1>
@@ -69,7 +69,7 @@ ob_start();
       contenteditable="true"
       role="textbox"
       aria-label="شرح حال"
-      data-placeholder="شرح حال بیمار را اینجا بنویسید..."
+      data-placeholder="شرح حال مراجعه‌کننده را اینجا بنویسید..."
     ><?= $historyHtml ?></div>
     <textarea name="history_text" id="history_text" hidden></textarea>
 

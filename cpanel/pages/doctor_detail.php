@@ -197,7 +197,7 @@ $pageScripts = '
   document.getElementById("book-submit").onclick = function(){
     errEl.style.display = "none";
     if (!loggedIn) { location.href = loginUrl; return; }
-    if (!isPatient) { errEl.textContent = "فقط مراجعان می‌توانند از این صفحه نوبت رزرو کنند. منشی از پنل منشی رزرو کند."; errEl.style.display="block"; return; }
+    if (!isPatient) { errEl.textContent = "فقط مراجعه‌کنندگان می‌توانند از این صفحه نوبت رزرو کنند. منشی از پنل منشی رزرو کند."; errEl.style.display="block"; return; }
     if (!dateEl.value || !timeEl.value) { errEl.textContent = "تاریخ و ساعت را انتخاب کنید."; errEl.style.display="block"; return; }
     var termsCb = document.getElementById("terms-accept");
     if (!termsCb || !termsCb.checked) { errEl.textContent = "لطفاً شرایط رزرو را بپذیرید."; errEl.style.display="block"; return; }

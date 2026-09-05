@@ -95,4 +95,4 @@ $GLOBALS['pageScripts'] = '
 <script src="' . e(url('/assets/js/patient-courses.js')) . '?v=20260904u"></script>
 <script src="' . e(url('/assets/js/patient-book-slots.js')) . '?v=20260904y"></script>'
   . booking_terms_script('terms-accept-dash', '.dash-book-btn');
-render_patient_page('پنل مراجع', $dashContent);
+render_patient_page('پنل مراجعه‌کننده', $dashContent);

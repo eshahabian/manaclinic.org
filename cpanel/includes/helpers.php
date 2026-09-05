@@ -83,7 +83,7 @@ function role_label(string $role): string
         'ADMIN' => 'مدیر',
         'DOCTOR' => 'درمانگر',
         'SECRETARY' => 'منشی',
-        'PATIENT' => 'مراجع',
+        'PATIENT' => 'مراجعه‌کننده',
         default => $role,
     };
 }

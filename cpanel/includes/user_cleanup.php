@@ -15,7 +15,7 @@ function delete_user_cascade(PDO $pdo, string $userId): void
     } catch (Throwable $ignored) {
     }
 
-    // پرداخت‌های نوبت‌های این بیمار
+    // پرداخت‌های نوبت‌های این مراجعه‌کننده
     try {
         $pdo->prepare("
           DELETE FROM payments WHERE appointment_id IN (

@@ -151,14 +151,14 @@ function workshop_is_offline(string $type): bool
     return $type === 'OFFLINE';
 }
 
-/** کارگاه‌هایی که مراجع در لیست «دوره‌های من» می‌بیند (هنوز تمام نشده) */
+/** کارگاه‌هایی که مراجعه‌کننده در لیست «دوره‌های من» می‌بیند (هنوز تمام نشده) */
 function workshop_patient_list_sql(string $alias = 'w'): string
 {
     $a = $alias;
     return "{$a}.is_published = 1 AND {$a}.status NOT IN ('CANCELLED', 'COMPLETED') AND ({$a}.type = 'OFFLINE' OR {$a}.ends_at > NOW())";
 }
 
-/** کارگاه‌هایی که مراجع هنوز می‌تواند ثبت‌نام کند (تا دکتر ببندد) */
+/** کارگاه‌هایی که مراجعه‌کننده هنوز می‌تواند ثبت‌نام کند (تا دکتر ببندد) */
 function workshop_patient_enrollable_sql(string $alias = 'w'): string
 {
     $a = $alias;
@@ -253,10 +253,10 @@ function workshop_notify_doctors(
     $typeLabel = workshop_type_label($type);
     $ownerHint = $ownerDoctorName ? " — درمانگر: «{$ownerDoctorName}»" : '';
     if (workshop_is_offline($type)) {
-        $body = "«{$creatorName}» دوره آفلاین «{$title}» منتشر کرد{$ownerHint}. مراجعان در «دوره‌های من» می‌بینند.";
+        $body = "«{$creatorName}» دوره آفلاین «{$title}» منتشر کرد{$ownerHint}. مراجعه‌کنندگان در «دوره‌های من» می‌بینند.";
     } else {
         $when = format_fa_datetime($startsAt);
-        $body = "«{$creatorName}» کارگاه {$typeLabel} «{$title}» ({$when}) منتشر کرد{$ownerHint}. مراجعان در «دوره‌های من» می‌بینند.";
+        $body = "«{$creatorName}» کارگاه {$typeLabel} «{$title}» ({$when}) منتشر کرد{$ownerHint}. مراجعه‌کنندگان در «دوره‌های من» می‌بینند.";
     }
     foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $userId) {
         notify_user(
@@ -805,7 +805,7 @@ function workshop_group_for_tabs(array $workshops): array
 }
 
 /**
- * داده تب‌های کارگاه برای پنل مراجع (داشبورد و دوره‌های من).
+ * داده تب‌های کارگاه برای پنل مراجعه‌کننده (داشبورد و دوره‌های من).
  *
  * @return array{
  *   wallet: array,

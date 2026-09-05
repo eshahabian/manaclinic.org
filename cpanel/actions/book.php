@@ -9,7 +9,7 @@ require_once __DIR__ . '/../includes/availability.php';
 $user = current_user();
 if (!$user || $user['role'] !== 'PATIENT') {
     http_response_code(401);
-    echo json_encode(['error' => 'لطفاً با حساب مراجع وارد شوید.']);
+    echo json_encode(['error' => 'لطفاً با حساب مراجعه‌کننده وارد شوید.']);
     exit;
 }
 

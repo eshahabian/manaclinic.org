@@ -81,5 +81,5 @@ export const paymentStatusLabel: Record<string, string> = {
 export const roleLabel: Record<string, string> = {
   ADMIN: "مدیر",
   DOCTOR: "درمانگر",
-  PATIENT: "مراجع",
+  PATIENT: "مراجعه‌کننده",
 };

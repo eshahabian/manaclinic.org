@@ -8,7 +8,7 @@ require_once __DIR__ . '/../includes/appointment_cancel.php';
 $user = current_user();
 if (!$user || $user['role'] !== 'PATIENT') {
     http_response_code(401);
-    echo json_encode(['error' => 'لطفاً با حساب مراجع وارد شوید.'], JSON_UNESCAPED_UNICODE);
+    echo json_encode(['error' => 'لطفاً با حساب مراجعه‌کننده وارد شوید.'], JSON_UNESCAPED_UNICODE);
     exit;
 }
 

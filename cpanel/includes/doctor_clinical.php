@@ -49,7 +49,7 @@ function ensure_doctor_clinical_tables(PDO $pdo): void
 }
 
 /**
- * بیمار اگر درمانگر ترجیحی‌اش همین دکتر باشد یا حداقل یک نوبت با او داشته باشد قابل دسترسی است.
+ * مراجعه‌کننده اگر درمانگر ترجیحی‌اش همین دکتر باشد یا حداقل یک نوبت با او داشته باشد قابل دسترسی است.
  * @return array{patient: array, appointments: array}
  */
 function require_doctor_patient_access(PDO $pdo, array $ctx, string $patientId): array
@@ -61,7 +61,7 @@ function require_doctor_patient_access(PDO $pdo, array $ctx, string $patientId):
     $patientStmt->execute([$patientId]);
     $patient = $patientStmt->fetch();
     if (!$patient) {
-        flash_set('error', 'بیمار یافت نشد.');
+        flash_set('error', 'مراجعه‌کننده یافت نشد.');
         redirect('/doctor/patients');
     }
 
@@ -70,7 +70,7 @@ function require_doctor_patient_access(PDO $pdo, array $ctx, string $patientId):
     $hasAppointment = (int) $check->fetchColumn() > 0;
     $isPreferred = (string) ($patient['preferred_doctor_id'] ?? '') === (string) $doctorId;
     if (!$hasAppointment && !$isPreferred) {
-        flash_set('error', 'دسترسی به پرونده این بیمار برای شما مجاز نیست.');
+        flash_set('error', 'دسترسی به پرونده این مراجعه‌کننده برای شما مجاز نیست.');
         redirect('/doctor/patients');
     }
 

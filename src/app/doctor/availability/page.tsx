@@ -56,7 +56,7 @@ export default async function DoctorAvailabilityPage() {
       <div>
         <h1 className="text-2xl font-bold">روزهای خالی</h1>
         <p className="mt-2 text-muted">
-          تاریخ‌هایی که بیماران می‌توانند در آن‌ها نوبت بگیرند را مشخص کنید.
+          تاریخ‌هایی که مراجعه‌کنندگان می‌توانند در آن‌ها نوبت بگیرند را مشخص کنید.
         </p>
       </div>
 

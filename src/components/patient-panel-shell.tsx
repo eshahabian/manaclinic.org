@@ -22,7 +22,7 @@ export async function PatientPanelShell({
 
   return (
     <div className="container-page grid gap-6 py-10 md:grid-cols-[240px_1fr]">
-      <PanelNav title="پنل مراجع" items={PATIENT_NAV} />
+      <PanelNav title="پنل مراجعه‌کننده" items={PATIENT_NAV} />
       <div>{children}</div>
     </div>
   );

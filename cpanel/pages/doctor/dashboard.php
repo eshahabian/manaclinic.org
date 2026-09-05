@@ -147,7 +147,7 @@ ob_start();
               if ($summary === '') {
                   $summary = mb_substr(trim((string) ($row['intake_text'] ?? '')), 0, 120);
               }
-              $who = empty($row['patient_id']) ? 'مراجع مهمان' : (string) ($row['patient_name'] ?? 'مراجع');
+              $who = empty($row['patient_id']) ? 'مراجعه‌کننده مهمان' : (string) ($row['patient_name'] ?? 'مراجعه‌کننده');
             ?>
             <li>
               <a href="<?= e(url('/doctor/intakes/' . $row['id'])) ?>">
@@ -258,7 +258,7 @@ ob_start();
         </ul>
       <?php endif; ?>
       <p style="margin-top:1rem">
-        <a class="btn btn-primary btn-sm" href="<?= e(url('/doctor/patients')) ?>">پرونده بیماران</a>
+        <a class="btn btn-primary btn-sm" href="<?= e(url('/doctor/patients')) ?>">پرونده مراجعه‌کنندگان</a>
       </p>
     </section>
 

@@ -22,8 +22,8 @@ $unreadCount = count_unread_notifications($pdo, (string) $user['id']);
 ob_start();
 ?>
 <h1>سلام <?= e($user['name']) ?></h1>
-<p class="muted">از اینجا می‌توانید برای بیماران نوبت ثبت کنید.<?= $unreadCount ? ' · ' . $unreadCount . ' پیام خوانده‌نشده' : '' ?></p>
-<p style="margin-top:1rem"><a class="btn btn-primary" href="<?= e(url('/secretary/appointments?tab=new')) ?>">رزرو نوبت برای بیمار</a></p>
+<p class="muted">از اینجا می‌توانید برای مراجعه‌کنندگان نوبت ثبت کنید.<?= $unreadCount ? ' · ' . $unreadCount . ' پیام خوانده‌نشده' : '' ?></p>
+<p style="margin-top:1rem"><a class="btn btn-primary" href="<?= e(url('/secretary/appointments?tab=new')) ?>">رزرو نوبت برای مراجعه‌کننده</a></p>
 <?= render_notifications_panel($notifications, url('/secretary/notifications/read')) ?>
 <div class="panel stack" style="margin-top:1.5rem">
   <h2 style="margin:0;font-size:1.1rem">نوبت‌های پیش‌رو</h2>

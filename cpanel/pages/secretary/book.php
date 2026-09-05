@@ -54,8 +54,8 @@ ob_start();
   </div>
 
   <div class="panel" style="background:var(--bg-soft);border-style:dashed">
-    <p style="margin:0 0 .75rem;font-weight:600">یا بیمار جدید</p>
-    <p class="muted" style="margin:0 0 .75rem;font-size:.85rem;line-height:1.7">بیمار با نام کاربری و رمز زیر می‌تواند بعداً وارد شود و نوبت بگیرد. برای پیشنهاد نام کاربری، فیلدهای انگلیسی را هم پر کنید.</p>
+    <p style="margin:0 0 .75rem;font-weight:600">یا مراجعه‌کننده جدید</p>
+    <p class="muted" style="margin:0 0 .75rem;font-size:.85rem;line-height:1.7">مراجعه‌کننده با نام کاربری و رمز زیر می‌تواند بعداً وارد شود و نوبت بگیرد. برای پیشنهاد نام کاربری، فیلدهای انگلیسی را هم پر کنید.</p>
     <div class="grid-2">
       <div>
         <label class="label" for="new_first_name">نام</label>
@@ -261,7 +261,7 @@ $secretaryBookScripts = '
     usernameHint.textContent = "";
   });
 
-  // اگر درمانگر نوبت انتخاب شد و درمانگر بیمار خالی است، همان را پیشنهاد بده
+  // اگر درمانگر نوبت انتخاب شد و درمانگر مراجعه‌کننده خالی است، همان را پیشنهاد بده
   doctorEl.addEventListener("change", function(){
     if (!patientEl.value && !preferredDoctorEl.value && doctorEl.value) {
       preferredDoctorEl.value = doctorEl.value;
@@ -441,7 +441,7 @@ $secretaryBookScripts = '
     if (!patientId) {
       if (!firstName || !lastName) {
         e.preventDefault();
-        errEl.textContent = "نام و نام خانوادگی بیمار جدید الزامی است.";
+        errEl.textContent = "نام و نام خانوادگی مراجعه‌کننده جدید الزامی است.";
         errEl.style.display = "block";
         (firstName ? lastNameEl : firstNameEl).focus();
         return;
@@ -469,7 +469,7 @@ $secretaryBookScripts = '
       }
       if (!/^[a-z0-9._-]{3,32}$/.test(newUser)) {
         e.preventDefault();
-        errEl.textContent = "نام کاربری بیمار جدید الزامی است (۳ تا ۳۲ کاراکتر انگلیسی).";
+        errEl.textContent = "نام کاربری مراجعه‌کننده جدید الزامی است (۳ تا ۳۲ کاراکتر انگلیسی).";
         errEl.style.display = "block";
         newUserEl.focus();
         return;
@@ -483,7 +483,7 @@ $secretaryBookScripts = '
       }
       if (newPass.length < 6) {
         e.preventDefault();
-        errEl.textContent = "رمز عبور بیمار جدید الزامی است و حداقل ۶ کاراکتر باشد.";
+        errEl.textContent = "رمز عبور مراجعه‌کننده جدید الزامی است و حداقل ۶ کاراکتر باشد.";
         errEl.style.display = "block";
         newPassEl.focus();
         return;

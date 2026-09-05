@@ -14,7 +14,7 @@ if (!$session || ($session['status'] ?? '') !== 'SENT') {
     redirect('/doctor/intakes');
 }
 
-$patientName = 'مراجع مهمان';
+$patientName = 'مراجعه‌کننده مهمان';
 $patientPhone = '';
 if (!empty($session['patient_id'])) {
     $st = $pdo->prepare('SELECT name, phone FROM users WHERE id=? LIMIT 1');
@@ -56,7 +56,7 @@ ob_start();
     <div class="stack" style="display:grid;gap:.5rem">
       <?php foreach ($messages as $m): ?>
         <div class="panel" style="padding:.75rem .9rem">
-          <strong><?= ($m['role'] ?? '') === 'assistant' ? 'دستیار' : 'مراجع' ?></strong>
+          <strong><?= ($m['role'] ?? '') === 'assistant' ? 'دستیار' : 'مراجعه‌کننده' ?></strong>
           <p style="margin:.35rem 0 0;line-height:1.8;white-space:pre-wrap"><?= e((string) ($m['content'] ?? '')) ?></p>
         </div>
       <?php endforeach; ?>

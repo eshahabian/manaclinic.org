@@ -13,7 +13,7 @@ function refundRate(startsAt: Date): number {
 export async function POST(req: Request) {
   const session = await getServerSession(authOptions);
   if (!session?.user || session.user.role !== "PATIENT") {
-    return NextResponse.json({ error: "لطفاً با حساب مراجع وارد شوید." }, { status: 401 });
+    return NextResponse.json({ error: "لطفاً با حساب مراجعه‌کننده وارد شوید." }, { status: 401 });
   }
 
   const body = await req.json();

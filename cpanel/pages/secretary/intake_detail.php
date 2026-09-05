@@ -43,7 +43,7 @@ ob_start();
 
 <div class="panel stack" style="margin-top:1rem">
   <div>
-    <strong>مراجع:</strong>
+    <strong>مراجعه‌کننده:</strong>
     <?= e($patient['name'] ?? '—') ?>
     <?php if (!empty($patient['phone'])): ?>
       <span class="muted"> · <?= e($patient['phone']) ?></span>

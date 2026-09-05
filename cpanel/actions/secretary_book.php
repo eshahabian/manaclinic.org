@@ -44,7 +44,7 @@ if ($patientId === '') {
         redirect('/secretary/appointments?tab=new');
     }
     if ($newUsername === '') {
-        flash_set('error', 'نام کاربری بیمار جدید الزامی است.');
+        flash_set('error', 'نام کاربری مراجعه‌کننده جدید الزامی است.');
         redirect('/secretary/appointments?tab=new');
     }
     if (!preg_match('/^[a-z0-9._-]{3,32}$/', $newUsername)) {
@@ -75,15 +75,15 @@ if ($patientId === '') {
     notify_role(
         $pdo,
         'SECRETARY',
-        'بیمار جدید توسط منشی',
-        "بیمار «{$newName}» توسط {$actorName} ثبت شد (درمانگر: {$doctorName}).",
+        'مراجعه‌کننده جدید توسط منشی',
+        "مراجعه‌کننده «{$newName}» توسط {$actorName} ثبت شد (درمانگر: {$doctorName}).",
         '/secretary/appointments'
     );
     notify_doctor_profile(
         $pdo,
         $preferredDoctorId,
-        'بیمار جدید',
-        "بیمار «{$newName}» به شما اختصاص داده شد.",
+        'مراجعه‌کننده جدید',
+        "مراجعه‌کننده «{$newName}» به شما اختصاص داده شد.",
         '/doctor/patients/' . $patientId
     );
 }
@@ -140,7 +140,7 @@ try {
 
     $patientNameStmt = $pdo->prepare('SELECT name FROM users WHERE id = ?');
     $patientNameStmt->execute([$patientId]);
-    $patientName = (string) ($patientNameStmt->fetchColumn() ?: 'بیمار');
+    $patientName = (string) ($patientNameStmt->fetchColumn() ?: 'مراجعه‌کننده');
     $when = format_fa_datetime($startsAt);
     notify_doctor_profile(
         $pdo,

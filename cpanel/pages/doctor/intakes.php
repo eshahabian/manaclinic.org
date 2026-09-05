@@ -38,7 +38,7 @@ ob_start();
         ?>
         <article class="intake-item">
           <div class="intake-item-body">
-            <strong><?= e($guest ? 'مراجع مهمان' : ((string) ($row['patient_name'] ?? 'مراجع'))) ?></strong>
+            <strong><?= e($guest ? 'مراجعه‌کننده مهمان' : ((string) ($row['patient_name'] ?? 'مراجعه‌کننده'))) ?></strong>
             <?php if (!$guest && !empty($row['patient_phone'])): ?>
               <span class="muted"> · <?= e((string) $row['patient_phone']) ?></span>
             <?php endif; ?>

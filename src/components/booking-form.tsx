@@ -68,7 +68,7 @@ export function BookingForm({
       return;
     }
     if (session?.user.role !== "PATIENT") {
-      setError("فقط مراجعان می‌توانند نوبت رزرو کنند.");
+      setError("فقط مراجعه‌کنندگان می‌توانند نوبت رزرو کنند.");
       return;
     }
     if (!selectedDate || !selectedSlot) {
