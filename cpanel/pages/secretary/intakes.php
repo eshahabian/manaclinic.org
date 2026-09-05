@@ -8,11 +8,13 @@ $user = require_login(['SECRETARY']);
 ensure_assistant_schema($pdo);
 
 $rows = $pdo->query("
-  SELECT s.*, u.name AS patient_name, u.phone AS patient_phone, du.name AS doctor_name
+  SELECT s.*, u.name AS patient_name, u.phone AS patient_phone, du.name AS doctor_name,
+         au.name AS actor_name, au.username AS actor_username
   FROM assistant_sessions s
   LEFT JOIN users u ON u.id = s.patient_id
   LEFT JOIN doctor_profiles dp ON dp.id = s.selected_doctor_id
   LEFT JOIN users du ON du.id = dp.user_id
+  LEFT JOIN users au ON au.id = s.assigned_by_user_id
   WHERE s.status = 'SENT'
   ORDER BY s.sent_at DESC, s.created_at DESC
   LIMIT 80
@@ -53,6 +55,7 @@ ob_start();
           <?php endif; ?>
         </div>
         <p style="margin:.55rem 0 0;line-height:1.8;font-size:.92rem"><?= e($summary) ?></p>
+        <?= staff_sign_html(['name' => $row['actor_name'] ?? '', 'username' => $row['actor_username'] ?? ''], 'ارجاع توسط') ?>
       </div>
       <a class="btn btn-outline" href="<?= e(url('/secretary/intakes/' . $row['id'])) ?>">مشاهده / ارجاع</a>
     </div>

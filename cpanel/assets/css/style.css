@@ -1572,3 +1572,53 @@ html[dir="ltr"] .binder-body {
   font-size: 1.05rem;
 }
 .assistant-composer { display: flex; flex-direction: column; gap: .65rem; }
+.staff-sign {
+  display: inline-flex;
+  align-items: center;
+  gap: .3rem;
+  font-size: .75rem;
+  color: #5b3d2e;
+  background: #f6ead8;
+  border: 1px dashed #c4a574;
+  border-radius: 999px;
+  padding: .18rem .7rem;
+  margin-top: .35rem;
+}
+.staff-clock {
+  margin-top: 1.15rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+  font-size: .82rem;
+  line-height: 1.6;
+}
+.staff-clock-label {
+  color: var(--muted);
+  font-size: .75rem;
+}
+.staff-clock-time,
+.staff-clock-elapsed {
+  font-weight: 700;
+  margin-bottom: .45rem;
+}
+.staff-receipt-form {
+  display: inline-flex;
+  align-items: center;
+}
+.staff-receipt-pick input {
+  display: none;
+}
+.staff-hours-table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: .9rem;
+}
+.staff-hours-table th,
+.staff-hours-table td {
+  border-bottom: 1px solid var(--line);
+  padding: .55rem .4rem;
+  text-align: right;
+}
+.staff-hours-table th {
+  color: var(--muted);
+  font-weight: 600;
+}

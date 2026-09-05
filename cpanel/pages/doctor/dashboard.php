@@ -14,9 +14,11 @@ ensure_workshop_schema($pdo);
 
 // نوبت‌های پیش‌رو
 $apptStmt = $pdo->prepare("
-  SELECT a.*, u.name AS patient_name
+  SELECT a.*, u.name AS patient_name,
+         cu.name AS actor_name, cu.username AS actor_username
   FROM appointments a
   JOIN users u ON u.id = a.patient_id
+  LEFT JOIN users cu ON cu.id = a.created_by_user_id
   WHERE a.doctor_id=? AND a.status IN ('CONFIRMED','PENDING_PAYMENT') AND a.starts_at >= NOW()
   ORDER BY a.starts_at ASC
   LIMIT 6
@@ -244,6 +246,7 @@ ob_start();
                 <div>
                   <strong><?= e((string) $a['patient_name']) ?></strong>
                   <span class="muted"><?= e(format_fa_datetime((string) $a['starts_at'])) ?></span>
+                  <?= staff_sign_html(['name' => $a['actor_name'] ?? '', 'username' => $a['actor_username'] ?? '']) ?>
                 </div>
                 <div class="doctor-dash-row-actions">
                   <span class="badge"><?= e(appointment_status_label((string) $a['status'])) ?></span>

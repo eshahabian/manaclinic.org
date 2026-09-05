@@ -9,14 +9,17 @@ function secretary_nav(): array
         ['href' => '/secretary/intakes', 'label' => 'گفتگوهای دستیار'],
         ['href' => '/secretary/workshops', 'label' => 'کارگاه‌ها'],
         ['href' => '/secretary/appointments', 'label' => 'نوبت‌ها'],
+        ['href' => '/secretary/hours', 'label' => 'ساعت کاری'],
     ];
 }
 
 function render_secretary_page(string $title, string $innerHtml): void
 {
-    global $pageScripts, $pageHead;
+    global $pageScripts, $pageHead, $pdo;
     $nav = secretary_nav();
     $pageTitle = $title;
+    $user = current_user();
+    $shift = ($user && $pdo instanceof PDO) ? staff_current_shift($pdo, (string) $user['id']) : null;
     ob_start();
     ?>
     <div class="container-page panel-layout">
@@ -27,6 +30,14 @@ function render_secretary_page(string $title, string $innerHtml): void
             <a href="<?= e(url($item['href'])) ?>"><?= e($item['label']) ?></a>
           <?php endforeach; ?>
         </nav>
+        <?php if ($shift): ?>
+          <div class="staff-clock" id="staff-clock" data-started="<?= e((string) $shift['started_at']) ?>">
+            <div class="staff-clock-label">ورود امروز</div>
+            <div class="staff-clock-time"><?= e(to_fa_digits(date('H:i', strtotime((string) $shift['started_at']) ?: time()))) ?></div>
+            <div class="staff-clock-label">مدت حضور</div>
+            <div class="staff-clock-elapsed" id="staff-clock-elapsed"><?= e(staff_format_duration(staff_shift_seconds($shift))) ?></div>
+          </div>
+        <?php endif; ?>
       </aside>
       <div><?= $innerHtml ?></div>
     </div>

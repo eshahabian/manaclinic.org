@@ -21,12 +21,12 @@ $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'es
   <?= seo_render_head() ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260904y">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260905a">
   <?php if (!empty($pageHead)): ?>
     <?= $pageHead ?>
   <?php endif; ?>
 </head>
-<body<?= $colorfulParticles ? ' data-particles="colorful"' : '' ?>>
+<body<?= $colorfulParticles ? ' data-particles="colorful"' : '' ?><?= ($user && ($user['role'] ?? '') === 'SECRETARY') ? ' data-secretary-desk="1" data-heartbeat="' . e(url('/secretary/heartbeat')) . '" data-logout="' . e(url('/logout')) . '"' : '' ?>>
 <canvas id="particle-canvas" aria-hidden="true"></canvas>
 <div class="site-layer">
   <header class="site-header">
@@ -121,6 +121,9 @@ $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'es
   </footer>
 </div>
 <script src="<?= e(url('/assets/js/particles.js')) ?>?v=20260904t"></script>
+<?php if ($user && ($user['role'] ?? '') === 'SECRETARY'): ?>
+<script src="<?= e(url('/assets/js/secretary-idle.js')) ?>?v=20260905a"></script>
+<?php endif; ?>
 <?php if (!empty($pageScripts)): ?>
   <?= $pageScripts ?>
 <?php endif; ?>

@@ -113,6 +113,14 @@ function workshop_ensure_columns(PDO $pdo): void
     if (!$hasGroupUrl) {
         $pdo->exec('ALTER TABLE workshops ADD COLUMN group_url VARCHAR(500) NULL AFTER content_url');
     }
+    $hasCreatedBy = $pdo->query("SHOW COLUMNS FROM workshops LIKE 'created_by_user_id'")->fetch();
+    if (!$hasCreatedBy) {
+        $pdo->exec('ALTER TABLE workshops ADD COLUMN created_by_user_id VARCHAR(32) NULL AFTER status');
+    }
+    $hasUpdatedBy = $pdo->query("SHOW COLUMNS FROM workshops LIKE 'updated_by_user_id'")->fetch();
+    if (!$hasUpdatedBy) {
+        $pdo->exec('ALTER TABLE workshops ADD COLUMN updated_by_user_id VARCHAR(32) NULL AFTER created_by_user_id');
+    }
     $ready = true;
 }
 

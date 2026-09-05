@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
-require_login(['SECRETARY']);
+$user = require_login(['SECRETARY']);
+$actorId = (string) $user['id'];
+$actorName = staff_actor_label($user);
 
 $patientId = post('patient_id');
 $firstName = trim(post('new_first_name'));
@@ -64,8 +66,8 @@ if ($patientId === '') {
         redirect('/secretary/book');
     }
     $patientId = cuid();
-    $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,preferred_doctor_id,must_change_password) VALUES (?,?,?,?,?,?,?,?,0)')
-        ->execute([$patientId, $newUsername, $newName, $newUsername . '@manaclinic.local', $newPhone, password_hash($newPassword, PASSWORD_DEFAULT), 'PATIENT', $preferredDoctorId]);
+    $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,preferred_doctor_id,created_by_user_id,must_change_password) VALUES (?,?,?,?,?,?,?,?,?,0)')
+        ->execute([$patientId, $newUsername, $newName, $newUsername . '@manaclinic.local', $newPhone, password_hash($newPassword, PASSWORD_DEFAULT), 'PATIENT', $preferredDoctorId, $actorId]);
 
     $docNameStmt = $pdo->prepare('SELECT u.name FROM doctor_profiles dp JOIN users u ON u.id = dp.user_id WHERE dp.id = ?');
     $docNameStmt->execute([$preferredDoctorId]);
@@ -74,7 +76,7 @@ if ($patientId === '') {
         $pdo,
         'SECRETARY',
         'بیمار جدید توسط منشی',
-        "بیمار «{$newName}» توسط منشی ثبت شد (درمانگر: {$doctorName}).",
+        "بیمار «{$newName}» توسط {$actorName} ثبت شد (درمانگر: {$doctorName}).",
         '/secretary/appointments'
     );
     notify_doctor_profile(
@@ -125,11 +127,16 @@ $appointmentId = cuid();
 $paymentId = cuid();
 $pdo->beginTransaction();
 try {
-    $pdo->prepare('INSERT INTO appointments (id,doctor_id,patient_id,starts_at,ends_at,status,notes) VALUES (?,?,?,?,?,?,?)')
-        ->execute([$appointmentId, $doctorId, $patientId, $startsAt, $endsAt, 'CONFIRMED', $notes]);
-    $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,status,ref_id) VALUES (?,?,?,?,?)')
-        ->execute([$paymentId, $appointmentId, (int)$doctor['session_price'], 'PAID', 'SECRETARY']);
+    $receiptPath = null;
+    if (!empty($_FILES['receipt']['name'])) {
+        $receiptPath = staff_save_receipt($_FILES['receipt'], $paymentId);
+    }
+    $pdo->prepare('INSERT INTO appointments (id,doctor_id,patient_id,starts_at,ends_at,status,notes,created_by_user_id) VALUES (?,?,?,?,?,?,?,?)')
+        ->execute([$appointmentId, $doctorId, $patientId, $startsAt, $endsAt, 'CONFIRMED', $notes, $actorId]);
+    $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,status,ref_id,recorded_by_user_id,receipt_path) VALUES (?,?,?,?,?,?,?)')
+        ->execute([$paymentId, $appointmentId, (int)$doctor['session_price'], 'PAID', 'SECRETARY', $actorId, $receiptPath]);
     $pdo->commit();
+    staff_log_action($pdo, $actorId, 'book_appointment', 'appointment', $appointmentId);
 
     $patientNameStmt = $pdo->prepare('SELECT name FROM users WHERE id = ?');
     $patientNameStmt->execute([$patientId]);
@@ -139,7 +146,7 @@ try {
         $pdo,
         $doctorId,
         'نوبت جدید توسط منشی',
-        "نوبت «{$patientName}» برای {$when} توسط منشی ثبت و تأیید شد.",
+        "نوبت «{$patientName}» برای {$when} توسط {$actorName} ثبت و تأیید شد.",
         '/doctor/appointments'
     );
 

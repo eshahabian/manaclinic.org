@@ -76,6 +76,14 @@ function ensure_assistant_schema(PDO $pdo): void
     } catch (Throwable $e) {
         // ignore
     }
+    try {
+        $cols = $pdo->query('SHOW COLUMNS FROM assistant_sessions LIKE \'assigned_by_user_id\'')->fetchAll();
+        if (!$cols) {
+            $pdo->exec('ALTER TABLE assistant_sessions ADD COLUMN assigned_by_user_id VARCHAR(32) NULL AFTER assigned_at');
+        }
+    } catch (Throwable $e) {
+        // ignore
+    }
     $ready = true;
 }
 

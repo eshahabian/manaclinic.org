@@ -21,6 +21,7 @@ require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/helpers.php';
 require_once __DIR__ . '/includes/name_transliterations.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/staff_desk.php';
 require_once __DIR__ . '/includes/zarinpal.php';
 require_once __DIR__ . '/includes/view.php';
 require_once __DIR__ . '/includes/notifications.php';
@@ -38,6 +39,7 @@ ensure_workshop_media_schema($pdo);
 require_once __DIR__ . '/includes/availability.php';
 ensure_availability_schema($pdo);
 ensure_assistant_schema($pdo);
+ensure_staff_desk_schema($pdo);
 
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 $base = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/\\');
@@ -103,6 +105,10 @@ $routes = [
     'POST /secretary/workshops' => 'actions/secretary_workshops.php',
     'POST /secretary/workshop-media' => 'actions/secretary_workshop_media.php',
     'GET /secretary/intakes' => 'pages/secretary/intakes.php',
+    'GET /secretary/hours' => 'pages/secretary/hours.php',
+    'POST /secretary/heartbeat' => 'actions/secretary_heartbeat.php',
+    'POST /secretary/receipt' => 'actions/secretary_receipt.php',
+    'GET /staff/receipt' => 'actions/staff_receipt_file.php',
 
     'GET /doctor' => 'pages/doctor/dashboard.php',
     'GET /doctor/intakes' => 'pages/doctor/intakes.php',
@@ -122,6 +128,7 @@ $routes = [
     'POST /doctor/articles' => 'actions/doctor_articles.php',
     'GET /doctor/patients' => 'pages/doctor/patients.php',
     'POST /doctor/notifications/read' => 'actions/doctor_notifications.php',
+    'GET /doctor/staff-hours' => 'pages/doctor/staff_hours.php',
 
     'GET /admin' => 'pages/admin/dashboard.php',
     'GET /admin/doctors' => 'pages/admin/doctors.php',

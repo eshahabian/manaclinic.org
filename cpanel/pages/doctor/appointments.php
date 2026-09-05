@@ -3,10 +3,13 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../includes/doctor_panel.php';
 $ctx = require_doctor_profile($pdo);
 $stmt = $pdo->prepare("
-  SELECT a.*, u.name AS patient_name, u.phone, u.email, p.amount, p.status AS pay_status
+  SELECT a.*, u.name AS patient_name, u.phone, u.email,
+         p.id AS payment_id, p.amount, p.status AS pay_status, p.receipt_path,
+         cu.name AS actor_name, cu.username AS actor_username
   FROM appointments a
   JOIN users u ON u.id=a.patient_id
   LEFT JOIN payments p ON p.appointment_id=a.id
+  LEFT JOIN users cu ON cu.id = a.created_by_user_id
   WHERE a.doctor_id=?
   ORDER BY a.starts_at DESC
 ");
@@ -23,6 +26,7 @@ ob_start();
         <strong><?= e($a['patient_name']) ?></strong>
         <div class="muted" style="font-size:.85rem"><?= e((string)($a['phone'] ?: $a['email'])) ?></div>
         <div style="margin-top:.35rem;font-size:.9rem"><?= e(format_fa_datetime($a['starts_at'])) ?></div>
+        <?= staff_sign_html(['name' => $a['actor_name'] ?? '', 'username' => $a['actor_username'] ?? '']) ?>
       </div>
       <div style="font-size:.85rem">
         <span class="badge"><?= e(appointment_status_label($a['status'])) ?></span>
@@ -31,7 +35,8 @@ ob_start();
         <?php endif; ?>
       </div>
     </div>
-    <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+      <?= staff_receipt_view_html($a['payment_id'] ?? null, $a['receipt_path'] ?? null, false) ?>
       <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/patients/' . $a['patient_id'])) ?>">پرونده بیمار</a>
       <?php if ($a['status'] !== 'CANCELLED'): ?>
         <form method="post" action="<?= e(url('/doctor/appointments')) ?>">

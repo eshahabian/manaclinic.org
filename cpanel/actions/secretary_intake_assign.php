@@ -17,7 +17,16 @@ if (!$session) {
 }
 
 try {
-    assistant_assign_to_doctor($pdo, $session, $doctorId, $note !== '' ? $note : null);
+    $signedNote = $note;
+    $signLine = 'امضا: ' . staff_actor_label($user);
+    $signedNote = $signedNote !== '' ? ($signedNote . "\n" . $signLine) : $signLine;
+    assistant_assign_to_doctor($pdo, $session, $doctorId, $signedNote);
+    try {
+        $pdo->prepare('UPDATE assistant_sessions SET assigned_by_user_id=? WHERE id=?')
+            ->execute([$user['id'], $id]);
+    } catch (Throwable $ignored) {
+    }
+    staff_log_action($pdo, (string) $user['id'], 'intake_assign', 'assistant_session', $id);
     flash_set('success', 'شرح‌حال به درمانگر ارجاع و در پرونده ثبت شد.');
 } catch (Throwable $e) {
     flash_set('error', $e->getMessage());

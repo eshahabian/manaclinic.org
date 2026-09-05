@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/../includes/user_cleanup.php';
-require_login(['SECRETARY', 'ADMIN']);
+$actor = require_login(['SECRETARY', 'ADMIN']);
 
 $action = post('action');
 
@@ -18,6 +18,9 @@ if ($action === 'delete_patient') {
         $pdo->beginTransaction();
         delete_user_cascade($pdo, $id);
         $pdo->commit();
+        if (($actor['role'] ?? '') === 'SECRETARY') {
+            staff_log_action($pdo, (string) $actor['id'], 'delete_patient', 'user', $id, (string) $user['name']);
+        }
         flash_set('success', 'بیمار «' . $user['name'] . '» از لیست حذف شد.');
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {

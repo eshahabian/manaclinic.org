@@ -245,7 +245,8 @@ try {
     $pdo->exec("UPDATE users SET username='admin' WHERE (username IS NULL OR username='') AND (email LIKE 'admin@%' OR role='ADMIN') LIMIT 1");
     $pdo->exec("UPDATE users SET username='doctor' WHERE (username IS NULL OR username='') AND (email LIKE 'doctor@%' OR role='DOCTOR') LIMIT 1");
     $pdo->exec("UPDATE users SET username='patient' WHERE (username IS NULL OR username='') AND (email LIKE 'patient@%' OR role='PATIENT') LIMIT 1");
-    $pdo->exec("UPDATE users SET username='secretary' WHERE (username IS NULL OR username='') AND (email LIKE 'secretary@%' OR role='SECRETARY') LIMIT 1");
+    $pdo->exec("UPDATE users SET username='secretary1' WHERE username='secretary' AND role='SECRETARY' LIMIT 1");
+    $pdo->exec("UPDATE users SET username='secretary1' WHERE (username IS NULL OR username='') AND (email LIKE 'secretary@%' OR role='SECRETARY') LIMIT 1");
     $pdo->exec("UPDATE users SET username=CONCAT('user_', SUBSTRING(id,1,8)) WHERE username IS NULL OR username=''");
     try {
         $pdo->exec("ALTER TABLE users MODIFY username VARCHAR(64) NOT NULL");
@@ -261,6 +262,7 @@ try {
     $doctorProfileId = 'dprofile001mana';
     $patientId = 'patient001mana01';
     $secretaryId = 'secretary001mana';
+    $secretary2Id = 'secretary002mana';
     $pass123 = password_hash('123', PASSWORD_DEFAULT);
     $bio = "مشاوره تخصصی: فردی، خانواده (پیش از ازدواج و زناشویی)، کودک و نوجوان، تحصیلی و شغلی\nروان‌درمانی: درمان اضطراب، افسردگی و وسواس";
 
@@ -291,7 +293,8 @@ try {
     $upsertUser($adminId, 'admin', 'مدیر سایت', 'ADMIN', '09120000000');
     $upsertUser($doctorUserId, 'doctor', 'دکتر شیوا گرانمایه پور', 'DOCTOR', '09121111111');
     $upsertUser($patientId, 'patient', 'علی رضایی', 'PATIENT', '09123333333');
-    $upsertUser($secretaryId, 'secretary', 'منشی کلینیک', 'SECRETARY', '09124444444');
+    $upsertUser($secretaryId, 'secretary1', 'منشی ۱', 'SECRETARY', '09124444444');
+    $upsertUser($secretary2Id, 'secretary2', 'منشی ۲', 'SECRETARY', '09124444445');
 
     $doctorRow = $pdo->query("SELECT id FROM users WHERE username='doctor' LIMIT 1")->fetch();
     if ($doctorRow) {
@@ -360,6 +363,9 @@ try {
         ensure_wallet($pdo, (string) $u['id']);
     }
 
+    require_once __DIR__ . '/includes/staff_desk.php';
+    ensure_staff_desk_schema($pdo);
+
     $ok = true;
 } catch (Throwable $e) {
     $error = $e->getMessage();
@@ -388,7 +394,8 @@ try {
         <li>ادمین: <code>admin</code></li>
         <li>دکتر: <code>doctor</code></li>
         <li>بیمار: <code>patient</code></li>
-        <li>منشی: <code>secretary</code></li>
+        <li>منشی ۱: <code>secretary1</code></li>
+        <li>منشی ۲: <code>secretary2</code> (رمز اولیه <code>123</code> — باید عوض شود)</li>
       </ul>
       <p>اگر قبلاً رمز را عوض کرده بودید، همان رمز جدیدتان معتبر است و ریست نشده.</p>
       <?php if (!empty($resetPasswords)): ?>

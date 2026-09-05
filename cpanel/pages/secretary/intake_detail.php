@@ -31,6 +31,10 @@ $doctors = $pdo->query("
 
 $matched = json_decode((string) ($session['matched_doctors_json'] ?? '[]'), true) ?: [];
 $assigned = !empty($session['assigned_at']);
+$assignedBy = null;
+if (!empty($session['assigned_by_user_id'])) {
+    $assignedBy = staff_user_by_id($pdo, (string) $session['assigned_by_user_id']);
+}
 
 ob_start();
 ?>
@@ -69,7 +73,10 @@ ob_start();
 <?php endif; ?>
 
 <?php if ($assigned): ?>
-  <div class="flash flash-success" style="margin-top:1rem">این گفتگو قبلاً ارجاع شده است.</div>
+  <div class="flash flash-success" style="margin-top:1rem">
+    این گفتگو قبلاً ارجاع شده است.
+    <?= staff_sign_html($assignedBy, 'ارجاع توسط') ?>
+  </div>
 <?php else: ?>
   <form class="panel stack" method="post" action="<?= e(url('/secretary/intakes/' . $session['id'] . '/assign')) ?>" style="margin-top:1rem">
     <h2 style="margin:0;font-size:1.05rem">ارجاع به درمانگر</h2>

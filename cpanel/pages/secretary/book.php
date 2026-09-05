@@ -41,7 +41,7 @@ ob_start();
 <h1>رزرو نوبت برای بیمار</h1>
 <p class="muted">ابتدا دکتر را انتخاب کنید؛ فقط روزهایی که دکتر وقت خالی گذاشته قابل انتخاب هستند.</p>
 
-<form class="panel form-stack" method="post" action="<?= e(url('/secretary/book')) ?>" id="secretary-book-form" style="margin-top:1rem;max-width:44rem">
+<form class="panel form-stack" method="post" action="<?= e(url('/secretary/book')) ?>" id="secretary-book-form" style="margin-top:1rem;max-width:44rem" enctype="multipart/form-data">
   <div>
     <label class="label">بیمار موجود</label>
     <select class="input" name="patient_id" id="patient_id">
@@ -134,6 +134,12 @@ ob_start();
   <div>
     <label class="label">یادداشت (اختیاری)</label>
     <textarea class="input" name="notes" rows="3"></textarea>
+  </div>
+
+  <div>
+    <label class="label" for="receipt">فیش واریزی (اختیاری)</label>
+    <input class="input" type="file" name="receipt" id="receipt" accept="image/jpeg,image/png,image/webp,application/pdf">
+    <p class="muted" style="margin:.4rem 0 0;font-size:.8rem">تصویر یا PDF تا ۵ مگابایت. بعداً هم می‌توانید از صفحه نوبت‌ها آپلود کنید.</p>
   </div>
 
   <p id="sec-error" style="color:var(--danger);display:none;font-size:.9rem"></p>

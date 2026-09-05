@@ -16,6 +16,7 @@ function doctor_nav(): array
         ['type' => 'link', 'href' => '/doctor/workshops', 'label' => 'کارگاه‌ها'],
         ['type' => 'link', 'href' => '/doctor/articles', 'label' => 'مقالات'],
         ['type' => 'group', 'label' => 'حساب'],
+        ['type' => 'link', 'href' => '/doctor/staff-hours', 'label' => 'ساعت کاری منشی‌ها'],
         ['type' => 'link', 'href' => '/doctor/profile', 'label' => 'پروفایل حرفه‌ای'],
     ];
 }

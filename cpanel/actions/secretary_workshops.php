@@ -91,7 +91,10 @@ if ($action === 'create') {
         if (workshop_is_offline($data['type']) && workshop_media_count($pdo, $id) < 1) {
             throw new RuntimeException('برای دوره آفلاین حداقل یک ویدیو یا فایل صوتی بارگذاری کنید.');
         }
+        $pdo->prepare('UPDATE workshops SET created_by_user_id=?, updated_by_user_id=? WHERE id=?')
+            ->execute([$user['id'], $user['id'], $id]);
         $pdo->commit();
+        staff_log_action($pdo, (string) $user['id'], 'workshop_create', 'workshop', $id);
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
@@ -114,7 +117,7 @@ if ($action === 'create') {
         $pdo,
         (string) $doctor['id'],
         'کارگاه جدید برای شما',
-        "منشی کارگاه «{$data['title']}» را به نام شما ثبت کرد.",
+        staff_actor_label($user) . " کارگاه «{$data['title']}» را به نام شما ثبت کرد.",
         '/doctor/workshops'
     );
 
@@ -178,7 +181,10 @@ if ($action === 'update') {
         if (workshop_is_offline($data['type']) && workshop_media_count($pdo, $id) < 1) {
             throw new RuntimeException('دوره آفلاین باید حداقل یک ویدیو یا فایل صوتی داشته باشد.');
         }
+        $pdo->prepare('UPDATE workshops SET updated_by_user_id=? WHERE id=?')
+            ->execute([$user['id'], $id]);
         $pdo->commit();
+        staff_log_action($pdo, (string) $user['id'], 'workshop_update', 'workshop', $id);
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
@@ -208,8 +214,9 @@ if ($action === 'toggle') {
     $row->execute([$id]);
     $workshopRow = $row->fetch();
     $pub = !(bool) $workshopRow['is_published'];
-    $pdo->prepare('UPDATE workshops SET is_published=?, status=? WHERE id=?')
-        ->execute([$pub ? 1 : 0, $pub ? 'PUBLISHED' : 'DRAFT', $id]);
+    $pdo->prepare('UPDATE workshops SET is_published=?, status=?, updated_by_user_id=? WHERE id=?')
+        ->execute([$pub ? 1 : 0, $pub ? 'PUBLISHED' : 'DRAFT', $user['id'], $id]);
+    staff_log_action($pdo, (string) $user['id'], $pub ? 'workshop_publish' : 'workshop_unpublish', 'workshop', $id);
     if ($pub) {
         $docName = $pdo->prepare('SELECT u.name FROM doctor_profiles dp JOIN users u ON u.id=dp.user_id WHERE dp.id=?');
         $docName->execute([$workshopRow['doctor_id']]);
@@ -228,10 +235,12 @@ if ($action === 'toggle') {
     $row = $pdo->prepare('SELECT enrollment_open FROM workshops WHERE id=?');
     $row->execute([$id]);
     $open = !(bool) $row->fetchColumn();
-    $pdo->prepare('UPDATE workshops SET enrollment_open=? WHERE id=?')->execute([$open ? 1 : 0, $id]);
+    $pdo->prepare('UPDATE workshops SET enrollment_open=?, updated_by_user_id=? WHERE id=?')->execute([$open ? 1 : 0, $user['id'], $id]);
+    staff_log_action($pdo, (string) $user['id'], $open ? 'workshop_enroll_open' : 'workshop_enroll_close', 'workshop', $id);
     flash_set('success', $open ? 'ثبت‌نام باز شد.' : 'ثبت‌نام بسته شد.');
 } elseif ($action === 'delete') {
     $pdo->prepare('DELETE FROM workshops WHERE id=?')->execute([$id]);
+    staff_log_action($pdo, (string) $user['id'], 'workshop_delete', 'workshop', $id);
     flash_set('success', 'کارگاه حذف شد.');
 }
 

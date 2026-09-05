@@ -68,4 +68,11 @@ function db_ensure_schema(PDO $pdo): void
         ensure_name_transliterations_schema($pdo);
     } catch (Throwable $ignored) {
     }
+
+    if (function_exists('ensure_staff_desk_schema')) {
+        try {
+            ensure_staff_desk_schema($pdo);
+        } catch (Throwable $ignored) {
+        }
+    }
 }

@@ -24,6 +24,7 @@ if ($editId !== '') {
 
 $workshops = $pdo->query('
   SELECT w.*, u.name AS doctor_name,
+    cu.name AS created_by_name, cu.username AS created_by_username,
     (SELECT COUNT(*) FROM workshop_enrollments e
      WHERE e.workshop_id = w.id AND e.status IN ("PENDING_PAYMENT","CONFIRMED","COMPLETED")) AS enrolled_count,
     (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = "VIDEO") AS video_count,
@@ -31,6 +32,7 @@ $workshops = $pdo->query('
   FROM workshops w
   JOIN doctor_profiles dp ON dp.id = w.doctor_id
   JOIN users u ON u.id = dp.user_id
+  LEFT JOIN users cu ON cu.id = w.created_by_user_id
   ORDER BY w.created_at DESC
 ')->fetchAll();
 

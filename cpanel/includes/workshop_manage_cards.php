@@ -26,6 +26,7 @@ $workshopMediaPost = $workshopRole === 'secretary' ? '/secretary/workshop-media'
             <?php if ($workshopRole === 'secretary' && !empty($workshop['doctor_name'])): ?>
               <div class="muted" style="font-size:.85rem;margin-top:.35rem">درمانگر: <?= e($workshop['doctor_name']) ?></div>
             <?php endif; ?>
+            <?= staff_sign_html(['name' => $workshop['created_by_name'] ?? '', 'username' => $workshop['created_by_username'] ?? '']) ?>
             <?php $workshopMediaStats = workshop_media_counts_html(workshop_media_counts_from_row($workshop)); if ($workshopMediaStats): ?>
               <div style="margin-top:.4rem"><?= $workshopMediaStats ?></div>
             <?php endif; ?>

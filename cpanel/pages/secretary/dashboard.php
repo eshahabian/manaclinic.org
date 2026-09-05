@@ -4,11 +4,13 @@ require_once __DIR__ . '/../../includes/secretary_panel.php';
 $user = require_login(['SECRETARY']);
 
 $upcoming = $pdo->query("
-  SELECT a.*, pu.name AS patient_name, du.name AS doctor_name
+  SELECT a.*, pu.name AS patient_name, du.name AS doctor_name,
+         cu.name AS actor_name, cu.username AS actor_username
   FROM appointments a
   JOIN users pu ON pu.id = a.patient_id
   JOIN doctor_profiles dp ON dp.id = a.doctor_id
   JOIN users du ON du.id = dp.user_id
+  LEFT JOIN users cu ON cu.id = a.created_by_user_id
   WHERE a.starts_at >= NOW() AND a.status IN ('CONFIRMED','PENDING_PAYMENT')
   ORDER BY a.starts_at ASC
   LIMIT 8
@@ -31,6 +33,7 @@ ob_start();
         <strong><?= e($a['patient_name']) ?></strong>
         <div class="muted" style="font-size:.85rem">دکتر: <?= e($a['doctor_name']) ?></div>
         <div style="font-size:.85rem;margin-top:.25rem"><?= e(format_fa_datetime($a['starts_at'])) ?></div>
+        <?= staff_sign_html(['name' => $a['actor_name'] ?? '', 'username' => $a['actor_username'] ?? '']) ?>
       </div>
       <span class="badge"><?= e(appointment_status_label($a['status'])) ?></span>
     </div>
