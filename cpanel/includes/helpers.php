@@ -30,7 +30,7 @@ function url(string $path = '/'): string
 
 function format_price(int $amount): string
 {
-    return number_format($amount) . ' تومان';
+    return to_fa_digits(number_format($amount)) . ' تومان';
 }
 
 function slugify(string $text): string
@@ -102,9 +102,15 @@ function format_fa_datetime(string $datetime): string
 {
     $ts = strtotime($datetime);
     if (!$ts) {
-        return $datetime;
+        return to_fa_digits($datetime);
     }
-    return date('Y/m/d H:i', $ts);
+    $parts = explode('-', date('Y-m-d', $ts));
+    if (count($parts) !== 3) {
+        return to_fa_digits(date('Y/m/d H:i', $ts));
+    }
+    [$gy, $gm, $gd] = array_map('intval', $parts);
+    [$jy, $jm, $jd] = gregorian_to_jalali($gy, $gm, $gd);
+    return to_fa_digits(sprintf('%04d/%02d/%02d %s', $jy, $jm, $jd, date('H:i', $ts)));
 }
 
 /** تاریخ و ساعت کارگاه با تقویم شمسی */

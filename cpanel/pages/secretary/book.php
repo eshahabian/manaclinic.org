@@ -84,7 +84,7 @@ ob_start();
       </div>
       <div style="grid-column:1/-1">
         <label class="label" for="new_phone">موبایل</label>
-        <input class="input" name="new_phone" id="new_phone" dir="ltr" placeholder="09..." pattern="09[0-9]{9}" title="شماره موبایل ۱۱ رقمی با ۰۹">
+        <input class="input" name="new_phone" id="new_phone" dir="ltr" placeholder="۰۹..." pattern="[0-9۰-۹٠-٩]{11}" title="شماره موبایل ۱۱ رقمی با ۰۹">
       </div>
       <div style="grid-column:1/-1">
         <label class="label" for="new_username">نام کاربری</label>
@@ -453,7 +453,7 @@ $secretaryBookScripts = '
         preferredDoctorEl.focus();
         return;
       }
-      if (!/^09[0-9]{9}$/.test(newPhoneEl.value.trim())) {
+      if (!/^09[0-9]{9}$/.test(faToEn(newPhoneEl.value.trim()))) {
         e.preventDefault();
         errEl.textContent = "موبایل الزامی است و باید ۱۱ رقم با ۰۹ باشد.";
         errEl.style.display = "block";

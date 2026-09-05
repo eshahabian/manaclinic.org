@@ -32,7 +32,7 @@ function render_secretary_page(string $title, string $innerHtml): void
         <?php if ($shift): ?>
           <div class="staff-clock" id="staff-clock" data-started="<?= e((string) $shift['started_at']) ?>">
             <div class="staff-clock-label">ورود امروز</div>
-            <div class="staff-clock-time"><?= e(to_fa_digits(date('H:i', strtotime((string) $shift['started_at']) ?: time()))) ?></div>
+            <div class="staff-clock-time"><?= e(format_fa_datetime((string) $shift['started_at'])) ?></div>
             <div class="staff-clock-label">مدت حضور</div>
             <div class="staff-clock-elapsed" id="staff-clock-elapsed"><?= e(staff_format_duration(staff_shift_seconds($shift))) ?></div>
           </div>

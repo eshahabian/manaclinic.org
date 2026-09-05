@@ -21,10 +21,35 @@
   }
 
   function faDigits(value) {
-    return String(value).replace(/[0-9]/g, function (d) {
-      return "۰۱۲۳۴۵۶۷۸۹"[d];
-    });
+    return String(value)
+      .replace(/[0-9]/g, function (d) {
+        return "۰۱۲۳۴۵۶۷۸۹"[d];
+      })
+      .replace(/[٠-٩]/g, function (d) {
+        return "۰۱۲۳۴۵۶۷۸۹"["٠١٢٣٤٥٦٧٨٩".indexOf(d)];
+      });
   }
+
+  function keepLatinDigits(el) {
+    if (!el || !el.matches) return true;
+    if (el.matches("[data-latin-digits], [lang='en'], [type='password'], [type='hidden'], [type='file'], [type='email']")) return true;
+    var name = String(el.name || el.id || "");
+    return /username|password|email|name_en|surname|sec-date$|sec-time$/.test(name);
+  }
+
+  document.addEventListener("input", function (e) {
+    var el = e.target;
+    if (!el || el.value == null || keepLatinDigits(el)) return;
+    if (!/[0-9٠-٩]/.test(el.value)) return;
+    var start = el.selectionStart;
+    var end = el.selectionEnd;
+    var next = faDigits(el.value);
+    if (next === el.value) return;
+    el.value = next;
+    if (typeof start === "number" && el.setSelectionRange) {
+      try { el.setSelectionRange(start, end); } catch (err) {}
+    }
+  }, true);
 
   function formatDuration(seconds) {
     seconds = Math.max(0, seconds | 0);

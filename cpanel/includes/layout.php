@@ -122,7 +122,7 @@ $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'es
 </div>
 <script src="<?= e(url('/assets/js/particles.js')) ?>?v=20260904t"></script>
 <?php if ($user && ($user['role'] ?? '') === 'SECRETARY'): ?>
-<script src="<?= e(url('/assets/js/secretary-idle.js')) ?>?v=20260905a"></script>
+<script src="<?= e(url('/assets/js/secretary-idle.js')) ?>?v=20260905c"></script>
 <?php endif; ?>
 <?php if (!empty($pageScripts)): ?>
   <?= $pageScripts ?>

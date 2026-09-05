@@ -58,7 +58,7 @@ ob_start();
         </div>
       </div>
       <?php if ($block['open']): ?>
-        <span class="badge">آنلاین از <?= e(to_fa_digits(date('H:i', strtotime((string) $block['open']['started_at']) ?: time()))) ?></span>
+        <span class="badge">آنلاین از <?= e(format_fa_datetime((string) $block['open']['started_at'])) ?></span>
       <?php else: ?>
         <span class="badge">آفلاین</span>
       <?php endif; ?>
