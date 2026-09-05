@@ -245,14 +245,9 @@ function binder_month_tab_meta(int $month): array
     return $cycle[$index];
 }
 
-/** سال و ماه شمسی از یک تاریخ میلادی */
-function jalali_month_meta_from_datetime(string $datetime): ?array
+/** سال و ماه شمسی از شماره ماه */
+function jalali_month_meta_from_parts(int $jy, int $jm): array
 {
-    $ts = strtotime($datetime);
-    if (!$ts) {
-        return null;
-    }
-    [$jy, $jm] = gregorian_to_jalali((int) date('Y', $ts), (int) date('n', $ts), (int) date('j', $ts));
     $months = jalali_month_names();
     $style = binder_month_tab_meta($jm);
     return [
@@ -267,6 +262,17 @@ function jalali_month_meta_from_datetime(string $datetime): ?array
         'class' => $style['class'],
         'tone' => $style['tone'],
     ];
+}
+
+/** سال و ماه شمسی از یک تاریخ میلادی */
+function jalali_month_meta_from_datetime(string $datetime): ?array
+{
+    $ts = strtotime($datetime);
+    if (!$ts) {
+        return null;
+    }
+    [$jy, $jm] = gregorian_to_jalali((int) date('Y', $ts), (int) date('n', $ts), (int) date('j', $ts));
+    return jalali_month_meta_from_parts($jy, $jm);
 }
 
 function jalali_current_month_meta(): array
@@ -286,13 +292,13 @@ function jalali_current_month_meta(): array
 }
 
 /**
- * گروه‌بندی نوبت‌ها بر اساس ماه شمسی (جدیدترین ماه اول).
- * ماه جاری همیشه هست، حتی اگر خالی باشد.
+ * گروه‌بندی نوبت‌ها بر اساس ماه شمسی.
+ * از ماه جاری تا اسفند همان سال همیشه تب هست.
  *
  * @param array<int, array<string, mixed>> $appointments
  * @return array{months: array<string, array<string, mixed>>, default_id: string}
  */
-function group_appointments_by_jalali_month(array $appointments): array
+function group_appointments_by_jalali_month(array $appointments, bool $fillRestOfYear = true): array
 {
     $current = jalali_current_month_meta();
     $months = [];
@@ -303,15 +309,31 @@ function group_appointments_by_jalali_month(array $appointments): array
         }
         $id = $meta['id'];
         if (!isset($months[$id])) {
-            $months[$id] = $meta + ['items' => []];
+            $months[$id] = $meta + ['items' => [], 'open_slots' => []];
         }
         $months[$id]['items'][] = $appointment;
     }
-    if (!isset($months[$current['id']])) {
-        $months[$current['id']] = $current + ['items' => []];
+    if ($fillRestOfYear) {
+        $jy = (int) ($current['year'] ?? 0);
+        $from = (int) ($current['month'] ?? 1);
+        for ($jm = $from; $jm <= 12; $jm++) {
+            $meta = jalali_month_meta_from_parts($jy, $jm);
+            if (!isset($months[$meta['id']])) {
+                $months[$meta['id']] = $meta + ['items' => [], 'open_slots' => []];
+            } elseif (!isset($months[$meta['id']]['open_slots'])) {
+                $months[$meta['id']]['open_slots'] = [];
+            }
+        }
+    } elseif (!isset($months[$current['id']])) {
+        $months[$current['id']] = $current + ['items' => [], 'open_slots' => []];
+    }
+    foreach ($months as $id => $bucket) {
+        if (!isset($months[$id]['open_slots'])) {
+            $months[$id]['open_slots'] = [];
+        }
     }
     uasort($months, static function (array $a, array $b): int {
-        return ((int) $b['sort']) <=> ((int) $a['sort']);
+        return ((int) $a['sort']) <=> ((int) $b['sort']);
     });
 
     $nameCounts = [];
@@ -327,13 +349,8 @@ function group_appointments_by_jalali_month(array $appointments): array
     }
 
     $defaultId = $current['id'];
-    if (empty($months[$defaultId]['items'])) {
-        foreach ($months as $id => $bucket) {
-            if (!empty($bucket['items'])) {
-                $defaultId = $id;
-                break;
-            }
-        }
+    if (!isset($months[$defaultId]) && $months) {
+        $defaultId = (string) array_key_first($months);
     }
 
     return ['months' => $months, 'default_id' => $defaultId];
@@ -620,4 +637,70 @@ function gregorian_to_jalali(int $gy, int $gm, int $gd): array
         $jd = 1 + (($days - 186) % 30);
     }
     return [$jy, $jm, $jd];
+}
+
+function jalali_to_gregorian(int $jy, int $jm, int $jd): array
+{
+    $jy += 1595;
+    $days = -355668 + (365 * $jy) + (intdiv($jy, 33) * 8) + intdiv((($jy % 33) + 3), 4)
+        + $jd + (($jm < 7) ? (($jm - 1) * 31) : ((($jm - 7) * 30) + 186));
+    $gy = 400 * intdiv($days, 146097);
+    $days %= 146097;
+    if ($days > 36524) {
+        $gy += 100 * intdiv(--$days, 36524);
+        $days %= 36524;
+        if ($days >= 365) {
+            $days++;
+        }
+    }
+    $gy += 4 * intdiv($days, 1461);
+    $days %= 1461;
+    if ($days > 365) {
+        $gy += intdiv($days - 1, 365);
+        $days = ($days - 1) % 365;
+    }
+    $gd = $days + 1;
+    $leap = (($gy % 4 === 0 && $gy % 100 !== 0) || ($gy % 400 === 0)) ? 29 : 28;
+    $salA = [0, 31, $leap, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
+    $gm = 1;
+    while ($gm < 13 && $gd > $salA[$gm]) {
+        $gd -= $salA[$gm];
+        $gm++;
+    }
+    return [$gy, $gm, $gd];
+}
+
+function jalali_month_length(int $jy, int $jm): int
+{
+    if ($jm <= 6) {
+        return 31;
+    }
+    if ($jm <= 11) {
+        return 30;
+    }
+    [$gy, $gm, $gd] = jalali_to_gregorian($jy, 12, 30);
+    [$backY, $backM, $backD] = gregorian_to_jalali($gy, $gm, $gd);
+    return ($backY === $jy && $backM === 12 && $backD === 30) ? 30 : 29;
+}
+
+function jalali_ymd(int $jy, int $jm, int $jd): string
+{
+    [$gy, $gm, $gd] = jalali_to_gregorian($jy, $jm, $jd);
+    return sprintf('%04d-%02d-%02d', $gy, $gm, $gd);
+}
+
+/** بازه میلادی از اول ماه جاری شمسی تا آخر اسفند همان سال */
+function jalali_remaining_year_gregorian_range(): array
+{
+    $current = jalali_current_month_meta();
+    $jy = (int) ($current['year'] ?? 0);
+    $jm = (int) ($current['month'] ?? 1);
+    if ($jy < 1) {
+        $today = date('Y-m-d');
+        return ['start' => $today, 'end' => $today];
+    }
+    return [
+        'start' => jalali_ymd($jy, $jm, 1),
+        'end' => jalali_ymd($jy, 12, jalali_month_length($jy, 12)),
+    ];
 }

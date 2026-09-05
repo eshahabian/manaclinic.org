@@ -32,7 +32,7 @@ $defaultTone = (string) (($monthGroups[$defaultMonthId]['tone'] ?? 'in-person'))
         data-binder-tone="<?= e((string) ($bucket['tone'] ?? 'in-person')) ?>"
         aria-selected="<?= $defaultMonthId === $id ? 'true' : 'false' ?>">
         <?= e((string) ($bucket['tab_label'] ?? $bucket['short'] ?? $bucket['label'] ?? $id)) ?>
-        <span class="binder-tab-count"><?= count($bucket['items'] ?? []) ?></span>
+        <span class="binder-tab-count"><?= count($bucket['items'] ?? []) + count($bucket['open_slots'] ?? []) ?></span>
       </button>
     <?php endforeach; ?>
   </div>
@@ -40,9 +40,12 @@ $defaultTone = (string) (($monthGroups[$defaultMonthId]['tone'] ?? 'in-person'))
     <?php foreach ($monthGroups as $id => $bucket): ?>
       <section class="binder-panel<?= $defaultMonthId === $id ? ' is-active' : '' ?>" data-binder-panel="<?= e((string) $id) ?>" role="tabpanel"<?= $defaultMonthId === $id ? '' : ' hidden' ?>>
         <h2 class="binder-sub" style="margin-top:0"><?= e((string) ($bucket['label'] ?? '')) ?></h2>
+        <h3 class="binder-sub" style="margin-top:.35rem">نوبت‌های شما</h3>
         <?php
           $appointmentList = $bucket['items'] ?? [];
           require __DIR__ . '/patient_appointment_items.php';
+          $openSlots = $bucket['open_slots'] ?? [];
+          require __DIR__ . '/patient_open_slots.php';
         ?>
       </section>
     <?php endforeach; ?>

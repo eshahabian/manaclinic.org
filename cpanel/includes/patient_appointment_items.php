@@ -8,7 +8,7 @@ $appointmentList = $appointmentList ?? [];
 $appointmentItemMode = $appointmentItemMode ?? 'simple';
 ?>
 <?php if (!$appointmentList): ?>
-  <p class="muted binder-empty">در این ماه نوبتی ندارید.</p>
+  <p class="muted binder-empty">در این ماه نوبت رزروشده‌ای ندارید.</p>
 <?php else: ?>
   <div class="stack">
     <?php foreach ($appointmentList as $a): ?>

@@ -5,6 +5,7 @@ $user = require_login(['PATIENT']);
 require_once __DIR__ . '/../../includes/patient_panel.php';
 require_once __DIR__ . '/../../includes/booking_terms.php';
 require_once __DIR__ . '/../../includes/appointment_cancel.php';
+require_once __DIR__ . '/../../includes/availability.php';
 
 $stmt = $pdo->prepare("
   SELECT a.*, u.name AS doctor_name, dp.specialty, p.amount, p.status AS pay_status, p.ref_id
@@ -17,20 +18,13 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute([$user['id']]);
 $appointments = $stmt->fetchAll();
-$monthPack = group_appointments_by_jalali_month($appointments);
+$monthPack = patient_month_groups_with_open_slots($pdo, $appointments, (string) ($user['preferred_doctor_id'] ?? ''));
 $monthGroups = $monthPack['months'];
 $defaultMonthId = $monthPack['default_id'];
 $booked = isset($_GET['booked']);
 $payUrl = url('/dashboard/pay');
 $cancelUrl = url('/cancel-appointment');
 $flashSuccess = flash_get();
-$hasPendingPay = false;
-foreach ($appointments as $a) {
-    if ($a['status'] === 'PENDING_PAYMENT' && ($a['pay_status'] ?? '') === 'PENDING') {
-        $hasPendingPay = true;
-        break;
-    }
-}
 
 ob_start();
 ?>
@@ -48,33 +42,33 @@ ob_start();
       نوبت با موفقیت ثبت شد. برای پرداخت، شرایط را بپذیرید و روی «پرداخت آنلاین» کلیک کنید.
     </div>
   <?php endif; ?>
-  <?php if ($hasPendingPay): ?>
-    <?= booking_terms_acceptance_html('terms-accept-pay') ?>
-  <?php endif; ?>
   <?php if ($flashSuccess): ?>
     <div class="panel" style="border-color:var(--success);color:var(--success);font-size:.9rem"><?= e($flashSuccess['message']) ?></div>
   <?php endif; ?>
   <p id="pay-error" style="color:var(--danger);font-size:.9rem;display:none"></p>
   <p id="cancel-msg" style="font-size:.9rem;display:none"></p>
+  <p id="dash-book-msg" class="course-flash" style="display:none" role="status"></p>
+  <?= booking_terms_acceptance_html('terms-accept-dash') ?>
+  <div data-patient-book data-book-url="<?= e(url('/book')) ?>" data-after-url="<?= e(url('/dashboard/appointments?booked=1')) ?>" data-terms-id="terms-accept-dash">
   <?php
     $monthBinderNested = false;
     $appointmentItemMode = 'manage';
     $monthBinderAria = 'انتخاب ماه نوبت';
     require __DIR__ . '/../../includes/patient_appointments_month_binder.php';
   ?>
+  </div>
 </div>
-<?php if ($hasPendingPay): ?>
 <?= booking_terms_modal_html('terms-modal') ?>
 <?= booking_terms_styles() ?>
-<?php endif; ?>
 <script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260904u"></script>
+<script src="<?= e(url('/assets/js/patient-book-slots.js')) ?>?v=20260904y"></script>
 <script>
 (function(){
   var payUrl = <?= json_encode($payUrl, JSON_UNESCAPED_UNICODE) ?>;
   var cancelUrl = <?= json_encode($cancelUrl, JSON_UNESCAPED_UNICODE) ?>;
   var errEl = document.getElementById("pay-error");
   var cancelMsgEl = document.getElementById("cancel-msg");
-  var termsCb = document.getElementById("terms-accept-pay");
+  var termsCb = document.getElementById("terms-accept-dash");
   document.querySelectorAll(".pay-btn").forEach(function(btn){
     btn.onclick = function(){
       errEl.style.display = "none";
@@ -136,8 +130,6 @@ ob_start();
   });
 })();
 </script>
-<?php if ($hasPendingPay): ?>
-<?= booking_terms_script('terms-accept-pay', '.pay-btn') ?>
-<?php endif; ?>
+<?= booking_terms_script('terms-accept-dash', '.pay-btn, .dash-book-btn') ?>
 <?php
 render_patient_page('نوبت‌های من', ob_get_clean());

@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 $user = require_login(['PATIENT']);
 require_once __DIR__ . '/../../includes/patient_panel.php';
+require_once __DIR__ . '/../../includes/booking_terms.php';
+require_once __DIR__ . '/../../includes/availability.php';
 
 $stmt = $pdo->prepare("
   SELECT a.*, u.name AS doctor_name
@@ -14,7 +16,7 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute([$user['id']]);
 $appointments = $stmt->fetchAll();
-$monthPack = group_appointments_by_jalali_month($appointments);
+$monthPack = patient_month_groups_with_open_slots($pdo, $appointments, (string) ($user['preferred_doctor_id'] ?? ''));
 $monthGroups = $monthPack['months'];
 $defaultMonthId = $monthPack['default_id'];
 
@@ -35,6 +37,7 @@ ob_start();
   <h1>سلام <?= e($user['name']) ?></h1>
   <p class="muted">نوبت‌ها را ماه‌به‌ماه ببینید و کارگاه‌ها را از تب رنگی ثبت‌نام کنید.</p>
   <p id="course-msg" class="course-flash" style="display:none" role="status"></p>
+  <p id="dash-book-msg" class="course-flash" style="display:none" role="status"></p>
 
   <div class="binder-tile binder-tile--patient-dash" data-binder-tabs data-binder-initial="<?= e($outerInitial) ?>" data-binder-tone="<?= e($outerInitial) ?>">
     <div class="binder-tabs" role="tablist" aria-label="بخش‌های پنل">
@@ -55,12 +58,15 @@ ob_start();
             <a class="btn btn-primary btn-sm" href="<?= e(url('/doctors')) ?>">رزرو جدید</a>
           </div>
         </div>
+        <?= booking_terms_acceptance_html('terms-accept-dash') ?>
+        <div data-patient-book data-book-url="<?= e(url('/book')) ?>" data-after-url="<?= e(url('/dashboard/appointments?booked=1')) ?>" data-terms-id="terms-accept-dash">
         <?php
           $monthBinderNested = true;
           $appointmentItemMode = 'simple';
           $monthBinderAria = 'انتخاب ماه نوبت';
           require __DIR__ . '/../../includes/patient_appointments_month_binder.php';
         ?>
+        </div>
       </section>
 
       <section class="binder-panel<?= $outerInitial === 'workshops' ? ' is-active' : '' ?>" data-binder-panel="workshops" role="tabpanel"<?= $outerInitial === 'workshops' ? '' : ' hidden' ?>>
@@ -80,9 +86,13 @@ ob_start();
     </div>
   </div>
 </div>
+<?= booking_terms_modal_html() ?>
+<?= booking_terms_styles() ?>
 <?php
 $dashContent = ob_get_clean();
 $GLOBALS['pageScripts'] = '
 <script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260904u"></script>
-<script src="' . e(url('/assets/js/patient-courses.js')) . '?v=20260904u"></script>';
+<script src="' . e(url('/assets/js/patient-courses.js')) . '?v=20260904u"></script>
+<script src="' . e(url('/assets/js/patient-book-slots.js')) . '?v=20260904y"></script>'
+  . booking_terms_script('terms-accept-dash', '.dash-book-btn');
 render_patient_page('پنل مراجع', $dashContent);
