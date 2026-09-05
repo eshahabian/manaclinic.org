@@ -1966,3 +1966,39 @@ html[dir="ltr"] .binder-body {
   gap: .45rem;
   align-items: flex-start;
 }
+.staff-hours-toolbar {
+  display: flex;
+  flex-direction: column;
+  gap: .85rem;
+  margin-top: 1rem;
+}
+.staff-hours-export {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem;
+}
+.staff-hours-alias {
+  background: var(--bg-soft);
+  border-radius: .8rem;
+  padding: .85rem 1rem;
+}
+.staff-hours-alias-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .65rem;
+  align-items: flex-end;
+}
+.staff-hours-alias-row label {
+  display: grid;
+  gap: .3rem;
+  font-size: .8rem;
+  color: var(--muted, #667);
+}
+.staff-hours-alias-row input {
+  min-width: 10rem;
+  padding: .4rem .55rem;
+  border: 1px solid var(--line, #d0d0d0);
+  border-radius: .5rem;
+  font-family: inherit;
+  font-size: .92rem;
+}

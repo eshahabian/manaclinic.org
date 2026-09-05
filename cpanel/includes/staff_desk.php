@@ -69,6 +69,81 @@ function ensure_staff_desk_schema(PDO $pdo): void
 
     ensure_secretary_accounts($pdo);
     ensure_secretary_day_reports($pdo);
+    ensure_staff_slot_labels($pdo);
+}
+
+function ensure_staff_slot_labels(PDO $pdo): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    try {
+        $pdo->exec("
+          CREATE TABLE IF NOT EXISTS staff_slot_labels (
+            slot TINYINT NOT NULL PRIMARY KEY,
+            label VARCHAR(80) NOT NULL,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+    } catch (Throwable $ignored) {
+    }
+    $ready = true;
+}
+
+function staff_slot_default_label(int $slot): string
+{
+    return $slot === 2 ? 'منشی ۲' : 'منشی ۱';
+}
+
+function staff_slot_labels(PDO $pdo): array
+{
+    ensure_staff_slot_labels($pdo);
+    $out = [1 => staff_slot_default_label(1), 2 => staff_slot_default_label(2)];
+    try {
+        foreach ($pdo->query('SELECT slot, label FROM staff_slot_labels') as $row) {
+            $slot = (int) ($row['slot'] ?? 0);
+            $label = trim((string) ($row['label'] ?? ''));
+            if (($slot === 1 || $slot === 2) && $label !== '') {
+                $out[$slot] = $label;
+            }
+        }
+    } catch (Throwable $ignored) {
+    }
+    return $out;
+}
+
+function staff_slot_set_label(PDO $pdo, int $slot, string $label): void
+{
+    ensure_staff_slot_labels($pdo);
+    $slot = $slot === 2 ? 2 : 1;
+    $label = trim($label);
+    if ($label === '') {
+        $label = staff_slot_default_label($slot);
+    }
+    if (function_exists('mb_substr')) {
+        $label = mb_substr($label, 0, 80);
+    } else {
+        $label = substr($label, 0, 80);
+    }
+    $pdo->prepare('
+      INSERT INTO staff_slot_labels (slot, label) VALUES (?,?)
+      ON DUPLICATE KEY UPDATE label = VALUES(label)
+    ')->execute([$slot, $label]);
+}
+
+function staff_slot_user(PDO $pdo, int $slot): ?array
+{
+    $slot = $slot === 2 ? 2 : 1;
+    $username = $slot === 2 ? 'secretary2' : 'secretary1';
+    $stmt = $pdo->prepare("SELECT id, name, username FROM users WHERE username=? AND role='SECRETARY' LIMIT 1");
+    $stmt->execute([$username]);
+    $row = $stmt->fetch();
+    if ($row) {
+        return $row;
+    }
+    $all = $pdo->query("SELECT id, name, username FROM users WHERE role='SECRETARY' ORDER BY username ASC")->fetchAll();
+    return $all[$slot - 1] ?? null;
 }
 
 function ensure_secretary_day_reports(PDO $pdo): void
@@ -350,56 +425,58 @@ function staff_action_label(string $action): string
     };
 }
 
-/** داده ساعت کاری همه منشی‌ها برای پنل دکتر و ادمین */
+/** داده ساعت کاری منشی ۱ و ۲ برای پنل دکتر و ادمین */
 function staff_hours_collect(PDO $pdo): array
 {
     staff_close_stale_shifts($pdo);
+    ensure_secretary_accounts($pdo);
     ensure_secretary_day_reports($pdo);
-
-    $secretaries = $pdo->query("
-      SELECT id, name, username
-      FROM users
-      WHERE role='SECRETARY'
-      ORDER BY username ASC
-    ")->fetchAll();
-
-    $byUser = [];
-    foreach ($secretaries as $sec) {
-        $uid = (string) $sec['id'];
-        $open = staff_current_shift($pdo, $uid);
-        $today = $pdo->prepare("
-          SELECT * FROM staff_shifts
-          WHERE user_id=? AND DATE(started_at)=CURDATE()
-          ORDER BY started_at ASC
-        ");
-        $today->execute([$uid]);
-        $todayRows = $today->fetchAll();
+    $labels = staff_slot_labels($pdo);
+    $slots = [];
+    foreach ([1, 2] as $slot) {
+        $sec = staff_slot_user($pdo, $slot);
+        $uid = $sec ? (string) $sec['id'] : '';
+        $open = $uid !== '' ? staff_current_shift($pdo, $uid) : null;
+        $todayRows = [];
+        $histRows = [];
+        $reportRows = [];
+        if ($uid !== '') {
+            $today = $pdo->prepare("
+              SELECT * FROM staff_shifts
+              WHERE user_id=? AND DATE(started_at)=CURDATE()
+              ORDER BY started_at ASC
+            ");
+            $today->execute([$uid]);
+            $todayRows = $today->fetchAll();
+            $hist = $pdo->prepare("
+              SELECT * FROM staff_shifts
+              WHERE user_id=?
+              ORDER BY started_at DESC
+              LIMIT 2500
+            ");
+            $hist->execute([$uid]);
+            $histRows = $hist->fetchAll();
+            $reports = $pdo->prepare("
+              SELECT report_date, body, updated_at
+              FROM secretary_day_reports
+              WHERE user_id=?
+              ORDER BY report_date DESC
+              LIMIT 400
+            ");
+            $reports->execute([$uid]);
+            $reportRows = $reports->fetchAll();
+        }
         $todaySeconds = 0;
         foreach ($todayRows as $row) {
             $todaySeconds += staff_shift_seconds($row);
         }
-        $hist = $pdo->prepare("
-          SELECT * FROM staff_shifts
-          WHERE user_id=?
-          ORDER BY started_at DESC
-          LIMIT 400
-        ");
-        $hist->execute([$uid]);
-        $histRows = $hist->fetchAll();
-        $reports = $pdo->prepare("
-          SELECT report_date, body, updated_at
-          FROM secretary_day_reports
-          WHERE user_id=?
-          ORDER BY report_date DESC
-          LIMIT 80
-        ");
-        $reports->execute([$uid]);
-        $reportRows = $reports->fetchAll();
         $reportsByDate = [];
         foreach ($reportRows as $rep) {
             $reportsByDate[(string) $rep['report_date']] = $rep;
         }
-        $byUser[] = [
+        $slots[$slot] = [
+            'slot' => $slot,
+            'label' => (string) ($labels[$slot] ?? staff_slot_default_label($slot)),
             'user' => $sec,
             'open' => $open,
             'today_seconds' => $todaySeconds,
@@ -409,93 +486,168 @@ function staff_hours_collect(PDO $pdo): array
             'reports_by_date' => $reportsByDate,
         ];
     }
-    return $byUser;
+    return $slots;
 }
 
-/** ماه و روز شمسی از روی ورودها و گزارش‌ها */
-function staff_hours_month_groups(array $byUser): array
+/** تقویم شمسی: نیم‌سال، ماه، روزهای حضور */
+function staff_hours_calendar(array $block): array
 {
     $today = date('Y-m-d');
-    $dates = [$today => true];
-    foreach ($byUser as $block) {
-        foreach (($block['days'] ?? []) as $day) {
-            $d = (string) ($day['date'] ?? '');
-            if ($d !== '' && $d !== 'other') {
-                $dates[$d] = true;
-            }
+    $current = jalali_current_month_meta();
+    $currentJy = (int) ($current['year'] ?? 0);
+    $currentJm = (int) ($current['month'] ?? 1);
+    $present = [];
+    foreach (($block['days'] ?? []) as $day) {
+        $d = (string) ($day['date'] ?? '');
+        if ($d !== '' && $d !== 'other') {
+            $present[$d] = true;
         }
-        foreach (($block['reports'] ?? []) as $rep) {
-            $d = (string) ($rep['report_date'] ?? '');
-            if ($d !== '') {
-                $dates[$d] = true;
-            }
+    }
+    foreach (($block['reports'] ?? []) as $rep) {
+        $d = (string) ($rep['report_date'] ?? '');
+        if ($d !== '') {
+            $present[$d] = true;
         }
     }
 
-    $months = [];
-    foreach (array_keys($dates) as $gdate) {
+    $years = [$currentJy => true];
+    foreach (array_keys($present) as $gdate) {
         $meta = jalali_month_meta_from_datetime($gdate . ' 12:00:00');
-        $parts = jalali_day_parts($gdate . ' 12:00:00');
-        if (!$meta || !$parts) {
+        if ($meta) {
+            $years[(int) $meta['year']] = true;
+        }
+    }
+    krsort($years);
+
+    $slot = (int) ($block['slot'] ?? 1);
+    $yearCount = count($years);
+    $halves = [];
+    foreach (array_keys($years) as $jy) {
+        $jy = (int) $jy;
+        if ($jy < 1) {
             continue;
         }
-        $id = (string) $meta['id'];
-        if (!isset($months[$id])) {
-            $months[$id] = $meta + ['days' => []];
-        }
-        if (!isset($months[$id]['days'][$gdate])) {
-            $months[$id]['days'][$gdate] = [
-                'id' => 'd-' . $gdate,
-                'date' => $gdate,
-                'label' => (string) ($parts['label'] ?? $gdate),
-                'tab_label' => $gdate === $today ? 'امروز' : (string) ($parts['day_fa'] ?? $parts['day']),
-                'is_today' => $gdate === $today,
+        foreach ([1, 2] as $half) {
+            $from = $half === 1 ? 1 : 7;
+            $to = $half === 1 ? 6 : 12;
+            $months = [];
+            $presentCount = 0;
+            for ($jm = $from; $jm <= $to; $jm++) {
+                $meta = jalali_month_meta_from_parts($jy, $jm);
+                $len = jalali_month_length($jy, $jm);
+                $days = [];
+                for ($jd = 1; $jd <= $len; $jd++) {
+                    $gdate = jalali_ymd($jy, $jm, $jd);
+                    if (empty($present[$gdate])) {
+                        continue;
+                    }
+                    $parts = jalali_day_parts($gdate . ' 12:00:00');
+                    $days[$gdate] = [
+                        'id' => 's' . $slot . '-d-' . $gdate,
+                        'date' => $gdate,
+                        'day' => $jd,
+                        'label' => (string) ($parts['label'] ?? to_fa_digits((string) $jd)),
+                        'tab_label' => $gdate === $today ? 'امروز' : (string) ($parts['day_fa'] ?? to_fa_digits((string) $jd)),
+                        'is_today' => $gdate === $today,
+                    ];
+                    $presentCount++;
+                }
+                $months['s' . $slot . '-m-' . $meta['key']] = $meta + [
+                    'id' => 's' . $slot . '-m-' . $meta['key'],
+                    'length' => $len,
+                    'days' => $days,
+                    'present_count' => count($days),
+                ];
+            }
+            $isCurrentYear = $jy === $currentJy;
+            if (!$isCurrentYear && $presentCount === 0) {
+                continue;
+            }
+            $halfId = 's' . $slot . '-y' . $jy . '-h' . $half;
+            $base = $half === 1 ? 'نیم‌سال اول' : 'نیم‌سال دوم';
+            $halves[$halfId] = [
+                'id' => $halfId,
+                'year' => $jy,
+                'half' => $half,
+                'label' => $yearCount > 1 ? ($base . ' ' . to_fa_digits((string) $jy)) : $base,
+                'class' => $half === 1 ? 'binder-tab-online' : 'binder-tab-offline',
+                'tone' => $half === 1 ? 'online' : 'offline',
+                'months' => $months,
+                'present_count' => $presentCount,
             ];
         }
     }
 
-    $current = jalali_current_month_meta();
-    if (!isset($months[$current['id']])) {
-        $months[$current['id']] = $current + ['days' => []];
-        $parts = jalali_day_parts($today . ' 12:00:00');
-        $months[$current['id']]['days'][$today] = [
-            'id' => 'd-' . $today,
-            'date' => $today,
-            'label' => (string) (($parts['label'] ?? '') . ' ' . to_fa_digits((string) ($parts['year'] ?? ''))),
-            'tab_label' => 'امروز',
-            'is_today' => true,
-        ];
+    $defaultHalf = $currentJm <= 6 ? 1 : 2;
+    $defaultHalfId = 's' . $slot . '-y' . $currentJy . '-h' . $defaultHalf;
+    if (!isset($halves[$defaultHalfId])) {
+        $defaultHalfId = (string) (array_key_first($halves) ?? '');
     }
-
-    uasort($months, static fn(array $a, array $b): int => ((int) ($b['sort'] ?? 0)) <=> ((int) ($a['sort'] ?? 0)));
-    $nameCounts = [];
-    foreach ($months as $bucket) {
-        $short = (string) ($bucket['short'] ?? '');
-        $nameCounts[$short] = ($nameCounts[$short] ?? 0) + 1;
-    }
-    foreach ($months as $id => $bucket) {
-        $short = (string) ($bucket['short'] ?? '');
-        $months[$id]['tab_label'] = ($nameCounts[$short] > 1)
-            ? (string) ($bucket['label'] ?? $short)
-            : $short;
-        uasort($months[$id]['days'], static fn(array $a, array $b): int => strcmp((string) $b['date'], (string) $a['date']));
-    }
-
-    $defaultMonthId = isset($months[$current['id']]) ? (string) $current['id'] : (string) (array_key_first($months) ?? '');
-    $defaultDayId = 'd-' . $today;
-    if ($defaultMonthId !== '' && !isset($months[$defaultMonthId]['days'][$today])) {
-        $firstDay = array_key_first($months[$defaultMonthId]['days'] ?? []);
-        $defaultDayId = $firstDay
-            ? (string) ($months[$defaultMonthId]['days'][$firstDay]['id'] ?? $defaultDayId)
-            : $defaultDayId;
-    }
+    $defaultMonthId = 's' . $slot . '-m-' . sprintf('%04d-%02d', $currentJy, $currentJm);
+    $defaultDayId = isset($present[$today]) ? ('s' . $slot . '-d-' . $today) : '';
 
     return [
-        'months' => $months,
+        'halves' => $halves,
+        'default_half_id' => $defaultHalfId,
         'default_month_id' => $defaultMonthId,
         'default_day_id' => $defaultDayId,
         'today' => $today,
     ];
+}
+
+function staff_hours_export_rows(PDO $pdo, ?int $onlySlot = null): array
+{
+    $slots = staff_hours_collect($pdo);
+    $out = [];
+    foreach ($slots as $slot => $block) {
+        if ($onlySlot && (int) $slot !== $onlySlot) {
+            continue;
+        }
+        $label = (string) ($block['label'] ?? staff_slot_default_label((int) $slot));
+        $username = (string) (($block['user']['username'] ?? '') ?: '');
+        $days = $block['days'] ?? [];
+        ksort($days);
+        foreach ($days as $day) {
+            $gdate = (string) ($day['date'] ?? '');
+            $jalali = $gdate !== '' ? to_jalali_label($gdate) : '';
+            $daySeconds = 0;
+            foreach (($day['items'] ?? []) as $i => $row) {
+                $sec = staff_shift_seconds($row);
+                $daySeconds += $sec;
+                $out[] = [
+                    'slot' => (int) $slot,
+                    'label' => $label,
+                    'username' => $username,
+                    'date' => $jalali,
+                    'gregorian' => $gdate,
+                    'entry' => $i + 1,
+                    'started_at' => (string) ($row['started_at'] ?? ''),
+                    'ended_at' => (string) ($row['ended_at'] ?? ''),
+                    'duration' => staff_format_duration($sec),
+                    'seconds' => $sec,
+                    'reason' => staff_shift_reason_label($row['end_reason'] ?? null),
+                    'day_total' => '',
+                ];
+            }
+            if (($day['items'] ?? []) !== []) {
+                $out[] = [
+                    'slot' => (int) $slot,
+                    'label' => $label,
+                    'username' => $username,
+                    'date' => $jalali,
+                    'gregorian' => $gdate,
+                    'entry' => '',
+                    'started_at' => '',
+                    'ended_at' => '',
+                    'duration' => staff_format_duration($daySeconds),
+                    'seconds' => $daySeconds,
+                    'reason' => 'جمع روز',
+                    'day_total' => staff_format_duration($daySeconds),
+                ];
+            }
+        }
+    }
+    return $out;
 }
 
 /** هر ورود جداگانه زیر همان روز شمسی */
