@@ -15,7 +15,7 @@ ob_start();
 ?>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
 <h1>روزهای خالی</h1>
-<p class="muted">تاریخ را انتخاب کنید و ساعت‌های خالی را از ۱۲ ظهر همان روز تا ۱۲ ظهر فردا مشخص کنید.</p>
+<p class="muted">تاریخ را انتخاب کنید و ساعت‌های خالی را از ۶ صبح همان روز تا ۶ صبح فردا مشخص کنید.</p>
 <form class="panel form-stack" method="post" action="<?= e(url('/doctor/availability')) ?>" style="margin-top:1rem;max-width:40rem">
   <input type="hidden" name="action" value="save">
   <div>
@@ -29,12 +29,13 @@ ob_start();
       <?php foreach ($bookingHours as $hour): ?>
         <label class="hour-chip">
           <input type="checkbox" name="hours[]" value="<?= (int) $hour ?>" checked>
-          <span><?= e(appointment_hour_chip_label((int) $hour)) ?></span>
+          <span class="hour-chip-time"><?= e(appointment_hour_chip_label((int) $hour)) ?></span>
+          <span class="hour-chip-date" data-hour-day="<?= appointment_hour_is_next_day((int) $hour) ? 'next' : 'same' ?>"></span>
         </label>
       <?php endforeach; ?>
     </div>
     <p class="muted" style="font-size:.8rem;margin:.5rem 0 0;line-height:1.6">
-      ۲۴ ساعت کامل: از ۱۲ ظهر این تاریخ تا ۱۲ ظهر فردا. ساعت‌های بعد از نیمه‌شب مال روز بعد هستند.
+      ۲۴ ساعت کامل: از ۶ صبح این تاریخ تا ۶ صبح روز بعد. زیر هر ساعت، تاریخ همان نوبت نوشته می‌شود.
     </p>
     <div style="margin-top:.5rem;display:flex;gap:.5rem;flex-wrap:wrap">
       <button type="button" class="btn btn-outline btn-sm" id="select-all-hours">انتخاب همه (۲۴ ساعت)</button>
@@ -52,7 +53,10 @@ ob_start();
         <div class="muted" style="font-size:.85rem;margin-top:.35rem">ساعت‌های خالی:</div>
         <div class="hour-picker hour-picker-readonly" style="margin-top:.35rem">
           <?php foreach ($bookingHours as $hour): ?>
-            <span class="hour-chip<?= in_array($hour, $savedHours, true) ? ' is-active' : ' is-off' ?>"><?= e(appointment_hour_chip_label((int) $hour)) ?></span>
+            <span class="hour-chip<?= in_array($hour, $savedHours, true) ? ' is-active' : ' is-off' ?>">
+              <span class="hour-chip-time"><?= e(appointment_hour_chip_label((int) $hour)) ?></span>
+              <span class="hour-chip-date"><?= e(appointment_hour_date_for((string) $item['date'], (int) $hour)) ?></span>
+            </span>
           <?php endforeach; ?>
         </div>
       </div>
@@ -72,12 +76,34 @@ ob_start();
   function pad(n){ return (n < 10 ? "0" : "") + n; }
   var view = document.getElementById("avail-date-view");
   var hidden = document.getElementById("avail-date");
+  var months = ["","فروردین","اردیبهشت","خرداد","تیر","مرداد","شهریور","مهر","آبان","آذر","دی","بهمن","اسفند"];
+  function toFa(n){ return String(n).replace(/[0-9]/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹"[d]; }); }
+  function jalaliShort(gy, gm, gd){
+    var j = jalaali.toJalaali(gy, gm, gd);
+    return toFa(j.jd) + " " + (months[j.jm] || "");
+  }
+  function fillHourDates(){
+    if (!hidden.value) {
+      document.querySelectorAll("#hour-picker [data-hour-day]").forEach(function(el){ el.textContent = ""; });
+      return;
+    }
+    var parts = hidden.value.split("-");
+    if (parts.length !== 3) return;
+    var gy = parseInt(parts[0],10), gm = parseInt(parts[1],10), gd = parseInt(parts[2],10);
+    var same = jalaliShort(gy, gm, gd);
+    var next = new Date(gy, gm - 1, gd + 1);
+    var nextLabel = jalaliShort(next.getFullYear(), next.getMonth() + 1, next.getDate());
+    document.querySelectorAll("#hour-picker [data-hour-day]").forEach(function(el){
+      el.textContent = el.getAttribute("data-hour-day") === "next" ? nextLabel : same;
+    });
+  }
   function sync(){
     var t = faToEn(view.value).replace(/-/g,"/").trim();
     var p = t.split("/");
-    if (p.length !== 3) { hidden.value = ""; return; }
+    if (p.length !== 3) { hidden.value = ""; fillHourDates(); return; }
     var g = jalaali.toGregorian(parseInt(p[0],10), parseInt(p[1],10), parseInt(p[2],10));
     hidden.value = g.gy + "-" + pad(g.gm) + "-" + pad(g.gd);
+    fillHourDates();
   }
   jalaliDatepicker.startWatch({
     selector: "#avail-date-view",

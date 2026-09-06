@@ -53,6 +53,7 @@ foreach ($hours as $hour) {
         $free[] = [
             'value' => appointment_hour_to_time($hour),
             'label' => appointment_hour_chip_label($hour),
+            'date_label' => appointment_short_jalali_date(substr($startsAt, 0, 10)),
         ];
     }
 }

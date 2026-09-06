@@ -48,7 +48,12 @@ foreach ($openSlots as $slot) {
               data-date="<?= e($slot['date']) ?>"
               data-time="<?= e($slot['time']) ?>"
               disabled
-            ><?= e(to_fa_digits((string) $slot['label'])) ?></button>
+            >
+              <span class="hour-chip-time"><?= e((string) $slot['label']) ?></span>
+              <?php if (!empty($slot['date_label'])): ?>
+                <span class="hour-chip-date"><?= e((string) $slot['date_label']) ?></span>
+              <?php endif; ?>
+            </button>
           <?php endforeach; ?>
         </div>
       </article>

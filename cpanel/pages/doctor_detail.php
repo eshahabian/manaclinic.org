@@ -154,8 +154,22 @@ $pageScripts = '
         slots.forEach(function(s){
           var value = typeof s === "string" ? s : (s.value || "");
           var label = typeof s === "string" ? value.replace(/:00$/, "") : (s.label || value.replace(/:00$/, ""));
+          var dateLabel = typeof s === "object" && s.date_label ? s.date_label : "";
           var b = document.createElement("button");
-          b.type = "button"; b.className = "slot-btn"; b.textContent = label;
+          b.type = "button";
+          b.className = "slot-btn";
+          if (dateLabel) {
+            var timeElChip = document.createElement("span");
+            timeElChip.className = "hour-chip-time";
+            timeElChip.textContent = label;
+            var dateElChip = document.createElement("span");
+            dateElChip.className = "hour-chip-date";
+            dateElChip.textContent = dateLabel;
+            b.appendChild(timeElChip);
+            b.appendChild(dateElChip);
+          } else {
+            b.textContent = label;
+          }
           b.onclick = function(){
             Array.prototype.forEach.call(slotsEl.querySelectorAll(".slot-btn"), function(x){ x.classList.remove("active"); });
             b.classList.add("active"); timeEl.value = value;

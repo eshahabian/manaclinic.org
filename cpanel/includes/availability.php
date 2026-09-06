@@ -29,21 +29,28 @@ function ensure_availability_schema(PDO $pdo): void
          OR TRIM(available_hours) = ''
          OR available_hours = '10,11,12,13,14,15,16,17'
          OR available_hours = '12,13,14,15,16,17,18,19,20,21,22,23'
+         OR available_hours = '12,13,14,15,16,17,18,19,20,21,22,23,0,1,2,3,4,5,6,7,8,9,10,11'
          OR (start_time = '10:00' AND end_time = '18:00')
     ")->execute([$span['start'], $span['end'], $defaultHours]);
+
+    $pdo->prepare("
+      UPDATE availabilities
+      SET start_time = ?, end_time = ?
+      WHERE start_time IN ('10:00', '12:00')
+    ")->execute([$span['start'], $span['end']]);
 
     $ready = true;
 }
 
-/** ساعت‌های مجاز رزرو — ۱۲ ظهر تا ۱۲ ظهر فردا (۲۴ ساعت) */
+/** ساعت‌های مجاز رزرو — ۶ صبح تا ۶ صبح فردا (۲۴ ساعت) */
 function appointment_booking_hours(): array
 {
-    return [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+    return [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0, 1, 2, 3, 4, 5];
 }
 
 function appointment_hour_is_next_day(int $hour): bool
 {
-    return $hour < 12;
+    return $hour < 6;
 }
 
 function appointment_slot_starts_at(string $availabilityDate, int|string $hourOrTime): string
@@ -61,22 +68,40 @@ function appointment_slot_starts_at(string $availabilityDate, int|string $hourOr
 function appointment_hour_chip_label(int $hour): string
 {
     $n = to_fa_digits((string) $hour);
+    if ($hour === 0) {
+        return '۱۲ شب';
+    }
     if ($hour === 12) {
         return $n . ' ظهر';
     }
-    if ($hour === 0) {
-        return '۰۰ بامداد فردا';
-    }
     if ($hour < 12) {
-        return $n . ' فردا';
+        return $n . ' صبح';
     }
-    return $n;
+    if ($hour < 17) {
+        return $n . ' بعدازظهر';
+    }
+    if ($hour < 20) {
+        return $n . ' عصر';
+    }
+    return $n . ' شب';
+}
+
+function appointment_short_jalali_date(string $ymd): string
+{
+    $parts = jalali_day_parts($ymd . ' 12:00:00');
+    return $parts ? (string) $parts['label'] : to_jalali_label($ymd);
+}
+
+function appointment_hour_date_for(string $availabilityDate, int $hour): string
+{
+    $starts = appointment_slot_starts_at($availabilityDate, $hour);
+    return appointment_short_jalali_date(substr($starts, 0, 10));
 }
 
 function appointment_hours_span(): array
 {
     return [
-        'start' => '12:00',
+        'start' => '06:00',
         'end' => '23:59',
     ];
 }
@@ -228,6 +253,7 @@ function patient_open_slots_between(PDO $pdo, string $fromYmd, string $toYmd): a
                 'date' => $slotDate,
                 'time' => $slot,
                 'label' => appointment_hour_chip_label($hour),
+                'date_label' => appointment_short_jalali_date($slotDate),
                 'starts_at' => $startsAt,
             ];
         }
