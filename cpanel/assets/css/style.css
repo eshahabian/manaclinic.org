@@ -1113,6 +1113,33 @@ jdp-container, .jdp-container, [class*="jdp"] {
   align-items: center;
 }
 .appt-card-actions form { margin: 0; }
+.appt-cancel-form {
+  flex: 1 1 100%;
+  display: grid;
+  gap: .4rem;
+  margin-top: .15rem;
+}
+.appt-note {
+  font-size: .85rem;
+  line-height: 1.7;
+  background: var(--bg-soft);
+  border-radius: .5rem;
+  padding: .55rem .7rem;
+}
+.appt-note-cancel {
+  background: #fbeaea;
+  color: var(--danger);
+}
+.staff-overtime-line {
+  font-size: .9rem;
+  color: var(--primary-dark);
+}
+.staff-clock-split {
+  margin-top: .35rem;
+  font-size: .75rem;
+  line-height: 1.6;
+  color: var(--muted);
+}
 .appt-toolbar {
   display: flex;
   flex-wrap: wrap;

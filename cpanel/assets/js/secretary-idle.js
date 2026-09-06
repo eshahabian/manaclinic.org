@@ -58,15 +58,54 @@
     return faDigits(h) + " ساعت و " + faDigits(m) + " دقیقه";
   }
 
+  function parseHm(value, fallbackHour, fallbackMin) {
+    var p = String(value || "").split(":");
+    var h = parseInt(p[0], 10);
+    var m = parseInt(p[1], 10);
+    return {
+      h: isNaN(h) ? fallbackHour : h,
+      m: isNaN(m) ? fallbackMin : m
+    };
+  }
+
+  function splitSeconds(startTs, endTs, startHm, endHm) {
+    var regular = 0;
+    var cursor = startTs;
+    while (cursor < endTs) {
+      var day = new Date(cursor);
+      var y = day.getFullYear();
+      var mo = day.getMonth();
+      var d = day.getDate();
+      var nextMidnight = new Date(y, mo, d + 1).getTime();
+      var segEnd = Math.min(endTs, nextMidnight);
+      var rStart = new Date(y, mo, d, startHm.h, startHm.m, 0).getTime();
+      var rEnd = new Date(y, mo, d, endHm.h, endHm.m, 0).getTime();
+      var overlap = Math.min(segEnd, rEnd) - Math.max(cursor, rStart);
+      if (overlap > 0) regular += overlap;
+      cursor = segEnd;
+    }
+    var total = Math.max(0, endTs - startTs);
+    regular = Math.min(total, regular);
+    return { total: total, regular: regular, overtime: Math.max(0, total - regular) };
+  }
+
   function tickClock() {
     var box = document.getElementById("staff-clock");
     var el = document.getElementById("staff-clock-elapsed");
+    var splitEl = document.getElementById("staff-clock-split");
     if (!box || !el) return;
     var started = box.getAttribute("data-started");
     if (!started) return;
     var startTs = Date.parse(started.replace(" ", "T"));
     if (!startTs) return;
-    el.textContent = formatDuration(Math.floor((Date.now() - startTs) / 1000));
+    var now = Date.now();
+    el.textContent = formatDuration(Math.floor((now - startTs) / 1000));
+    if (splitEl) {
+      var startHm = parseHm(box.getAttribute("data-regular-start"), 9, 0);
+      var endHm = parseHm(box.getAttribute("data-regular-end"), 20, 0);
+      var part = splitSeconds(startTs, now, startHm, endHm);
+      splitEl.textContent = "عادی: " + formatDuration(Math.floor(part.regular / 1000)) + " · اضافه‌کار: " + formatDuration(Math.floor(part.overtime / 1000));
+    }
   }
 
   function goIdleLogout() {

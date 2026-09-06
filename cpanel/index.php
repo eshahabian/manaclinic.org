@@ -137,6 +137,7 @@ $routes = [
     'POST /secretary/book' => 'actions/secretary_book.php',
     'POST /secretary/delete-patient' => 'actions/secretary_delete_patient.php',
     'GET /secretary/appointments' => 'pages/secretary/appointments.php',
+    'POST /secretary/appointments' => 'actions/secretary_appointments.php',
     'GET /secretary/patients' => 'pages/secretary/patients.php',
     'POST /secretary/patients' => 'actions/secretary_create_patient.php',
     'GET /secretary/messages' => 'pages/secretary/messages.php',

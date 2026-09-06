@@ -63,8 +63,12 @@ function generate_slots(string $start, string $end, int $minutes): array
     return $slots;
 }
 
-function appointment_status_label(string $status): string
+function appointment_status_label(string $status, ?string $cancelReason = null): string
 {
+    if ($status === 'CANCELLED' && $cancelReason === 'patient') {
+        return 'لغو توسط مراجع';
+    }
+
     return match ($status) {
         'PENDING_PAYMENT' => 'در انتظار پرداخت',
         'CONFIRMED' => 'تأیید شده',
@@ -72,6 +76,11 @@ function appointment_status_label(string $status): string
         'COMPLETED' => 'انجام شده',
         default => $status,
     };
+}
+
+function appointment_row_status_label(array $row): string
+{
+    return appointment_status_label((string) ($row['status'] ?? ''), isset($row['cancel_reason']) ? (string) $row['cancel_reason'] : null);
 }
 
 function payment_status_label(string $status): string

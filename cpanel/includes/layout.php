@@ -21,7 +21,7 @@ $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'es
   <?= seo_render_head() ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260906x">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260906y">
   <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
   <script>
   (function(){
@@ -162,7 +162,7 @@ $overviewJs = __DIR__ . '/../assets/js/workshop-overview.js';
 <script><?php if (is_file($overviewJs)) { echo file_get_contents($overviewJs); } ?></script>
 <script src="<?= e(url('/assets/js/particles.js')) ?>?v=20260904t"></script>
 <?php if ($user && ($user['role'] ?? '') === 'SECRETARY'): ?>
-<script src="<?= e(url('/assets/js/secretary-idle.js')) ?>?v=20260905c"></script>
+<script src="<?= e(url('/assets/js/secretary-idle.js')) ?>?v=20260906y"></script>
 <?php endif; ?>
 <?php
 $handoverBlock = $GLOBALS['handoverBlock'] ?? null;

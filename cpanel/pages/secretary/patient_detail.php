@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../../includes/secretary_panel.php';
+require_once __DIR__ . '/../../includes/appointment_cancel.php';
 
 $user = require_login(['SECRETARY']);
 $id = trim((string) ($_GET['id'] ?? ''));
@@ -16,6 +17,7 @@ if (!$patient) {
 
 $apps = $pdo->prepare("
   SELECT a.id, a.starts_at, a.ends_at, a.status, a.notes,
+         a.cancel_reason, a.cancellation_note,
          du.name AS doctor_name,
          cu.name AS actor_name, cu.username AS actor_username,
          p.id AS payment_id, p.amount, p.status AS pay_status, p.receipt_path,
@@ -139,12 +141,13 @@ ob_start();
                               <?php endif; ?>
                             </div>
                             <div style="text-align:left">
-                              <span class="badge"><?= e(appointment_status_label((string) $a['status'])) ?></span>
+                              <span class="badge"><?= e(appointment_row_status_label($a)) ?></span>
                               <?php if ($a['amount'] !== null): ?>
                                 <div class="muted" style="font-size:.8rem;margin-top:.35rem"><?= e(format_price((int) $a['amount'])) ?> — <?= e(payment_status_label((string) $a['pay_status'])) ?></div>
                               <?php endif; ?>
                             </div>
                           </div>
+                          <?= appointment_notes_html($a) ?>
                           <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
                             <?= staff_receipt_view_html($a['payment_id'] ?? null, $a['receipt_path'] ?? null, true, $selfPath) ?>
                           </div>

@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__ . '/../../includes/doctor_panel.php';
 require_once __DIR__ . '/../../includes/user_cleanup.php';
+require_once __DIR__ . '/../../includes/appointment_cancel.php';
 $ctx = require_doctor_profile($pdo);
 $stmt = $pdo->prepare("
   SELECT a.*, u.name AS patient_name, u.phone, u.email,
@@ -61,12 +62,13 @@ if (!function_exists('doctor_appointment_cards')) {
             <?= staff_sign_html(['name' => $a['actor_name'] ?? '', 'username' => $a['actor_username'] ?? '']) ?>
           </div>
           <div class="appt-card-meta">
-            <span class="badge"><?= e(appointment_status_label($a['status'])) ?></span>
+            <span class="badge"><?= e(appointment_row_status_label($a)) ?></span>
             <?php if ($a['amount']): ?>
               <div class="muted"><?= e(format_price((int) $a['amount'])) ?> — <?= e(payment_status_label((string) $a['pay_status'])) ?></div>
             <?php endif; ?>
           </div>
         </div>
+        <?= appointment_notes_html($a) ?>
         <div class="appt-card-actions">
           <?= staff_receipt_view_html($a['payment_id'] ?? null, $a['receipt_path'] ?? null, false) ?>
           <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/patients/' . $a['patient_id'])) ?>">پرونده مراجعه‌کننده</a>

@@ -3,6 +3,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../includes/doctor_panel.php';
 require_once __DIR__ . '/../../includes/doctor_clinical.php';
 require_once __DIR__ . '/../../includes/assistant.php';
+require_once __DIR__ . '/../../includes/appointment_cancel.php';
 
 $ctx = require_doctor_profile($pdo);
 $patientId = (string) ($_GET['id'] ?? '');
@@ -142,7 +143,7 @@ ob_start();
                             <span class="sn-date"><?= e($day['label'] ?? format_fa_datetime((string) $a['starts_at'])) ?></span>
                             <span class="sn-meta">
                               <?= $day ? 'ساعت ' . e($day['time_fa']) . ' · ' : '' ?>
-                              <?= e(appointment_status_label($a['status'])) ?>
+                              <?= e(appointment_row_status_label($a)) ?>
                               · <?= $hasNote ? 'دارای یادداشت' : 'بدون یادداشت' ?>
                             </span>
                           </button>
@@ -151,9 +152,7 @@ ob_start();
                               <input type="hidden" name="appointment_id" value="<?= e($a['id']) ?>">
                               <label class="label">یادداشت این جلسه</label>
                               <textarea class="input" name="note_text" rows="5" placeholder="مشاهدات، مداخلات، تکالیف..."><?= e((string) ($note['note_text'] ?? '')) ?></textarea>
-                              <?php if ($a['notes']): ?>
-                                <p class="muted" style="font-size:.8rem;margin:.5rem 0 0">یادداشت رزرو: <?= e($a['notes']) ?></p>
-                              <?php endif; ?>
+                              <?= appointment_notes_html($a) ?>
                               <div style="margin-top:.75rem;display:flex;gap:.5rem;flex-wrap:wrap">
                                 <button class="btn btn-primary btn-sm" type="submit">ذخیره</button>
                                 <button class="btn btn-outline btn-sm" type="button" data-close>بستن</button>

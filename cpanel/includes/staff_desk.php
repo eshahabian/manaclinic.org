@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 const STAFF_IDLE_SECONDS = 600;
 const STAFF_RECEIPT_MAX_BYTES = 5242880;
+const STAFF_REGULAR_START = '09:00:00';
+const STAFF_REGULAR_END = '20:00:00';
 
 function staff_idle_seconds(): int
 {
@@ -28,6 +30,10 @@ function ensure_staff_desk_schema(PDO $pdo): void
     };
 
     $addColumn($pdo, 'appointments', 'created_by_user_id', 'created_by_user_id VARCHAR(32) NULL AFTER notes');
+    $addColumn($pdo, 'appointments', 'cancel_reason', 'cancel_reason VARCHAR(32) NULL AFTER created_by_user_id');
+    $addColumn($pdo, 'appointments', 'cancellation_note', 'cancellation_note TEXT NULL AFTER cancel_reason');
+    $addColumn($pdo, 'appointments', 'cancelled_by_user_id', 'cancelled_by_user_id VARCHAR(32) NULL AFTER cancellation_note');
+    $addColumn($pdo, 'appointments', 'cancelled_at', 'cancelled_at DATETIME NULL AFTER cancelled_by_user_id');
     $addColumn($pdo, 'payments', 'recorded_by_user_id', 'recorded_by_user_id VARCHAR(32) NULL AFTER status');
     $addColumn($pdo, 'payments', 'receipt_path', 'receipt_path VARCHAR(255) NULL AFTER recorded_by_user_id');
     $addColumn($pdo, 'users', 'created_by_user_id', 'created_by_user_id VARCHAR(32) NULL AFTER preferred_doctor_id');
@@ -383,12 +389,82 @@ function staff_format_duration(int $seconds): string
 
 function staff_shift_seconds(array $shift): int
 {
+    return (int) (staff_shift_seconds_split($shift)['total'] ?? 0);
+}
+
+function staff_regular_window(): array
+{
+    return [
+        'start' => STAFF_REGULAR_START,
+        'end' => STAFF_REGULAR_END,
+    ];
+}
+
+/** تفکیک ساعت عادی (۹ تا ۲۰) و اضافه‌کار */
+function staff_interval_seconds_split(int $start, int $end): array
+{
+    if ($start <= 0 || $end <= $start) {
+        return ['total' => 0, 'regular' => 0, 'overtime' => 0];
+    }
+
+    $regular = 0;
+    $cursor = $start;
+    while ($cursor < $end) {
+        $day = date('Y-m-d', $cursor);
+        $nextMidnight = strtotime($day . ' +1 day') ?: ($cursor + 86400);
+        $segEnd = min($end, $nextMidnight);
+        $rStart = strtotime($day . ' ' . STAFF_REGULAR_START) ?: $cursor;
+        $rEnd = strtotime($day . ' ' . STAFF_REGULAR_END) ?: $cursor;
+        $overlap = min($segEnd, $rEnd) - max($cursor, $rStart);
+        if ($overlap > 0) {
+            $regular += $overlap;
+        }
+        $cursor = $segEnd;
+    }
+
+    $total = $end - $start;
+    $regular = min($total, $regular);
+
+    return [
+        'total' => $total,
+        'regular' => $regular,
+        'overtime' => max(0, $total - $regular),
+    ];
+}
+
+function staff_shift_seconds_split(array $shift): array
+{
     $start = strtotime((string) ($shift['started_at'] ?? ''));
     if (!$start) {
-        return 0;
+        return ['total' => 0, 'regular' => 0, 'overtime' => 0];
     }
     $end = !empty($shift['ended_at']) ? strtotime((string) $shift['ended_at']) : time();
-    return max(0, (int) $end - $start);
+
+    return staff_interval_seconds_split($start, (int) $end);
+}
+
+function staff_rows_seconds_split(array $rows): array
+{
+    $out = ['total' => 0, 'regular' => 0, 'overtime' => 0];
+    foreach ($rows as $row) {
+        $part = staff_shift_seconds_split($row);
+        $out['total'] += $part['total'];
+        $out['regular'] += $part['regular'];
+        $out['overtime'] += $part['overtime'];
+    }
+
+    return $out;
+}
+
+function staff_format_split_line(array $split, bool $alwaysOvertime = false): string
+{
+    $line = 'عادی: ' . staff_format_duration((int) ($split['regular'] ?? 0));
+    $ot = (int) ($split['overtime'] ?? 0);
+    if ($alwaysOvertime || $ot > 0) {
+        $line .= ' · اضافه‌کار: ' . staff_format_duration($ot);
+    }
+
+    return $line;
 }
 
 function staff_shift_reason_label(?string $reason): string
@@ -420,6 +496,8 @@ function staff_action_label(string $action): string
         'article_submit' => 'ارسال مقاله برای تأیید دکتر',
         'article_delete' => 'حذف پیش‌نویس مقاله',
         'delete_patient' => 'حذف مراجعه‌کننده',
+        'create_patient' => 'ثبت مراجعه‌کننده',
+        'cancel_patient' => 'ثبت کنسلی مراجع',
         'day_report' => 'ثبت گزارش پایان روز',
         default => $action,
     };
@@ -611,9 +689,14 @@ function staff_hours_export_rows(PDO $pdo, ?int $onlySlot = null): array
             $gdate = (string) ($day['date'] ?? '');
             $jalali = $gdate !== '' ? to_jalali_label($gdate) : '';
             $daySeconds = 0;
+            $dayRegular = 0;
+            $dayOvertime = 0;
             foreach (($day['items'] ?? []) as $i => $row) {
-                $sec = staff_shift_seconds($row);
+                $part = staff_shift_seconds_split($row);
+                $sec = (int) $part['total'];
                 $daySeconds += $sec;
+                $dayRegular += (int) $part['regular'];
+                $dayOvertime += (int) $part['overtime'];
                 $out[] = [
                     'slot' => (int) $slot,
                     'label' => $label,
@@ -624,6 +707,8 @@ function staff_hours_export_rows(PDO $pdo, ?int $onlySlot = null): array
                     'started_at' => (string) ($row['started_at'] ?? ''),
                     'ended_at' => (string) ($row['ended_at'] ?? ''),
                     'duration' => staff_format_duration($sec),
+                    'regular' => staff_format_duration((int) $part['regular']),
+                    'overtime' => staff_format_duration((int) $part['overtime']),
                     'seconds' => $sec,
                     'reason' => staff_shift_reason_label($row['end_reason'] ?? null),
                     'day_total' => '',
@@ -640,6 +725,8 @@ function staff_hours_export_rows(PDO $pdo, ?int $onlySlot = null): array
                     'started_at' => '',
                     'ended_at' => '',
                     'duration' => staff_format_duration($daySeconds),
+                    'regular' => staff_format_duration($dayRegular),
+                    'overtime' => staff_format_duration($dayOvertime),
                     'seconds' => $daySeconds,
                     'reason' => 'جمع روز',
                     'day_total' => staff_format_duration($daySeconds),

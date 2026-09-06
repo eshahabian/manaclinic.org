@@ -74,7 +74,7 @@ ob_start();
       <?php $appointmentList = $upcoming; $appointmentEmpty = 'نوبت پیش‌رویی نیست.'; require __DIR__ . '/secretary_appointment_cards.php'; ?>
     </section>
     <section class="binder-panel<?= $binderInitial === 'done' ? ' is-active' : '' ?>" data-binder-panel="done" role="tabpanel"<?= $binderInitial === 'done' ? '' : ' hidden' ?>>
-      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">نوبت‌های برگزارشده، گذشته یا لغو شده در این بخش هستند.</p>
+      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">نوبت‌های برگزارشده، گذشته یا لغو شده در این بخش هستند. اگر مراجع سر وقت آمد ولی کنسل کرد، از همین کارت «ثبت کنسلی مراجع» را بزنید.</p>
       <?php $appointmentList = $done; $appointmentEmpty = 'نوبت انجام‌شده‌ای نیست.'; require __DIR__ . '/secretary_appointment_cards.php'; ?>
     </section>
   </div>

@@ -33,11 +33,12 @@ function render_secretary_page(string $title, string $innerHtml): void
           <?php endforeach; ?>
         </nav>
         <?php if ($shift): ?>
-          <div class="staff-clock" id="staff-clock" data-started="<?= e((string) $shift['started_at']) ?>">
+          <div class="staff-clock" id="staff-clock" data-started="<?= e((string) $shift['started_at']) ?>" data-regular-start="<?= e(STAFF_REGULAR_START) ?>" data-regular-end="<?= e(STAFF_REGULAR_END) ?>">
             <div class="staff-clock-label">ورود امروز</div>
             <div class="staff-clock-time"><?= e(format_fa_datetime((string) $shift['started_at'])) ?></div>
             <div class="staff-clock-label">مدت حضور</div>
             <div class="staff-clock-elapsed" id="staff-clock-elapsed"><?= e(staff_format_duration(staff_shift_seconds($shift))) ?></div>
+            <div class="staff-clock-split" id="staff-clock-split"><?= e(staff_format_split_line(staff_shift_seconds_split($shift), true)) ?></div>
           </div>
         <?php endif; ?>
       </aside>

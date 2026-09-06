@@ -17,7 +17,7 @@ function staff_hours_render(array $slots, array $opts = []): string
     ob_start();
     ?>
 <h1>ساعت کاری منشی‌ها</h1>
-<p class="muted">ساعت حضور هر منشی جداست. روزهایی که منشی حاضر نبوده در تب‌ها دیده نمی‌شود.</p>
+<p class="muted">ساعت عادی منشی از ۹ صبح تا ۸ شب است؛ خارج از این بازه اضافه‌کار حساب می‌شود. روزهایی که منشی حاضر نبوده در تب‌ها دیده نمی‌شود.</p>
 
 <div class="staff-hours-toolbar">
   <div class="staff-hours-export">
@@ -186,10 +186,8 @@ function staff_hours_render_tile(array $block, string $dayDate, string $today): 
         $dayRows = $day['items'];
     }
     $dayReport = $block['reports_by_date'][$dayDate] ?? null;
-    $daySeconds = 0;
-    foreach ($dayRows as $row) {
-        $daySeconds += staff_shift_seconds($row);
-    }
+    $daySplit = staff_rows_seconds_split($dayRows);
+    $daySeconds = (int) $daySplit['total'];
     $parts = jalali_day_parts($dayDate . ' 12:00:00');
 
     ob_start();
@@ -201,6 +199,7 @@ function staff_hours_render_tile(array $block, string $dayDate, string $today): 
         <div class="muted" style="font-size:.85rem;margin-top:.25rem">
           <?= e((string) ($parts['label'] ?? $dayDate)) ?>
           · حضور: <?= e(staff_format_duration($daySeconds)) ?>
+          · <?= e(staff_format_split_line($daySplit, true)) ?>
           · <?= e(to_fa_digits((string) count($dayRows))) ?> بار ورود
         </div>
       </div>
@@ -221,6 +220,7 @@ function staff_hours_render_tile(array $block, string $dayDate, string $today): 
               از <?= e(format_fa_datetime((string) $row['started_at'])) ?>
               تا <?= !empty($row['ended_at']) ? e(format_fa_datetime((string) $row['ended_at'])) : ($isToday ? 'الان' : '— هنوز باز') ?>
               · <?= e(staff_format_duration(staff_shift_seconds($row))) ?>
+              · <?= e(staff_format_split_line(staff_shift_seconds_split($row))) ?>
               · <?= e(staff_shift_reason_label($row['end_reason'] ?? null)) ?>
             </li>
           <?php endforeach; ?>
@@ -264,6 +264,8 @@ function staff_hours_send_export(PDO $pdo, ?int $slot = null): void
         'ورود',
         'خروج',
         'مدت',
+        'ساعت عادی',
+        'اضافه‌کاری',
         'توضیح',
     ]);
     foreach ($rows as $row) {
@@ -275,6 +277,8 @@ function staff_hours_send_export(PDO $pdo, ?int $slot = null): void
             (string) ($row['started_at'] ?? ''),
             (string) ($row['ended_at'] ?? ''),
             (string) ($row['duration'] ?? ''),
+            (string) ($row['regular'] ?? ''),
+            (string) ($row['overtime'] ?? ''),
             (string) ($row['reason'] ?? ''),
         ]);
     }

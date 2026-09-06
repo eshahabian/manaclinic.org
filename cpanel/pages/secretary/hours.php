@@ -26,10 +26,8 @@ $todayDate = date('Y-m-d');
 $historyDays = staff_shifts_grouped_by_day($historyRows);
 unset($historyDays[$todayDate]);
 
-$todaySeconds = 0;
-foreach ($todayRows as $row) {
-    $todaySeconds += staff_shift_seconds($row);
-}
+$todaySplit = staff_rows_seconds_split($todayRows);
+$todaySeconds = (int) $todaySplit['total'];
 $report = staff_get_day_report($pdo, (string) $user['id'], $todayDate);
 $draft = staff_today_action_draft($pdo, (string) $user['id']);
 $reportBody = (string) ($report['body'] ?? '');
@@ -37,7 +35,7 @@ $reportBody = (string) ($report['body'] ?? '');
 ob_start();
 ?>
 <h1>ساعت کاری من</h1>
-<p class="muted">هر بار ورود جدا ثبت می‌شود. اگر ۱۰ دقیقه فعال نباشید خارج می‌شوید و ورود بعدی در خط جدا می‌آید.</p>
+<p class="muted">ساعت عادی منشی از ۹ صبح تا ۸ شب است؛ قبل از ۹ و بعد از ۸ اضافه‌کار حساب می‌شود. هر بار ورود جدا ثبت می‌شود. اگر ۱۰ دقیقه فعال نباشید خارج می‌شوید.</p>
 
 <div class="grid-2" style="margin-top:1rem">
   <div class="panel stack">
@@ -45,6 +43,7 @@ ob_start();
     <?php if ($shift): ?>
       <div>ورود این نوبت: <?= e(format_fa_datetime((string) $shift['started_at'])) ?></div>
       <div>مدت این نوبت: <?= e(staff_format_duration(staff_shift_seconds($shift))) ?></div>
+      <div class="muted" style="font-size:.85rem"><?= e(staff_format_split_line(staff_shift_seconds_split($shift), true)) ?></div>
     <?php else: ?>
       <p class="muted">شیفت بازی نیست.</p>
     <?php endif; ?>
@@ -52,7 +51,8 @@ ob_start();
   <div class="panel stack">
     <strong>جمع امروز</strong>
     <div><?= e(staff_format_duration($todaySeconds)) ?></div>
-    <div class="muted" style="font-size:.85rem"><?= to_fa_digits((string) count($todayRows)) ?> بار ورود</div>
+    <div class="staff-overtime-line"><?= e(staff_format_split_line($todaySplit, true)) ?></div>
+    <div class="muted" style="font-size:.85rem"><?= to_fa_digits((string) count($todayRows)) ?> بار ورود · ساعت عادی ۹ تا ۲۰</div>
   </div>
 </div>
 
@@ -68,6 +68,7 @@ ob_start();
           از <?= e(format_fa_datetime((string) $row['started_at'])) ?>
           تا <?= !empty($row['ended_at']) ? e(format_fa_datetime((string) $row['ended_at'])) : 'الان' ?>
           · <?= e(staff_format_duration(staff_shift_seconds($row))) ?>
+          · <?= e(staff_format_split_line(staff_shift_seconds_split($row))) ?>
           · <?= e(staff_shift_reason_label($row['end_reason'] ?? null)) ?>
         </li>
       <?php endforeach; ?>
@@ -103,7 +104,7 @@ ob_start();
       <div class="staff-day-block">
         <h3 class="appt-day-title">
           <?= e((string) $day['label']) ?>
-          <span class="muted" style="font-weight:400;font-size:.85rem"> · <?= e(to_fa_digits((string) count($day['items']))) ?> بار ورود</span>
+          <span class="muted" style="font-weight:400;font-size:.85rem"> · <?= e(to_fa_digits((string) count($day['items']))) ?> بار ورود · <?= e(staff_format_split_line(staff_rows_seconds_split($day['items']))) ?></span>
         </h3>
         <ol class="staff-shift-lines">
           <?php foreach ($day['items'] as $i => $row): ?>
@@ -112,6 +113,7 @@ ob_start();
               <?= e(format_fa_datetime((string) $row['started_at'])) ?>
               تا <?= !empty($row['ended_at']) ? e(format_fa_datetime((string) $row['ended_at'])) : '— هنوز باز' ?>
               · <?= e(staff_format_duration(staff_shift_seconds($row))) ?>
+              · <?= e(staff_format_split_line(staff_shift_seconds_split($row))) ?>
               · <?= e(staff_shift_reason_label($row['end_reason'] ?? null)) ?>
             </li>
           <?php endforeach; ?>
