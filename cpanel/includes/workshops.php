@@ -12,6 +12,7 @@ function ensure_workshop_schema(PDO $pdo): void
         doctor_id VARCHAR(32) NOT NULL,
         title VARCHAR(255) NOT NULL,
         type ENUM('IN_PERSON','ONLINE','OFFLINE') NOT NULL,
+        session_interval ENUM('DAILY','WEEKLY','MONTHLY') NOT NULL DEFAULT 'WEEKLY',
         starts_at DATETIME NOT NULL,
         ends_at DATETIME NOT NULL,
         items_to_bring TEXT NULL,
@@ -133,6 +134,10 @@ function workshop_ensure_columns(PDO $pdo): void
     if (!$hasPayRecorder) {
         $pdo->exec('ALTER TABLE workshop_payments ADD COLUMN recorded_by_user_id VARCHAR(32) NULL AFTER receipt_path');
     }
+    $hasSessionInterval = $pdo->query("SHOW COLUMNS FROM workshops LIKE 'session_interval'")->fetch();
+    if (!$hasSessionInterval) {
+        $pdo->exec("ALTER TABLE workshops ADD COLUMN session_interval ENUM('DAILY','WEEKLY','MONTHLY') NOT NULL DEFAULT 'DAILY' AFTER type");
+    }
     $ready = true;
 }
 
@@ -161,6 +166,52 @@ function workshop_offline_datetimes(): array
 function workshop_is_offline(string $type): bool
 {
     return $type === 'OFFLINE';
+}
+
+function workshop_session_interval_options(): array
+{
+    return [
+        'DAILY' => 'روزانه — هر روز یک جلسه',
+        'WEEKLY' => 'هفتگی — هر هفته یک جلسه',
+        'MONTHLY' => 'ماهانه — هر ماه یک جلسه',
+    ];
+}
+
+function workshop_session_interval_normalize(?string $value): string
+{
+    $value = strtoupper(trim((string) $value));
+    return in_array($value, ['DAILY', 'WEEKLY', 'MONTHLY'], true) ? $value : 'WEEKLY';
+}
+
+function workshop_session_interval_label(?string $value, bool $short = true): string
+{
+    $value = workshop_session_interval_normalize($value);
+    if ($short) {
+        return match ($value) {
+            'DAILY' => 'روزانه',
+            'MONTHLY' => 'ماهانه',
+            default => 'هفتگی',
+        };
+    }
+    return workshop_session_interval_options()[$value] ?? 'هفتگی — هر هفته یک جلسه';
+}
+
+function workshop_session_interval_field_html(?string $current, bool $isNew = false): string
+{
+    $selected = $isNew && ($current === null || $current === '')
+        ? 'WEEKLY'
+        : workshop_session_interval_normalize($current ?: 'DAILY');
+    $html = '<div id="field-session-interval">';
+    $html .= '<label class="label" for="workshop-session-interval">فاصله جلسات</label>';
+    $html .= '<select class="input" name="session_interval" id="workshop-session-interval">';
+    foreach (workshop_session_interval_options() as $val => $label) {
+        $sel = $selected === $val ? ' selected' : '';
+        $html .= '<option value="' . e($val) . '"' . $sel . '>' . e($label) . '</option>';
+    }
+    $html .= '</select>';
+    $html .= '<p class="muted" style="font-size:.8rem;margin:.35rem 0 0;line-height:1.6">از تاریخ شروع تا پایان، جلسات با همین فاصله ساخته می‌شوند. کارگاه‌های قبلی را هم از همین‌جا می‌توانید روزانه، هفتگی یا ماهانه کنید.</p>';
+    $html .= '</div>';
+    return $html;
 }
 
 /** کارگاه‌هایی که مراجعه‌کننده در لیست «دوره‌های من» می‌بیند (هنوز تمام نشده) */
@@ -338,6 +389,10 @@ function workshop_save_fields_from_post(): array
         }
     }
 
+    $sessionInterval = workshop_is_offline($type)
+        ? 'DAILY'
+        : workshop_session_interval_normalize(post('session_interval'));
+
     [$location, $meetingUrl, $contentUrl, $locationLat, $locationLng] = workshop_type_urls_from_post($type);
     $groupUrl = trim(post('group_url')) ?: null;
     if ($groupUrl !== null && !preg_match('#^https?://#i', $groupUrl)) {
@@ -347,6 +402,7 @@ function workshop_save_fields_from_post(): array
     return [
         'title' => $title,
         'type' => $type,
+        'session_interval' => $sessionInterval,
         'starts_at' => $startsAt,
         'ends_at' => $endsAt,
         'price' => $price,
@@ -374,7 +430,8 @@ function workshop_save_sessions_and_media(PDO $pdo, string $workshopId, array $d
         (string) $data['type'],
         (string) $data['starts_at'],
         (string) $data['ends_at'],
-        workshop_sessions_extra_dates_from_post()
+        workshop_sessions_extra_dates_from_post(),
+        workshop_session_interval_normalize((string) ($data['session_interval'] ?? 'WEEKLY'))
     );
     $saved = workshop_media_process_session_uploads($pdo, $workshopId, $doctorProfileId);
     $saved += workshop_media_process_form_uploads($pdo, $workshopId, $doctorProfileId);
@@ -1096,7 +1153,7 @@ function patient_workshop_tab_data(PDO $pdo, string $patientId): array
     ")->fetchAll();
 
     $mine = $pdo->prepare("
-      SELECT e.*, w.title, w.starts_at, w.ends_at, w.type, w.status AS workshop_status,
+      SELECT e.*, w.title, w.starts_at, w.ends_at, w.type, w.session_interval, w.status AS workshop_status,
              w.meeting_url, w.content_url, w.group_url, w.location,
              w.location_lat, w.location_lng, w.items_to_bring, w.description, w.price,
              (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = 'VIDEO') AS video_count,

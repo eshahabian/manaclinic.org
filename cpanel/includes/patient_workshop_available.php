@@ -30,6 +30,9 @@ $emptyAvailable = $emptyAvailable ?? 'کارگاه فعالی برای ثبت‌
             <?= function_exists('workshop_overview_data_script') ? workshop_overview_data_script($overview) : '' ?>
             <strong><?= e($w['title']) ?></strong>
             <span class="badge" style="margin-right:.5rem"><?= e(workshop_type_label((string) $w['type'])) ?></span>
+            <?php if ($w['type'] !== 'OFFLINE'): ?>
+              <span class="badge" style="margin-right:.35rem"><?= e(workshop_session_interval_label((string) ($w['session_interval'] ?? 'DAILY'))) ?></span>
+            <?php endif; ?>
             <?php if ($canSeeFiles): ?>
               <?php $mediaStats = workshop_media_counts_html(workshop_media_counts_from_row($w)); if ($mediaStats): ?>
                 <div style="margin-top:.4rem"><?= $mediaStats ?></div>

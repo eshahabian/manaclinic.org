@@ -33,6 +33,9 @@ $workshopMediaPost = $workshopRole === 'secretary' ? '/secretary/workshop-media'
             <?= function_exists('workshop_overview_data_script') ? workshop_overview_data_script($staffOverview) : '' ?>
             <strong><?= e($workshop['title']) ?></strong>
             <span class="badge" style="margin-right:.5rem"><?= e(workshop_type_label($workshop['type'])) ?></span>
+            <?php if ($workshop['type'] !== 'OFFLINE'): ?>
+              <span class="badge" style="margin-right:.35rem"><?= e(workshop_session_interval_label((string) ($workshop['session_interval'] ?? 'DAILY'))) ?></span>
+            <?php endif; ?>
             <?php if ($workshopRole === 'secretary' && !empty($workshop['doctor_name'])): ?>
               <div class="muted" style="font-size:.85rem;margin-top:.35rem">درمانگر: <?= e($workshop['doctor_name']) ?></div>
             <?php endif; ?>

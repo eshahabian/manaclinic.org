@@ -242,7 +242,7 @@ function workshop_media_patient_can_access(PDO $pdo, string $patientId, string $
 function workshop_media_enrollment_access(PDO $pdo, string $patientId, string $enrollmentId): ?array
 {
     $stmt = $pdo->prepare("
-      SELECT e.*, w.title, w.type, w.status AS workshop_status, w.ends_at
+      SELECT e.*, w.title, w.type, w.session_interval, w.status AS workshop_status, w.starts_at, w.ends_at
       FROM workshop_enrollments e
       JOIN workshops w ON w.id = e.workshop_id
       WHERE e.id = ? AND e.patient_id = ?

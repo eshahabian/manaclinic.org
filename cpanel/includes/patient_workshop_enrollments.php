@@ -26,7 +26,7 @@ $emptyEnrollments = $emptyEnrollments ?? 'هنوز در کارگاهی از ای
         $canSeeFiles = function_exists('workshop_member_can_see_files') && workshop_member_can_see_files($e);
         $sessions = $sessionsByWorkshop[(string) ($e['workshop_id'] ?? '')] ?? [];
         $overview = function_exists('workshop_overview_payload')
-          ? workshop_overview_payload($e + ['id' => $e['workshop_id'] ?? '', 'title' => $e['title'] ?? '', 'type' => $e['type'] ?? '', 'starts_at' => $e['starts_at'] ?? '', 'ends_at' => $e['ends_at'] ?? '', 'price' => $e['amount'] ?? 0, 'doctor_name' => $e['doctor_name'] ?? '', 'items_to_bring' => $e['items_to_bring'] ?? '', 'description' => $e['description'] ?? '', 'location' => $e['location'] ?? ''], $e, $sessions, $canSeeFiles, $canSeeFiles ? workshop_media_course_url((string) $e['id']) : null)
+          ? workshop_overview_payload($e + ['id' => $e['workshop_id'] ?? '', 'title' => $e['title'] ?? '', 'type' => $e['type'] ?? '', 'session_interval' => $e['session_interval'] ?? 'DAILY', 'starts_at' => $e['starts_at'] ?? '', 'ends_at' => $e['ends_at'] ?? '', 'price' => $e['amount'] ?? 0, 'doctor_name' => $e['doctor_name'] ?? '', 'items_to_bring' => $e['items_to_bring'] ?? '', 'description' => $e['description'] ?? '', 'location' => $e['location'] ?? ''], $e, $sessions, $canSeeFiles, $canSeeFiles ? workshop_media_course_url((string) $e['id']) : null)
           : [];
       ?>
       <div class="enrollment-card">
@@ -44,6 +44,9 @@ $emptyEnrollments = $emptyEnrollments ?? 'هنوز در کارگاهی از ای
             <div style="font-size:.85rem;margin-top:.35rem"><?= e(format_workshop_datetime_fa((string) $e['starts_at'])) ?></div>
           <?php endif; ?>
           <span class="badge" style="margin-top:.5rem;display:inline-block"><?= e(enrollment_status_label((string) $e['status'])) ?></span>
+          <?php if ($e['type'] !== 'OFFLINE'): ?>
+            <span class="badge" style="margin-top:.5rem;margin-right:.35rem;display:inline-block"><?= e(workshop_session_interval_label((string) ($e['session_interval'] ?? 'DAILY'))) ?></span>
+          <?php endif; ?>
           <?php if ($e['amount']): ?>
             <div class="muted" style="font-size:.85rem;margin-top:.35rem"><?= e(format_price((int) $e['amount'])) ?></div>
           <?php endif; ?>

@@ -4,8 +4,8 @@
   var typeEl = document.getElementById("workshop-type");
   var startEl = document.getElementById("workshop-start-date");
   var endEl = document.getElementById("workshop-end-date");
+  var intervalEl = document.getElementById("workshop-session-interval");
   var extraWrap = document.getElementById("offline-extra-days");
-  var extraView = document.getElementById("extra-session-date-view");
   var extraHidden = document.getElementById("extra-session-date");
   var extraBtn = document.getElementById("add-extra-session-day");
   var months = ["", "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"];
@@ -22,16 +22,32 @@
     var j = jalaali.toJalaali(parseInt(p[0], 10), parseInt(p[1], 10), parseInt(p[2], 10));
     return toFa(j.jd) + " " + (months[j.jm] || "") + " " + toFa(j.jy);
   }
-  function daysBetween(start, end) {
+  function pad(n) {
+    return String(n).padStart(2, "0");
+  }
+  function ymd(d) {
+    return d.getFullYear() + "-" + pad(d.getMonth() + 1) + "-" + pad(d.getDate());
+  }
+  function datesFromRange(start, end, interval) {
     var a = new Date(start + "T12:00:00");
     var b = new Date(end + "T12:00:00");
     if (isNaN(a) || isNaN(b) || b < a) return start ? [start] : [];
     var out = [];
-    for (var d = new Date(a); d <= b && out.length < 60; d.setDate(d.getDate() + 1)) {
-      var y = d.getFullYear();
-      var m = String(d.getMonth() + 1).padStart(2, "0");
-      var day = String(d.getDate()).padStart(2, "0");
-      out.push(y + "-" + m + "-" + day);
+    var startDay = a.getDate();
+    var d = new Date(a);
+    while (d <= b && out.length < 60) {
+      out.push(ymd(d));
+      if (interval === "WEEKLY") {
+        d.setDate(d.getDate() + 7);
+      } else if (interval === "MONTHLY") {
+        var nextMonth = d.getMonth() + 1;
+        var year = d.getFullYear() + Math.floor(nextMonth / 12);
+        var month = nextMonth % 12;
+        var last = new Date(year, month + 1, 0).getDate();
+        d = new Date(year, month, Math.min(startDay, last), 12);
+      } else {
+        d.setDate(d.getDate() + 1);
+      }
     }
     return out;
   }
@@ -57,13 +73,21 @@
     if (!date || existingDates().indexOf(date) !== -1) return;
     list.insertAdjacentHTML("beforeend", slotHtml(date, existingDates().length));
   }
-  function rebuildFromRange() {
+  function isEditForm() {
+    return !!document.querySelector('#workshop-form input[name="id"]');
+  }
+  function currentInterval() {
+    return intervalEl && intervalEl.value ? intervalEl.value : "WEEKLY";
+  }
+  function rebuildFromRange(force) {
     if (!typeEl || typeEl.value === "OFFLINE") return;
-    if (list.querySelector("[data-session-date]")) return;
+    if (!force && isEditForm() && list.querySelector("[data-session-date]")) return;
     var start = startEl ? startEl.value : "";
     var end = endEl ? endEl.value : start;
     if (!start) return;
-    daysBetween(start, end).forEach(function (date, i) {
+    if (!isEditForm()) list.innerHTML = "";
+    else if (force) list.innerHTML = "";
+    datesFromRange(start, end, currentInterval()).forEach(function (date, i) {
       list.insertAdjacentHTML("beforeend", slotHtml(date, i));
     });
   }
@@ -74,12 +98,19 @@
 
   if (typeEl) typeEl.addEventListener("change", function () {
     syncOfflineBox();
-    if (typeEl.value !== "OFFLINE") rebuildFromRange();
+    if (typeEl.value !== "OFFLINE") rebuildFromRange(!isEditForm());
   });
+  if (intervalEl) {
+    intervalEl.addEventListener("change", function () {
+      rebuildFromRange(true);
+    });
+  }
   ["jdp:change", "change"].forEach(function (ev) {
     document.addEventListener(ev, function (e) {
       if (e.target && (e.target.id === "workshop-start-date-view" || e.target.id === "workshop-end-date-view")) {
-        setTimeout(rebuildFromRange, 50);
+        setTimeout(function () {
+          rebuildFromRange(!isEditForm());
+        }, 50);
       }
     });
   });
@@ -101,5 +132,5 @@
   });
 
   syncOfflineBox();
-  rebuildFromRange();
+  rebuildFromRange(false);
 })();

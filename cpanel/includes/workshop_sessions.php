@@ -23,24 +23,41 @@ function ensure_workshop_sessions_schema(PDO $pdo): void
     $ready = true;
 }
 
-function workshop_session_dates_from_range(string $startsAt, string $endsAt): array
+function workshop_session_dates_from_range(string $startsAt, string $endsAt, string $interval = 'WEEKLY'): array
 {
     $start = substr($startsAt, 0, 10);
     $end = substr($endsAt, 0, 10);
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $start) || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $end)) {
         return [];
     }
-    $from = strtotime($start . ' 12:00:00');
-    $to = strtotime($end . ' 12:00:00');
-    if (!$from || !$to || $to < $from) {
+    try {
+        $from = new DateTimeImmutable($start . ' 12:00:00');
+        $to = new DateTimeImmutable($end . ' 12:00:00');
+    } catch (\Exception $e) {
         return [$start];
     }
+    if ($to < $from) {
+        return [$start];
+    }
+    $interval = function_exists('workshop_session_interval_normalize')
+        ? workshop_session_interval_normalize($interval)
+        : (in_array($interval, ['DAILY', 'WEEKLY', 'MONTHLY'], true) ? $interval : 'WEEKLY');
     $out = [];
-    for ($ts = $from; $ts <= $to; $ts += 86400) {
-        $out[] = date('Y-m-d', $ts);
-        if (count($out) >= 60) {
-            break;
+    $current = $from;
+    $startDay = (int) $from->format('d');
+    while ($current <= $to && count($out) < 60) {
+        $out[] = $current->format('Y-m-d');
+        if ($interval === 'WEEKLY') {
+            $current = $current->modify('+7 days');
+            continue;
         }
+        if ($interval === 'MONTHLY') {
+            $next = $current->modify('first day of next month')->setTime(12, 0, 0);
+            $day = min($startDay, (int) $next->format('t'));
+            $current = $next->setDate((int) $next->format('Y'), (int) $next->format('n'), $day);
+            continue;
+        }
+        $current = $current->modify('+1 day');
     }
     return $out;
 }
@@ -66,7 +83,7 @@ function workshop_sessions_extra_dates_from_post(): array
     return array_values($out);
 }
 
-function workshop_sessions_sync(PDO $pdo, string $workshopId, string $type, string $startsAt, string $endsAt, array $extraDates = []): array
+function workshop_sessions_sync(PDO $pdo, string $workshopId, string $type, string $startsAt, string $endsAt, array $extraDates = [], string $interval = 'WEEKLY'): array
 {
     ensure_workshop_sessions_schema($pdo);
     $dates = [];
@@ -82,7 +99,7 @@ function workshop_sessions_sync(PDO $pdo, string $workshopId, string $type, stri
             $dates[date('Y-m-d')] = date('Y-m-d');
         }
     } else {
-        foreach (workshop_session_dates_from_range($startsAt, $endsAt) as $date) {
+        foreach (workshop_session_dates_from_range($startsAt, $endsAt, $interval) as $date) {
             $dates[$date] = $date;
         }
         foreach ($extraDates as $date) {

@@ -12,7 +12,7 @@ $editWorkshopId = $editWorkshopId ?? null;
 <div id="field-session-media" class="panel workshop-session-media" style="padding:1rem;background:var(--bg-soft,#f8fafc);border-style:dashed">
   <h3 style="margin:0;font-size:.95rem">فایل هر جلسه</h3>
   <p class="muted" style="font-size:.85rem;line-height:1.65;margin:.4rem 0 0">
-    برای هر روز برگزاری، پی‌دی‌اف، صوت و ویدیو جداگانه بارگذاری می‌شود. فقط اعضای تأییدشده این فایل‌ها را می‌بینند.
+    برای هر جلسه (روزانه، هفتگی یا ماهانه)، پی‌دی‌اف، صوت و ویدیو جداگانه بارگذاری می‌شود. فقط اعضای تأییدشده این فایل‌ها را می‌بینند.
   </p>
   <p class="muted" style="font-size:.8rem;margin:.35rem 0 0">حداکثر <?= (int) ($mediaMaxMb ?? 300) ?> مگابایت برای هر فایل</p>
 

@@ -92,7 +92,15 @@ $workshopMedia = [];
 $workshopSessions = [];
 $sessionNotes = [];
 if ($editWorkshop) {
-    workshop_sessions_sync($pdo, (string) $editWorkshop['id'], (string) $editWorkshop['type'], (string) $editWorkshop['starts_at'], (string) $editWorkshop['ends_at']);
+    workshop_sessions_sync(
+        $pdo,
+        (string) $editWorkshop['id'],
+        (string) $editWorkshop['type'],
+        (string) $editWorkshop['starts_at'],
+        (string) $editWorkshop['ends_at'],
+        [],
+        workshop_session_interval_normalize((string) ($editWorkshop['session_interval'] ?? 'DAILY'))
+    );
     $workshopMedia = workshop_media_list($pdo, (string) $editWorkshop['id']);
     $workshopSessions = workshop_sessions_with_media($pdo, (string) $editWorkshop['id']);
     $sessionNotes = workshop_session_notes_list($pdo, (string) $editWorkshop['id']);
@@ -207,6 +215,9 @@ ob_start();
         <label class="label">پایان — ساعت</label>
         <input class="input" type="time" name="end_time" id="workshop-end-time" value="<?= e($endParts['time']) ?>">
       </div>
+    </div>
+    <div style="margin-top:.75rem">
+      <?= workshop_session_interval_field_html($formData['session_interval'] ?? null, !$editWorkshop) ?>
     </div>
   </div>
   <div class="grid-2">
@@ -636,6 +647,6 @@ ob_start();
   }
 })();
 </script>
-<script src="<?= e(url('/assets/js/workshop-session-media.js')) ?>?v=20260906s"></script>
+<script src="<?= e(url('/assets/js/workshop-session-media.js')) ?>?v=20260906u"></script>
 <?php
 render_doctor_page('کارگاه‌ها', ob_get_clean());

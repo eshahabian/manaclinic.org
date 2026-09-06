@@ -72,6 +72,7 @@
     var html = "";
     html += '<div class="workshop-overview-meta">';
     if (data.type) html += '<span class="badge">' + esc(data.type) + "</span>";
+    if (data.interval) html += '<span class="badge" style="margin-right:.35rem">' + esc(data.interval) + "</span>";
     if (data.doctor) html += '<div class="muted" style="margin-top:.45rem">' + esc(data.doctor) + "</div>";
     if (data.when) html += '<div style="margin-top:.45rem">' + esc(data.when) + "</div>";
     if (data.price) html += '<div class="muted" style="margin-top:.35rem">' + esc(data.price) + "</div>";

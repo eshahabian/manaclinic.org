@@ -34,6 +34,9 @@ function workshop_overview_payload(array $workshop, ?array $enrollment, array $s
         'id' => (string) ($workshop['id'] ?? ''),
         'title' => (string) ($workshop['title'] ?? ''),
         'type' => workshop_type_label((string) ($workshop['type'] ?? '')),
+        'interval' => (($workshop['type'] ?? '') === 'OFFLINE')
+            ? ''
+            : workshop_session_interval_label((string) ($workshop['session_interval'] ?? 'DAILY')),
         'doctor' => (string) ($workshop['doctor_name'] ?? ''),
         'price' => format_price((int) ($workshop['price'] ?? 0)),
         'offline' => ($workshop['type'] ?? '') === 'OFFLINE',

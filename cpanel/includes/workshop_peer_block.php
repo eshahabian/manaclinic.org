@@ -21,6 +21,9 @@ if (!$peerList) {
       <?= function_exists('workshop_overview_data_script') ? workshop_overview_data_script($peerOverview) : '' ?>
       <strong><?= e($peer['title']) ?></strong>
       <span class="badge" style="margin-right:.5rem"><?= e(workshop_type_label($peer['type'])) ?></span>
+      <?php if ($peer['type'] !== 'OFFLINE'): ?>
+        <span class="badge" style="margin-right:.35rem"><?= e(workshop_session_interval_label((string) ($peer['session_interval'] ?? 'DAILY'))) ?></span>
+      <?php endif; ?>
       <div class="muted" style="font-size:.75rem;margin-top:.35rem">برای دیدن کلیات کلیک کنید</div>
       <div class="muted" style="font-size:.85rem;margin-top:.35rem">درمانگر: <?= e($peer['doctor_name']) ?></div>
       <div class="muted" style="font-size:.85rem;margin-top:.25rem">

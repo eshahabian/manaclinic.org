@@ -25,7 +25,9 @@ workshop_sessions_sync(
     (string) $enrollment['workshop_id'],
     (string) ($enrollment['type'] ?? 'OFFLINE'),
     (string) ($enrollment['starts_at'] ?? date('Y-m-d H:i:s')),
-    (string) ($enrollment['ends_at'] ?? date('Y-m-d H:i:s'))
+    (string) ($enrollment['ends_at'] ?? date('Y-m-d H:i:s')),
+    [],
+    workshop_session_interval_normalize((string) ($enrollment['session_interval'] ?? 'DAILY'))
 );
 $sessions = workshop_sessions_with_media($pdo, (string) $enrollment['workshop_id']);
 $mediaItems = workshop_media_list($pdo, (string) $enrollment['workshop_id']);
