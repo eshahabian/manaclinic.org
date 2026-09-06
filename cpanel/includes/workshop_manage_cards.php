@@ -26,6 +26,11 @@ $workshopMediaPost = $workshopRole === 'secretary' ? '/secretary/workshop-media'
           : [];
         $staffOverview['staff'] = true;
         $staffOverview['editUrl'] = url($workshopEditBase . '?edit=' . $workshop['id']) . '#workshop-form';
+        $people = function_exists('workshop_overview_people_lists')
+          ? workshop_overview_people_lists($workshopEnrollmentsById[(string) $workshop['id']] ?? [])
+          : ['approved' => [], 'pending' => []];
+        $staffOverview['approvedPeople'] = $people['approved'];
+        $staffOverview['pendingPeople'] = $people['pending'];
       ?>
       <article class="workshop-binder-card<?= $archived ? ' is-archived' : '' ?>" id="workshop-<?= e($workshop['id']) ?>">
         <div class="workshop-card-row">

@@ -31,6 +31,23 @@
     return d.innerHTML;
   }
 
+  function renderPeopleGroup(title, names) {
+    var list = Array.isArray(names) ? names.filter(Boolean) : [];
+    var html = '<div class="workshop-overview-people">';
+    html += "<h3>" + esc(title) + " (" + esc(String(list.length).replace(/[0-9]/g, function (d) { return "۰۱۲۳۴۵۶۷۸۹"[d]; })) + ")</h3>";
+    if (!list.length) {
+      html += '<p class="muted">هنوز کسی در این گروه نیست.</p>';
+    } else {
+      html += "<ul>";
+      list.forEach(function (name) {
+        html += "<li>" + esc(name) + "</li>";
+      });
+      html += "</ul>";
+    }
+    html += "</div>";
+    return html;
+  }
+
   function readPayload(openEl) {
     var script = openEl.querySelector("script.js-workshop-payload");
     if (script && script.textContent) {
@@ -89,7 +106,7 @@
     if (data.days && data.days.length) {
       html += '<h3 class="workshop-overview-days-title">روزهای برگزاری</h3><ul class="workshop-overview-days">';
       data.days.forEach(function (day) {
-        html += "<li><strong>" + esc(day.date_fa || day.title || "") + "</strong>";
+        html += "<li><strong>" + esc(day.title || day.date_fa || "") + "</strong>";
         if ((data.member || data.staff) && day.files && day.files.length) {
           html += '<div class="muted" style="font-size:.8rem;margin-top:.2rem">فایل‌ها: ' + esc(day.files.join("، ")) + "</div>";
         }
@@ -98,6 +115,8 @@
       html += "</ul>";
     }
     if (data.staff) {
+      html += renderPeopleGroup("تأیید شده‌ها", data.approvedPeople);
+      html += renderPeopleGroup("منتظر تأیید", data.pendingPeople);
       html += '<p class="muted" style="margin:.85rem 0 0;font-size:.85rem">از همین پنجره کلیات را ببینید؛ برای فایل هر جلسه وارد ویرایش شوید.</p>';
       if (data.editUrl) {
         html += '<a class="btn btn-primary btn-sm" style="margin-top:.75rem" href="' + esc(data.editUrl) + '">ویرایش و فایل جلسات</a>';

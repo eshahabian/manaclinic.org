@@ -2053,6 +2053,21 @@ body.workshop-overview-locked { overflow: hidden; }
 }
 .workshop-overview-days { margin: 0; padding: 0 1.1rem 0 0; }
 .workshop-overview-days li { margin: .4rem 0; }
+.workshop-overview-people {
+  margin-top: 1rem;
+  padding-top: .85rem;
+  border-top: 1px solid var(--line, #e5e7eb);
+}
+.workshop-overview-people h3 {
+  margin: 0 0 .4rem;
+  font-size: .95rem;
+}
+.workshop-overview-people ul {
+  margin: 0;
+  padding: 0 1.1rem 0 0;
+}
+.workshop-overview-people li { margin: .3rem 0; }
+.workshop-overview-people .muted { margin: 0; font-size: .85rem; }
 .workshop-session-slots {
   display: grid; gap: .65rem; margin-top: .65rem;
 }

@@ -37,6 +37,10 @@ $stmt = $pdo->prepare('
 ');
 $stmt->execute([$ctx['profile']['id']]);
 $workshops = $stmt->fetchAll();
+$workshopEnrollmentsById = workshop_staff_enrollments_grouped(
+    $pdo,
+    array_map(static fn ($w) => (string) $w['id'], $workshops)
+);
 
 $otherWorkshops = $pdo->prepare('
   SELECT w.*, u.name AS doctor_name,
@@ -292,16 +296,36 @@ ob_start();
   <section class="panel form-stack" id="session-notes" style="margin-top:1.25rem">
     <h2 style="margin:0;font-size:1.05rem">یادداشت جلسات برگزارشده</h2>
     <p class="muted" style="font-size:.85rem;margin:.35rem 0 0;line-height:1.65">
-      برای هر جلسه‌ای که برگزار می‌شود می‌توانید عنوان، تاریخ و یادداشت ثبت کنید.
+      تاریخ‌ها همان روزهای برگزاری کارگاه هستند. کنار هر کدام شماره جلسه نوشته شده است.
     </p>
+
+    <?php
+      $sessionNumberByDate = [];
+      foreach ($workshopSessions as $sessionIndex => $sessionRow) {
+          $sessionNumberByDate[(string) ($sessionRow['session_date'] ?? '')] = $sessionIndex + 1;
+      }
+    ?>
 
     <?php if ($sessionNotes): ?>
       <div class="stack" style="margin-top:1rem">
         <?php foreach ($sessionNotes as $note): ?>
+          <?php
+            $noteDate = substr((string) ($note['session_at'] ?? ''), 0, 10);
+            $noteNumber = $sessionNumberByDate[$noteDate] ?? null;
+          ?>
           <div class="panel" style="padding:.85rem;font-size:.9rem">
             <div class="row-between" style="align-items:flex-start;gap:.75rem">
               <div style="min-width:0">
-                <strong><?= e($note['session_title']) ?></strong>
+                <strong>
+                  <?php if ($noteNumber): ?>
+                    جلسه <?= e(to_fa_digits((string) $noteNumber)) ?>
+                    <?php if ($noteDate !== ''): ?>
+                      — <?= e(to_jalali_label($noteDate)) ?>
+                    <?php endif; ?>
+                  <?php else: ?>
+                    <?= e($note['session_title']) ?>
+                  <?php endif; ?>
+                </strong>
                 <?php if (!empty($note['session_at'])): ?>
                   <div class="muted" style="font-size:.8rem;margin-top:.25rem"><?= e(format_workshop_datetime_fa((string) $note['session_at'])) ?></div>
                 <?php endif; ?>
@@ -324,27 +348,33 @@ ob_start();
     <form class="form-stack" method="post" action="<?= e(url('/doctor/workshop-session-note')) ?>" style="margin-top:1rem;border-top:1px solid var(--line);padding-top:1rem">
       <input type="hidden" name="action" value="save">
       <input type="hidden" name="workshop_id" value="<?= e($editWorkshop['id']) ?>">
+      <?php if ($workshopSessions): ?>
       <div>
-        <label class="label">عنوان جلسه</label>
-        <input class="input" name="session_title" required placeholder="مثلاً: جلسه دوم — تمرین گروهی">
+        <label class="label">جلسه برگزارشده</label>
+        <select class="input" name="session_id" required>
+          <option value="">انتخاب جلسه...</option>
+          <?php foreach ($workshopSessions as $sessionIndex => $sessionRow): ?>
+            <?php $sessionDate = (string) ($sessionRow['session_date'] ?? ''); ?>
+            <?php if ($sessionDate === '') continue; ?>
+            <option value="<?= e((string) $sessionRow['id']) ?>">
+              جلسه <?= e(to_fa_digits((string) ($sessionIndex + 1))) ?> — <?= e(to_jalali_label($sessionDate)) ?>
+            </option>
+          <?php endforeach; ?>
+        </select>
       </div>
-      <div class="grid-2">
-        <div>
-          <label class="label">تاریخ جلسه (شمسی — اختیاری)</label>
-          <input class="input workshop-date-view" type="text" id="session-note-date-view" data-jdp data-jdp-only-date autocomplete="off" readonly placeholder="انتخاب تاریخ">
-          <input type="hidden" name="session_date" id="session-note-date" value="">
-        </div>
-        <div>
-          <label class="label">ساعت (اختیاری)</label>
-          <input class="input" type="time" name="session_time" value="10:00">
-        </div>
+      <div>
+        <label class="label">ساعت (اختیاری)</label>
+        <input class="input" type="time" name="session_time" value="<?= e($startParts['time'] ?: '10:00') ?>">
       </div>
+      <?php else: ?>
+        <p class="muted">اول کارگاه را ذخیره کنید تا روزهای برگزاری ساخته شود؛ بعد می‌توانید برای همان جلسات یادداشت بگذارید.</p>
+      <?php endif; ?>
       <div>
         <label class="label">یادداشت</label>
         <textarea class="input" name="note_text" rows="4" required placeholder="شرح جلسه، نکات مهم، وضعیت گروه..."></textarea>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center">
-        <button type="submit" class="btn btn-primary btn-sm">ثبت یادداشت جلسه</button>
+        <button type="submit" class="btn btn-primary btn-sm"<?= $workshopSessions ? '' : ' disabled' ?>>ثبت یادداشت جلسه</button>
         <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/workshop-export?id=' . $editWorkshop['id'])) ?>">خروجی ثبت‌نام‌شدگان (CSV)</a>
       </div>
     </form>
@@ -546,16 +576,6 @@ ob_start();
     zIndex: 100000,
     container: "body"
   });
-
-  var sessionNoteDateView = document.getElementById("session-note-date-view");
-  if (sessionNoteDateView) {
-    sessionNoteDateView.addEventListener("jdp:change", function(){ syncJalali("session-note-date-view", "session-note-date"); });
-    sessionNoteDateView.addEventListener("change", function(){ syncJalali("session-note-date-view", "session-note-date"); });
-    var noteForm = sessionNoteDateView.closest("form");
-    if (noteForm) {
-      noteForm.addEventListener("submit", function(){ syncJalali("session-note-date-view", "session-note-date"); });
-    }
-  }
 
   if (window.location.hash === "#session-notes") {
     var notesSection = document.getElementById("session-notes");

@@ -817,10 +817,10 @@ function workshop_enroll_by_staff(PDO $pdo, string $workshopId, string $patientI
     return $enrollmentId;
 }
 
-function workshop_staff_enrollments_grouped(PDO $pdo): array
+function workshop_staff_enrollments_grouped(PDO $pdo, array $workshopIds = []): array
 {
     ensure_workshop_schema($pdo);
-    $rows = $pdo->query("
+    $sql = "
       SELECT e.id, e.workshop_id, e.status, e.enrolled_at, e.created_by_user_id,
              u.name AS patient_name, u.phone AS patient_phone, u.username AS patient_username,
              wp.id AS payment_id, wp.amount, wp.status AS pay_status, wp.receipt_path, wp.ref_id,
@@ -832,10 +832,18 @@ function workshop_staff_enrollments_grouped(PDO $pdo): array
       LEFT JOIN users cu ON cu.id = e.created_by_user_id
       LEFT JOIN users ru ON ru.id = wp.recorded_by_user_id
       WHERE e.status IN ('PENDING_PAYMENT','CONFIRMED','COMPLETED')
-      ORDER BY e.enrolled_at DESC
-    ")->fetchAll();
+    ";
+    $params = [];
+    $workshopIds = array_values(array_unique(array_filter(array_map('strval', $workshopIds))));
+    if ($workshopIds) {
+        $sql .= ' AND e.workshop_id IN (' . implode(',', array_fill(0, count($workshopIds), '?')) . ')';
+        $params = $workshopIds;
+    }
+    $sql .= ' ORDER BY e.enrolled_at DESC';
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
     $grouped = [];
-    foreach ($rows as $row) {
+    foreach ($stmt->fetchAll() as $row) {
         $grouped[(string) $row['workshop_id']][] = $row;
     }
     return $grouped;

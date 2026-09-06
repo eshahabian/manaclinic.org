@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/doctor_panel.php';
 require_once __DIR__ . '/../includes/workshops.php';
+require_once __DIR__ . '/../includes/workshop_sessions.php';
 
 $ctx = require_doctor_profile($pdo);
 ensure_workshop_schema($pdo);
@@ -19,14 +20,24 @@ if ($workshopId === '') {
 
 if ($action === 'save') {
     try {
-        $sessionTitle = trim(post('session_title'));
+        $sessionId = trim(post('session_id'));
         $noteText = trim(post('note_text'));
-        $sessionDate = trim(post('session_date'));
         $sessionTime = trim(post('session_time')) ?: '10:00';
-        $sessionAt = null;
-        if ($sessionDate !== '') {
-            $sessionAt = workshop_datetime_from_post($sessionDate, $sessionTime);
+        $sessions = workshop_sessions_list($pdo, $workshopId);
+        $chosen = null;
+        $chosenIndex = 0;
+        foreach ($sessions as $i => $session) {
+            if ((string) ($session['id'] ?? '') === $sessionId) {
+                $chosen = $session;
+                $chosenIndex = $i;
+                break;
+            }
         }
+        if (!$chosen || (string) ($chosen['session_date'] ?? '') === '') {
+            throw new RuntimeException('یکی از روزهای برگزاری کارگاه را انتخاب کنید.');
+        }
+        $sessionTitle = workshop_session_title_for_date((string) $chosen['session_date'], $chosenIndex);
+        $sessionAt = workshop_datetime_from_post((string) $chosen['session_date'], $sessionTime);
         $noteId = trim(post('note_id')) ?: null;
         workshop_session_note_save(
             $pdo,

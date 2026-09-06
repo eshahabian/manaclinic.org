@@ -7,6 +7,25 @@ function workshop_member_can_see_files(?array $enrollment): bool
     return in_array($status, ['CONFIRMED', 'COMPLETED'], true);
 }
 
+function workshop_overview_people_lists(array $enrollments): array
+{
+    $approved = [];
+    $pending = [];
+    foreach ($enrollments as $enr) {
+        $name = trim((string) ($enr['patient_name'] ?? ''));
+        if ($name === '') {
+            continue;
+        }
+        $status = (string) ($enr['status'] ?? '');
+        if (in_array($status, ['CONFIRMED', 'COMPLETED'], true)) {
+            $approved[] = $name;
+        } elseif ($status === 'PENDING_PAYMENT') {
+            $pending[] = $name;
+        }
+    }
+    return ['approved' => $approved, 'pending' => $pending];
+}
+
 function workshop_overview_payload(array $workshop, ?array $enrollment, array $sessions, bool $canSeeFiles, ?string $mediaUrl = null): array
 {
     $days = [];
@@ -51,6 +70,8 @@ function workshop_overview_payload(array $workshop, ?array $enrollment, array $s
         'pending' => in_array((string) ($enrollment['status'] ?? ''), ['PENDING_PAYMENT'], true),
         'mediaUrl' => $canSeeFiles && $mediaUrl ? $mediaUrl : '',
         'editUrl' => '',
+        'approvedPeople' => [],
+        'pendingPeople' => [],
         'days' => $days,
     ];
 }
