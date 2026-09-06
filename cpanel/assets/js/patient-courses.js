@@ -5,6 +5,7 @@
   var enrollUrl = root.getAttribute("data-enroll-url") || "";
   var payUrl = root.getAttribute("data-pay-url") || "";
   var cancelUrl = root.getAttribute("data-cancel-url") || "";
+  var afterEnrollUrl = root.getAttribute("data-after-enroll-url") || "";
   var msgEl = document.getElementById("course-msg");
 
   function showMsg(text, ok) {
@@ -47,7 +48,7 @@
           }
           if (res.j.message) showMsg(res.j.message, true);
           setTimeout(function () {
-            location.reload();
+            location.href = res.j.redirect || afterEnrollUrl || location.href;
           }, res.j.message ? 800 : 0);
         })
         .catch(function () {

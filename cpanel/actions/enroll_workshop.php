@@ -83,26 +83,9 @@ try {
     exit;
 }
 
-if (!$needsPayment) {
-    try {
-        confirm_workshop_payment($pdo, [
-            'id' => $paymentId,
-            'enrollment_id' => $enrollmentId,
-            'amount' => 0,
-            'wallet_amount' => 0,
-            'ref_id' => null,
-        ]);
-    } catch (Throwable $e) {
-        http_response_code(500);
-        echo json_encode(['error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
-        exit;
-    }
-}
-
 echo json_encode([
     'enrollmentId' => $enrollmentId,
-    'message' => $needsPayment
-        ? 'ثبت‌نام انجام شد. برای تکمیل، پرداخت را از بخش «ثبت‌نام‌های من» انجام دهید.'
-        : 'ثبت‌نام رایگان با موفقیت انجام شد.',
+    'message' => 'ثبت‌نام انجام شد و به «دوره‌های درخواست داده‌شده» رفت. بعد از تأیید، در «دوره‌های من» دیده می‌شود.',
     'needsPayment' => $needsPayment,
+    'redirect' => url('/dashboard/workshops/requested'),
 ], JSON_UNESCAPED_UNICODE);

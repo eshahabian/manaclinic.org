@@ -706,6 +706,17 @@ select option {
   opacity: .85;
 }
 .side-nav-group:first-child { margin-top: 0; }
+.side-nav-sub {
+  display: grid;
+  gap: .2rem;
+  margin: .1rem .85rem .45rem 0;
+  padding: 0 .15rem 0 .2rem;
+  border-right: 2px solid var(--line, #e5e7eb);
+}
+.side-nav-sub a {
+  font-size: .82rem;
+  padding: .4rem .65rem;
+}
 .side-nav-badge {
   min-width: 1.35rem; height: 1.35rem; padding: 0 .35rem;
   border-radius: 999px; background: var(--primary); color: #fff;

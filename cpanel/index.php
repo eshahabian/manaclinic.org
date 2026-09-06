@@ -115,6 +115,9 @@ $routes = [
 
     'GET /dashboard' => 'pages/patient/dashboard.php',
     'GET /dashboard/appointments' => 'pages/patient/appointments.php',
+    'GET /dashboard/workshops' => 'pages/patient/workshops.php',
+    'GET /dashboard/workshops/requested' => 'pages/patient/workshops.php',
+    'GET /dashboard/workshops/mine' => 'pages/patient/workshops.php',
     'GET /dashboard/courses' => 'pages/patient/courses.php',
     'GET /dashboard/courses/media' => 'pages/patient/course_media.php',
     'GET /dashboard/courses/offline' => 'pages/patient/offline_course.php',

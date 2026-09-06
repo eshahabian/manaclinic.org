@@ -19,23 +19,23 @@ if ($kind === 'workshop') {
     $payment = $stmt->fetch();
     if (!$payment) {
         flash_set('error', 'تراکنش کارگاه یافت نشد.');
-        redirect('/dashboard/courses');
+        redirect('/dashboard/workshops/requested');
     }
 
     if (($payment['status'] ?? '') === 'PAID') {
         flash_set('success', 'پرداخت کارگاه قبلاً ثبت شده است.');
-        redirect('/dashboard/courses');
+        redirect('/dashboard/workshops/requested');
     }
     if (($payment['status'] ?? '') !== 'PENDING') {
         flash_set('error', 'این تراکنش قابل تأیید نیست.');
-        redirect('/dashboard/courses');
+        redirect('/dashboard/workshops/requested');
     }
 
     if ($status !== 'OK') {
         $pdo->prepare("UPDATE workshop_payments SET status='FAILED' WHERE id=? AND status='PENDING'")->execute([$payment['id']]);
         $pdo->prepare("UPDATE workshop_enrollments SET status='CANCELLED' WHERE id=? AND status='PENDING'")->execute([$payment['enrollment_id']]);
         flash_set('error', 'پرداخت لغو شد.');
-        redirect('/dashboard/courses');
+        redirect('/dashboard/workshops/requested');
     }
 
     $onlineAmount = (int) $payment['amount'] - (int) ($payment['wallet_amount'] ?? 0);
@@ -44,7 +44,7 @@ if ($kind === 'workshop') {
         $pdo->prepare("UPDATE workshop_payments SET status='FAILED' WHERE id=? AND status='PENDING'")->execute([$payment['id']]);
         $pdo->prepare("UPDATE workshop_enrollments SET status='CANCELLED' WHERE id=? AND status='PENDING'")->execute([$payment['enrollment_id']]);
         flash_set('error', 'پرداخت ناموفق بود.');
-        redirect('/dashboard/courses');
+        redirect('/dashboard/workshops/requested');
     }
 
     $pdo->beginTransaction();
@@ -53,11 +53,12 @@ if ($kind === 'workshop') {
         confirm_workshop_payment($pdo, $payment);
         $pdo->commit();
         flash_set('success', 'پرداخت کارگاه با موفقیت انجام شد.');
+        redirect('/dashboard/workshops/mine');
     } catch (Throwable $e) {
         $pdo->rollBack();
         flash_set('error', 'ثبت پرداخت کارگاه ناموفق بود. اگر مبلغ کم شده با کلینیک تماس بگیرید.');
+        redirect('/dashboard/workshops/requested');
     }
-    redirect('/dashboard/courses');
 }
 
 // پرداخت نوبت (قبلی)

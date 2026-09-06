@@ -279,8 +279,13 @@ function workshop_location_from_post(string $type): array
 
 function patient_courses_new_count(PDO $pdo, string $patientId): int
 {
+    return patient_workshop_nav_counts($pdo, $patientId)['available'];
+}
+
+function patient_workshop_nav_counts(PDO $pdo, string $patientId): array
+{
     ensure_workshop_schema($pdo);
-    $stmt = $pdo->prepare('
+    $available = $pdo->prepare('
       SELECT COUNT(*) FROM workshops w
       ' . workshop_active_doctor_join('w') . '
       WHERE ' . workshop_patient_enrollable_sql('w') . '
@@ -290,8 +295,38 @@ function patient_courses_new_count(PDO $pdo, string $patientId): int
             AND e.status IN ("PENDING_PAYMENT","CONFIRMED","COMPLETED")
         )
     ');
-    $stmt->execute([$patientId]);
-    return (int) $stmt->fetchColumn();
+    $available->execute([$patientId]);
+    $requested = $pdo->prepare('
+      SELECT COUNT(*) FROM workshop_enrollments
+      WHERE patient_id = ? AND status = "PENDING_PAYMENT"
+    ');
+    $requested->execute([$patientId]);
+    $mine = $pdo->prepare('
+      SELECT COUNT(*) FROM workshop_enrollments
+      WHERE patient_id = ? AND status IN ("CONFIRMED","COMPLETED")
+    ');
+    $mine->execute([$patientId]);
+    return [
+        'available' => (int) $available->fetchColumn(),
+        'requested' => (int) $requested->fetchColumn(),
+        'mine' => (int) $mine->fetchColumn(),
+    ];
+}
+
+function patient_enrollments_filter_status(array $enrollmentsByTab, array $statuses): array
+{
+    $out = ['in-person' => [], 'online' => [], 'offline' => [], 'archive' => []];
+    foreach ($enrollmentsByTab as $tab => $rows) {
+        if (!isset($out[$tab])) {
+            $out[$tab] = [];
+        }
+        foreach ($rows as $row) {
+            if (in_array((string) ($row['status'] ?? ''), $statuses, true)) {
+                $out[$tab][] = $row;
+            }
+        }
+    }
+    return $out;
 }
 
 /** اطلاع درمانگران از کارگاه جدید (اختیاری: حذف یک پروفایل از لیست) */
@@ -596,7 +631,7 @@ function workshop_type_label(string $type): string
 function enrollment_status_label(string $status): string
 {
     return match ($status) {
-        'PENDING_PAYMENT' => 'در انتظار پرداخت',
+        'PENDING_PAYMENT' => 'در انتظار تأیید',
         'CONFIRMED' => 'تأیید شده',
         'CANCELLED' => 'لغو شده',
         'REFUNDED' => 'بازپرداخت شده',
@@ -890,7 +925,7 @@ function workshop_approve_enrollment_by_staff(PDO $pdo, string $enrollmentId, st
         (string) $row['patient_id'],
         'عضویت کارگاه تأیید شد',
         "عضویت شما در «{$row['title']}» تأیید شد. فایل جلسات برای شما باز است.",
-        '/dashboard/courses',
+        '/dashboard/workshops/mine',
         'workshop'
     );
 }

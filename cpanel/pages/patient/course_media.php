@@ -10,13 +10,13 @@ ensure_workshop_media_schema($pdo);
 $enrollmentId = trim((string) ($_GET['enrollment'] ?? ''));
 if ($enrollmentId === '') {
     flash_set('error', 'ثبت‌نام یافت نشد.');
-    redirect('/dashboard/courses');
+    redirect('/dashboard/workshops/mine');
 }
 
 $enrollment = workshop_media_enrollment_access($pdo, (string) $user['id'], $enrollmentId);
 if (!$enrollment) {
     flash_set('error', 'دسترسی به محتوای این کارگاه ندارید.');
-    redirect('/dashboard/courses');
+    redirect('/dashboard/workshops/mine');
 }
 
 require_once __DIR__ . '/../../includes/workshop_sessions.php';
@@ -38,7 +38,7 @@ $backTab = workshop_is_archived([
     'type' => (string) ($enrollment['type'] ?? ''),
     'ends_at' => (string) ($enrollment['ends_at'] ?? ''),
 ]) ? 'archive' : workshop_courses_tab_for_type((string) $enrollment['type']);
-$backUrl = url('/dashboard/courses?type=' . $backTab);
+$backUrl = url('/dashboard/workshops/mine?type=' . $backTab);
 
 $pageLabels = [
     'OFFLINE' => 'محتوای دوره آفلاین',

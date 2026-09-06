@@ -653,7 +653,7 @@ function assistant_match_workshops(PDO $pdo, array $answers, int $limit = 5): ar
             'price' => (int) $row['price'],
             'doctor_name' => $row['doctor_name'],
             'score' => $score,
-            'url' => url('/dashboard/courses?type=' . workshop_courses_tab_for_type((string) $row['type'])),
+            'url' => url('/dashboard/workshops?type=' . workshop_courses_tab_for_type((string) $row['type'])),
         ];
     }
     usort($scored, static fn ($a, $b) => $b['score'] <=> $a['score']);

@@ -74,13 +74,16 @@ ob_start();
       <section class="binder-panel<?= $outerInitial === 'workshops' ? ' is-active' : '' ?>" data-binder-panel="workshops" role="tabpanel"<?= $outerInitial === 'workshops' ? '' : ' hidden' ?>>
         <div class="patient-dash-panel-head">
           <div class="patient-dash-panel-actions">
-            <a class="btn btn-outline btn-sm" href="<?= e(url('/dashboard/courses')) ?>">دوره‌های من</a>
+            <a class="btn btn-outline btn-sm" href="<?= e(url('/dashboard/workshops')) ?>">همه کارگاه‌ها</a>
+            <a class="btn btn-outline btn-sm" href="<?= e(url('/dashboard/workshops/requested')) ?>">درخواست‌ها</a>
+            <a class="btn btn-outline btn-sm" href="<?= e(url('/dashboard/workshops/mine')) ?>">دوره‌های من</a>
           </div>
         </div>
-        <div data-patient-courses data-enroll-url="<?= e($ws['enrollUrl']) ?>" data-pay-url="<?= e($ws['payUrl']) ?>" data-cancel-url="<?= e($ws['cancelUrl']) ?>">
+        <div data-patient-courses data-enroll-url="<?= e($ws['enrollUrl']) ?>" data-pay-url="<?= e($ws['payUrl']) ?>" data-cancel-url="<?= e($ws['cancelUrl']) ?>" data-after-enroll-url="<?= e(url('/dashboard/workshops/requested')) ?>">
           <?php
             $workshopBinderNested = true;
             $workshopBinderInitial = 'in-person';
+            $workshopBinderMode = 'catalog';
             require __DIR__ . '/../../includes/patient_workshop_binder.php';
           ?>
         </div>
@@ -94,7 +97,7 @@ ob_start();
 $dashContent = ob_get_clean();
 $GLOBALS['pageScripts'] = '
 <script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260904u"></script>
-<script src="' . e(url('/assets/js/patient-courses.js')) . '?v=20260904u"></script>
+<script src="' . e(url('/assets/js/patient-courses.js')) . '?v=20260906w"></script>
 <script src="' . e(url('/assets/js/patient-book-slots.js')) . '?v=20260904y"></script>'
   . booking_terms_script('terms-accept-dash', '.dash-book-btn');
 render_patient_page('پنل مراجعه‌کننده', $dashContent);
