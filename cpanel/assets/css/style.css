@@ -2012,3 +2012,41 @@ html[dir="ltr"] .binder-body {
   font-family: inherit;
   font-size: .92rem;
 }
+
+.workshop-overview {
+  position: fixed; inset: 0; z-index: 80; display: none;
+}
+.workshop-overview.is-open { display: block; }
+.workshop-overview-backdrop {
+  position: absolute; inset: 0; background: rgba(15, 23, 20, .55);
+}
+.workshop-overview-panel {
+  position: relative; z-index: 1;
+  width: min(38rem, calc(100% - 1.5rem));
+  max-height: min(88vh, 44rem);
+  margin: 6vh auto 0;
+  overflow: auto;
+  background: #fff;
+  border-radius: 1rem;
+  box-shadow: 0 18px 50px rgba(0,0,0,.22);
+  padding: 1.1rem 1.15rem 1.25rem;
+}
+.workshop-overview-header {
+  display: flex; justify-content: space-between; align-items: flex-start; gap: .75rem;
+  margin-bottom: .75rem;
+}
+.workshop-overview-close {
+  border: 0; background: transparent; font-size: 1.6rem; line-height: 1; cursor: pointer; color: inherit;
+}
+.workshop-overview-days { margin: 0; padding: 0 1.1rem 0 0; }
+.workshop-overview-days li { margin: .4rem 0; }
+.workshop-session-slots {
+  display: grid; gap: .65rem; margin-top: .65rem;
+}
+@media (min-width: 720px) {
+  .workshop-session-slots { grid-template-columns: repeat(3, 1fr); }
+}
+.workshop-card-main[data-workshop-open],
+.enrollment-card-main[data-workshop-open] {
+  cursor: pointer;
+}

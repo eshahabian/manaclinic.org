@@ -364,6 +364,23 @@ function workshop_save_fields_from_post(): array
     ];
 }
 
+function workshop_save_sessions_and_media(PDO $pdo, string $workshopId, array $data, ?string $doctorProfileId): int
+{
+    require_once __DIR__ . '/workshop_sessions.php';
+    require_once __DIR__ . '/workshop_media.php';
+    workshop_sessions_sync(
+        $pdo,
+        $workshopId,
+        (string) $data['type'],
+        (string) $data['starts_at'],
+        (string) $data['ends_at'],
+        workshop_sessions_extra_dates_from_post()
+    );
+    $saved = workshop_media_process_session_uploads($pdo, $workshopId, $doctorProfileId);
+    $saved += workshop_media_process_form_uploads($pdo, $workshopId, $doctorProfileId);
+    return $saved;
+}
+
 function workshop_group_link_label(?string $url): string
 {
     $url = strtolower((string) $url);
@@ -767,6 +784,52 @@ function workshop_staff_enrollments_grouped(PDO $pdo): array
     return $grouped;
 }
 
+function workshop_approve_enrollment_by_staff(PDO $pdo, string $enrollmentId, string $staffUserId, string $staffLabel): void
+{
+    require_once __DIR__ . '/notifications.php';
+    ensure_workshop_schema($pdo);
+    $stmt = $pdo->prepare("
+      SELECT e.*, w.title, w.starts_at, w.doctor_id, w.price,
+             wp.id AS payment_id, wp.amount, wp.status AS pay_status, wp.wallet_amount,
+             u.name AS patient_name
+      FROM workshop_enrollments e
+      JOIN workshops w ON w.id = e.workshop_id
+      JOIN users u ON u.id = e.patient_id
+      LEFT JOIN workshop_payments wp ON wp.enrollment_id = e.id
+      WHERE e.id = ?
+      LIMIT 1
+    ");
+    $stmt->execute([$enrollmentId]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        throw new RuntimeException('ثبت‌نام یافت نشد.');
+    }
+    if (in_array((string) $row['status'], ['CONFIRMED', 'COMPLETED'], true)) {
+        return;
+    }
+    if (in_array((string) $row['status'], ['CANCELLED', 'REFUNDED'], true)) {
+        throw new RuntimeException('این ثبت‌نام لغو شده است.');
+    }
+    $paymentId = (string) ($row['payment_id'] ?? '');
+    if ($paymentId === '') {
+        $paymentId = cuid();
+        $pdo->prepare('INSERT INTO workshop_payments (id, enrollment_id, amount, status, ref_id, recorded_by_user_id) VALUES (?,?,?,?,?,?)')
+            ->execute([$paymentId, $enrollmentId, (int) ($row['price'] ?? 0), 'PAID', 'STAFF_APPROVE', $staffUserId]);
+    } else {
+        $pdo->prepare("UPDATE workshop_payments SET status='PAID', ref_id=COALESCE(NULLIF(ref_id,''),'STAFF_APPROVE'), recorded_by_user_id=? WHERE id=?")
+            ->execute([$staffUserId, $paymentId]);
+    }
+    $pdo->prepare("UPDATE workshop_enrollments SET status='CONFIRMED' WHERE id=?")->execute([$enrollmentId]);
+    notify_user(
+        $pdo,
+        (string) $row['patient_id'],
+        'عضویت کارگاه تأیید شد',
+        "عضویت شما در «{$row['title']}» تأیید شد. فایل جلسات برای شما باز است.",
+        '/dashboard/courses',
+        'workshop'
+    );
+}
+
 /** ثبت پرداخت نقدی/فیش کارگاه توسط منشی */
 function workshop_mark_paid_by_staff(PDO $pdo, string $enrollmentId, string $staffUserId, string $staffLabel, array $file): void
 {
@@ -1013,14 +1076,18 @@ function workshop_group_for_tabs(array $workshops): array
 function patient_workshop_tab_data(PDO $pdo, string $patientId): array
 {
     require_once __DIR__ . '/workshop_media.php';
+    require_once __DIR__ . '/workshop_sessions.php';
+    require_once __DIR__ . '/workshop_overview.php';
     ensure_workshop_schema($pdo);
     ensure_workshop_media_schema($pdo);
+    ensure_workshop_sessions_schema($pdo);
     $wallet = ensure_wallet($pdo, $patientId);
 
     $published = $pdo->query("
       SELECT w.*, u.name AS doctor_name,
         (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = 'VIDEO') AS video_count,
-        (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = 'AUDIO') AS audio_count
+        (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = 'AUDIO') AS audio_count,
+        (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = 'PDF') AS pdf_count
       FROM workshops w
       " . workshop_active_doctor_join('w') . "
       JOIN users u ON u.id = dp.user_id
@@ -1031,9 +1098,10 @@ function patient_workshop_tab_data(PDO $pdo, string $patientId): array
     $mine = $pdo->prepare("
       SELECT e.*, w.title, w.starts_at, w.ends_at, w.type, w.status AS workshop_status,
              w.meeting_url, w.content_url, w.group_url, w.location,
-             w.location_lat, w.location_lng,
+             w.location_lat, w.location_lng, w.items_to_bring, w.description, w.price,
              (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = 'VIDEO') AS video_count,
              (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = 'AUDIO') AS audio_count,
+             (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = 'PDF') AS pdf_count,
              wp.amount, wp.wallet_amount, wp.status AS pay_status, u.name AS doctor_name
       FROM workshop_enrollments e
       JOIN workshops w ON w.id = e.workshop_id
@@ -1082,11 +1150,21 @@ function patient_workshop_tab_data(PDO $pdo, string $patientId): array
         $enrollmentsByTab[$tab][] = $row;
     }
 
+    $sessionIds = [];
+    foreach ($visible as $workshop) {
+        $sessionIds[] = (string) ($workshop['id'] ?? '');
+    }
+    foreach ($myEnrollments as $row) {
+        $sessionIds[] = (string) ($row['workshop_id'] ?? '');
+    }
+    $sessionsByWorkshop = workshop_sessions_map_for_ids($pdo, array_values(array_unique(array_filter($sessionIds))));
+
     return [
         'wallet' => $wallet,
         'grouped' => $grouped,
         'enrollmentsByTab' => $enrollmentsByTab,
         'enrollByWorkshop' => $enrollByWorkshop,
+        'sessionsByWorkshop' => $sessionsByWorkshop,
         'binderTabs' => [
             'in-person' => ['label' => 'حضوری', 'class' => 'binder-tab-in-person', 'empty' => 'کارگاه حضوری فعالی برای ثبت‌نام نیست.'],
             'online' => ['label' => 'آنلاین', 'class' => 'binder-tab-online', 'empty' => 'کارگاه آنلاین فعالی برای ثبت‌نام نیست.'],

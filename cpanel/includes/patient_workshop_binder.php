@@ -12,6 +12,7 @@ declare(strict_types=1);
 $grouped = $grouped ?? ['in-person' => [], 'online' => [], 'offline' => [], 'archive' => []];
 $enrollmentsByTab = $enrollmentsByTab ?? ['in-person' => [], 'online' => [], 'offline' => [], 'archive' => []];
 $enrollByWorkshop = $enrollByWorkshop ?? [];
+$sessionsByWorkshop = $sessionsByWorkshop ?? [];
 $wallet = $wallet ?? ['balance' => 0];
 $binderTabs = $binderTabs ?? [
     'in-person' => ['label' => 'حضوری', 'class' => 'binder-tab-in-person', 'empty' => 'کارگاه حضوری فعالی برای ثبت‌نام نیست.'],

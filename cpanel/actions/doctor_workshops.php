@@ -18,23 +18,6 @@ if ($action === 'create') {
         redirect('/doctor/workshops');
     }
 
-    if (workshop_is_offline($data['type'])) {
-        $hasFile = false;
-        $files = $_FILES['media_files'] ?? [];
-        if (is_array($files['error'] ?? null)) {
-            foreach ($files['error'] as $err) {
-                if ((int) $err === UPLOAD_ERR_OK) {
-                    $hasFile = true;
-                    break;
-                }
-            }
-        }
-        if (!$hasFile) {
-            flash_set('error', 'برای دوره آفلاین حداقل یک ویدیو یا فایل صوتی بارگذاری کنید.');
-            redirect('/doctor/workshops');
-        }
-    }
-
     $id = cuid();
     try {
         $pdo->beginTransaction();
@@ -65,10 +48,7 @@ if ($action === 'create') {
             'PUBLISHED',
         ]);
 
-        workshop_media_process_form_uploads($pdo, $id, $ctx['profile']['id']);
-        if (workshop_is_offline($data['type']) && workshop_media_count($pdo, $id) < 1) {
-            throw new RuntimeException('برای دوره آفلاین حداقل یک ویدیو یا فایل صوتی بارگذاری کنید.');
-        }
+        workshop_save_sessions_and_media($pdo, $id, $data, $ctx['profile']['id']);
 
         $pdo->commit();
     } catch (Throwable $e) {
@@ -87,8 +67,8 @@ if ($action === 'create') {
         $data['type'],
         $data['starts_at']
     );
-    flash_set('success', workshop_is_offline($data['type']) ? 'دوره آفلاین با محتوا ایجاد شد.' : 'کارگاه ایجاد شد.');
-    redirect('/doctor/workshops');
+    flash_set('success', 'کارگاه ایجاد شد. فایل هر جلسه را از ویرایش کارگاه بارگذاری کنید.');
+    redirect('/doctor/workshops?edit=' . urlencode($id));
 }
 
 if ($action === 'update') {
@@ -144,14 +124,7 @@ if ($action === 'update') {
             $ctx['profile']['id'],
         ]);
 
-        if (workshop_is_offline($data['type'])) {
-            workshop_media_process_form_uploads($pdo, $id, $ctx['profile']['id']);
-            if (workshop_media_count($pdo, $id) < 1) {
-                throw new RuntimeException('دوره آفلاین باید حداقل یک ویدیو یا فایل صوتی داشته باشد.');
-            }
-        } else {
-            workshop_media_process_form_uploads($pdo, $id, $ctx['profile']['id']);
-        }
+        workshop_save_sessions_and_media($pdo, $id, $data, $ctx['profile']['id']);
 
         $pdo->commit();
     } catch (Throwable $e) {

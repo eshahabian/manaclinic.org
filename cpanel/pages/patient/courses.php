@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 $user = require_login(['PATIENT']);
 require_once __DIR__ . '/../../includes/patient_panel.php';
+require_once __DIR__ . '/../../includes/workshop_overview.php';
 
 $tabParam = trim((string) ($_GET['type'] ?? $_GET['tab'] ?? ''));
 if (!in_array($tabParam, ['in-person', 'online', 'offline', 'archive'], true)) {
@@ -14,6 +15,7 @@ $wallet = $ws['wallet'];
 $grouped = $ws['grouped'];
 $enrollmentsByTab = $ws['enrollmentsByTab'];
 $enrollByWorkshop = $ws['enrollByWorkshop'];
+$sessionsByWorkshop = $ws['sessionsByWorkshop'] ?? [];
 $binderTabs = $ws['binderTabs'];
 
 ob_start();
@@ -31,9 +33,11 @@ ob_start();
     ?>
   </div>
 </div>
+<?= workshop_overview_modal_html() ?>
 <?php
 $coursesContent = ob_get_clean();
 $GLOBALS['pageScripts'] = '
 <script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260904u"></script>
-<script src="' . e(url('/assets/js/patient-courses.js')) . '?v=20260904u"></script>';
+<script src="' . e(url('/assets/js/patient-courses.js')) . '?v=20260904u"></script>
+<script src="' . e(url('/assets/js/workshop-overview.js')) . '?v=20260906s"></script>';
 render_patient_page('دوره‌های من', $coursesContent);

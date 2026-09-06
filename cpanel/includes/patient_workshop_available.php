@@ -18,16 +18,24 @@ $emptyAvailable = $emptyAvailable ?? 'کارگاه فعالی برای ثبت‌
       <?php
         $enr = $enrollByWorkshop[(string) $w['id']] ?? null;
         $enrolled = $enr && in_array((string) ($enr['status'] ?? ''), ['PENDING_PAYMENT', 'CONFIRMED', 'COMPLETED'], true);
+        $canSeeFiles = function_exists('workshop_member_can_see_files') && workshop_member_can_see_files($enr);
+        $sessions = $sessionsByWorkshop[(string) $w['id']] ?? [];
+        $overview = function_exists('workshop_overview_payload')
+          ? workshop_overview_payload($w, $enr, $sessions, $canSeeFiles, $canSeeFiles && $enr ? workshop_media_course_url((string) $enr['id']) : null)
+          : [];
       ?>
       <article class="workshop-binder-card<?= $archiveView ? ' is-archived' : '' ?>">
         <div class="workshop-card-row">
-          <div class="workshop-card-main">
+          <div class="workshop-card-main" data-workshop-open data-workshop="<?= e(json_encode($overview, JSON_UNESCAPED_UNICODE)) ?>">
             <strong><?= e($w['title']) ?></strong>
             <span class="badge" style="margin-right:.5rem"><?= e(workshop_type_label((string) $w['type'])) ?></span>
-            <?php $mediaStats = workshop_media_counts_html(workshop_media_counts_from_row($w)); if ($mediaStats): ?>
-              <div style="margin-top:.4rem"><?= $mediaStats ?></div>
+            <?php if ($canSeeFiles): ?>
+              <?php $mediaStats = workshop_media_counts_html(workshop_media_counts_from_row($w)); if ($mediaStats): ?>
+                <div style="margin-top:.4rem"><?= $mediaStats ?></div>
+              <?php endif; ?>
             <?php endif; ?>
             <div class="muted" style="font-size:.85rem;margin-top:.25rem"><?= e((string) ($w['doctor_name'] ?? '')) ?></div>
+            <div class="muted" style="font-size:.75rem;margin-top:.35rem">برای دیدن کلیات کارگاه کلیک کنید</div>
             <div style="font-size:.85rem;margin-top:.35rem">
               <?php if ($w['type'] === 'OFFLINE'): ?>
                 <span class="muted">دوره آفلاین — دسترسی به ویدیوها پس از ثبت‌نام</span>

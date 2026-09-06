@@ -23,12 +23,19 @@ $emptyEnrollments = $emptyEnrollments ?? 'هنوز در کارگاهی از ای
         $confirmed = $e['status'] === 'CONFIRMED' || $e['status'] === 'COMPLETED';
         $enrollmentMedia = workshop_media_counts_from_row($e);
         $hasMedia = $enrollmentMedia['total'] > 0;
+        $canSeeFiles = function_exists('workshop_member_can_see_files') && workshop_member_can_see_files($e);
+        $sessions = $sessionsByWorkshop[(string) ($e['workshop_id'] ?? '')] ?? [];
+        $overview = function_exists('workshop_overview_payload')
+          ? workshop_overview_payload($e + ['id' => $e['workshop_id'] ?? '', 'title' => $e['title'] ?? '', 'type' => $e['type'] ?? '', 'starts_at' => $e['starts_at'] ?? '', 'ends_at' => $e['ends_at'] ?? '', 'price' => $e['amount'] ?? 0, 'doctor_name' => $e['doctor_name'] ?? '', 'items_to_bring' => $e['items_to_bring'] ?? '', 'description' => $e['description'] ?? '', 'location' => $e['location'] ?? ''], $e, $sessions, $canSeeFiles, $canSeeFiles ? workshop_media_course_url((string) $e['id']) : null)
+          : [];
       ?>
       <div class="enrollment-card">
-        <div class="enrollment-card-main">
+        <div class="enrollment-card-main" data-workshop-open data-workshop="<?= e(json_encode($overview, JSON_UNESCAPED_UNICODE)) ?>">
           <strong><?= e($e['title']) ?></strong>
-          <?php $enrollmentStats = workshop_media_counts_html($enrollmentMedia); if ($enrollmentStats): ?>
-            <div style="margin-top:.35rem"><?= $enrollmentStats ?></div>
+          <?php if ($canSeeFiles): ?>
+            <?php $enrollmentStats = workshop_media_counts_html($enrollmentMedia); if ($enrollmentStats): ?>
+              <div style="margin-top:.35rem"><?= $enrollmentStats ?></div>
+            <?php endif; ?>
           <?php endif; ?>
           <div class="muted" style="font-size:.85rem;margin-top:.25rem"><?= e((string) ($e['doctor_name'] ?? '')) ?></div>
           <?php if ($e['type'] !== 'OFFLINE'): ?>

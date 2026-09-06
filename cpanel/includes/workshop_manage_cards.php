@@ -19,9 +19,15 @@ $workshopMediaPost = $workshopRole === 'secretary' ? '/secretary/workshop-media'
   <div class="stack">
     <?php foreach ($workshopList as $workshop): ?>
       <?php $archived = workshop_is_archived($workshop); ?>
+      <?php
+        $staffSessions = $sessionsByWorkshop[(string) $workshop['id']] ?? [];
+        $staffOverview = function_exists('workshop_overview_payload')
+          ? workshop_overview_payload($workshop, ['status' => 'CONFIRMED'], $staffSessions, true, null)
+          : [];
+      ?>
       <article class="workshop-binder-card<?= $archived ? ' is-archived' : '' ?>" id="workshop-<?= e($workshop['id']) ?>">
         <div class="workshop-card-row">
-          <div class="workshop-card-main">
+          <div class="workshop-card-main" data-workshop-open data-workshop="<?= e(json_encode($staffOverview, JSON_UNESCAPED_UNICODE)) ?>">
             <strong><?= e($workshop['title']) ?></strong>
             <span class="badge" style="margin-right:.5rem"><?= e(workshop_type_label($workshop['type'])) ?></span>
             <?php if ($workshopRole === 'secretary' && !empty($workshop['doctor_name'])): ?>

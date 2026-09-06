@@ -4,6 +4,8 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../includes/doctor_panel.php';
 require_once __DIR__ . '/../../includes/workshops.php';
 require_once __DIR__ . '/../../includes/workshop_media.php';
+require_once __DIR__ . '/../../includes/workshop_sessions.php';
+require_once __DIR__ . '/../../includes/workshop_overview.php';
 
 $ctx = require_doctor_profile($pdo);
 ensure_workshop_schema($pdo);
@@ -35,6 +37,7 @@ $stmt = $pdo->prepare('
 ');
 $stmt->execute([$ctx['profile']['id']]);
 $workshops = $stmt->fetchAll();
+$sessionsByWorkshop = workshop_sessions_map_for_ids($pdo, array_map(static fn ($w) => (string) $w['id'], $workshops));
 
 $otherWorkshops = $pdo->prepare('
   SELECT w.*, u.name AS doctor_name,
@@ -80,9 +83,12 @@ if ($editWorkshop) {
 }
 
 $workshopMedia = [];
+$workshopSessions = [];
 $sessionNotes = [];
 if ($editWorkshop) {
+    workshop_sessions_sync($pdo, (string) $editWorkshop['id'], (string) $editWorkshop['type'], (string) $editWorkshop['starts_at'], (string) $editWorkshop['ends_at']);
     $workshopMedia = workshop_media_list($pdo, (string) $editWorkshop['id']);
+    $workshopSessions = workshop_sessions_with_media($pdo, (string) $editWorkshop['id']);
     $sessionNotes = workshop_session_notes_list($pdo, (string) $editWorkshop['id']);
 }
 global $config;
@@ -148,32 +154,6 @@ ob_start();
     </section>
     <section class="binder-panel" data-binder-panel="new" role="tabpanel" hidden>
       <div class="stack">
-<?php if ($editWorkshop && $workshopMedia): ?>
-  <?php $editMediaCounts = workshop_media_kind_counts_from_list($workshopMedia); ?>
-  <section class="panel stack" style="margin-bottom:0">
-    <div class="row-between" style="align-items:center;gap:.75rem;flex-wrap:wrap">
-      <h3 style="margin:0;font-size:.95rem">فایل‌های بارگذاری‌شده</h3>
-      <?= workshop_media_counts_html($editMediaCounts, false) ?>
-    </div>
-    <?php foreach ($workshopMedia as $media): ?>
-      <div class="panel" style="padding:.75rem;font-size:.9rem">
-        <div class="row-between" style="align-items:flex-start;gap:.75rem">
-          <div style="min-width:0">
-            <strong><?= e($media['title']) ?></strong>
-            <span class="badge" style="margin-right:.35rem"><?= e(workshop_media_kind_label($media['kind'])) ?></span>
-            <div class="muted" style="font-size:.8rem;margin-top:.25rem"><?= e($media['original_name']) ?> · <?= e(workshop_media_format_size((int)$media['file_size'])) ?></div>
-          </div>
-          <form method="post" action="<?= e(url('/doctor/workshop-media')) ?>" onsubmit="return confirm('این فایل حذف شود؟')">
-            <input type="hidden" name="action" value="delete">
-            <input type="hidden" name="workshop_id" value="<?= e($editWorkshop['id']) ?>">
-            <input type="hidden" name="item_id" value="<?= e($media['id']) ?>">
-            <button type="submit" class="btn btn-danger btn-sm">حذف</button>
-          </form>
-        </div>
-      </div>
-    <?php endforeach; ?>
-  </section>
-<?php endif; ?>
 <form class="panel form-stack" id="workshop-form" method="post" action="<?= e(url('/doctor/workshops')) ?>" enctype="multipart/form-data">
   <input type="hidden" name="action" value="<?= e($formAction) ?>">
   <?php if ($editWorkshop): ?>
@@ -263,24 +243,11 @@ ob_start();
     <p class="muted" style="font-size:.8rem;margin:.35rem 0 0;line-height:1.6">مراجعه‌کنندگان پس از ثبت‌نام و تأیید، این لینک را برای عضویت در گروه می‌بینند.</p>
   </div>
 
-  <div id="field-session-media" class="panel" style="padding:1rem;background:var(--bg-soft,#f8fafc);border-style:dashed">
-    <div class="row-between" style="align-items:center;gap:.75rem;flex-wrap:wrap;margin-bottom:.35rem">
-      <h3 style="margin:0;font-size:.95rem">ضبط جلسات (ویدیو / صوت)</h3>
-      <?php if ($editWorkshop && $workshopMedia): ?>
-        <?= workshop_media_counts_html(workshop_media_kind_counts_from_list($workshopMedia), false) ?>
-      <?php endif; ?>
-    </div>
-    <p class="muted session-media-hint-offline" style="font-size:.85rem;line-height:1.65;margin:.35rem 0 0">
-      برای دوره آفلاین، حداقل یک ویدیو یا صوت الزامی است. مراجعه‌کننده پس از ثبت‌نام به محتوا دسترسی دارد.
-    </p>
-    <p class="muted session-media-hint-scheduled" style="font-size:.85rem;line-height:1.65;margin:.35rem 0 0;display:none">
-      پس از برگزاری کارگاه می‌توانید ضبط جلسات را بارگذاری کنید. مراجعه‌کنندگان ثبت‌نام‌شده به آن‌ها دسترسی دارند.
-    </p>
-    <p class="muted" style="font-size:.8rem;margin:.35rem 0 0">حداکثر <?= (int) $mediaMaxMb ?> مگابایت برای هر فایل — mp4, webm, mp3, m4a, ogg, wav</p>
-
-    <div id="session-media-rows" class="stack" style="margin-top:1rem"></div>
-    <button type="button" class="btn btn-outline btn-sm" id="add-session-media-row" style="margin-top:.75rem">+ افزودن ویدیو / صوت</button>
-  </div>
+  <?php
+    $workshopMediaPost = '/doctor/workshop-media';
+    $editWorkshopId = $editWorkshop['id'] ?? null;
+    require __DIR__ . '/../../includes/workshop_session_media_form.php';
+  ?>
 
   <div>
     <label class="label">موارد همراه</label>
@@ -590,6 +557,11 @@ ob_start();
     endViewEl.addEventListener("jdp:change", function(){ syncJalali("workshop-end-date-view", "workshop-end-date"); });
     endViewEl.addEventListener("change", function(){ syncJalali("workshop-end-date-view", "workshop-end-date"); });
   }
+  var extraViewEl = document.getElementById("extra-session-date-view");
+  if (extraViewEl) {
+    extraViewEl.addEventListener("jdp:change", function(){ syncJalali("extra-session-date-view", "extra-session-date"); });
+    extraViewEl.addEventListener("change", function(){ syncJalali("extra-session-date-view", "extra-session-date"); });
+  }
 
   var form = document.getElementById("workshop-form");
   if (form) {
@@ -623,17 +595,6 @@ ob_start();
           }
         }
       } else {
-        var hasNewFile = false;
-        if (sessionRows) {
-          sessionRows.querySelectorAll(".session-media-file").forEach(function(input){
-            if (input.files && input.files.length) hasNewFile = true;
-          });
-        }
-        if (!hasNewFile && !hasExistingMedia) {
-          e.preventDefault();
-          alert("حداقل یک ویدیو یا فایل صوتی انتخاب کنید.");
-          return;
-        }
         if (sessionRows) {
           var invalid = false;
           sessionRows.querySelectorAll(".session-media-row").forEach(function(row){
@@ -669,5 +630,8 @@ ob_start();
   }
 })();
 </script>
+<script src="<?= e(url('/assets/js/workshop-session-media.js')) ?>?v=20260906s"></script>
+<script src="<?= e(url('/assets/js/workshop-overview.js')) ?>?v=20260906s"></script>
+<?= workshop_overview_modal_html() ?>
 <?php
 render_doctor_page('کارگاه‌ها', ob_get_clean());

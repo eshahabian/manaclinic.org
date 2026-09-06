@@ -5,6 +5,7 @@ $user = require_login(['PATIENT']);
 require_once __DIR__ . '/../../includes/patient_panel.php';
 require_once __DIR__ . '/../../includes/booking_terms.php';
 require_once __DIR__ . '/../../includes/availability.php';
+require_once __DIR__ . '/../../includes/workshop_overview.php';
 
 $stmt = $pdo->prepare("
   SELECT a.*, u.name AS doctor_name
@@ -25,6 +26,7 @@ $wallet = $ws['wallet'];
 $grouped = $ws['grouped'];
 $enrollmentsByTab = $ws['enrollmentsByTab'];
 $enrollByWorkshop = $ws['enrollByWorkshop'];
+$sessionsByWorkshop = $ws['sessionsByWorkshop'] ?? [];
 $binderTabs = $ws['binderTabs'];
 $wsActiveCount = count($grouped['in-person']) + count($grouped['online']) + count($grouped['offline']);
 
@@ -87,12 +89,14 @@ ob_start();
   </div>
 </div>
 <?= booking_terms_modal_html() ?>
+<?= workshop_overview_modal_html() ?>
 <?= booking_terms_styles() ?>
 <?php
 $dashContent = ob_get_clean();
 $GLOBALS['pageScripts'] = '
 <script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260904u"></script>
 <script src="' . e(url('/assets/js/patient-courses.js')) . '?v=20260904u"></script>
-<script src="' . e(url('/assets/js/patient-book-slots.js')) . '?v=20260904y"></script>'
+<script src="' . e(url('/assets/js/patient-book-slots.js')) . '?v=20260904y"></script>
+<script src="' . e(url('/assets/js/workshop-overview.js')) . '?v=20260906s"></script>'
   . booking_terms_script('terms-accept-dash', '.dash-book-btn');
 render_patient_page('پنل مراجعه‌کننده', $dashContent);

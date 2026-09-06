@@ -19,6 +19,15 @@ if (!$enrollment) {
     redirect('/dashboard/courses');
 }
 
+require_once __DIR__ . '/../../includes/workshop_sessions.php';
+workshop_sessions_sync(
+    $pdo,
+    (string) $enrollment['workshop_id'],
+    (string) ($enrollment['type'] ?? 'OFFLINE'),
+    (string) ($enrollment['starts_at'] ?? date('Y-m-d H:i:s')),
+    (string) ($enrollment['ends_at'] ?? date('Y-m-d H:i:s'))
+);
+$sessions = workshop_sessions_with_media($pdo, (string) $enrollment['workshop_id']);
 $mediaItems = workshop_media_list($pdo, (string) $enrollment['workshop_id']);
 $mediaCounts = workshop_media_kind_counts_from_list($mediaItems);
 $watermark = workshop_media_watermark_for_user($user, $pdo);
@@ -55,21 +64,28 @@ ob_start();
 
   <?php if (!$mediaItems): ?>
     <div class="panel">
-      <p class="muted">هنوز ویدیو یا فایل صوتی برای این کارگاه بارگذاری نشده است.</p>
+      <p class="muted">هنوز فایلی برای جلسات این کارگاه بارگذاری نشده است.</p>
     </div>
   <?php endif; ?>
 
-  <?php foreach ($mediaItems as $item): ?>
+  <?php foreach ($sessions as $session): ?>
     <article class="panel offline-lesson">
       <div class="offline-lesson-head">
-        <strong><?= e($item['title']) ?></strong>
-        <span class="badge"><?= e(workshop_media_kind_label($item['kind'])) ?></span>
+        <strong><?= e((string) ($session['title'] ?? 'جلسه')) ?></strong>
+        <?php if (!empty($session['session_date'])): ?>
+          <span class="badge"><?= e(to_jalali_label((string) $session['session_date'])) ?></span>
+        <?php endif; ?>
       </div>
-      <?php if ($item['description']): ?>
-        <p class="offline-lesson-desc"><?= nl2br(e($item['description'])) ?></p>
+      <?php
+        $sessionFiles = $session['files'] ?? [];
+        $hasAny = ($sessionFiles['PDF'] ?? null) || ($sessionFiles['AUDIO'] ?? null) || ($sessionFiles['VIDEO'] ?? null);
+      ?>
+      <?php if (!$hasAny): ?>
+        <p class="muted">برای این روز هنوز فایلی بارگذاری نشده است.</p>
       <?php endif; ?>
 
-      <?php if ($item['kind'] === 'VIDEO'): ?>
+      <?php if (!empty($sessionFiles['VIDEO'])): ?>
+        <?php $item = $sessionFiles['VIDEO']; ?>
         <div class="wm-video-box">
           <video
             controls
@@ -86,9 +102,12 @@ ob_start();
             <?php endfor; ?>
           </div>
         </div>
-      <?php else: ?>
+      <?php endif; ?>
+
+      <?php if (!empty($sessionFiles['AUDIO'])): ?>
+        <?php $item = $sessionFiles['AUDIO']; ?>
         <div class="offline-audio-box" data-audio-id="<?= e($item['id']) ?>">
-          <p class="muted offline-audio-status" id="audio-status-<?= e($item['id']) ?>">برای پخش، دکمه زیر را بزنید.</p>
+          <p class="muted offline-audio-status" id="audio-status-<?= e($item['id']) ?>">برای پخش صوت، دکمه زیر را بزنید.</p>
           <button type="button" class="btn btn-primary btn-sm audio-play-btn" data-audio-id="<?= e($item['id']) ?>">پخش صوت</button>
           <audio
             id="audio-<?= e($item['id']) ?>"
@@ -99,7 +118,23 @@ ob_start();
             oncontextmenu="return false;"
             style="width:100%;margin-top:.5rem;display:none"
           ></audio>
-          <p class="muted offline-audio-wm">واترمارک: <?= e($watermark) ?> — دانلود مستقیم غیرفعال است.</p>
+          <p class="muted offline-audio-wm">واترمارک: <?= e($watermark) ?> — دانلود صوت غیرفعال است.</p>
+        </div>
+      <?php endif; ?>
+
+      <?php if (!empty($sessionFiles['PDF'])): ?>
+        <?php $item = $sessionFiles['PDF']; ?>
+        <div class="wm-pdf-box">
+          <div class="wm-pdf-frame">
+            <iframe src="<?= e(workshop_media_stream_url((string) $item['id'], $user)) ?>" title="پی‌دی‌اف جلسه"></iframe>
+            <div class="wm-overlay" aria-hidden="true">
+              <?php for ($i = 0; $i < 12; $i++): ?>
+                <span><?= e($watermark) ?></span>
+              <?php endfor; ?>
+            </div>
+          </div>
+          <a class="btn btn-outline btn-sm" style="margin-top:.55rem" href="<?= e(workshop_media_stream_url((string) $item['id'], $user, true)) ?>">دانلود پی‌دی‌اف</a>
+          <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">واترمارک: <?= e($watermark) ?></p>
         </div>
       <?php endif; ?>
     </article>
@@ -123,6 +158,9 @@ ob_start();
   .offline-audio-box { margin-top:.5rem; }
   .offline-audio-wm { font-size:.75rem; margin:.35rem 0 0; line-height:1.5; }
   .offline-audio-status { font-size:.85rem; margin:0 0 .5rem; }
+  .wm-pdf-box { margin-top:.75rem; }
+  .wm-pdf-frame { position:relative; min-height:28rem; border-radius:.75rem; overflow:hidden; background:#f3f3f3; }
+  .wm-pdf-frame iframe { width:100%; height:28rem; border:0; }
   .offline-course-page { user-select:none; }
   .offline-course-page .offline-lesson-desc { user-select:text; }
 </style>
@@ -141,7 +179,7 @@ $GLOBALS['pageScripts'] = '
   }
   window.addEventListener("pagehide", revokeAllBlobs);
 
-  document.querySelectorAll(".wm-video-box video").forEach(function(v){
+  document.querySelectorAll(".wm-video-box video, .wm-pdf-frame").forEach(function(v){
     v.addEventListener("contextmenu", function(e){ e.preventDefault(); });
     v.addEventListener("dragstart", function(e){ e.preventDefault(); });
   });

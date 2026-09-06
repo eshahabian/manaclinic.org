@@ -38,7 +38,7 @@ if ($user['role'] === 'PATIENT') {
     require_once __DIR__ . '/../includes/doctor_panel.php';
     $ctx = require_doctor_profile($pdo);
     $allowed = workshop_media_doctor_owns($pdo, (string) $item['workshop_id'], $ctx['profile']['id']);
-} elseif ($user['role'] === 'ADMIN') {
+} elseif ($user['role'] === 'SECRETARY' || $user['role'] === 'ADMIN') {
     $allowed = true;
 }
 
@@ -53,8 +53,19 @@ if ($path === '' || !is_file($path)) {
     exit('File missing');
 }
 
+$download = (string) ($_GET['dl'] ?? '') === '1';
+$tmpStamp = null;
+if (($item['kind'] ?? '') === 'PDF' && $isPatient) {
+    $watermark = workshop_media_watermark_for_user($user, $pdo);
+    $stamped = workshop_pdf_stamp_temp($path, $watermark);
+    if ($stamped) {
+        $tmpStamp = $stamped;
+        $path = $stamped;
+    }
+}
+
 $size = filesize($path);
-$mime = (string) $item['mime_type'];
+$mime = (string) ($item['kind'] === 'PDF' ? 'application/pdf' : $item['mime_type']);
 $start = 0;
 $end = $size - 1;
 $length = $size;
@@ -82,8 +93,10 @@ if (isset($_SERVER['HTTP_RANGE']) && preg_match('/bytes=(\d*)-(\d*)/', $_SERVER[
 header('Content-Type: ' . $mime);
 header('Accept-Ranges: bytes');
 header('Content-Length: ' . $length);
-if ($isPatient) {
+if ($isPatient && ($item['kind'] ?? '') !== 'PDF') {
     header('Content-Disposition: inline');
+} elseif (($item['kind'] ?? '') === 'PDF' && $download) {
+    header('Content-Disposition: attachment; filename="workshop-' . basename((string) $item['original_name']) . '"');
 } else {
     header('Content-Disposition: inline; filename="' . basename((string) $item['original_name']) . '"');
 }
@@ -115,3 +128,6 @@ while (!feof($fp) && $sent < $length) {
     }
 }
 fclose($fp);
+if ($tmpStamp && is_file($tmpStamp)) {
+    @unlink($tmpStamp);
+}

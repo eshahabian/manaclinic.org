@@ -20,7 +20,20 @@ function ensure_workshop_media_schema(PDO $pdo): void
         CONSTRAINT fk_media_workshop FOREIGN KEY (workshop_id) REFERENCES workshops(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
+    try {
+        $col = $pdo->query("SHOW COLUMNS FROM workshop_media_items LIKE 'session_id'")->fetch();
+        if (!$col) {
+            $pdo->exec("ALTER TABLE workshop_media_items ADD COLUMN session_id VARCHAR(32) NULL AFTER workshop_id");
+        }
+    } catch (Throwable $ignored) {
+    }
+    try {
+        $pdo->exec("ALTER TABLE workshop_media_items MODIFY kind ENUM('VIDEO','AUDIO','PDF') NOT NULL");
+    } catch (Throwable $ignored) {
+    }
     workshop_media_ensure_storage();
+    require_once __DIR__ . '/workshop_sessions.php';
+    ensure_workshop_sessions_schema($pdo);
 }
 
 function workshop_media_storage_root(): string
@@ -49,11 +62,21 @@ function workshop_media_max_bytes(): int
 
 function workshop_media_kind_label(string $kind): string
 {
-    return $kind === 'AUDIO' ? 'صوت' : 'ویدیو';
+    return match ($kind) {
+        'AUDIO' => 'صوت',
+        'PDF' => 'پی‌دی‌اف',
+        default => 'ویدیو',
+    };
 }
 
 function workshop_media_allowed_specs(string $kind): array
 {
+    if ($kind === 'PDF') {
+        return [
+            'application/pdf' => 'pdf',
+            'application/x-pdf' => 'pdf',
+        ];
+    }
     if ($kind === 'AUDIO') {
         return [
             'audio/mpeg' => 'mp3',
@@ -102,29 +125,33 @@ function workshop_media_kind_counts(PDO $pdo, string $workshopId): array
       GROUP BY kind
     ");
     $stmt->execute([$workshopId]);
-    $counts = ['video' => 0, 'audio' => 0, 'total' => 0];
+    $counts = ['video' => 0, 'audio' => 0, 'pdf' => 0, 'total' => 0];
     foreach ($stmt->fetchAll() as $row) {
         if ($row['kind'] === 'VIDEO') {
             $counts['video'] = (int) $row['cnt'];
         } elseif ($row['kind'] === 'AUDIO') {
             $counts['audio'] = (int) $row['cnt'];
+        } elseif ($row['kind'] === 'PDF') {
+            $counts['pdf'] = (int) $row['cnt'];
         }
     }
-    $counts['total'] = $counts['video'] + $counts['audio'];
+    $counts['total'] = $counts['video'] + $counts['audio'] + $counts['pdf'];
     return $counts;
 }
 
 function workshop_media_kind_counts_from_list(array $items): array
 {
-    $counts = ['video' => 0, 'audio' => 0, 'total' => 0];
+    $counts = ['video' => 0, 'audio' => 0, 'pdf' => 0, 'total' => 0];
     foreach ($items as $item) {
         if (($item['kind'] ?? '') === 'VIDEO') {
             $counts['video']++;
         } elseif (($item['kind'] ?? '') === 'AUDIO') {
             $counts['audio']++;
+        } elseif (($item['kind'] ?? '') === 'PDF') {
+            $counts['pdf']++;
         }
     }
-    $counts['total'] = $counts['video'] + $counts['audio'];
+    $counts['total'] = $counts['video'] + $counts['audio'] + $counts['pdf'];
     return $counts;
 }
 
@@ -132,11 +159,12 @@ function workshop_media_counts_from_row(array $row): array
 {
     $video = (int) ($row['video_count'] ?? $row['media_video_count'] ?? 0);
     $audio = (int) ($row['audio_count'] ?? $row['media_audio_count'] ?? 0);
+    $pdf = (int) ($row['pdf_count'] ?? $row['media_pdf_count'] ?? 0);
     $total = (int) ($row['media_count'] ?? 0);
     if ($total < 1) {
-        $total = $video + $audio;
+        $total = $video + $audio + $pdf;
     }
-    return ['video' => $video, 'audio' => $audio, 'total' => $total];
+    return ['video' => $video, 'audio' => $audio, 'pdf' => $pdf, 'total' => $total];
 }
 
 /** نمایشگر تعداد ویدیو/صوت */
@@ -144,7 +172,8 @@ function workshop_media_counts_html(array $counts, bool $hideWhenEmpty = true): 
 {
     $video = (int) ($counts['video'] ?? 0);
     $audio = (int) ($counts['audio'] ?? 0);
-    $total = $video + $audio;
+    $pdf = (int) ($counts['pdf'] ?? 0);
+    $total = $video + $audio + $pdf;
     if ($hideWhenEmpty && $total < 1) {
         return '';
     }
@@ -161,6 +190,12 @@ function workshop_media_counts_html(array $counts, bool $hideWhenEmpty = true): 
             . '<span class="media-stat-icon" aria-hidden="true">♫</span>'
             . '<span class="media-stat-num">' . $audio . '</span>'
             . '<span class="media-stat-label">صوت</span></span>';
+    }
+    if ($pdf > 0) {
+        $parts[] = '<span class="media-stat media-stat-pdf" title="تعداد پی‌دی‌اف">'
+            . '<span class="media-stat-icon" aria-hidden="true">📄</span>'
+            . '<span class="media-stat-num">' . $pdf . '</span>'
+            . '<span class="media-stat-label">پی‌دی‌اف</span></span>';
     }
     if (!$parts && !$hideWhenEmpty) {
         $parts[] = '<span class="media-stat media-stat-empty">بدون فایل</span>';
@@ -235,22 +270,27 @@ function workshop_media_course_url(string $enrollmentId): string
 
 function workshop_media_watermark_for_user(array $user, ?PDO $pdo = null): string
 {
-    $label = trim((string) ($user['username'] ?? ''));
-    if ($label === '') {
-        $label = trim((string) ($user['name'] ?? 'کاربر'));
-    }
-
+    $label = trim((string) ($user['name'] ?? ''));
     $phone = trim((string) ($user['phone'] ?? ''));
-    if ($phone === '' && $pdo !== null && !empty($user['id'])) {
-        $stmt = $pdo->prepare('SELECT phone FROM users WHERE id = ? LIMIT 1');
+    if (($label === '' || $phone === '') && $pdo !== null && !empty($user['id'])) {
+        $stmt = $pdo->prepare('SELECT name, phone FROM users WHERE id = ? LIMIT 1');
         $stmt->execute([(string) $user['id']]);
-        $phone = trim((string) ($stmt->fetchColumn() ?: ''));
+        $row = $stmt->fetch();
+        if ($row) {
+            if ($label === '') {
+                $label = trim((string) ($row['name'] ?? ''));
+            }
+            if ($phone === '') {
+                $phone = trim((string) ($row['phone'] ?? ''));
+            }
+        }
     }
-
+    if ($label === '') {
+        $label = 'مراجعه‌کننده';
+    }
     if ($phone !== '') {
         return $label . ' · ' . $phone;
     }
-
     return $label;
 }
 
@@ -271,7 +311,7 @@ function workshop_media_workshop_exists(PDO $pdo, string $workshopId): bool
     return (bool) $stmt->fetch();
 }
 
-function workshop_media_save_upload(PDO $pdo, string $workshopId, ?string $doctorProfileId, string $kind, string $title, ?string $description, array $file): string
+function workshop_media_save_upload(PDO $pdo, string $workshopId, ?string $doctorProfileId, string $kind, string $title, ?string $description, array $file, ?string $sessionId = null): string
 {
     ensure_workshop_media_schema($pdo);
     if ($doctorProfileId !== null) {
@@ -281,7 +321,7 @@ function workshop_media_save_upload(PDO $pdo, string $workshopId, ?string $docto
     } elseif (!workshop_media_workshop_exists($pdo, $workshopId)) {
         throw new RuntimeException('کارگاه یافت نشد.');
     }
-    if (!in_array($kind, ['VIDEO', 'AUDIO'], true)) {
+    if (!in_array($kind, ['VIDEO', 'AUDIO', 'PDF'], true)) {
         throw new RuntimeException('نوع فایل نامعتبر است.');
     }
     if ($title === '') {
@@ -313,13 +353,22 @@ function workshop_media_save_upload(PDO $pdo, string $workshopId, ?string $docto
     }
 
     $sort = workshop_media_count($pdo, $workshopId);
+    if ($sessionId) {
+        $old = $pdo->prepare('SELECT id FROM workshop_media_items WHERE workshop_id=? AND session_id=? AND kind=? LIMIT 1');
+        $old->execute([$workshopId, $sessionId, $kind]);
+        $oldId = (string) ($old->fetchColumn() ?: '');
+        if ($oldId !== '') {
+            workshop_media_delete($pdo, $oldId, $doctorProfileId);
+        }
+    }
     $pdo->prepare('
       INSERT INTO workshop_media_items
-        (id, workshop_id, kind, title, description, file_path, original_name, mime_type, file_size, sort_order)
-      VALUES (?,?,?,?,?,?,?,?,?,?)
+        (id, workshop_id, session_id, kind, title, description, file_path, original_name, mime_type, file_size, sort_order)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?)
     ')->execute([
         $id,
         $workshopId,
+        $sessionId,
         $kind,
         $title,
         $description ?: null,
@@ -331,6 +380,45 @@ function workshop_media_save_upload(PDO $pdo, string $workshopId, ?string $docto
     ]);
 
     return $id;
+}
+
+function workshop_media_process_session_uploads(PDO $pdo, string $workshopId, ?string $doctorProfileId): int
+{
+    require_once __DIR__ . '/workshop_sessions.php';
+    $sessions = workshop_sessions_list($pdo, $workshopId);
+    $byDate = [];
+    foreach ($sessions as $session) {
+        $byDate[(string) $session['session_date']] = $session;
+    }
+    $files = $_FILES['session_file'] ?? [];
+    if (!is_array($files['name'] ?? null)) {
+        return 0;
+    }
+    $saved = 0;
+    foreach ($files['name'] as $date => $kinds) {
+        $date = (string) $date;
+        if (!isset($byDate[$date]) || !is_array($kinds)) {
+            continue;
+        }
+        $session = $byDate[$date];
+        foreach ($kinds as $kind => $unusedName) {
+            $kind = strtoupper((string) $kind);
+            $file = [
+                'name' => (string) ($files['name'][$date][$kind] ?? ''),
+                'type' => (string) ($files['type'][$date][$kind] ?? ''),
+                'tmp_name' => (string) ($files['tmp_name'][$date][$kind] ?? ''),
+                'error' => (int) ($files['error'][$date][$kind] ?? UPLOAD_ERR_NO_FILE),
+                'size' => (int) ($files['size'][$date][$kind] ?? 0),
+            ];
+            if ($file['error'] === UPLOAD_ERR_NO_FILE) {
+                continue;
+            }
+            $title = (string) $session['title'] . ' — ' . workshop_media_kind_label($kind);
+            workshop_media_save_upload($pdo, $workshopId, $doctorProfileId, $kind, $title, null, $file, (string) $session['id']);
+            $saved++;
+        }
+    }
+    return $saved;
 }
 
 /** بارگذاری چند فایل از فرم ایجاد/ویرایش کارگاه — doctorProfileId=null یعنی دسترسی منشی */
@@ -435,7 +523,7 @@ function workshop_media_stream_path(array $item): string
     return $real;
 }
 
-function workshop_media_stream_url(string $itemId, ?array $user = null): string
+function workshop_media_stream_url(string $itemId, ?array $user = null, bool $download = false): string
 {
     $user = $user ?? current_user();
     $query = 'id=' . rawurlencode($itemId);
@@ -443,7 +531,44 @@ function workshop_media_stream_url(string $itemId, ?array $user = null): string
         $token = workshop_media_stream_token($itemId, (string) $user['id']);
         $query .= '&exp=' . $token['exp'] . '&sig=' . rawurlencode($token['sig']);
     }
+    if ($download) {
+        $query .= '&dl=1';
+    }
     return url('/workshop-media/stream?' . $query);
+}
+
+function workshop_pdf_stamp_temp(string $srcPath, string $watermark): ?string
+{
+    if (!class_exists('Imagick') || !is_file($srcPath)) {
+        return null;
+    }
+    try {
+        $im = new Imagick();
+        $im->setResolution(110, 110);
+        $im->readImage($srcPath);
+        foreach ($im as $page) {
+            $w = $page->getImageWidth();
+            $h = $page->getImageHeight();
+            $draw = new ImagickDraw();
+            $draw->setFillColor(new ImagickPixel('rgba(40,40,40,0.22)'));
+            $draw->setFontSize(max(16, (int) ($w / 28)));
+            $draw->setGravity(Imagick::GRAVITY_CENTER);
+            $page->annotateImage($draw, 0, 0, -28, $watermark);
+            $draw2 = new ImagickDraw();
+            $draw2->setFillColor(new ImagickPixel('rgba(40,40,40,0.18)'));
+            $draw2->setFontSize(max(14, (int) ($w / 34)));
+            $page->annotateImage($draw2, 0, (int) ($h * 0.28), -28, $watermark);
+            $page->annotateImage($draw2, 0, (int) (-$h * 0.28), -28, $watermark);
+        }
+        $im->setImageFormat('pdf');
+        $tmp = sys_get_temp_dir() . '/mana_pdf_' . bin2hex(random_bytes(8)) . '.pdf';
+        $im->writeImages($tmp, true);
+        $im->clear();
+        $im->destroy();
+        return is_file($tmp) ? $tmp : null;
+    } catch (Throwable $e) {
+        return null;
+    }
 }
 
 function workshop_media_format_size(int $bytes): string

@@ -40,23 +40,6 @@ if ($action === 'create') {
         redirect($base);
     }
 
-    if (workshop_is_offline($data['type'])) {
-        $hasFile = false;
-        $files = $_FILES['media_files'] ?? [];
-        if (is_array($files['error'] ?? null)) {
-            foreach ($files['error'] as $err) {
-                if ((int) $err === UPLOAD_ERR_OK) {
-                    $hasFile = true;
-                    break;
-                }
-            }
-        }
-        if (!$hasFile) {
-            flash_set('error', 'برای دوره آفلاین حداقل یک ویدیو یا فایل صوتی بارگذاری کنید.');
-            redirect($base);
-        }
-    }
-
     $id = cuid();
     try {
         $pdo->beginTransaction();
@@ -87,10 +70,7 @@ if ($action === 'create') {
             'PUBLISHED',
         ]);
 
-        workshop_media_process_form_uploads($pdo, $id, null);
-        if (workshop_is_offline($data['type']) && workshop_media_count($pdo, $id) < 1) {
-            throw new RuntimeException('برای دوره آفلاین حداقل یک ویدیو یا فایل صوتی بارگذاری کنید.');
-        }
+        workshop_save_sessions_and_media($pdo, $id, $data, null);
         $pdo->prepare('UPDATE workshops SET created_by_user_id=?, updated_by_user_id=? WHERE id=?')
             ->execute([$user['id'], $user['id'], $id]);
         $pdo->commit();
@@ -130,8 +110,8 @@ if ($action === 'create') {
         'workshop'
     );
 
-    flash_set('success', 'کارگاه ایجاد شد و به درمانگران اطلاع داده شد.');
-    redirect($base);
+    flash_set('success', 'کارگاه ایجاد شد. فایل هر جلسه را از ویرایش کارگاه بارگذاری کنید.');
+    redirect($base . '?edit=' . urlencode($id));
 }
 
 if ($action === 'update') {
@@ -186,10 +166,7 @@ if ($action === 'update') {
             $data['group_url'],
             $id,
         ]);
-        workshop_media_process_form_uploads($pdo, $id, null);
-        if (workshop_is_offline($data['type']) && workshop_media_count($pdo, $id) < 1) {
-            throw new RuntimeException('دوره آفلاین باید حداقل یک ویدیو یا فایل صوتی داشته باشد.');
-        }
+        workshop_save_sessions_and_media($pdo, $id, $data, null);
         $pdo->prepare('UPDATE workshops SET updated_by_user_id=? WHERE id=?')
             ->execute([$user['id'], $id]);
         $pdo->commit();
@@ -224,6 +201,16 @@ if ($action === 'mark_paid') {
     $next = trim((string) ($_POST['next'] ?? ''));
     if ($next !== '' && str_starts_with($next, '/secretary')) {
         redirect($next);
+    }
+    redirect($base);
+}
+
+if ($action === 'approve_enrollment') {
+    try {
+        workshop_approve_enrollment_by_staff($pdo, post('enrollment_id'), (string) $user['id'], staff_actor_label($user));
+        flash_set('success', 'عضویت تأیید شد و فایل جلسات برای مراجعه‌کننده باز شد.');
+    } catch (RuntimeException $e) {
+        flash_set('error', $e->getMessage());
     }
     redirect($base);
 }

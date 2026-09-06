@@ -52,6 +52,13 @@ $enrollmentList = $enrollmentList ?? [];
               </label>
             </form>
           <?php endif; ?>
+          <?php if (!$paid || (string) ($enr['status'] ?? '') === 'PENDING_PAYMENT'): ?>
+            <form method="post" action="<?= e(url('/secretary/workshops')) ?>" style="margin:0">
+              <input type="hidden" name="action" value="approve_enrollment">
+              <input type="hidden" name="enrollment_id" value="<?= e((string) $enr['id']) ?>">
+              <button class="btn btn-primary btn-sm" type="submit">تأیید عضویت</button>
+            </form>
+          <?php endif; ?>
           <?php if (!$paid): ?>
             <form class="staff-receipt-form workshop-pay-form" method="post" action="<?= e(url('/secretary/workshops')) ?>" enctype="multipart/form-data">
               <input type="hidden" name="action" value="mark_paid">

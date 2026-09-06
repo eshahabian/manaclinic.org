@@ -4,6 +4,8 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../includes/secretary_panel.php';
 require_once __DIR__ . '/../../includes/workshops.php';
 require_once __DIR__ . '/../../includes/workshop_media.php';
+require_once __DIR__ . '/../../includes/workshop_sessions.php';
+require_once __DIR__ . '/../../includes/workshop_overview.php';
 
 $user = require_login(['SECRETARY']);
 ensure_workshop_schema($pdo);
@@ -35,6 +37,7 @@ $workshops = $pdo->query('
   LEFT JOIN users cu ON cu.id = w.created_by_user_id
   ORDER BY w.created_at DESC
 ')->fetchAll();
+$sessionsByWorkshop = workshop_sessions_map_for_ids($pdo, array_map(static fn ($w) => (string) $w['id'], $workshops));
 
 $grouped = workshop_group_for_tabs($workshops);
 $tabParam = trim((string) ($_GET['tab'] ?? ''));
@@ -77,8 +80,11 @@ if ($editWorkshop) {
 }
 
 $workshopMedia = [];
+$workshopSessions = [];
 if ($editWorkshop) {
+    workshop_sessions_sync($pdo, (string) $editWorkshop['id'], (string) $editWorkshop['type'], (string) $editWorkshop['starts_at'], (string) $editWorkshop['ends_at']);
     $workshopMedia = workshop_media_list($pdo, (string) $editWorkshop['id']);
+    $workshopSessions = workshop_sessions_with_media($pdo, (string) $editWorkshop['id']);
 }
 global $config;
 $mediaMaxMb = (int) ($config['workshop_media_max_mb'] ?? 300);
@@ -309,12 +315,11 @@ ob_start();
     <p class="muted" style="font-size:.8rem;margin:.35rem 0 0;line-height:1.6">مراجعه‌کنندگان پس از ثبت‌نام و تأیید، این لینک را برای عضویت در گروه می‌بینند.</p>
   </div>
 
-  <div id="field-session-media" class="panel" style="padding:1rem;background:var(--bg-soft,#f8fafc);border-style:dashed">
-    <h3 style="margin:0;font-size:.95rem">ضبط جلسات (ویدیو / صوت)</h3>
-    <p class="muted" style="font-size:.85rem;line-height:1.65;margin:.35rem 0 0">حداکثر <?= (int) $mediaMaxMb ?> مگابایت برای هر فایل — برای آفلاین حداقل یک فایل لازم است.</p>
-    <div id="session-media-rows" class="stack" style="margin-top:1rem"></div>
-    <button type="button" class="btn btn-outline btn-sm" id="add-session-media-row" style="margin-top:.75rem">+ افزودن ویدیو / صوت</button>
-  </div>
+  <?php
+    $workshopMediaPost = '/secretary/workshop-media';
+    $editWorkshopId = $editWorkshop['id'] ?? null;
+    require __DIR__ . '/../../includes/workshop_session_media_form.php';
+  ?>
 
   <div>
     <label class="label">توضیح کوتاه</label>
@@ -488,12 +493,15 @@ ob_start();
     selector: ".workshop-date-view", time: false, hideAfterChange: true,
     showTodayBtn: true, showEmptyBtn: true, autoReadOnlyInput: true, zIndex: 100000, container: "body"
   });
-  ["workshop-start-date-view","workshop-end-date-view"].forEach(function(id){
-    var el = document.getElementById(id);
+  [
+    ["workshop-start-date-view","workshop-start-date"],
+    ["workshop-end-date-view","workshop-end-date"],
+    ["extra-session-date-view","extra-session-date"]
+  ].forEach(function(pair){
+    var el = document.getElementById(pair[0]);
     if (!el) return;
-    var hidden = id.indexOf("start") >= 0 ? "workshop-start-date" : "workshop-end-date";
-    el.addEventListener("jdp:change", function(){ syncJalali(id, hidden); });
-    el.addEventListener("change", function(){ syncJalali(id, hidden); });
+    el.addEventListener("jdp:change", function(){ syncJalali(pair[0], pair[1]); });
+    el.addEventListener("change", function(){ syncJalali(pair[0], pair[1]); });
   });
 
   var form = document.getElementById("workshop-form");
@@ -509,13 +517,7 @@ ob_start();
           e.preventDefault(); alert("تاریخ شروع و پایان را انتخاب کنید."); return;
         }
       } else {
-        var hasNewFile = false;
-        if (sessionRows) sessionRows.querySelectorAll(".session-media-file").forEach(function(input){
-          if (input.files && input.files.length) hasNewFile = true;
-        });
-        if (!hasNewFile && !hasExistingMedia) {
-          e.preventDefault(); alert("حداقل یک ویدیو یا فایل صوتی انتخاب کنید."); return;
-        }
+        syncJalali("extra-session-date-view", "extra-session-date");
       }
       if (t === "IN_PERSON") {
         if (locationInput && !locationInput.value.trim()) { e.preventDefault(); alert("آدرس را بنویسید."); return; }
@@ -525,5 +527,8 @@ ob_start();
   }
 })();
 </script>
+<script src="<?= e(url('/assets/js/workshop-session-media.js')) ?>?v=20260906s"></script>
+<script src="<?= e(url('/assets/js/workshop-overview.js')) ?>?v=20260906s"></script>
+<?= workshop_overview_modal_html() ?>
 <?php
 render_secretary_page('کارگاه‌ها', ob_get_clean());
