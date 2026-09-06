@@ -113,7 +113,7 @@ if (!in_array($time, $valid, true)) {
     redirect('/secretary/appointments?tab=new');
 }
 
-$startsAt = $date . ' ' . $time . ':00';
+$startsAt = appointment_slot_starts_at($date, $time);
 $endsAt = date('Y-m-d H:i:s', strtotime($startsAt) + (appointment_slot_minutes() * 60));
 
 $conflict = $pdo->prepare("

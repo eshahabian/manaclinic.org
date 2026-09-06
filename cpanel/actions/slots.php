@@ -27,27 +27,32 @@ if (!$availability) {
     exit;
 }
 
-$all = appointment_slots_from_availability($availability);
+$hours = appointment_availability_hours($availability);
+$nextDate = date('Y-m-d', strtotime($date . ' +1 day') ?: time());
 
 $takenStmt = $pdo->prepare("
-  SELECT DATE_FORMAT(starts_at, '%H:%i') AS t
+  SELECT starts_at
   FROM appointments
-  WHERE doctor_id=? AND DATE(starts_at)=? AND status IN ('PENDING_PAYMENT','CONFIRMED','COMPLETED')
+  WHERE doctor_id=? AND DATE(starts_at) IN (?, ?) AND status IN ('PENDING_PAYMENT','CONFIRMED','COMPLETED')
 ");
-$takenStmt->execute([$doctorId, $date]);
-$taken = array_column($takenStmt->fetchAll(), 't');
+$takenStmt->execute([$doctorId, $date, $nextDate]);
+$taken = [];
+foreach ($takenStmt->fetchAll(PDO::FETCH_COLUMN) as $startsAt) {
+    $taken[(string) $startsAt] = true;
+}
 
 $now = time();
 $free = [];
-foreach ($all as $slot) {
-    if (in_array($slot, $taken, true)) {
+foreach ($hours as $hour) {
+    $startsAt = appointment_slot_starts_at($date, $hour);
+    if (isset($taken[$startsAt])) {
         continue;
     }
-    $ts = strtotime($date . ' ' . $slot . ':00');
+    $ts = strtotime($startsAt);
     if ($ts && $ts > $now) {
         $free[] = [
-            'value' => $slot,
-            'label' => appointment_time_to_hour_label($slot),
+            'value' => appointment_hour_to_time($hour),
+            'label' => appointment_hour_chip_label($hour),
         ];
     }
 }

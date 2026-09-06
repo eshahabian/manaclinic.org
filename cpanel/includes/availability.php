@@ -9,7 +9,12 @@ function ensure_availability_schema(PDO $pdo): void
     }
     $col = $pdo->query("SHOW COLUMNS FROM availabilities LIKE 'available_hours'")->fetch();
     if (!$col) {
-        $pdo->exec('ALTER TABLE availabilities ADD COLUMN available_hours VARCHAR(64) NULL AFTER slot_minutes');
+        $pdo->exec('ALTER TABLE availabilities ADD COLUMN available_hours VARCHAR(128) NULL AFTER slot_minutes');
+    } else {
+        try {
+            $pdo->exec('ALTER TABLE availabilities MODIFY available_hours VARCHAR(128) NULL');
+        } catch (Throwable $ignored) {
+        }
     }
 
     $span = appointment_hours_span();
@@ -23,26 +28,56 @@ function ensure_availability_schema(PDO $pdo): void
       WHERE available_hours IS NULL
          OR TRIM(available_hours) = ''
          OR available_hours = '10,11,12,13,14,15,16,17'
+         OR available_hours = '12,13,14,15,16,17,18,19,20,21,22,23'
          OR (start_time = '10:00' AND end_time = '18:00')
     ")->execute([$span['start'], $span['end'], $defaultHours]);
 
     $ready = true;
 }
 
-/** ساعت‌های مجاز رزرو نوبت — ۱۲ ظهر تا ۱۲ شب */
+/** ساعت‌های مجاز رزرو — ۱۲ ظهر تا ۱۲ ظهر فردا (۲۴ ساعت) */
 function appointment_booking_hours(): array
 {
-    return [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
+    return [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11];
+}
+
+function appointment_hour_is_next_day(int $hour): bool
+{
+    return $hour < 12;
+}
+
+function appointment_slot_starts_at(string $availabilityDate, int|string $hourOrTime): string
+{
+    $hour = is_int($hourOrTime)
+        ? $hourOrTime
+        : (int) explode(':', (string) $hourOrTime)[0];
+    $date = $availabilityDate;
+    if (appointment_hour_is_next_day($hour)) {
+        $date = date('Y-m-d', strtotime($availabilityDate . ' +1 day') ?: time());
+    }
+    return $date . ' ' . appointment_hour_to_time($hour) . ':00';
+}
+
+function appointment_hour_chip_label(int $hour): string
+{
+    $n = to_fa_digits((string) $hour);
+    if ($hour === 12) {
+        return $n . ' ظهر';
+    }
+    if ($hour === 0) {
+        return '۰۰ بامداد فردا';
+    }
+    if ($hour < 12) {
+        return $n . ' فردا';
+    }
+    return $n;
 }
 
 function appointment_hours_span(): array
 {
-    $hours = appointment_booking_hours();
-    $first = (int) ($hours[0] ?? 12);
-    $last = (int) ($hours[count($hours) - 1] ?? 23);
     return [
-        'start' => appointment_hour_to_time($first),
-        'end' => $last >= 23 ? '23:59' : appointment_hour_to_time($last + 1),
+        'start' => '12:00',
+        'end' => '23:59',
     ];
 }
 
@@ -66,11 +101,13 @@ function appointment_time_to_hour_label(string $time): string
 
 function appointment_hours_encode(array $hours): string
 {
-    $allowed = appointment_booking_hours();
-    $filtered = array_values(array_unique(array_map('intval', $hours)));
-    sort($filtered);
-    $filtered = array_values(array_filter($filtered, static fn (int $h): bool => in_array($h, $allowed, true)));
-
+    $picked = array_map('intval', $hours);
+    $filtered = [];
+    foreach (appointment_booking_hours() as $h) {
+        if (in_array((int) $h, $picked, true)) {
+            $filtered[] = (int) $h;
+        }
+    }
     return implode(',', $filtered);
 }
 
@@ -79,10 +116,14 @@ function appointment_hours_decode(?string $raw): array
     if ($raw === null || trim($raw) === '') {
         return [];
     }
-    $allowed = appointment_booking_hours();
-    $hours = array_map('intval', explode(',', $raw));
-
-    return array_values(array_filter($hours, static fn (int $h): bool => in_array($h, $allowed, true)));
+    $picked = array_map('intval', explode(',', $raw));
+    $out = [];
+    foreach (appointment_booking_hours() as $h) {
+        if (in_array((int) $h, $picked, true)) {
+            $out[] = (int) $h;
+        }
+    }
+    return $out;
 }
 
 function appointment_availability_hours(array $availability): array
@@ -156,7 +197,8 @@ function patient_open_slots_between(PDO $pdo, string $fromYmd, string $toYmd): a
       WHERE DATE(starts_at) BETWEEN ? AND ?
         AND status IN ('PENDING_PAYMENT','CONFIRMED','COMPLETED')
     ");
-    $takenStmt->execute([$fromYmd, $toYmd]);
+    $takenEnd = date('Y-m-d', strtotime($toYmd . ' +1 day') ?: time());
+    $takenStmt->execute([$fromYmd, $takenEnd]);
     $taken = [];
     foreach ($takenStmt->fetchAll() as $row) {
         $taken[(string) $row['doctor_id'] . '|' . $row['d'] . '|' . $row['t']] = true;
@@ -167,11 +209,14 @@ function patient_open_slots_between(PDO $pdo, string $fromYmd, string $toYmd): a
     foreach ($rows as $availability) {
         $doctorId = (string) ($availability['doctor_id'] ?? '');
         $date = (string) ($availability['date'] ?? '');
-        foreach (appointment_slots_from_availability($availability) as $slot) {
-            if (isset($taken[$doctorId . '|' . $date . '|' . $slot])) {
+        foreach (appointment_availability_hours($availability) as $hour) {
+            $startsAt = appointment_slot_starts_at($date, $hour);
+            $slot = appointment_hour_to_time($hour);
+            $slotDate = substr($startsAt, 0, 10);
+            if (isset($taken[$doctorId . '|' . $slotDate . '|' . $slot])) {
                 continue;
             }
-            $ts = strtotime($date . ' ' . $slot . ':00');
+            $ts = strtotime($startsAt);
             if (!$ts || $ts <= $now) {
                 continue;
             }
@@ -180,10 +225,10 @@ function patient_open_slots_between(PDO $pdo, string $fromYmd, string $toYmd): a
                 'doctor_name' => (string) ($availability['doctor_name'] ?? ''),
                 'specialty' => (string) ($availability['specialty'] ?? ''),
                 'price' => (int) ($availability['session_price'] ?? 0),
-                'date' => $date,
+                'date' => $slotDate,
                 'time' => $slot,
-                'label' => appointment_time_to_hour_label($slot),
-                'starts_at' => $date . ' ' . $slot . ':00',
+                'label' => appointment_hour_chip_label($hour),
+                'starts_at' => $startsAt,
             ];
         }
     }
