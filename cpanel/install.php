@@ -274,8 +274,7 @@ try {
     $bio = "مشاوره تخصصی: فردی، خانواده (پیش از ازدواج و زناشویی)، کودک و نوجوان، تحصیلی و شغلی\nروان‌درمانی: درمان اضطراب، افسردگی و وسواس";
 
     // فقط کاربر جدید می‌سازد؛ رمز کاربران موجود را دست نمی‌زند
-    // برای ریست اضطراری رمز حساب‌های نمونه: /install?reset_passwords=1
-    $resetPasswords = isset($_GET['reset_passwords']) && $_GET['reset_passwords'] === '1';
+    $resetPasswords = false;
     $upsertUser = function (
         string $id,
         string $username,

@@ -85,7 +85,7 @@ if ($action === 'delete_user') {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
-        flash_set('error', 'حذف ناموفق: ' . $e->getMessage());
+        flash_set('error', 'حذف ناموفق بود. دوباره تلاش کنید.');
     }
     redirect('/admin/users');
 }
@@ -119,7 +119,7 @@ if ($action === 'delete_selected') {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
-        flash_set('error', 'حذف ناموفق: ' . $e->getMessage());
+        flash_set('error', 'حذف ناموفق بود. دوباره تلاش کنید.');
     }
     redirect('/admin/users');
 }
@@ -147,7 +147,7 @@ if ($action === 'cleanup_named_and_appointments') {
         if ($pdo->inTransaction()) {
             $pdo->rollBack();
         }
-        flash_set('error', 'پاک‌سازی ناموفق: ' . $e->getMessage());
+        flash_set('error', 'پاک‌سازی ناموفق بود. دوباره تلاش کنید.');
     }
     redirect('/admin/users');
 }

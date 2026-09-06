@@ -78,15 +78,20 @@ function is_admin_user(?array $user = null): bool
     return $user && ($user['role'] ?? '') === 'ADMIN';
 }
 
-function login_throttle_file(): string
+function client_ip(): string
 {
-    $ip = (string) ($_SERVER['REMOTE_ADDR'] ?? '0');
-    return sys_get_temp_dir() . '/mana_login_' . hash('sha256', $ip);
+    return (string) ($_SERVER['REMOTE_ADDR'] ?? '0');
 }
 
-function login_throttle_hits(): array
+function throttle_file(string $bucket): string
 {
-    $file = login_throttle_file();
+    $safe = preg_replace('/[^a-z0-9_]/i', '', $bucket) ?: 'req';
+    return sys_get_temp_dir() . '/mana_' . $safe . '_' . hash('sha256', client_ip());
+}
+
+function throttle_hits(string $bucket, int $windowSeconds = 600): array
+{
+    $file = throttle_file($bucket);
     if (!is_file($file)) {
         return [];
     }
@@ -94,31 +99,71 @@ function login_throttle_hits(): array
     if (!is_array($hits)) {
         return [];
     }
-    $since = time() - 600;
+    $since = time() - max(1, $windowSeconds);
     return array_values(array_filter($hits, static fn($t): bool => is_int($t) && $t > $since));
+}
+
+function throttle_too_many(string $bucket, int $max, int $windowSeconds = 600): bool
+{
+    return count(throttle_hits($bucket, $windowSeconds)) >= $max;
+}
+
+function throttle_hit(string $bucket, int $windowSeconds = 600): void
+{
+    $hits = throttle_hits($bucket, $windowSeconds);
+    $hits[] = time();
+    @file_put_contents(throttle_file($bucket), json_encode($hits), LOCK_EX);
+}
+
+function throttle_clear(string $bucket): void
+{
+    $file = throttle_file($bucket);
+    if (is_file($file)) {
+        @unlink($file);
+    }
+}
+
+function throttle_guard_page(string $bucket, int $max, int $windowSeconds, string $redirectTo, string $message): void
+{
+    if (throttle_too_many($bucket, $max, $windowSeconds)) {
+        flash_set('error', $message);
+        redirect($redirectTo);
+    }
+}
+
+function throttle_guard_json(string $bucket, int $max, int $windowSeconds, string $message): void
+{
+    if (throttle_too_many($bucket, $max, $windowSeconds)) {
+        http_response_code(429);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['error' => $message], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+}
+
+function login_throttle_file(): string
+{
+    return throttle_file('login');
+}
+
+function login_throttle_hits(): array
+{
+    return throttle_hits('login', 600);
 }
 
 function login_throttle_guard(): void
 {
-    if (count(login_throttle_hits()) >= 8) {
-        flash_set('error', 'تلاش ورود زیاد بود. چند دقیقه بعد دوباره تلاش کنید.');
-        redirect('/login');
-    }
+    throttle_guard_page('login', 8, 600, '/login', 'تلاش ورود زیاد بود. چند دقیقه بعد دوباره تلاش کنید.');
 }
 
 function login_throttle_fail(): void
 {
-    $hits = login_throttle_hits();
-    $hits[] = time();
-    @file_put_contents(login_throttle_file(), json_encode($hits), LOCK_EX);
+    throttle_hit('login', 600);
 }
 
 function login_throttle_clear(): void
 {
-    $file = login_throttle_file();
-    if (is_file($file)) {
-        @unlink($file);
-    }
+    throttle_clear('login');
 }
 
 function panel_href_for(?array $user): ?string

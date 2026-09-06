@@ -14,7 +14,6 @@ $patients = $pdo->query("
   WHERE u.role='PATIENT'
   ORDER BY u.name ASC
 ")->fetchAll();
-$takenUsernames = $pdo->query("SELECT username FROM users WHERE username IS NOT NULL AND username <> ''")->fetchAll(PDO::FETCH_COLUMN);
 $doctors = $pdo->query("
   SELECT dp.id, u.name, dp.specialty
   FROM doctor_profiles dp
@@ -157,9 +156,6 @@ $secretaryBookScripts = '
 <script>
 (function(){
   var availByDoctor = ' . json_encode($availByDoctor, JSON_UNESCAPED_UNICODE) . ';
-  var takenUsernames = ' . json_encode(array_values(array_map(static fn($u) => mb_strtolower((string) $u), $takenUsernames)), JSON_UNESCAPED_UNICODE) . ';
-  var takenSet = {};
-  takenUsernames.forEach(function(u){ if (u) takenSet[u] = true; });
 
   var doctorEl = document.getElementById("doctor_id");
   var patientEl = document.getElementById("patient_id");
@@ -197,14 +193,7 @@ $secretaryBookScripts = '
 
   function uniqueUsername(base) {
     if (!base || base.length < 3) return "";
-    var candidate = base;
-    var n = 1;
-    while (takenSet[candidate]) {
-      var suffix = String(n++);
-      candidate = (base.slice(0, Math.max(3, 32 - suffix.length)) + suffix);
-      if (n > 999) return "";
-    }
-    return candidate;
+    return base.slice(0, 32);
   }
 
   function applySuggestion(force) {
@@ -483,13 +472,6 @@ $secretaryBookScripts = '
       if (!/^[a-z0-9._-]{3,32}$/.test(newUser)) {
         e.preventDefault();
         errEl.textContent = "نام کاربری مراجعه‌کننده جدید الزامی است (۳ تا ۳۲ کاراکتر انگلیسی).";
-        errEl.style.display = "block";
-        newUserEl.focus();
-        return;
-      }
-      if (takenSet[newUser]) {
-        e.preventDefault();
-        errEl.textContent = "این نام کاربری قبلاً ثبت شده است. پیشنهاد دیگری بزنید.";
         errEl.style.display = "block";
         newUserEl.focus();
         return;

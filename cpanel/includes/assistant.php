@@ -189,20 +189,41 @@ function assistant_question_by_id(string $id): ?array
     return null;
 }
 
+function assistant_guest_remember(string $id): void
+{
+    if ($id === '' || session_status() !== PHP_SESSION_ACTIVE) {
+        return;
+    }
+    if (!isset($_SESSION['assistant_ids']) || !is_array($_SESSION['assistant_ids'])) {
+        $_SESSION['assistant_ids'] = [];
+    }
+    $_SESSION['assistant_ids'][$id] = time();
+}
+
+function assistant_guest_known(string $id): bool
+{
+    if ($id === '') {
+        return false;
+    }
+    $known = $_SESSION['assistant_ids'] ?? [];
+    return is_array($known) && isset($known[$id]);
+}
+
 function assistant_session_accessible(?array $session, ?array $user = null): bool
 {
     if (!$session) {
         return false;
     }
+    $id = (string) ($session['id'] ?? '');
     $owner = trim((string) ($session['patient_id'] ?? ''));
-    if ($owner === '') {
-        return true;
-    }
     $user = $user ?? (function_exists('current_user') ? current_user() : null);
     if (function_exists('is_admin_user') && is_admin_user($user)) {
         return true;
     }
-    return $user && ($user['role'] ?? '') === 'PATIENT' && (string) $user['id'] === $owner;
+    if ($owner !== '') {
+        return $user && ($user['role'] ?? '') === 'PATIENT' && (string) $user['id'] === $owner;
+    }
+    return assistant_guest_known($id);
 }
 
 function assistant_session_get(PDO $pdo, string $id): ?array
@@ -222,6 +243,9 @@ function assistant_session_create(PDO $pdo, ?string $patientId = null): array
       INSERT INTO assistant_sessions (id, patient_id, status, current_step, answers_json)
       VALUES (?,?,?,?,?)
     ')->execute([$id, $patientId, 'IN_PROGRESS', 0, json_encode([], JSON_UNESCAPED_UNICODE)]);
+    if ($patientId === null || $patientId === '') {
+        assistant_guest_remember($id);
+    }
     return assistant_session_get($pdo, $id) ?: ['id' => $id, 'current_step' => 0, 'answers_json' => '[]'];
 }
 

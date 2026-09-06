@@ -9,6 +9,7 @@ ob_start();
 ?>
 <div class="auth-wrap">
   <form class="panel auth-box form-stack" method="post" action="<?= e(url('/login')) ?>">
+    <?= csrf_field() ?>
     <div>
       <h1>ورود به مانا کلینیک</h1>
       <p class="muted">حساب ندارید؟ <a href="<?= e(url('/register')) ?>" style="color:var(--primary);font-weight:600">ثبت‌نام</a></p>

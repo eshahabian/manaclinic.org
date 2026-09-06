@@ -12,10 +12,15 @@ $config = require $configFile;
 
 date_default_timezone_set($config['timezone'] ?? 'Asia/Tehran');
 
+@ini_set('display_errors', '0');
+header_remove('X-Powered-By');
+
 session_name($config['session_name'] ?? 'mana_clinic_sess');
 if (session_status() !== PHP_SESSION_ACTIVE) {
     $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
-        || ((string) ($_SERVER['SERVER_PORT'] ?? '') === '443');
+        || ((string) ($_SERVER['SERVER_PORT'] ?? '') === '443')
+        || str_starts_with((string) ($config['app_url'] ?? ''), 'https://')
+        || strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https';
     session_set_cookie_params([
         'lifetime' => 0,
         'path' => '/',
@@ -30,6 +35,11 @@ header('X-Frame-Options: SAMEORIGIN');
 header('Referrer-Policy: strict-origin-when-cross-origin');
 header('X-XSS-Protection: 0');
 header('Permissions-Policy: camera=(), microphone=(), geolocation=()');
+if (str_starts_with((string) ($config['app_url'] ?? ''), 'https://')
+    || (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+    || strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https') {
+    header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+}
 
 require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/helpers.php';
@@ -72,6 +82,9 @@ if ($path !== '/') {
 }
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+if (strtoupper((string) $method) === 'POST') {
+    csrf_verify();
+}
 
 // seed مقالات فقط روی صفحات عمومی GET — نه روی API چت (جلوگیری از HTML/تایم‌اوت وسط گفتگو)
 $isAssistantApi = str_starts_with($path, '/assistant/chat') || str_starts_with($path, '/assistant/send');

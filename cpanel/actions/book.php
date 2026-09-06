@@ -120,5 +120,5 @@ try {
 } catch (Throwable $e) {
     $pdo->rollBack();
     http_response_code(502);
-    echo json_encode(['error' => $e->getMessage()]);
+    echo json_encode(['error' => 'ثبت نوبت الان ممکن نشد. دوباره تلاش کنید.'], JSON_UNESCAPED_UNICODE);
 }

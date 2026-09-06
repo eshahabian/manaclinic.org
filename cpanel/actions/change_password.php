@@ -46,5 +46,6 @@ if (!$saved || !password_verify($new, $saved['password_hash'])) {
 }
 
 $_SESSION['user']['must_change_password'] = 0;
+session_regenerate_id(true);
 flash_set('success', 'رمز عبور با موفقیت تغییر کرد. با همین رمز جدید وارد شوید.');
 redirect(panel_href_for(current_user()) ?: '/');

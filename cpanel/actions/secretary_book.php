@@ -60,10 +60,9 @@ if ($patientId === '') {
         flash_set('error', 'رمز عبور و تکرار آن یکسان نیست.');
         redirect('/secretary/appointments?tab=new');
     }
-    $exists = $pdo->prepare('SELECT id FROM users WHERE username=?');
-    $exists->execute([$newUsername]);
-    if ($exists->fetch()) {
-        flash_set('error', 'این نام کاربری قبلاً ثبت شده است.');
+    $newUsername = unique_username($pdo, $newUsername);
+    if ($newUsername === '') {
+        flash_set('error', 'ساخت نام کاربری ممکن نشد. نام انگلیسی را تغییر دهید.');
         redirect('/secretary/appointments?tab=new');
     }
     $patientId = cuid();

@@ -54,6 +54,8 @@ function assistant_chat_done_payload(string $sessionId, array $result, $user, st
 
 try {
     if ($action === 'start') {
+        throttle_guard_json('assistant_start', 12, 3600, 'درخواست گفتگو زیاد بود. کمی بعد دوباره تلاش کنید.');
+        throttle_hit('assistant_start', 3600);
         $session = assistant_session_create($pdo, ($user && ($user['role'] ?? '') === 'PATIENT') ? (string) $user['id'] : null);
         $sessionId = (string) $session['id'];
 
@@ -98,6 +100,8 @@ try {
     }
 
     if ($action === 'message' && $aiMode) {
+        throttle_guard_json('assistant_msg', 40, 600, 'پیام‌های پشت‌سرهم زیاد بود. کمی صبر کنید.');
+        throttle_hit('assistant_msg', 600);
         $sessionId = trim(post('sessionId'));
         $text = trim(post('text'));
         $session = assistant_session_get($pdo, $sessionId);
@@ -148,6 +152,8 @@ try {
     }
 
     if ($action === 'complete' && $aiMode) {
+        throttle_guard_json('assistant_msg', 40, 600, 'پیام‌های پشت‌سرهم زیاد بود. کمی صبر کنید.');
+        throttle_hit('assistant_msg', 600);
         $sessionId = trim(post('sessionId'));
         $session = assistant_session_get($pdo, $sessionId);
         if (!$session || !assistant_session_accessible($session, $user) || $session['status'] === 'SENT') {

@@ -36,11 +36,12 @@ function build_name_transliterations_client_map(PDO $pdo): array
 {
     ensure_name_transliterations_schema($pdo);
 
-    $stmt = $pdo->query('
+    $stmt = $pdo->query("
         SELECT persian, latin, part, hits
         FROM name_transliterations
+        WHERE source <> 'user'
         ORDER BY hits DESC, updated_at DESC
-    ');
+    ");
     $map = ['first' => [], 'last' => []];
     foreach ($stmt->fetchAll() as $row) {
         $fa = normalize_persian_name_part((string) $row['persian']);

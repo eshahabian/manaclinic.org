@@ -22,9 +22,18 @@ if ($kind === 'workshop') {
         redirect('/dashboard/courses');
     }
 
+    if (($payment['status'] ?? '') === 'PAID') {
+        flash_set('success', 'پرداخت کارگاه قبلاً ثبت شده است.');
+        redirect('/dashboard/courses');
+    }
+    if (($payment['status'] ?? '') !== 'PENDING') {
+        flash_set('error', 'این تراکنش قابل تأیید نیست.');
+        redirect('/dashboard/courses');
+    }
+
     if ($status !== 'OK') {
-        $pdo->prepare("UPDATE workshop_payments SET status='FAILED' WHERE id=?")->execute([$payment['id']]);
-        $pdo->prepare("UPDATE workshop_enrollments SET status='CANCELLED' WHERE id=?")->execute([$payment['enrollment_id']]);
+        $pdo->prepare("UPDATE workshop_payments SET status='FAILED' WHERE id=? AND status='PENDING'")->execute([$payment['id']]);
+        $pdo->prepare("UPDATE workshop_enrollments SET status='CANCELLED' WHERE id=? AND status='PENDING'")->execute([$payment['enrollment_id']]);
         flash_set('error', 'پرداخت لغو شد.');
         redirect('/dashboard/courses');
     }
@@ -32,9 +41,9 @@ if ($kind === 'workshop') {
     $onlineAmount = (int) $payment['amount'] - (int) ($payment['wallet_amount'] ?? 0);
     $verified = zarinpal_verify($config, $authority, $onlineAmount);
     if (empty($verified['ok'])) {
-        $pdo->prepare("UPDATE workshop_payments SET status='FAILED' WHERE id=?")->execute([$payment['id']]);
-        $pdo->prepare("UPDATE workshop_enrollments SET status='CANCELLED' WHERE id=?")->execute([$payment['enrollment_id']]);
-        flash_set('error', $verified['message'] ?? 'پرداخت ناموفق بود.');
+        $pdo->prepare("UPDATE workshop_payments SET status='FAILED' WHERE id=? AND status='PENDING'")->execute([$payment['id']]);
+        $pdo->prepare("UPDATE workshop_enrollments SET status='CANCELLED' WHERE id=? AND status='PENDING'")->execute([$payment['enrollment_id']]);
+        flash_set('error', 'پرداخت ناموفق بود.');
         redirect('/dashboard/courses');
     }
 
@@ -46,7 +55,7 @@ if ($kind === 'workshop') {
         flash_set('success', 'پرداخت کارگاه با موفقیت انجام شد.');
     } catch (Throwable $e) {
         $pdo->rollBack();
-        flash_set('error', $e->getMessage());
+        flash_set('error', 'ثبت پرداخت کارگاه ناموفق بود. اگر مبلغ کم شده با کلینیک تماس بگیرید.');
     }
     redirect('/dashboard/courses');
 }
@@ -60,18 +69,27 @@ if (!$payment) {
     redirect('/dashboard/appointments');
 }
 
+if (($payment['status'] ?? '') === 'PAID') {
+    flash_set('success', 'پرداخت قبلاً ثبت شده است.');
+    redirect('/dashboard/appointments');
+}
+if (($payment['status'] ?? '') !== 'PENDING') {
+    flash_set('error', 'این تراکنش قابل تأیید نیست.');
+    redirect('/dashboard/appointments');
+}
+
 if ($status !== 'OK') {
-    $pdo->prepare("UPDATE payments SET status='FAILED' WHERE id=?")->execute([$payment['id']]);
-    $pdo->prepare("UPDATE appointments SET status='CANCELLED' WHERE id=?")->execute([$payment['appointment_id']]);
+    $pdo->prepare("UPDATE payments SET status='FAILED' WHERE id=? AND status='PENDING'")->execute([$payment['id']]);
+    $pdo->prepare("UPDATE appointments SET status='CANCELLED' WHERE id=? AND status='PENDING_PAYMENT'")->execute([$payment['appointment_id']]);
     flash_set('error', 'پرداخت لغو شد.');
     redirect('/dashboard/appointments');
 }
 
 $verified = zarinpal_verify($config, $authority, (int)$payment['amount']);
 if (empty($verified['ok'])) {
-    $pdo->prepare("UPDATE payments SET status='FAILED' WHERE id=?")->execute([$payment['id']]);
-    $pdo->prepare("UPDATE appointments SET status='CANCELLED' WHERE id=?")->execute([$payment['appointment_id']]);
-    flash_set('error', $verified['message'] ?? 'پرداخت ناموفق بود.');
+    $pdo->prepare("UPDATE payments SET status='FAILED' WHERE id=? AND status='PENDING'")->execute([$payment['id']]);
+    $pdo->prepare("UPDATE appointments SET status='CANCELLED' WHERE id=? AND status='PENDING_PAYMENT'")->execute([$payment['appointment_id']]);
+    flash_set('error', 'پرداخت ناموفق بود.');
     redirect('/dashboard/appointments');
 }
 

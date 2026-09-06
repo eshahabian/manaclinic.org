@@ -5,13 +5,13 @@ if (current_user()) {
 }
 $pageTitle = 'ثبت‌نام';
 $role = (($_GET['role'] ?? '') === 'DOCTOR') ? 'DOCTOR' : 'PATIENT';
-$registerNext = (string) ($_GET['next'] ?? '');
-$takenUsernames = $pdo->query("SELECT username FROM users WHERE username IS NOT NULL AND username <> ''")->fetchAll(PDO::FETCH_COLUMN);
+$registerNext = (string) (safe_next_path((string) ($_GET['next'] ?? '')) ?? '');
 $nameDict = build_name_transliterations_client_map($pdo);
 ob_start();
 ?>
 <div class="auth-wrap">
   <form class="panel auth-box form-stack" method="post" action="<?= e(url('/register')) ?>" id="register-form" style="width:min(520px,100%)">
+    <?= csrf_field() ?>
     <div>
       <h1>ثبت‌نام</h1>
       <p class="muted">قبلاً ثبت‌نام کرده‌اید؟ <a href="<?= e(url('/login') . ($registerNext !== '' ? ('?next=' . rawurlencode($registerNext)) : '')) ?>" style="color:var(--primary);font-weight:600">ورود</a></p>
@@ -90,12 +90,9 @@ $content = ob_get_clean();
 $pageScripts = '
 <script>
 (function(){
-  var takenUsernames = ' . json_encode(array_values(array_map(static fn($u) => mb_strtolower((string) $u), $takenUsernames)), JSON_UNESCAPED_UNICODE) . ';
   var transliterateUrl = ' . json_encode(url('/api/transliterate-name')) . ';
   var nameDict = ' . json_encode($nameDict, JSON_UNESCAPED_UNICODE) . ';
   var remoteCache = {};
-  var takenSet = {};
-  takenUsernames.forEach(function(u){ if (u) takenSet[u] = true; });
 
   function latinWord(value) {
     return String(value || "").toLowerCase().replace(/[^a-z]/g, "");
@@ -125,14 +122,7 @@ $pageScripts = '
 
   function uniqueUsername(base) {
     if (!base || base.length < 3) return "";
-    var candidate = base;
-    var n = 1;
-    while (takenSet[candidate]) {
-      var suffix = String(n++);
-      candidate = (base.slice(0, Math.max(3, 32 - suffix.length)) + suffix);
-      if (n > 999) return "";
-    }
-    return candidate;
+    return base.slice(0, 32);
   }
 
   function applyUsername() {
@@ -281,12 +271,6 @@ $pageScripts = '
     if (!/^[a-z0-9._-]{3,32}$/.test(user)) {
       e.preventDefault();
       alert("نام کاربری معتبر ساخته نشد. فیلدهای انگلیسی را بررسی کنید.");
-      nameEnEl.focus();
-      return;
-    }
-    if (takenSet[user]) {
-      e.preventDefault();
-      alert("این نام کاربری قبلاً ثبت شده است. نام انگلیسی را کمی تغییر دهید.");
       nameEnEl.focus();
       return;
     }

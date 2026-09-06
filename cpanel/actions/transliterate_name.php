@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 header('Content-Type: application/json; charset=utf-8');
 
+throttle_guard_json('transliterate', 40, 600, 'درخواست تبدیل نام زیاد بود. کمی بعد دوباره تلاش کنید.');
+throttle_hit('transliterate', 600);
+
 $name = trim((string) ($_GET['name'] ?? ''));
 $part = ($_GET['part'] ?? 'first') === 'last' ? 'last' : 'first';
 

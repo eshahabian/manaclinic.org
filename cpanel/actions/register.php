@@ -50,10 +50,12 @@ if ($role === 'DOCTOR' && $specialty === '') {
     redirect('/register?role=DOCTOR');
 }
 
-$exists = $pdo->prepare('SELECT id FROM users WHERE username = ?');
-$exists->execute([$username]);
-if ($exists->fetch()) {
-    flash_set('error', 'این نام کاربری قبلاً ثبت شده است.');
+throttle_guard_page('register', 6, 600, '/register?role=' . $role, 'ثبت‌نام‌های پشت‌سرهم زیاد بود. چند دقیقه بعد دوباره تلاش کنید.');
+throttle_hit('register', 600);
+
+$username = unique_username($pdo, $username);
+if ($username === '') {
+    flash_set('error', 'ساخت نام کاربری ممکن نشد. نام انگلیسی را تغییر دهید.');
     redirect('/register?role=' . $role);
 }
 

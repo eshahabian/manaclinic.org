@@ -22,6 +22,38 @@ $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'es
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260906r">
+  <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
+  <script>
+  (function(){
+    var meta = document.querySelector('meta[name="csrf-token"]');
+    var token = meta ? meta.getAttribute("content") : "";
+    if (!token) return;
+    var origFetch = window.fetch;
+    window.fetch = function(input, init){
+      init = init || {};
+      var method = String(init.method || "GET").toUpperCase();
+      if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
+        var headers = new Headers(init.headers || {});
+        if (!headers.has("X-CSRF-Token")) headers.set("X-CSRF-Token", token);
+        init.headers = headers;
+      }
+      return origFetch.call(this, input, init);
+    };
+    function injectForms(){
+      document.querySelectorAll("form").forEach(function(form){
+        var method = (form.getAttribute("method") || "get").toLowerCase();
+        if (method !== "post" || form.querySelector('input[name="_csrf"]')) return;
+        var input = document.createElement("input");
+        input.type = "hidden";
+        input.name = "_csrf";
+        input.value = token;
+        form.appendChild(input);
+      });
+    }
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", injectForms);
+    else injectForms();
+  })();
+  </script>
   <?php if (!empty($pageHead)): ?>
     <?= $pageHead ?>
   <?php endif; ?>

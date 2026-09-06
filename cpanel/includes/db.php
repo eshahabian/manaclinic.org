@@ -25,7 +25,7 @@ function db_connect(array $config): PDO
             throw $e;
         }
         http_response_code(500);
-        echo 'اتصال به دیتابیس برقرار نشد. config.php و نصب را بررسی کنید. <a href="install">نصب</a>';
+        echo 'اتصال به دیتابیس برقرار نشد.';
         exit;
     }
 

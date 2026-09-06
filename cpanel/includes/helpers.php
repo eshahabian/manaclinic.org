@@ -170,15 +170,71 @@ function csrf_field(): string
     return '<input type="hidden" name="_csrf" value="' . e(csrf_token()) . '">';
 }
 
+function csrf_request_token(): string
+{
+    $fromPost = (string) ($_POST['_csrf'] ?? '');
+    if ($fromPost !== '') {
+        return $fromPost;
+    }
+
+    return trim((string) ($_SERVER['HTTP_X_CSRF_TOKEN'] ?? ''));
+}
+
+function request_expects_json(): bool
+{
+    $accept = strtolower((string) ($_SERVER['HTTP_ACCEPT'] ?? ''));
+    $content = strtolower((string) ($_SERVER['CONTENT_TYPE'] ?? ''));
+    $xhr = strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? ''));
+    if (str_contains($accept, 'application/json') || str_contains($content, 'application/json') || $xhr === 'xmlhttprequest') {
+        return true;
+    }
+    $path = (string) ($GLOBALS['path'] ?? '');
+    return in_array($path, [
+        '/book',
+        '/assistant/chat',
+        '/assistant/send',
+        '/secretary/heartbeat',
+        '/dashboard/pay',
+        '/enroll-workshop',
+        '/pay-workshop',
+        '/cancel-enrollment',
+        '/cancel-appointment',
+    ], true);
+}
+
 function csrf_verify(): void
 {
-    $sent = (string) ($_POST['_csrf'] ?? '');
+    $sent = csrf_request_token();
     if ($sent === '' || !hash_equals(csrf_token(), $sent)) {
+        if (request_expects_json()) {
+            http_response_code(403);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['error' => 'نشست منقضی شد. صفحه را تازه کنید و دوباره تلاش کنید.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
         flash_set('error', 'نشست منقضی شد. صفحه را تازه کنید و دوباره تلاش کنید.');
         $back = $_SERVER['HTTP_REFERER'] ?? '';
         $path = parse_url($back, PHP_URL_PATH);
         redirect(is_string($path) && str_starts_with($path, '/') && !str_starts_with($path, '//') ? $path : '/');
     }
+}
+
+function request_is_https(array $config = []): bool
+{
+    if (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') {
+        return true;
+    }
+    if ((string) ($_SERVER['SERVER_PORT'] ?? '') === '443') {
+        return true;
+    }
+    $app = (string) ($config['app_url'] ?? '');
+    if ($app === '' && isset($GLOBALS['config']) && is_array($GLOBALS['config'])) {
+        $app = (string) ($GLOBALS['config']['app_url'] ?? '');
+    }
+    if (str_starts_with($app, 'https://')) {
+        return true;
+    }
+    return strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https';
 }
 
 /** فقط مسیر داخلی؛ جلوگیری از //evil.com */
