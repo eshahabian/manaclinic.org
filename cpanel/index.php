@@ -47,6 +47,7 @@ require_once __DIR__ . '/includes/assistant.php';
 require_once __DIR__ . '/includes/seed_articles.php';
 require_once __DIR__ . '/includes/articles.php';
 require_once __DIR__ . '/includes/handover.php';
+require_once __DIR__ . '/includes/user_cleanup.php';
 require_once __DIR__ . '/includes/seo.php';
 
 $pdo = db_connect($config);
@@ -58,6 +59,7 @@ ensure_availability_schema($pdo);
 ensure_assistant_schema($pdo);
 ensure_staff_desk_schema($pdo);
 ensure_handover_schema($pdo);
+purge_dummy_clinic_bookings($pdo);
 
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 $base = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/\\');

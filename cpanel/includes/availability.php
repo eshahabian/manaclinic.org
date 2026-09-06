@@ -12,23 +12,38 @@ function ensure_availability_schema(PDO $pdo): void
         $pdo->exec('ALTER TABLE availabilities ADD COLUMN available_hours VARCHAR(64) NULL AFTER slot_minutes');
     }
 
+    $span = appointment_hours_span();
     $defaultHours = appointment_hours_encode(appointment_booking_hours());
     $pdo->prepare("
       UPDATE availabilities
-      SET start_time = '10:00',
-          end_time = '18:00',
+      SET start_time = ?,
+          end_time = ?,
           slot_minutes = 60,
           available_hours = ?
-      WHERE available_hours IS NULL OR TRIM(available_hours) = ''
-    ")->execute([$defaultHours]);
+      WHERE available_hours IS NULL
+         OR TRIM(available_hours) = ''
+         OR available_hours = '10,11,12,13,14,15,16,17'
+         OR (start_time = '10:00' AND end_time = '18:00')
+    ")->execute([$span['start'], $span['end'], $defaultHours]);
 
     $ready = true;
 }
 
-/** ساعت‌های مجاز رزرو نوبت */
+/** ساعت‌های مجاز رزرو نوبت — ۱۲ ظهر تا ۱۲ شب */
 function appointment_booking_hours(): array
 {
-    return [10, 11, 12, 13, 14, 15, 16, 17];
+    return [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23];
+}
+
+function appointment_hours_span(): array
+{
+    $hours = appointment_booking_hours();
+    $first = (int) ($hours[0] ?? 12);
+    $last = (int) ($hours[count($hours) - 1] ?? 23);
+    return [
+        'start' => appointment_hour_to_time($first),
+        'end' => $last >= 23 ? '23:59' : appointment_hour_to_time($last + 1),
+    ];
 }
 
 function appointment_slot_minutes(): int

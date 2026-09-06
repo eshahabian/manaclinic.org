@@ -70,18 +70,13 @@ if (!function_exists('doctor_appointment_cards')) {
         <div class="appt-card-actions">
           <?= staff_receipt_view_html($a['payment_id'] ?? null, $a['receipt_path'] ?? null, false) ?>
           <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/patients/' . $a['patient_id'])) ?>">پرونده مراجعه‌کننده</a>
-          <?= function_exists('admin_appointment_delete_form') ? admin_appointment_delete_form((string) $a['id'], '/doctor/appointments') : '' ?>
-          <?php if ($a['status'] !== 'CANCELLED'): ?>
-            <form method="post" action="<?= e(url('/doctor/appointments')) ?>">
-              <input type="hidden" name="id" value="<?= e($a['id']) ?>">
-              <input type="hidden" name="status" value="CANCELLED">
-              <button class="btn btn-danger btn-sm" type="submit">لغو</button>
-            </form>
-          <?php endif; ?>
+          <?= appointment_cancel_form((string) $a['id'], (string) $a['status'], '/doctor/appointments', '/doctor/appointments') ?>
+          <?= admin_appointment_delete_form((string) $a['id'], '/doctor/appointments') ?>
           <?php if ($a['status'] === 'CONFIRMED'): ?>
             <form method="post" action="<?= e(url('/doctor/appointments')) ?>">
               <input type="hidden" name="id" value="<?= e($a['id']) ?>">
               <input type="hidden" name="status" value="COMPLETED">
+              <input type="hidden" name="next" value="/doctor/appointments">
               <button class="btn btn-outline btn-sm" type="submit">انجام شد</button>
             </form>
           <?php endif; ?>

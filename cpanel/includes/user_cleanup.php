@@ -139,20 +139,140 @@ function find_cleanup_test_users(PDO $pdo): array
 
 function admin_appointment_delete_form(string $appointmentId, string $next = '/admin/appointments'): string
 {
-    if ($appointmentId === '' || !function_exists('is_admin_user') || !is_admin_user()) {
+    if ($appointmentId === '') {
         return '';
     }
+    $user = function_exists('current_user') ? current_user() : null;
+    $role = strtoupper((string) ($user['role'] ?? ''));
+    if (!in_array($role, ['ADMIN', 'DOCTOR'], true)) {
+        return '';
+    }
+    $action = $role === 'DOCTOR' ? '/doctor/appointments' : '/admin/appointments';
     ob_start();
     ?>
-    <form method="post" action="<?= e(url('/admin/appointments')) ?>" style="margin:0" onsubmit="return confirm('این نوبت برای همیشه حذف شود؟');">
+    <form method="post" action="<?= e(url($action)) ?>" style="margin:0" onsubmit="return confirm('این نوبت برای همیشه حذف شود؟');">
       <?= csrf_field() ?>
       <input type="hidden" name="action" value="delete">
       <input type="hidden" name="appointment_id" value="<?= e($appointmentId) ?>">
       <input type="hidden" name="next" value="<?= e($next) ?>">
-      <button type="submit" class="btn btn-danger btn-sm">حذف نوبت</button>
+      <button type="submit" class="btn btn-danger btn-sm">حذف</button>
     </form>
     <?php
     return (string) ob_get_clean();
+}
+
+function appointment_cancel_form(string $appointmentId, string $status, string $action, string $next): string
+{
+    if ($appointmentId === '' || $status === 'CANCELLED') {
+        return '';
+    }
+    ob_start();
+    ?>
+    <form method="post" action="<?= e(url($action)) ?>" style="margin:0" onsubmit="return confirm('این نوبت لغو شود؟');">
+      <?= csrf_field() ?>
+      <input type="hidden" name="id" value="<?= e($appointmentId) ?>">
+      <input type="hidden" name="status" value="CANCELLED">
+      <input type="hidden" name="next" value="<?= e($next) ?>">
+      <button type="submit" class="btn btn-outline btn-sm">لغو</button>
+    </form>
+    <?php
+    return (string) ob_get_clean();
+}
+
+function ensure_clinic_maintenance(PDO $pdo): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    try {
+        $pdo->exec("
+          CREATE TABLE IF NOT EXISTS clinic_maintenance (
+            k VARCHAR(64) PRIMARY KEY,
+            v VARCHAR(255) NOT NULL,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+    } catch (Throwable $ignored) {
+    }
+    $ready = true;
+}
+
+/** پاک‌کردن نوبت‌های تستی انجام‌شده و جلسات شهریور/مهر عماد شهابیان — کارگاه/کاربر/مقاله دست نخورده می‌ماند */
+function purge_dummy_clinic_bookings(PDO $pdo): void
+{
+    ensure_clinic_maintenance($pdo);
+    try {
+        $done = $pdo->query("SELECT v FROM clinic_maintenance WHERE k='purge_dummy_bookings_20260906'")->fetchColumn();
+        if ($done) {
+            return;
+        }
+    } catch (Throwable $ignored) {
+        return;
+    }
+
+    $ids = [];
+    try {
+        $rows = $pdo->query("
+          SELECT id FROM appointments
+          WHERE status IN ('COMPLETED', 'CANCELLED')
+             OR starts_at < NOW()
+        ")->fetchAll(PDO::FETCH_COLUMN);
+        foreach ($rows as $id) {
+            $ids[(string) $id] = true;
+        }
+    } catch (Throwable $ignored) {
+    }
+
+    try {
+        $users = $pdo->query("
+          SELECT id FROM users
+          WHERE name LIKE '%شهابیان%'
+             OR username LIKE '%shahabian%'
+             OR username LIKE '%eshahabian%'
+        ")->fetchAll(PDO::FETCH_COLUMN);
+        foreach ($users as $uid) {
+            foreach ([6, 7] as $jm) {
+                $start = jalali_ymd(1405, $jm, 1);
+                $end = jalali_ymd(1405, $jm, jalali_month_length(1405, $jm));
+                $stmt = $pdo->prepare("
+                  SELECT id FROM appointments
+                  WHERE patient_id = ?
+                    AND DATE(starts_at) BETWEEN ? AND ?
+                ");
+                $stmt->execute([(string) $uid, $start, $end]);
+                foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $id) {
+                    $ids[(string) $id] = true;
+                }
+                try {
+                    $notes = $pdo->prepare("
+                      SELECT id FROM doctor_session_notes
+                      WHERE patient_id = ?
+                        AND DATE(COALESCE(updated_at, created_at)) BETWEEN ? AND ?
+                    ");
+                    $notes->execute([(string) $uid, $start, $end]);
+                    foreach ($notes->fetchAll(PDO::FETCH_COLUMN) as $nid) {
+                        $pdo->prepare('DELETE FROM doctor_session_notes WHERE id=?')->execute([(string) $nid]);
+                    }
+                } catch (Throwable $ignored) {
+                }
+            }
+        }
+    } catch (Throwable $ignored) {
+    }
+
+    foreach (array_keys($ids) as $appointmentId) {
+        try {
+            delete_appointment_by_id($pdo, $appointmentId);
+        } catch (Throwable $ignored) {
+        }
+    }
+
+    try {
+        $pdo->prepare("INSERT INTO clinic_maintenance (k, v) VALUES ('purge_dummy_bookings_20260906', ?)")
+            ->execute([(string) count($ids)]);
+    } catch (Throwable $ignored) {
+    }
 }
 
 /** حذف یک نوبت و پرداخت مرتبط */

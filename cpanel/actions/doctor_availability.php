@@ -18,8 +18,9 @@ if ($action === 'delete') {
 $date = post('date');
 $hours = appointment_normalize_posted_hours($_POST['hours'] ?? []);
 if ($date && $hours) {
-    $start = appointment_hour_to_time(appointment_booking_hours()[0]);
-    $end = appointment_hour_to_time(appointment_booking_hours()[count(appointment_booking_hours()) - 1] + 1);
+    $span = appointment_hours_span();
+    $start = $span['start'];
+    $end = $span['end'];
     $minutes = appointment_slot_minutes();
     $encoded = appointment_hours_encode($hours);
 

@@ -1005,7 +1005,7 @@ a.doctor-dash-stat:hover {
   max-width: 22rem;
 }
 @media (min-width: 480px) {
-  .hour-picker { grid-template-columns: repeat(8, minmax(2.35rem, 1fr)); max-width: none; }
+  .hour-picker { grid-template-columns: repeat(6, minmax(2.35rem, 1fr)); max-width: 28rem; }
 }
 .hour-chip {
   display: inline-flex; align-items: center; justify-content: center;

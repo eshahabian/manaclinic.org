@@ -157,6 +157,8 @@ ob_start();
                               <div style="margin-top:.75rem;display:flex;gap:.5rem;flex-wrap:wrap">
                                 <button class="btn btn-primary btn-sm" type="submit">ذخیره</button>
                                 <button class="btn btn-outline btn-sm" type="button" data-close>بستن</button>
+                                <?= appointment_cancel_form((string) $a['id'], (string) $a['status'], '/doctor/appointments', '/doctor/patients/' . $patientId) ?>
+                                <?= function_exists('admin_appointment_delete_form') ? admin_appointment_delete_form((string) $a['id'], '/doctor/patients/' . $patientId) : '' ?>
                               </div>
                             </form>
                           </div>

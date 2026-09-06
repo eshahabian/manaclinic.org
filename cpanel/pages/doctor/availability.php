@@ -15,7 +15,7 @@ ob_start();
 ?>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
 <h1>روزهای خالی</h1>
-<p class="muted">تاریخ را انتخاب کنید و ساعت‌های خالی (۱۰ تا ۱۷) را مشخص کنید.</p>
+<p class="muted">تاریخ را انتخاب کنید و ساعت‌های خالی (۱۲ ظهر تا ۱۲ شب) را مشخص کنید.</p>
 <form class="panel form-stack" method="post" action="<?= e(url('/doctor/availability')) ?>" style="margin-top:1rem;max-width:40rem">
   <input type="hidden" name="action" value="save">
   <div>
@@ -29,15 +29,15 @@ ob_start();
       <?php foreach ($bookingHours as $hour): ?>
         <label class="hour-chip">
           <input type="checkbox" name="hours[]" value="<?= (int) $hour ?>" checked>
-          <span><?= (int) $hour ?></span>
+          <span><?= e(to_fa_digits((string) $hour)) ?></span>
         </label>
       <?php endforeach; ?>
     </div>
     <p class="muted" style="font-size:.8rem;margin:.5rem 0 0;line-height:1.6">
-      ساعت‌های ۱۰ تا ۱۷ — هر جلسه یک ساعت کامل است (مثلاً ۱۷ یعنی ۱۷:۰۰ تا ۱۸:۰۰).
+      از ۱۲ ظهر تا ۱۲ شب — هر جلسه یک ساعت کامل است (مثلاً ۲۳ یعنی ۲۳:۰۰ تا ۲۴:۰۰).
     </p>
     <div style="margin-top:.5rem;display:flex;gap:.5rem;flex-wrap:wrap">
-      <button type="button" class="btn btn-outline btn-sm" id="select-all-hours">انتخاب همه (۱۰–۱۷)</button>
+      <button type="button" class="btn btn-outline btn-sm" id="select-all-hours">انتخاب همه (۱۲–۲۳)</button>
       <button type="button" class="btn btn-outline btn-sm" id="clear-all-hours">پاک کردن</button>
     </div>
   </div>
@@ -52,7 +52,7 @@ ob_start();
         <div class="muted" style="font-size:.85rem;margin-top:.35rem">ساعت‌های خالی:</div>
         <div class="hour-picker hour-picker-readonly" style="margin-top:.35rem">
           <?php foreach ($bookingHours as $hour): ?>
-            <span class="hour-chip<?= in_array($hour, $savedHours, true) ? ' is-active' : ' is-off' ?>"><?= (int) $hour ?></span>
+            <span class="hour-chip<?= in_array($hour, $savedHours, true) ? ' is-active' : ' is-off' ?>"><?= e(to_fa_digits((string) $hour)) ?></span>
           <?php endforeach; ?>
         </div>
       </div>

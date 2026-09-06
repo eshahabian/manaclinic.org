@@ -356,7 +356,7 @@ try {
                 $check->execute([$dp['id'], $date]);
                 if (!$check->fetch()) {
                     $pdo->prepare('INSERT INTO availabilities (id,doctor_id,date,start_time,end_time,slot_minutes,available_hours) VALUES (?,?,?,?,?,?,?)')
-                        ->execute([cuid(), $dp['id'], $date, '10:00', '18:00', 60, '10,11,12,13,14,15,16,17']);
+                        ->execute([cuid(), $dp['id'], $date, '12:00', '23:59', 60, '12,13,14,15,16,17,18,19,20,21,22,23']);
                 }
             }
         }
