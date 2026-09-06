@@ -41,6 +41,10 @@ foreach ($takenStmt->fetchAll(PDO::FETCH_COLUMN) as $startsAt) {
     $taken[(string) $startsAt] = true;
 }
 
+$staff = current_user();
+$staffCanSeePast = $staff && in_array((string) ($staff['role'] ?? ''), ['SECRETARY', 'ADMIN', 'DOCTOR'], true)
+    && (string) ($_GET['include_past'] ?? '') === '1';
+
 $now = time();
 $free = [];
 foreach ($hours as $hour) {
@@ -49,7 +53,7 @@ foreach ($hours as $hour) {
         continue;
     }
     $ts = strtotime($startsAt);
-    if ($ts && $ts > $now) {
+    if ($ts && ($staffCanSeePast || $ts > $now)) {
         $free[] = [
             'value' => appointment_hour_to_time($hour),
             'label' => appointment_hour_chip_label($hour),

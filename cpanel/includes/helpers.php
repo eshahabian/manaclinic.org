@@ -261,6 +261,31 @@ function normalize_input(string $value): string
     ]);
 }
 
+function normalize_phone(string $phone): string
+{
+    $phone = normalize_input($phone);
+    $phone = preg_replace('/[\s\-\.\(\)]+/', '', $phone) ?? $phone;
+
+    return $phone;
+}
+
+/** موبایل ایران یا شماره بین‌المللی (بدون اجبار به ۰۹) */
+function is_valid_phone(string $phone): bool
+{
+    $phone = normalize_phone($phone);
+    if ($phone === '') {
+        return false;
+    }
+    if (preg_match('/^\+[1-9][0-9]{7,14}$/', $phone)) {
+        return true;
+    }
+    if (preg_match('/^00[1-9][0-9]{7,14}$/', $phone)) {
+        return true;
+    }
+
+    return (bool) preg_match('/^[0-9]{8,15}$/', $phone);
+}
+
 /** HTML امن برای ادیتور غنی (bold / سایز / هایلایت) */
 function sanitize_rich_html(string $html): string
 {

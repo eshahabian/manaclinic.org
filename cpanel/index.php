@@ -46,6 +46,7 @@ require_once __DIR__ . '/includes/helpers.php';
 require_once __DIR__ . '/includes/name_transliterations.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/staff_desk.php';
+require_once __DIR__ . '/includes/secretary_patient.php';
 require_once __DIR__ . '/includes/zarinpal.php';
 require_once __DIR__ . '/includes/view.php';
 require_once __DIR__ . '/includes/notifications.php';
@@ -137,6 +138,7 @@ $routes = [
     'POST /secretary/delete-patient' => 'actions/secretary_delete_patient.php',
     'GET /secretary/appointments' => 'pages/secretary/appointments.php',
     'GET /secretary/patients' => 'pages/secretary/patients.php',
+    'POST /secretary/patients' => 'actions/secretary_create_patient.php',
     'GET /secretary/messages' => 'pages/secretary/messages.php',
     'GET /secretary/colleague' => 'pages/secretary/colleague.php',
     'POST /secretary/notifications/read' => 'actions/secretary_notifications.php',
@@ -194,6 +196,7 @@ $routes = [
     'POST /secretary/handover/ack' => 'actions/secretary_handover_ack.php',
 
     'GET /api/slots' => 'actions/slots.php',
+    'GET /api/availability-days' => 'actions/availability_days.php',
     'GET /api/transliterate-name' => 'actions/transliterate_name.php',
     'GET /payments/verify' => 'actions/payment_verify.php',
     'GET /install' => 'install.php',

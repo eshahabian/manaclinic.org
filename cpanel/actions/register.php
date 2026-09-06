@@ -23,7 +23,7 @@ if ($username === '') {
     $base = username_base_from_names($nameEn, $surname, $firstName, $lastName);
     $username = unique_username($pdo, $base);
 }
-$phone = trim(post('phone'));
+$phone = normalize_phone(post('phone'));
 $password = (string) ($_POST['password'] ?? '');
 $passwordConfirm = (string) ($_POST['password_confirm'] ?? '');
 $role = post('role') === 'DOCTOR' ? 'DOCTOR' : 'PATIENT';
@@ -33,8 +33,8 @@ if ($firstName === '' || $lastName === '' || $nameEn === '' || $surname === '' |
     flash_set('error', 'همه فیلدها الزامی هستند. رمز حداقل ۶ کاراکتر باشد.');
     redirect('/register?role=' . $role);
 }
-if (!preg_match('/^09[0-9]{9}$/', $phone)) {
-    flash_set('error', 'شماره موبایل معتبر نیست (مثال: 09123456789).');
+if (!is_valid_phone($phone)) {
+    flash_set('error', 'شماره موبایل معتبر نیست. شماره ایران یا بین‌المللی وارد کنید.');
     redirect('/register?role=' . $role);
 }
 if ($password !== $passwordConfirm) {

@@ -6,16 +6,6 @@ $actorId = (string) $user['id'];
 $actorName = staff_actor_label($user);
 
 $patientId = post('patient_id');
-$firstName = trim(post('new_first_name'));
-$lastName = trim(post('new_last_name'));
-$nameEn = trim(post('new_name_en'));
-$surname = trim(post('new_surname'));
-$newName = trim($firstName . ' ' . $lastName);
-$newPhone = normalize_input(trim(post('new_phone')));
-$newUsername = mb_strtolower(post('new_username'));
-$newPassword = (string) ($_POST['new_password'] ?? '');
-$newPasswordConfirm = (string) ($_POST['new_password_confirm'] ?? '');
-$preferredDoctorId = post('new_preferred_doctor_id') ?: null;
 $doctorId = post('doctor_id');
 $date = post('date');
 $time = post('time');
@@ -27,67 +17,12 @@ if ($doctorId === '' || $date === '' || $time === '') {
 }
 
 if ($patientId === '') {
-    if ($firstName === '' || $lastName === '' || $nameEn === '' || $surname === '') {
-        flash_set('error', 'نام، نام خانوادگی، name و surname الزامی هستند.');
+    $created = secretary_create_patient_from_post($pdo, $user, ['fallback_doctor_id' => $doctorId]);
+    if (empty($created['ok'])) {
+        flash_set('error', (string) ($created['error'] ?? 'ثبت مراجعه‌کننده ممکن نشد.'));
         redirect('/secretary/appointments?tab=new');
     }
-    if ($preferredDoctorId === null || $preferredDoctorId === '') {
-        $preferredDoctorId = $doctorId;
-    }
-    $prefDoc = $pdo->prepare('SELECT id FROM doctor_profiles WHERE id=? AND is_active=1 AND is_approved=1');
-    $prefDoc->execute([$preferredDoctorId]);
-    if (!$prefDoc->fetch()) {
-        flash_set('error', 'درمانگر مربوط به مراجعه‌کننده معتبر نیست.');
-        redirect('/secretary/appointments?tab=new');
-    }
-    if (!preg_match('/^09[0-9]{9}$/', $newPhone)) {
-        flash_set('error', 'موبایل الزامی است و باید ۱۱ رقم با ۰۹ باشد.');
-        redirect('/secretary/appointments?tab=new');
-    }
-    if ($newUsername === '') {
-        flash_set('error', 'نام کاربری مراجعه‌کننده جدید الزامی است.');
-        redirect('/secretary/appointments?tab=new');
-    }
-    if (!preg_match('/^[a-z0-9._-]{3,32}$/', $newUsername)) {
-        flash_set('error', 'نام کاربری نامعتبر است. فقط حروف انگلیسی، عدد و ._- (۳ تا ۳۲ کاراکتر).');
-        redirect('/secretary/appointments?tab=new');
-    }
-    if (strlen($newPassword) < 6) {
-        flash_set('error', 'رمز عبور حداقل ۶ کاراکتر باشد.');
-        redirect('/secretary/appointments?tab=new');
-    }
-    if ($newPassword !== $newPasswordConfirm) {
-        flash_set('error', 'رمز عبور و تکرار آن یکسان نیست.');
-        redirect('/secretary/appointments?tab=new');
-    }
-    $newUsername = unique_username($pdo, $newUsername);
-    if ($newUsername === '') {
-        flash_set('error', 'ساخت نام کاربری ممکن نشد. نام انگلیسی را تغییر دهید.');
-        redirect('/secretary/appointments?tab=new');
-    }
-    $patientId = cuid();
-    $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,preferred_doctor_id,created_by_user_id,must_change_password) VALUES (?,?,?,?,?,?,?,?,?,0)')
-        ->execute([$patientId, $newUsername, $newName, $newUsername . '@manaclinic.local', $newPhone, password_hash($newPassword, PASSWORD_DEFAULT), 'PATIENT', $preferredDoctorId, $actorId]);
-
-    $docNameStmt = $pdo->prepare('SELECT u.name FROM doctor_profiles dp JOIN users u ON u.id = dp.user_id WHERE dp.id = ?');
-    $docNameStmt->execute([$preferredDoctorId]);
-    $doctorName = (string) ($docNameStmt->fetchColumn() ?: 'درمانگر');
-    notify_role(
-        $pdo,
-        'SECRETARY',
-        'مراجعه‌کننده جدید توسط منشی',
-        "مراجعه‌کننده «{$newName}» توسط {$actorName} ثبت شد (درمانگر: {$doctorName}).",
-        '/secretary/appointments',
-        'appointment'
-    );
-    notify_doctor_profile(
-        $pdo,
-        $preferredDoctorId,
-        'مراجعه‌کننده جدید',
-        "مراجعه‌کننده «{$newName}» به شما اختصاص داده شد.",
-        '/doctor/patients/' . $patientId,
-        'appointment'
-    );
+    $patientId = (string) $created['id'];
 }
 
 $doc = $pdo->prepare('SELECT * FROM doctor_profiles WHERE id=? AND is_active=1 AND is_approved=1');
@@ -163,7 +98,7 @@ try {
 
     flash_set('success', 'نوبت با موفقیت ثبت و تأیید شد.');
     $desk = is_admin_user($user) ? '/admin/appointments' : '/secretary/appointments';
-    redirect($desk . '?tab=upcoming');
+    redirect($desk . '?tab=upcoming&booked=1');
 } catch (Throwable $e) {
     $pdo->rollBack();
     flash_set('error', 'خطا در ثبت نوبت: ' . $e->getMessage());

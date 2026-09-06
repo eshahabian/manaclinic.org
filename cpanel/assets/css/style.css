@@ -2096,3 +2096,13 @@ body.workshop-overview-locked { overflow: hidden; }
 .workshop-binder-card--peer[data-workshop-open]:hover {
   background: #f6faf8;
 }
+
+.secretary-patients-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1rem;
+  flex-wrap: wrap;
+}
+.secretary-add-patient { margin-top: 1rem; max-width: 44rem; }
+.form-draft-hint { color: var(--primary-dark); }

@@ -58,7 +58,7 @@ ob_start();
 
     <div>
       <label class="label" for="phone">موبایل</label>
-      <input class="input" name="phone" id="phone" required dir="ltr" placeholder="09..." pattern="09[0-9]{9}" title="شماره موبایل ۱۱ رقمی با ۰۹">
+      <input class="input" name="phone" id="phone" required dir="ltr" inputmode="tel" autocomplete="tel" placeholder="مثلاً 0912... یا +1..." title="شماره ایران یا بین‌المللی">
     </div>
 
     <?php if ($role === 'DOCTOR'): ?>
@@ -88,16 +88,9 @@ ob_start();
 $content = ob_get_clean();
 
 $pageScripts = '
+<script src="' . e(url('/assets/js/name-transliterate.js')) . '?v=20260906p"></script>
 <script>
 (function(){
-  var transliterateUrl = ' . json_encode(url('/api/transliterate-name')) . ';
-  var nameDict = ' . json_encode($nameDict, JSON_UNESCAPED_UNICODE) . ';
-  var remoteCache = {};
-
-  function latinWord(value) {
-    return String(value || "").toLowerCase().replace(/[^a-z]/g, "");
-  }
-
   var firstNameEl = document.getElementById("first_name");
   var lastNameEl = document.getElementById("last_name");
   var nameEnEl = document.getElementById("name_en");
@@ -105,153 +98,19 @@ $pageScripts = '
   var userEl = document.getElementById("username");
   var passEl = document.getElementById("password");
   var passConfirmEl = document.getElementById("password_confirm");
-  var usernameHint = document.getElementById("username-hint");
-  var nameEnTouched = false;
-  var surnameTouched = false;
-  var timers = { first: null, last: null };
-  var requests = { first: 0, last: 0 };
 
-  function baseUsernameFromParts() {
-    var first = latinWord(nameEnEl.value) || latinWord(firstNameEl.value);
-    var last = latinWord(surnameEl.value) || latinWord(lastNameEl.value);
-    if (!first && !last) return "";
-    if (!last) return first.slice(0, 32);
-    if (!first) return last.slice(0, 32);
-    return (first.charAt(0) + last).slice(0, 32);
-  }
-
-  function uniqueUsername(base) {
-    if (!base || base.length < 3) return "";
-    return base.slice(0, 32);
-  }
-
-  function applyUsername() {
-    var base = baseUsernameFromParts();
-    if (!base) {
-      userEl.value = "";
-      usernameHint.textContent = "با وارد کردن نام، به‌صورت خودکار ساخته می‌شود.";
-      return;
-    }
-    var suggested = uniqueUsername(base);
-    if (!suggested) {
-      usernameHint.textContent = "پیشنهاد معتبری پیدا نشد؛ نام انگلیسی را اصلاح کنید.";
-      return;
-    }
-    userEl.value = suggested;
-    usernameHint.textContent = suggested === base
-      ? "نام کاربری: " + suggested
-      : "نام کاربری (بدون تکرار): " + suggested;
-  }
-
-  function normalizeFa(text) {
-    return String(text || "").trim().replace(/[\u200c]/g, "").replace(/ي/g, "ی").replace(/ك/g, "ک");
-  }
-
-  function lookupLocal(kind, persianText) {
-    var key = normalizeFa(persianText);
-    if (!key) return "";
-    var map = kind === "first" ? (nameDict.first || {}) : (nameDict.last || {});
-    return map[key] || "";
-  }
-
-  function applyLatin(kind, latin) {
-    if (!latin) return;
-    if (kind === "first" && !nameEnTouched) nameEnEl.value = latin;
-    if (kind === "last" && !surnameTouched) surnameEl.value = latin;
-    applyUsername();
-  }
-
-  function requestTransliteration(kind, persianText) {
-    var cacheKey = kind + "|" + normalizeFa(persianText);
-    if (remoteCache[cacheKey]) {
-      applyLatin(kind, remoteCache[cacheKey]);
-      return;
-    }
-
-    var reqId = ++requests[kind];
-    var sourceEl = kind === "first" ? firstNameEl : lastNameEl;
-    var targetEl = kind === "first" ? nameEnEl : surnameEl;
-    targetEl.placeholder = "در حال جستجو...";
-
-    fetch(transliterateUrl + "?name=" + encodeURIComponent(persianText) + "&part=" + kind)
-      .then(function(r){ return r.json().then(function(j){ return { ok: r.ok, j: j }; }); })
-      .then(function(res){
-        if (reqId !== requests[kind]) return;
-        if (normalizeFa(sourceEl.value) !== normalizeFa(persianText)) return;
-        targetEl.placeholder = kind === "first" ? "name" : "surname";
-        if (!res.ok || !res.j.latin) return;
-        remoteCache[cacheKey] = res.j.latin;
-        applyLatin(kind, res.j.latin);
-      })
-      .catch(function(){
-        if (reqId !== requests[kind]) return;
-        targetEl.placeholder = kind === "first" ? "name" : "surname";
-      });
-  }
-
-  function scheduleTransliteration(kind, persianText) {
-    clearTimeout(timers[kind]);
-    timers[kind] = setTimeout(function(){
-      requestTransliteration(kind, persianText);
-    }, 250);
-  }
-
-  function clearTransliteration(kind) {
-    requests[kind]++;
-    clearTimeout(timers[kind]);
-    timers[kind] = null;
-    if (kind === "first") {
-      nameEnEl.value = "";
-      nameEnEl.placeholder = "name";
-      nameEnTouched = false;
-    } else {
-      surnameEl.value = "";
-      surnameEl.placeholder = "surname";
-      surnameTouched = false;
-    }
-    applyUsername();
-  }
-
-  function onFirstNameInput() {
-    var val = normalizeFa(firstNameEl.value);
-    if (!val) {
-      clearTransliteration("first");
-      return;
-    }
-    if (!nameEnTouched) {
-      var local = lookupLocal("first", val);
-      if (local) {
-        applyLatin("first", local);
-        return;
-      }
-      scheduleTransliteration("first", val);
-    }
-    applyUsername();
-  }
-
-  function onLastNameInput() {
-    var val = normalizeFa(lastNameEl.value);
-    if (!val) {
-      clearTransliteration("last");
-      return;
-    }
-    if (!surnameTouched) {
-      var local = lookupLocal("last", val);
-      if (local) {
-        applyLatin("last", local);
-        return;
-      }
-      scheduleTransliteration("last", val);
-    }
-    applyUsername();
-  }
-
-  nameEnEl.addEventListener("input", function(){ nameEnTouched = true; applyUsername(); });
-  surnameEl.addEventListener("input", function(){ surnameTouched = true; applyUsername(); });
-  firstNameEl.addEventListener("input", onFirstNameInput);
-  lastNameEl.addEventListener("input", onLastNameInput);
-  firstNameEl.addEventListener("blur", onFirstNameInput);
-  lastNameEl.addEventListener("blur", onLastNameInput);
+  bindNameTransliteration({
+    firstName: firstNameEl,
+    lastName: lastNameEl,
+    nameEn: nameEnEl,
+    surname: surnameEl,
+    username: userEl,
+    usernameHint: document.getElementById("username-hint"),
+    transliterateUrl: ' . json_encode(url('/api/transliterate-name')) . ',
+    nameDict: ' . json_encode($nameDict, JSON_UNESCAPED_UNICODE) . ',
+    usernameReadonly: true,
+    emptyHint: "با وارد کردن نام، به‌صورت خودکار ساخته می‌شود."
+  });
 
   document.getElementById("register-form").addEventListener("submit", function(e){
     var phoneEl = document.getElementById("phone");
@@ -261,9 +120,9 @@ $pageScripts = '
       (!nameEnEl.value.trim() ? nameEnEl : surnameEl).focus();
       return;
     }
-    if (phoneEl && !/^09[0-9]{9}$/.test(phoneEl.value.trim())) {
+    if (phoneEl && !window.manaIsValidPhone(phoneEl.value.trim())) {
       e.preventDefault();
-      alert("موبایل الزامی است و باید ۱۱ رقم با ۰۹ باشد.");
+      alert("موبایل الزامی است. شماره ایران یا بین‌المللی معتبر وارد کنید.");
       phoneEl.focus();
       return;
     }

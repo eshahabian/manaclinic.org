@@ -14,13 +14,8 @@ $patients = $pdo->query("
   WHERE u.role='PATIENT'
   ORDER BY u.name ASC
 ")->fetchAll();
-$doctors = $pdo->query("
-  SELECT dp.id, u.name, dp.specialty
-  FROM doctor_profiles dp
-  JOIN users u ON u.id = dp.user_id
-  WHERE dp.is_active = 1 AND dp.is_approved = 1
-  ORDER BY u.name ASC
-")->fetchAll();
+$doctors = secretary_active_doctors($pdo);
+$nameDict = build_name_transliterations_client_map($pdo);
 
 $availByDoctor = [];
 $stmt = $pdo->query("
@@ -55,54 +50,10 @@ ob_start();
 
   <div class="panel" style="background:var(--bg-soft);border-style:dashed">
     <p style="margin:0 0 .75rem;font-weight:600">یا مراجعه‌کننده جدید</p>
-    <p class="muted" style="margin:0 0 .75rem;font-size:.85rem;line-height:1.7">مراجعه‌کننده با نام کاربری و رمز زیر می‌تواند بعداً وارد شود و نوبت بگیرد. برای پیشنهاد نام کاربری، فیلدهای انگلیسی را هم پر کنید.</p>
-    <div class="grid-2">
-      <div>
-        <label class="label" for="new_first_name">نام</label>
-        <input class="input input-rtl" name="new_first_name" id="new_first_name" dir="rtl" autocomplete="given-name" placeholder="نام">
-      </div>
-      <div>
-        <label class="label label-ltr" for="new_name_en">name</label>
-        <input class="input" name="new_name_en" id="new_name_en" dir="ltr" lang="en" autocomplete="off" placeholder="name">
-      </div>
-      <div>
-        <label class="label" for="new_last_name">نام خانوادگی</label>
-        <input class="input input-rtl" name="new_last_name" id="new_last_name" dir="rtl" autocomplete="family-name" placeholder="نام خانوادگی">
-      </div>
-      <div>
-        <label class="label label-ltr" for="new_surname">surname</label>
-        <input class="input" name="new_surname" id="new_surname" dir="ltr" lang="en" autocomplete="off" placeholder="surname">
-      </div>
-      <div style="grid-column:1/-1">
-        <label class="label" for="new_preferred_doctor_id">درمانگر مربوط به مراجعه‌کننده</label>
-        <select class="input" name="new_preferred_doctor_id" id="new_preferred_doctor_id">
-          <option value="">انتخاب درمانگر</option>
-          <?php foreach ($doctors as $d): ?>
-            <option value="<?= e($d['id']) ?>"><?= e($d['name']) ?> — <?= e($d['specialty']) ?></option>
-          <?php endforeach; ?>
-        </select>
-      </div>
-      <div style="grid-column:1/-1">
-        <label class="label" for="new_phone">موبایل</label>
-        <input class="input" name="new_phone" id="new_phone" dir="ltr" placeholder="۰۹..." pattern="[0-9۰-۹٠-٩]{11}" title="شماره موبایل ۱۱ رقمی با ۰۹">
-      </div>
-      <div style="grid-column:1/-1">
-        <label class="label" for="new_username">نام کاربری</label>
-        <div style="display:flex;gap:.5rem;align-items:stretch">
-          <input class="input" name="new_username" id="new_username" dir="ltr" pattern="[A-Za-z0-9._-]{3,32}" placeholder="حروف انگلیسی، عدد و ._- " style="flex:1">
-          <button type="button" class="btn btn-outline" id="suggest-username" title="پیشنهاد از روی name و surname">پیشنهاد</button>
-        </div>
-        <p class="muted" id="username-hint" style="margin:.4rem 0 0;font-size:.8rem;line-height:1.6"></p>
-      </div>
-      <div>
-        <label class="label" for="new_password">رمز عبور</label>
-        <input class="input" name="new_password" id="new_password" type="password" dir="ltr" minlength="6" autocomplete="new-password" placeholder="حداقل ۶ کاراکتر">
-      </div>
-      <div>
-        <label class="label" for="new_password_confirm">تکرار رمز عبور</label>
-        <input class="input" name="new_password_confirm" id="new_password_confirm" type="password" dir="ltr" minlength="6" autocomplete="new-password" placeholder="تکرار رمز">
-      </div>
-    </div>
+    <?php
+      $secretaryPatientHint = 'مراجعه‌کننده با نام کاربری و رمز زیر می‌تواند بعداً وارد شود. با تایپ نام فارسی، معادل انگلیسی پیشنهاد می‌شود. اگر نت قطع شود، اطلاعات واردشده روی همین دستگاه می‌ماند.';
+      require __DIR__ . '/../../includes/secretary_new_patient_fields.php';
+    ?>
   </div>
 
   <div>
@@ -134,7 +85,7 @@ ob_start();
 
   <div>
     <label class="label">یادداشت (اختیاری)</label>
-    <textarea class="input" name="notes" rows="3"></textarea>
+    <textarea class="input" name="notes" id="notes" rows="3"></textarea>
   </div>
 
   <div>
@@ -150,13 +101,17 @@ ob_start();
 $secretaryBookFormHtml = ob_get_clean();
 
 $secretaryBookScripts = '
-<script src="' . e(url('/assets/js/search-select.js')) . '?v=20260905a"></script>
+<script src="' . e(url('/assets/js/search-select.js')) . '?v=20260906p"></script>
+<script src="' . e(url('/assets/js/name-transliterate.js')) . '?v=20260906p"></script>
+<script src="' . e(url('/assets/js/form-draft.js')) . '?v=20260906p"></script>
+<script src="' . e(url('/assets/js/secretary-patient-form.js')) . '?v=20260906p"></script>
 <script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
 <script>
 (function(){
   var availByDoctor = ' . json_encode($availByDoctor, JSON_UNESCAPED_UNICODE) . ';
 
+  var form = document.getElementById("secretary-book-form");
   var doctorEl = document.getElementById("doctor_id");
   var patientEl = document.getElementById("patient_id");
   var firstNameEl = document.getElementById("new_first_name");
@@ -168,71 +123,32 @@ $secretaryBookScripts = '
   var newPassEl = document.getElementById("new_password");
   var newPassConfirmEl = document.getElementById("new_password_confirm");
   var newPhoneEl = document.getElementById("new_phone");
-  var suggestBtn = document.getElementById("suggest-username");
   var usernameHint = document.getElementById("username-hint");
-  var usernameTouched = false;
 
   if (window.enhanceSearchSelect) {
     enhanceSearchSelect(patientEl, { placeholder: "جستجو یا انتخاب مراجعه‌کننده" });
-    enhanceSearchSelect(preferredDoctorEl, { placeholder: "جستجو یا انتخاب درمانگر" });
     enhanceSearchSelect(doctorEl, { placeholder: "جستجو یا انتخاب دکتر" });
   }
 
-  function latinWord(value) {
-    return String(value || "").toLowerCase().replace(/[^a-z]/g, "");
-  }
-
-  function baseUsernameFromParts() {
-    var first = latinWord(nameEnEl.value) || latinWord(firstNameEl.value);
-    var last = latinWord(surnameEl.value) || latinWord(lastNameEl.value);
-    if (!first && !last) return "";
-    if (!last) return first.slice(0, 32);
-    if (!first) return last.slice(0, 32);
-    return (first.charAt(0) + last).slice(0, 32);
-  }
-
-  function uniqueUsername(base) {
-    if (!base || base.length < 3) return "";
-    return base.slice(0, 32);
-  }
-
-  function applySuggestion(force) {
-    if (!force && usernameTouched) return;
-    var base = baseUsernameFromParts();
-    if (!base) {
-      if (force || !newUserEl.value.trim()) {
-        if (!usernameTouched) newUserEl.value = "";
-        usernameHint.textContent = "با تایپ name و surname پیشنهاد نام کاربری همین‌جا می‌آید.";
-      }
-      return;
-    }
-    var suggested = uniqueUsername(base);
-    if (!suggested) {
-      usernameHint.textContent = "پیشنهاد معتبری پیدا نشد؛ نام کاربری را دستی وارد کنید.";
-      return;
-    }
-    if (force || !usernameTouched) {
-      newUserEl.value = suggested;
-    }
-    usernameHint.textContent = suggested === base
-      ? "پیشنهاد: " + suggested
-      : "پیشنهاد (بدون تکرار): " + suggested;
-  }
-
-  newUserEl.addEventListener("input", function(){ usernameTouched = true; });
-  [firstNameEl, lastNameEl, nameEnEl, surnameEl].forEach(function(el){
-    el.addEventListener("input", function(){ applySuggestion(false); });
-    el.addEventListener("blur", function(){ applySuggestion(false); });
-  });
-  suggestBtn.addEventListener("click", function(){
-    usernameTouched = false;
-    applySuggestion(true);
+  var bound = bindSecretaryPatientFields({
+    form: form,
+    transliterateUrl: ' . json_encode(url('/api/transliterate-name')) . ',
+    nameDict: ' . json_encode($nameDict, JSON_UNESCAPED_UNICODE) . ',
+    draftKey: "mana.secretary.book.new-patient",
+    clearParams: ["booked"],
+    enhanceSelects: true,
+    draftFields: [
+      "new_first_name", "new_last_name", "new_name_en", "new_surname",
+      "new_preferred_doctor_id", "new_phone", "new_username",
+      "new_password", "new_password_confirm", "doctor_id", "sec-date", "notes"
+    ]
   });
 
   function clearExistingPatient() {
     if (patientEl.value) patientEl.value = "";
   }
   [firstNameEl, lastNameEl, nameEnEl, surnameEl, preferredDoctorEl, newUserEl, newPassEl, newPassConfirmEl, newPhoneEl].forEach(function(el){
+    if (!el) return;
     el.addEventListener("input", clearExistingPatient);
     el.addEventListener("change", clearExistingPatient);
   });
@@ -247,11 +163,10 @@ $secretaryBookScripts = '
     newPassEl.value = "";
     newPassConfirmEl.value = "";
     newPhoneEl.value = "";
-    usernameTouched = false;
-    usernameHint.textContent = "";
+    if (bound && bound.names) bound.names.reset();
+    if (usernameHint) usernameHint.textContent = "";
   });
 
-  // اگر درمانگر نوبت انتخاب شد و درمانگر مراجعه‌کننده خالی است، همان را پیشنهاد بده
   doctorEl.addEventListener("change", function(){
     if (!patientEl.value && !preferredDoctorEl.value && doctorEl.value) {
       preferredDoctorEl.value = doctorEl.value;
@@ -265,11 +180,13 @@ $secretaryBookScripts = '
   var slotsEl = document.getElementById("sec-slots");
   var errEl = document.getElementById("sec-error");
   var slotsUrl = ' . json_encode(url('/api/slots')) . ';
+  var daysUrl = ' . json_encode(url('/api/availability-days')) . ';
+  var selectedTime = "";
+  var refreshTimer = null;
 
   function pad(n){ return (n < 10 ? "0" : "") + n; }
   function faToEn(str){
-    return String(str).replace(/[۰-۹]/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹".indexOf(d); })
-      .replace(/[٠-٩]/g, function(d){ return "٠١٢٣٤٥٦٧٨٩".indexOf(d); });
+    return (window.manaFaToEn || function(s){ return String(s); })(str);
   }
   function jalaliToGregorian(text){
     var t = faToEn(text).replace(/-/g,"/").trim();
@@ -295,77 +212,108 @@ $secretaryBookScripts = '
     return set;
   }
 
-  function loadSlots(){
+  function renderSlotButtons(slots, keepTime){
+    var prev = keepTime ? (timeEl.value || selectedTime) : "";
     timeEl.value = "";
+    slotsEl.innerHTML = "";
+    if (!slots.length) {
+      slotsEl.innerHTML = "<span class=\\"muted\\">ساعت خالی نیست</span>";
+      return;
+    }
+    slots.forEach(function(s){
+      var value = typeof s === "string" ? s : (s.value || "");
+      var label = typeof s === "string" ? value.replace(/:00$/, "") : (s.label || value.replace(/:00$/, ""));
+      var dateLabel = typeof s === "object" && s.date_label ? s.date_label : "";
+      var b = document.createElement("button");
+      b.type = "button";
+      b.className = "slot-btn" + (prev && prev === value ? " active" : "");
+      if (prev && prev === value) timeEl.value = value;
+      if (dateLabel) {
+        var timeElChip = document.createElement("span");
+        timeElChip.className = "hour-chip-time";
+        timeElChip.textContent = label;
+        var dateElChip = document.createElement("span");
+        dateElChip.className = "hour-chip-date";
+        dateElChip.textContent = dateLabel;
+        b.appendChild(timeElChip);
+        b.appendChild(dateElChip);
+      } else {
+        b.textContent = label;
+      }
+      b.onclick = function(){
+        Array.prototype.forEach.call(slotsEl.querySelectorAll(".slot-btn"), function(x){ x.classList.remove("active"); });
+        b.classList.add("active");
+        timeEl.value = value;
+        selectedTime = value;
+        errEl.style.display = "none";
+      };
+      slotsEl.appendChild(b);
+    });
+  }
+
+  function loadSlots(opts){
+    opts = opts || {};
+    if (!opts.keepTime) {
+      timeEl.value = "";
+      selectedTime = "";
+    }
     if (!doctorEl.value || !dateEl.value) {
       slotsEl.innerHTML = "<span class=\\"muted\\">ابتدا تاریخ را انتخاب کنید</span>";
       return;
     }
-    slotsEl.innerHTML = "در حال بارگذاری...";
-    fetch(slotsUrl + "?doctorId=" + encodeURIComponent(doctorEl.value) + "&date=" + encodeURIComponent(dateEl.value))
+    if (!opts.silent) slotsEl.innerHTML = "در حال بارگذاری...";
+    fetch(slotsUrl + "?doctorId=" + encodeURIComponent(doctorEl.value) + "&date=" + encodeURIComponent(dateEl.value) + "&include_past=1")
       .then(function(r){ return r.json(); })
       .then(function(data){
-        var slots = data.slots || [];
-        if (!slots.length) {
-          slotsEl.innerHTML = "<span class=\\"muted\\">ساعت خالی نیست</span>";
-          return;
-        }
-        slotsEl.innerHTML = "";
-        slots.forEach(function(s){
-          var value = typeof s === "string" ? s : (s.value || "");
-          var label = typeof s === "string" ? value.replace(/:00$/, "") : (s.label || value.replace(/:00$/, ""));
-          var dateLabel = typeof s === "object" && s.date_label ? s.date_label : "";
-          var b = document.createElement("button");
-          b.type = "button";
-          b.className = "slot-btn";
-          if (dateLabel) {
-            var timeElChip = document.createElement("span");
-            timeElChip.className = "hour-chip-time";
-            timeElChip.textContent = label;
-            var dateElChip = document.createElement("span");
-            dateElChip.className = "hour-chip-date";
-            dateElChip.textContent = dateLabel;
-            b.appendChild(timeElChip);
-            b.appendChild(dateElChip);
-          } else {
-            b.textContent = label;
-          }
-          b.onclick = function(){
-            Array.prototype.forEach.call(slotsEl.querySelectorAll(".slot-btn"), function(x){ x.classList.remove("active"); });
-            b.classList.add("active");
-            timeEl.value = value;
-            errEl.style.display = "none";
-          };
-          slotsEl.appendChild(b);
-        });
+        renderSlotButtons(data.slots || [], !!opts.keepTime);
       })
       .catch(function(){
-        slotsEl.innerHTML = "<span class=\\"muted\\">خطا در دریافت ساعت‌ها</span>";
+        if (!opts.silent) slotsEl.innerHTML = "<span class=\\"muted\\">خطا در دریافت ساعت‌ها</span>";
       });
+  }
+
+  function refreshAvailability(opts){
+    opts = opts || {};
+    if (!doctorEl.value) return Promise.resolve();
+    return fetch(daysUrl + "?doctorId=" + encodeURIComponent(doctorEl.value))
+      .then(function(r){ return r.json(); })
+      .then(function(data){
+        availByDoctor[doctorEl.value] = data.days || [];
+        renderChips();
+        if (dateEl.value) loadSlots({ keepTime: true, silent: !!opts.silent });
+      })
+      .catch(function(){});
   }
 
   function selectDate(gDate){
     errEl.style.display = "none";
     var g = String(gDate).substring(0,10);
-    var set = availableSet();
     if (!doctorEl.value) {
       errEl.textContent = "ابتدا دکتر را انتخاب کنید.";
       errEl.style.display = "block";
       return;
     }
-    if (!set[g]) {
-      dateEl.value = "";
-      dateView.value = "";
-      errEl.textContent = "این تاریخ برای دکتر انتخاب‌شده خالی نیست.";
-      errEl.style.display = "block";
-      loadSlots();
+    var finish = function(){
+      var set = availableSet();
+      if (!set[g]) {
+        dateEl.value = "";
+        dateView.value = "";
+        errEl.textContent = "این تاریخ برای دکتر انتخاب‌شده خالی نیست.";
+        errEl.style.display = "block";
+        loadSlots();
+        renderChips();
+        return;
+      }
+      dateEl.value = g;
+      dateView.value = gregorianToJalaliText(g);
       renderChips();
+      loadSlots();
+    };
+    if (!availableSet()[g]) {
+      refreshAvailability().then(finish);
       return;
     }
-    dateEl.value = g;
-    dateView.value = gregorianToJalaliText(g);
-    renderChips();
-    loadSlots();
+    finish();
   }
 
   function renderChips(){
@@ -418,78 +366,36 @@ $secretaryBookScripts = '
     dateView.value = "";
     dateEl.value = "";
     timeEl.value = "";
+    selectedTime = "";
     errEl.style.display = "none";
     var hasDoctor = !!doctorEl.value;
     dateView.disabled = !hasDoctor;
     dateView.placeholder = hasDoctor ? "تاریخ شمسی خالی" : "ابتدا دکتر را انتخاب کنید";
     renderChips();
     loadSlots();
+    refreshAvailability();
   });
 
-  document.getElementById("secretary-book-form").addEventListener("submit", function(e){
+  document.addEventListener("visibilitychange", function(){
+    if (!document.hidden && doctorEl.value) refreshAvailability({ silent: true });
+  });
+  refreshTimer = setInterval(function(){
+    if (document.hidden || !doctorEl.value) return;
+    refreshAvailability({ silent: true });
+  }, 20000);
+
+  form.addEventListener("submit", function(e){
     var patientId = patientEl.value;
-    var firstName = firstNameEl.value.trim();
-    var lastName = lastNameEl.value.trim();
-    var newName = (firstName + " " + lastName).trim();
-    var newUser = newUserEl.value.trim().toLowerCase();
-    var newPass = newPassEl.value;
-    var newPassConfirm = newPassConfirmEl.value;
+    var newName = ((firstNameEl.value || "").trim() + " " + (lastNameEl.value || "").trim()).trim();
     if (!patientId && !newName) {
       e.preventDefault();
       errEl.textContent = "مراجعه‌کننده را انتخاب کنید یا نام و نام خانوادگی مراجعه‌کننده جدید را وارد کنید.";
       errEl.style.display = "block";
       return;
     }
-    if (!patientId) {
-      if (!firstName || !lastName) {
-        e.preventDefault();
-        errEl.textContent = "نام و نام خانوادگی مراجعه‌کننده جدید الزامی است.";
-        errEl.style.display = "block";
-        (firstName ? lastNameEl : firstNameEl).focus();
-        return;
-      }
-      if (!nameEnEl.value.trim() || !surnameEl.value.trim()) {
-        e.preventDefault();
-        errEl.textContent = "فیلدهای name و surname هم الزامی هستند.";
-        errEl.style.display = "block";
-        (!nameEnEl.value.trim() ? nameEnEl : surnameEl).focus();
-        return;
-      }
-      if (!preferredDoctorEl.value) {
-        e.preventDefault();
-        errEl.textContent = "درمانگر مربوط به مراجعه‌کننده را انتخاب کنید.";
-        errEl.style.display = "block";
-        preferredDoctorEl.focus();
-        return;
-      }
-      if (!/^09[0-9]{9}$/.test(faToEn(newPhoneEl.value.trim()))) {
-        e.preventDefault();
-        errEl.textContent = "موبایل الزامی است و باید ۱۱ رقم با ۰۹ باشد.";
-        errEl.style.display = "block";
-        newPhoneEl.focus();
-        return;
-      }
-      if (!/^[a-z0-9._-]{3,32}$/.test(newUser)) {
-        e.preventDefault();
-        errEl.textContent = "نام کاربری مراجعه‌کننده جدید الزامی است (۳ تا ۳۲ کاراکتر انگلیسی).";
-        errEl.style.display = "block";
-        newUserEl.focus();
-        return;
-      }
-      if (newPass.length < 6) {
-        e.preventDefault();
-        errEl.textContent = "رمز عبور مراجعه‌کننده جدید الزامی است و حداقل ۶ کاراکتر باشد.";
-        errEl.style.display = "block";
-        newPassEl.focus();
-        return;
-      }
-      if (newPass !== newPassConfirm) {
-        e.preventDefault();
-        errEl.textContent = "رمز عبور و تکرار آن یکسان نیست.";
-        errEl.style.display = "block";
-        newPassConfirmEl.focus();
-        return;
-      }
+    if (!patientId && !validateSecretaryNewPatient(errEl)) {
+      e.preventDefault();
+      return;
     }
     if (!doctorEl.value) {
       e.preventDefault();
@@ -507,6 +413,12 @@ $secretaryBookScripts = '
   });
 
   renderChips();
+  if (doctorEl.value) {
+    dateView.disabled = false;
+    dateView.placeholder = "تاریخ شمسی خالی";
+    if (dateEl.value) dateView.value = gregorianToJalaliText(dateEl.value);
+    refreshAvailability();
+  }
 })();
 </script>
 ';

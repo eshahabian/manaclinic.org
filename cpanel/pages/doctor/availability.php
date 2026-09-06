@@ -10,6 +10,13 @@ $items = $pdo->prepare('SELECT * FROM availabilities WHERE doctor_id=? ORDER BY 
 $items->execute([$ctx['profile']['id']]);
 $items = $items->fetchAll();
 $bookingHours = appointment_booking_hours();
+$savedHoursByDate = [];
+foreach ($items as $item) {
+    $key = substr((string) ($item['date'] ?? ''), 0, 10);
+    if ($key !== '') {
+        $savedHoursByDate[$key] = appointment_availability_hours($item);
+    }
+}
 
 ob_start();
 ?>
@@ -35,7 +42,7 @@ ob_start();
       <?php endforeach; ?>
     </div>
     <p class="muted" style="font-size:.8rem;margin:.5rem 0 0;line-height:1.6">
-      ۲۴ ساعت کامل: از ۶ صبح این تاریخ تا ۶ صبح روز بعد. زیر هر ساعت، تاریخ همان نوبت نوشته می‌شود.
+      ۲۴ ساعت کامل: از ۶ صبح این تاریخ تا ۶ صبح روز بعد. اگر این تاریخ قبلاً ذخیره شده باشد، همان ساعت‌ها بارگذاری می‌شود تا بتوانید کم‌وزیاد کنید.
     </p>
     <div style="margin-top:.5rem;display:flex;gap:.5rem;flex-wrap:wrap">
       <button type="button" class="btn btn-outline btn-sm" id="select-all-hours">انتخاب همه (۲۴ ساعت)</button>
@@ -97,13 +104,29 @@ ob_start();
       el.textContent = el.getAttribute("data-hour-day") === "next" ? nextLabel : same;
     });
   }
-  function sync(){
+  var savedHoursByDate = ' . json_encode($savedHoursByDate) . ';
+  var lastAppliedDate = "";
+  function applySavedHours(){
+    if (!hidden.value || hidden.value === lastAppliedDate) return;
+    lastAppliedDate = hidden.value;
+    var boxes = document.querySelectorAll(\'#hour-picker input[name="hours[]"]\');
+    var saved = savedHoursByDate[hidden.value];
+    if (!saved || !saved.length) {
+      boxes.forEach(function(cb){ cb.checked = true; });
+      return;
+    }
+    var set = {};
+    saved.forEach(function(h){ set[parseInt(h,10)] = true; });
+    boxes.forEach(function(cb){ cb.checked = !!set[parseInt(cb.value,10)]; });
+  }
+  function sync(loadSaved){
     var t = faToEn(view.value).replace(/-/g,"/").trim();
     var p = t.split("/");
-    if (p.length !== 3) { hidden.value = ""; fillHourDates(); return; }
+    if (p.length !== 3) { hidden.value = ""; lastAppliedDate = ""; fillHourDates(); return; }
     var g = jalaali.toGregorian(parseInt(p[0],10), parseInt(p[1],10), parseInt(p[2],10));
     hidden.value = g.gy + "-" + pad(g.gm) + "-" + pad(g.gd);
     fillHourDates();
+    if (loadSaved) applySavedHours();
   }
   jalaliDatepicker.startWatch({
     selector: "#avail-date-view",
@@ -112,9 +135,8 @@ ob_start();
     autoReadOnlyInput: true,
     zIndex: 99999
   });
-  view.addEventListener("jdp:change", sync);
-  view.addEventListener("change", sync);
-
+  view.addEventListener("jdp:change", function(){ sync(true); });
+  view.addEventListener("change", function(){ sync(true); });
   var selectAllBtn = document.getElementById("select-all-hours");
   var clearAllBtn = document.getElementById("clear-all-hours");
   if (selectAllBtn) {
@@ -129,7 +151,7 @@ ob_start();
   }
 
   view.closest("form").addEventListener("submit", function(e){
-    sync();
+    sync(false);
     if (!hidden.value) {
       e.preventDefault();
       alert("تاریخ را انتخاب کنید");

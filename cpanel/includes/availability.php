@@ -27,10 +27,6 @@ function ensure_availability_schema(PDO $pdo): void
           available_hours = ?
       WHERE available_hours IS NULL
          OR TRIM(available_hours) = ''
-         OR available_hours = '10,11,12,13,14,15,16,17'
-         OR available_hours = '12,13,14,15,16,17,18,19,20,21,22,23'
-         OR available_hours = '12,13,14,15,16,17,18,19,20,21,22,23,0,1,2,3,4,5,6,7,8,9,10,11'
-         OR (start_time = '10:00' AND end_time = '18:00')
     ")->execute([$span['start'], $span['end'], $defaultHours]);
 
     $pdo->prepare("
