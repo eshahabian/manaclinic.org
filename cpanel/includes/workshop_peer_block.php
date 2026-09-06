@@ -10,9 +10,18 @@ if (!$peerList) {
 <p class="muted" style="font-size:.85rem;margin:.2rem 0 .65rem">کارگاه‌های منتشرشده که مراجعه‌کنندگان هم در «دوره‌های من» می‌بینند.</p>
 <div class="stack">
   <?php foreach ($peerList as $peer): ?>
-    <article class="workshop-binder-card workshop-binder-card--peer">
+    <?php
+      $peerSessions = $sessionsByWorkshop[(string) ($peer['id'] ?? '')] ?? [];
+      $peerOverview = function_exists('workshop_overview_payload')
+        ? workshop_overview_payload($peer, ['status' => 'CONFIRMED'], $peerSessions, true, null)
+        : [];
+      $peerOverview['staff'] = true;
+    ?>
+    <article class="workshop-binder-card workshop-binder-card--peer" data-workshop-open role="button" tabindex="0">
+      <?= function_exists('workshop_overview_data_script') ? workshop_overview_data_script($peerOverview) : '' ?>
       <strong><?= e($peer['title']) ?></strong>
       <span class="badge" style="margin-right:.5rem"><?= e(workshop_type_label($peer['type'])) ?></span>
+      <div class="muted" style="font-size:.75rem;margin-top:.35rem">برای دیدن کلیات کلیک کنید</div>
       <div class="muted" style="font-size:.85rem;margin-top:.35rem">درمانگر: <?= e($peer['doctor_name']) ?></div>
       <div class="muted" style="font-size:.85rem;margin-top:.25rem">
         <?php if ($peer['type'] === 'OFFLINE'): ?>

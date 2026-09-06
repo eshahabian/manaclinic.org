@@ -528,7 +528,5 @@ ob_start();
 })();
 </script>
 <script src="<?= e(url('/assets/js/workshop-session-media.js')) ?>?v=20260906s"></script>
-<script src="<?= e(url('/assets/js/workshop-overview.js')) ?>?v=20260906s"></script>
-<?= workshop_overview_modal_html() ?>
 <?php
 render_secretary_page('کارگاه‌ها', ob_get_clean());

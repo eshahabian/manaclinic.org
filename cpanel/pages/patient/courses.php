@@ -33,11 +33,9 @@ ob_start();
     ?>
   </div>
 </div>
-<?= workshop_overview_modal_html() ?>
 <?php
 $coursesContent = ob_get_clean();
 $GLOBALS['pageScripts'] = '
 <script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260904u"></script>
-<script src="' . e(url('/assets/js/patient-courses.js')) . '?v=20260904u"></script>
-<script src="' . e(url('/assets/js/workshop-overview.js')) . '?v=20260906s"></script>';
+<script src="' . e(url('/assets/js/patient-courses.js')) . '?v=20260904u"></script>';
 render_patient_page('دوره‌های من', $coursesContent);

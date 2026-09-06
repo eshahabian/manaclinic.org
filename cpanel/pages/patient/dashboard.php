@@ -89,14 +89,12 @@ ob_start();
   </div>
 </div>
 <?= booking_terms_modal_html() ?>
-<?= workshop_overview_modal_html() ?>
 <?= booking_terms_styles() ?>
 <?php
 $dashContent = ob_get_clean();
 $GLOBALS['pageScripts'] = '
 <script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260904u"></script>
 <script src="' . e(url('/assets/js/patient-courses.js')) . '?v=20260904u"></script>
-<script src="' . e(url('/assets/js/patient-book-slots.js')) . '?v=20260904y"></script>
-<script src="' . e(url('/assets/js/workshop-overview.js')) . '?v=20260906s"></script>'
+<script src="' . e(url('/assets/js/patient-book-slots.js')) . '?v=20260904y"></script>'
   . booking_terms_script('terms-accept-dash', '.dash-book-btn');
 render_patient_page('پنل مراجعه‌کننده', $dashContent);

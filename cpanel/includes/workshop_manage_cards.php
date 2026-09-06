@@ -24,10 +24,13 @@ $workshopMediaPost = $workshopRole === 'secretary' ? '/secretary/workshop-media'
         $staffOverview = function_exists('workshop_overview_payload')
           ? workshop_overview_payload($workshop, ['status' => 'CONFIRMED'], $staffSessions, true, null)
           : [];
+        $staffOverview['staff'] = true;
+        $staffOverview['editUrl'] = url($workshopEditBase . '?edit=' . $workshop['id']) . '#workshop-form';
       ?>
       <article class="workshop-binder-card<?= $archived ? ' is-archived' : '' ?>" id="workshop-<?= e($workshop['id']) ?>">
         <div class="workshop-card-row">
-          <div class="workshop-card-main" data-workshop-open data-workshop="<?= e(json_encode($staffOverview, JSON_UNESCAPED_UNICODE)) ?>">
+          <div class="workshop-card-main" data-workshop-open role="button" tabindex="0">
+            <?= function_exists('workshop_overview_data_script') ? workshop_overview_data_script($staffOverview) : '' ?>
             <strong><?= e($workshop['title']) ?></strong>
             <span class="badge" style="margin-right:.5rem"><?= e(workshop_type_label($workshop['type'])) ?></span>
             <?php if ($workshopRole === 'secretary' && !empty($workshop['doctor_name'])): ?>
@@ -37,6 +40,7 @@ $workshopMediaPost = $workshopRole === 'secretary' ? '/secretary/workshop-media'
             <?php $workshopMediaStats = workshop_media_counts_html(workshop_media_counts_from_row($workshop)); if ($workshopMediaStats): ?>
               <div style="margin-top:.4rem"><?= $workshopMediaStats ?></div>
             <?php endif; ?>
+            <div class="muted" style="font-size:.75rem;margin-top:.35rem">برای دیدن کلیات و کار روی کارگاه کلیک کنید</div>
             <div class="muted" style="font-size:.85rem;margin-top:.35rem">
               <?php if ($workshop['type'] === 'OFFLINE'): ?>
                 دوره آفلاین

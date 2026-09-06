@@ -30,7 +30,8 @@ $emptyEnrollments = $emptyEnrollments ?? 'هنوز در کارگاهی از ای
           : [];
       ?>
       <div class="enrollment-card">
-        <div class="enrollment-card-main" data-workshop-open data-workshop="<?= e(json_encode($overview, JSON_UNESCAPED_UNICODE)) ?>">
+        <div class="enrollment-card-main" data-workshop-open role="button" tabindex="0">
+          <?= function_exists('workshop_overview_data_script') ? workshop_overview_data_script($overview) : '' ?>
           <strong><?= e($e['title']) ?></strong>
           <?php if ($canSeeFiles): ?>
             <?php $enrollmentStats = workshop_media_counts_html($enrollmentMedia); if ($enrollmentStats): ?>
@@ -38,6 +39,7 @@ $emptyEnrollments = $emptyEnrollments ?? 'هنوز در کارگاهی از ای
             <?php endif; ?>
           <?php endif; ?>
           <div class="muted" style="font-size:.85rem;margin-top:.25rem"><?= e((string) ($e['doctor_name'] ?? '')) ?></div>
+          <div class="muted" style="font-size:.75rem;margin-top:.35rem">برای دیدن کلیات کارگاه کلیک کنید</div>
           <?php if ($e['type'] !== 'OFFLINE'): ?>
             <div style="font-size:.85rem;margin-top:.35rem"><?= e(format_workshop_datetime_fa((string) $e['starts_at'])) ?></div>
           <?php endif; ?>

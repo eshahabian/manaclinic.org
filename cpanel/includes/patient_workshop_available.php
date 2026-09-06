@@ -26,7 +26,8 @@ $emptyAvailable = $emptyAvailable ?? 'کارگاه فعالی برای ثبت‌
       ?>
       <article class="workshop-binder-card<?= $archiveView ? ' is-archived' : '' ?>">
         <div class="workshop-card-row">
-          <div class="workshop-card-main" data-workshop-open data-workshop="<?= e(json_encode($overview, JSON_UNESCAPED_UNICODE)) ?>">
+          <div class="workshop-card-main" data-workshop-open role="button" tabindex="0">
+            <?= function_exists('workshop_overview_data_script') ? workshop_overview_data_script($overview) : '' ?>
             <strong><?= e($w['title']) ?></strong>
             <span class="badge" style="margin-right:.5rem"><?= e(workshop_type_label((string) $w['type'])) ?></span>
             <?php if ($canSeeFiles): ?>

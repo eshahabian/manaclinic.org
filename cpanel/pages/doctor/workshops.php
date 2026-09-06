@@ -37,7 +37,6 @@ $stmt = $pdo->prepare('
 ');
 $stmt->execute([$ctx['profile']['id']]);
 $workshops = $stmt->fetchAll();
-$sessionsByWorkshop = workshop_sessions_map_for_ids($pdo, array_map(static fn ($w) => (string) $w['id'], $workshops));
 
 $otherWorkshops = $pdo->prepare('
   SELECT w.*, u.name AS doctor_name,
@@ -54,6 +53,13 @@ $otherWorkshops = $pdo->prepare('
 ');
 $otherWorkshops->execute([$ctx['profile']['id']]);
 $peerWorkshops = $otherWorkshops->fetchAll();
+$sessionsByWorkshop = workshop_sessions_map_for_ids(
+    $pdo,
+    array_values(array_unique(array_merge(
+        array_map(static fn ($w) => (string) $w['id'], $workshops),
+        array_map(static fn ($w) => (string) $w['id'], $peerWorkshops)
+    )))
+);
 
 $grouped = workshop_group_for_tabs($workshops);
 $peerGrouped = workshop_group_for_tabs($peerWorkshops);
@@ -631,7 +637,5 @@ ob_start();
 })();
 </script>
 <script src="<?= e(url('/assets/js/workshop-session-media.js')) ?>?v=20260906s"></script>
-<script src="<?= e(url('/assets/js/workshop-overview.js')) ?>?v=20260906s"></script>
-<?= workshop_overview_modal_html() ?>
 <?php
 render_doctor_page('کارگاه‌ها', ob_get_clean());

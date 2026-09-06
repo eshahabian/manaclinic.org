@@ -11,10 +11,11 @@ function workshop_overview_payload(array $workshop, ?array $enrollment, array $s
 {
     $days = [];
     foreach ($sessions as $session) {
+        $sessionDate = (string) ($session['session_date'] ?? '');
         $day = [
             'title' => (string) ($session['title'] ?? ''),
-            'date' => (string) ($session['session_date'] ?? ''),
-            'date_fa' => $session['session_date'] !== '' ? to_jalali_label((string) $session['session_date']) : '',
+            'date' => $sessionDate,
+            'date_fa' => $sessionDate !== '' ? to_jalali_label($sessionDate) : '',
         ];
         if ($canSeeFiles) {
             $files = [];
@@ -43,10 +44,25 @@ function workshop_overview_payload(array $workshop, ?array $enrollment, array $s
         'description' => (string) ($workshop['description'] ?? ''),
         'location' => (string) ($workshop['location'] ?? ''),
         'member' => $canSeeFiles,
+        'staff' => false,
         'pending' => in_array((string) ($enrollment['status'] ?? ''), ['PENDING_PAYMENT'], true),
         'mediaUrl' => $canSeeFiles && $mediaUrl ? $mediaUrl : '',
+        'editUrl' => '',
         'days' => $days,
     ];
+}
+
+function workshop_overview_data_script(array $payload): string
+{
+    $flags = JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP;
+    if (defined('JSON_INVALID_UTF8_SUBSTITUTE')) {
+        $flags |= JSON_INVALID_UTF8_SUBSTITUTE;
+    }
+    $json = json_encode($payload, $flags);
+    if (!is_string($json) || $json === '') {
+        $json = '{}';
+    }
+    return '<script type="application/json" class="js-workshop-payload">' . $json . '</script>';
 }
 
 function workshop_overview_modal_html(): string
