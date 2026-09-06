@@ -75,6 +75,7 @@ if ($editWorkshop) {
 } else {
     $binderInitial = '';
 }
+$activeBinder = $binderInitial !== '' ? $binderInitial : 'in-person';
 
 $doctorWallet = ensure_wallet($pdo, $ctx['user']['id']);
 $flash = flash_get();
@@ -135,42 +136,42 @@ ob_start();
   </div>
 </div>
 
-<div class="binder-tile" data-binder-tabs data-binder-initial="<?= e($binderInitial) ?>" data-binder-tone="<?= e($binderInitial !== '' ? $binderInitial : 'in-person') ?>" style="margin-top:1.5rem">
+<div class="binder-tile" data-binder-tabs data-binder-initial="<?= e($activeBinder) ?>" data-binder-tone="<?= e($activeBinder) ?>" style="margin-top:1.5rem">
   <div class="binder-tabs" role="tablist" aria-label="دسته‌بندی کارگاه‌ها">
-    <button type="button" class="binder-tab binder-tab-in-person is-active" role="tab" data-binder-tab="in-person" aria-selected="true">
+    <button type="button" class="binder-tab binder-tab-in-person<?= $activeBinder === 'in-person' ? ' is-active' : '' ?>" role="tab" data-binder-tab="in-person" aria-selected="<?= $activeBinder === 'in-person' ? 'true' : 'false' ?>">
       حضوری <span class="binder-tab-count"><?= count($grouped['in-person']) ?></span>
     </button>
-    <button type="button" class="binder-tab binder-tab-online" role="tab" data-binder-tab="online" aria-selected="false">
+    <button type="button" class="binder-tab binder-tab-online<?= $activeBinder === 'online' ? ' is-active' : '' ?>" role="tab" data-binder-tab="online" aria-selected="<?= $activeBinder === 'online' ? 'true' : 'false' ?>">
       آنلاین <span class="binder-tab-count"><?= count($grouped['online']) ?></span>
     </button>
-    <button type="button" class="binder-tab binder-tab-offline" role="tab" data-binder-tab="offline" aria-selected="false">
+    <button type="button" class="binder-tab binder-tab-offline<?= $activeBinder === 'offline' ? ' is-active' : '' ?>" role="tab" data-binder-tab="offline" aria-selected="<?= $activeBinder === 'offline' ? 'true' : 'false' ?>">
       آفلاین <span class="binder-tab-count"><?= count($grouped['offline']) ?></span>
     </button>
-    <button type="button" class="binder-tab binder-tab-new" role="tab" data-binder-tab="new" aria-selected="false">
+    <button type="button" class="binder-tab binder-tab-new<?= $activeBinder === 'new' ? ' is-active' : '' ?>" role="tab" data-binder-tab="new" aria-selected="<?= $activeBinder === 'new' ? 'true' : 'false' ?>">
       <?= $editWorkshop ? 'ویرایش کارگاه' : 'کارگاه جدید' ?>
     </button>
-    <button type="button" class="binder-tab binder-tab-archive" role="tab" data-binder-tab="archive" aria-selected="false">
+    <button type="button" class="binder-tab binder-tab-archive<?= $activeBinder === 'archive' ? ' is-active' : '' ?>" role="tab" data-binder-tab="archive" aria-selected="<?= $activeBinder === 'archive' ? 'true' : 'false' ?>">
       آرشیو <span class="binder-tab-count"><?= count($grouped['archive']) ?></span>
     </button>
   </div>
   <div class="binder-body">
-    <section class="binder-panel is-active" data-binder-panel="in-person" role="tabpanel">
+    <section class="binder-panel<?= $activeBinder === 'in-person' ? ' is-active' : '' ?>" data-binder-panel="in-person" role="tabpanel"<?= $activeBinder === 'in-person' ? '' : ' hidden' ?>>
       <?php $workshopList = $grouped['in-person']; $workshopEmpty = 'کارگاه حضوری فعالی ندارید.'; $workshopRole = 'doctor'; require __DIR__ . '/../../includes/workshop_manage_cards.php'; ?>
       <?php $peerList = $peerGrouped['in-person']; require __DIR__ . '/../../includes/workshop_peer_block.php'; ?>
     </section>
-    <section class="binder-panel" data-binder-panel="online" role="tabpanel" hidden>
+    <section class="binder-panel<?= $activeBinder === 'online' ? ' is-active' : '' ?>" data-binder-panel="online" role="tabpanel"<?= $activeBinder === 'online' ? '' : ' hidden' ?>>
       <?php $workshopList = $grouped['online']; $workshopEmpty = 'کارگاه آنلاین فعالی ندارید.'; $workshopRole = 'doctor'; require __DIR__ . '/../../includes/workshop_manage_cards.php'; ?>
       <?php $peerList = $peerGrouped['online']; require __DIR__ . '/../../includes/workshop_peer_block.php'; ?>
     </section>
-    <section class="binder-panel" data-binder-panel="offline" role="tabpanel" hidden>
+    <section class="binder-panel<?= $activeBinder === 'offline' ? ' is-active' : '' ?>" data-binder-panel="offline" role="tabpanel"<?= $activeBinder === 'offline' ? '' : ' hidden' ?>>
       <?php $workshopList = $grouped['offline']; $workshopEmpty = 'دوره آفلاین فعالی ندارید.'; $workshopRole = 'doctor'; require __DIR__ . '/../../includes/workshop_manage_cards.php'; ?>
       <?php $peerList = $peerGrouped['offline']; require __DIR__ . '/../../includes/workshop_peer_block.php'; ?>
     </section>
-    <section class="binder-panel" data-binder-panel="archive" role="tabpanel" hidden>
+    <section class="binder-panel<?= $activeBinder === 'archive' ? ' is-active' : '' ?>" data-binder-panel="archive" role="tabpanel"<?= $activeBinder === 'archive' ? '' : ' hidden' ?>>
       <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">کارگاه‌هایی که زمانشان تمام شده یا پایان داده شده‌اند، خودکار اینجا می‌آیند.</p>
       <?php $workshopList = $grouped['archive']; $workshopEmpty = 'هنوز کارگاهی در آرشیو نیست.'; $workshopRole = 'doctor'; require __DIR__ . '/../../includes/workshop_manage_cards.php'; ?>
     </section>
-    <section class="binder-panel" data-binder-panel="new" role="tabpanel" hidden>
+    <section class="binder-panel<?= $activeBinder === 'new' ? ' is-active' : '' ?>" data-binder-panel="new" role="tabpanel"<?= $activeBinder === 'new' ? '' : ' hidden' ?>>
       <div class="stack">
 <form class="panel form-stack" id="workshop-form" method="post" action="<?= e(url('/doctor/workshops')) ?>" enctype="multipart/form-data">
   <input type="hidden" name="action" value="<?= e($formAction) ?>">
@@ -412,7 +413,7 @@ ob_start();
   </div>
 </template>
 
-<script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260904u"></script>
+<script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260906v"></script>
 <script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>

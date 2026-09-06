@@ -119,12 +119,12 @@
       html += renderPeopleGroup("منتظر تأیید", data.pendingPeople);
       html += '<p class="muted" style="margin:.85rem 0 0;font-size:.85rem">از همین پنجره کلیات را ببینید؛ برای فایل هر جلسه وارد ویرایش شوید.</p>';
       if (data.editUrl) {
-        html += '<a class="btn btn-primary btn-sm" style="margin-top:.75rem" href="' + esc(data.editUrl) + '">ویرایش و فایل جلسات</a>';
+        html += '<button type="button" class="btn btn-primary btn-sm" style="margin-top:.75rem" data-workshop-go="' + esc(data.editUrl) + '">ویرایش و فایل جلسات</button>';
       }
     } else if (data.member) {
       html += '<p class="muted" style="margin:.85rem 0 0;font-size:.85rem">عضویت شما تأیید شده است. فایل هر جلسه را فقط داخل حساب خود ببینید.</p>';
       if (data.mediaUrl) {
-        html += '<a class="btn btn-primary btn-sm" style="margin-top:.75rem" href="' + esc(data.mediaUrl) + '">مشاهده فایل جلسات</a>';
+        html += '<button type="button" class="btn btn-primary btn-sm" style="margin-top:.75rem" data-workshop-go="' + esc(data.mediaUrl) + '">مشاهده فایل جلسات</button>';
       }
     } else if (data.pending) {
       html += '<p class="muted" style="margin:.9rem 0 0">درخواست عضویت ثبت شده. بعد از تأیید منشی، درمانگر یا مدیر، فایل‌ها برای شما باز می‌شود.</p>';
@@ -138,6 +138,15 @@
   }
 
   document.addEventListener("click", function (e) {
+    var goBtn = e.target.closest("[data-workshop-go]");
+    if (goBtn) {
+      var href = goBtn.getAttribute("data-workshop-go") || "";
+      e.preventDefault();
+      e.stopPropagation();
+      closeModal();
+      if (href) window.location.assign(href);
+      return;
+    }
     if (e.target.closest("[data-workshop-close]")) {
       e.preventDefault();
       closeModal();

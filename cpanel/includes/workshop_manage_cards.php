@@ -25,7 +25,7 @@ $workshopMediaPost = $workshopRole === 'secretary' ? '/secretary/workshop-media'
           ? workshop_overview_payload($workshop, ['status' => 'CONFIRMED'], $staffSessions, true, null)
           : [];
         $staffOverview['staff'] = true;
-        $staffOverview['editUrl'] = url($workshopEditBase . '?edit=' . $workshop['id']) . '#workshop-form';
+        $staffOverview['editUrl'] = url($workshopEditBase . '?edit=' . rawurlencode((string) $workshop['id']) . '&tab=new');
         $people = function_exists('workshop_overview_people_lists')
           ? workshop_overview_people_lists($workshopEnrollmentsById[(string) $workshop['id']] ?? [])
           : ['approved' => [], 'pending' => []];

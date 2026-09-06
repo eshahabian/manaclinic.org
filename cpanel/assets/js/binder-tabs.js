@@ -56,7 +56,7 @@
       });
       root.setAttribute("data-binder-tone", toneFromTab(activeTab, id));
       if (useHash && history.replaceState) {
-        history.replaceState(null, "", "#" + id);
+        history.replaceState(null, "", location.pathname + location.search + "#" + id);
       }
       window.dispatchEvent(new CustomEvent("binder-tab-change", { detail: id }));
       return true;

@@ -2023,10 +2023,10 @@ body.workshop-overview-locked { overflow: hidden; }
 }
 .workshop-overview.is-open { display: block; }
 .workshop-overview-backdrop {
-  position: absolute; inset: 0; background: rgba(15, 23, 20, .55);
+  position: absolute; inset: 0; z-index: 0; background: rgba(15, 23, 20, .55);
 }
 .workshop-overview-panel {
-  position: relative; z-index: 1;
+  position: relative; z-index: 2; pointer-events: auto;
   width: min(38rem, calc(100% - 1.5rem));
   max-height: min(88vh, 44rem);
   margin: 6vh auto 0;
