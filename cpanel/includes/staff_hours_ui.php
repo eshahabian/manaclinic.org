@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 function staff_hours_scripts(): string
 {
-    return '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260906n"></script>';
+    return '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260906o"></script>';
 }
 
 function staff_hours_render(array $slots, array $opts = []): string

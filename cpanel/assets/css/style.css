@@ -1177,17 +1177,17 @@ jdp-container, .jdp-container, [class*="jdp"] {
   min-width: 0;
 }
 .binder-tile--nested {
-  margin-top: .2rem;
+  margin-top: .35rem;
 }
 .binder-tabs {
   display: flex;
   flex-wrap: wrap;
-  align-items: center;
-  gap: .4rem;
+  align-items: flex-end;
+  gap: 0;
   padding: 0;
   position: relative;
   z-index: 2;
-  margin: 0 0 .7rem;
+  margin: 0 0 -1px;
   background: transparent;
   border: none;
   box-shadow: none;
@@ -1199,50 +1199,56 @@ jdp-container, .jdp-container, [class*="jdp"] {
   font-weight: 700;
   font-size: .86rem;
   line-height: 1.2;
-  height: auto;
-  min-height: 2.35rem;
-  padding: .45rem 1rem;
-  margin: 0;
-  border: none;
-  border-radius: 999px;
+  height: 39px;
+  padding: 10px 20px;
+  margin-inline-start: -1px;
+  border: 1px solid #9b9b9b;
+  border-bottom: none;
+  border-radius: 10px 10px 0 0;
   cursor: pointer;
-  color: #16352c;
+  color: #002f51;
   white-space: nowrap;
-  background: rgba(255, 255, 255, .22);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: #eeeeee;
+  background-image: none;
+  opacity: 1;
+  filter: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   box-shadow: none;
   position: relative;
   z-index: 1;
-  opacity: .72;
 }
 .binder-tab:first-child {
   margin-inline-start: 0;
 }
 .binder-tab:hover {
-  opacity: .9;
+  filter: brightness(1.03);
 }
 .binder-tab.is-active {
-  opacity: 1;
+  background: #fff;
+  background-image: none;
+  color: #6b6b6b;
   z-index: 3;
+  border-color: #c0c0c0;
   box-shadow: none;
   transform: none;
+  opacity: 1;
   filter: none;
 }
-.binder-tab-in-person { background: rgba(197, 228, 247, .38); color: #16352c; }
-.binder-tab-online { background: rgba(191, 236, 234, .38); color: #16352c; }
-.binder-tab-offline { background: rgba(248, 229, 154, .42); color: #16352c; }
-.binder-tab-new { background: rgba(245, 179, 214, .38); color: #5a1240; }
-.binder-tab-archive { background: rgba(245, 196, 154, .4); color: #5a2e10; }
-.binder-tab-appts { background: rgba(191, 232, 204, .4); color: #0f3d28; }
-.binder-tab-workshops { background: rgba(197, 228, 247, .38); color: #16352c; }
-.binder-tab-in-person.is-active { background: rgba(197, 228, 247, .7); color: #2a7ab8; }
-.binder-tab-online.is-active { background: rgba(191, 236, 234, .72); color: #1a8f8a; }
-.binder-tab-offline.is-active { background: rgba(248, 229, 154, .78); color: #b08910; }
-.binder-tab-new.is-active { background: rgba(245, 179, 214, .72); color: #c43a86; }
-.binder-tab-archive.is-active { background: rgba(245, 196, 154, .75); color: #c45f12; }
-.binder-tab-appts.is-active { background: rgba(191, 232, 204, .75); color: #2e9a5c; }
-.binder-tab-workshops.is-active { background: rgba(197, 228, 247, .72); color: #2a7ab8; }
+.binder-tab-in-person { background-color: #c5e4f7; color: #16352c; }
+.binder-tab-online { background-color: #bfecea; color: #16352c; }
+.binder-tab-offline { background-color: #f8e59a; color: #16352c; }
+.binder-tab-new { background-color: #f5b3d6; color: #5a1240; }
+.binder-tab-archive { background-color: #f5c49a; color: #5a2e10; }
+.binder-tab-appts { background-color: #bfe8cc; color: #0f3d28; }
+.binder-tab-workshops { background-color: #c5e4f7; color: #16352c; }
+.binder-tab-in-person.is-active { color: #2a7ab8; }
+.binder-tab-online.is-active { color: #1a8f8a; }
+.binder-tab-offline.is-active { color: #b08910; }
+.binder-tab-new.is-active { color: #c43a86; }
+.binder-tab-archive.is-active { color: #c45f12; }
+.binder-tab-appts.is-active { color: #2e9a5c; }
+.binder-tab-workshops.is-active { color: #2a7ab8; }
 .binder-tab-count {
   display: inline-flex;
   min-width: 1.15rem;
@@ -1251,10 +1257,10 @@ jdp-container, .jdp-container, [class*="jdp"] {
   border-radius: 999px;
   font-size: .72rem;
   font-weight: 700;
-  background: rgba(255,255,255,.45);
+  background: rgba(255,255,255,.7);
   color: #134437;
   justify-content: center;
-  border: none;
+  border: 1px solid rgba(0, 0, 0, .06);
 }
 .patient-dash-panel-head {
   display: flex;
@@ -1319,7 +1325,7 @@ jdp-container, .jdp-container, [class*="jdp"] {
   flex-wrap: wrap;
   overflow-x: visible;
   justify-content: flex-start;
-  margin: 0 0 .55rem;
+  margin: 0 0 -1px;
   padding: 0;
   z-index: 3;
 }
@@ -1360,39 +1366,18 @@ jdp-container, .jdp-container, [class*="jdp"] {
   flex: 0 0 auto;
 }
 .binder-body {
-  background: rgba(255, 255, 255, .16);
-  border: none;
-  border-radius: 1.15rem;
-  padding: .35rem 0 .15rem;
+  background: #fff;
+  border: 1px solid #c0c0c0;
+  border-radius: 10px 0 10px 10px;
+  padding: 1.05rem 1.15rem 1.2rem;
   position: relative;
   z-index: 1;
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  box-shadow: none;
 }
 html[dir="ltr"] .binder-body {
-  border-radius: 1.15rem;
-}
-.binder-tile--nested > .binder-body {
-  background: transparent;
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-  padding: .15rem 0 0;
-  border-radius: 0;
+  border-radius: 0 10px 10px 10px;
 }
 .binder-panel > .binder-tile--nested {
   margin-top: 0;
-}
-.binder-panel > .panel,
-.binder-panel .appt-card,
-.binder-panel .workshop-binder-card,
-.binder-panel .patient-appt-row,
-.binder-panel .patient-open-day {
-  background: rgba(255, 255, 255, .22);
-  border: none;
-  backdrop-filter: blur(14px);
-  -webkit-backdrop-filter: blur(14px);
-  box-shadow: none;
 }
 .binder-panel { display: none; }
 .binder-panel.is-active { display: block; }
@@ -1889,21 +1874,18 @@ html[dir="ltr"] .binder-body {
 }
 .staff-day-block {
   padding: .65rem 0;
-  border-bottom: none;
+  border-bottom: 1px dashed var(--line);
 }
 .staff-day-block:last-child {
   border-bottom: 0;
   padding-bottom: 0;
 }
 .staff-day-report {
-  background: rgba(255, 255, 255, .2);
-  border: none;
+  background: var(--bg-soft);
   border-radius: .7rem;
   padding: .75rem .85rem;
   font-size: .9rem;
   line-height: 1.8;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
 }
 .staff-day-report p {
   margin: .4rem 0 0;
@@ -1996,12 +1978,9 @@ html[dir="ltr"] .binder-body {
   gap: .45rem;
 }
 .staff-hours-alias {
-  background: rgba(255, 255, 255, .2);
-  border: none;
-  border-radius: 1rem;
+  background: var(--bg-soft);
+  border-radius: .8rem;
   padding: .85rem 1rem;
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
 }
 .staff-hours-alias-row {
   display: flex;
