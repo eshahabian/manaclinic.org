@@ -506,6 +506,21 @@ select option {
   object-fit: cover;
 }
 .home-workshop-banner:hover { transform: translateY(-2px); }
+.home-workshop-banner--plain { min-height: 14rem; }
+.home-workshop-fallback {
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: .35rem;
+  min-height: 14rem;
+  padding: 1.2rem 1.15rem;
+  background: linear-gradient(160deg, #1a5c4a 0%, #2d8a6e 55%, #c9a46a 130%);
+  color: #fff;
+  text-align: right;
+}
+.home-workshop-fallback strong { font-size: 1.15rem; line-height: 1.55; }
+.home-workshop-fallback span { font-size: .85rem; opacity: .88; }
+.home-workshop-empty { margin: 0; }
 .home-workshop-badge {
   position: absolute;
   top: .7rem;

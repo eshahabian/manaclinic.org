@@ -83,14 +83,14 @@ ob_start();
         <?php endif; ?>
       </div>
 
-      <?php if ($workshopBanners): ?>
       <section class="home-workshop-banners" id="home-workshop-banners" aria-labelledby="home-workshop-heading">
         <div class="section-head">
           <div>
             <h2 id="home-workshop-heading">دوره‌ها و کارگاه‌ها</h2>
-            <p class="muted">بنر هر دوره را بزنید تا توضیح و ثبت‌نام را ببینید</p>
+            <p class="muted">روی کارت بزنید تا توضیح و ثبت‌نام را ببینید</p>
           </div>
         </div>
+        <?php if ($workshopBanners): ?>
         <div class="home-workshop-track">
           <?php foreach ($workshopBanners as $promo): ?>
             <?php
@@ -100,10 +100,13 @@ ob_start();
                   : (format_workshop_datetime_fa((string) ($promo['starts_at'] ?? '')) . ' تا ' . format_workshop_datetime_fa((string) ($promo['ends_at'] ?? '')));
               $meta = trim(workshop_type_label((string) ($promo['type'] ?? '')) . ' · ' . (string) ($promo['doctor_name'] ?? '') . ' · ' . $when);
               $canApply = workshop_can_enroll($promo) && $phase !== 'done' && (string) ($promo['status'] ?? '') === 'PUBLISHED';
+              $bannerSrc = function_exists('workshop_banner_src')
+                  ? workshop_banner_src((string) ($promo['banner_url'] ?? ''))
+                  : '';
             ?>
             <button
               type="button"
-              class="home-workshop-banner"
+              class="home-workshop-banner<?= $bannerSrc === '' ? ' home-workshop-banner--plain' : '' ?>"
               data-workshop-banner
               data-title="<?= e((string) ($promo['title'] ?? '')) ?>"
               data-description="<?= e((string) ($promo['description'] ?? '')) ?>"
@@ -111,11 +114,21 @@ ob_start();
               data-apply="<?= e(workshop_apply_url((string) ($promo['id'] ?? ''))) ?>"
               data-can-apply="<?= $canApply ? '1' : '0' ?>"
             >
-              <img src="<?= e(workshop_banner_src((string) ($promo['banner_url'] ?? ''))) ?>" alt="<?= e((string) ($promo['title'] ?? 'بنر دوره')) ?>">
+              <?php if ($bannerSrc !== ''): ?>
+                <img src="<?= e($bannerSrc) ?>" alt="<?= e((string) ($promo['title'] ?? 'بنر دوره')) ?>">
+              <?php else: ?>
+                <span class="home-workshop-fallback">
+                  <strong><?= e((string) ($promo['title'] ?? 'دوره')) ?></strong>
+                  <span><?= e((string) ($promo['doctor_name'] ?? '')) ?></span>
+                </span>
+              <?php endif; ?>
               <span class="home-workshop-badge home-workshop-badge--<?= e($phase) ?>"><?= e(workshop_promo_phase_label($phase)) ?></span>
             </button>
           <?php endforeach; ?>
         </div>
+        <?php else: ?>
+          <p class="muted home-workshop-empty">به‌زودی دوره‌های جدید اینجا اعلام می‌شود.</p>
+        <?php endif; ?>
       </section>
 
       <div id="home-workshop-modal" class="home-workshop-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="home-workshop-modal-title">
@@ -132,7 +145,6 @@ ob_start();
           </div>
         </div>
       </div>
-      <?php endif; ?>
 
       <?php if (function_exists('assistant_enabled') ? assistant_enabled() : true): ?>
       <a class="home-assistant-tile" href="<?= e(url('/assistant')) ?>">
@@ -183,7 +195,7 @@ ob_start();
 <?php
 $content = ob_get_clean();
 $pageScripts = '
-<script src="' . e(url('/assets/js/home-workshop-banners.js')) . '?v=20260908c"></script>
+<script src="' . e(url('/assets/js/home-workshop-banners.js')) . '?v=20260908e"></script>
 <script>
 (function(){
   var root = document.getElementById("hero-slideshow");
