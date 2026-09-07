@@ -28,7 +28,10 @@ function redirect(string $path): never
 function url(string $path = '/'): string
 {
     global $base;
-    $prefix = ($base && $base !== '/') ? $base : '';
+    $prefix = ($base && $base !== '/') ? (string) $base : '';
+    if ($prefix !== '' && (str_contains($prefix, '?') || str_contains($prefix, '#'))) {
+        $prefix = '';
+    }
     if ($path === '/') {
         return $prefix . '/' ?: '/';
     }

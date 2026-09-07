@@ -17,7 +17,7 @@ $stmt = $pdo->prepare('SELECT title FROM workshops WHERE id=? LIMIT 1');
 $stmt->execute([$workshopId]);
 $title = trim((string) ($stmt->fetchColumn() ?: 'دوره آفلاین'));
 $qaTab = trim((string) ($_GET['qa'] ?? '')) === 'private' ? 'private' : 'public';
-$base = url('/doctor/workshops/qa?id=' . rawurlencode($workshopId));
+$qaBase = url('/doctor/workshops/qa?id=' . rawurlencode($workshopId));
 $messages = workshop_qa_list($pdo, $workshopId, [
     'viewer_id' => (string) ($ctx['user']['id'] ?? ''),
     'is_doctor' => true,
@@ -38,8 +38,8 @@ ob_start();
       'viewer_id' => (string) ($ctx['user']['id'] ?? ''),
       'is_doctor' => true,
       'tab' => $qaTab,
-      'public_url' => $base . '&qa=public#workshop-qa',
-      'private_url' => $base . '&qa=private#workshop-qa',
+      'public_url' => $qaBase . '&qa=public#workshop-qa',
+      'private_url' => $qaBase . '&qa=private#workshop-qa',
   ]) ?>
 </div>
 <?php
