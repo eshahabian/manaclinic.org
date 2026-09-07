@@ -124,9 +124,9 @@
     } else if (data.member) {
       html += '<p class="muted" style="margin:.85rem 0 0;font-size:.85rem">عضویت شما تأیید شده است. مسیر هفته‌به‌هفته و فایل هر جلسه را فقط داخل حساب خود ببینید.</p>';
       if (data.pathUrl) {
-        html += '<button type="button" class="btn btn-primary btn-sm" style="margin-top:.75rem;margin-left:.4rem" data-workshop-go="' + esc(data.pathUrl) + '">مسیر دوره</button>';
+        html += '<button type="button" class="btn btn-primary btn-sm" style="margin-top:.75rem;margin-left:.4rem" data-workshop-go="' + esc(data.pathUrl) + '">' + (data.offline ? "ورود به دوره" : "مسیر دوره") + "</button>";
       }
-      if (data.mediaUrl) {
+      if (data.mediaUrl && !data.offline) {
         html += '<button type="button" class="btn btn-outline btn-sm" style="margin-top:.75rem" data-workshop-go="' + esc(data.mediaUrl) + '">مشاهده فایل جلسات</button>';
       }
     } else if (data.pending) {

@@ -5,6 +5,9 @@ $user = require_login(['PATIENT']);
 require_once __DIR__ . '/../../includes/patient_panel.php';
 require_once __DIR__ . '/../../includes/workshops.php';
 require_once __DIR__ . '/../../includes/workshop_path.php';
+require_once __DIR__ . '/../../includes/workshop_media.php';
+require_once __DIR__ . '/../../includes/workshop_sessions.php';
+require_once __DIR__ . '/../../includes/workshop_qa.php';
 
 ensure_workshop_schema($pdo);
 $enrollmentId = trim((string) ($_GET['enrollment'] ?? ''));
@@ -16,6 +19,7 @@ if (!$ctx) {
 
 $enrollment = is_array($ctx['enrollment'] ?? null) ? $ctx['enrollment'] : [];
 $title = trim((string) ($enrollment['title'] ?? 'مسیر دوره'));
+$offline = !empty($ctx['offline']) || workshop_is_offline((string) ($enrollment['type'] ?? ''));
 $archived = function_exists('workshop_is_archived') && workshop_is_archived([
     'status' => (string) ($enrollment['workshop_status'] ?? ''),
     'type' => (string) ($enrollment['type'] ?? ''),
@@ -29,19 +33,51 @@ $backTab = $archived
 $backUrl = url('/dashboard/workshops/mine?type=' . $backTab);
 $ctx['post_url'] = url('/dashboard/workshops/path-note');
 
+$audioStreams = [];
+$qaHtml = '';
+if ($offline) {
+    $sessions = workshop_sessions_with_media($pdo, (string) ($enrollment['workshop_id'] ?? ''));
+    $ctx = workshop_path_attach_media($ctx, $sessions);
+    $ctx['user'] = $user;
+    $ctx['watermark'] = workshop_media_watermark_for_user($user, $pdo);
+    foreach ($sessions as $session) {
+        $audio = $session['files']['AUDIO'] ?? null;
+        if (is_array($audio) && !empty($audio['id'])) {
+            $audioStreams[(string) $audio['id']] = workshop_media_stream_url((string) $audio['id'], $user);
+        }
+    }
+    $qaHtml = workshop_qa_render(workshop_qa_list($pdo, (string) ($enrollment['workshop_id'] ?? '')), [
+        'post_url' => url('/dashboard/workshops/qa'),
+        'workshop_id' => (string) ($enrollment['workshop_id'] ?? ''),
+        'enrollment_id' => (string) ($enrollment['id'] ?? ''),
+        'can_post' => true,
+        'ask_label' => 'پرسش جدید برای همه',
+        'reply_label' => 'پاسخ شما',
+    ]);
+}
+
 $GLOBALS['pageRobots'] = 'noindex,nofollow';
-$GLOBALS['pageTitle'] = 'مسیر دوره — ' . $title;
+$GLOBALS['pageTitle'] = ($offline ? 'دوره — ' : 'مسیر دوره — ') . $title;
 
 ob_start();
 ?>
-<div class="stack workshop-path-page">
+<div class="stack workshop-path-page<?= $offline ? ' offline-course-page' : '' ?>">
   <a href="<?= e($backUrl) ?>" style="font-size:.9rem;color:var(--primary)">← بازگشت به دوره‌های من</a>
   <h1><?= e($title) ?></h1>
   <?php if (!empty($enrollment['doctor_name'])): ?>
     <p class="muted" style="margin-top:.25rem">درمانگر: <?= e((string) $enrollment['doctor_name']) ?></p>
   <?php endif; ?>
-  <p class="muted" style="margin-top:.35rem;line-height:1.7">هر جلسه یک قدم از مسیر است. بعد از برگزاری همان روز می‌توانید برای خودتان بنویسید. یادداشت درمانگر فقط برای شماست.</p>
+  <?php if ($offline): ?>
+    <p class="muted" style="margin-top:.35rem;line-height:1.7">محتوای دوره همین‌جا پخش می‌شود — دانلود و ضبط صفحه مجاز نیست. پایین صفحه می‌توانید برای همه سؤال بپرسید.</p>
+  <?php else: ?>
+    <p class="muted" style="margin-top:.35rem;line-height:1.7">هر جلسه یک قدم از مسیر است. بعد از برگزاری همان روز می‌توانید برای خودتان بنویسید. یادداشت درمانگر فقط برای شماست.</p>
+  <?php endif; ?>
   <?= workshop_path_render($ctx, 'patient') ?>
+  <?= $qaHtml ?>
 </div>
 <?php
-render_patient_page('مسیر دوره — ' . $title, ob_get_clean());
+$inner = ob_get_clean();
+if ($offline) {
+    $GLOBALS['pageScripts'] = workshop_offline_protect_script($audioStreams);
+}
+render_patient_page(($offline ? 'دوره — ' : 'مسیر دوره — ') . $title, $inner);

@@ -18,6 +18,9 @@ if (!$enrollment) {
     flash_set('error', 'دسترسی به محتوای این کارگاه ندارید.');
     redirect('/dashboard/workshops/mine');
 }
+if (workshop_is_offline((string) ($enrollment['type'] ?? ''))) {
+    redirect('/dashboard/workshops/path?enrollment=' . rawurlencode($enrollmentId));
+}
 
 require_once __DIR__ . '/../../includes/workshop_sessions.php';
 workshop_sessions_sync(
@@ -135,8 +138,7 @@ ob_start();
               <?php endfor; ?>
             </div>
           </div>
-          <a class="btn btn-outline btn-sm" style="margin-top:.55rem" href="<?= e(workshop_media_stream_url((string) $item['id'], $user, true)) ?>">دانلود پی‌دی‌اف</a>
-          <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">واترمارک: <?= e($watermark) ?></p>
+          <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">فقط مشاهده داخل پنل — دانلود بسته است. واترمارک: <?= e($watermark) ?></p>
         </div>
       <?php endif; ?>
     </article>

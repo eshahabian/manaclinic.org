@@ -53,7 +53,7 @@ if ($path === '' || !is_file($path)) {
     exit('File missing');
 }
 
-$download = (string) ($_GET['dl'] ?? '') === '1';
+$download = (string) ($_GET['dl'] ?? '') === '1' && !$isPatient;
 $tmpStamp = null;
 if (($item['kind'] ?? '') === 'PDF' && $isPatient) {
     $watermark = workshop_media_watermark_for_user($user, $pdo);

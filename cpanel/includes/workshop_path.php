@@ -389,6 +389,10 @@ function workshop_path_render(array $ctx, string $mode): string
               <div class="muted" style="font-size:.85rem;margin-top:.25rem"><?= e((string) $step['date_fa']) ?></div>
             <?php endif; ?>
 
+            <?php if (!empty($ctx['show_media']) && $mode === 'patient'): ?>
+              <?= workshop_path_media_html(is_array($step['files'] ?? null) ? $step['files'] : [], $ctx) ?>
+            <?php endif; ?>
+
             <?php if ($mode === 'patient'): ?>
               <?php if ((string) ($step['instructor_note'] ?? '') !== ''): ?>
                 <div class="workshop-path-teacher">
@@ -434,4 +438,106 @@ function workshop_path_render(array $ctx, string $mode): string
 </div>
     <?php
     return (string) ob_get_clean();
+}
+
+function workshop_path_media_html(array $files, array $ctx): string
+{
+    $user = is_array($ctx['user'] ?? null) ? $ctx['user'] : [];
+    $watermark = (string) ($ctx['watermark'] ?? '');
+    $video = is_array($files['VIDEO'] ?? null) ? $files['VIDEO'] : null;
+    $audio = is_array($files['AUDIO'] ?? null) ? $files['AUDIO'] : null;
+    $pdf = is_array($files['PDF'] ?? null) ? $files['PDF'] : null;
+    if (!$video && !$audio && !$pdf) {
+        return '<p class="muted workshop-path-locked">برای این جلسه هنوز فایلی بارگذاری نشده است.</p>';
+    }
+
+    ob_start();
+    ?>
+<div class="workshop-path-media" data-offline-protect>
+  <?php if ($video): ?>
+    <div class="wm-video-box">
+      <video
+        controls
+        playsinline
+        preload="metadata"
+        controlsList="nodownload noplaybackrate noremoteplayback"
+        disablePictureInPicture
+        disableRemotePlayback
+        oncontextmenu="return false;"
+        src="<?= e(workshop_media_stream_url((string) $video['id'], $user)) ?>"
+      ></video>
+      <div class="wm-overlay" aria-hidden="true">
+        <?php for ($i = 0; $i < 15; $i++): ?>
+          <span><?= e($watermark) ?></span>
+        <?php endfor; ?>
+      </div>
+    </div>
+  <?php endif; ?>
+  <?php if ($audio): ?>
+    <div class="offline-audio-box" data-audio-id="<?= e((string) $audio['id']) ?>">
+      <p class="muted offline-audio-status" id="audio-status-<?= e((string) $audio['id']) ?>">برای پخش صوت، دکمه زیر را بزنید.</p>
+      <button type="button" class="btn btn-primary btn-sm audio-play-btn" data-audio-id="<?= e((string) $audio['id']) ?>">پخش صوت</button>
+      <audio
+        id="audio-<?= e((string) $audio['id']) ?>"
+        class="protected-audio"
+        controls
+        controlsList="nodownload noplaybackrate noremoteplayback"
+        preload="none"
+        oncontextmenu="return false;"
+        style="width:100%;margin-top:.5rem;display:none"
+      ></audio>
+      <p class="muted offline-audio-wm">واترمارک: <?= e($watermark) ?> — دانلود و ضبط صفحه غیرفعال است.</p>
+    </div>
+  <?php endif; ?>
+  <?php if ($pdf): ?>
+    <div class="wm-pdf-box">
+      <div class="wm-pdf-frame">
+        <iframe src="<?= e(workshop_media_stream_url((string) $pdf['id'], $user)) ?>" title="پی‌دی‌اف جلسه"></iframe>
+        <div class="wm-overlay" aria-hidden="true">
+          <?php for ($i = 0; $i < 12; $i++): ?>
+            <span><?= e($watermark) ?></span>
+          <?php endfor; ?>
+        </div>
+      </div>
+      <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">فقط مشاهده داخل پنل — دانلود پی‌دی‌اف بسته است. واترمارک: <?= e($watermark) ?></p>
+    </div>
+  <?php endif; ?>
+</div>
+    <?php
+    return (string) ob_get_clean();
+}
+
+function workshop_path_attach_media(array $ctx, array $sessionsWithMedia): array
+{
+    $byId = [];
+    foreach ($sessionsWithMedia as $session) {
+        if (!is_array($session)) {
+            continue;
+        }
+        $byId[(string) ($session['id'] ?? '')] = $session;
+    }
+    $steps = [];
+    foreach (($ctx['steps'] ?? []) as $step) {
+        if (!is_array($step)) {
+            continue;
+        }
+        $sid = (string) ($step['id'] ?? '');
+        $step['files'] = is_array($byId[$sid]['files'] ?? null) ? $byId[$sid]['files'] : [];
+        $steps[] = $step;
+    }
+    $ctx['steps'] = $steps;
+    $ctx['show_media'] = true;
+
+    return $ctx;
+}
+
+function workshop_offline_protect_script(array $audioStreams = []): string
+{
+    $json = json_encode($audioStreams, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if (!is_string($json)) {
+        $json = '{}';
+    }
+
+    return '<script src="' . e(url('/assets/js/workshop-offline-protect.js')) . '?v=20260907k"></script>'
+        . '<script>window.workshopOfflineAudioStreams=' . $json . ';if(window.workshopOfflineProtect){window.workshopOfflineProtect();}</script>';
 }

@@ -83,13 +83,13 @@ $emptyEnrollments = $emptyEnrollments ?? 'هنوز در کارگاهی از ای
               <a href="<?= e($navUri) ?>" class="btn btn-outline btn-sm enrollment-nav-btn">مسیر‌یابی</a>
             <?php endif; ?>
           <?php endif; ?>
-          <?php if ($confirmed && function_exists('workshop_path_url')): ?>
+          <?php if ($confirmed && ($e['type'] ?? '') === 'OFFLINE' && function_exists('workshop_path_url')): ?>
+            <a class="btn btn-primary btn-sm" href="<?= e(workshop_path_url((string) $e['id'])) ?>">ورود به دوره</a>
+          <?php elseif ($confirmed && function_exists('workshop_path_url')): ?>
             <a class="btn btn-primary btn-sm" href="<?= e(workshop_path_url((string) $e['id'])) ?>">مسیر دوره</a>
           <?php endif; ?>
-          <?php if ($confirmed && ($hasMedia || $e['type'] === 'OFFLINE')): ?>
-            <a class="btn btn-outline btn-sm" href="<?= e(workshop_media_course_url((string) $e['id'])) ?>">
-              <?= $e['type'] === 'OFFLINE' ? 'مشاهده محتوای آفلاین' : 'مشاهده ضبط جلسات' ?>
-            </a>
+          <?php if ($confirmed && ($e['type'] ?? '') !== 'OFFLINE' && $hasMedia): ?>
+            <a class="btn btn-outline btn-sm" href="<?= e(workshop_media_course_url((string) $e['id'])) ?>">مشاهده ضبط جلسات</a>
           <?php endif; ?>
           <?php if ($canManage && $e['status'] === 'CONFIRMED' && $e['type'] !== 'OFFLINE' && !workshop_refund_allowed($e['starts_at'])): ?>
             <span class="muted enrollment-refund-note">کمتر از ۲۴ ساعت مانده — بازگشت وجه نیست.</span>

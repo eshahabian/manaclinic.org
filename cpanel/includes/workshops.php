@@ -66,6 +66,8 @@ function ensure_workshop_schema(PDO $pdo): void
     ensure_workshop_session_notes_schema($pdo);
     require_once __DIR__ . '/workshop_path.php';
     ensure_workshop_path_notes_schema($pdo);
+    require_once __DIR__ . '/workshop_qa.php';
+    ensure_workshop_qa_schema($pdo);
     workshop_archive_expired($pdo);
 }
 
