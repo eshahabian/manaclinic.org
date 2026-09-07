@@ -72,6 +72,7 @@ if ($action === 'create') {
         ]);
 
         workshop_save_sessions_and_media($pdo, $id, $data, null);
+        workshop_store_banner_from_request($pdo, $id);
         $pdo->prepare('UPDATE workshops SET created_by_user_id=?, updated_by_user_id=? WHERE id=?')
             ->execute([$user['id'], $user['id'], $id]);
         $pdo->commit();
@@ -169,6 +170,7 @@ if ($action === 'update') {
             $id,
         ]);
         workshop_save_sessions_and_media($pdo, $id, $data, null);
+        workshop_store_banner_from_request($pdo, $id);
         $pdo->prepare('UPDATE workshops SET updated_by_user_id=? WHERE id=?')
             ->execute([$user['id'], $id]);
         $pdo->commit();

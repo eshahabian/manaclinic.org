@@ -334,8 +334,17 @@ ob_start();
   ?>
 
   <div>
-    <label class="label">توضیح کوتاه</label>
-    <textarea class="input" name="description" rows="2"><?= e((string) ($formData['description'] ?? '')) ?></textarea>
+    <label class="label">توضیح برای صفحه اول</label>
+    <textarea class="input" name="description" rows="4" placeholder="با کلیک روی بنر، این متن در پنجره توضیح دیده می‌شود"><?= e((string) ($formData['description'] ?? '')) ?></textarea>
+  </div>
+  <div>
+    <label class="label" for="workshop-banner">بنر تبلیغاتی صفحه اول</label>
+    <?php if (!empty($formData['banner_url'])): ?>
+      <p class="muted" style="font-size:.8rem;margin:0 0 .4rem">بنر فعلی روی صفحه اول نمایش داده می‌شود.</p>
+      <img src="<?= e(workshop_banner_src((string) $formData['banner_url'])) ?>" alt="" style="max-width:16rem;border-radius:.7rem;display:block;margin-bottom:.5rem">
+    <?php endif; ?>
+    <input class="input" type="file" name="banner" id="workshop-banner" accept="image/jpeg,image/png,image/webp">
+    <p class="muted" style="font-size:.8rem;margin:.35rem 0 0">jpg، png یا webp — اگر آپلود شود، فقط همین عکس در صفحه اول دیده می‌شود.</p>
   </div>
   <div>
     <label class="label">موارد همراه</label>

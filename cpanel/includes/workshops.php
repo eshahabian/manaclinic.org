@@ -142,6 +142,10 @@ function workshop_ensure_columns(PDO $pdo): void
     if (!$hasSessionInterval) {
         $pdo->exec("ALTER TABLE workshops ADD COLUMN session_interval ENUM('DAILY','WEEKLY','MONTHLY') NOT NULL DEFAULT 'DAILY' AFTER type");
     }
+    $hasBanner = $pdo->query("SHOW COLUMNS FROM workshops LIKE 'banner_url'")->fetch();
+    if (!$hasBanner) {
+        $pdo->exec('ALTER TABLE workshops ADD COLUMN banner_url VARCHAR(255) NULL AFTER description');
+    }
     $ready = true;
 }
 
@@ -1089,6 +1093,139 @@ function complete_workshop(PDO $pdo, string $workshopId, string $doctorProfileId
 
     $pdo->prepare("UPDATE workshops SET status='COMPLETED', enrollment_open=0 WHERE id=?")->execute([$workshopId]);
     return $settled;
+}
+
+function workshop_banner_storage_root(): string
+{
+    $root = dirname(__DIR__) . '/uploads/workshops';
+    if (!is_dir($root)) {
+        @mkdir($root, 0755, true);
+    }
+
+    return $root;
+}
+
+function workshop_banner_src(?string $path): string
+{
+    $path = trim((string) $path);
+    if ($path === '') {
+        return '';
+    }
+    if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+        return $path;
+    }
+
+    return url($path);
+}
+
+function workshop_delete_banner_file(?string $publicPath): void
+{
+    $publicPath = (string) $publicPath;
+    if ($publicPath === '' || !str_starts_with($publicPath, '/uploads/workshops/')) {
+        return;
+    }
+    $full = workshop_banner_storage_root() . '/' . basename($publicPath);
+    if (is_file($full)) {
+        @unlink($full);
+    }
+}
+
+function workshop_save_banner_upload(string $workshopId, array $file): string
+{
+    if (($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+        return '';
+    }
+    if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        throw new RuntimeException('آپلود بنر ناموفق بود.');
+    }
+    $mime = function_exists('article_detect_mime')
+        ? article_detect_mime((string) $file['tmp_name'])
+        : strtolower((string) ($file['type'] ?? ''));
+    $allowed = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+    if (($file['size'] ?? 0) > 6 * 1024 * 1024) {
+        throw new RuntimeException('حجم بنر حداکثر ۶ مگابایت باشد.');
+    }
+    if (!isset($allowed[$mime])) {
+        throw new RuntimeException('فرمت بنر باید jpg، png یا webp باشد.');
+    }
+    workshop_banner_storage_root();
+    $name = $workshopId . '-banner-' . substr(cuid(), 0, 8) . '.' . $allowed[$mime];
+    $dest = workshop_banner_storage_root() . '/' . $name;
+    if (!move_uploaded_file((string) $file['tmp_name'], $dest)) {
+        throw new RuntimeException('ذخیره بنر ناموفق بود.');
+    }
+
+    return '/uploads/workshops/' . $name;
+}
+
+function workshop_store_banner_from_request(PDO $pdo, string $workshopId): void
+{
+    $uploaded = workshop_save_banner_upload($workshopId, $_FILES['banner'] ?? []);
+    if ($uploaded === '') {
+        return;
+    }
+    $prev = $pdo->prepare('SELECT banner_url FROM workshops WHERE id=? LIMIT 1');
+    $prev->execute([$workshopId]);
+    $old = (string) ($prev->fetchColumn() ?: '');
+    $pdo->prepare('UPDATE workshops SET banner_url=? WHERE id=?')->execute([$uploaded, $workshopId]);
+    if ($old !== '' && $old !== $uploaded) {
+        workshop_delete_banner_file($old);
+    }
+}
+
+function workshop_promo_phase(array $workshop): string
+{
+    if (workshop_is_archived($workshop) || (string) ($workshop['status'] ?? '') === 'COMPLETED') {
+        return 'done';
+    }
+    if (workshop_is_offline((string) ($workshop['type'] ?? ''))) {
+        return 'ongoing';
+    }
+    $start = strtotime((string) ($workshop['starts_at'] ?? ''));
+    if ($start !== false && $start > time()) {
+        return 'upcoming';
+    }
+
+    return 'ongoing';
+}
+
+function workshop_promo_phase_label(string $phase): string
+{
+    return match ($phase) {
+        'done' => 'برگزار شده',
+        'ongoing' => 'در حال برگزاری',
+        default => 'به‌زودی',
+    };
+}
+
+function workshop_apply_url(string $workshopId): string
+{
+    return url('/workshops/apply?id=' . rawurlencode($workshopId));
+}
+
+function workshop_home_banners(PDO $pdo, int $limit = 8): array
+{
+    ensure_workshop_schema($pdo);
+    $limit = max(1, min(12, $limit));
+    $stmt = $pdo->query("
+      SELECT w.*, u.name AS doctor_name
+      FROM workshops w
+      " . workshop_active_doctor_join('w') . "
+      JOIN users u ON u.id = dp.user_id
+      WHERE w.is_published = 1
+        AND w.status IN ('PUBLISHED','COMPLETED')
+        AND w.banner_url IS NOT NULL AND w.banner_url != ''
+      ORDER BY
+        CASE
+          WHEN w.status = 'COMPLETED' OR (w.type <> 'OFFLINE' AND w.ends_at <= NOW()) THEN 2
+          WHEN w.type = 'OFFLINE' OR (w.starts_at <= NOW() AND w.ends_at >= NOW()) THEN 0
+          ELSE 1
+        END,
+        w.starts_at DESC
+      LIMIT {$limit}
+    ");
+
+    return $stmt ? $stmt->fetchAll() : [];
 }
 
 /** کارگاه تمام‌شده یا لغوشده در آرشیو دیده می‌شود */

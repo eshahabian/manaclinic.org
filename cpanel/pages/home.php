@@ -24,9 +24,10 @@ $leadArticle = $articles[0] ?? null;
 $moreArticles = array_slice($articles, 1);
 
 $pageTitle = 'خانه';
-$pageDescription = 'مانا کلینیک سعادت‌آباد؛ روانشناسی، روان‌درمانی، زوج‌درمانی و رزرو نوبت آنلاین. مقالات تخصصی و دستیار هوشمند سلامت روان.';
+$pageDescription = 'مانا کلینیک سعادت‌آباد؛ روانشناسی، روان‌درمانی، زوج‌درمانی، کارگاه و دوره آموزشی، رزرو نوبت آنلاین و دستیار هوشمند سلامت روان.';
 $pageCanonical = url('/');
-$pageKeywords = 'مانا کلینیک, روانشناس سعادت آباد, رزرو نوبت روانشناسی, زوج درمانی, مشاوره اضطراب, دکتر عطیه گارسچی';
+$pageKeywords = 'مانا کلینیک, روانشناس سعادت آباد, رزرو نوبت روانشناسی, کارگاه روانشناسی, زوج درمانی, مشاوره اضطراب';
+$workshopBanners = function_exists('workshop_home_banners') ? workshop_home_banners($pdo) : [];
 $heroSlides = [
     url('/assets/img/hero.png'),
     url('/assets/img/slide-1.png'),
@@ -82,6 +83,57 @@ ob_start();
         <?php endif; ?>
       </div>
 
+      <?php if ($workshopBanners): ?>
+      <section class="home-workshop-banners" id="home-workshop-banners" aria-labelledby="home-workshop-heading">
+        <div class="section-head">
+          <div>
+            <h2 id="home-workshop-heading">دوره‌ها و کارگاه‌ها</h2>
+            <p class="muted">بنر هر دوره را بزنید تا توضیح و ثبت‌نام را ببینید</p>
+          </div>
+        </div>
+        <div class="home-workshop-track">
+          <?php foreach ($workshopBanners as $promo): ?>
+            <?php
+              $phase = workshop_promo_phase($promo);
+              $when = workshop_is_offline((string) ($promo['type'] ?? ''))
+                  ? 'دوره آفلاین'
+                  : (format_workshop_datetime_fa((string) ($promo['starts_at'] ?? '')) . ' تا ' . format_workshop_datetime_fa((string) ($promo['ends_at'] ?? '')));
+              $meta = trim(workshop_type_label((string) ($promo['type'] ?? '')) . ' · ' . (string) ($promo['doctor_name'] ?? '') . ' · ' . $when);
+              $canApply = workshop_can_enroll($promo) && $phase !== 'done' && (string) ($promo['status'] ?? '') === 'PUBLISHED';
+            ?>
+            <button
+              type="button"
+              class="home-workshop-banner"
+              data-workshop-banner
+              data-title="<?= e((string) ($promo['title'] ?? '')) ?>"
+              data-description="<?= e((string) ($promo['description'] ?? '')) ?>"
+              data-meta="<?= e($meta) ?>"
+              data-apply="<?= e(workshop_apply_url((string) ($promo['id'] ?? ''))) ?>"
+              data-can-apply="<?= $canApply ? '1' : '0' ?>"
+            >
+              <img src="<?= e(workshop_banner_src((string) ($promo['banner_url'] ?? ''))) ?>" alt="<?= e((string) ($promo['title'] ?? 'بنر دوره')) ?>">
+              <span class="home-workshop-badge home-workshop-badge--<?= e($phase) ?>"><?= e(workshop_promo_phase_label($phase)) ?></span>
+            </button>
+          <?php endforeach; ?>
+        </div>
+      </section>
+
+      <div id="home-workshop-modal" class="home-workshop-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="home-workshop-modal-title">
+        <div class="home-workshop-modal-backdrop" data-workshop-close tabindex="-1"></div>
+        <div class="home-workshop-modal-panel">
+          <div class="home-workshop-modal-header">
+            <h2 id="home-workshop-modal-title"></h2>
+            <button type="button" class="home-workshop-modal-close" data-workshop-close aria-label="بستن">×</button>
+          </div>
+          <div class="home-workshop-modal-body" id="home-workshop-modal-body"></div>
+          <div class="home-workshop-modal-actions">
+            <a class="btn btn-primary" id="home-workshop-modal-cta" href="#">ثبت‌نام در دوره</a>
+            <button type="button" class="btn btn-outline" data-workshop-close>بستن</button>
+          </div>
+        </div>
+      </div>
+      <?php endif; ?>
+
       <?php if (function_exists('assistant_enabled') ? assistant_enabled() : true): ?>
       <a class="home-assistant-tile" href="<?= e(url('/assistant')) ?>">
         <span class="home-assistant-icon" aria-hidden="true">
@@ -131,6 +183,7 @@ ob_start();
 <?php
 $content = ob_get_clean();
 $pageScripts = '
+<script src="' . e(url('/assets/js/home-workshop-banners.js')) . '?v=20260908c"></script>
 <script>
 (function(){
   var root = document.getElementById("hero-slideshow");

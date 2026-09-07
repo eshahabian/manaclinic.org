@@ -50,6 +50,7 @@ if ($action === 'create') {
         ]);
 
         workshop_save_sessions_and_media($pdo, $id, $data, $ctx['profile']['id']);
+        workshop_store_banner_from_request($pdo, $id);
 
         $pdo->commit();
     } catch (Throwable $e) {
@@ -127,6 +128,7 @@ if ($action === 'update') {
         ]);
 
         workshop_save_sessions_and_media($pdo, $id, $data, $ctx['profile']['id']);
+        workshop_store_banner_from_request($pdo, $id);
 
         $pdo->commit();
     } catch (Throwable $e) {

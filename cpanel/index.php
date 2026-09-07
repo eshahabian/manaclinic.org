@@ -99,6 +99,7 @@ if ($method === 'GET' && !$isAssistantApi) {
 $routes = [
     'GET /' => 'pages/home.php',
     'GET /doctors' => 'pages/doctors.php',
+    'GET /workshops/apply' => 'pages/workshop_apply.php',
     'GET /articles' => 'pages/articles.php',
     'GET /sitemap.xml' => 'pages/sitemap.php',
     'GET /tests' => 'pages/tests.php',
