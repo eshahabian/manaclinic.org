@@ -237,50 +237,34 @@ select option {
 }
 .doctor-card {
   height: 100%;
-  min-height: 11.5rem;
+  min-height: 0;
   display: flex;
   flex-direction: column;
+  align-items: center;
+  text-align: center;
   box-sizing: border-box;
-  padding: .85rem;
+  padding: 1.25rem 1rem 1.35rem;
 }
-.doctor-card .avatar {
-  width: 38px;
-  height: 38px;
-  margin-bottom: .65rem;
-  font-size: .9rem;
+.doctor-card .avatar,
+.doctor-card-photo {
+  width: 92px;
+  height: 92px;
+  margin: 0 0 .85rem;
+  font-size: 1.35rem;
 }
 .doctor-card-name {
-  margin: .5rem 0 0;
-  font-size: .95rem;
-  line-height: 1.45;
-  height: calc(1.45em * 2);
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  margin: 0;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  font-weight: 700;
 }
 .doctor-card-specialty {
   color: var(--primary);
   margin: .25rem 0 0;
   font-size: .8rem;
   line-height: 1.45;
-  height: 1.45em;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
-.doctor-card-bio {
-  margin-top: .5rem;
-  margin-bottom: 0;
-  font-size: .8rem;
-  line-height: 1.7;
-  height: calc(1.7em * 2);
-  white-space: pre-wrap;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
+.doctor-card-bio { display: none; }
 .article-card-title {
   margin: .75rem 0 0;
   line-height: 1.7;
@@ -2596,3 +2580,130 @@ body.workshop-overview-locked { overflow: hidden; }
 }
 .secretary-add-patient { margin-top: 1rem; max-width: 44rem; }
 .form-draft-hint { color: var(--primary-dark); }
+
+.doctor-photo,
+.doctor-photo--fallback {
+  display: block;
+  object-fit: cover;
+  border-radius: 50%;
+  background: #e8f3ef;
+  color: #1a5c4a;
+  font-weight: 700;
+}
+.doctor-photo--fallback {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.doctor-chip-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  justify-content: center;
+  margin-top: .65rem;
+}
+.doctor-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: .22rem .6rem;
+  border-radius: 999px;
+  background: #eef6f3;
+  color: #1a5c4a;
+  font-size: .78rem;
+  line-height: 1.4;
+}
+.doctors-directory {
+  display: grid;
+  gap: 1rem;
+}
+@media (min-width: 768px) {
+  .doctors-directory { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+
+.doctor-public-profile { padding: 1.5rem; }
+.doctor-public-hero {
+  display: flex;
+  gap: 1.15rem;
+  align-items: center;
+}
+.doctor-public-photo {
+  width: 112px;
+  height: 112px;
+  flex: 0 0 112px;
+  font-size: 2rem;
+}
+.doctor-public-hero h1 { margin: 0; font-size: 1.65rem; line-height: 1.4; }
+.doctor-public-degree {
+  margin: .35rem 0 0;
+  color: var(--primary);
+  font-weight: 600;
+}
+.doctor-public-exp { margin: .25rem 0 0; color: var(--muted); font-size: .92rem; }
+.doctor-public-block { margin-top: 1.5rem; padding-top: 1.25rem; border-top: 1px solid var(--line, #e5e7eb); }
+.doctor-public-block h2 { margin: 0 0 .65rem; font-size: 1rem; }
+.doctor-public-block .doctor-chip-row { justify-content: flex-start; margin-top: 0; }
+.doctor-public-bio p { margin: .4rem 0; line-height: 1.9; color: #3d4f49; }
+.doctor-public-courses { margin: 0; padding-right: 1.1rem; line-height: 1.85; }
+.doctor-public-license { margin: 0; font-size: 1.05rem; letter-spacing: .02em; }
+
+.doc-profile-page { max-width: 46rem; }
+.doc-onboard-banner {
+  margin: .7rem 0 1.1rem;
+  padding: .85rem 1rem;
+  border-radius: .8rem;
+  background: #eef6f3;
+  color: #1a5c4a;
+  line-height: 1.7;
+}
+.doc-profile-form { display: grid; gap: 1rem; margin-top: 1rem; }
+.doc-profile-section h2 { margin: 0 0 .85rem; font-size: 1.05rem; }
+.doc-profile-grid {
+  display: grid;
+  gap: .85rem;
+}
+@media (min-width: 700px) {
+  .doc-profile-grid { grid-template-columns: 1fr 1fr; }
+}
+.doc-photo-field {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+.doc-photo-preview {
+  width: 96px;
+  height: 96px;
+  border-radius: 50%;
+  overflow: hidden;
+  background: #e8f3ef;
+  color: #1a5c4a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.6rem;
+  font-weight: 700;
+  flex: 0 0 96px;
+}
+.doc-photo-preview img { width: 100%; height: 100%; object-fit: cover; }
+.pick-grid { display: flex; flex-wrap: wrap; gap: .45rem; }
+.pick-chip {
+  display: inline-flex;
+  align-items: center;
+  cursor: pointer;
+}
+.pick-chip input { position: absolute; opacity: 0; pointer-events: none; }
+.pick-chip span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 34px;
+  padding: .3rem .75rem;
+  border-radius: 999px;
+  border: 1px solid rgba(26, 46, 40, .12);
+  background: #fff;
+  font-size: .86rem;
+  line-height: 1.4;
+}
+.pick-chip:has(input:checked) span {
+  background: #1a5c4a;
+  color: #fff;
+  border-color: #1a5c4a;
+}

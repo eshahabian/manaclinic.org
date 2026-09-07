@@ -7,11 +7,11 @@ if ($q !== '') {
       SELECT dp.*, u.name
       FROM doctor_profiles dp
       JOIN users u ON u.id = dp.user_id
-      WHERE dp.is_active = 1 AND dp.is_approved = 1 AND (dp.specialty LIKE ? OR dp.bio LIKE ? OR u.name LIKE ?)
+      WHERE dp.is_active = 1 AND dp.is_approved = 1 AND (dp.specialty LIKE ? OR dp.bio LIKE ? OR u.name LIKE ? OR dp.domains_json LIKE ? OR dp.focus_json LIKE ?)
       ORDER BY CASE WHEN u.name LIKE '%گرانمایه%' THEN 0 ELSE 1 END, dp.created_at ASC
     ");
     $like = '%' . $q . '%';
-    $stmt->execute([$like, $like, $like]);
+    $stmt->execute([$like, $like, $like, $like, $like]);
     $doctors = $stmt->fetchAll();
 } else {
     $doctors = $pdo->query("
@@ -24,7 +24,7 @@ if ($q !== '') {
 }
 
 $pageTitle = 'متخصصان';
-$pageDescription = 'لیست متخصصان مانا کلینیک؛ انتخاب روانشناس و رزرو نوبت آنلاین برای مشاوره فردی و زوج‌درمانی.';
+$pageDescription = 'روانشناسان مانا کلینیک سعادت‌آباد؛ انتخاب درمانگر بر اساس حوزه درمان و رزرو نوبت آنلاین.';
 $pageCanonical = url('/doctors');
 $pageKeywords = 'روانشناس, متخصص روانشناسی, رزرو نوبت, مانا کلینیک';
 $currentUser = current_user();
@@ -35,18 +35,11 @@ ob_start();
   <h1>متخصصان</h1>
   <p class="muted">متخصص مناسب خود را پیدا کنید و نوبت بگیرید</p>
   <form class="auth-box" style="margin-top:1.5rem;width:min(560px,100%)" method="get">
-    <input class="input" name="q" value="<?= e($q) ?>" placeholder="جستجو بر اساس نام یا تخصص...">
+    <input class="input" name="q" value="<?= e($q) ?>" placeholder="جستجو بر اساس نام یا حوزه درمان...">
   </form>
-  <div class="grid-2" style="margin-top:2rem">
+  <div class="doctors-directory" style="margin-top:2rem">
     <?php foreach ($doctors as $doc): ?>
-      <a class="panel card-link" href="<?= e(url('/doctors/' . $doc['id'])) ?>" style="display:flex;gap:1rem">
-        <div class="avatar" style="margin:0;width:64px;height:64px;flex-shrink:0"><?= e(mb_substr($doc['name'], 0, 1)) ?></div>
-        <div>
-          <h2 style="margin:0;font-size:1.25rem"><?= e($doc['name']) ?></h2>
-          <p style="color:var(--primary);margin:.35rem 0 0;font-size:.9rem"><?= e($doc['specialty']) ?></p>
-          <p class="muted line-clamp-3 whitespace-pre" style="font-size:.9rem;line-height:1.8;margin-top:.5rem"><?= e($doc['bio']) ?></p>
-        </div>
-      </a>
+      <?= doctor_card_html($doc) ?>
     <?php endforeach; ?>
     <?php if (!$doctors): ?><p class="muted">نتیجه‌ای یافت نشد.</p><?php endif; ?>
   </div>

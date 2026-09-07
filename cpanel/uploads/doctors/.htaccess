@@ -1,0 +1,8 @@
+<FilesMatch "\.(php|phar|phtml|php\d+)$">
+  Require all denied
+</FilesMatch>
+<IfModule !mod_authz_core.c>
+  <FilesMatch "\.(php|phar|phtml|php\d+)$">
+    Deny from all
+  </FilesMatch>
+</IfModule>

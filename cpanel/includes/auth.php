@@ -54,6 +54,12 @@ function require_login(?array $roles = null): array
             redirect('/change-password');
         }
     }
+    if (($user['role'] ?? '') === 'DOCTOR' && $pdo instanceof PDO && function_exists('doctor_must_complete_profile') && doctor_must_complete_profile($pdo, $user)) {
+        $profileAllowed = ['/doctor/profile', '/logout', '/change-password'];
+        if (!in_array($path ?? '', $profileAllowed, true)) {
+            redirect('/doctor/profile');
+        }
+    }
     if (($user['role'] ?? '') === 'SECRETARY' && $pdo instanceof PDO && function_exists('handover_pending_for')) {
         $pending = handover_pending_for($pdo, (string) $user['id']);
         if ($pending) {

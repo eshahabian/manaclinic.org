@@ -25,7 +25,7 @@ ob_start();
         <option value="DOCTOR" <?= $role === 'DOCTOR' ? 'selected' : '' ?>>درمانگر</option>
       </select>
       <?php if ($role === 'DOCTOR'): ?>
-        <p class="muted" style="font-size:.75rem;line-height:1.7;margin:.5rem 0 0">حساب درمانگر پس از بررسی و تأیید مدیر سایت فعال می‌شود.</p>
+        <p class="muted" style="font-size:.75rem;line-height:1.7;margin:.5rem 0 0">فقط نام، نام خانوادگی و نام کاربری کافی است. بقیه اطلاعات حرفه‌ای بعد از تأیید مدیر، در اولین ورود به پنل تکمیل می‌شود.</p>
       <?php endif; ?>
     </div>
 
@@ -34,37 +34,41 @@ ob_start();
         <label class="label" for="first_name">نام</label>
         <input class="input input-rtl" name="first_name" id="first_name" required dir="rtl" autocomplete="given-name" placeholder="نام">
       </div>
+      <?php if ($role !== 'DOCTOR'): ?>
       <div>
         <label class="label label-ltr" for="name_en">نام (انگلیسی)</label>
         <input class="input" name="name_en" id="name_en" required dir="ltr" lang="en" autocomplete="off" placeholder="name">
         <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">از دیتابیس نام‌ها و جستجوی آنلاین پیشنهاد می‌شود؛ در صورت نیاز ویرایش کنید.</p>
       </div>
+      <?php endif; ?>
       <div>
         <label class="label" for="last_name">نام خانوادگی</label>
         <input class="input input-rtl" name="last_name" id="last_name" required dir="rtl" autocomplete="family-name" placeholder="نام خانوادگی">
       </div>
+      <?php if ($role !== 'DOCTOR'): ?>
       <div>
         <label class="label label-ltr" for="surname">نام خانوادگی (انگلیسی)</label>
         <input class="input" name="surname" id="surname" required dir="ltr" lang="en" autocomplete="off" placeholder="surname">
         <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">از دیتابیس نام‌ها و جستجوی آنلاین پیشنهاد می‌شود؛ در صورت نیاز ویرایش کنید.</p>
       </div>
+      <?php endif; ?>
     </div>
 
     <div>
       <label class="label" for="username">نام کاربری</label>
-      <input class="input" name="username" id="username" required dir="ltr" readonly tabindex="-1" style="background:var(--bg-soft);cursor:default">
-      <p class="muted" id="username-hint" style="margin:.4rem 0 0;font-size:.8rem;line-height:1.6">با وارد کردن نام، به‌صورت خودکار ساخته می‌شود.</p>
+      <?php if ($role === 'DOCTOR'): ?>
+        <input class="input" name="username" id="username" required dir="ltr" autocomplete="username" placeholder="مثلاً shiva.geran">
+        <p class="muted" id="username-hint" style="margin:.4rem 0 0;font-size:.8rem;line-height:1.6">با حروف انگلیسی، عدد یا نقطه؛ حداقل ۳ کاراکتر.</p>
+      <?php else: ?>
+        <input class="input" name="username" id="username" required dir="ltr" readonly tabindex="-1" style="background:var(--bg-soft);cursor:default">
+        <p class="muted" id="username-hint" style="margin:.4rem 0 0;font-size:.8rem;line-height:1.6">با وارد کردن نام، به‌صورت خودکار ساخته می‌شود.</p>
+      <?php endif; ?>
     </div>
 
+    <?php if ($role !== 'DOCTOR'): ?>
     <div>
       <label class="label" for="phone">موبایل</label>
       <input class="input" name="phone" id="phone" required dir="ltr" inputmode="tel" autocomplete="tel" placeholder="مثلاً 0912... یا +1..." title="شماره ایران یا بین‌المللی">
-    </div>
-
-    <?php if ($role === 'DOCTOR'): ?>
-    <div>
-      <label class="label" for="specialty">تخصص</label>
-      <input class="input" name="specialty" id="specialty" required placeholder="مثلاً روان‌درمانی شناختی-رفتاری">
     </div>
     <?php endif; ?>
 
@@ -98,23 +102,26 @@ $pageScripts = '
   var userEl = document.getElementById("username");
   var passEl = document.getElementById("password");
   var passConfirmEl = document.getElementById("password_confirm");
+  var isDoctor = ' . json_encode($role === 'DOCTOR') . ';
 
-  bindNameTransliteration({
-    firstName: firstNameEl,
-    lastName: lastNameEl,
-    nameEn: nameEnEl,
-    surname: surnameEl,
-    username: userEl,
-    usernameHint: document.getElementById("username-hint"),
-    transliterateUrl: ' . json_encode(url('/api/transliterate-name')) . ',
-    nameDict: ' . json_encode($nameDict, JSON_UNESCAPED_UNICODE) . ',
-    usernameReadonly: true,
-    emptyHint: "با وارد کردن نام، به‌صورت خودکار ساخته می‌شود."
-  });
+  if (!isDoctor && nameEnEl && surnameEl && typeof bindNameTransliteration === "function") {
+    bindNameTransliteration({
+      firstName: firstNameEl,
+      lastName: lastNameEl,
+      nameEn: nameEnEl,
+      surname: surnameEl,
+      username: userEl,
+      usernameHint: document.getElementById("username-hint"),
+      transliterateUrl: ' . json_encode(url('/api/transliterate-name')) . ',
+      nameDict: ' . json_encode($nameDict, JSON_UNESCAPED_UNICODE) . ',
+      usernameReadonly: true,
+      emptyHint: "با وارد کردن نام، به‌صورت خودکار ساخته می‌شود."
+    });
+  }
 
   document.getElementById("register-form").addEventListener("submit", function(e){
     var phoneEl = document.getElementById("phone");
-    if (!nameEnEl.value.trim() || !surnameEl.value.trim()) {
+    if (!isDoctor && nameEnEl && surnameEl && (!nameEnEl.value.trim() || !surnameEl.value.trim())) {
       e.preventDefault();
       alert("فیلدهای انگلیسی نام و نام خانوادگی الزامی هستند.");
       (!nameEnEl.value.trim() ? nameEnEl : surnameEl).focus();
@@ -129,8 +136,8 @@ $pageScripts = '
     var user = userEl.value.trim().toLowerCase();
     if (!/^[a-z0-9._-]{3,32}$/.test(user)) {
       e.preventDefault();
-      alert("نام کاربری معتبر ساخته نشد. فیلدهای انگلیسی را بررسی کنید.");
-      nameEnEl.focus();
+      alert(isDoctor ? "نام کاربری را با حروف انگلیسی وارد کنید." : "نام کاربری معتبر ساخته نشد. فیلدهای انگلیسی را بررسی کنید.");
+      userEl.focus();
       return;
     }
     if (passEl.value.length < 6) {

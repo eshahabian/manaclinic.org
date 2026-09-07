@@ -29,7 +29,44 @@ $articles = $articles->fetchAll();
 
 $currentUser = current_user();
 $isPatientViewer = $currentUser && ($currentUser['role'] ?? '') === 'PATIENT';
-$pageTitle = $doctor['name'];
+$approaches = doctor_profile_filter_keys(doctor_profile_json_list($doctor['approaches_json'] ?? ''), doctor_approach_options());
+$domains = doctor_profile_filter_keys(doctor_profile_json_list($doctor['domains_json'] ?? ''), doctor_domain_options());
+$focus = doctor_profile_filter_keys(doctor_profile_json_list($doctor['focus_json'] ?? ''), doctor_focus_options());
+$degreeLabel = doctor_degree_label((string) ($doctor['degree'] ?? ''));
+$expLabel = doctor_experience_label(isset($doctor['started_year']) ? (int) $doctor['started_year'] : null);
+$courses = doctor_courses_list((string) ($doctor['courses'] ?? ''));
+$domainLine = doctor_domains_line($doctor);
+$bioExcerpt = trim((string) ($doctor['bio'] ?? ''));
+if (function_exists('mb_substr') && function_exists('mb_strlen') && mb_strlen($bioExcerpt) > 160) {
+    $bioExcerpt = mb_substr($bioExcerpt, 0, 157) . '…';
+} elseif (strlen($bioExcerpt) > 160) {
+    $bioExcerpt = substr($bioExcerpt, 0, 157) . '…';
+}
+$pageTitle = $doctor['name'] . ($degreeLabel !== '' ? ' — ' . $degreeLabel : ' — روانشناس');
+$pageDescription = $bioExcerpt !== ''
+    ? $bioExcerpt
+    : ($doctor['name'] . '، روانشناس مانا کلینیک سعادت‌آباد' . ($domainLine !== '' ? ' — ' . $domainLine : '') . '. رزرو نوبت آنلاین.');
+$pageCanonical = url('/doctors/' . $doctor['id']);
+$pageKeywords = $doctor['name'] . ', روانشناس سعادت آباد, مانا کلینیک' . ($domainLine !== '' ? ', ' . $domainLine : '');
+$pageImage = doctor_avatar_src($doctor['avatar_url'] ?? null) ?: null;
+if ($pageImage) {
+    $pageImage = seo_absolute_url($pageImage);
+}
+$pageOgType = 'profile';
+$pageJsonLd = [
+    '@type' => 'Person',
+    'name' => $doctor['name'],
+    'jobTitle' => $degreeLabel !== '' ? $degreeLabel : 'روانشناس',
+    'url' => seo_absolute_url($pageCanonical),
+    'worksFor' => ['@id' => seo_absolute_url('/') . '#clinic'],
+];
+if (!empty($pageImage)) {
+    $pageJsonLd['image'] = $pageImage;
+}
+$knows = doctor_profile_labels($focus, doctor_focus_options());
+if ($knows !== []) {
+    $pageJsonLd['knowsAbout'] = $knows;
+}
 $pageHead = '
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
 ';
@@ -39,22 +76,75 @@ ob_start();
 <div class="<?= $isPatientViewer ? 'section patient-panel-inner' : 'container-page section' ?>">
   <a href="<?= e(url('/doctors')) ?>" style="color:var(--primary);font-size:.9rem">← بازگشت به لیست</a>
   <div class="grid-2" style="margin-top:1.5rem;align-items:start">
-    <div class="panel">
-      <div style="display:flex;gap:1rem;align-items:start">
-        <div class="avatar" style="width:80px;height:80px;font-size:1.5rem;margin:0"><?= e(mb_substr($doctor['name'], 0, 1)) ?></div>
+    <div class="panel doctor-public-profile">
+      <div class="doctor-public-hero">
+        <?= doctor_photo_html($doctor, 'doctor-photo doctor-public-photo') ?>
         <div>
-          <h1 style="margin:0"><?= e($doctor['name']) ?></h1>
-          <p style="color:var(--primary);margin:.35rem 0 0"><?= e($doctor['specialty']) ?></p>
+          <h1><?= e($doctor['name']) ?></h1>
+          <?php if ($degreeLabel !== ''): ?>
+            <p class="doctor-public-degree"><?= e($degreeLabel) ?></p>
+          <?php endif; ?>
+          <?php if (!empty($doctor['started_year'])): ?>
+            <p class="doctor-public-exp"><?= e($expLabel) ?></p>
+          <?php endif; ?>
         </div>
       </div>
-      <div class="muted whitespace-pre" style="margin-top:1.5rem;line-height:1.9">
-        <?php foreach (preg_split("/\n+/", $doctor['bio']) as $line): ?>
-          <p style="margin:.35rem 0"><?= e($line) ?></p>
-        <?php endforeach; ?>
-      </div>
+
+      <?php if ($domains !== []): ?>
+        <div class="doctor-public-block">
+          <h2>حوزه درمان</h2>
+          <?= doctor_chips_html($domains, doctor_domain_options()) ?>
+        </div>
+      <?php endif; ?>
+
+      <?php if ($approaches !== []): ?>
+        <div class="doctor-public-block">
+          <h2>رویکرد درمانی</h2>
+          <?= doctor_chips_html($approaches, doctor_approach_options()) ?>
+        </div>
+      <?php endif; ?>
+
+      <?php if ($focus !== []): ?>
+        <div class="doctor-public-block">
+          <h2>زمینه تخصصی</h2>
+          <?= doctor_chips_html($focus, doctor_focus_options()) ?>
+        </div>
+      <?php endif; ?>
+
+      <?php if (trim((string) ($doctor['bio'] ?? '')) !== ''): ?>
+        <div class="doctor-public-block">
+          <h2>درباره من</h2>
+          <div class="doctor-public-bio">
+            <?php foreach (preg_split("/\n+/", (string) $doctor['bio']) as $line): ?>
+              <?php if (trim($line) !== ''): ?>
+                <p><?= e($line) ?></p>
+              <?php endif; ?>
+            <?php endforeach; ?>
+          </div>
+        </div>
+      <?php endif; ?>
+
+      <?php if ($courses !== []): ?>
+        <div class="doctor-public-block">
+          <h2>دوره‌های تخصصی</h2>
+          <ul class="doctor-public-courses">
+            <?php foreach ($courses as $course): ?>
+              <li><?= e($course) ?></li>
+            <?php endforeach; ?>
+          </ul>
+        </div>
+      <?php endif; ?>
+
+      <?php if (trim((string) ($doctor['license_no'] ?? '')) !== ''): ?>
+        <div class="doctor-public-block">
+          <h2>پروانه نظام</h2>
+          <p class="doctor-public-license" dir="ltr"><?= e((string) $doctor['license_no']) ?></p>
+        </div>
+      <?php endif; ?>
+
       <?php if ($articles): ?>
-        <div style="margin-top:2rem;border-top:1px solid var(--line);padding-top:1.5rem">
-          <h2 style="font-size:1.1rem">مقالات این متخصص</h2>
+        <div class="doctor-public-block">
+          <h2>مقالات این متخصص</h2>
           <ul class="stack">
             <?php foreach ($articles as $a): ?>
               <li><a href="<?= e(url('/articles/' . $a['slug'])) ?>" style="color:var(--primary)"><?= e($a['title']) ?></a></li>
@@ -233,5 +323,13 @@ $pageScripts = '
 </script>' . booking_terms_script('terms-accept', '#book-submit');
 $GLOBALS['pageHead'] = $pageHead;
 $GLOBALS['pageScripts'] = $pageScripts;
+$GLOBALS['pageDescription'] = $pageDescription;
+$GLOBALS['pageCanonical'] = $pageCanonical;
+$GLOBALS['pageKeywords'] = $pageKeywords;
+$GLOBALS['pageOgType'] = $pageOgType;
+$GLOBALS['pageJsonLd'] = $pageJsonLd;
+if (!empty($pageImage)) {
+    $GLOBALS['pageImage'] = $pageImage;
+}
 require_once __DIR__ . '/../includes/patient_panel.php';
 finish_patient_or_public_page($pageTitle, $content);

@@ -9,6 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['submit_register'])) 
 
 $firstName = trim(post('first_name'));
 $lastName = trim(post('last_name'));
+$role = post('role') === 'DOCTOR' ? 'DOCTOR' : 'PATIENT';
 $nameEn = trim(post('name_en'));
 $surname = trim(post('surname'));
 if ($nameEn === '' && $firstName !== '') {
@@ -19,21 +20,23 @@ if ($surname === '' && $lastName !== '') {
 }
 $name = trim($firstName . ' ' . $lastName);
 $username = mb_strtolower(post('username'));
-if ($username === '') {
+if ($username === '' && $role !== 'DOCTOR') {
     $base = username_base_from_names($nameEn, $surname, $firstName, $lastName);
     $username = unique_username($pdo, $base);
 }
-$phone = normalize_phone(post('phone'));
+$phone = $role === 'DOCTOR' ? '' : normalize_phone(post('phone'));
 $password = (string) ($_POST['password'] ?? '');
 $passwordConfirm = (string) ($_POST['password_confirm'] ?? '');
-$role = post('role') === 'DOCTOR' ? 'DOCTOR' : 'PATIENT';
-$specialty = post('specialty');
 
-if ($firstName === '' || $lastName === '' || $nameEn === '' || $surname === '' || $username === '' || $phone === '' || strlen($password) < 6) {
+if ($firstName === '' || $lastName === '' || $username === '' || strlen($password) < 6) {
+    flash_set('error', 'نام، نام خانوادگی، نام کاربری و رمز عبور الزامی است. رمز حداقل ۶ کاراکتر باشد.');
+    redirect('/register?role=' . $role);
+}
+if ($role !== 'DOCTOR' && ($nameEn === '' || $surname === '' || $phone === '')) {
     flash_set('error', 'همه فیلدها الزامی هستند. رمز حداقل ۶ کاراکتر باشد.');
     redirect('/register?role=' . $role);
 }
-if (!is_valid_phone($phone)) {
+if ($role !== 'DOCTOR' && !is_valid_phone($phone)) {
     flash_set('error', 'شماره موبایل معتبر نیست. شماره ایران یا بین‌المللی وارد کنید.');
     redirect('/register?role=' . $role);
 }
@@ -45,11 +48,14 @@ if (!preg_match('/^[a-z0-9._-]{3,32}$/', $username)) {
     flash_set('error', 'نام کاربری نامعتبر است.');
     redirect('/register?role=' . $role);
 }
-if ($role === 'DOCTOR' && $specialty === '') {
-    flash_set('error', 'برای ثبت‌نام به‌عنوان درمانگر، تخصص الزامی است.');
-    redirect('/register?role=DOCTOR');
+if ($role === 'DOCTOR') {
+    $taken = $pdo->prepare('SELECT id FROM users WHERE username=? LIMIT 1');
+    $taken->execute([$username]);
+    if ($taken->fetch()) {
+        flash_set('error', 'این نام کاربری قبلاً استفاده شده است.');
+        redirect('/register?role=DOCTOR');
+    }
 }
-
 throttle_guard_page('register', 6, 600, '/register?role=' . $role, 'ثبت‌نام‌های پشت‌سرهم زیاد بود. چند دقیقه بعد دوباره تلاش کنید.');
 throttle_hit('register', 600);
 
@@ -68,7 +74,7 @@ if ($role === 'DOCTOR') {
     $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,preferred_doctor_id,must_change_password) VALUES (?,?,?,?,?,?,?,?,0)')
         ->execute([$id, $username, $name, $email, $phone, password_hash($password, PASSWORD_DEFAULT), 'DOCTOR', null]);
     $pdo->prepare('INSERT INTO doctor_profiles (id,user_id,specialty,bio,session_price,is_approved,is_active) VALUES (?,?,?,?,?,?,?)')
-        ->execute([cuid(), $id, $specialty, '', 3000000, 0, 0]);
+        ->execute([cuid(), $id, '', '', 3000000, 0, 0]);
     ensure_wallet($pdo, $id);
     remember_registration_name_transliterations($pdo, $firstName, $lastName, $nameEn, $surname);
     flash_set('success', 'درخواست ثبت‌نام شما ثبت شد. پس از تأیید مدیر سایت می‌توانید وارد شوید.');

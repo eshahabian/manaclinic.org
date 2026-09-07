@@ -60,8 +60,10 @@ require_once __DIR__ . '/includes/articles.php';
 require_once __DIR__ . '/includes/handover.php';
 require_once __DIR__ . '/includes/user_cleanup.php';
 require_once __DIR__ . '/includes/seo.php';
+require_once __DIR__ . '/includes/doctor_profile_fields.php';
 
 $pdo = db_connect($config);
+ensure_doctor_profile_schema($pdo);
 ensure_workshop_schema($pdo);
 ensure_workshop_media_schema($pdo);
 ensure_articles_schema($pdo);

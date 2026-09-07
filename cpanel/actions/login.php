@@ -40,6 +40,11 @@ if (!empty($user['must_change_password'])) {
     redirect('/change-password');
 }
 
+if (($user['role'] ?? '') === 'DOCTOR' && function_exists('doctor_must_complete_profile') && doctor_must_complete_profile($pdo, current_user() ?? $user)) {
+    flash_set('info', 'برای ورود به پنل، پروفایل حرفه‌ای را کامل کنید.');
+    redirect('/doctor/profile');
+}
+
 if ($next && str_starts_with($next, '/')) {
     redirect($next);
 }

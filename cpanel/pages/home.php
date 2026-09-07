@@ -71,12 +71,7 @@ ob_start();
         </div>
         <div class="doctors-showcase">
           <?php foreach ($doctors as $doc): ?>
-            <a class="panel card-link doctor-card" href="<?= e(url('/doctors/' . $doc['id'])) ?>">
-              <div class="avatar"><?= e(mb_substr($doc['name'], 0, 1)) ?></div>
-              <h3 class="doctor-card-name"><?= e($doc['name']) ?></h3>
-              <p class="doctor-card-specialty"><?= e($doc['specialty']) ?></p>
-              <p class="muted doctor-card-bio"><?= e($doc['bio']) ?></p>
-            </a>
+            <?= doctor_card_html($doc) ?>
           <?php endforeach; ?>
           <?php if (!$doctors): ?><p class="muted">هنوز متخصصی ثبت نشده است.</p><?php endif; ?>
         </div>
