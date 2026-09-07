@@ -456,6 +456,33 @@ function staff_rows_seconds_split(array $rows): array
     return $out;
 }
 
+/** اولین ورود، آخرین خروج و باز بودن شیفت در یک روز */
+function staff_day_presence_meta(array $rows): array
+{
+    $firstIn = null;
+    $lastOut = null;
+    $open = false;
+    foreach ($rows as $row) {
+        $started = trim((string) ($row['started_at'] ?? ''));
+        if ($started !== '' && ($firstIn === null || strcmp($started, $firstIn) < 0)) {
+            $firstIn = $started;
+        }
+        $ended = trim((string) ($row['ended_at'] ?? ''));
+        if ($ended === '') {
+            $open = true;
+        } elseif ($lastOut === null || strcmp($ended, $lastOut) > 0) {
+            $lastOut = $ended;
+        }
+    }
+
+    return [
+        'first_in' => $firstIn,
+        'last_out' => $lastOut,
+        'open' => $open,
+        'count' => count($rows),
+    ];
+}
+
 function staff_format_split_line(array $split, bool $alwaysOvertime = false): string
 {
     $line = 'عادی: ' . staff_format_duration((int) ($split['regular'] ?? 0));

@@ -17,7 +17,7 @@ function staff_hours_render(array $slots, array $opts = []): string
     ob_start();
     ?>
 <h1>ساعت کاری منشی‌ها</h1>
-<p class="muted">ساعت عادی منشی از ۹ صبح تا ۸ شب است؛ خارج از این بازه اضافه‌کار حساب می‌شود. روزهایی که منشی حاضر نبوده در تب‌ها دیده نمی‌شود.</p>
+<p class="muted">ساعت عادی منشی از ۹ صبح تا ۸ شب است؛ خارج از این بازه اضافه‌کار حساب می‌شود. برای هر روز انتخابی، ساعت ورود، خروج و جمع حضور دیده می‌شود؛ جزئیات ورود و خروج‌ها پشت «بیشتر» است. روزهایی که منشی حاضر نبوده در تب‌ها دیده نمی‌شود.</p>
 
 <div class="staff-hours-toolbar">
   <div class="staff-hours-export">
@@ -175,6 +175,85 @@ function staff_hours_render(array $slots, array $opts = []): string
     return (string) ob_get_clean();
 }
 
+function staff_hours_format_clock(?string $datetime, string $empty = '—'): string
+{
+    if ($datetime === null || trim($datetime) === '') {
+        return $empty;
+    }
+
+    return format_fa_time($datetime);
+}
+
+function staff_hours_render_shift_lines(array $rows, bool $isToday = false): string
+{
+    if ($rows === []) {
+        return '';
+    }
+
+    ob_start();
+    ?>
+    <ol class="staff-shift-lines">
+      <?php foreach ($rows as $i => $row): ?>
+        <li>
+          <strong>ورود <?= e(to_fa_digits((string) ($i + 1))) ?></strong>
+          از <?= e(format_fa_datetime((string) $row['started_at'])) ?>
+          تا <?= !empty($row['ended_at']) ? e(format_fa_datetime((string) $row['ended_at'])) : ($isToday ? 'الان' : '— هنوز باز') ?>
+          · <?= e(staff_format_duration(staff_shift_seconds($row))) ?>
+          · <?= e(staff_format_split_line(staff_shift_seconds_split($row))) ?>
+          · <?= e(staff_shift_reason_label($row['end_reason'] ?? null)) ?>
+        </li>
+      <?php endforeach; ?>
+    </ol>
+    <?php
+    return (string) ob_get_clean();
+}
+
+function staff_hours_render_day_presence(array $rows, array $opts = []): string
+{
+    $isToday = !empty($opts['is_today']);
+    if ($rows === []) {
+        $empty = (string) ($opts['empty'] ?? ($isToday ? 'هنوز ورودی برای امروز نیست.' : 'در این روز حضوری ثبت نشده.'));
+
+        return '<p class="muted">' . e($empty) . '</p>';
+    }
+
+    $split = staff_rows_seconds_split($rows);
+    $meta = staff_day_presence_meta($rows);
+    $outClock = !empty($meta['open'])
+        ? ($isToday ? 'الان' : '— هنوز باز')
+        : staff_hours_format_clock($meta['last_out'] ?? null);
+    $count = (int) ($meta['count'] ?? 0);
+    $moreLabel = $count > 1
+        ? 'بیشتر · ' . to_fa_digits((string) $count) . ' ورود و خروج'
+        : 'بیشتر';
+
+    ob_start();
+    ?>
+    <div class="staff-presence">
+      <div class="staff-presence-summary">
+        <div class="staff-presence-stat">
+          <span class="staff-presence-label">ساعت ورود</span>
+          <span class="staff-presence-value"><?= e(staff_hours_format_clock($meta['first_in'] ?? null)) ?></span>
+        </div>
+        <div class="staff-presence-stat">
+          <span class="staff-presence-label">ساعت خروج</span>
+          <span class="staff-presence-value"><?= e($outClock) ?></span>
+        </div>
+        <div class="staff-presence-stat">
+          <span class="staff-presence-label">زمان حضور</span>
+          <span class="staff-presence-value"><?= e(staff_format_duration((int) ($split['total'] ?? 0))) ?></span>
+        </div>
+      </div>
+      <p class="staff-presence-split muted"><?= e(staff_format_split_line($split, true)) ?></p>
+      <details class="staff-presence-more">
+        <summary><?= e($moreLabel) ?></summary>
+        <?= staff_hours_render_shift_lines($rows, $isToday) ?>
+      </details>
+    </div>
+    <?php
+    return (string) ob_get_clean();
+}
+
 function staff_hours_render_tile(array $block, string $dayDate, string $today): string
 {
     $sec = $block['user'] ?? [];
@@ -186,8 +265,6 @@ function staff_hours_render_tile(array $block, string $dayDate, string $today): 
         $dayRows = $day['items'];
     }
     $dayReport = $block['reports_by_date'][$dayDate] ?? null;
-    $daySplit = staff_rows_seconds_split($dayRows);
-    $daySeconds = (int) $daySplit['total'];
     $parts = jalali_day_parts($dayDate . ' 12:00:00');
 
     ob_start();
@@ -198,9 +275,6 @@ function staff_hours_render_tile(array $block, string $dayDate, string $today): 
         <strong><?= e($label) ?></strong>
         <div class="muted" style="font-size:.85rem;margin-top:.25rem">
           <?= e((string) ($parts['label'] ?? $dayDate)) ?>
-          · حضور: <?= e(staff_format_duration($daySeconds)) ?>
-          · <?= e(staff_format_split_line($daySplit, true)) ?>
-          · <?= e(to_fa_digits((string) count($dayRows))) ?> بار ورود
         </div>
       </div>
       <?php if ($isToday && $block['open']): ?>
@@ -210,33 +284,13 @@ function staff_hours_render_tile(array $block, string $dayDate, string $today): 
       <?php endif; ?>
     </div>
 
-    <?php if ($dayRows): ?>
-      <div>
-        <h3 class="appt-day-title" style="margin-bottom:.45rem"><?= $isToday ? 'ورودهای امروز' : 'ساعت حضور' ?></h3>
-        <ol class="staff-shift-lines">
-          <?php foreach ($dayRows as $i => $row): ?>
-            <li>
-              <strong>ورود <?= e(to_fa_digits((string) ($i + 1))) ?></strong>
-              از <?= e(format_fa_datetime((string) $row['started_at'])) ?>
-              تا <?= !empty($row['ended_at']) ? e(format_fa_datetime((string) $row['ended_at'])) : ($isToday ? 'الان' : '— هنوز باز') ?>
-              · <?= e(staff_format_duration(staff_shift_seconds($row))) ?>
-              · <?= e(staff_format_split_line(staff_shift_seconds_split($row))) ?>
-              · <?= e(staff_shift_reason_label($row['end_reason'] ?? null)) ?>
-            </li>
-          <?php endforeach; ?>
-        </ol>
-      </div>
-    <?php endif; ?>
+    <?= staff_hours_render_day_presence($dayRows, ['is_today' => $isToday]) ?>
 
     <?php if ($dayReport): ?>
       <div class="staff-day-report">
         <strong><?= $isToday ? 'گزارش پایان امروز' : 'گزارش کار' ?></strong>
         <p><?= nl2br(e((string) $dayReport['body'])) ?></p>
       </div>
-    <?php endif; ?>
-
-    <?php if (!$dayRows && !$dayReport): ?>
-      <p class="muted">در این روز حضوری ثبت نشده.</p>
     <?php endif; ?>
   </div>
     <?php

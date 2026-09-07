@@ -1941,6 +1941,57 @@ html[dir="ltr"] .binder-body {
   line-height: 1.7;
   font-size: .92rem;
 }
+.staff-presence-summary {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .65rem;
+  margin: .35rem 0 .55rem;
+}
+.staff-presence-stat {
+  background: var(--bg-soft);
+  border-radius: .7rem;
+  padding: .7rem .75rem;
+  text-align: center;
+}
+.staff-presence-label {
+  display: block;
+  font-size: .78rem;
+  color: var(--muted, #6b7280);
+  margin-bottom: .2rem;
+}
+.staff-presence-value {
+  display: block;
+  font-weight: 700;
+  font-size: 1.05rem;
+  line-height: 1.5;
+}
+.staff-presence-split {
+  margin: 0 0 .45rem;
+  font-size: .85rem;
+  line-height: 1.6;
+}
+.staff-presence-more {
+  margin-top: .15rem;
+}
+.staff-presence-more > summary {
+  cursor: pointer;
+  color: var(--primary);
+  font-weight: 600;
+  font-size: .92rem;
+  list-style: none;
+  user-select: none;
+}
+.staff-presence-more > summary::-webkit-details-marker {
+  display: none;
+}
+.staff-presence-more[open] > summary {
+  margin-bottom: .55rem;
+}
+@media (max-width: 640px) {
+  .staff-presence-summary {
+    grid-template-columns: 1fr;
+  }
+}
 .staff-day-block {
   padding: .65rem 0;
   border-bottom: 1px dashed var(--line);

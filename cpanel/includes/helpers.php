@@ -129,6 +129,16 @@ function format_fa_datetime(string $datetime): string
     return to_fa_digits(sprintf('%04d/%02d/%02d %s', $jy, $jm, $jd, date('H:i', $ts)));
 }
 
+function format_fa_time(string $datetime): string
+{
+    $ts = strtotime($datetime);
+    if (!$ts) {
+        return to_fa_digits($datetime);
+    }
+
+    return to_fa_digits(date('H:i', $ts));
+}
+
 /** تاریخ و ساعت کارگاه با تقویم شمسی */
 function format_workshop_datetime_fa(string $datetime): string
 {
