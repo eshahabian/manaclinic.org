@@ -1066,7 +1066,7 @@ a.doctor-dash-stat:hover {
 .date-chip:hover { border-color: var(--primary); }
 
 /* تقویم شمسی jalaliDatepicker */
-jdp-container, .jdp-container, [class*="jdp"] {
+jdp-container, .jdp-container, .jdp-overlay {
   font-family: Vazirmatn, Tahoma, sans-serif !important;
   z-index: 100000 !important;
 }

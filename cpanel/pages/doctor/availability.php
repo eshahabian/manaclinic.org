@@ -20,14 +20,13 @@ foreach ($items as $item) {
 
 ob_start();
 ?>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
 <h1>روزهای خالی</h1>
-<p class="muted">تاریخ را انتخاب کنید و ساعت‌های خالی را از ۶ صبح همان روز تا ۶ صبح فردا مشخص کنید.</p>
+<p class="muted">روی فیلد تاریخ بزنید تا تقویم شمسی باز شود؛ بعد ساعت‌های خالی را از ۶ صبح همان روز تا ۶ صبح فردا مشخص کنید.</p>
 <form class="panel form-stack" method="post" action="<?= e(url('/doctor/availability')) ?>" style="margin-top:1rem;max-width:40rem">
   <input type="hidden" name="action" value="save">
   <div>
-    <label class="label">تاریخ (شمسی)</label>
-    <input class="input" type="text" id="avail-date-view" name="date_jalali" data-jdp data-jdp-only-date autocomplete="off" readonly required placeholder="انتخاب تاریخ">
+    <label class="label" for="avail-date-view">تاریخ (شمسی)</label>
+    <input class="input" type="text" id="avail-date-view" name="date_jalali" data-jdp data-jdp-only-date autocomplete="off" readonly required placeholder="کلیک کنید تا تقویم باز شود" style="cursor:pointer">
     <input type="hidden" name="date" id="avail-date" value="">
   </div>
   <div>
@@ -75,6 +74,10 @@ ob_start();
     </div>
   <?php endforeach; ?>
 </div>
+<?php
+$inner = ob_get_clean();
+$pageHead = '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">';
+$pageScripts = '
 <script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
 <script>
@@ -83,6 +86,7 @@ ob_start();
   function pad(n){ return (n < 10 ? "0" : "") + n; }
   var view = document.getElementById("avail-date-view");
   var hidden = document.getElementById("avail-date");
+  if (!view || !hidden) return;
   var months = ["","فروردین","اردیبهشت","خرداد","تیر","مرداد","شهریور","مهر","آبان","آذر","دی","بهمن","اسفند"];
   function toFa(n){ return String(n).replace(/[0-9]/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹"[d]; }); }
   function jalaliShort(gy, gm, gd){
@@ -109,7 +113,7 @@ ob_start();
   function applySavedHours(){
     if (!hidden.value || hidden.value === lastAppliedDate) return;
     lastAppliedDate = hidden.value;
-    var boxes = document.querySelectorAll(\'#hour-picker input[name="hours[]"]\');
+    var boxes = document.querySelectorAll("#hour-picker input[type=checkbox]");
     var saved = savedHoursByDate[hidden.value];
     if (!saved || !saved.length) {
       boxes.forEach(function(cb){ cb.checked = true; });
@@ -128,25 +132,29 @@ ob_start();
     fillHourDates();
     if (loadSaved) applySavedHours();
   }
-  jalaliDatepicker.startWatch({
-    selector: "#avail-date-view",
-    time: false,
-    hideAfterChange: true,
-    autoReadOnlyInput: true,
-    zIndex: 99999
-  });
+  if (window.jalaliDatepicker && typeof jalaliDatepicker.startWatch === "function") {
+    jalaliDatepicker.startWatch({
+      selector: "#avail-date-view",
+      time: false,
+      hideAfterChange: true,
+      autoReadOnlyInput: true,
+      showTodayBtn: true,
+      zIndex: 100000,
+      container: "body"
+    });
+  }
   view.addEventListener("jdp:change", function(){ sync(true); });
   view.addEventListener("change", function(){ sync(true); });
   var selectAllBtn = document.getElementById("select-all-hours");
   var clearAllBtn = document.getElementById("clear-all-hours");
   if (selectAllBtn) {
     selectAllBtn.addEventListener("click", function(){
-      document.querySelectorAll('#hour-picker input[name="hours[]"]').forEach(function(cb){ cb.checked = true; });
+      document.querySelectorAll("#hour-picker input[type=checkbox]").forEach(function(cb){ cb.checked = true; });
     });
   }
   if (clearAllBtn) {
     clearAllBtn.addEventListener("click", function(){
-      document.querySelectorAll('#hour-picker input[name="hours[]"]').forEach(function(cb){ cb.checked = false; });
+      document.querySelectorAll("#hour-picker input[type=checkbox]").forEach(function(cb){ cb.checked = false; });
     });
   }
 
@@ -157,7 +165,7 @@ ob_start();
       alert("تاریخ را انتخاب کنید");
       return;
     }
-    var checked = document.querySelectorAll('#hour-picker input[name="hours[]"]:checked');
+    var checked = document.querySelectorAll("#hour-picker input[type=checkbox]:checked");
     if (!checked.length) {
       e.preventDefault();
       alert("حداقل یک ساعت خالی انتخاب کنید.");
@@ -165,5 +173,5 @@ ob_start();
   });
 })();
 </script>
-<?php
-render_doctor_page('روزهای خالی', ob_get_clean());
+';
+render_doctor_page('روزهای خالی', $inner);
