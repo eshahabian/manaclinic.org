@@ -191,9 +191,25 @@ function doctor_profile_is_complete(array $row): bool
         && $bioLen >= 20;
 }
 
+function doctor_is_shiva(?array $user): bool
+{
+    if (!$user) {
+        return false;
+    }
+    $username = strtolower(trim((string) ($user['username'] ?? '')));
+    if (in_array($username, ['shgeranmaye', 'doctor'], true)) {
+        return true;
+    }
+
+    return str_contains((string) ($user['name'] ?? ''), 'گرانمایه');
+}
+
 function doctor_must_complete_profile(PDO $pdo, array $user): bool
 {
     if (($user['role'] ?? '') !== 'DOCTOR') {
+        return false;
+    }
+    if (doctor_is_shiva($user)) {
         return false;
     }
     static $cache = [];

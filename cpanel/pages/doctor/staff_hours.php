@@ -13,7 +13,7 @@ try {
     require_once __DIR__ . '/../../includes/staff_hours_ui.php';
     $slots = staff_hours_collect($pdo);
     $html = staff_hours_render(is_array($slots) ? $slots : [], [
-        'can_rename' => (($ctx['user']['role'] ?? '') === 'DOCTOR'),
+        'can_rename' => (($ctx['user']['role'] ?? '') === 'DOCTOR' || !empty($ctx['admin_mode'])),
         'rename_action' => '/doctor/staff-hours',
         'export_base' => '/doctor/staff-hours-export',
     ]);

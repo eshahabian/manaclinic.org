@@ -64,7 +64,7 @@ if ($action === 'create') {
     workshop_notify_other_doctors(
         $pdo,
         $ctx['profile']['id'],
-        $ctx['user']['name'],
+        doctor_ctx_user_name($ctx),
         $data['title'],
         $data['type'],
         $data['starts_at']
@@ -170,7 +170,7 @@ if ($action === 'toggle') {
         workshop_notify_other_doctors(
             $pdo,
             $ctx['profile']['id'],
-            $ctx['user']['name'],
+            doctor_ctx_user_name($ctx),
             (string) $workshopRow['title'],
             (string) $workshopRow['type'],
             (string) $workshopRow['starts_at']

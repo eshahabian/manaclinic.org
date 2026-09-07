@@ -44,7 +44,11 @@ if ($avatarUrl === '') {
 $specialty = implode('، ', doctor_profile_labels($domains, doctor_domain_options()));
 $completed = 1;
 
-$pdo->prepare('UPDATE users SET name=? WHERE id=?')->execute([$name, $ctx['user']['id']]);
+$ownerId = doctor_ctx_user_id($ctx) ?: (string) ($p['user_id'] ?? $ctx['user']['id'] ?? '');
+$pdo->prepare('UPDATE users SET name=? WHERE id=?')->execute([$name, $ownerId]);
+if (empty($ctx['admin_mode']) && $ownerId === (string) ($ctx['user']['id'] ?? '')) {
+    $_SESSION['user']['name'] = $name;
+}
 $pdo->prepare('
   UPDATE doctor_profiles
   SET specialty=?, bio=?, avatar_url=?, session_price=?,
@@ -66,6 +70,5 @@ $pdo->prepare('
     $completed,
     $p['id'],
 ]);
-$_SESSION['user']['name'] = $name;
 flash_set('success', 'پروفایل ذخیره شد.');
 redirect('/doctor/profile');

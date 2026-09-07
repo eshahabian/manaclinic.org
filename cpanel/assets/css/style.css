@@ -2815,6 +2815,20 @@ body.workshop-overview-locked { overflow: hidden; }
   color: #1a5c4a;
   line-height: 1.7;
 }
+.doc-onboard-banner a { color: var(--primary); font-weight: 700; }
+.doc-admin-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .65rem;
+  margin: 0 0 1rem;
+  padding: .75rem 1rem;
+  border-radius: .8rem;
+  background: #fff8ef;
+  border: 1px solid #ead9c4;
+}
+.doc-admin-switcher label { font-weight: 700; color: #7a4e22; }
+.doc-admin-switcher .input { max-width: 18rem; }
 .doc-profile-form { display: grid; gap: 1rem; margin-top: 1rem; }
 .doc-profile-section h2 { margin: 0 0 .85rem; font-size: 1.05rem; }
 .doc-profile-grid {

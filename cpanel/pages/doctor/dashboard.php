@@ -7,7 +7,7 @@ require_once __DIR__ . '/../../includes/workshops.php';
 
 $ctx = require_doctor_profile($pdo);
 $doctorId = (string) $ctx['profile']['id'];
-$userId = (string) $ctx['user']['id'];
+$userId = doctor_ctx_user_id($ctx);
 
 ensure_assistant_schema($pdo);
 ensure_workshop_schema($pdo);
@@ -91,7 +91,7 @@ ob_start();
 <div class="doctor-dash">
   <header class="doctor-dash-head">
     <div>
-      <h1>سلام، <?= e($ctx['user']['name']) ?></h1>
+      <h1>سلام، <?= e(doctor_ctx_user_name($ctx)) ?></h1>
       <p class="muted">خلاصه کار امروز — از تب بالا بین گفتگوها، نوبت‌ها و کارگاه‌ها جابه‌جا شوید.</p>
     </div>
     <?php if ($unreadCount > 0): ?>

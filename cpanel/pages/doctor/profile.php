@@ -13,7 +13,9 @@ ob_start();
 ?>
 <div class="doc-profile-page">
   <h1><?= $incomplete ? 'تکمیل پروفایل حرفه‌ای' : 'پروفایل حرفه‌ای' ?></h1>
-  <?php if ($incomplete): ?>
+  <?php if ($incomplete && function_exists('doctor_is_shiva') && doctor_is_shiva($ctx['user'] ?? null)): ?>
+    <p class="doc-onboard-banner">پروفایل را تکمیل کنید.</p>
+  <?php elseif ($incomplete): ?>
     <p class="doc-onboard-banner">برای ورود به بقیه پنل، این موارد را کامل کنید. همه فیلدها الزامی است.</p>
   <?php else: ?>
     <p class="muted" style="margin-top:.35rem;line-height:1.7">همین اطلاعات در صفحه عمومی شما دیده می‌شود.</p>

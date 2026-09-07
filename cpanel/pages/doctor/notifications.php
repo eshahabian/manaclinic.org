@@ -4,7 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../includes/doctor_panel.php';
 
 $ctx = require_doctor_profile($pdo);
-$userId = (string) $ctx['user']['id'];
+$userId = doctor_ctx_user_id($ctx);
 
 $kind = trim((string) ($_GET['kind'] ?? 'assistant'));
 if (!in_array($kind, ['assistant', 'other'], true)) {

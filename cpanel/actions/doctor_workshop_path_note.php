@@ -36,7 +36,7 @@ try {
         $sessionId,
         'instructor',
         post('body'),
-        (string) ($ctx['user']['id'] ?? '')
+        doctor_ctx_user_id($ctx)
     );
     flash_set('success', 'یادداشت خصوصی ذخیره شد.');
 } catch (RuntimeException $e) {

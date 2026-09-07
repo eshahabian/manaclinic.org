@@ -7,8 +7,8 @@ $ctx = require_doctor_profile($pdo);
 if (!doctor_can_view_staff_hours($ctx['user'] ?? null)) {
     redirect('/doctor');
 }
-if (($ctx['user']['role'] ?? '') !== 'DOCTOR') {
-    flash_set('error', 'فقط دکتر می‌تواند نام منشی‌ها را عوض کند.');
+if (($ctx['user']['role'] ?? '') !== 'DOCTOR' && empty($ctx['admin_mode'])) {
+    flash_set('error', 'فقط دکتر یا مدیر می‌تواند نام منشی‌ها را عوض کند.');
     redirect('/doctor/staff-hours');
 }
 csrf_verify();

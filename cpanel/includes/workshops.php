@@ -1128,7 +1128,10 @@ function workshop_designed_banner_file(array $workshop): string
         return 'couples.jpg';
     }
     if (preg_match('/MBSR|مایند|mindful|استرس|اضطراب|آرامش|ذهن|مدیتیشن|آگاه|تنظیم هیجان/iu', $title)) {
-        return 'mind.jpg';
+        $id = (string) ($workshop['id'] ?? '');
+        $pick = ['mind.jpg', 'mind2.jpg'];
+
+        return $pick[abs(crc32($id !== '' ? $id : $title)) % count($pick)];
     }
     if ($type === 'ONLINE') {
         return 'online.jpg';

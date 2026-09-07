@@ -79,7 +79,7 @@ if ($editWorkshop) {
 }
 $activeBinder = $binderInitial !== '' ? $binderInitial : 'in-person';
 
-$doctorWallet = ensure_wallet($pdo, $ctx['user']['id']);
+$doctorWallet = ensure_wallet($pdo, doctor_ctx_user_id($ctx));
 $flash = flash_get();
 
 $formAction = $editWorkshop ? 'update' : 'create';

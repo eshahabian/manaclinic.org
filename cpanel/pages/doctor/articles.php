@@ -11,7 +11,7 @@ $stmt = $pdo->prepare("
   WHERE a.author_id=?
   ORDER BY a.created_at DESC
 ");
-$stmt->execute([$ctx['user']['id']]);
+$stmt->execute([doctor_ctx_user_id($ctx)]);
 $articles = $stmt->fetchAll();
 $pending = [];
 $others = [];

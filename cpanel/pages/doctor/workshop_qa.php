@@ -19,7 +19,7 @@ $title = trim((string) ($stmt->fetchColumn() ?: 'دوره آفلاین'));
 $qaTab = trim((string) ($_GET['qa'] ?? '')) === 'private' ? 'private' : 'public';
 $qaBase = url('/doctor/workshops/qa?id=' . rawurlencode($workshopId));
 $messages = workshop_qa_list($pdo, $workshopId, [
-    'viewer_id' => (string) ($ctx['user']['id'] ?? ''),
+    'viewer_id' => doctor_ctx_user_id($ctx),
     'is_doctor' => true,
     'private' => $qaTab === 'private',
 ]);
@@ -35,7 +35,7 @@ ob_start();
       'post_url' => url('/doctor/workshops/qa'),
       'workshop_id' => $workshopId,
       'can_post' => true,
-      'viewer_id' => (string) ($ctx['user']['id'] ?? ''),
+      'viewer_id' => doctor_ctx_user_id($ctx),
       'is_doctor' => true,
       'tab' => $qaTab,
       'public_url' => $qaBase . '&qa=public#workshop-qa',

@@ -1,18 +1,38 @@
 <?php
 declare(strict_types=1);
 
+function doctor_ctx_user_id(array $ctx): string
+{
+    if (!empty($ctx['admin_mode'])) {
+        return (string) ($ctx['profile']['user_id'] ?? '');
+    }
+
+    return (string) ($ctx['user']['id'] ?? '');
+}
+
+function doctor_ctx_user_name(array $ctx): string
+{
+    if (!empty($ctx['admin_mode'])) {
+        return (string) ($ctx['profile']['name'] ?? '');
+    }
+
+    return (string) ($ctx['user']['name'] ?? '');
+}
+
 function doctor_can_view_staff_hours(?array $user = null): bool
 {
     $user = $user ?? current_user();
-    if (!$user || ($user['role'] ?? '') !== 'DOCTOR') {
+    if (!$user) {
         return false;
     }
-    $username = strtolower(trim((string) ($user['username'] ?? '')));
-    if (in_array($username, ['shgeranmaye', 'doctor'], true)) {
+    if (($user['role'] ?? '') === 'ADMIN') {
         return true;
     }
+    if (($user['role'] ?? '') !== 'DOCTOR') {
+        return false;
+    }
 
-    return str_contains((string) ($user['name'] ?? ''), 'گرانمایه');
+    return function_exists('doctor_is_shiva') && doctor_is_shiva($user);
 }
 
 function doctor_nav(): array
@@ -105,23 +125,86 @@ function doctor_ensure_profile(PDO $pdo, string $userId, array $defaults = []): 
     return $created ?: null;
 }
 
+function admin_doctor_choices(PDO $pdo): array
+{
+    return $pdo->query("
+      SELECT dp.id, u.name
+      FROM doctor_profiles dp
+      JOIN users u ON u.id = dp.user_id
+      WHERE dp.is_approved = 1
+      ORDER BY
+        CASE WHEN u.name LIKE '%گرانمایه%' THEN 0 ELSE 1 END,
+        u.name ASC
+    ")->fetchAll() ?: [];
+}
+
+function admin_bind_doctor_profile(PDO $pdo): ?array
+{
+    $requested = trim((string) ($_GET['as_doctor'] ?? $_POST['as_doctor'] ?? ''));
+    if ($requested !== '') {
+        $_SESSION['admin_doctor_id'] = $requested;
+    }
+    $selected = trim((string) ($_SESSION['admin_doctor_id'] ?? ''));
+    $sql = "
+      SELECT dp.*, u.name, u.email
+      FROM doctor_profiles dp
+      JOIN users u ON u.id = dp.user_id
+      WHERE dp.is_approved = 1
+    ";
+    if ($selected !== '') {
+        $stmt = $pdo->prepare($sql . ' AND dp.id = ? LIMIT 1');
+        $stmt->execute([$selected]);
+        $row = $stmt->fetch();
+        if ($row) {
+            $_SESSION['admin_doctor_id'] = (string) $row['id'];
+
+            return $row;
+        }
+    }
+    $row = $pdo->query($sql . " ORDER BY CASE WHEN u.name LIKE '%گرانمایه%' THEN 0 ELSE 1 END, u.name ASC LIMIT 1")->fetch();
+    if ($row) {
+        $_SESSION['admin_doctor_id'] = (string) $row['id'];
+    }
+
+    return $row ?: null;
+}
+
+function admin_doctor_switcher_html(PDO $pdo, array $profile): string
+{
+    $choices = admin_doctor_choices($pdo);
+    $current = (string) ($profile['id'] ?? '');
+    $action = parse_url($_SERVER['REQUEST_URI'] ?? '/doctor', PHP_URL_PATH) ?: '/doctor';
+    ob_start();
+    ?>
+    <form class="doc-admin-switcher" method="get" action="<?= e(url($action)) ?>">
+      <label for="as_doctor">ویرایش پنل درمانگر</label>
+      <select class="input" id="as_doctor" name="as_doctor" onchange="this.form.submit()">
+        <?php foreach ($choices as $d): ?>
+          <option value="<?= e((string) $d['id']) ?>" <?= $current === (string) $d['id'] ? 'selected' : '' ?>><?= e((string) $d['name']) ?></option>
+        <?php endforeach; ?>
+      </select>
+      <?php foreach ($_GET as $key => $value): ?>
+        <?php if ($key === 'as_doctor' || !is_string($value)) { continue; } ?>
+        <input type="hidden" name="<?= e((string) $key) ?>" value="<?= e($value) ?>">
+      <?php endforeach; ?>
+    </form>
+    <?php
+    return ob_get_clean();
+}
+
 function require_doctor_profile(PDO $pdo): array
 {
     $user = require_login(['DOCTOR']);
     if (($user['role'] ?? '') === 'ADMIN') {
-        $profile = $pdo->query("
-          SELECT dp.*, u.name, u.email
-          FROM doctor_profiles dp
-          JOIN users u ON u.id = dp.user_id
-          WHERE dp.is_active = 1 AND dp.is_approved = 1
-          ORDER BY u.name ASC
-          LIMIT 1
-        ")->fetch();
+        $profile = admin_bind_doctor_profile($pdo);
         if (!$profile) {
-            flash_set('error', 'هنوز درمانگر فعالی نیست.');
+            flash_set('error', 'هنوز درمانگر تأییدشده‌ای نیست.');
             redirect('/admin');
         }
-        return ['user' => $user, 'profile' => $profile, 'admin_mode' => true];
+        $ctx = ['user' => $user, 'profile' => $profile, 'admin_mode' => true];
+        $GLOBALS['doctor_ctx'] = $ctx;
+
+        return $ctx;
     }
     $profile = doctor_ensure_profile($pdo, (string) $user['id']);
     if (!$profile || !(int) ($profile['is_approved'] ?? 0)) {
@@ -134,16 +217,42 @@ function require_doctor_profile(PDO $pdo): array
         logout_user();
         redirect('/login');
     }
-    return ['user' => $user, 'profile' => $profile];
+    $ctx = ['user' => $user, 'profile' => $profile];
+    $GLOBALS['doctor_ctx'] = $ctx;
+
+    return $ctx;
 }
 
 function render_doctor_page(string $title, string $innerHtml): void
 {
-    global $pageScripts, $pageHead;
+    global $pageScripts, $pageHead, $pdo;
+    $ctx = is_array($GLOBALS['doctor_ctx'] ?? null) ? $GLOBALS['doctor_ctx'] : null;
+    $user = current_user();
+    $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+    $prefix = '';
+    if (!empty($ctx['admin_mode']) && $pdo instanceof PDO && is_array($ctx['profile'] ?? null)) {
+        $prefix .= admin_doctor_switcher_html($pdo, $ctx['profile']);
+    }
+    if (
+        $currentPath !== '/doctor/profile'
+        && is_array($ctx['user'] ?? null)
+        && function_exists('doctor_is_shiva')
+        && doctor_is_shiva($ctx['user'])
+        && is_array($ctx['profile'] ?? null)
+        && function_exists('doctor_profile_is_complete')
+        && !doctor_profile_is_complete($ctx['profile'])
+    ) {
+        $prefix .= '<div class="doc-onboard-banner">پروفایل را تکمیل کنید. <a href="' . e(url('/doctor/profile')) . '">رفتن به پروفایل</a></div>';
+    }
+    $innerHtml = $prefix . $innerHtml;
+    if (function_exists('is_admin_user') && is_admin_user($user)) {
+        require_once __DIR__ . '/admin_panel.php';
+        render_admin_page($title, $innerHtml);
+        return;
+    }
     $nav = doctor_nav();
     $pageTitle = $title;
     $GLOBALS['pageRobots'] = 'noindex,nofollow';
-    $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
     ob_start();
     ?>
     <div class="container-page panel-layout">

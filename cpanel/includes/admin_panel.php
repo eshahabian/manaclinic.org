@@ -24,7 +24,18 @@ function admin_nav(): array {
         ['href' => '/admin/staff-hours', 'label' => 'ساعت کاری منشی‌ها'],
         ['href' => '/admin/staff-messages', 'label' => 'پیام‌ها'],
         ['href' => '/secretary/messages', 'label' => 'پنل منشی'],
-        ['href' => '/doctor', 'label' => 'پنل دکتر'],
+        ['type' => 'group', 'label' => 'کار درمانگرها'],
+        ['href' => '/doctor', 'label' => 'خلاصه درمانگر'],
+        ['href' => '/doctor/intakes', 'label' => 'گفتگوهای دستیار'],
+        ['href' => '/doctor/notifications', 'label' => 'اعلان‌ها'],
+        ['href' => '/doctor/appointments', 'label' => 'نوبت‌های درمانگر'],
+        ['href' => '/doctor/availability', 'label' => 'روزهای خالی'],
+        ['href' => '/doctor/patients', 'label' => 'پرونده مراجعه‌کنندگان'],
+        ['href' => '/doctor/workshops', 'label' => 'کارگاه‌ها'],
+        ['href' => '/doctor/articles', 'label' => 'مقالات درمانگر'],
+        ['href' => '/doctor/profile', 'label' => 'پروفایل حرفه‌ای'],
+        ['href' => '/doctor/staff-hours', 'label' => 'ساعت کاری منشی‌ها (درمانگر)'],
+        ['href' => '/doctor/staff-messages', 'label' => 'پیام‌های درمانگر'],
         ['href' => '/change-password', 'label' => 'تغییر رمز عبور'],
     ];
 }
@@ -42,18 +53,26 @@ function render_admin_page(string $title, string $innerHtml): void {
         <p class="side-nav-title">پنل ادمین</p>
         <nav>
           <?php foreach ($nav as $item): ?>
-            <?php
-              $href = (string) $item['href'];
-              $active = $href === '/admin'
-                ? ($currentPath === $href || str_ends_with($currentPath, '/admin'))
-                : str_contains($currentPath, $href);
-            ?>
-            <a class="<?= $active ? 'is-active' : '' ?>" href="<?= e(url($href)) ?>">
-              <?= e($item['label']) ?>
-              <?php if ((int) ($item['badge'] ?? 0) > 0): ?>
-                <span class="side-nav-badge"><?= e(to_fa_digits((string) (int) $item['badge'])) ?></span>
-              <?php endif; ?>
-            </a>
+            <?php if (($item['type'] ?? 'link') === 'group'): ?>
+              <p class="side-nav-group"><?= e($item['label']) ?></p>
+            <?php else: ?>
+              <?php
+                $href = (string) $item['href'];
+                if ($href === '/admin') {
+                    $active = $currentPath === $href || str_ends_with($currentPath, '/admin');
+                } elseif ($href === '/doctor') {
+                    $active = $currentPath === $href || str_ends_with($currentPath, '/doctor');
+                } else {
+                    $active = str_contains($currentPath, $href);
+                }
+              ?>
+              <a class="<?= $active ? 'is-active' : '' ?>" href="<?= e(url($href)) ?>">
+                <?= e($item['label']) ?>
+                <?php if ((int) ($item['badge'] ?? 0) > 0): ?>
+                  <span class="side-nav-badge"><?= e(to_fa_digits((string) (int) $item['badge'])) ?></span>
+                <?php endif; ?>
+              </a>
+            <?php endif; ?>
           <?php endforeach; ?>
         </nav>
       </aside>

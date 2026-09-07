@@ -7,7 +7,7 @@ require_once __DIR__ . '/../includes/notifications.php';
 $ctx = require_doctor_profile($pdo);
 ensure_articles_schema($pdo);
 $action = post('action');
-$authorId = (string) $ctx['user']['id'];
+$authorId = doctor_ctx_user_id($ctx);
 
 if ($action === 'create') {
     $title = post('title');
