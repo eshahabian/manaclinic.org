@@ -28,16 +28,21 @@ $phone = $role === 'DOCTOR' ? '' : normalize_phone(post('phone'));
 $password = (string) ($_POST['password'] ?? '');
 $passwordConfirm = (string) ($_POST['password_confirm'] ?? '');
 
-if ($firstName === '' || $lastName === '' || $username === '' || strlen($password) < 6) {
-    flash_set('error', 'نام، نام خانوادگی، نام کاربری و رمز عبور الزامی است. رمز حداقل ۶ کاراکتر باشد.');
+$minPass = password_min_length();
+if ($firstName === '' || $lastName === '' || $username === '' || strlen($password) < $minPass) {
+    flash_set('error', 'نام، نام خانوادگی، نام کاربری و رمز عبور الزامی است. رمز حداقل ' . to_fa_digits((string) $minPass) . ' کاراکتر باشد.');
     redirect('/register?role=' . $role);
 }
 if ($role !== 'DOCTOR' && ($nameEn === '' || $surname === '' || $phone === '')) {
-    flash_set('error', 'همه فیلدها الزامی هستند. رمز حداقل ۶ کاراکتر باشد.');
+    flash_set('error', 'همه فیلدها الزامی هستند. رمز حداقل ' . to_fa_digits((string) $minPass) . ' کاراکتر باشد.');
     redirect('/register?role=' . $role);
 }
 if ($role !== 'DOCTOR' && !is_valid_phone($phone)) {
     flash_set('error', 'شماره موبایل معتبر نیست. شماره ایران یا بین‌المللی وارد کنید.');
+    redirect('/register?role=' . $role);
+}
+if (preg_match('/[^\x00-\x7F]/', $password) || preg_match('/[^\x00-\x7F]/', $passwordConfirm)) {
+    flash_set('error', 'رمز عبور را با صفحه‌کلید انگلیسی وارد کنید.');
     redirect('/register?role=' . $role);
 }
 if ($password !== $passwordConfirm) {

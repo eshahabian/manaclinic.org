@@ -16,8 +16,11 @@ ob_start();
 <p class="muted">نمای کلی وضعیت مانا کلینیک</p>
 <div class="grid-3" style="margin-top:1.5rem">
   <div class="panel"><div class="muted" style="font-size:.85rem">کاربران</div><div style="font-size:1.6rem;font-weight:700;margin-top:.35rem"><?= $users ?></div></div>
-  <div class="panel"><div class="muted" style="font-size:.85rem">درمانگرهای فعال</div><div style="font-size:1.6rem;font-weight:700;margin-top:.35rem"><?= $doctors ?></div></div>
-  <div class="panel"><div class="muted" style="font-size:.85rem">در انتظار تأیید</div><div style="font-size:1.6rem;font-weight:700;margin-top:.35rem"><?= $pendingDoctors ?></div></div>
+  <div class="panel"><div class="muted" style="font-size:.85rem">درمانگرهای فعال</div><div style="font-size:1.6rem;font-weight:700;margin-top:.35rem"><?= e(to_fa_digits((string) $doctors)) ?></div></div>
+  <a class="panel card-link" href="<?= e(url('/admin/doctors')) ?>">
+    <div class="muted" style="font-size:.85rem">درمانگر در انتظار تأیید</div>
+    <div style="font-size:1.6rem;font-weight:700;margin-top:.35rem"><?= e(to_fa_digits((string) $pendingDoctors)) ?></div>
+  </a>
   <div class="panel"><div class="muted" style="font-size:.85rem">مقالات منتشرشده</div><div style="font-size:1.6rem;font-weight:700;margin-top:.35rem"><?= $articles ?></div></div>
   <div class="panel"><div class="muted" style="font-size:.85rem">کل نوبت‌ها</div><div style="font-size:1.6rem;font-weight:700;margin-top:.35rem"><?= $appointments ?></div></div>
   <div class="panel"><div class="muted" style="font-size:.85rem">پرداخت‌های موفق</div><div style="font-size:1.2rem;font-weight:700;margin-top:.35rem"><?= (int)$paid['c'] ?> / <?= e(format_price((int)$paid['s'])) ?></div></div>

@@ -12,25 +12,28 @@ ob_start();
     <div>
       <h1>تغییر رمز عبور</h1>
       <?php if ($forced): ?>
-        <p class="muted">اولین ورود است؛ لطفاً یک رمز جدید (حداقل ۶ کاراکتر) انتخاب کنید.</p>
+        <p class="muted">اولین ورود است؛ لطفاً یک رمز جدید انتخاب کنید.</p>
       <?php else: ?>
         <p class="muted">برای امنیت حساب، لطفاً رمز جدید خود را وارد کنید.</p>
       <?php endif; ?>
     </div>
     <?php if (!$forced): ?>
-    <div>
-      <label class="label">رمز فعلی</label>
-      <input class="input" type="password" name="current_password" required dir="ltr" autocomplete="current-password">
-    </div>
+      <?= password_field_html('current_password', 'current_password', [
+          'label' => 'رمز فعلی',
+          'autocomplete' => 'current-password',
+          'rules' => false,
+      ]) ?>
     <?php endif; ?>
-    <div>
-      <label class="label">رمز جدید</label>
-      <input class="input" type="password" name="new_password" required minlength="6" dir="ltr" autocomplete="new-password">
-    </div>
-    <div>
-      <label class="label">تکرار رمز جدید</label>
-      <input class="input" type="password" name="new_password_confirm" required minlength="6" dir="ltr" autocomplete="new-password">
-    </div>
+    <?= password_field_html('new_password', 'new_password', [
+        'label' => 'رمز جدید',
+        'autocomplete' => 'new-password',
+    ]) ?>
+    <?= password_field_html('new_password_confirm', 'new_password_confirm', [
+        'label' => 'تکرار رمز جدید',
+        'autocomplete' => 'new-password',
+        'confirm' => true,
+        'pair' => 'new_password',
+    ]) ?>
     <button class="btn btn-primary" type="submit">ذخیره رمز جدید</button>
   </form>
 </div>

@@ -1,12 +1,25 @@
 <?php
 declare(strict_types=1);
 
+function admin_pending_doctor_count(): int
+{
+    global $pdo;
+    if (!$pdo instanceof PDO) {
+        return 0;
+    }
+    try {
+        return (int) $pdo->query('SELECT COUNT(*) FROM doctor_profiles WHERE is_approved=0')->fetchColumn();
+    } catch (Throwable $ignored) {
+        return 0;
+    }
+}
+
 function admin_nav(): array {
     return [
         ['href' => '/admin', 'label' => 'خلاصه'],
         ['href' => '/admin/users', 'label' => 'کاربران'],
         ['href' => '/admin/appointments', 'label' => 'نوبت‌ها'],
-        ['href' => '/admin/doctors', 'label' => 'درمانگرها'],
+        ['href' => '/admin/doctors', 'label' => 'درمانگرها', 'badge' => admin_pending_doctor_count()],
         ['href' => '/admin/articles', 'label' => 'مقالات'],
         ['href' => '/admin/staff-hours', 'label' => 'ساعت کاری منشی‌ها'],
         ['href' => '/admin/staff-messages', 'label' => 'پیام‌ها'],
@@ -35,7 +48,12 @@ function render_admin_page(string $title, string $innerHtml): void {
                 ? ($currentPath === $href || str_ends_with($currentPath, '/admin'))
                 : str_contains($currentPath, $href);
             ?>
-            <a class="<?= $active ? 'is-active' : '' ?>" href="<?= e(url($href)) ?>"><?= e($item['label']) ?></a>
+            <a class="<?= $active ? 'is-active' : '' ?>" href="<?= e(url($href)) ?>">
+              <?= e($item['label']) ?>
+              <?php if ((int) ($item['badge'] ?? 0) > 0): ?>
+                <span class="side-nav-badge"><?= e(to_fa_digits((string) (int) $item['badge'])) ?></span>
+              <?php endif; ?>
+            </a>
           <?php endforeach; ?>
         </nav>
       </aside>

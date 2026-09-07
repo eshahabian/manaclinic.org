@@ -73,14 +73,18 @@ ob_start();
     <?php endif; ?>
 
     <div class="grid-2">
-      <div>
-        <label class="label" for="password">رمز عبور</label>
-        <input class="input" name="password" id="password" type="password" required minlength="6" dir="ltr" autocomplete="new-password" placeholder="حداقل ۶ کاراکتر">
-      </div>
-      <div>
-        <label class="label" for="password_confirm">تکرار رمز عبور</label>
-        <input class="input" name="password_confirm" id="password_confirm" type="password" required minlength="6" dir="ltr" autocomplete="new-password" placeholder="تکرار رمز">
-      </div>
+      <?= password_field_html('password', 'password', [
+          'label' => 'رمز عبور',
+          'autocomplete' => 'new-password',
+          'minlength' => password_min_length(),
+      ]) ?>
+      <?= password_field_html('password_confirm', 'password_confirm', [
+          'label' => 'تکرار رمز عبور',
+          'autocomplete' => 'new-password',
+          'minlength' => password_min_length(),
+          'confirm' => true,
+          'pair' => 'password',
+      ]) ?>
     </div>
 
     <button class="btn btn-primary" type="submit" name="submit_register" value="1">
@@ -140,9 +144,16 @@ $pageScripts = '
       userEl.focus();
       return;
     }
-    if (passEl.value.length < 6) {
+    var minPass = <?= (int) password_min_length() ?>;
+    if (passEl.value.length < minPass) {
       e.preventDefault();
-      alert("رمز عبور حداقل ۶ کاراکتر باشد.");
+      alert("رمز عبور حداقل " + minPass + " کاراکتر باشد.");
+      passEl.focus();
+      return;
+    }
+    if (/[^\x00-\x7F]/.test(passEl.value) || /[^\x00-\x7F]/.test(passConfirmEl.value)) {
+      e.preventDefault();
+      alert("زبان صفحه‌کلید را انگلیسی کنید.");
       passEl.focus();
       return;
     }

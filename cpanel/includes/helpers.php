@@ -6,6 +6,63 @@ function e(?string $value): string
     return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
 }
 
+function password_min_length(): int
+{
+    return 7;
+}
+
+function password_field_html(string $id, string $name, array $opts = []): string
+{
+    $label = (string) ($opts['label'] ?? 'رمز عبور');
+    $autocomplete = (string) ($opts['autocomplete'] ?? 'current-password');
+    $required = !array_key_exists('required', $opts) || !empty($opts['required']);
+    $min = (int) ($opts['minlength'] ?? password_min_length());
+    $value = (string) ($opts['value'] ?? '');
+    $pair = (string) ($opts['pair'] ?? '');
+    $isConfirm = !empty($opts['confirm']);
+    $showRules = array_key_exists('rules', $opts) ? !empty($opts['rules']) : !$isConfirm;
+    $placeholder = (string) ($opts['placeholder'] ?? ($isConfirm ? 'تکرار رمز' : 'حداقل ' . to_fa_digits((string) $min) . ' کاراکتر'));
+
+    ob_start();
+    ?>
+    <div class="password-field" data-password-field>
+      <label class="label" for="<?= e($id) ?>"><?= e($label) ?></label>
+      <div class="password-field-box">
+        <input
+          class="input"
+          id="<?= e($id) ?>"
+          name="<?= e($name) ?>"
+          type="password"
+          <?= $required ? 'required' : '' ?>
+          minlength="<?= $min ?>"
+          dir="ltr"
+          lang="en"
+          autocomplete="<?= e($autocomplete) ?>"
+          placeholder="<?= e($placeholder) ?>"
+          value="<?= e($value) ?>"
+          data-password-input
+          data-password-min="<?= $min ?>"
+          <?= $isConfirm ? 'data-password-confirm="1"' : '' ?>
+          <?= $pair !== '' ? 'data-password-pair="' . e($pair) . '"' : '' ?>
+        >
+        <button type="button" class="password-toggle" data-password-toggle aria-label="نمایش رمز" title="نمایش رمز">
+          <svg class="password-toggle-show" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M2.4 12S6 5.8 12 5.8 21.6 12 21.6 12 18 18.2 12 18.2 2.4 12 2.4 12Z"/><circle cx="12" cy="12" r="3.1"/></svg>
+          <svg class="password-toggle-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18M10.6 10.6A3.1 3.1 0 0 0 12 15.1a3.1 3.1 0 0 0 3.1-3.1M6.5 6.7C4.4 8.2 2.8 10.4 2.4 12c0 0 3.6 6.2 9.6 6.2 1.7 0 3.2-.4 4.5-1M17.5 8.2C19.4 9.6 20.8 11.3 21.6 12c0 0-1.3 2.2-3.6 4"/></svg>
+        </button>
+      </div>
+      <?php if ($showRules): ?>
+        <p class="password-rules muted">حداقل <?= e(to_fa_digits((string) $min)) ?> کاراکتر، با حروف و اعداد انگلیسی.</p>
+      <?php endif; ?>
+      <p class="password-lang-warn" data-password-lang hidden>زبان صفحه‌کلید را انگلیسی کنید.</p>
+      <?php if ($isConfirm): ?>
+        <p class="password-match-warn" data-password-match hidden>تکرار رمز با رمز اول یکسان نیست.</p>
+      <?php endif; ?>
+    </div>
+    <?php
+
+    return (string) ob_get_clean();
+}
+
 function redirect(string $path): never
 {
     global $config, $base;

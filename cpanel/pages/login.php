@@ -19,10 +19,11 @@ ob_start();
       <label class="label" for="username">نام کاربری</label>
       <input class="input" id="username" name="username" type="text" required dir="ltr" autocomplete="username">
     </div>
-    <div>
-      <label class="label" for="password">رمز عبور</label>
-      <input class="input" id="password" name="password" type="password" required dir="ltr" autocomplete="current-password">
-    </div>
+    <?= password_field_html('password', 'password', [
+        'label' => 'رمز عبور',
+        'autocomplete' => 'current-password',
+        'rules' => false,
+    ]) ?>
     <button class="btn btn-primary" type="submit">ورود</button>
   </form>
 </div>

@@ -8,8 +8,13 @@ $current = normalize_input((string) ($_POST['current_password'] ?? ''));
 $new = normalize_input((string) ($_POST['new_password'] ?? ''));
 $confirm = normalize_input((string) ($_POST['new_password_confirm'] ?? ''));
 
-if (strlen($new) < 6) {
-    flash_set('error', 'رمز جدید حداقل ۶ کاراکتر باشد.');
+$minPass = password_min_length();
+if (strlen($new) < $minPass) {
+    flash_set('error', 'رمز جدید حداقل ' . to_fa_digits((string) $minPass) . ' کاراکتر باشد.');
+    redirect('/change-password');
+}
+if (preg_match('/[^\x00-\x7F]/', $new) || preg_match('/[^\x00-\x7F]/', $confirm)) {
+    flash_set('error', 'رمز عبور را با صفحه‌کلید انگلیسی وارد کنید.');
     redirect('/change-password');
 }
 if ($new !== $confirm) {

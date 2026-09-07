@@ -2581,6 +2581,38 @@ body.workshop-overview-locked { overflow: hidden; }
 .secretary-add-patient { margin-top: 1rem; max-width: 44rem; }
 .form-draft-hint { color: var(--primary-dark); }
 
+.password-field { display: grid; gap: .35rem; }
+.password-field-box { position: relative; }
+.password-field-box .input { padding-left: 2.6rem; }
+.password-toggle {
+  position: absolute;
+  left: .45rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  background: transparent;
+  color: #4a6670;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.password-toggle svg { width: 1.15rem; height: 1.15rem; display: none; }
+.password-toggle .password-toggle-show { display: block; }
+.password-toggle.is-on .password-toggle-show { display: none; }
+.password-toggle.is-on .password-toggle-hide { display: block; }
+.password-rules { margin: 0; font-size: .78rem; line-height: 1.6; }
+.password-lang-warn,
+.password-match-warn {
+  margin: 0;
+  font-size: .8rem;
+  line-height: 1.6;
+  color: #b42318;
+}
+
 .doctor-photo,
 .doctor-photo--fallback {
   display: block;
@@ -2706,4 +2738,36 @@ body.workshop-overview-locked { overflow: hidden; }
   background: #1a5c4a;
   color: #fff;
   border-color: #1a5c4a;
+}
+
+.password-field { display: grid; gap: .35rem; }
+.password-field-box { position: relative; }
+.password-field-box .input { padding-left: 2.6rem; }
+.password-toggle {
+  position: absolute;
+  left: .45rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  background: transparent;
+  color: #4a6670;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+}
+.password-toggle svg { width: 1.15rem; height: 1.15rem; display: none; }
+.password-toggle .password-toggle-show { display: block; }
+.password-toggle.is-on .password-toggle-show { display: none; }
+.password-toggle.is-on .password-toggle-hide { display: block; }
+.password-rules { margin: 0; font-size: .78rem; line-height: 1.6; }
+.password-lang-warn,
+.password-match-warn {
+  margin: 0;
+  font-size: .8rem;
+  line-height: 1.6;
+  color: #b42318;
 }
