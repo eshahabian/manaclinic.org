@@ -100,28 +100,25 @@ ob_start();
                   : (format_workshop_datetime_fa((string) ($promo['starts_at'] ?? '')) . ' تا ' . format_workshop_datetime_fa((string) ($promo['ends_at'] ?? '')));
               $meta = trim(workshop_type_label((string) ($promo['type'] ?? '')) . ' · ' . (string) ($promo['doctor_name'] ?? '') . ' · ' . $when);
               $canApply = workshop_can_enroll($promo) && $phase !== 'done' && (string) ($promo['status'] ?? '') === 'PUBLISHED';
-              $bannerSrc = function_exists('workshop_banner_src')
-                  ? workshop_banner_src((string) ($promo['banner_url'] ?? ''))
+              $bannerSrc = function_exists('workshop_promo_image_src')
+                  ? workshop_promo_image_src($promo)
                   : '';
             ?>
             <button
               type="button"
-              class="home-workshop-banner<?= $bannerSrc === '' ? ' home-workshop-banner--plain' : '' ?>"
+              class="home-workshop-banner"
               data-workshop-banner
               data-title="<?= e((string) ($promo['title'] ?? '')) ?>"
               data-description="<?= e((string) ($promo['description'] ?? '')) ?>"
               data-meta="<?= e($meta) ?>"
+              data-image="<?= e($bannerSrc) ?>"
               data-apply="<?= e(workshop_apply_url((string) ($promo['id'] ?? ''))) ?>"
               data-can-apply="<?= $canApply ? '1' : '0' ?>"
             >
-              <?php if ($bannerSrc !== ''): ?>
-                <img src="<?= e($bannerSrc) ?>" alt="<?= e((string) ($promo['title'] ?? 'بنر دوره')) ?>">
-              <?php else: ?>
-                <span class="home-workshop-fallback">
-                  <strong><?= e((string) ($promo['title'] ?? 'دوره')) ?></strong>
-                  <span><?= e((string) ($promo['doctor_name'] ?? '')) ?></span>
-                </span>
-              <?php endif; ?>
+              <img src="<?= e($bannerSrc) ?>" alt="<?= e((string) ($promo['title'] ?? 'بنر دوره')) ?>">
+              <span class="home-workshop-caption">
+                <strong><?= e((string) ($promo['title'] ?? 'دوره')) ?></strong>
+              </span>
               <span class="home-workshop-badge home-workshop-badge--<?= e($phase) ?>"><?= e(workshop_promo_phase_label($phase)) ?></span>
             </button>
           <?php endforeach; ?>
@@ -195,7 +192,7 @@ ob_start();
 <?php
 $content = ob_get_clean();
 $pageScripts = '
-<script src="' . e(url('/assets/js/home-workshop-banners.js')) . '?v=20260908e"></script>
+<script src="' . e(url('/assets/js/home-workshop-banners.js')) . '?v=20260908f"></script>
 <script>
 (function(){
   var root = document.getElementById("hero-slideshow");

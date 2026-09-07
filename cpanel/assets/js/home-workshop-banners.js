@@ -12,7 +12,15 @@
     if (bodyEl) {
       var desc = btn.getAttribute("data-description") || "";
       var meta = btn.getAttribute("data-meta") || "";
+      var image = btn.getAttribute("data-image") || "";
       bodyEl.innerHTML = "";
+      if (image) {
+        var img = document.createElement("img");
+        img.src = image;
+        img.alt = btn.getAttribute("data-title") || "";
+        img.className = "home-workshop-modal-photo";
+        bodyEl.appendChild(img);
+      }
       if (meta) {
         var p = document.createElement("p");
         p.className = "muted";

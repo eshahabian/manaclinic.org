@@ -344,7 +344,7 @@ ob_start();
       <img src="<?= e(workshop_banner_src((string) $formData['banner_url'])) ?>" alt="" style="max-width:16rem;border-radius:.7rem;display:block;margin-bottom:.5rem">
     <?php endif; ?>
     <input class="input" type="file" name="banner" id="workshop-banner" accept="image/jpeg,image/png,image/webp">
-    <p class="muted" style="font-size:.8rem;margin:.35rem 0 0">jpg، png یا webp — اگر آپلود شود، فقط همین عکس در صفحه اول دیده می‌شود.</p>
+    <p class="muted" style="font-size:.8rem;margin:.35rem 0 0">اختیاری؛ اگر خالی بماند عکس طراحی‌شده همان دوره در صفحه اول دیده می‌شود.</p>
   </div>
   <div>
     <label class="label">موارد همراه</label>

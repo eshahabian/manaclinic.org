@@ -1118,6 +1118,40 @@ function workshop_banner_src(?string $path): string
     return url($path);
 }
 
+/** بنر سفارشی آپلودشده، وگرنه عکس طراحی‌شده همان دوره */
+function workshop_designed_banner_file(array $workshop): string
+{
+    $title = (string) ($workshop['title'] ?? '');
+    $type = (string) ($workshop['type'] ?? '');
+    $id = (string) ($workshop['id'] ?? '');
+
+    if (preg_match('/اضطراب|آرامش|ذهن|مهربان|هیجان|مدیتیشن|آگاه|تنظیم/u', $title)) {
+        return 'mind.jpg';
+    }
+    if ($type === 'ONLINE') {
+        return 'online.jpg';
+    }
+    if ($type === 'OFFLINE') {
+        return 'offline.jpg';
+    }
+    if ($type === 'IN_PERSON' || preg_match('/حضوری|گروه|زوج|خانواد/u', $title)) {
+        return 'inperson.jpg';
+    }
+    $pick = ['inperson.jpg', 'mind.jpg', 'offline.jpg', 'online.jpg'];
+
+    return $pick[abs(crc32($id !== '' ? $id : $title)) % count($pick)];
+}
+
+function workshop_promo_image_src(array $workshop): string
+{
+    $custom = workshop_banner_src((string) ($workshop['banner_url'] ?? ''));
+    if ($custom !== '') {
+        return $custom;
+    }
+
+    return url('/assets/img/workshops/' . workshop_designed_banner_file($workshop));
+}
+
 function workshop_delete_banner_file(?string $publicPath): void
 {
     $publicPath = (string) $publicPath;
