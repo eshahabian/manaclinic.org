@@ -132,9 +132,6 @@ function workshop_qa_icon(string $name): string
 {
     $svg = match ($name) {
         'like' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10v10M7 10H4.6A1.6 1.6 0 0 0 3 11.6v6.8A1.6 1.6 0 0 0 4.6 20H7m0-10 3.1-6.4A1.7 1.7 0 0 1 11.6 2.5c.9 0 1.6.8 1.4 1.7L12 8h6.3a2 2 0 0 1 2 2.3l-1 6.4A2.2 2.2 0 0 1 17.1 19H9a2 2 0 0 1-2-2"/></svg>',
-        'dislike' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 14V4M17 14h2.4A1.6 1.6 0 0 0 21 12.4V5.6A1.6 1.6 0 0 0 19.4 4H17m0 10-3.1 6.4a1.7 1.7 0 0 1-1.5 1.1c-.9 0-1.6-.8-1.4-1.7L12 16H5.7a2 2 0 0 1-2-2.3l1-6.4A2.2 2.2 0 0 1 6.9 5H15a2 2 0 0 1 2 2"/></svg>',
-        'comments' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.2 19.4A8.7 8.7 0 0 1 3 12.2C3 7.6 7 4 12 4s9 3.6 9 8.2-4 8.2-9 8.2c-1 0-2-.1-2.9-.4L4 20.5l4.2-1.1Z"/><path d="M8.2 12h.01M12 12h.01M15.8 12h.01"/></svg>',
-        'reply' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 15 4 10l5-5"/><path d="M4 10h11a5 5 0 0 1 0 10h-3"/></svg>',
         default => '',
     };
 
@@ -412,25 +409,8 @@ function workshop_qa_render(array $messages, array $opts = []): string
                   <span><?= e(to_fa_digits((string) (int) ($msg['like_count'] ?? 0))) ?></span>
                 </button>
               </form>
-              <form method="post" action="<?= e($postUrl) ?>" class="workshop-qa-vote-form">
-                <?= csrf_field() ?>
-                <input type="hidden" name="action" value="dislike">
-                <input type="hidden" name="workshop_id" value="<?= e($workshopId) ?>">
-                <input type="hidden" name="enrollment_id" value="<?= e($enrollmentId) ?>">
-                <input type="hidden" name="post_id" value="<?= e($mid) ?>">
-                <input type="hidden" name="tab" value="<?= e($tab) ?>">
-                <button type="submit" class="workshop-qa-chip<?= !empty($msg['disliked']) ? ' is-on' : '' ?>" aria-label="نپسندیدن">
-                  <?= workshop_qa_icon('dislike') ?>
-                  <span><?= e(to_fa_digits((string) (int) ($msg['dislike_count'] ?? 0))) ?></span>
-                </button>
-              </form>
-              <button type="button" class="workshop-qa-chip" data-qa-reply="<?= e($mid) ?>" data-qa-name="<?= e($name) ?>" aria-label="تعداد پاسخ">
-                <?= workshop_qa_icon('comments') ?>
-                <span><?= e(to_fa_digits((string) (int) ($msg['reply_count'] ?? 0))) ?></span>
-              </button>
               <button type="button" class="workshop-qa-chip workshop-qa-reply-btn" data-qa-reply="<?= e($mid) ?>" data-qa-name="<?= e($name) ?>">
-                <?= workshop_qa_icon('reply') ?>
-                <span>پاسخ</span>
+                پاسخ
               </button>
             <?php endif; ?>
           </div>
