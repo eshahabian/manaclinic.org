@@ -18,8 +18,8 @@ if (!workshop_qa_doctor_owns($pdo, (string) ($ctx['profile']['id'] ?? ''), $work
 
 $action = post('action') ?: 'post';
 try {
-    if ($action === 'like') {
-        workshop_qa_toggle_like($pdo, $workshopId, post('post_id'), (string) ($ctx['user']['id'] ?? ''));
+    if ($action === 'like' || $action === 'dislike') {
+        workshop_qa_toggle_vote($pdo, $workshopId, post('post_id'), (string) ($ctx['user']['id'] ?? ''), $action);
         redirect($back);
     }
     $parentId = post('parent_id');

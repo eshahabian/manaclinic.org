@@ -48,6 +48,13 @@ function ensure_workshop_qa_schema(PDO $pdo): void
         ");
     } catch (Throwable $ignored) {
     }
+    try {
+        $hasKind = $pdo->query("SHOW COLUMNS FROM workshop_qa_likes LIKE 'kind'")->fetch();
+        if (!$hasKind) {
+            $pdo->exec("ALTER TABLE workshop_qa_likes ADD COLUMN kind ENUM('like','dislike') NOT NULL DEFAULT 'like'");
+        }
+    } catch (Throwable $ignored) {
+    }
     $ready = true;
 }
 
@@ -121,6 +128,19 @@ function workshop_qa_snip(string $text, int $max = 90): string
     return strlen($text) > $max ? (substr($text, 0, $max) . '…') : $text;
 }
 
+function workshop_qa_icon(string $name): string
+{
+    $svg = match ($name) {
+        'like' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10v10M7 10H4.6A1.6 1.6 0 0 0 3 11.6v6.8A1.6 1.6 0 0 0 4.6 20H7m0-10 3.1-6.4A1.7 1.7 0 0 1 11.6 2.5c.9 0 1.6.8 1.4 1.7L12 8h6.3a2 2 0 0 1 2 2.3l-1 6.4A2.2 2.2 0 0 1 17.1 19H9a2 2 0 0 1-2-2"/></svg>',
+        'dislike' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 14V4M17 14h2.4A1.6 1.6 0 0 0 21 12.4V5.6A1.6 1.6 0 0 0 19.4 4H17m0 10-3.1 6.4a1.7 1.7 0 0 1-1.5 1.1c-.9 0-1.6-.8-1.4-1.7L12 16H5.7a2 2 0 0 1-2-2.3l1-6.4A2.2 2.2 0 0 1 6.9 5H15a2 2 0 0 1 2 2"/></svg>',
+        'comments' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8.2 19.4A8.7 8.7 0 0 1 3 12.2C3 7.6 7 4 12 4s9 3.6 9 8.2-4 8.2-9 8.2c-1 0-2-.1-2.9-.4L4 20.5l4.2-1.1Z"/><path d="M8.2 12h.01M12 12h.01M15.8 12h.01"/></svg>',
+        'reply' => '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 15 4 10l5-5"/><path d="M4 10h11a5 5 0 0 1 0 10h-3"/></svg>',
+        default => '',
+    };
+
+    return $svg;
+}
+
 function workshop_qa_list(PDO $pdo, string $workshopId, array $opts = []): array
 {
     ensure_workshop_qa_schema($pdo);
@@ -130,7 +150,9 @@ function workshop_qa_list(PDO $pdo, string $workshopId, array $opts = []): array
 
     $sql = '
       SELECT q.*, u.name AS author_name,
-             (SELECT COUNT(*) FROM workshop_qa_likes l WHERE l.post_id = q.id) AS like_count
+             (SELECT COUNT(*) FROM workshop_qa_likes l WHERE l.post_id = q.id AND l.kind=\'like\') AS like_count,
+             (SELECT COUNT(*) FROM workshop_qa_likes l WHERE l.post_id = q.id AND l.kind=\'dislike\') AS dislike_count,
+             (SELECT COUNT(*) FROM workshop_qa_posts r WHERE r.parent_id = q.id) AS reply_count
       FROM workshop_qa_posts q
       JOIN users u ON u.id = q.author_user_id
       WHERE q.workshop_id=?
@@ -147,18 +169,53 @@ function workshop_qa_list(PDO $pdo, string $workshopId, array $opts = []): array
         $sql .= ' AND q.is_private=0';
     }
     $sql .= ' ORDER BY q.created_at ASC';
-    $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
-    $rows = $stmt->fetchAll();
-    $liked = [];
+    try {
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll();
+    } catch (Throwable $ignored) {
+        $sql = '
+          SELECT q.*, u.name AS author_name,
+                 (SELECT COUNT(*) FROM workshop_qa_likes l WHERE l.post_id = q.id) AS like_count,
+                 0 AS dislike_count,
+                 (SELECT COUNT(*) FROM workshop_qa_posts r WHERE r.parent_id = q.id) AS reply_count
+          FROM workshop_qa_posts q
+          JOIN users u ON u.id = q.author_user_id
+          WHERE q.workshop_id=?
+        ';
+        $params = [$workshopId];
+        if ($private) {
+            $sql .= ' AND q.is_private=1';
+            if (!$isDoctor) {
+                $sql .= ' AND (q.author_user_id=? OR q.audience_user_id=?)';
+                $params[] = $viewerId;
+                $params[] = $viewerId;
+            }
+        } else {
+            $sql .= ' AND q.is_private=0';
+        }
+        $sql .= ' ORDER BY q.created_at ASC';
+        $stmt = $pdo->prepare($sql);
+        $stmt->execute($params);
+        $rows = $stmt->fetchAll();
+    }
+    $votes = [];
     if ($viewerId !== '' && $rows) {
         $ids = array_values(array_filter(array_map(static fn($r) => (string) ($r['id'] ?? ''), $rows)));
         if ($ids) {
             $in = implode(',', array_fill(0, count($ids), '?'));
-            $likeStmt = $pdo->prepare("SELECT post_id FROM workshop_qa_likes WHERE user_id=? AND post_id IN ({$in})");
-            $likeStmt->execute(array_merge([$viewerId], $ids));
-            foreach ($likeStmt->fetchAll() as $like) {
-                $liked[(string) $like['post_id']] = true;
+            try {
+                $likeStmt = $pdo->prepare("SELECT post_id, kind FROM workshop_qa_likes WHERE user_id=? AND post_id IN ({$in})");
+                $likeStmt->execute(array_merge([$viewerId], $ids));
+                foreach ($likeStmt->fetchAll() as $like) {
+                    $votes[(string) $like['post_id']] = ((string) ($like['kind'] ?? 'like')) === 'dislike' ? 'dislike' : 'like';
+                }
+            } catch (Throwable $ignored) {
+                $likeStmt = $pdo->prepare("SELECT post_id FROM workshop_qa_likes WHERE user_id=? AND post_id IN ({$in})");
+                $likeStmt->execute(array_merge([$viewerId], $ids));
+                foreach ($likeStmt->fetchAll() as $like) {
+                    $votes[(string) $like['post_id']] = 'like';
+                }
             }
         }
     }
@@ -171,8 +228,12 @@ function workshop_qa_list(PDO $pdo, string $workshopId, array $opts = []): array
         $id = (string) $row['id'];
         $parentId = trim((string) ($row['parent_id'] ?? ''));
         $parent = $parentId !== '' && isset($byId[$parentId]) ? $byId[$parentId] : null;
-        $row['liked'] = !empty($liked[$id]);
+        $vote = $votes[$id] ?? '';
+        $row['liked'] = $vote === 'like';
+        $row['disliked'] = $vote === 'dislike';
         $row['like_count'] = (int) ($row['like_count'] ?? 0);
+        $row['dislike_count'] = (int) ($row['dislike_count'] ?? 0);
+        $row['reply_count'] = (int) ($row['reply_count'] ?? 0);
         $row['parent_name'] = $parent ? trim((string) ($parent['author_name'] ?? '')) : '';
         $row['parent_body'] = $parent ? trim((string) ($parent['body'] ?? '')) : '';
         $out[] = $row;
@@ -252,21 +313,32 @@ function workshop_qa_save(
 
 function workshop_qa_toggle_like(PDO $pdo, string $workshopId, string $postId, string $userId): bool
 {
+    return workshop_qa_toggle_vote($pdo, $workshopId, $postId, $userId, 'like') === 'like';
+}
+
+function workshop_qa_toggle_vote(PDO $pdo, string $workshopId, string $postId, string $userId, string $kind): string
+{
     ensure_workshop_qa_schema($pdo);
+    $kind = $kind === 'dislike' ? 'dislike' : 'like';
     $post = $pdo->prepare('SELECT id FROM workshop_qa_posts WHERE id=? AND workshop_id=? LIMIT 1');
     $post->execute([$postId, $workshopId]);
     if (!$post->fetch()) {
         throw new RuntimeException('پیام یافت نشد.');
     }
-    $has = $pdo->prepare('SELECT 1 FROM workshop_qa_likes WHERE post_id=? AND user_id=? LIMIT 1');
+    $has = $pdo->prepare('SELECT kind FROM workshop_qa_likes WHERE post_id=? AND user_id=? LIMIT 1');
     $has->execute([$postId, $userId]);
-    if ($has->fetch()) {
-        $pdo->prepare('DELETE FROM workshop_qa_likes WHERE post_id=? AND user_id=?')->execute([$postId, $userId]);
-        return false;
+    $current = $has->fetchColumn();
+    if ($current === false) {
+        $pdo->prepare('INSERT INTO workshop_qa_likes (post_id, user_id, kind) VALUES (?,?,?)')->execute([$postId, $userId, $kind]);
+        return $kind;
     }
-    $pdo->prepare('INSERT INTO workshop_qa_likes (post_id, user_id) VALUES (?,?)')->execute([$postId, $userId]);
+    if ((string) $current === $kind) {
+        $pdo->prepare('DELETE FROM workshop_qa_likes WHERE post_id=? AND user_id=?')->execute([$postId, $userId]);
+        return '';
+    }
+    $pdo->prepare('UPDATE workshop_qa_likes SET kind=? WHERE post_id=? AND user_id=?')->execute([$kind, $postId, $userId]);
 
-    return true;
+    return $kind;
 }
 
 function workshop_qa_render(array $messages, array $opts = []): string
@@ -288,6 +360,14 @@ function workshop_qa_render(array $messages, array $opts = []): string
     ob_start();
     ?>
 <section class="workshop-qa" id="workshop-qa">
+  <style>
+    .workshop-qa-actions{display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;margin-top:.65rem}
+    .workshop-qa-vote-form{margin:0}
+    .workshop-qa-chip{display:inline-flex;align-items:center;justify-content:center;gap:.32rem;min-height:34px;padding:.25rem .7rem;border:0;border-radius:.55rem;background:#e7eef5;color:#2c4d70;font-size:.86rem;font-family:inherit;line-height:1;cursor:pointer}
+    .workshop-qa-chip svg{width:1.05rem;height:1.05rem;display:block;flex:0 0 auto}
+    .workshop-qa-chip:hover{background:#dce6f0}
+    .workshop-qa-chip.is-on{background:#d3e2f3;color:#1b3d60;font-weight:700}
+  </style>
   <h2 class="workshop-qa-title">تالار گفتگو</h2>
   <p class="muted workshop-qa-lead">چت همگانی دوره است؛ با نام خودتان بنویسید تا بقیه همان‌جا جواب بدهند. اگر خواستید فقط درمانگر ببیند، تب پیام خصوصی را باز کنید.</p>
   <div class="workshop-qa-tabs" role="tablist">
@@ -320,19 +400,38 @@ function workshop_qa_render(array $messages, array $opts = []): string
           <p><?= nl2br(e((string) ($msg['body'] ?? ''))) ?></p>
           <div class="workshop-qa-actions">
             <?php if ($canPost): ?>
-              <form method="post" action="<?= e($postUrl) ?>" class="workshop-qa-like-form">
+              <form method="post" action="<?= e($postUrl) ?>" class="workshop-qa-vote-form">
                 <?= csrf_field() ?>
                 <input type="hidden" name="action" value="like">
                 <input type="hidden" name="workshop_id" value="<?= e($workshopId) ?>">
                 <input type="hidden" name="enrollment_id" value="<?= e($enrollmentId) ?>">
                 <input type="hidden" name="post_id" value="<?= e($mid) ?>">
                 <input type="hidden" name="tab" value="<?= e($tab) ?>">
-                <button type="submit" class="workshop-qa-like<?= !empty($msg['liked']) ? ' is-on' : '' ?>">
-                  <?= !empty($msg['liked']) ? 'پسندیدی' : 'پسندیدن' ?>
-                  · <?= e(to_fa_digits((string) (int) ($msg['like_count'] ?? 0))) ?>
+                <button type="submit" class="workshop-qa-chip<?= !empty($msg['liked']) ? ' is-on' : '' ?>" aria-label="پسندیدن">
+                  <?= workshop_qa_icon('like') ?>
+                  <span><?= e(to_fa_digits((string) (int) ($msg['like_count'] ?? 0))) ?></span>
                 </button>
               </form>
-              <button type="button" class="workshop-qa-reply-btn" data-qa-reply="<?= e($mid) ?>" data-qa-name="<?= e($name) ?>">ریپلای</button>
+              <form method="post" action="<?= e($postUrl) ?>" class="workshop-qa-vote-form">
+                <?= csrf_field() ?>
+                <input type="hidden" name="action" value="dislike">
+                <input type="hidden" name="workshop_id" value="<?= e($workshopId) ?>">
+                <input type="hidden" name="enrollment_id" value="<?= e($enrollmentId) ?>">
+                <input type="hidden" name="post_id" value="<?= e($mid) ?>">
+                <input type="hidden" name="tab" value="<?= e($tab) ?>">
+                <button type="submit" class="workshop-qa-chip<?= !empty($msg['disliked']) ? ' is-on' : '' ?>" aria-label="نپسندیدن">
+                  <?= workshop_qa_icon('dislike') ?>
+                  <span><?= e(to_fa_digits((string) (int) ($msg['dislike_count'] ?? 0))) ?></span>
+                </button>
+              </form>
+              <button type="button" class="workshop-qa-chip" data-qa-reply="<?= e($mid) ?>" data-qa-name="<?= e($name) ?>" aria-label="تعداد پاسخ">
+                <?= workshop_qa_icon('comments') ?>
+                <span><?= e(to_fa_digits((string) (int) ($msg['reply_count'] ?? 0))) ?></span>
+              </button>
+              <button type="button" class="workshop-qa-chip workshop-qa-reply-btn" data-qa-reply="<?= e($mid) ?>" data-qa-name="<?= e($name) ?>">
+                <?= workshop_qa_icon('reply') ?>
+                <span>پاسخ</span>
+              </button>
             <?php endif; ?>
           </div>
         </article>
@@ -354,12 +453,12 @@ function workshop_qa_render(array $messages, array $opts = []): string
       <p class="workshop-qa-replying" id="qa-replying" hidden></p>
       <label class="label" for="qa-ask-body"><?= $isPrivateTab ? ($isDoctor ? 'پاسخ خصوصی' : 'پیام فقط برای درمانگر') : 'پیام همگانی' ?></label>
       <?php if ($isPrivateTab && $isDoctor): ?>
-        <p class="muted" style="font-size:.82rem;margin:.2rem 0 .45rem">برای جواب خصوصی، اول ریپلای همان پیام مراجع را بزنید.</p>
+        <p class="muted" style="font-size:.82rem;margin:.2rem 0 .45rem">برای جواب خصوصی، اول پاسخ همان پیام مراجع را بزنید.</p>
       <?php endif; ?>
       <textarea class="input" id="qa-ask-body" name="body" rows="3" maxlength="4000" required placeholder="<?= $isPrivateTab ? 'فقط شما و درمانگر این را می‌بینید…' : 'با نام خودتان برای همه بنویسید…' ?>"></textarea>
       <div class="workshop-qa-compose-row">
         <button class="btn btn-primary btn-sm" type="submit">ارسال</button>
-        <button class="btn btn-outline btn-sm" type="button" id="qa-reply-cancel" hidden>لغو ریپلای</button>
+        <button class="btn btn-outline btn-sm" type="button" id="qa-reply-cancel" hidden>لغو پاسخ</button>
       </div>
     </form>
     <script>
@@ -378,7 +477,7 @@ function workshop_qa_render(array $messages, array $opts = []): string
           if (parent) parent.value = btn.getAttribute("data-qa-reply") || "";
           if (hint) {
             hint.hidden = false;
-            hint.textContent = "ریپلای به " + (btn.getAttribute("data-qa-name") || "پیام");
+            hint.textContent = "پاسخ به " + (btn.getAttribute("data-qa-name") || "پیام");
           }
           if (cancel) cancel.hidden = false;
           if (box) box.focus();

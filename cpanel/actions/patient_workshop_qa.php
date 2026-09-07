@@ -19,8 +19,8 @@ if (!$enroll || (string) ($enroll['id'] ?? '') !== $enrollmentId) {
 
 $action = post('action') ?: 'post';
 try {
-    if ($action === 'like') {
-        workshop_qa_toggle_like($pdo, $workshopId, post('post_id'), (string) ($user['id'] ?? ''));
+    if ($action === 'like' || $action === 'dislike') {
+        workshop_qa_toggle_vote($pdo, $workshopId, post('post_id'), (string) ($user['id'] ?? ''), $action);
         redirect($back);
     }
     $parentId = post('parent_id');

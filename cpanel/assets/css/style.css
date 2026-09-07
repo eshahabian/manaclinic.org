@@ -2523,19 +2523,37 @@ body.workshop-overview-locked { overflow: hidden; }
   flex-wrap: wrap;
   gap: .4rem;
   align-items: center;
-  margin-top: .5rem;
+  margin-top: .65rem;
 }
-.workshop-qa-like-form { margin: 0; }
-.workshop-qa-like,
-.workshop-qa-reply-btn {
+.workshop-qa-vote-form { margin: 0; }
+.workshop-qa-chip {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: .32rem;
+  min-height: 34px;
+  padding: .25rem .7rem;
   border: 0;
-  background: transparent;
-  color: #1a5c4a;
-  font-size: .82rem;
+  border-radius: .55rem;
+  background: #e7eef5;
+  color: #2c4d70;
+  font-size: .86rem;
+  font-family: inherit;
+  line-height: 1;
   cursor: pointer;
-  padding: .15rem .2rem;
 }
-.workshop-qa-like.is-on { font-weight: 700; }
+.workshop-qa-chip svg {
+  width: 1.05rem;
+  height: 1.05rem;
+  display: block;
+  flex: 0 0 auto;
+}
+.workshop-qa-chip:hover { background: #dce6f0; }
+.workshop-qa-chip.is-on {
+  background: #d3e2f3;
+  color: #1b3d60;
+  font-weight: 700;
+}
 .workshop-qa-form { margin-top: .7rem; }
 .workshop-qa-form .input { width: 100%; }
 .workshop-qa-form .btn { margin-top: .45rem; }
