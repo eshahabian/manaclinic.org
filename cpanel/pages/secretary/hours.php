@@ -1,10 +1,16 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/../../includes/secretary_panel.php';
-require_once __DIR__ . '/../../includes/staff_hours_ui.php';
 
 $user = require_login(['SECRETARY']);
 ensure_secretary_day_reports($pdo);
+try {
+    require_once __DIR__ . '/../../includes/staff_hours_ui.php';
+} catch (Throwable $e) {
+    error_log('staff-hours secretary ui: ' . $e->getMessage() . ' @ ' . $e->getFile() . ':' . $e->getLine());
+    render_secretary_page('ساعت کاری', '<h1>ساعت کاری من</h1><p class="muted">بارگذاری ساعت کاری الان ممکن نیست.</p>');
+    exit;
+}
 try {
     $block = staff_hours_block_for_user($pdo, $user);
 } catch (Throwable $ignored) {
@@ -21,12 +27,16 @@ if (!is_array($block)) {
 }
 $shift = is_array($block['open'] ?? null) ? $block['open'] : null;
 $todayDate = date('Y-m-d');
-$todayRows = staff_hours_day_rows($block, $todayDate, $todayDate);
+try {
+    $todayRows = staff_hours_day_rows($block, $todayDate, $todayDate);
+} catch (Throwable $ignored) {
+    $todayRows = [];
+}
 
 $report = staff_get_day_report($pdo, (string) ($user['id'] ?? ''), $todayDate);
 $draft = staff_today_action_draft($pdo, (string) ($user['id'] ?? ''));
 $reportBody = is_array($report) ? (string) ($report['body'] ?? '') : '';
-$pageScripts = staff_hours_scripts();
+$pageScripts = function_exists('staff_hours_scripts') ? staff_hours_scripts() : '';
 
 ob_start();
 ?>
@@ -46,7 +56,13 @@ ob_start();
 
 <div class="panel stack" style="margin-top:1.25rem">
   <strong>حضور امروز</strong>
-  <?= staff_hours_render_day_presence($todayRows, ['is_today' => true]) ?>
+  <?php
+    try {
+        echo staff_hours_render_day_presence($todayRows, ['is_today' => true]);
+    } catch (Throwable $ignored) {
+        echo '<p class="muted">حضور امروز الان در دسترس نیست.</p>';
+    }
+  ?>
 </div>
 
 <div class="panel stack" style="margin-top:1.25rem;border-color:var(--primary)">
@@ -70,6 +86,12 @@ ob_start();
 
 <h2 class="binder-sub" style="margin-top:1.5rem">سابقه ماهانه</h2>
 <p class="muted" style="margin:.2rem 0 .85rem">ماه را انتخاب کنید تا جمع کل همان ماه دیده شود؛ تب روزها فقط جزئیات یک روز است.</p>
-<?= staff_hours_render_calendar($block, ['today' => $todayDate]) ?>
+<?php
+try {
+    echo staff_hours_render_calendar($block, ['today' => $todayDate]);
+} catch (Throwable $ignored) {
+    echo '<p class="muted">نمایش سابقه ممکن نشد.</p>';
+}
+?>
 <?php
 render_secretary_page('ساعت کاری', ob_get_clean());
