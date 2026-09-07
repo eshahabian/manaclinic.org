@@ -510,6 +510,39 @@ function staff_rows_seconds_split(array $rows): array
     return $out;
 }
 
+/** زمان حضور روز: از اولین ورود تا آخرین خروج (اگر هنوز آنلاین باشد تا الان) */
+function staff_day_presence_seconds_split(array $rows): array
+{
+    $meta = staff_day_presence_meta($rows);
+    $firstIn = trim((string) ($meta['first_in'] ?? ''));
+    $start = $firstIn !== '' ? strtotime($firstIn) : false;
+    if (!$start) {
+        return ['total' => 0, 'regular' => 0, 'overtime' => 0];
+    }
+    if (!empty($meta['open'])) {
+        $end = time();
+    } else {
+        $lastOut = trim((string) ($meta['last_out'] ?? ''));
+        $end = $lastOut !== '' ? (strtotime($lastOut) ?: $start) : $start;
+    }
+
+    return staff_interval_seconds_split((int) $start, (int) $end);
+}
+
+/** جمع زمان حضور چند روز؛ هر روز جدا از ورود اول تا خروج آخر */
+function staff_days_presence_seconds_split(array $dayRowsList): array
+{
+    $out = ['total' => 0, 'regular' => 0, 'overtime' => 0];
+    foreach ($dayRowsList as $rows) {
+        $part = staff_day_presence_seconds_split(is_array($rows) ? $rows : []);
+        $out['total'] += $part['total'];
+        $out['regular'] += $part['regular'];
+        $out['overtime'] += $part['overtime'];
+    }
+
+    return $out;
+}
+
 /** اولین ورود، آخرین خروج و باز بودن شیفت در یک روز */
 function staff_day_presence_meta(array $rows): array
 {
@@ -650,10 +683,7 @@ function staff_hours_build_block(PDO $pdo, ?array $user, array $meta): array
             $reportRows = [];
         }
     }
-    $todaySeconds = 0;
-    foreach ($todayRows as $row) {
-        $todaySeconds += staff_shift_seconds($row);
-    }
+    $todaySeconds = (int) (staff_day_presence_seconds_split($todayRows)['total'] ?? 0);
     $reportsByDate = [];
     foreach ($reportRows as $rep) {
         if (!is_array($rep)) {
@@ -944,18 +974,16 @@ function staff_hours_export_rows(PDO $pdo, ?string $who = null): array
             }
             $gdate = (string) ($day['date'] ?? '');
             $jalali = $gdate !== '' ? to_jalali_label($gdate) : '';
-            $daySeconds = 0;
-            $dayRegular = 0;
-            $dayOvertime = 0;
+            $daySplit = staff_day_presence_seconds_split($day['items'] ?? []);
+            $daySeconds = (int) ($daySplit['total'] ?? 0);
+            $dayRegular = (int) ($daySplit['regular'] ?? 0);
+            $dayOvertime = (int) ($daySplit['overtime'] ?? 0);
             foreach (($day['items'] ?? []) as $i => $row) {
                 if (!is_array($row)) {
                     continue;
                 }
                 $part = staff_shift_seconds_split($row);
                 $sec = (int) $part['total'];
-                $daySeconds += $sec;
-                $dayRegular += (int) $part['regular'];
-                $dayOvertime += (int) $part['overtime'];
                 $out[] = [
                     'tab_id' => $tabId,
                     'kind' => (string) ($block['kind'] ?? 'secretary'),

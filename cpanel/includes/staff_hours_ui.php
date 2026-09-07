@@ -81,7 +81,7 @@ function staff_hours_render(array $slots, array $opts = []): string
     ob_start();
     ?>
 <h1>ساعت کاری منشی‌ها</h1>
-<p class="muted">ساعت عادی از ۹ صبح تا ۸ شب است؛ خارج از این بازه اضافه‌کار حساب می‌شود. تب هر منشی و هر درمانگر جداست. جزئیات ورود و خروج پشت «بیشتر» است.</p>
+<p class="muted">ساعت عادی از ۹ صبح تا ۸ شب است؛ خارج از این بازه اضافه‌کار حساب می‌شود. تب هر منشی و هر درمانگر جداست. زمان حضور از اولین ورود تا آخرین خروج همان روز جمع می‌شود؛ جزئیات ورود و خروج پشت «بیشتر» است.</p>
 
 <div class="staff-hours-toolbar">
   <div class="staff-hours-export">
@@ -150,7 +150,7 @@ function staff_hours_render_self(array $block, array $opts = []): string
     $title = (string) ($opts['title'] ?? 'ساعت کاری من');
     $intro = (string) ($opts['intro'] ?? '');
     if ($intro === '') {
-        $intro = 'ساعت عادی از ۹ صبح تا ۸ شب است؛ خارج از این بازه اضافه‌کار حساب می‌شود. جزئیات ورود و خروج پشت «بیشتر» است.';
+        $intro = 'ساعت عادی از ۹ صبح تا ۸ شب است؛ خارج از این بازه اضافه‌کار حساب می‌شود. زمان حضور از اولین ورود تا آخرین خروج همان روز است؛ جزئیات ورود و خروج پشت «بیشتر» است.';
     }
     $todayRows = staff_hours_day_rows($block, $today, $today);
     $open = is_array($block['open'] ?? null) ? $block['open'] : null;
@@ -414,7 +414,7 @@ function staff_hours_render_day_presence(array $rows, array $opts = []): string
         return '<p class="muted">' . e($empty) . '</p>';
     }
 
-    $split = staff_rows_seconds_split($rows);
+    $split = staff_day_presence_seconds_split($rows);
     $meta = staff_day_presence_meta($rows);
     $outClock = !empty($meta['open'])
         ? ($isToday ? 'الان' : '— هنوز باز')
@@ -540,7 +540,7 @@ function staff_hours_render_month_tile(array $block, array $month, string $today
     }
     usort($dayPacks, static fn(array $a, array $b): int => strcmp((string) $b['date'], (string) $a['date']));
 
-    $split = staff_rows_seconds_split($allRows);
+    $split = staff_days_presence_seconds_split(array_column($dayPacks, 'rows'));
     $presentDays = 0;
     foreach ($dayPacks as $pack) {
         if (($pack['rows'] ?? []) !== [] || !empty($pack['report'])) {
