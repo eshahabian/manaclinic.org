@@ -179,6 +179,78 @@ function appointment_hours_display_fa(array $hours): string
     ));
 }
 
+/**
+ * نوبت‌های اشغال‌کننده ساعت، با کلید starts_at.
+ *
+ * @return array<string, array<string, mixed>>
+ */
+function doctor_availability_booked_map(PDO $pdo, string $doctorId): array
+{
+    $stmt = $pdo->prepare("
+      SELECT a.id, a.starts_at, a.status, u.id AS patient_id, u.name AS patient_name, u.phone
+      FROM appointments a
+      JOIN users u ON u.id = a.patient_id
+      WHERE a.doctor_id = ?
+        AND a.status IN ('PENDING_PAYMENT','CONFIRMED','COMPLETED')
+    ");
+    $stmt->execute([$doctorId]);
+    $map = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $raw = str_replace('T', ' ', (string) ($row['starts_at'] ?? ''));
+        $key = substr($raw, 0, 16);
+        if (strlen($key) >= 16) {
+            $map[$key] = $row;
+        }
+    }
+
+    return $map;
+}
+
+/**
+ * گروه‌بندی روزهای خالی دکتر بر اساس ماه شمسی.
+ *
+ * @param array<int, array<string, mixed>> $items
+ * @return array{months: array<string, array<string, mixed>>, default_id: string}
+ */
+function doctor_availability_month_groups(array $items): array
+{
+    $current = jalali_current_month_meta();
+    $months = [];
+    foreach ($items as $item) {
+        $date = substr((string) ($item['date'] ?? ''), 0, 10);
+        $meta = jalali_month_meta_from_datetime($date . ' 12:00:00');
+        if (!$meta) {
+            continue;
+        }
+        $id = (string) $meta['id'];
+        if (!isset($months[$id])) {
+            $months[$id] = $meta + ['items' => []];
+        }
+        $months[$id]['items'][] = $item;
+    }
+    $jy = (int) ($current['year'] ?? 0);
+    $from = (int) ($current['month'] ?? 1);
+    for ($jm = $from; $jm <= 12; $jm++) {
+        $meta = jalali_month_meta_from_parts($jy, $jm);
+        if (!isset($months[$meta['id']])) {
+            $months[$meta['id']] = $meta + ['items' => []];
+        }
+    }
+    foreach ($months as $id => $bucket) {
+        usort($months[$id]['items'], static fn(array $a, array $b): int => strcmp((string) ($a['date'] ?? ''), (string) ($b['date'] ?? '')));
+    }
+    uasort($months, static function (array $a, array $b): int {
+        return ((int) $a['sort']) <=> ((int) $b['sort']);
+    });
+
+    $defaultId = (string) ($current['id'] ?? '');
+    if ($defaultId === '' || !isset($months[$defaultId])) {
+        $defaultId = (string) (array_key_first($months) ?? '');
+    }
+
+    return ['months' => $months, 'default_id' => $defaultId];
+}
+
 function appointment_normalize_posted_hours(mixed $posted): array
 {
     if (!is_array($posted)) {

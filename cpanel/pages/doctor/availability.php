@@ -17,11 +17,19 @@ foreach ($items as $item) {
         $savedHoursByDate[$key] = appointment_availability_hours($item);
     }
 }
+$bookedMap = doctor_availability_booked_map($pdo, (string) $ctx['profile']['id']);
+$monthPack = doctor_availability_month_groups($items);
+$monthGroups = $monthPack['months'];
+$defaultMonthId = $monthPack['default_id'];
+$tabParam = trim((string) ($_GET['month'] ?? ''));
+if ($tabParam !== '' && isset($monthGroups[$tabParam])) {
+    $defaultMonthId = $tabParam;
+}
 
 ob_start();
 ?>
 <h1>روزهای خالی</h1>
-<p class="muted">روی فیلد تاریخ بزنید تا تقویم شمسی باز شود؛ بعد ساعت‌های خالی را از ۶ صبح همان روز تا ۶ صبح فردا مشخص کنید.</p>
+<p class="muted">روی فیلد تاریخ بزنید تا تقویم شمسی باز شود؛ بعد ساعت‌های خالی را مشخص کنید. روزهای ذخیره‌شده را از تب ماه ببینید و روی هر ساعت کلیک کنید تا خالی بودن یا نام رزروکننده مشخص شود.</p>
 <form class="panel form-stack" method="post" action="<?= e(url('/doctor/availability')) ?>" style="margin-top:1rem;max-width:40rem">
   <input type="hidden" name="action" value="save">
   <div>
@@ -50,37 +58,145 @@ ob_start();
   </div>
   <button class="btn btn-primary" type="submit">افزودن / به‌روزرسانی</button>
 </form>
-<div class="stack" style="margin-top:1.5rem">
-  <?php foreach ($items as $item): ?>
-    <?php $savedHours = appointment_availability_hours($item); ?>
-    <div class="panel row-between">
-      <div>
-        <strong><?= e(to_jalali_label($item['date'])) ?></strong>
-        <div class="muted" style="font-size:.85rem;margin-top:.35rem">ساعت‌های خالی:</div>
-        <div class="hour-picker hour-picker-readonly" style="margin-top:.35rem">
-          <?php foreach ($bookingHours as $hour): ?>
-            <span class="hour-chip<?= in_array($hour, $savedHours, true) ? ' is-active' : ' is-off' ?>">
-              <span class="hour-chip-time"><?= e(appointment_hour_chip_label((int) $hour)) ?></span>
-              <span class="hour-chip-date"><?= e(appointment_hour_date_for((string) $item['date'], (int) $hour)) ?></span>
-            </span>
-          <?php endforeach; ?>
-        </div>
-      </div>
-      <form method="post" action="<?= e(url('/doctor/availability')) ?>">
-        <input type="hidden" name="action" value="delete">
-        <input type="hidden" name="id" value="<?= e($item['id']) ?>">
-        <button class="btn btn-danger btn-sm" type="submit">حذف</button>
-      </form>
-    </div>
-  <?php endforeach; ?>
+<div class="binder-tile" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($defaultMonthId) ?>" data-binder-tone="<?= e((string) ($monthGroups[$defaultMonthId]['tone'] ?? 'in-person')) ?>" style="margin-top:1.5rem">
+  <div class="binder-tabs" role="tablist" aria-label="ماه روزهای خالی">
+    <?php foreach ($monthGroups as $mid => $bucket): ?>
+      <button type="button"
+        class="binder-tab <?= e((string) ($bucket['class'] ?? 'binder-tab-in-person')) ?><?= $defaultMonthId === $mid ? ' is-active' : '' ?>"
+        role="tab"
+        data-binder-tab="<?= e((string) $mid) ?>"
+        data-binder-tone="<?= e((string) ($bucket['tone'] ?? 'in-person')) ?>"
+        aria-selected="<?= $defaultMonthId === $mid ? 'true' : 'false' ?>">
+        <?= e((string) ($bucket['tab_label'] ?? $bucket['short'] ?? $mid)) ?>
+        <span class="binder-tab-count"><?= to_fa_digits((string) count($bucket['items'] ?? [])) ?></span>
+      </button>
+    <?php endforeach; ?>
+  </div>
+  <div class="binder-body">
+    <?php foreach ($monthGroups as $mid => $bucket): ?>
+      <section class="binder-panel<?= $defaultMonthId === $mid ? ' is-active' : '' ?>" data-binder-panel="<?= e((string) $mid) ?>" role="tabpanel"<?= $defaultMonthId === $mid ? '' : ' hidden' ?>>
+        <h2 class="binder-sub" style="margin-top:0">روزهای خالی <?= e((string) ($bucket['label'] ?? '')) ?></h2>
+        <?php if (empty($bucket['items'])): ?>
+          <p class="muted">در این ماه روز خالی ثبت نشده است.</p>
+        <?php else: ?>
+          <div class="stack">
+            <?php foreach ($bucket['items'] as $item): ?>
+              <?php
+                $dayDate = substr((string) ($item['date'] ?? ''), 0, 10);
+                $savedHours = appointment_availability_hours($item);
+              ?>
+              <div class="panel avail-day-card">
+                <div class="row-between">
+                  <div>
+                    <strong><?= e(to_jalali_label($dayDate)) ?></strong>
+                    <div class="muted" style="font-size:.85rem;margin-top:.35rem">روی ساعت بزنید تا وضعیت رزرو را ببینید.</div>
+                  </div>
+                  <form method="post" action="<?= e(url('/doctor/availability')) ?>">
+                    <input type="hidden" name="action" value="delete">
+                    <input type="hidden" name="id" value="<?= e($item['id']) ?>">
+                    <button class="btn btn-danger btn-sm" type="submit">حذف</button>
+                  </form>
+                </div>
+                <div class="hour-picker hour-picker-readonly" style="margin-top:.75rem">
+                  <?php foreach ($bookingHours as $hour): ?>
+                    <?php
+                      $hour = (int) $hour;
+                      $startsAt = appointment_slot_starts_at($dayDate, $hour);
+                      $slotKey = substr(str_replace('T', ' ', $startsAt), 0, 16);
+                      $booked = $bookedMap[$slotKey] ?? null;
+                      $isOpen = in_array($hour, $savedHours, true);
+                      $state = !$isOpen ? 'off' : ($booked ? 'booked' : 'free');
+                      $patientName = trim((string) ($booked['patient_name'] ?? ''));
+                      $firstName = $patientName !== '' ? (preg_split('/\s+/u', $patientName)[0] ?? $patientName) : '';
+                      $statusLabel = $booked ? appointment_row_status_label($booked) : '';
+                      $patientHref = $booked ? url('/doctor/patients/' . (string) $booked['patient_id']) : '';
+                    ?>
+                    <button type="button"
+                      class="hour-chip is-<?= e($state) ?>"
+                      data-avail-hour
+                      data-state="<?= e($state) ?>"
+                      data-label="<?= e(appointment_hour_chip_label($hour)) ?>"
+                      data-date-label="<?= e(appointment_hour_date_for($dayDate, $hour)) ?>"
+                      data-patient="<?= e($patientName) ?>"
+                      data-phone="<?= e((string) ($booked['phone'] ?? '')) ?>"
+                      data-status="<?= e($statusLabel) ?>"
+                      data-href="<?= e($patientHref) ?>">
+                      <span class="hour-chip-time"><?= e(appointment_hour_chip_label($hour)) ?></span>
+                      <span class="hour-chip-date"><?= e(appointment_hour_date_for($dayDate, $hour)) ?></span>
+                      <?php if ($state === 'booked' && $firstName !== ''): ?>
+                        <span class="hour-chip-who"><?= e($firstName) ?></span>
+                      <?php elseif ($state === 'free'): ?>
+                        <span class="hour-chip-who">خالی</span>
+                      <?php endif; ?>
+                    </button>
+                  <?php endforeach; ?>
+                </div>
+                <div class="avail-hour-detail" hidden>
+                  <strong class="avail-hour-detail-title"></strong>
+                  <p class="avail-hour-detail-body muted" style="margin:.35rem 0 0;font-size:.9rem;line-height:1.7"></p>
+                  <a class="btn btn-outline btn-sm avail-hour-detail-link" hidden href="#">پرونده مراجعه‌کننده</a>
+                </div>
+              </div>
+            <?php endforeach; ?>
+          </div>
+        <?php endif; ?>
+      </section>
+    <?php endforeach; ?>
+  </div>
 </div>
 <?php
 $inner = ob_get_clean();
 $pageHead = '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">';
 $pageScripts = '
+<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260907a"></script>
 <script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
 <script>
+(function(){
+  var selected = null;
+  document.querySelectorAll("[data-avail-hour]").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var card = btn.closest(".avail-day-card");
+      if (!card) return;
+      var detail = card.querySelector(".avail-hour-detail");
+      var title = detail && detail.querySelector(".avail-hour-detail-title");
+      var body = detail && detail.querySelector(".avail-hour-detail-body");
+      var link = detail && detail.querySelector(".avail-hour-detail-link");
+      if (!detail || !title || !body || !link) return;
+      document.querySelectorAll("[data-avail-hour].is-selected").forEach(function(el){ el.classList.remove("is-selected"); });
+      document.querySelectorAll(".avail-hour-detail").forEach(function(el){
+        if (el !== detail) el.hidden = true;
+      });
+      btn.classList.add("is-selected");
+      selected = btn;
+      var state = btn.getAttribute("data-state") || "";
+      var label = btn.getAttribute("data-label") || "";
+      var dateLabel = btn.getAttribute("data-date-label") || "";
+      title.textContent = label + (dateLabel ? " · " + dateLabel : "");
+      if (state === "booked") {
+        var name = btn.getAttribute("data-patient") || "مراجعه‌کننده";
+        var phone = btn.getAttribute("data-phone") || "";
+        var status = btn.getAttribute("data-status") || "";
+        var href = btn.getAttribute("data-href") || "";
+        body.textContent = "رزرو شده برای «" + name + "»" + (status ? " — " + status : "") + (phone ? " · " + phone : "");
+        if (href) {
+          link.href = href;
+          link.hidden = false;
+        } else {
+          link.hidden = true;
+        }
+      } else if (state === "free") {
+        body.textContent = "این ساعت اعلام شده و هنوز کسی رزرو نکرده است.";
+        link.hidden = true;
+      } else {
+        body.textContent = "این ساعت برای این روز اعلام نشده است.";
+        link.hidden = true;
+      }
+      detail.hidden = false;
+      detail.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    });
+  });
+})();
 (function(){
   function faToEn(str){ return String(str).replace(/[۰-۹]/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹".indexOf(d); }); }
   function pad(n){ return (n < 10 ? "0" : "") + n; }

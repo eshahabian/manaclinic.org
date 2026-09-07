@@ -1036,9 +1036,30 @@ a.doctor-dash-stat:hover {
 .hour-chip:has(input:checked) .hour-chip-date { opacity: .9; }
 .hour-chip input { position: absolute; opacity: 0; pointer-events: none; }
 .hour-chip:has(input:checked) { background: var(--primary); border-color: var(--primary); color: #fff; }
-.hour-picker-readonly .hour-chip { cursor: default; }
+.hour-picker-readonly .hour-chip { cursor: pointer; }
 .hour-picker-readonly .hour-chip.is-active { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; font-weight: 600; }
-.hour-picker-readonly .hour-chip.is-off { opacity: .35; }
+.hour-picker-readonly .hour-chip.is-free { background: #eff6ff; border-color: #93c5fd; color: #1d4ed8; font-weight: 600; }
+.hour-picker-readonly .hour-chip.is-booked { background: #fef3c7; border-color: #f59e0b; color: #92400e; font-weight: 600; }
+.hour-picker-readonly .hour-chip.is-off { opacity: .4; }
+.hour-picker-readonly .hour-chip.is-selected {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--primary);
+}
+.hour-chip-who {
+  font-size: .65rem;
+  font-weight: 600;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.avail-hour-detail {
+  margin-top: .85rem;
+  padding: .75rem .9rem;
+  border-radius: .75rem;
+  background: var(--bg-soft);
+  border: 1px solid var(--line);
+}
+.avail-hour-detail-link { margin-top: .65rem; }
 
 .date-chips {
   display: flex;
