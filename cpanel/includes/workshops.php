@@ -1118,14 +1118,16 @@ function workshop_banner_src(?string $path): string
     return url($path);
 }
 
-/** بنر سفارشی آپلودشده، وگرنه عکس طراحی‌شده همان دوره */
+/** بنر سفارشی آپلودشده، وگرنه عکس طراحی‌شده همان موضوع دوره */
 function workshop_designed_banner_file(array $workshop): string
 {
     $title = (string) ($workshop['title'] ?? '');
     $type = (string) ($workshop['type'] ?? '');
-    $id = (string) ($workshop['id'] ?? '');
 
-    if (preg_match('/اضطراب|آرامش|ذهن|مهربان|هیجان|مدیتیشن|آگاه|تنظیم/u', $title)) {
+    if (preg_match('/زوج|رابطه|ازدواج|همسر/u', $title)) {
+        return 'couples.jpg';
+    }
+    if (preg_match('/MBSR|مایند|mindful|استرس|اضطراب|آرامش|ذهن|مدیتیشن|آگاه|تنظیم هیجان/iu', $title)) {
         return 'mind.jpg';
     }
     if ($type === 'ONLINE') {
@@ -1134,12 +1136,8 @@ function workshop_designed_banner_file(array $workshop): string
     if ($type === 'OFFLINE') {
         return 'offline.jpg';
     }
-    if ($type === 'IN_PERSON' || preg_match('/حضوری|گروه|زوج|خانواد/u', $title)) {
-        return 'inperson.jpg';
-    }
-    $pick = ['inperson.jpg', 'mind.jpg', 'offline.jpg', 'online.jpg'];
 
-    return $pick[abs(crc32($id !== '' ? $id : $title)) % count($pick)];
+    return 'inperson.jpg';
 }
 
 function workshop_promo_image_src(array $workshop): string

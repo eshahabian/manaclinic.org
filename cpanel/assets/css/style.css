@@ -530,16 +530,24 @@ select option {
   font-weight: 700;
 }
 .home-workshop-empty { margin: 0; }
-.home-workshop-badge {
+.home-workshop-badges {
   position: absolute;
   top: .7rem;
   right: .7rem;
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+}
+.home-workshop-badge {
   padding: .2rem .7rem;
   border-radius: 999px;
   background: rgba(26, 92, 74, .92);
   color: #fff;
   font-size: .8rem;
 }
+.home-workshop-badge--type-in-person { background: rgba(27, 94, 75, .92); }
+.home-workshop-badge--type-online { background: rgba(36, 110, 140, .92); }
+.home-workshop-badge--type-offline { background: rgba(196, 120, 58, .92); }
 .home-workshop-badge--ongoing { background: rgba(180, 120, 20, .92); }
 .home-workshop-badge--done { background: rgba(80, 90, 88, .88); }
 body.home-workshop-locked { overflow: hidden; }

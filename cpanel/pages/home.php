@@ -103,6 +103,7 @@ ob_start();
               $bannerSrc = function_exists('workshop_promo_image_src')
                   ? workshop_promo_image_src($promo)
                   : '';
+              $typeKey = workshop_tab_from_type((string) ($promo['type'] ?? ''));
             ?>
             <button
               type="button"
@@ -119,7 +120,10 @@ ob_start();
               <span class="home-workshop-caption">
                 <strong><?= e((string) ($promo['title'] ?? 'دوره')) ?></strong>
               </span>
-              <span class="home-workshop-badge home-workshop-badge--<?= e($phase) ?>"><?= e(workshop_promo_phase_label($phase)) ?></span>
+              <span class="home-workshop-badges">
+                <span class="home-workshop-badge home-workshop-badge--type-<?= e($typeKey) ?>"><?= e(workshop_type_label((string) ($promo['type'] ?? ''))) ?></span>
+                <span class="home-workshop-badge home-workshop-badge--<?= e($phase) ?>"><?= e(workshop_promo_phase_label($phase)) ?></span>
+              </span>
             </button>
           <?php endforeach; ?>
         </div>
