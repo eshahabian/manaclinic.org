@@ -2464,25 +2464,52 @@ body.workshop-overview-locked { overflow: hidden; }
 }
 .workshop-qa-title { margin: 0 0 .35rem; font-size: 1.1rem; }
 .workshop-qa-lead { margin: 0 0 1rem; line-height: 1.7; }
-.workshop-qa-threads {
-  list-style: none;
-  margin: 0 0 1.1rem;
-  padding: 0;
-  display: grid;
-  gap: .85rem;
+.workshop-qa-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+  margin: 0 0 .85rem;
 }
-.workshop-qa-thread {
+.workshop-qa-tab {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  padding: 0 .9rem;
+  border-radius: 999px;
+  border: 1px solid rgba(26, 46, 40, .12);
+  background: #fff;
+  color: inherit;
+  text-decoration: none;
+  font-size: .88rem;
+}
+.workshop-qa-tab.is-active {
+  background: #1a5c4a;
+  color: #fff;
+  border-color: #1a5c4a;
+}
+.workshop-qa-feed {
+  max-height: min(28rem, 62vh);
+  overflow: auto;
+  display: grid;
+  gap: .65rem;
+  padding: .15rem .1rem .4rem;
+}
+.workshop-qa-msg {
   background: #fff;
   border: 1px solid rgba(26, 46, 40, .08);
   border-radius: .9rem;
-  padding: .85rem .9rem;
+  padding: .75rem .85rem;
 }
-.workshop-qa-post p { margin: .35rem 0 0; line-height: 1.75; }
-.workshop-qa-post.is-reply {
-  margin: .65rem 0 0 0;
-  padding: .65rem .7rem;
-  border-radius: .7rem;
-  background: #f3faf7;
+.workshop-qa-msg.is-mine { background: #f3faf7; }
+.workshop-qa-msg p { margin: .35rem 0 0; line-height: 1.75; }
+.workshop-qa-quote {
+  margin-top: .4rem;
+  padding: .4rem .55rem;
+  border-right: 3px solid #9ccfc8;
+  background: #f7fbf9;
+  font-size: .82rem;
+  color: #3d5c54;
+  line-height: 1.6;
 }
 .workshop-qa-meta {
   display: flex;
@@ -2491,9 +2518,38 @@ body.workshop-overview-locked { overflow: hidden; }
   align-items: center;
   font-size: .85rem;
 }
+.workshop-qa-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+  align-items: center;
+  margin-top: .5rem;
+}
+.workshop-qa-like-form { margin: 0; }
+.workshop-qa-like,
+.workshop-qa-reply-btn {
+  border: 0;
+  background: transparent;
+  color: #1a5c4a;
+  font-size: .82rem;
+  cursor: pointer;
+  padding: .15rem .2rem;
+}
+.workshop-qa-like.is-on { font-weight: 700; }
 .workshop-qa-form { margin-top: .7rem; }
 .workshop-qa-form .input { width: 100%; }
 .workshop-qa-form .btn { margin-top: .45rem; }
+.workshop-qa-compose-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+  margin-top: .45rem;
+}
+.workshop-qa-replying {
+  margin: 0 0 .45rem;
+  font-size: .85rem;
+  color: #1a5c4a;
+}
 .workshop-qa-ask {
   padding: .9rem;
   border-radius: .9rem;

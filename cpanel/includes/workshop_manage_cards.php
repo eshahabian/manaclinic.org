@@ -85,7 +85,7 @@ $workshopMediaPost = $workshopRole === 'secretary' ? '/secretary/workshop-media'
             <?php if ($workshopRole === 'doctor'): ?>
               <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/workshop-export?id=' . $workshop['id'])) ?>">خروجی ثبت‌نام‌ها</a>
               <?php if (($workshop['type'] ?? '') === 'OFFLINE' && function_exists('workshop_qa_url_doctor')): ?>
-                <a class="btn btn-outline btn-sm" href="<?= e(workshop_qa_url_doctor((string) $workshop['id'])) ?>">پرسش و پاسخ</a>
+                <a class="btn btn-outline btn-sm" href="<?= e(workshop_qa_url_doctor((string) $workshop['id'])) ?>">تالار گفتگو</a>
               <?php endif; ?>
               <?php if ($workshop['status'] !== 'CANCELLED'): ?>
                 <a class="btn btn-outline btn-sm" href="<?= e(url($workshopEditBase . '?edit=' . $workshop['id'])) ?>#session-notes">یادداشت جلسات</a>

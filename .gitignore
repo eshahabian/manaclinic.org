@@ -36,6 +36,9 @@ yarn-error.log*
 
 /cpanel/config.php
 
+# SFTP credentials (copy from sftp.json.example)
+.vscode/sftp.json
+
 
 # vercel
 .vercel

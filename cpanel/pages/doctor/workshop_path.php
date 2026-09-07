@@ -31,7 +31,7 @@ ob_start();
   <p class="muted" style="margin-top:.35rem;line-height:1.7">یادداشت شما فقط همین نفر را می‌بیند. یادداشت مراجع از همان جلسه اینجاست.</p>
   <?php if (workshop_is_offline((string) ($enrollment['type'] ?? '')) && function_exists('workshop_qa_url_doctor')): ?>
     <p style="margin-top:.5rem">
-      <a class="btn btn-outline btn-sm" href="<?= e(workshop_qa_url_doctor((string) ($enrollment['workshop_id'] ?? ''))) ?>">پرسش و پاسخ همگانی دوره</a>
+      <a class="btn btn-outline btn-sm" href="<?= e(workshop_qa_url_doctor((string) ($enrollment['workshop_id'] ?? ''))) ?>">تالار گفتگو</a>
     </p>
   <?php endif; ?>
   <?= workshop_path_render($pathCtx, 'doctor') ?>

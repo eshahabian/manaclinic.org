@@ -46,13 +46,21 @@ if ($offline) {
             $audioStreams[(string) $audio['id']] = workshop_media_stream_url((string) $audio['id'], $user);
         }
     }
-    $qaHtml = workshop_qa_render(workshop_qa_list($pdo, (string) ($enrollment['workshop_id'] ?? '')), [
+    $qaTab = trim((string) ($_GET['qa'] ?? '')) === 'private' ? 'private' : 'public';
+    $workshopId = (string) ($enrollment['workshop_id'] ?? '');
+    $pathBase = url('/dashboard/workshops/path?enrollment=' . rawurlencode((string) ($enrollment['id'] ?? '')));
+    $qaHtml = workshop_qa_render(workshop_qa_list($pdo, $workshopId, [
+        'viewer_id' => (string) ($user['id'] ?? ''),
+        'private' => $qaTab === 'private',
+    ]), [
         'post_url' => url('/dashboard/workshops/qa'),
-        'workshop_id' => (string) ($enrollment['workshop_id'] ?? ''),
+        'workshop_id' => $workshopId,
         'enrollment_id' => (string) ($enrollment['id'] ?? ''),
         'can_post' => true,
-        'ask_label' => 'پرسش جدید برای همه',
-        'reply_label' => 'پاسخ شما',
+        'viewer_id' => (string) ($user['id'] ?? ''),
+        'tab' => $qaTab,
+        'public_url' => $pathBase . '&qa=public#workshop-qa',
+        'private_url' => $pathBase . '&qa=private#workshop-qa',
     ]);
 }
 
@@ -68,7 +76,7 @@ ob_start();
     <p class="muted" style="margin-top:.25rem">درمانگر: <?= e((string) $enrollment['doctor_name']) ?></p>
   <?php endif; ?>
   <?php if ($offline): ?>
-    <p class="muted" style="margin-top:.35rem;line-height:1.7">محتوای دوره همین‌جا پخش می‌شود — دانلود و ضبط صفحه مجاز نیست. پایین صفحه می‌توانید برای همه سؤال بپرسید.</p>
+    <p class="muted" style="margin-top:.35rem;line-height:1.7">محتوای دوره همین‌جا پخش می‌شود — دانلود و ضبط صفحه مجاز نیست. پایین صفحه تالار گفتگوی همگانی است.</p>
   <?php else: ?>
     <p class="muted" style="margin-top:.35rem;line-height:1.7">هر جلسه یک قدم از مسیر است. بعد از برگزاری همان روز می‌توانید برای خودتان بنویسید. یادداشت درمانگر فقط برای شماست.</p>
   <?php endif; ?>

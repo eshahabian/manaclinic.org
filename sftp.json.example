@@ -1,0 +1,27 @@
+{
+  "name": "mana-clinic",
+  "host": "manaclinic.org",
+  "protocol": "ftp",
+  "port": 21,
+  "secure": false,
+  "passive": true,
+  "username": "slhgjbht",
+  "password": "YOUR_CPANEL_OR_FTP_PASSWORD",
+  "remotePath": "/",
+  "context": "cpanel",
+  "uploadOnSave": true,
+  "ignore": [
+    ".vscode",
+    ".git",
+    ".cursor",
+    "node_modules",
+    "config.php",
+    ".env",
+    "storage/workshop_media"
+  ],
+  "watcher": {
+    "files": "**/*",
+    "autoUpload": false,
+    "autoDelete": false
+  }
+}
