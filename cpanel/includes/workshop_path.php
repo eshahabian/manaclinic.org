@@ -1,0 +1,437 @@
+<?php
+declare(strict_types=1);
+
+function ensure_workshop_path_notes_schema(PDO $pdo): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    require_once __DIR__ . '/workshop_sessions.php';
+    ensure_workshop_sessions_schema($pdo);
+    try {
+        $pdo->exec("
+          CREATE TABLE IF NOT EXISTS workshop_path_notes (
+            id VARCHAR(32) PRIMARY KEY,
+            enrollment_id VARCHAR(32) NOT NULL,
+            session_id VARCHAR(32) NOT NULL,
+            kind ENUM('patient','instructor') NOT NULL,
+            body TEXT NOT NULL,
+            author_user_id VARCHAR(32) NOT NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_path_note (enrollment_id, session_id, kind),
+            INDEX idx_path_note_enrollment (enrollment_id),
+            CONSTRAINT fk_wpn_enrollment FOREIGN KEY (enrollment_id) REFERENCES workshop_enrollments(id) ON DELETE CASCADE,
+            CONSTRAINT fk_wpn_session FOREIGN KEY (session_id) REFERENCES workshop_sessions(id) ON DELETE CASCADE
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+    } catch (Throwable $ignored) {
+    }
+    $ready = true;
+}
+
+function workshop_path_member_statuses(): array
+{
+    return ['CONFIRMED', 'COMPLETED'];
+}
+
+function workshop_path_url(string $enrollmentId): string
+{
+    return url('/dashboard/workshops/path?enrollment=' . rawurlencode($enrollmentId));
+}
+
+function workshop_path_doctor_url(string $enrollmentId): string
+{
+    return url('/doctor/workshops/path?enrollment=' . rawurlencode($enrollmentId));
+}
+
+function workshop_path_date_state(string $sessionDate, string $today): string
+{
+    if ($sessionDate === '') {
+        return 'open';
+    }
+    if ($sessionDate < $today) {
+        return 'past';
+    }
+    if ($sessionDate === $today) {
+        return 'today';
+    }
+
+    return 'future';
+}
+
+function workshop_path_state_label(string $state): string
+{
+    return match ($state) {
+        'past' => 'برگزار شده',
+        'today' => 'جلسه امروز',
+        'future' => 'هنوز نرسیده',
+        default => 'جلسه دوره',
+    };
+}
+
+function workshop_path_notes_map(PDO $pdo, string $enrollmentId): array
+{
+    ensure_workshop_path_notes_schema($pdo);
+    $stmt = $pdo->prepare('
+      SELECT session_id, kind, body, updated_at
+      FROM workshop_path_notes
+      WHERE enrollment_id = ?
+    ');
+    $stmt->execute([$enrollmentId]);
+    $map = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $sid = (string) ($row['session_id'] ?? '');
+        $kind = (string) ($row['kind'] ?? '');
+        if ($sid === '' || $kind === '') {
+            continue;
+        }
+        $map[$sid][$kind] = $row;
+    }
+
+    return $map;
+}
+
+function workshop_path_motivation(int $currentOneBased, int $total, bool $finished, bool $started): string
+{
+    if ($total < 1) {
+        return 'مسیر این دوره به‌زودی با روزهای برگزاری روشن می‌شود.';
+    }
+    $cur = to_fa_digits((string) $currentOneBased);
+    $tot = to_fa_digits((string) $total);
+    if ($finished) {
+        return 'آفرین؛ مسیر این دوره تمام شد. یادداشت‌هایت اینجاست — به خودت افتخار کن.';
+    }
+    if (!$started) {
+        return 'شروع مسیرت همین‌جاست. با حضور در اولین جلسه، قدم اول را بردار و ادامه بده.';
+    }
+    if ($currentOneBased >= $total) {
+        return 'به پایان نزدیک شده‌ای. همین قدم آخر را هم با حضور کامل بردار.';
+    }
+    if ($currentOneBased === 1) {
+        return 'اولین قدم را برداشته‌ای. مسیر روشن است؛ ادامه بده.';
+    }
+    if ($total > 0 && ($currentOneBased / $total) >= 0.5) {
+        return 'جلسه ' . $cur . ' از ' . $tot . ' را می‌گذرانی. بیش از نیمه راه آمده‌ای؛ ادامه بده.';
+    }
+
+    return 'جلسه ' . $cur . ' از ' . $tot . ' است. هر هفته یک قدم جلوتر — ادامه بده.';
+}
+
+function workshop_path_progress(array $steps, bool $offline): array
+{
+    $total = count($steps);
+    $current = 0;
+    $started = false;
+    $finished = false;
+    if ($offline) {
+        $noted = 0;
+        foreach ($steps as $i => $step) {
+            if (trim((string) ($step['patient_note'] ?? '')) !== '') {
+                $noted = $i + 1;
+            }
+        }
+        $started = $noted > 0;
+        $finished = $total > 0 && $noted === $total;
+        $current = $finished ? $total : min($total, $noted + 1);
+    } else {
+        $reached = 0;
+        foreach ($steps as $i => $step) {
+            $state = (string) ($step['state'] ?? '');
+            if (in_array($state, ['past', 'today'], true)) {
+                $reached = $i + 1;
+                $started = true;
+            }
+        }
+        $current = $reached;
+        $lastState = $total > 0 ? (string) ($steps[$total - 1]['state'] ?? '') : '';
+        $finished = $total > 0 && $reached === $total && $lastState === 'past';
+        if ($current < 1 && $started === false) {
+            $current = 0;
+        }
+    }
+
+    return [
+        'current' => $current,
+        'total' => $total,
+        'started' => $started,
+        'finished' => $finished,
+        'message' => workshop_path_motivation($current > 0 ? $current : 1, $total, $finished, $started),
+    ];
+}
+
+function workshop_path_build_steps(array $sessions, array $notesMap, string $workshopType, string $today): array
+{
+    $offline = function_exists('workshop_is_offline') && workshop_is_offline($workshopType);
+    $steps = [];
+    foreach ($sessions as $i => $session) {
+        if (!is_array($session)) {
+            continue;
+        }
+        $sid = (string) ($session['id'] ?? '');
+        if ($sid === '') {
+            continue;
+        }
+        $date = (string) ($session['session_date'] ?? '');
+        $visual = workshop_path_date_state($date, $today);
+        $canWritePatient = $offline || in_array($visual, ['past', 'today', 'open'], true);
+        $displayState = $offline && $visual === 'future' ? 'open' : $visual;
+        $patientNote = trim((string) ($notesMap[$sid]['patient']['body'] ?? ''));
+        $instructorNote = trim((string) ($notesMap[$sid]['instructor']['body'] ?? ''));
+        $steps[] = [
+            'id' => $sid,
+            'index' => $i + 1,
+            'title' => (string) ($session['title'] ?? ('جلسه ' . ($i + 1))),
+            'date' => $date,
+            'date_fa' => $date !== '' ? to_jalali_label($date) : '',
+            'state' => $displayState,
+            'visual' => $displayState,
+            'patient_note' => $patientNote,
+            'instructor_note' => $instructorNote,
+            'can_write_patient' => $canWritePatient,
+            'can_write_instructor' => true,
+        ];
+    }
+
+    return $steps;
+}
+
+function workshop_path_enrollment_row(PDO $pdo, string $enrollmentId): ?array
+{
+    $stmt = $pdo->prepare("
+      SELECT e.id, e.workshop_id, e.patient_id, e.status,
+             w.title, w.type, w.session_interval, w.starts_at, w.ends_at,
+             w.status AS workshop_status, w.doctor_id,
+             u.name AS patient_name,
+             du.name AS doctor_name
+      FROM workshop_enrollments e
+      JOIN workshops w ON w.id = e.workshop_id
+      JOIN users u ON u.id = e.patient_id
+      JOIN doctor_profiles dp ON dp.id = w.doctor_id
+      JOIN users du ON du.id = dp.user_id
+      WHERE e.id = ?
+      LIMIT 1
+    ");
+    $stmt->execute([$enrollmentId]);
+    $row = $stmt->fetch();
+
+    return is_array($row) ? $row : null;
+}
+
+function workshop_path_sync_sessions(PDO $pdo, array $enrollment): array
+{
+    require_once __DIR__ . '/workshop_sessions.php';
+    workshop_sessions_sync(
+        $pdo,
+        (string) ($enrollment['workshop_id'] ?? ''),
+        (string) ($enrollment['type'] ?? 'OFFLINE'),
+        (string) ($enrollment['starts_at'] ?? date('Y-m-d H:i:s')),
+        (string) ($enrollment['ends_at'] ?? date('Y-m-d H:i:s')),
+        [],
+        function_exists('workshop_session_interval_normalize')
+            ? workshop_session_interval_normalize((string) ($enrollment['session_interval'] ?? 'WEEKLY'))
+            : 'WEEKLY'
+    );
+
+    return workshop_sessions_list($pdo, (string) ($enrollment['workshop_id'] ?? ''));
+}
+
+function workshop_path_context(PDO $pdo, array $enrollment): array
+{
+    $today = date('Y-m-d');
+    $sessions = workshop_path_sync_sessions($pdo, $enrollment);
+    $notes = workshop_path_notes_map($pdo, (string) ($enrollment['id'] ?? ''));
+    $type = (string) ($enrollment['type'] ?? '');
+    $steps = workshop_path_build_steps($sessions, $notes, $type, $today);
+    $offline = function_exists('workshop_is_offline') && workshop_is_offline($type);
+    $progress = workshop_path_progress($steps, $offline);
+
+    return [
+        'enrollment' => $enrollment,
+        'steps' => $steps,
+        'progress' => $progress,
+        'offline' => $offline,
+        'today' => $today,
+    ];
+}
+
+function workshop_path_load_patient(PDO $pdo, string $patientId, string $enrollmentId): ?array
+{
+    if ($enrollmentId === '' || $patientId === '') {
+        return null;
+    }
+    $row = workshop_path_enrollment_row($pdo, $enrollmentId);
+    if (!$row || (string) ($row['patient_id'] ?? '') !== $patientId) {
+        return null;
+    }
+    if (!in_array((string) ($row['status'] ?? ''), workshop_path_member_statuses(), true)) {
+        return null;
+    }
+
+    return workshop_path_context($pdo, $row);
+}
+
+function workshop_path_load_doctor(PDO $pdo, string $doctorProfileId, string $enrollmentId): ?array
+{
+    if ($enrollmentId === '' || $doctorProfileId === '') {
+        return null;
+    }
+    $row = workshop_path_enrollment_row($pdo, $enrollmentId);
+    if (!$row || (string) ($row['doctor_id'] ?? '') !== $doctorProfileId) {
+        return null;
+    }
+    if (!in_array((string) ($row['status'] ?? ''), workshop_path_member_statuses(), true)) {
+        return null;
+    }
+
+    return workshop_path_context($pdo, $row);
+}
+
+function workshop_path_save_note(
+    PDO $pdo,
+    string $enrollmentId,
+    string $sessionId,
+    string $kind,
+    string $body,
+    string $authorUserId
+): void {
+    ensure_workshop_path_notes_schema($pdo);
+    if (!in_array($kind, ['patient', 'instructor'], true)) {
+        throw new RuntimeException('نوع یادداشت نامعتبر است.');
+    }
+    $body = trim($body);
+    $len = function_exists('mb_strlen') ? mb_strlen($body) : strlen($body);
+    if ($len > 4000) {
+        throw new RuntimeException('یادداشت خیلی طولانی است.');
+    }
+    $enr = $pdo->prepare('SELECT workshop_id FROM workshop_enrollments WHERE id=? LIMIT 1');
+    $enr->execute([$enrollmentId]);
+    $workshopId = (string) ($enr->fetchColumn() ?: '');
+    if ($workshopId === '') {
+        throw new RuntimeException('ثبت‌نام یافت نشد.');
+    }
+    $sess = $pdo->prepare('SELECT id FROM workshop_sessions WHERE id=? AND workshop_id=? LIMIT 1');
+    $sess->execute([$sessionId, $workshopId]);
+    if (!$sess->fetch()) {
+        throw new RuntimeException('جلسه یافت نشد.');
+    }
+
+    $found = $pdo->prepare('SELECT id FROM workshop_path_notes WHERE enrollment_id=? AND session_id=? AND kind=? LIMIT 1');
+    $found->execute([$enrollmentId, $sessionId, $kind]);
+    $noteId = (string) ($found->fetchColumn() ?: '');
+
+    if ($body === '') {
+        if ($noteId !== '') {
+            $pdo->prepare('DELETE FROM workshop_path_notes WHERE id=?')->execute([$noteId]);
+        }
+        return;
+    }
+
+    if ($noteId !== '') {
+        $pdo->prepare('UPDATE workshop_path_notes SET body=?, author_user_id=? WHERE id=?')
+            ->execute([$body, $authorUserId, $noteId]);
+        return;
+    }
+
+    $pdo->prepare('
+      INSERT INTO workshop_path_notes (id, enrollment_id, session_id, kind, body, author_user_id)
+      VALUES (?,?,?,?,?,?)
+    ')->execute([cuid(), $enrollmentId, $sessionId, $kind, $body, $authorUserId]);
+}
+
+function workshop_path_render(array $ctx, string $mode): string
+{
+    $mode = $mode === 'doctor' ? 'doctor' : 'patient';
+    $enrollment = is_array($ctx['enrollment'] ?? null) ? $ctx['enrollment'] : [];
+    $steps = is_array($ctx['steps'] ?? null) ? $ctx['steps'] : [];
+    $progress = is_array($ctx['progress'] ?? null) ? $ctx['progress'] : [];
+    $postUrl = (string) ($ctx['post_url'] ?? '');
+    $enrollmentId = (string) ($enrollment['id'] ?? '');
+    $current = (int) ($progress['current'] ?? 0);
+
+    ob_start();
+    ?>
+<div class="workshop-path-wrap">
+  <div class="workshop-path-motivate" role="status">
+    <strong><?= $mode === 'doctor' ? 'مسیر این مراجع' : 'مسیر تو در این دوره' ?></strong>
+    <?php if ((int) ($progress['total'] ?? 0) > 0): ?>
+      <span class="workshop-path-motivate-count">
+        جلسه <?= e(to_fa_digits((string) max(1, $current))) ?> از <?= e(to_fa_digits((string) $progress['total'])) ?>
+      </span>
+    <?php endif; ?>
+    <p><?= e((string) ($progress['message'] ?? '')) ?></p>
+  </div>
+
+  <?php if ($steps === []): ?>
+    <p class="muted">هنوز جلسه‌ای برای این دوره تعریف نشده است.</p>
+  <?php else: ?>
+    <ol class="workshop-path">
+      <?php foreach ($steps as $step): ?>
+        <?php
+          $state = (string) ($step['visual'] ?? $step['state'] ?? 'open');
+          $isCurrent = $current > 0 && (int) ($step['index'] ?? 0) === $current;
+          $classes = 'workshop-path-step is-' . preg_replace('/[^a-z]/', '', $state);
+          if ($isCurrent) {
+              $classes .= ' is-current';
+          }
+        ?>
+        <li class="<?= e($classes) ?>" id="step-<?= e((string) ($step['id'] ?? '')) ?>">
+          <span class="workshop-path-dot" aria-hidden="true">
+            <?php if ($state === 'past'): ?>✓<?php elseif ($state === 'today' || $isCurrent): ?>●<?php else: ?>○<?php endif; ?>
+          </span>
+          <div class="workshop-path-card">
+            <div class="workshop-path-card-head">
+              <strong><?= e((string) ($step['title'] ?? 'جلسه')) ?></strong>
+              <span class="badge"><?= e(workshop_path_state_label($state)) ?></span>
+            </div>
+            <?php if (!empty($step['date_fa'])): ?>
+              <div class="muted" style="font-size:.85rem;margin-top:.25rem"><?= e((string) $step['date_fa']) ?></div>
+            <?php endif; ?>
+
+            <?php if ($mode === 'patient'): ?>
+              <?php if ((string) ($step['instructor_note'] ?? '') !== ''): ?>
+                <div class="workshop-path-teacher">
+                  <span class="workshop-path-note-label">یادداشت درمانگر برای شما</span>
+                  <p><?= nl2br(e((string) $step['instructor_note'])) ?></p>
+                </div>
+              <?php endif; ?>
+              <?php if (!empty($step['can_write_patient'])): ?>
+                <form class="workshop-path-form" method="post" action="<?= e($postUrl) ?>">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="enrollment_id" value="<?= e($enrollmentId) ?>">
+                  <input type="hidden" name="session_id" value="<?= e((string) ($step['id'] ?? '')) ?>">
+                  <label class="workshop-path-note-label" for="patient-note-<?= e((string) ($step['id'] ?? '')) ?>">یادداشت من از این جلسه</label>
+                  <textarea class="input" id="patient-note-<?= e((string) ($step['id'] ?? '')) ?>" name="body" rows="3" maxlength="4000" placeholder="اگر دوست دارید از این جلسه چیزی برای خودتان بنویسید…"><?= e((string) ($step['patient_note'] ?? '')) ?></textarea>
+                  <button class="btn btn-primary btn-sm" type="submit">ذخیره یادداشت</button>
+                </form>
+              <?php else: ?>
+                <p class="muted workshop-path-locked">این جلسه هنوز نرسیده؛ بعد از برگزاری می‌توانید یادداشت بنویسید.</p>
+              <?php endif; ?>
+            <?php else: ?>
+              <div class="workshop-path-teacher">
+                <span class="workshop-path-note-label">یادداشت مراجع</span>
+                <?php if ((string) ($step['patient_note'] ?? '') !== ''): ?>
+                  <p><?= nl2br(e((string) $step['patient_note'])) ?></p>
+                <?php else: ?>
+                  <p class="muted" style="margin:0">هنوز چیزی ننوشته است.</p>
+                <?php endif; ?>
+              </div>
+              <form class="workshop-path-form" method="post" action="<?= e($postUrl) ?>">
+                <?= csrf_field() ?>
+                <input type="hidden" name="enrollment_id" value="<?= e($enrollmentId) ?>">
+                <input type="hidden" name="session_id" value="<?= e((string) ($step['id'] ?? '')) ?>">
+                <label class="workshop-path-note-label" for="instructor-note-<?= e((string) ($step['id'] ?? '')) ?>">یادداشت خصوصی برای این نفر</label>
+                <textarea class="input" id="instructor-note-<?= e((string) ($step['id'] ?? '')) ?>" name="body" rows="3" maxlength="4000" placeholder="فقط همین مراجع این یادداشت را می‌بیند…"><?= e((string) ($step['instructor_note'] ?? '')) ?></textarea>
+                <button class="btn btn-primary btn-sm" type="submit">ذخیره یادداشت</button>
+              </form>
+            <?php endif; ?>
+          </div>
+        </li>
+      <?php endforeach; ?>
+    </ol>
+  <?php endif; ?>
+</div>
+    <?php
+    return (string) ob_get_clean();
+}

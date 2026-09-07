@@ -28,6 +28,9 @@ $emptyEnrollments = $emptyEnrollments ?? 'هنوز در کارگاهی از ای
         $overview = function_exists('workshop_overview_payload')
           ? workshop_overview_payload($e + ['id' => $e['workshop_id'] ?? '', 'title' => $e['title'] ?? '', 'type' => $e['type'] ?? '', 'session_interval' => $e['session_interval'] ?? 'DAILY', 'starts_at' => $e['starts_at'] ?? '', 'ends_at' => $e['ends_at'] ?? '', 'price' => $e['amount'] ?? 0, 'doctor_name' => $e['doctor_name'] ?? '', 'items_to_bring' => $e['items_to_bring'] ?? '', 'description' => $e['description'] ?? '', 'location' => $e['location'] ?? ''], $e, $sessions, $canSeeFiles, $canSeeFiles ? workshop_media_course_url((string) $e['id']) : null)
           : [];
+        if ($confirmed && function_exists('workshop_path_url')) {
+            $overview['pathUrl'] = workshop_path_url((string) ($e['id'] ?? ''));
+        }
       ?>
       <div class="enrollment-card">
         <div class="enrollment-card-main" data-workshop-open role="button" tabindex="0">
@@ -79,6 +82,9 @@ $emptyEnrollments = $emptyEnrollments ?? 'هنوز در کارگاهی از ای
             <?php if ($navUri): ?>
               <a href="<?= e($navUri) ?>" class="btn btn-outline btn-sm enrollment-nav-btn">مسیر‌یابی</a>
             <?php endif; ?>
+          <?php endif; ?>
+          <?php if ($confirmed && function_exists('workshop_path_url')): ?>
+            <a class="btn btn-primary btn-sm" href="<?= e(workshop_path_url((string) $e['id'])) ?>">مسیر دوره</a>
           <?php endif; ?>
           <?php if ($confirmed && ($hasMedia || $e['type'] === 'OFFLINE')): ?>
             <a class="btn btn-outline btn-sm" href="<?= e(workshop_media_course_url((string) $e['id'])) ?>">

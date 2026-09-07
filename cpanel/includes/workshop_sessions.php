@@ -142,6 +142,14 @@ function workshop_sessions_sync(PDO $pdo, string $workshopId, string $type, stri
         if ((int) $media->fetchColumn() > 0) {
             continue;
         }
+        try {
+            $notes = $pdo->prepare('SELECT COUNT(*) FROM workshop_path_notes WHERE session_id=?');
+            $notes->execute([$sid]);
+            if ((int) $notes->fetchColumn() > 0) {
+                continue;
+            }
+        } catch (Throwable $ignored) {
+        }
         $pdo->prepare('DELETE FROM workshop_sessions WHERE id=?')->execute([$sid]);
     }
 

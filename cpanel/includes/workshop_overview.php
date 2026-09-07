@@ -69,6 +69,7 @@ function workshop_overview_payload(array $workshop, ?array $enrollment, array $s
         'staff' => false,
         'pending' => in_array((string) ($enrollment['status'] ?? ''), ['PENDING_PAYMENT'], true),
         'mediaUrl' => $canSeeFiles && $mediaUrl ? $mediaUrl : '',
+        'pathUrl' => '',
         'editUrl' => '',
         'approvedPeople' => [],
         'pendingPeople' => [],

@@ -6,6 +6,7 @@ require_once __DIR__ . '/../../includes/workshops.php';
 require_once __DIR__ . '/../../includes/workshop_media.php';
 require_once __DIR__ . '/../../includes/workshop_sessions.php';
 require_once __DIR__ . '/../../includes/workshop_overview.php';
+require_once __DIR__ . '/../../includes/workshop_path.php';
 
 $ctx = require_doctor_profile($pdo);
 ensure_workshop_schema($pdo);

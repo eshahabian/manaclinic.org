@@ -93,6 +93,9 @@ function render_patient_page(string $title, string $innerHtml): void
                   <?php
                     $childHref = (string) $child['href'];
                     $childActive = patient_nav_is_active($childHref, $currentPath, true);
+                    if ($childHref === '/dashboard/workshops/mine' && str_starts_with($currentPath, '/dashboard/workshops/path')) {
+                        $childActive = true;
+                    }
                     $badgeKey = (string) ($child['badge'] ?? '');
                     $badge = $badgeKey !== '' ? (int) ($counts[$badgeKey] ?? 0) : 0;
                   ?>

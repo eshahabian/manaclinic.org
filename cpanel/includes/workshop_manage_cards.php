@@ -121,6 +121,35 @@ $workshopMediaPost = $workshopRole === 'secretary' ? '/secretary/workshop-media'
         <?php if ($workshopRole === 'doctor' && !empty($workshop['notes'])): ?>
           <p class="muted" style="font-size:.85rem;margin:.5rem 0 0"><strong>یادداشت:</strong> <?= e($workshop['notes']) ?></p>
         <?php endif; ?>
+        <?php if ($workshopRole === 'doctor'): ?>
+          <?php
+            $pathPeople = [];
+            foreach (($workshopEnrollmentsById[(string) $workshop['id']] ?? []) as $enr) {
+                if (!is_array($enr)) {
+                    continue;
+                }
+                if (!in_array((string) ($enr['status'] ?? ''), ['CONFIRMED', 'COMPLETED'], true)) {
+                    continue;
+                }
+                $pathPeople[] = $enr;
+            }
+          ?>
+          <?php if ($pathPeople): ?>
+            <div class="workshop-path-people">
+              <h3 class="workshop-path-people-title">مسیر و یادداشت شرکت‌کننده‌ها</h3>
+              <ul class="workshop-path-people-list">
+                <?php foreach ($pathPeople as $enr): ?>
+                  <li>
+                    <span><?= e((string) ($enr['patient_name'] ?? 'مراجع')) ?></span>
+                    <?php if (function_exists('workshop_path_doctor_url')): ?>
+                      <a class="btn btn-outline btn-sm" href="<?= e(workshop_path_doctor_url((string) ($enr['id'] ?? ''))) ?>">مسیر و یادداشت</a>
+                    <?php endif; ?>
+                  </li>
+                <?php endforeach; ?>
+              </ul>
+            </div>
+          <?php endif; ?>
+        <?php endif; ?>
         <?php if ($workshopRole === 'secretary'): ?>
           <?php
             $enrollmentList = $workshopEnrollmentsById[(string) $workshop['id']] ?? [];
