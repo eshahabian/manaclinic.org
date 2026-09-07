@@ -3,12 +3,25 @@ declare(strict_types=1);
 
 function staff_hours_scripts(): string
 {
-    return '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260906o"></script>';
+    return '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260907h"></script>';
 }
 
 function staff_hours_person_word(array $block): string
 {
     return (($block['kind'] ?? '') === 'doctor') ? 'درمانگر' : 'منشی';
+}
+
+function staff_hours_month_tab_label(array $month): string
+{
+    $base = trim((string) ($month['range_tab_label'] ?? ''));
+    if ($base !== '') {
+        return $base;
+    }
+    $name = trim((string) ($month['tab_label'] ?? $month['short'] ?? 'ماه'));
+    if ($name === '') {
+        $name = 'ماه';
+    }
+    return str_starts_with($name, 'کل ') ? $name : ('کل ' . $name);
 }
 
 function staff_hours_render(array $slots, array $opts = []): string
@@ -38,7 +51,7 @@ function staff_hours_render(array $slots, array $opts = []): string
     ob_start();
     ?>
 <h1>ساعت کاری</h1>
-<p class="muted">ساعت عادی از ۹ صبح تا ۸ شب است؛ خارج از این بازه اضافه‌کار حساب می‌شود. تب هر منشی و هر درمانگر جداست. ماه را انتخاب کنید تا جمع کل همان ماه را ببینید، یا یک روز را جدا باز کنید. جزئیات ورود و خروج‌ها پشت «بیشتر» است.</p>
+<p class="muted">ساعت عادی از ۹ صبح تا ۸ شب است؛ خارج از این بازه اضافه‌کار حساب می‌شود. تب هر منشی و هر درمانگر جداست. با زدن «کل شهریور» یا «کل مهر» جمع کل همان ماه دیده می‌شود؛ تب روزها فقط جزئیات یک روز است. جزئیات ورود و خروج پشت «بیشتر» است.</p>
 
 <div class="staff-hours-toolbar">
   <div class="staff-hours-export">
@@ -82,111 +95,114 @@ function staff_hours_render(array $slots, array $opts = []): string
   </div>
   <div class="binder-body">
     <?php foreach ($people as $block): ?>
-      <?php
-        $sid = (string) ($block['tab_id'] ?? '');
-        $personWord = staff_hours_person_word($block);
-        $cal = staff_hours_calendar($block);
-        $halves = $cal['halves'];
-        $defaultHalfId = (string) $cal['default_half_id'];
-      ?>
+      <?php $sid = (string) ($block['tab_id'] ?? ''); ?>
       <section class="binder-panel<?= $defaultSlotId === $sid ? ' is-active' : '' ?>" data-binder-panel="<?= e($sid) ?>" role="tabpanel"<?= $defaultSlotId === $sid ? '' : ' hidden' ?>>
-        <?php if (!$halves): ?>
-          <p class="muted">برای این <?= e($personWord) ?> سابقه‌ای نیست.</p>
+        <?= staff_hours_render_calendar($block, ['today' => $today]) ?>
+      </section>
+    <?php endforeach; ?>
+  </div>
+</div>
+    <?php
+    return (string) ob_get_clean();
+}
+
+function staff_hours_render_self(array $block, array $opts = []): string
+{
+    $today = (string) ($opts['today'] ?? date('Y-m-d'));
+    $title = (string) ($opts['title'] ?? 'ساعت کاری من');
+    $intro = (string) ($opts['intro'] ?? '');
+    if ($intro === '') {
+        $intro = 'ساعت عادی از ۹ صبح تا ۸ شب است؛ خارج از این بازه اضافه‌کار حساب می‌شود. ماه را از تب‌ها انتخاب کنید تا جمع کل همان ماه (کل شهریور، کل مهر، …) دیده شود. تب روزها فقط جزئیات یک روز است. جزئیات ورود و خروج پشت «بیشتر» است.';
+    }
+    $todayRows = staff_hours_day_rows($block, $today, $today);
+    $open = $block['open'] ?? null;
+
+    ob_start();
+    ?>
+<h1><?= e($title) ?></h1>
+<p class="muted"><?= e($intro) ?></p>
+
+<div class="panel stack" style="margin-top:1rem">
+  <div class="row-between">
+    <strong>حضور امروز</strong>
+    <?php if ($open): ?>
+      <span class="badge">آنلاین از <?= e(format_fa_datetime((string) $open['started_at'])) ?></span>
+    <?php else: ?>
+      <span class="badge">آفلاین</span>
+    <?php endif; ?>
+  </div>
+  <?= staff_hours_render_day_presence($todayRows, ['is_today' => true]) ?>
+</div>
+
+<h2 class="binder-sub" style="margin-top:1.5rem">انتخاب ماه</h2>
+<p class="muted" style="margin:.2rem 0 .85rem">با زدن «کل شهریور» یا «کل مهر» بازه، روزهای حضور، زمان حضور و عادی/اضافه‌کار همان ماه را می‌بینید.</p>
+<?= staff_hours_render_calendar($block, ['today' => $today]) ?>
+    <?php
+    return (string) ob_get_clean();
+}
+
+function staff_hours_render_calendar(array $block, array $opts = []): string
+{
+    $today = (string) ($opts['today'] ?? date('Y-m-d'));
+    $personWord = staff_hours_person_word($block);
+    $cal = staff_hours_calendar($block);
+    $halves = $cal['halves'] ?? [];
+    $defaultHalfId = (string) ($cal['default_half_id'] ?? '');
+    if ($halves === []) {
+        return '<p class="muted">برای این ' . e($personWord) . ' سابقه‌ای نیست.</p>';
+    }
+    if ($defaultHalfId === '' || !isset($halves[$defaultHalfId])) {
+        $defaultHalfId = (string) (array_key_first($halves) ?? '');
+    }
+
+    ob_start();
+    ?>
+<div class="binder-tile binder-tile--nested staff-hours-calendar" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($defaultHalfId) ?>" data-binder-tone="<?= e((string) ($halves[$defaultHalfId]['tone'] ?? 'online')) ?>">
+  <div class="binder-tabs" role="tablist" aria-label="نیم‌سال">
+    <?php foreach ($halves as $halfId => $half): ?>
+      <button type="button"
+        class="binder-tab <?= e((string) ($half['class'] ?? '')) ?><?= $defaultHalfId === $halfId ? ' is-active' : '' ?>"
+        role="tab"
+        data-binder-tab="<?= e((string) $halfId) ?>"
+        data-binder-tone="<?= e((string) ($half['tone'] ?? 'online')) ?>"
+        aria-selected="<?= $defaultHalfId === $halfId ? 'true' : 'false' ?>">
+        <?= e((string) ($half['label'] ?? '')) ?>
+      </button>
+    <?php endforeach; ?>
+  </div>
+  <div class="binder-body">
+    <?php foreach ($halves as $halfId => $half): ?>
+      <?php
+        $months = $half['months'] ?? [];
+        $defaultMonthId = (string) ($cal['default_month_id'] ?? '');
+        if (!isset($months[$defaultMonthId])) {
+            $defaultMonthId = (string) (array_key_first($months) ?? '');
+        }
+      ?>
+      <section class="binder-panel<?= $defaultHalfId === $halfId ? ' is-active' : '' ?>" data-binder-panel="<?= e((string) $halfId) ?>" role="tabpanel"<?= $defaultHalfId === $halfId ? '' : ' hidden' ?>>
+        <?php if (!$months): ?>
+          <p class="muted">ماهی در این نیم‌سال نیست.</p>
         <?php else: ?>
-          <div class="binder-tile binder-tile--nested" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($defaultHalfId) ?>" data-binder-tone="<?= e((string) ($halves[$defaultHalfId]['tone'] ?? 'online')) ?>">
-            <div class="binder-tabs" role="tablist" aria-label="نیم‌سال">
-              <?php foreach ($halves as $halfId => $half): ?>
+          <div class="binder-tile binder-tile--nested staff-hours-month-tabs" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($defaultMonthId) ?>" data-binder-tone="<?= e((string) (($months[$defaultMonthId]['tone'] ?? $half['tone'] ?? 'in-person'))) ?>">
+            <div class="binder-tabs" role="tablist" aria-label="کل ماه">
+              <?php foreach ($months as $monthId => $month): ?>
                 <button type="button"
-                  class="binder-tab <?= e((string) ($half['class'] ?? '')) ?><?= $defaultHalfId === $halfId ? ' is-active' : '' ?>"
+                  class="binder-tab staff-hours-range-tab <?= e((string) ($month['class'] ?? 'binder-tab-in-person')) ?><?= $defaultMonthId === $monthId ? ' is-active' : '' ?>"
                   role="tab"
-                  data-binder-tab="<?= e((string) $halfId) ?>"
-                  data-binder-tone="<?= e((string) ($half['tone'] ?? 'online')) ?>"
-                  aria-selected="<?= $defaultHalfId === $halfId ? 'true' : 'false' ?>">
-                  <?= e((string) ($half['label'] ?? '')) ?>
+                  data-binder-tab="<?= e((string) $monthId) ?>"
+                  data-binder-tone="<?= e((string) ($month['tone'] ?? 'in-person')) ?>"
+                  aria-selected="<?= $defaultMonthId === $monthId ? 'true' : 'false' ?>">
+                  <?= e(staff_hours_month_tab_label($month)) ?>
+                  <?php if ((int) ($month['present_count'] ?? 0) > 0): ?>
+                    <span class="binder-tab-count"><?= e(to_fa_digits((string) $month['present_count'])) ?></span>
+                  <?php endif; ?>
                 </button>
               <?php endforeach; ?>
             </div>
             <div class="binder-body">
-              <?php foreach ($halves as $halfId => $half): ?>
-                <?php
-                  $months = $half['months'] ?? [];
-                  $defaultMonthId = (string) $cal['default_month_id'];
-                  if (!isset($months[$defaultMonthId])) {
-                      $defaultMonthId = (string) (array_key_first($months) ?? '');
-                  }
-                ?>
-                <section class="binder-panel<?= $defaultHalfId === $halfId ? ' is-active' : '' ?>" data-binder-panel="<?= e((string) $halfId) ?>" role="tabpanel"<?= $defaultHalfId === $halfId ? '' : ' hidden' ?>>
-                  <div class="binder-tile binder-tile--nested" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($defaultMonthId) ?>" data-binder-tone="<?= e((string) (($months[$defaultMonthId]['tone'] ?? $half['tone'] ?? 'in-person'))) ?>">
-                    <div class="binder-tabs" role="tablist" aria-label="ماه">
-                      <?php foreach ($months as $monthId => $month): ?>
-                        <button type="button"
-                          class="binder-tab <?= e((string) ($month['class'] ?? 'binder-tab-in-person')) ?><?= $defaultMonthId === $monthId ? ' is-active' : '' ?>"
-                          role="tab"
-                          data-binder-tab="<?= e((string) $monthId) ?>"
-                          data-binder-tone="<?= e((string) ($month['tone'] ?? 'in-person')) ?>"
-                          aria-selected="<?= $defaultMonthId === $monthId ? 'true' : 'false' ?>">
-                          <?= e((string) ($month['tab_label'] ?? $month['short'] ?? '')) ?>
-                          <?php if ((int) ($month['present_count'] ?? 0) > 0): ?>
-                            <span class="binder-tab-count"><?= e(to_fa_digits((string) $month['present_count'])) ?></span>
-                          <?php endif; ?>
-                        </button>
-                      <?php endforeach; ?>
-                    </div>
-                    <div class="binder-body">
-                      <?php foreach ($months as $monthId => $month): ?>
-                        <?php $days = $month['days'] ?? []; ?>
-                        <section class="binder-panel<?= $defaultMonthId === $monthId ? ' is-active' : '' ?>" data-binder-panel="<?= e((string) $monthId) ?>" role="tabpanel"<?= $defaultMonthId === $monthId ? '' : ' hidden' ?>>
-                          <h2 class="binder-sub" style="margin-top:0">
-                            <?= e((string) ($month['label'] ?? '')) ?>
-                            <span class="muted" style="font-weight:400;font-size:.85rem">
-                              · <?= e(to_fa_digits((string) ($month['length'] ?? 0))) ?> روزه
-                            </span>
-                          </h2>
-                          <?php if (!$days): ?>
-                            <p class="muted">در این ماه حضوری برای این <?= e($personWord) ?> ثبت نشده.</p>
-                          <?php else: ?>
-                            <?php
-                              $monthAllId = (string) $monthId . '-all';
-                              $defaultDayId = $monthAllId;
-                              $monthShort = (string) ($month['short'] ?? $month['tab_label'] ?? 'ماه');
-                            ?>
-                            <div class="binder-tile binder-tile--nested" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($defaultDayId) ?>" data-binder-tone="appts">
-                              <div class="binder-tabs" role="tablist" aria-label="بازه حضور">
-                                <button type="button"
-                                  class="binder-tab binder-tab-appts is-active"
-                                  role="tab"
-                                  data-binder-tab="<?= e($monthAllId) ?>"
-                                  data-binder-tone="appts"
-                                  aria-selected="true">
-                                  کل <?= e($monthShort) ?>
-                                </button>
-                                <?php foreach ($days as $day): ?>
-                                  <button type="button"
-                                    class="binder-tab <?= e((string) ($month['class'] ?? 'binder-tab-in-person')) ?>"
-                                    role="tab"
-                                    data-binder-tab="<?= e((string) ($day['id'] ?? '')) ?>"
-                                    data-binder-tone="<?= e((string) ($month['tone'] ?? 'in-person')) ?>"
-                                    aria-selected="false">
-                                    <?= e((string) ($day['tab_label'] ?? '')) ?>
-                                  </button>
-                                <?php endforeach; ?>
-                              </div>
-                              <div class="binder-body">
-                                <section class="binder-panel is-active" data-binder-panel="<?= e($monthAllId) ?>" role="tabpanel">
-                                  <?= staff_hours_render_month_tile($block, $month, $today) ?>
-                                </section>
-                                <?php foreach ($days as $day): ?>
-                                  <section class="binder-panel" data-binder-panel="<?= e((string) ($day['id'] ?? '')) ?>" role="tabpanel" hidden>
-                                    <?= staff_hours_render_tile($block, (string) ($day['date'] ?? ''), $today) ?>
-                                  </section>
-                                <?php endforeach; ?>
-                              </div>
-                            </div>
-                          <?php endif; ?>
-                        </section>
-                      <?php endforeach; ?>
-                    </div>
-                  </div>
+              <?php foreach ($months as $monthId => $month): ?>
+                <section class="binder-panel<?= $defaultMonthId === $monthId ? ' is-active' : '' ?>" data-binder-panel="<?= e((string) $monthId) ?>" role="tabpanel"<?= $defaultMonthId === $monthId ? '' : ' hidden' ?>>
+                  <?= staff_hours_render_month_panel($block, $month, $today) ?>
                 </section>
               <?php endforeach; ?>
             </div>
@@ -195,6 +211,61 @@ function staff_hours_render(array $slots, array $opts = []): string
       </section>
     <?php endforeach; ?>
   </div>
+</div>
+    <?php
+    return (string) ob_get_clean();
+}
+
+function staff_hours_render_month_panel(array $block, array $month, string $today): string
+{
+    $days = $month['days'] ?? [];
+    $defaultDayId = '';
+    if (isset($days[$today])) {
+        $defaultDayId = (string) ($days[$today]['id'] ?? '');
+    } elseif ($days) {
+        $first = reset($days);
+        $defaultDayId = is_array($first) ? (string) ($first['id'] ?? '') : '';
+    }
+
+    ob_start();
+    ?>
+<div class="staff-hours-month-main">
+  <h2 class="binder-sub staff-hours-month-heading" style="margin-top:0">
+    کل <?= e((string) ($month['label'] ?? $month['short'] ?? 'ماه')) ?>
+    <span class="muted" style="font-weight:400;font-size:.85rem">
+      · <?= e(to_fa_digits((string) ($month['length'] ?? 0))) ?> روزه
+    </span>
+  </h2>
+  <?= staff_hours_render_month_tile($block, $month, $today) ?>
+  <?php if ($days): ?>
+    <div class="staff-hours-day-drill">
+      <h3 class="staff-hours-day-drill-title">جزئیات روز</h3>
+      <p class="muted staff-hours-day-drill-hint">جمع ماه همین بالاست. برای ورود و خروج یک روز، تب آن را بزنید.</p>
+      <div class="binder-tile binder-tile--nested" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($defaultDayId) ?>" data-binder-tone="<?= e((string) ($month['tone'] ?? 'in-person')) ?>">
+        <div class="binder-tabs" role="tablist" aria-label="روزهای حضور">
+          <?php foreach ($days as $day): ?>
+            <?php $did = (string) ($day['id'] ?? ''); ?>
+            <button type="button"
+              class="binder-tab <?= e((string) ($month['class'] ?? 'binder-tab-in-person')) ?><?= $defaultDayId === $did ? ' is-active' : '' ?>"
+              role="tab"
+              data-binder-tab="<?= e($did) ?>"
+              data-binder-tone="<?= e((string) ($month['tone'] ?? 'in-person')) ?>"
+              aria-selected="<?= $defaultDayId === $did ? 'true' : 'false' ?>">
+              <?= e((string) ($day['tab_label'] ?? '')) ?>
+            </button>
+          <?php endforeach; ?>
+        </div>
+        <div class="binder-body">
+          <?php foreach ($days as $day): ?>
+            <?php $did = (string) ($day['id'] ?? ''); ?>
+            <section class="binder-panel<?= $defaultDayId === $did ? ' is-active' : '' ?>" data-binder-panel="<?= e($did) ?>" role="tabpanel"<?= $defaultDayId === $did ? '' : ' hidden' ?>>
+              <?= staff_hours_render_tile($block, (string) ($day['date'] ?? ''), $today) ?>
+            </section>
+          <?php endforeach; ?>
+        </div>
+      </div>
+    </div>
+  <?php endif; ?>
 </div>
     <?php
     return (string) ob_get_clean();

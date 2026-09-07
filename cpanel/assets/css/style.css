@@ -2133,6 +2133,37 @@ html[dir="ltr"] .binder-body {
   font-family: inherit;
   font-size: .92rem;
 }
+.staff-hours-range-tab {
+  font-weight: 800;
+}
+.staff-hours-month-tabs > .binder-tabs .binder-tab {
+  min-width: 6.8rem;
+}
+.staff-hours-month-main .panel {
+  margin-top: .65rem !important;
+}
+.staff-hours-month-heading {
+  font-size: 1.08rem;
+}
+.staff-hours-day-drill {
+  margin-top: 1.2rem;
+  padding-top: 1rem;
+  border-top: 1px dashed var(--line, #e5e7eb);
+}
+.staff-hours-day-drill-title {
+  margin: 0 0 .2rem;
+  font-size: .95rem;
+}
+.staff-hours-day-drill-hint {
+  margin: 0 0 .65rem;
+  font-size: .82rem;
+  line-height: 1.65;
+}
+.staff-hours-day-drill .binder-tab {
+  height: 32px;
+  font-size: .78rem;
+  padding: 6px 12px;
+}
 
 script.js-workshop-payload { display: none !important; }
 body.workshop-overview-locked { overflow: hidden; }

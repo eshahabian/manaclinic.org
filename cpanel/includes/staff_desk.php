@@ -690,6 +690,27 @@ function staff_hours_collect(PDO $pdo): array
     return $people;
 }
 
+/** بلوک ساعت کاری یک نفر (صفحه «ساعت کاری من») */
+function staff_hours_block_for_user(PDO $pdo, array $user): array
+{
+    staff_close_stale_shifts($pdo);
+    $uid = (string) ($user['id'] ?? '');
+    $role = (string) ($user['role'] ?? '');
+    $name = trim((string) ($user['name'] ?? ''));
+    $isDoctor = $role === 'DOCTOR';
+
+    return staff_hours_build_block($pdo, $user, [
+        'kind' => $isDoctor ? 'doctor' : 'secretary',
+        'slot' => null,
+        'key' => 'self',
+        'tab_id' => $isDoctor ? ('doc-' . $uid) : 'self',
+        'tab_class' => $isDoctor ? 'binder-tab-in-person' : 'binder-tab-appts',
+        'tab_tone' => $isDoctor ? 'in-person' : 'appts',
+        'label' => $name !== '' ? $name : staff_actor_label($user),
+        'with_reports' => !$isDoctor,
+    ]);
+}
+
 /** تقویم شمسی: نیم‌سال، ماه، روزهای حضور */
 function staff_hours_calendar(array $block): array
 {
@@ -758,6 +779,7 @@ function staff_hours_calendar(array $block): array
                     'length' => $len,
                     'days' => $days,
                     'present_count' => count($days),
+                    'range_tab_label' => 'کل ' . (string) ($meta['tab_label'] ?? $meta['short'] ?? 'ماه'),
                 ];
             }
             $isCurrentYear = $jy === $currentJy;

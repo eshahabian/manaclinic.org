@@ -5,36 +5,20 @@ require_once __DIR__ . '/../../includes/staff_hours_ui.php';
 
 $user = require_login(['SECRETARY']);
 ensure_secretary_day_reports($pdo);
-$shift = staff_current_shift($pdo, (string) $user['id']);
-
-$today = $pdo->prepare("
-  SELECT * FROM staff_shifts
-  WHERE user_id=? AND DATE(started_at)=CURDATE()
-  ORDER BY started_at ASC
-");
-$today->execute([$user['id']]);
-$todayRows = $today->fetchAll();
-
-$history = $pdo->prepare("
-  SELECT * FROM staff_shifts
-  WHERE user_id=?
-  ORDER BY started_at DESC
-  LIMIT 80
-");
-$history->execute([$user['id']]);
-$historyRows = $history->fetchAll();
+$block = staff_hours_block_for_user($pdo, $user);
+$shift = $block['open'] ?? null;
 $todayDate = date('Y-m-d');
-$historyDays = staff_shifts_grouped_by_day($historyRows);
-unset($historyDays[$todayDate]);
+$todayRows = staff_hours_day_rows($block, $todayDate, $todayDate);
 
 $report = staff_get_day_report($pdo, (string) $user['id'], $todayDate);
 $draft = staff_today_action_draft($pdo, (string) $user['id']);
 $reportBody = (string) ($report['body'] ?? '');
+$pageScripts = staff_hours_scripts();
 
 ob_start();
 ?>
 <h1>ساعت کاری من</h1>
-<p class="muted">ساعت عادی منشی از ۹ صبح تا ۸ شب است؛ قبل از ۹ و بعد از ۸ اضافه‌کار حساب می‌شود. برای هر روز ساعت ورود، خروج و جمع حضور دیده می‌شود؛ جزئیات هر ورود پشت «بیشتر» است. اگر ۱۰ دقیقه فعال نباشید خارج می‌شوید.</p>
+<p class="muted">ساعت عادی منشی از ۹ صبح تا ۸ شب است؛ قبل از ۹ و بعد از ۸ اضافه‌کار حساب می‌شود. برای هر روز ساعت ورود، خروج و جمع حضور دیده می‌شود؛ جزئیات هر ورود پشت «بیشتر» است. با زدن «کل شهریور» یا «کل مهر» جمع کل همان ماه را می‌بینید. اگر ۱۰ دقیقه فعال نباشید خارج می‌شوید.</p>
 
 <div class="panel stack" style="margin-top:1rem">
   <strong>شیفت فعلی</strong>
@@ -71,18 +55,8 @@ ob_start();
   </form>
 </div>
 
-<div class="panel" style="margin-top:1.25rem">
-  <h2 style="margin:0 0 .75rem;font-size:1.05rem">سابقه ورود و خروج</h2>
-  <?php if (!$historyDays): ?>
-    <p class="muted">هنوز سابقه‌ای نیست.</p>
-  <?php else: ?>
-    <?php foreach ($historyDays as $day): ?>
-      <div class="staff-day-block">
-        <h3 class="appt-day-title"><?= e((string) $day['label']) ?></h3>
-        <?= staff_hours_render_day_presence($day['items'] ?? []) ?>
-      </div>
-    <?php endforeach; ?>
-  <?php endif; ?>
-</div>
+<h2 class="binder-sub" style="margin-top:1.5rem">سابقه ماهانه</h2>
+<p class="muted" style="margin:.2rem 0 .85rem">ماه را انتخاب کنید تا جمع کل همان ماه دیده شود؛ تب روزها فقط جزئیات یک روز است.</p>
+<?= staff_hours_render_calendar($block, ['today' => $todayDate]) ?>
 <?php
 render_secretary_page('ساعت کاری', ob_get_clean());

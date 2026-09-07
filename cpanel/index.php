@@ -173,6 +173,7 @@ $routes = [
     'POST /doctor/articles' => 'actions/doctor_articles.php',
     'GET /doctor/patients' => 'pages/doctor/patients.php',
     'POST /doctor/notifications/read' => 'actions/doctor_notifications.php',
+    'GET /doctor/hours' => 'pages/doctor/hours.php',
     'GET /doctor/staff-hours' => 'pages/doctor/staff_hours.php',
     'POST /doctor/staff-hours' => 'actions/doctor_staff_hours.php',
     'GET /doctor/staff-hours-export' => 'actions/doctor_staff_hours_export.php',
