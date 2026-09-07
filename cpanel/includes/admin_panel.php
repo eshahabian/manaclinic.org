@@ -8,7 +8,7 @@ function admin_nav(): array {
         ['href' => '/admin/appointments', 'label' => 'نوبت‌ها'],
         ['href' => '/admin/doctors', 'label' => 'درمانگرها'],
         ['href' => '/admin/articles', 'label' => 'مقالات'],
-        ['href' => '/admin/staff-hours', 'label' => 'ساعت کاری منشی‌ها'],
+        ['href' => '/admin/staff-hours', 'label' => 'ساعت کاری'],
         ['href' => '/admin/staff-messages', 'label' => 'پیام‌ها'],
         ['href' => '/secretary/messages', 'label' => 'پنل منشی'],
         ['href' => '/doctor', 'label' => 'پنل دکتر'],

@@ -68,7 +68,7 @@ function notification_normalize_kind(string $kind): string
         : 'other';
 }
 
-/** کپی پیام منشی‌ها برای دکتر گرانمایه پور / ادمین */
+/** کپی پیام منشی‌ها برای درمانگرها / ادمین */
 function notification_is_staff_copy(array $n): bool
 {
     $kind = notification_kind($n);
@@ -196,7 +196,7 @@ function fetch_all_notifications(PDO $pdo, int $limit = 80): array
     ")->fetchAll();
 }
 
-/** کپی پیام منشی‌ها برای دکتر گرانمایه پور و ادمین */
+/** کپی پیام منشی‌ها برای درمانگرهای تأییدشده و ادمین */
 function fetch_staff_message_copies(PDO $pdo, ?string $userId = null, int $limit = 80): array
 {
     ensure_notifications_table($pdo);

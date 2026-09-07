@@ -80,15 +80,16 @@ function handover_send(PDO $pdo, string $fromUserId, string $fromLabel, string $
     return count($peers);
 }
 
-/** کپی پیام منشی‌ها فقط برای دکتر گرانمایه پور و ادمین سایت */
+/** کپی پیام منشی‌ها برای همه درمانگرهای تأییدشده و ادمین */
 function handover_copy_watchers(PDO $pdo): array
 {
     $rows = $pdo->query("
-      SELECT id, name, username, role
-      FROM users
-      WHERE role = 'ADMIN'
-         OR (role = 'DOCTOR' AND (name LIKE '%گرانمایه%' OR username = 'doctor'))
-      ORDER BY role ASC, name ASC
+      SELECT u.id, u.name, u.username, u.role
+      FROM users u
+      LEFT JOIN doctor_profiles dp ON dp.user_id = u.id
+      WHERE u.role = 'ADMIN'
+         OR (u.role = 'DOCTOR' AND dp.is_approved = 1)
+      ORDER BY u.role ASC, u.name ASC
     ")->fetchAll();
     $seen = [];
     $out = [];

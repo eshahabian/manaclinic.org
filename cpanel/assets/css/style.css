@@ -1987,6 +1987,17 @@ html[dir="ltr"] .binder-body {
 .staff-presence-more[open] > summary {
   margin-bottom: .55rem;
 }
+.staff-month-days {
+  display: flex;
+  flex-direction: column;
+  gap: .7rem;
+}
+.staff-month-day {
+  border: 1px solid var(--line, #e5e7eb);
+  border-radius: .7rem;
+  padding: .7rem .8rem;
+  background: #fff;
+}
 @media (max-width: 640px) {
   .staff-presence-summary {
     grid-template-columns: 1fr;

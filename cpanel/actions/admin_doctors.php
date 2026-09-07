@@ -14,11 +14,17 @@ if ($action === 'toggle') {
     }
 } elseif ($action === 'approve') {
     $id = post('id');
-    $row = $pdo->prepare('SELECT id FROM doctor_profiles WHERE id=? AND is_approved=0');
+    $row = $pdo->prepare('SELECT id, user_id FROM doctor_profiles WHERE id=? AND is_approved=0');
     $row->execute([$id]);
-    if ($row->fetch()) {
+    $pending = $row->fetch();
+    if ($pending) {
+        require_once __DIR__ . '/../includes/doctor_panel.php';
+        doctor_ensure_profile($pdo, (string) $pending['user_id'], [
+            'is_approved' => 1,
+            'is_active' => 1,
+        ]);
         $pdo->prepare('UPDATE doctor_profiles SET is_approved=1, is_active=1 WHERE id=?')->execute([$id]);
-        flash_set('success', 'درمانگر تأیید شد و می‌تواند وارد شود.');
+        flash_set('success', 'درمانگر تأیید شد و می‌تواند با پنل درمانگر وارد شود.');
     }
 } elseif ($action === 'reject') {
     $id = post('id');

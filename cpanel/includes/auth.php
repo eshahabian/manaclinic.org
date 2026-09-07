@@ -16,7 +16,7 @@ function login_user(array $user): void
         'role' => $user['role'],
         'must_change_password' => (int) ($user['must_change_password'] ?? 0),
     ];
-    if (($user['role'] ?? '') === 'SECRETARY' && function_exists('staff_shift_start')) {
+    if (function_exists('staff_tracks_presence') && staff_tracks_presence($user) && function_exists('staff_shift_start')) {
         global $pdo;
         if ($pdo instanceof PDO) {
             staff_shift_start($pdo, (string) $user['id']);
@@ -27,7 +27,7 @@ function login_user(array $user): void
 function logout_user(string $reason = 'logout'): void
 {
     $user = current_user();
-    if ($user && ($user['role'] ?? '') === 'SECRETARY' && function_exists('staff_shift_end')) {
+    if ($user && function_exists('staff_tracks_presence') && staff_tracks_presence($user) && function_exists('staff_shift_end')) {
         global $pdo;
         if ($pdo instanceof PDO) {
             staff_shift_end($pdo, (string) $user['id'], $reason);
@@ -44,7 +44,7 @@ function require_login(?array $roles = null): array
     }
     global $path, $pdo;
     $isHeartbeat = ($path ?? '') === '/secretary/heartbeat';
-    if (($user['role'] ?? '') === 'SECRETARY' && function_exists('staff_guard_session') && $pdo instanceof PDO) {
+    if (function_exists('staff_tracks_presence') && staff_tracks_presence($user) && function_exists('staff_guard_session') && $pdo instanceof PDO) {
         staff_guard_session($pdo, $user, !$isHeartbeat);
         $user = current_user() ?? $user;
     }
