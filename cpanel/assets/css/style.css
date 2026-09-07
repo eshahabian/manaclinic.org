@@ -1060,6 +1060,43 @@ a.doctor-dash-stat:hover {
   border: 1px solid var(--line);
 }
 .avail-hour-detail-link { margin-top: .65rem; }
+.avail-month-range-tab {
+  font-weight: 800;
+}
+.avail-month-days {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  margin: .15rem 0 1rem;
+}
+.avail-month-day {
+  min-width: 2.35rem;
+  padding: .35rem .4rem;
+  border-radius: .5rem;
+  border: 1px solid var(--line);
+  text-align: center;
+  font-size: .8rem;
+  background: #fff;
+  line-height: 1.3;
+}
+.avail-month-day.is-saved {
+  background: #eff6ff;
+  border-color: #93c5fd;
+  color: #1d4ed8;
+  font-weight: 700;
+}
+.avail-month-day.is-today {
+  box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--primary);
+}
+.avail-month-day.is-past {
+  opacity: .45;
+}
+.avail-month-apply {
+  margin: 0 0 1.1rem;
+}
+.avail-month-apply .hour-picker {
+  margin-top: .35rem;
+}
 
 .date-chips {
   display: flex;

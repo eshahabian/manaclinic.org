@@ -25,17 +25,53 @@ $tabParam = trim((string) ($_GET['month'] ?? ''));
 if ($tabParam !== '' && isset($monthGroups[$tabParam])) {
     $defaultMonthId = $tabParam;
 }
+$todayYmd = date('Y-m-d');
 
 ob_start();
 ?>
 <h1>روزهای خالی</h1>
-<p class="muted">روی فیلد تاریخ بزنید تا تقویم شمسی باز شود؛ بعد ساعت‌های خالی را مشخص کنید. روزهای ذخیره‌شده را از تب ماه ببینید و روی هر ساعت کلیک کنید تا خالی بودن یا نام رزروکننده مشخص شود.</p>
-<form class="panel form-stack" method="post" action="<?= e(url('/doctor/availability')) ?>" style="margin-top:1rem;max-width:40rem">
-  <input type="hidden" name="action" value="save">
-  <div>
-    <label class="label" for="avail-date-view">تاریخ (شمسی)</label>
-    <input class="input" type="text" id="avail-date-view" name="date_jalali" data-jdp data-jdp-only-date autocomplete="off" readonly required placeholder="کلیک کنید تا تقویم باز شود" style="cursor:pointer">
-    <input type="hidden" name="date" id="avail-date" value="">
+<p class="muted">یک روز را از تقویم بزنید، یا تب <strong>کل ماه</strong> را انتخاب کنید تا ساعت‌ها روی همهٔ روزهای باقی‌مانده همان ماه اعمال شود. پایین صفحه، تب هر ماه با «کل شهریور» / «کل مهر» بازهٔ کل ماه را نشان می‌دهد؛ روی ساعت هر روز بزنید تا خالی بودن یا نام رزروکننده مشخص شود.</p>
+<form class="panel form-stack" method="post" action="<?= e(url('/doctor/availability')) ?>" id="avail-save-form" style="margin-top:1rem;max-width:40rem">
+  <input type="hidden" name="action" id="avail-action" value="save">
+  <div class="binder-tile binder-tile--nested" data-binder-tabs data-binder-hash="0" data-binder-initial="avail-day" data-binder-tone="in-person">
+    <div class="binder-tabs" role="tablist" aria-label="بازه افزودن">
+      <button type="button" class="binder-tab binder-tab-in-person is-active" role="tab" data-binder-tab="avail-day" data-binder-tone="in-person" aria-selected="true">یک روز</button>
+      <button type="button" class="binder-tab binder-tab-appts avail-month-range-tab" role="tab" data-binder-tab="avail-month" data-binder-tone="appts" aria-selected="false">کل ماه</button>
+    </div>
+    <div class="binder-body">
+      <section class="binder-panel is-active" data-binder-panel="avail-day" role="tabpanel">
+        <div>
+          <label class="label" for="avail-date-view">تاریخ (شمسی)</label>
+          <input class="input" type="text" id="avail-date-view" name="date_jalali" data-jdp data-jdp-only-date autocomplete="off" readonly placeholder="کلیک کنید تا تقویم باز شود" style="cursor:pointer">
+          <input type="hidden" name="date" id="avail-date" value="">
+        </div>
+      </section>
+      <section class="binder-panel" data-binder-panel="avail-month" role="tabpanel" hidden>
+        <div>
+          <label class="label" for="avail-month-key">ماه</label>
+          <select class="input" id="avail-month-key" name="month_key">
+            <?php foreach ($monthGroups as $mid => $bucket): ?>
+              <?php
+                $jy = (int) ($bucket['year'] ?? 0);
+                $jm = (int) ($bucket['month'] ?? 0);
+                if ($jy < 1 || $jm < 1) {
+                    continue;
+                }
+                $monthEnd = jalali_ymd($jy, $jm, jalali_month_length($jy, $jm));
+                if ($monthEnd < $todayYmd) {
+                    continue;
+                }
+              ?>
+              <option value="<?= e((string) ($bucket['key'] ?? '')) ?>"<?= $defaultMonthId === (string) $mid ? ' selected' : '' ?>>
+                <?= e(doctor_availability_month_range_label($bucket)) ?>
+                · <?= e((string) ($bucket['label'] ?? '')) ?>
+              </option>
+            <?php endforeach; ?>
+          </select>
+          <p class="muted" style="font-size:.8rem;margin:.45rem 0 0;line-height:1.6">ساعت‌های پایین روی همهٔ روزهای باقی‌مانده این ماه (از امروز به بعد) ذخیره می‌شود. روزهای گذشته عوض نمی‌شوند.</p>
+        </div>
+      </section>
+    </div>
   </div>
   <div>
     <label class="label">ساعت‌های خالی</label>
@@ -56,7 +92,7 @@ ob_start();
       <button type="button" class="btn btn-outline btn-sm" id="clear-all-hours">پاک کردن</button>
     </div>
   </div>
-  <button class="btn btn-primary" type="submit">افزودن / به‌روزرسانی</button>
+  <button class="btn btn-primary" type="submit" id="avail-submit-btn">افزودن / به‌روزرسانی</button>
 </form>
 <div class="binder-tile" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($defaultMonthId) ?>" data-binder-tone="<?= e((string) ($monthGroups[$defaultMonthId]['tone'] ?? 'in-person')) ?>" style="margin-top:1.5rem">
   <div class="binder-tabs" role="tablist" aria-label="ماه روزهای خالی">
@@ -74,72 +110,129 @@ ob_start();
   </div>
   <div class="binder-body">
     <?php foreach ($monthGroups as $mid => $bucket): ?>
-      <section class="binder-panel<?= $defaultMonthId === $mid ? ' is-active' : '' ?>" data-binder-panel="<?= e((string) $mid) ?>" role="tabpanel"<?= $defaultMonthId === $mid ? '' : ' hidden' ?>>
-        <h2 class="binder-sub" style="margin-top:0">روزهای خالی <?= e((string) ($bucket['label'] ?? '')) ?></h2>
-        <?php if (empty($bucket['items'])): ?>
-          <p class="muted">در این ماه روز خالی ثبت نشده است.</p>
-        <?php else: ?>
-          <div class="stack">
-            <?php foreach ($bucket['items'] as $item): ?>
+      <?php
+        $mid = (string) $mid;
+        $monthShort = (string) ($bucket['short'] ?? $bucket['tab_label'] ?? 'ماه');
+        $monthAllId = $mid . '-all';
+        $monthItems = is_array($bucket['items'] ?? null) ? $bucket['items'] : [];
+        $itemsByDate = doctor_availability_items_by_date($monthItems);
+        $jy = (int) ($bucket['year'] ?? 0);
+        $jm = (int) ($bucket['month'] ?? 0);
+        $monthLen = ($jy > 0 && $jm > 0) ? jalali_month_length($jy, $jm) : 0;
+        $rangeLabel = doctor_availability_month_range_label($bucket);
+      ?>
+      <section class="binder-panel<?= $defaultMonthId === $mid ? ' is-active' : '' ?>" data-binder-panel="<?= e($mid) ?>" role="tabpanel"<?= $defaultMonthId === $mid ? '' : ' hidden' ?>>
+        <div class="binder-tile binder-tile--nested" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($monthAllId) ?>" data-binder-tone="<?= e((string) ($bucket['tone'] ?? 'in-person')) ?>">
+          <div class="binder-tabs" role="tablist" aria-label="<?= e($rangeLabel) ?>">
+            <button type="button"
+              class="binder-tab binder-tab-appts avail-month-range-tab is-active"
+              role="tab"
+              data-binder-tab="<?= e($monthAllId) ?>"
+              data-binder-tone="appts"
+              aria-selected="true">
+              <?= e($rangeLabel) ?>
+            </button>
+            <?php foreach ($monthItems as $item): ?>
               <?php
                 $dayDate = substr((string) ($item['date'] ?? ''), 0, 10);
-                $savedHours = appointment_availability_hours($item);
+                if ($dayDate === '') {
+                    continue;
+                }
+                $dayId = $mid . '-d-' . $dayDate;
+                $parts = jalali_day_parts($dayDate . ' 12:00:00') ?? [];
+                $dayTab = $dayDate === $todayYmd ? 'امروز' : (string) ($parts['day_fa'] ?? to_fa_digits((string) ($parts['day'] ?? '')));
               ?>
-              <div class="panel avail-day-card">
-                <div class="row-between">
-                  <div>
-                    <strong><?= e(to_jalali_label($dayDate)) ?></strong>
-                    <div class="muted" style="font-size:.85rem;margin-top:.35rem">روی ساعت بزنید تا وضعیت رزرو را ببینید.</div>
-                  </div>
-                  <form method="post" action="<?= e(url('/doctor/availability')) ?>">
-                    <input type="hidden" name="action" value="delete">
-                    <input type="hidden" name="id" value="<?= e($item['id']) ?>">
-                    <button class="btn btn-danger btn-sm" type="submit">حذف</button>
-                  </form>
-                </div>
-                <div class="hour-picker hour-picker-readonly" style="margin-top:.75rem">
-                  <?php foreach ($bookingHours as $hour): ?>
-                    <?php
-                      $hour = (int) $hour;
-                      $startsAt = appointment_slot_starts_at($dayDate, $hour);
-                      $slotKey = substr(str_replace('T', ' ', $startsAt), 0, 16);
-                      $booked = $bookedMap[$slotKey] ?? null;
-                      $isOpen = in_array($hour, $savedHours, true);
-                      $state = !$isOpen ? 'off' : ($booked ? 'booked' : 'free');
-                      $patientName = trim((string) ($booked['patient_name'] ?? ''));
-                      $firstName = $patientName !== '' ? (preg_split('/\s+/u', $patientName)[0] ?? $patientName) : '';
-                      $statusLabel = $booked ? appointment_row_status_label($booked) : '';
-                      $patientHref = $booked ? url('/doctor/patients/' . (string) $booked['patient_id']) : '';
-                    ?>
-                    <button type="button"
-                      class="hour-chip is-<?= e($state) ?>"
-                      data-avail-hour
-                      data-state="<?= e($state) ?>"
-                      data-label="<?= e(appointment_hour_chip_label($hour)) ?>"
-                      data-date-label="<?= e(appointment_hour_date_for($dayDate, $hour)) ?>"
-                      data-patient="<?= e($patientName) ?>"
-                      data-phone="<?= e((string) ($booked['phone'] ?? '')) ?>"
-                      data-status="<?= e($statusLabel) ?>"
-                      data-href="<?= e($patientHref) ?>">
-                      <span class="hour-chip-time"><?= e(appointment_hour_chip_label($hour)) ?></span>
-                      <span class="hour-chip-date"><?= e(appointment_hour_date_for($dayDate, $hour)) ?></span>
-                      <?php if ($state === 'booked' && $firstName !== ''): ?>
-                        <span class="hour-chip-who"><?= e($firstName) ?></span>
-                      <?php elseif ($state === 'free'): ?>
-                        <span class="hour-chip-who">خالی</span>
-                      <?php endif; ?>
-                    </button>
-                  <?php endforeach; ?>
-                </div>
-                <div class="avail-hour-detail" hidden>
-                  <strong class="avail-hour-detail-title"></strong>
-                  <p class="avail-hour-detail-body muted" style="margin:.35rem 0 0;font-size:.9rem;line-height:1.7"></p>
-                  <a class="btn btn-outline btn-sm avail-hour-detail-link" hidden href="#">پرونده مراجعه‌کننده</a>
-                </div>
-              </div>
+              <button type="button"
+                class="binder-tab <?= e((string) ($bucket['class'] ?? 'binder-tab-in-person')) ?>"
+                role="tab"
+                data-binder-tab="<?= e($dayId) ?>"
+                data-binder-tone="<?= e((string) ($bucket['tone'] ?? 'in-person')) ?>"
+                aria-selected="false">
+                <?= e($dayTab) ?>
+              </button>
             <?php endforeach; ?>
           </div>
-        <?php endif; ?>
+          <div class="binder-body">
+            <section class="binder-panel is-active" data-binder-panel="<?= e($monthAllId) ?>" role="tabpanel">
+              <h2 class="binder-sub" style="margin-top:0">
+                <?= e($rangeLabel) ?>
+                <?php if ($monthLen > 0): ?>
+                  <span class="muted" style="font-weight:400;font-size:.85rem">
+                    · از <?= e(to_fa_digits('1')) ?> تا <?= e(to_fa_digits((string) $monthLen)) ?> <?= e($monthShort) ?>
+                    · <?= e(to_fa_digits((string) count($monthItems))) ?> روز اعلام‌شده
+                  </span>
+                <?php endif; ?>
+              </h2>
+              <?php if ($monthLen > 0 && $jy > 0): ?>
+                <div class="avail-month-days" aria-label="روزهای <?= e($monthShort) ?>">
+                  <?php for ($jd = 1; $jd <= $monthLen; $jd++): ?>
+                    <?php
+                      $gdate = jalali_ymd($jy, $jm, $jd);
+                      $saved = $itemsByDate[$gdate] ?? null;
+                      $cls = 'avail-month-day';
+                      if ($gdate === $todayYmd) {
+                          $cls .= ' is-today';
+                      }
+                      if ($gdate < $todayYmd) {
+                          $cls .= ' is-past';
+                      }
+                      if ($saved) {
+                          $cls .= ' is-saved';
+                      }
+                    ?>
+                    <span class="<?= e($cls) ?>" title="<?= e(to_jalali_label($gdate)) ?>">
+                      <?= e(to_fa_digits((string) $jd)) ?>
+                    </span>
+                  <?php endfor; ?>
+                </div>
+              <?php endif; ?>
+              <form class="panel form-stack avail-month-apply" method="post" action="<?= e(url('/doctor/availability')) ?>" data-avail-month-form>
+                <input type="hidden" name="action" value="save_month">
+                <input type="hidden" name="month_key" value="<?= e((string) ($bucket['key'] ?? '')) ?>">
+                <p class="muted" style="margin:0;font-size:.85rem;line-height:1.7">ساعت‌های انتخابی روی <strong>همهٔ روزهای باقی‌مانده <?= e($monthShort) ?></strong> اعمال می‌شود (از امروز به بعد).</p>
+                <div class="hour-picker" data-hour-picker>
+                  <?php foreach ($bookingHours as $hour): ?>
+                    <label class="hour-chip">
+                      <input type="checkbox" name="hours[]" value="<?= (int) $hour ?>" checked>
+                      <span class="hour-chip-time"><?= e(appointment_hour_chip_label((int) $hour)) ?></span>
+                    </label>
+                  <?php endforeach; ?>
+                </div>
+                <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+                  <button type="button" class="btn btn-outline btn-sm" data-select-all-hours>انتخاب همه (۲۴ ساعت)</button>
+                  <button type="button" class="btn btn-outline btn-sm" data-clear-all-hours>پاک کردن</button>
+                </div>
+                <button class="btn btn-primary" type="submit">اعمال به <?= e($rangeLabel) ?></button>
+              </form>
+              <?php if (empty($monthItems)): ?>
+                <p class="muted">در این ماه هنوز روز خالی ثبت نشده. از فرم بالا ساعت را به کل ماه اعمال کنید.</p>
+              <?php else: ?>
+                <div class="stack">
+                  <?php foreach ($monthItems as $item): ?>
+                    <?= doctor_availability_render_day_card(
+                        $bookingHours,
+                        $bookedMap,
+                        substr((string) ($item['date'] ?? ''), 0, 10),
+                        $item
+                    ) ?>
+                  <?php endforeach; ?>
+                </div>
+              <?php endif; ?>
+            </section>
+            <?php foreach ($monthItems as $item): ?>
+              <?php
+                $dayDate = substr((string) ($item['date'] ?? ''), 0, 10);
+                if ($dayDate === '') {
+                    continue;
+                }
+                $dayId = $mid . '-d-' . $dayDate;
+              ?>
+              <section class="binder-panel" data-binder-panel="<?= e($dayId) ?>" role="tabpanel" hidden>
+                <?= doctor_availability_render_day_card($bookingHours, $bookedMap, $dayDate, $item) ?>
+              </section>
+            <?php endforeach; ?>
+          </div>
+        </div>
       </section>
     <?php endforeach; ?>
   </div>
@@ -148,7 +241,7 @@ ob_start();
 $inner = ob_get_clean();
 $pageHead = '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">';
 $pageScripts = '
-<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260907a"></script>
+<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260907i"></script>
 <script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
 <script>
@@ -200,9 +293,13 @@ $pageScripts = '
 (function(){
   function faToEn(str){ return String(str).replace(/[۰-۹]/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹".indexOf(d); }); }
   function pad(n){ return (n < 10 ? "0" : "") + n; }
+  var form = document.getElementById("avail-save-form");
   var view = document.getElementById("avail-date-view");
   var hidden = document.getElementById("avail-date");
-  if (!view || !hidden) return;
+  var actionInput = document.getElementById("avail-action");
+  var submitBtn = document.getElementById("avail-submit-btn");
+  var monthKey = document.getElementById("avail-month-key");
+  if (!form || !view || !hidden) return;
   var months = ["","فروردین","اردیبهشت","خرداد","تیر","مرداد","شهریور","مهر","آبان","آذر","دی","بهمن","اسفند"];
   function toFa(n){ return String(n).replace(/[0-9]/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹"[d]; }); }
   function jalaliShort(gy, gm, gd){
@@ -248,6 +345,14 @@ $pageScripts = '
     fillHourDates();
     if (loadSaved) applySavedHours();
   }
+  function monthModeOn(){
+    var panel = form.querySelector("[data-binder-panel=\\"avail-month\\"]");
+    return !!(panel && panel.classList.contains("is-active"));
+  }
+  function refreshSubmit(){
+    if (!submitBtn) return;
+    submitBtn.textContent = monthModeOn() ? "اعمال به کل ماه" : "افزودن / به‌روزرسانی";
+  }
   if (window.jalaliDatepicker && typeof jalaliDatepicker.startWatch === "function") {
     jalaliDatepicker.startWatch({
       selector: "#avail-date-view",
@@ -273,19 +378,56 @@ $pageScripts = '
       document.querySelectorAll("#hour-picker input[type=checkbox]").forEach(function(cb){ cb.checked = false; });
     });
   }
+  window.addEventListener("binder-tab-change", refreshSubmit);
+  refreshSubmit();
 
-  view.closest("form").addEventListener("submit", function(e){
-    sync(false);
-    if (!hidden.value) {
-      e.preventDefault();
-      alert("تاریخ را انتخاب کنید");
-      return;
+  form.addEventListener("submit", function(e){
+    var checked = form.querySelectorAll("#hour-picker input[type=checkbox]:checked");
+    if (monthModeOn()) {
+      if (actionInput) actionInput.value = "save_month";
+      view.removeAttribute("required");
+      if (!monthKey || !monthKey.value) {
+        e.preventDefault();
+        alert("ماه را انتخاب کنید");
+        return;
+      }
+    } else {
+      if (actionInput) actionInput.value = "save";
+      sync(false);
+      if (!hidden.value) {
+        e.preventDefault();
+        alert("تاریخ را انتخاب کنید");
+        return;
+      }
     }
-    var checked = document.querySelectorAll("#hour-picker input[type=checkbox]:checked");
     if (!checked.length) {
       e.preventDefault();
       alert("حداقل یک ساعت خالی انتخاب کنید.");
     }
+  });
+})();
+(function(){
+  document.querySelectorAll("[data-avail-month-form]").forEach(function(form){
+    var picker = form.querySelector("[data-hour-picker]");
+    if (!picker) return;
+    var selectAll = form.querySelector("[data-select-all-hours]");
+    var clearAll = form.querySelector("[data-clear-all-hours]");
+    if (selectAll) {
+      selectAll.addEventListener("click", function(){
+        picker.querySelectorAll("input[type=checkbox]").forEach(function(cb){ cb.checked = true; });
+      });
+    }
+    if (clearAll) {
+      clearAll.addEventListener("click", function(){
+        picker.querySelectorAll("input[type=checkbox]").forEach(function(cb){ cb.checked = false; });
+      });
+    }
+    form.addEventListener("submit", function(e){
+      if (!picker.querySelectorAll("input[type=checkbox]:checked").length) {
+        e.preventDefault();
+        alert("حداقل یک ساعت خالی انتخاب کنید.");
+      }
+    });
   });
 })();
 </script>

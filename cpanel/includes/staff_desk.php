@@ -720,12 +720,18 @@ function staff_hours_calendar(array $block): array
     $currentJm = (int) ($current['month'] ?? 1);
     $present = [];
     foreach (($block['days'] ?? []) as $day) {
+        if (!is_array($day)) {
+            continue;
+        }
         $d = (string) ($day['date'] ?? '');
         if ($d !== '' && $d !== 'other') {
             $present[$d] = true;
         }
     }
     foreach (($block['reports'] ?? []) as $rep) {
+        if (!is_array($rep)) {
+            continue;
+        }
         $d = (string) ($rep['report_date'] ?? '');
         if ($d !== '') {
             $present[$d] = true;
@@ -763,7 +769,7 @@ function staff_hours_calendar(array $block): array
                     if (empty($present[$gdate])) {
                         continue;
                     }
-                    $parts = jalali_day_parts($gdate . ' 12:00:00');
+                    $parts = jalali_day_parts($gdate . ' 12:00:00') ?? [];
                     $days[$gdate] = [
                         'id' => 's' . $slot . '-d-' . $gdate,
                         'date' => $gdate,
@@ -774,13 +780,14 @@ function staff_hours_calendar(array $block): array
                     ];
                     $presentCount++;
                 }
-                $months['s' . $slot . '-m-' . $meta['key']] = $meta + [
-                    'id' => 's' . $slot . '-m-' . $meta['key'],
+                $monthId = 's' . $slot . '-m-' . (string) ($meta['key'] ?? sprintf('%04d-%02d', $jy, $jm));
+                $months[$monthId] = array_merge($meta, [
+                    'id' => $monthId,
                     'length' => $len,
                     'days' => $days,
                     'present_count' => count($days),
                     'range_tab_label' => 'کل ' . (string) ($meta['tab_label'] ?? $meta['short'] ?? 'ماه'),
-                ];
+                ]);
             }
             $isCurrentYear = $jy === $currentJy;
             if (!$isCurrentYear && $presentCount === 0) {
@@ -825,7 +832,8 @@ function staff_hours_export_rows(PDO $pdo, ?string $who = null): array
     foreach ($people as $block) {
         $tabId = (string) ($block['tab_id'] ?? '');
         $slot = $block['slot'] ?? null;
-        $userId = (string) (($block['user']['id'] ?? '') ?: '');
+        $user = is_array($block['user'] ?? null) ? $block['user'] : [];
+        $userId = (string) ($user['id'] ?? '');
         if ($who !== null && $who !== '') {
             $match = $tabId === $who
                 || $userId === $who
@@ -836,18 +844,24 @@ function staff_hours_export_rows(PDO $pdo, ?string $who = null): array
                 continue;
             }
         }
-        $label = (string) ($block['label'] ?? staff_actor_label($block['user'] ?? null));
-        $username = (string) (($block['user']['username'] ?? '') ?: '');
+        $label = (string) ($block['label'] ?? staff_actor_label($user ?: null));
+        $username = (string) ($user['username'] ?? '');
         $roleLabel = (($block['kind'] ?? '') === 'doctor') ? 'درمانگر' : 'منشی';
         $days = $block['days'] ?? [];
         ksort($days);
         foreach ($days as $day) {
+            if (!is_array($day)) {
+                continue;
+            }
             $gdate = (string) ($day['date'] ?? '');
             $jalali = $gdate !== '' ? to_jalali_label($gdate) : '';
             $daySeconds = 0;
             $dayRegular = 0;
             $dayOvertime = 0;
             foreach (($day['items'] ?? []) as $i => $row) {
+                if (!is_array($row)) {
+                    continue;
+                }
                 $part = staff_shift_seconds_split($row);
                 $sec = (int) $part['total'];
                 $daySeconds += $sec;

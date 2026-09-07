@@ -17,8 +17,7 @@ function doctor_nav(): array
         ['type' => 'link', 'href' => '/doctor/articles', 'label' => 'مقالات'],
         ['type' => 'link', 'href' => '/doctor/profile', 'label' => 'پروفایل حرفه‌ای'],
         ['type' => 'group', 'label' => 'حساب'],
-        ['type' => 'link', 'href' => '/doctor/hours', 'label' => 'ساعت کاری من'],
-        ['type' => 'link', 'href' => '/doctor/staff-hours', 'label' => 'ساعت کاری'],
+        ['type' => 'link', 'href' => '/doctor/staff-hours', 'label' => 'ساعت کاری منشی‌ها'],
         ['type' => 'link', 'href' => '/doctor/staff-messages', 'label' => 'پیام‌ها'],
         ['type' => 'link', 'href' => '/change-password', 'label' => 'تغییر رمز عبور'],
     ];
@@ -141,8 +140,6 @@ function render_doctor_page(string $title, string $innerHtml): void
                 $href = (string) $item['href'];
                 if ($href === '/doctor') {
                     $active = $currentPath === $href || str_ends_with($currentPath, '/doctor');
-                } elseif ($href === '/doctor/hours') {
-                    $active = str_contains($currentPath, '/doctor/hours') && !str_contains($currentPath, '/doctor/staff-hours');
                 } else {
                     $active = str_contains($currentPath, $href);
                 }

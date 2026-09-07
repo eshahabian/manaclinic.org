@@ -251,6 +251,201 @@ function doctor_availability_month_groups(array $items): array
     return ['months' => $months, 'default_id' => $defaultId];
 }
 
+function doctor_availability_month_range_label(array $bucket): string
+{
+    $base = trim((string) ($bucket['tab_label'] ?? $bucket['short'] ?? 'ماه'));
+    if ($base === '') {
+        $base = 'ماه';
+    }
+
+    return str_starts_with($base, 'کل ') ? $base : ('کل ' . $base);
+}
+
+/** @return array{year: int, month: int, key: string, id: string}|null */
+function jalali_month_key_parts(string $key): ?array
+{
+    if (!preg_match('/^(?:m-)?(\d{4})-(\d{2})$/', trim($key), $m)) {
+        return null;
+    }
+    $jy = (int) $m[1];
+    $jm = (int) $m[2];
+    if ($jy < 1300 || $jm < 1 || $jm > 12) {
+        return null;
+    }
+
+    return [
+        'year' => $jy,
+        'month' => $jm,
+        'key' => sprintf('%04d-%02d', $jy, $jm),
+        'id' => sprintf('m-%04d-%02d', $jy, $jm),
+    ];
+}
+
+function doctor_availability_upsert(PDO $pdo, string $doctorId, string $date, array $hours): bool
+{
+    $date = substr($date, 0, 10);
+    $hours = appointment_hours_decode(appointment_hours_encode($hours));
+    if ($doctorId === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $date) || $hours === []) {
+        return false;
+    }
+    $span = appointment_hours_span();
+    $encoded = appointment_hours_encode($hours);
+    $minutes = appointment_slot_minutes();
+    $exists = $pdo->prepare('SELECT id FROM availabilities WHERE doctor_id=? AND date=?');
+    $exists->execute([$doctorId, $date]);
+    $row = $exists->fetch();
+    if ($row) {
+        $pdo->prepare('
+          UPDATE availabilities
+          SET start_time=?, end_time=?, slot_minutes=?, available_hours=?
+          WHERE id=?
+        ')->execute([$span['start'], $span['end'], $minutes, $encoded, $row['id']]);
+    } else {
+        $pdo->prepare('
+          INSERT INTO availabilities (id,doctor_id,date,start_time,end_time,slot_minutes,available_hours)
+          VALUES (?,?,?,?,?,?,?)
+        ')->execute([
+            cuid(),
+            $doctorId,
+            $date,
+            $span['start'],
+            $span['end'],
+            $minutes,
+            $encoded,
+        ]);
+    }
+
+    return true;
+}
+
+function doctor_availability_apply_month(PDO $pdo, string $doctorId, int $jy, int $jm, array $hours): int
+{
+    $hours = appointment_hours_decode(appointment_hours_encode($hours));
+    if ($doctorId === '' || $hours === [] || $jy < 1300 || $jm < 1 || $jm > 12) {
+        return 0;
+    }
+    $today = date('Y-m-d');
+    $len = jalali_month_length($jy, $jm);
+    $n = 0;
+    $pdo->beginTransaction();
+    try {
+        for ($jd = 1; $jd <= $len; $jd++) {
+            $date = jalali_ymd($jy, $jm, $jd);
+            if ($date < $today) {
+                continue;
+            }
+            if (doctor_availability_upsert($pdo, $doctorId, $date, $hours)) {
+                $n++;
+            }
+        }
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+
+    return $n;
+}
+
+/**
+ * @param array<int, array<string, mixed>> $items
+ * @return array<string, array<string, mixed>>
+ */
+function doctor_availability_items_by_date(array $items): array
+{
+    $map = [];
+    foreach ($items as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $key = substr((string) ($item['date'] ?? ''), 0, 10);
+        if ($key !== '') {
+            $map[$key] = $item;
+        }
+    }
+
+    return $map;
+}
+
+/**
+ * @param array<int, int> $bookingHours
+ * @param array<string, array<string, mixed>> $bookedMap
+ */
+function doctor_availability_render_day_card(
+    array $bookingHours,
+    array $bookedMap,
+    string $dayDate,
+    ?array $item
+): string {
+    $savedHours = $item ? appointment_availability_hours($item) : [];
+    $hasItem = is_array($item) && (string) ($item['id'] ?? '') !== '';
+
+    ob_start();
+    ?>
+              <div class="panel avail-day-card">
+                <div class="row-between">
+                  <div>
+                    <strong><?= e(to_jalali_label($dayDate)) ?></strong>
+                    <div class="muted" style="font-size:.85rem;margin-top:.35rem">
+                      <?= $hasItem ? 'روی ساعت بزنید تا وضعیت رزرو را ببینید.' : 'این روز هنوز اعلام نشده.' ?>
+                    </div>
+                  </div>
+                  <?php if ($hasItem): ?>
+                    <form method="post" action="<?= e(url('/doctor/availability')) ?>">
+                      <input type="hidden" name="action" value="delete">
+                      <input type="hidden" name="id" value="<?= e((string) $item['id']) ?>">
+                      <button class="btn btn-danger btn-sm" type="submit">حذف</button>
+                    </form>
+                  <?php endif; ?>
+                </div>
+                <?php if ($hasItem): ?>
+                <div class="hour-picker hour-picker-readonly" style="margin-top:.75rem">
+                  <?php foreach ($bookingHours as $hour): ?>
+                    <?php
+                      $hour = (int) $hour;
+                      $startsAt = appointment_slot_starts_at($dayDate, $hour);
+                      $slotKey = substr(str_replace('T', ' ', $startsAt), 0, 16);
+                      $booked = is_array($bookedMap[$slotKey] ?? null) ? $bookedMap[$slotKey] : null;
+                      $isOpen = in_array($hour, $savedHours, true);
+                      $state = !$isOpen ? 'off' : ($booked ? 'booked' : 'free');
+                      $patientName = is_array($booked) ? trim((string) ($booked['patient_name'] ?? '')) : '';
+                      $firstName = $patientName !== '' ? (preg_split('/\s+/u', $patientName)[0] ?? $patientName) : '';
+                      $statusLabel = is_array($booked) ? appointment_row_status_label($booked) : '';
+                      $patientHref = is_array($booked) ? url('/doctor/patients/' . (string) ($booked['patient_id'] ?? '')) : '';
+                    ?>
+                    <button type="button"
+                      class="hour-chip is-<?= e($state) ?>"
+                      data-avail-hour
+                      data-state="<?= e($state) ?>"
+                      data-label="<?= e(appointment_hour_chip_label($hour)) ?>"
+                      data-date-label="<?= e(appointment_hour_date_for($dayDate, $hour)) ?>"
+                      data-patient="<?= e($patientName) ?>"
+                      data-phone="<?= e(is_array($booked) ? (string) ($booked['phone'] ?? '') : '') ?>"
+                      data-status="<?= e($statusLabel) ?>"
+                      data-href="<?= e($patientHref) ?>">
+                      <span class="hour-chip-time"><?= e(appointment_hour_chip_label($hour)) ?></span>
+                      <span class="hour-chip-date"><?= e(appointment_hour_date_for($dayDate, $hour)) ?></span>
+                      <?php if ($state === 'booked' && $firstName !== ''): ?>
+                        <span class="hour-chip-who"><?= e((string) $firstName) ?></span>
+                      <?php elseif ($state === 'free'): ?>
+                        <span class="hour-chip-who">خالی</span>
+                      <?php endif; ?>
+                    </button>
+                  <?php endforeach; ?>
+                </div>
+                <div class="avail-hour-detail" hidden>
+                  <strong class="avail-hour-detail-title"></strong>
+                  <p class="avail-hour-detail-body muted" style="margin:.35rem 0 0;font-size:.9rem;line-height:1.7"></p>
+                  <a class="btn btn-outline btn-sm avail-hour-detail-link" hidden href="#">پرونده مراجعه‌کننده</a>
+                </div>
+                <?php endif; ?>
+              </div>
+    <?php
+    return (string) ob_get_clean();
+}
+
 function appointment_normalize_posted_hours(mixed $posted): array
 {
     if (!is_array($posted)) {

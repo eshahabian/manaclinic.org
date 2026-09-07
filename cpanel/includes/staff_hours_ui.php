@@ -39,9 +39,11 @@ function staff_hours_render(array $slots, array $opts = []): string
     }
     $defaultSlotId = (string) (($people[0]['tab_id'] ?? 'sec-1'));
     $viewer = current_user();
-    if ($viewer && ($viewer['role'] ?? '') === 'DOCTOR') {
+    $viewerId = (string) ($viewer['id'] ?? '');
+    if ($viewer && ($viewer['role'] ?? '') === 'DOCTOR' && $viewerId !== '') {
         foreach ($people as $block) {
-            if (($block['kind'] ?? '') === 'doctor' && (string) (($block['user']['id'] ?? '')) === (string) ($viewer['id'] ?? '')) {
+            $blockUser = is_array($block['user'] ?? null) ? $block['user'] : [];
+            if (($block['kind'] ?? '') === 'doctor' && (string) ($blockUser['id'] ?? '') === $viewerId) {
                 $defaultSlotId = (string) ($block['tab_id'] ?? $defaultSlotId);
                 break;
             }
@@ -50,8 +52,8 @@ function staff_hours_render(array $slots, array $opts = []): string
 
     ob_start();
     ?>
-<h1>ساعت کاری</h1>
-<p class="muted">ساعت عادی از ۹ صبح تا ۸ شب است؛ خارج از این بازه اضافه‌کار حساب می‌شود. تب هر منشی و هر درمانگر جداست. با زدن «کل شهریور» یا «کل مهر» جمع کل همان ماه دیده می‌شود؛ تب روزها فقط جزئیات یک روز است. جزئیات ورود و خروج پشت «بیشتر» است.</p>
+<h1>ساعت کاری منشی‌ها</h1>
+<p class="muted">ساعت عادی از ۹ صبح تا ۸ شب است؛ خارج از این بازه اضافه‌کار حساب می‌شود. تب هر منشی و هر درمانگر جداست. جزئیات ورود و خروج پشت «بیشتر» است.</p>
 
 <div class="staff-hours-toolbar">
   <div class="staff-hours-export">
@@ -112,10 +114,10 @@ function staff_hours_render_self(array $block, array $opts = []): string
     $title = (string) ($opts['title'] ?? 'ساعت کاری من');
     $intro = (string) ($opts['intro'] ?? '');
     if ($intro === '') {
-        $intro = 'ساعت عادی از ۹ صبح تا ۸ شب است؛ خارج از این بازه اضافه‌کار حساب می‌شود. ماه را از تب‌ها انتخاب کنید تا جمع کل همان ماه (کل شهریور، کل مهر، …) دیده شود. تب روزها فقط جزئیات یک روز است. جزئیات ورود و خروج پشت «بیشتر» است.';
+        $intro = 'ساعت عادی از ۹ صبح تا ۸ شب است؛ خارج از این بازه اضافه‌کار حساب می‌شود. جزئیات ورود و خروج پشت «بیشتر» است.';
     }
     $todayRows = staff_hours_day_rows($block, $today, $today);
-    $open = $block['open'] ?? null;
+    $open = is_array($block['open'] ?? null) ? $block['open'] : null;
 
     ob_start();
     ?>
@@ -126,7 +128,7 @@ function staff_hours_render_self(array $block, array $opts = []): string
   <div class="row-between">
     <strong>حضور امروز</strong>
     <?php if ($open): ?>
-      <span class="badge">آنلاین از <?= e(format_fa_datetime((string) $open['started_at'])) ?></span>
+      <span class="badge">آنلاین از <?= e(format_fa_datetime((string) ($open['started_at'] ?? ''))) ?></span>
     <?php else: ?>
       <span class="badge">آفلاین</span>
     <?php endif; ?>
@@ -154,16 +156,19 @@ function staff_hours_render_calendar(array $block, array $opts = []): string
     if ($defaultHalfId === '' || !isset($halves[$defaultHalfId])) {
         $defaultHalfId = (string) (array_key_first($halves) ?? '');
     }
+    $defaultHalf = is_array($halves[$defaultHalfId] ?? null) ? $halves[$defaultHalfId] : [];
+    $defaultHalfTone = (string) ($defaultHalf['tone'] ?? 'online');
 
     ob_start();
     ?>
-<div class="binder-tile binder-tile--nested staff-hours-calendar" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($defaultHalfId) ?>" data-binder-tone="<?= e((string) ($halves[$defaultHalfId]['tone'] ?? 'online')) ?>">
+<div class="binder-tile binder-tile--nested staff-hours-calendar" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($defaultHalfId) ?>" data-binder-tone="<?= e($defaultHalfTone) ?>">
   <div class="binder-tabs" role="tablist" aria-label="نیم‌سال">
     <?php foreach ($halves as $halfId => $half): ?>
+      <?php $halfId = (string) $halfId; ?>
       <button type="button"
         class="binder-tab <?= e((string) ($half['class'] ?? '')) ?><?= $defaultHalfId === $halfId ? ' is-active' : '' ?>"
         role="tab"
-        data-binder-tab="<?= e((string) $halfId) ?>"
+        data-binder-tab="<?= e($halfId) ?>"
         data-binder-tone="<?= e((string) ($half['tone'] ?? 'online')) ?>"
         aria-selected="<?= $defaultHalfId === $halfId ? 'true' : 'false' ?>">
         <?= e((string) ($half['label'] ?? '')) ?>
@@ -173,23 +178,35 @@ function staff_hours_render_calendar(array $block, array $opts = []): string
   <div class="binder-body">
     <?php foreach ($halves as $halfId => $half): ?>
       <?php
-        $months = $half['months'] ?? [];
+        $halfId = (string) $halfId;
+        $months = is_array($half['months'] ?? null) ? $half['months'] : [];
         $defaultMonthId = (string) ($cal['default_month_id'] ?? '');
-        if (!isset($months[$defaultMonthId])) {
+        if ($defaultMonthId === '' || !isset($months[$defaultMonthId])) {
             $defaultMonthId = (string) (array_key_first($months) ?? '');
         }
+        $monthTone = (string) ($half['tone'] ?? 'in-person');
+        $defaultMonth = is_array($months[$defaultMonthId] ?? null) ? $months[$defaultMonthId] : [];
+        if ($defaultMonth !== []) {
+            $monthTone = (string) ($defaultMonth['tone'] ?? $monthTone);
+        }
       ?>
-      <section class="binder-panel<?= $defaultHalfId === $halfId ? ' is-active' : '' ?>" data-binder-panel="<?= e((string) $halfId) ?>" role="tabpanel"<?= $defaultHalfId === $halfId ? '' : ' hidden' ?>>
+      <section class="binder-panel<?= $defaultHalfId === $halfId ? ' is-active' : '' ?>" data-binder-panel="<?= e($halfId) ?>" role="tabpanel"<?= $defaultHalfId === $halfId ? '' : ' hidden' ?>>
         <?php if (!$months): ?>
           <p class="muted">ماهی در این نیم‌سال نیست.</p>
         <?php else: ?>
-          <div class="binder-tile binder-tile--nested staff-hours-month-tabs" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($defaultMonthId) ?>" data-binder-tone="<?= e((string) (($months[$defaultMonthId]['tone'] ?? $half['tone'] ?? 'in-person'))) ?>">
-            <div class="binder-tabs" role="tablist" aria-label="کل ماه">
+          <div class="binder-tile binder-tile--nested staff-hours-month-tabs" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($defaultMonthId) ?>" data-binder-tone="<?= e($monthTone) ?>">
+            <div class="binder-tabs" role="tablist" aria-label="ماه">
               <?php foreach ($months as $monthId => $month): ?>
+                <?php
+                  if (!is_array($month)) {
+                      continue;
+                  }
+                  $monthId = (string) $monthId;
+                ?>
                 <button type="button"
                   class="binder-tab staff-hours-range-tab <?= e((string) ($month['class'] ?? 'binder-tab-in-person')) ?><?= $defaultMonthId === $monthId ? ' is-active' : '' ?>"
                   role="tab"
-                  data-binder-tab="<?= e((string) $monthId) ?>"
+                  data-binder-tab="<?= e($monthId) ?>"
                   data-binder-tone="<?= e((string) ($month['tone'] ?? 'in-person')) ?>"
                   aria-selected="<?= $defaultMonthId === $monthId ? 'true' : 'false' ?>">
                   <?= e(staff_hours_month_tab_label($month)) ?>
@@ -201,7 +218,13 @@ function staff_hours_render_calendar(array $block, array $opts = []): string
             </div>
             <div class="binder-body">
               <?php foreach ($months as $monthId => $month): ?>
-                <section class="binder-panel<?= $defaultMonthId === $monthId ? ' is-active' : '' ?>" data-binder-panel="<?= e((string) $monthId) ?>" role="tabpanel"<?= $defaultMonthId === $monthId ? '' : ' hidden' ?>>
+                <?php
+                  if (!is_array($month)) {
+                      continue;
+                  }
+                  $monthId = (string) $monthId;
+                ?>
+                <section class="binder-panel<?= $defaultMonthId === $monthId ? ' is-active' : '' ?>" data-binder-panel="<?= e($monthId) ?>" role="tabpanel"<?= $defaultMonthId === $monthId ? '' : ' hidden' ?>>
                   <?= staff_hours_render_month_panel($block, $month, $today) ?>
                 </section>
               <?php endforeach; ?>
@@ -218,9 +241,9 @@ function staff_hours_render_calendar(array $block, array $opts = []): string
 
 function staff_hours_render_month_panel(array $block, array $month, string $today): string
 {
-    $days = $month['days'] ?? [];
+    $days = is_array($month['days'] ?? null) ? $month['days'] : [];
     $defaultDayId = '';
-    if (isset($days[$today])) {
+    if (isset($days[$today]) && is_array($days[$today])) {
         $defaultDayId = (string) ($days[$today]['id'] ?? '');
     } elseif ($days) {
         $first = reset($days);
@@ -244,7 +267,12 @@ function staff_hours_render_month_panel(array $block, array $month, string $toda
       <div class="binder-tile binder-tile--nested" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($defaultDayId) ?>" data-binder-tone="<?= e((string) ($month['tone'] ?? 'in-person')) ?>">
         <div class="binder-tabs" role="tablist" aria-label="روزهای حضور">
           <?php foreach ($days as $day): ?>
-            <?php $did = (string) ($day['id'] ?? ''); ?>
+            <?php
+              if (!is_array($day)) {
+                  continue;
+              }
+              $did = (string) ($day['id'] ?? '');
+            ?>
             <button type="button"
               class="binder-tab <?= e((string) ($month['class'] ?? 'binder-tab-in-person')) ?><?= $defaultDayId === $did ? ' is-active' : '' ?>"
               role="tab"
@@ -257,7 +285,12 @@ function staff_hours_render_month_panel(array $block, array $month, string $toda
         </div>
         <div class="binder-body">
           <?php foreach ($days as $day): ?>
-            <?php $did = (string) ($day['id'] ?? ''); ?>
+            <?php
+              if (!is_array($day)) {
+                  continue;
+              }
+              $did = (string) ($day['id'] ?? '');
+            ?>
             <section class="binder-panel<?= $defaultDayId === $did ? ' is-active' : '' ?>" data-binder-panel="<?= e($did) ?>" role="tabpanel"<?= $defaultDayId === $did ? '' : ' hidden' ?>>
               <?= staff_hours_render_tile($block, (string) ($day['date'] ?? ''), $today) ?>
             </section>
@@ -353,23 +386,27 @@ function staff_hours_render_day_presence(array $rows, array $opts = []): string
 function staff_hours_day_rows(array $block, string $dayDate, string $today): array
 {
     $isToday = $dayDate === $today;
-    $day = $block['days'][$dayDate] ?? null;
-    $dayRows = $isToday ? ($block['today_rows'] ?? []) : (($day['items'] ?? []) ?: []);
-    if ($isToday && !$dayRows && !empty($day['items'])) {
-        $dayRows = $day['items'];
+    $day = is_array($block['days'][$dayDate] ?? null) ? $block['days'][$dayDate] : [];
+    $todayRows = is_array($block['today_rows'] ?? null) ? $block['today_rows'] : [];
+    $itemRows = is_array($day['items'] ?? null) ? $day['items'] : [];
+    $dayRows = $isToday ? $todayRows : $itemRows;
+    if ($isToday && $dayRows === [] && $itemRows !== []) {
+        $dayRows = $itemRows;
     }
 
-    return is_array($dayRows) ? $dayRows : [];
+    return $dayRows;
 }
 
 function staff_hours_render_tile(array $block, string $dayDate, string $today): string
 {
-    $sec = $block['user'] ?? [];
+    $sec = is_array($block['user'] ?? null) ? $block['user'] : [];
     $label = (string) ($block['label'] ?? staff_actor_label($sec));
     $isToday = $dayDate === $today;
     $dayRows = staff_hours_day_rows($block, $dayDate, $today);
-    $dayReport = $block['reports_by_date'][$dayDate] ?? null;
-    $parts = jalali_day_parts($dayDate . ' 12:00:00');
+    $reportsByDate = is_array($block['reports_by_date'] ?? null) ? $block['reports_by_date'] : [];
+    $dayReport = is_array($reportsByDate[$dayDate] ?? null) ? $reportsByDate[$dayDate] : null;
+    $parts = jalali_day_parts($dayDate . ' 12:00:00') ?? [];
+    $openShift = is_array($block['open'] ?? null) ? $block['open'] : null;
 
     ob_start();
     ?>
@@ -381,8 +418,8 @@ function staff_hours_render_tile(array $block, string $dayDate, string $today): 
           <?= e((string) ($parts['label'] ?? $dayDate)) ?>
         </div>
       </div>
-      <?php if ($isToday && $block['open']): ?>
-        <span class="badge">آنلاین از <?= e(format_fa_datetime((string) $block['open']['started_at'])) ?></span>
+      <?php if ($isToday && $openShift): ?>
+        <span class="badge">آنلاین از <?= e(format_fa_datetime((string) ($openShift['started_at'] ?? ''))) ?></span>
       <?php elseif ($isToday): ?>
         <span class="badge">آفلاین</span>
       <?php endif; ?>
@@ -403,15 +440,20 @@ function staff_hours_render_tile(array $block, string $dayDate, string $today): 
 
 function staff_hours_render_month_tile(array $block, array $month, string $today): string
 {
-    $sec = $block['user'] ?? [];
+    $sec = is_array($block['user'] ?? null) ? $block['user'] : [];
     $label = (string) ($block['label'] ?? staff_actor_label($sec));
     $monthLabel = (string) ($month['label'] ?? $month['short'] ?? 'این ماه');
     $monthShort = (string) ($month['short'] ?? 'ماه');
     $monthLen = (int) ($month['length'] ?? 0);
-    $days = $month['days'] ?? [];
+    $days = is_array($month['days'] ?? null) ? $month['days'] : [];
+    $reportsByDate = is_array($block['reports_by_date'] ?? null) ? $block['reports_by_date'] : [];
+    $openShift = is_array($block['open'] ?? null) ? $block['open'] : null;
     $allRows = [];
     $dayPacks = [];
     foreach ($days as $gdate => $day) {
+        if (!is_array($day)) {
+            $day = [];
+        }
         $date = (string) ($day['date'] ?? $gdate);
         $rows = staff_hours_day_rows($block, $date, $today);
         $allRows = array_merge($allRows, $rows);
@@ -420,7 +462,7 @@ function staff_hours_render_month_tile(array $block, array $month, string $today
             'label' => (string) ($day['label'] ?? $date),
             'rows' => $rows,
             'is_today' => $date === $today,
-            'report' => $block['reports_by_date'][$date] ?? null,
+            'report' => is_array($reportsByDate[$date] ?? null) ? $reportsByDate[$date] : null,
         ];
     }
     usort($dayPacks, static fn(array $a, array $b): int => strcmp((string) $b['date'], (string) $a['date']));
@@ -447,8 +489,8 @@ function staff_hours_render_month_tile(array $block, array $month, string $today
           <?php endif; ?>
         </div>
       </div>
-      <?php if ($monthHasToday && $block['open']): ?>
-        <span class="badge">آنلاین از <?= e(format_fa_datetime((string) $block['open']['started_at'])) ?></span>
+      <?php if ($monthHasToday && $openShift): ?>
+        <span class="badge">آنلاین از <?= e(format_fa_datetime((string) ($openShift['started_at'] ?? ''))) ?></span>
       <?php elseif ($monthHasToday): ?>
         <span class="badge">آفلاین</span>
       <?php endif; ?>
