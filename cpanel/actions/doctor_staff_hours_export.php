@@ -3,7 +3,10 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/doctor_panel.php';
 
-require_doctor_profile($pdo);
+$ctx = require_doctor_profile($pdo);
+if (!doctor_can_view_staff_hours($ctx['user'] ?? null)) {
+    redirect('/doctor');
+}
 $who = trim((string) ($_GET['who'] ?? ''));
 if ($who === '') {
     $slot = (int) ($_GET['slot'] ?? 0);

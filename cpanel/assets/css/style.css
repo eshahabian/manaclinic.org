@@ -2740,6 +2740,20 @@ body.workshop-overview-locked { overflow: hidden; }
   border-color: #1a5c4a;
 }
 
+.password-pair {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1.25rem;
+  align-items: start;
+}
+.password-pair .password-field > .label {
+  min-height: 1.5rem;
+  line-height: 1.5rem;
+  white-space: nowrap;
+}
+@media (max-width: 520px) {
+  .password-pair { grid-template-columns: 1fr; }
+}
 .password-field { display: grid; gap: .35rem; }
 .password-field-box { position: relative; }
 .password-field-box .input { padding-left: 2.6rem; }

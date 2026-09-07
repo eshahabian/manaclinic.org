@@ -75,4 +75,12 @@ function db_ensure_schema(PDO $pdo): void
         } catch (Throwable $ignored) {
         }
     }
+
+    try {
+        $taken = $pdo->query("SELECT id FROM users WHERE username='shgeranmaye' LIMIT 1")->fetch();
+        if (!$taken) {
+            $pdo->exec("UPDATE users SET username='shgeranmaye' WHERE username='doctor' AND name LIKE '%گرانمایه%' LIMIT 1");
+        }
+    } catch (Throwable $ignored) {
+    }
 }

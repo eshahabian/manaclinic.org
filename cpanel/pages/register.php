@@ -72,11 +72,12 @@ ob_start();
     </div>
     <?php endif; ?>
 
-    <div class="grid-2">
+    <div class="password-pair">
       <?= password_field_html('password', 'password', [
           'label' => 'رمز عبور',
           'autocomplete' => 'new-password',
           'minlength' => password_min_length(),
+          'rules' => false,
       ]) ?>
       <?= password_field_html('password_confirm', 'password_confirm', [
           'label' => 'تکرار رمز عبور',
@@ -86,6 +87,7 @@ ob_start();
           'pair' => 'password',
       ]) ?>
     </div>
+    <p class="password-rules muted">حداقل <?= e(to_fa_digits((string) password_min_length())) ?> کاراکتر، با حروف و اعداد انگلیسی.</p>
 
     <button class="btn btn-primary" type="submit" name="submit_register" value="1">
       <?= $role === 'DOCTOR' ? 'ارسال درخواست' : 'ایجاد حساب' ?>

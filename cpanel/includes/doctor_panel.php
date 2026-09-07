@@ -1,9 +1,23 @@
 <?php
 declare(strict_types=1);
 
+function doctor_can_view_staff_hours(?array $user = null): bool
+{
+    $user = $user ?? current_user();
+    if (!$user || ($user['role'] ?? '') !== 'DOCTOR') {
+        return false;
+    }
+    $username = strtolower(trim((string) ($user['username'] ?? '')));
+    if (in_array($username, ['shgeranmaye', 'doctor'], true)) {
+        return true;
+    }
+
+    return str_contains((string) ($user['name'] ?? ''), 'گرانمایه');
+}
+
 function doctor_nav(): array
 {
-    return [
+    $nav = [
         ['type' => 'link', 'href' => '/doctor', 'label' => 'خلاصه'],
         ['type' => 'group', 'label' => 'گفتگو و پیام'],
         ['type' => 'link', 'href' => '/doctor/intakes', 'label' => 'گفتگوهای دستیار'],
@@ -17,10 +31,14 @@ function doctor_nav(): array
         ['type' => 'link', 'href' => '/doctor/articles', 'label' => 'مقالات'],
         ['type' => 'link', 'href' => '/doctor/profile', 'label' => 'پروفایل حرفه‌ای'],
         ['type' => 'group', 'label' => 'حساب'],
-        ['type' => 'link', 'href' => '/doctor/staff-hours', 'label' => 'ساعت کاری منشی‌ها'],
-        ['type' => 'link', 'href' => '/doctor/staff-messages', 'label' => 'پیام‌ها'],
-        ['type' => 'link', 'href' => '/change-password', 'label' => 'تغییر رمز عبور'],
     ];
+    if (doctor_can_view_staff_hours()) {
+        $nav[] = ['type' => 'link', 'href' => '/doctor/staff-hours', 'label' => 'ساعت کاری منشی‌ها'];
+    }
+    $nav[] = ['type' => 'link', 'href' => '/doctor/staff-messages', 'label' => 'پیام‌ها'];
+    $nav[] = ['type' => 'link', 'href' => '/change-password', 'label' => 'تغییر رمز عبور'];
+
+    return $nav;
 }
 
 /** پروفایل کاری درمانگر را می‌سازد یا فیلدهای خالی را پر می‌کند */

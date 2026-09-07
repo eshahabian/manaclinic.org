@@ -250,7 +250,8 @@ try {
     }
 
     $pdo->exec("UPDATE users SET username='admin' WHERE (username IS NULL OR username='') AND (email LIKE 'admin@%' OR role='ADMIN') LIMIT 1");
-    $pdo->exec("UPDATE users SET username='doctor' WHERE (username IS NULL OR username='') AND (email LIKE 'doctor@%' OR role='DOCTOR') LIMIT 1");
+    $pdo->exec("UPDATE users SET username='shgeranmaye' WHERE username='doctor' AND name LIKE '%گرانمایه%' LIMIT 1");
+    $pdo->exec("UPDATE users SET username='shgeranmaye' WHERE (username IS NULL OR username='') AND (email LIKE 'doctor@%' OR role='DOCTOR') LIMIT 1");
     $pdo->exec("UPDATE users SET username='patient' WHERE (username IS NULL OR username='') AND (email LIKE 'patient@%' OR role='PATIENT') LIMIT 1");
     $pdo->exec("UPDATE users SET username='secretary1' WHERE username='secretary' AND role='SECRETARY' LIMIT 1");
     $pdo->exec("UPDATE users SET username='secretary1' WHERE (username IS NULL OR username='') AND (email LIKE 'secretary@%' OR role='SECRETARY') LIMIT 1");
@@ -297,12 +298,12 @@ try {
     };
 
     $upsertUser($adminId, 'admin', 'مدیر سایت', 'ADMIN', '09120000000');
-    $upsertUser($doctorUserId, 'doctor', 'دکتر شیوا گرانمایه پور', 'DOCTOR', '09121111111');
+    $upsertUser($doctorUserId, 'shgeranmaye', 'دکتر شیوا گرانمایه پور', 'DOCTOR', '09121111111');
     $upsertUser($patientId, 'patient', 'علی رضایی', 'PATIENT', '09123333333');
     $upsertUser($secretaryId, 'secretary1', 'منشی ۱', 'SECRETARY', '09124444444');
     $upsertUser($secretary2Id, 'secretary2', 'منشی ۲', 'SECRETARY', '09124444445');
 
-    $doctorRow = $pdo->query("SELECT id FROM users WHERE username='doctor' LIMIT 1")->fetch();
+    $doctorRow = $pdo->query("SELECT id FROM users WHERE username IN ('shgeranmaye','doctor') ORDER BY CASE username WHEN 'shgeranmaye' THEN 0 ELSE 1 END LIMIT 1")->fetch();
     if ($doctorRow) {
         $dp = $pdo->prepare('SELECT id FROM doctor_profiles WHERE user_id=?');
         $dp->execute([$doctorRow['id']]);
@@ -315,7 +316,7 @@ try {
         }
     }
 
-    $author = $pdo->query("SELECT id FROM users WHERE username='doctor' LIMIT 1")->fetch();
+    $author = $pdo->query("SELECT id FROM users WHERE username IN ('shgeranmaye','doctor') ORDER BY CASE username WHEN 'shgeranmaye' THEN 0 ELSE 1 END LIMIT 1")->fetch();
     if ($author) {
         $exists = $pdo->prepare('SELECT id FROM articles WHERE slug=?');
         $exists->execute(['modiriat-ezterab']);
