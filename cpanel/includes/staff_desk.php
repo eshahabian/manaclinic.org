@@ -143,14 +143,19 @@ function staff_slot_user(PDO $pdo, int $slot): ?array
 {
     $slot = $slot === 2 ? 2 : 1;
     $username = $slot === 2 ? 'secretary2' : 'secretary1';
-    $stmt = $pdo->prepare("SELECT id, name, username FROM users WHERE username=? AND role='SECRETARY' LIMIT 1");
-    $stmt->execute([$username]);
-    $row = $stmt->fetch();
-    if ($row) {
-        return $row;
+    try {
+        $stmt = $pdo->prepare("SELECT id, name, username FROM users WHERE username=? AND role='SECRETARY' LIMIT 1");
+        $stmt->execute([$username]);
+        $row = $stmt->fetch();
+        if (is_array($row) && $row) {
+            return $row;
+        }
+        $all = $pdo->query("SELECT id, name, username FROM users WHERE role='SECRETARY' ORDER BY username ASC")->fetchAll();
+        $pick = is_array($all) ? ($all[$slot - 1] ?? null) : null;
+        return is_array($pick) ? $pick : null;
+    } catch (Throwable $ignored) {
+        return null;
     }
-    $all = $pdo->query("SELECT id, name, username FROM users WHERE role='SECRETARY' ORDER BY username ASC")->fetchAll();
-    return $all[$slot - 1] ?? null;
 }
 
 function ensure_secretary_day_reports(PDO $pdo): void
@@ -474,10 +479,28 @@ function staff_shift_seconds_split(array $shift): array
     return staff_interval_seconds_split($start, (int) $end);
 }
 
+/** فقط ردیف‌های شیفت (لیست یا یک ردیف انجمنی) */
+function staff_hours_shift_rows(mixed $rows): array
+{
+    if (!is_array($rows) || $rows === []) {
+        return [];
+    }
+    if (array_key_exists('started_at', $rows) || array_key_exists('ended_at', $rows) || array_key_exists('user_id', $rows)) {
+        return [$rows];
+    }
+    $out = [];
+    foreach ($rows as $row) {
+        if (is_array($row)) {
+            $out[] = $row;
+        }
+    }
+    return $out;
+}
+
 function staff_rows_seconds_split(array $rows): array
 {
     $out = ['total' => 0, 'regular' => 0, 'overtime' => 0];
-    foreach ($rows as $row) {
+    foreach (staff_hours_shift_rows($rows) as $row) {
         $part = staff_shift_seconds_split($row);
         $out['total'] += $part['total'];
         $out['regular'] += $part['regular'];
@@ -493,6 +516,7 @@ function staff_day_presence_meta(array $rows): array
     $firstIn = null;
     $lastOut = null;
     $open = false;
+    $rows = staff_hours_shift_rows($rows);
     foreach ($rows as $row) {
         $started = trim((string) ($row['started_at'] ?? ''));
         if ($started !== '' && ($firstIn === null || strcmp($started, $firstIn) < 0)) {
@@ -580,6 +604,7 @@ function staff_hours_list_doctors(PDO $pdo): array
 
 function staff_hours_build_block(PDO $pdo, ?array $user, array $meta): array
 {
+    $user = is_array($user) ? $user : null;
     $uid = $user ? (string) ($user['id'] ?? '') : '';
     $open = $uid !== '' ? staff_current_shift($pdo, $uid) : null;
     $todayRows = [];
@@ -587,31 +612,42 @@ function staff_hours_build_block(PDO $pdo, ?array $user, array $meta): array
     $reportRows = [];
     $withReports = !empty($meta['with_reports']);
     if ($uid !== '') {
-        $today = $pdo->prepare("
-          SELECT * FROM staff_shifts
-          WHERE user_id=? AND DATE(started_at)=CURDATE()
-          ORDER BY started_at ASC
-        ");
-        $today->execute([$uid]);
-        $todayRows = $today->fetchAll();
-        $hist = $pdo->prepare("
-          SELECT * FROM staff_shifts
-          WHERE user_id=?
-          ORDER BY started_at DESC
-          LIMIT 2500
-        ");
-        $hist->execute([$uid]);
-        $histRows = $hist->fetchAll();
-        if ($withReports) {
-            $reports = $pdo->prepare("
-              SELECT report_date, body, updated_at
-              FROM secretary_day_reports
-              WHERE user_id=?
-              ORDER BY report_date DESC
-              LIMIT 400
+        try {
+            ensure_staff_desk_schema($pdo);
+            $today = $pdo->prepare("
+              SELECT * FROM staff_shifts
+              WHERE user_id=? AND DATE(started_at)=CURDATE()
+              ORDER BY started_at ASC
             ");
-            $reports->execute([$uid]);
-            $reportRows = $reports->fetchAll();
+            $today->execute([$uid]);
+            $fetchedToday = $today->fetchAll();
+            $todayRows = staff_hours_shift_rows(is_array($fetchedToday) ? $fetchedToday : []);
+            $hist = $pdo->prepare("
+              SELECT * FROM staff_shifts
+              WHERE user_id=?
+              ORDER BY started_at DESC
+              LIMIT 2500
+            ");
+            $hist->execute([$uid]);
+            $fetchedHist = $hist->fetchAll();
+            $histRows = staff_hours_shift_rows(is_array($fetchedHist) ? $fetchedHist : []);
+            if ($withReports) {
+                ensure_secretary_day_reports($pdo);
+                $reports = $pdo->prepare("
+                  SELECT report_date, body, updated_at
+                  FROM secretary_day_reports
+                  WHERE user_id=?
+                  ORDER BY report_date DESC
+                  LIMIT 400
+                ");
+                $reports->execute([$uid]);
+                $fetchedReports = $reports->fetchAll();
+                $reportRows = is_array($fetchedReports) ? $fetchedReports : [];
+            }
+        } catch (Throwable $ignored) {
+            $todayRows = [];
+            $histRows = [];
+            $reportRows = [];
         }
     }
     $todaySeconds = 0;
@@ -620,7 +656,10 @@ function staff_hours_build_block(PDO $pdo, ?array $user, array $meta): array
     }
     $reportsByDate = [];
     foreach ($reportRows as $rep) {
-        $reportsByDate[(string) $rep['report_date']] = $rep;
+        if (!is_array($rep)) {
+            continue;
+        }
+        $reportsByDate[(string) ($rep['report_date'] ?? '')] = $rep;
     }
 
     return [
@@ -643,23 +682,40 @@ function staff_hours_build_block(PDO $pdo, ?array $user, array $meta): array
 
 function staff_hours_collect(PDO $pdo): array
 {
+    try {
+        ensure_staff_desk_schema($pdo);
+    } catch (Throwable $ignored) {
+    }
     staff_close_stale_shifts($pdo);
     ensure_secretary_accounts($pdo);
     ensure_secretary_day_reports($pdo);
     $labels = staff_slot_labels($pdo);
     $people = [];
     foreach ([1, 2] as $slot) {
-        $sec = staff_slot_user($pdo, $slot);
-        $people[] = staff_hours_build_block($pdo, $sec, [
-            'kind' => 'secretary',
-            'slot' => $slot,
-            'key' => (string) $slot,
-            'tab_id' => 'sec-' . $slot,
-            'tab_class' => $slot === 1 ? 'binder-tab-appts' : 'binder-tab-workshops',
-            'tab_tone' => $slot === 1 ? 'appts' : 'workshops',
-            'label' => (string) ($labels[$slot] ?? staff_slot_default_label($slot)),
-            'with_reports' => true,
-        ]);
+        try {
+            $sec = staff_slot_user($pdo, $slot);
+            $people[] = staff_hours_build_block($pdo, $sec, [
+                'kind' => 'secretary',
+                'slot' => $slot,
+                'key' => (string) $slot,
+                'tab_id' => 'sec-' . $slot,
+                'tab_class' => $slot === 1 ? 'binder-tab-appts' : 'binder-tab-workshops',
+                'tab_tone' => $slot === 1 ? 'appts' : 'workshops',
+                'label' => (string) ($labels[$slot] ?? staff_slot_default_label($slot)),
+                'with_reports' => true,
+            ]);
+        } catch (Throwable $ignored) {
+            $people[] = staff_hours_build_block($pdo, null, [
+                'kind' => 'secretary',
+                'slot' => $slot,
+                'key' => (string) $slot,
+                'tab_id' => 'sec-' . $slot,
+                'tab_class' => $slot === 1 ? 'binder-tab-appts' : 'binder-tab-workshops',
+                'tab_tone' => $slot === 1 ? 'appts' : 'workshops',
+                'label' => (string) ($labels[$slot] ?? staff_slot_default_label($slot)),
+                'with_reports' => false,
+            ]);
+        }
     }
     $tones = [
         ['binder-tab-in-person', 'in-person'],
@@ -669,22 +725,29 @@ function staff_hours_collect(PDO $pdo): array
         ['binder-tab-archive', 'archive'],
     ];
     foreach (staff_hours_list_doctors($pdo) as $idx => $doc) {
+        if (!is_array($doc)) {
+            continue;
+        }
         $uid = (string) ($doc['id'] ?? '');
         if ($uid === '') {
             continue;
         }
-        $tone = $tones[$idx % count($tones)];
-        $name = trim((string) ($doc['name'] ?? ''));
-        $people[] = staff_hours_build_block($pdo, $doc, [
-            'kind' => 'doctor',
-            'slot' => null,
-            'key' => 'd' . substr(md5($uid), 0, 10),
-            'tab_id' => 'doc-' . $uid,
-            'tab_class' => $tone[0],
-            'tab_tone' => $tone[1],
-            'label' => $name !== '' ? $name : staff_actor_label($doc),
-            'with_reports' => false,
-        ]);
+        try {
+            $tone = $tones[$idx % count($tones)];
+            $name = trim((string) ($doc['name'] ?? ''));
+            $people[] = staff_hours_build_block($pdo, $doc, [
+                'kind' => 'doctor',
+                'slot' => null,
+                'key' => 'd' . substr(md5($uid), 0, 10),
+                'tab_id' => 'doc-' . $uid,
+                'tab_class' => $tone[0],
+                'tab_tone' => $tone[1],
+                'label' => $name !== '' ? $name : staff_actor_label($doc),
+                'with_reports' => false,
+            ]);
+        } catch (Throwable $ignored) {
+            continue;
+        }
     }
 
     return $people;
@@ -693,7 +756,10 @@ function staff_hours_collect(PDO $pdo): array
 /** بلوک ساعت کاری یک نفر (صفحه «ساعت کاری من») */
 function staff_hours_block_for_user(PDO $pdo, array $user): array
 {
-    staff_close_stale_shifts($pdo);
+    try {
+        staff_close_stale_shifts($pdo);
+    } catch (Throwable $ignored) {
+    }
     $uid = (string) ($user['id'] ?? '');
     $role = (string) ($user['role'] ?? '');
     $name = trim((string) ($user['name'] ?? ''));
@@ -714,12 +780,21 @@ function staff_hours_block_for_user(PDO $pdo, array $user): array
 /** تقویم شمسی: نیم‌سال، ماه، روزهای حضور */
 function staff_hours_calendar(array $block): array
 {
+    $emptyCal = [
+        'halves' => [],
+        'default_half_id' => '',
+        'default_month_id' => '',
+        'default_day_id' => '',
+        'today' => date('Y-m-d'),
+    ];
+    try {
     $today = date('Y-m-d');
     $current = jalali_current_month_meta();
     $currentJy = (int) ($current['year'] ?? 0);
     $currentJm = (int) ($current['month'] ?? 1);
     $present = [];
-    foreach (($block['days'] ?? []) as $day) {
+    $dayList = is_array($block['days'] ?? null) ? $block['days'] : [];
+    foreach ($dayList as $day) {
         if (!is_array($day)) {
             continue;
         }
@@ -728,7 +803,8 @@ function staff_hours_calendar(array $block): array
             $present[$d] = true;
         }
     }
-    foreach (($block['reports'] ?? []) as $rep) {
+    $reportList = is_array($block['reports'] ?? null) ? $block['reports'] : [];
+    foreach ($reportList as $rep) {
         if (!is_array($rep)) {
             continue;
         }
@@ -747,7 +823,11 @@ function staff_hours_calendar(array $block): array
     }
     krsort($years);
 
-    $slot = (string) ($block['key'] ?? $block['tab_id'] ?? '1');
+    $rawKey = $block['key'] ?? $block['tab_id'] ?? $block['slot'] ?? '1';
+    if (is_array($rawKey) || is_object($rawKey)) {
+        $rawKey = '1';
+    }
+    $slot = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) $rawKey) ?: '1';
     $yearCount = count($years);
     $halves = [];
     foreach (array_keys($years) as $jy) {
@@ -781,6 +861,9 @@ function staff_hours_calendar(array $block): array
                     $presentCount++;
                 }
                 $monthId = 's' . $slot . '-m-' . (string) ($meta['key'] ?? sprintf('%04d-%02d', $jy, $jm));
+                if (!is_array($meta)) {
+                    $meta = [];
+                }
                 $months[$monthId] = array_merge($meta, [
                     'id' => $monthId,
                     'length' => $len,
@@ -823,6 +906,9 @@ function staff_hours_calendar(array $block): array
         'default_day_id' => $defaultDayId,
         'today' => $today,
     ];
+    } catch (Throwable $ignored) {
+        return $emptyCal;
+    }
 }
 
 function staff_hours_export_rows(PDO $pdo, ?string $who = null): array
@@ -830,6 +916,9 @@ function staff_hours_export_rows(PDO $pdo, ?string $who = null): array
     $people = staff_hours_collect($pdo);
     $out = [];
     foreach ($people as $block) {
+        if (!is_array($block)) {
+            continue;
+        }
         $tabId = (string) ($block['tab_id'] ?? '');
         $slot = $block['slot'] ?? null;
         $user = is_array($block['user'] ?? null) ? $block['user'] : [];
@@ -847,7 +936,7 @@ function staff_hours_export_rows(PDO $pdo, ?string $who = null): array
         $label = (string) ($block['label'] ?? staff_actor_label($user ?: null));
         $username = (string) ($user['username'] ?? '');
         $roleLabel = (($block['kind'] ?? '') === 'doctor') ? 'درمانگر' : 'منشی';
-        $days = $block['days'] ?? [];
+        $days = is_array($block['days'] ?? null) ? $block['days'] : [];
         ksort($days);
         foreach ($days as $day) {
             if (!is_array($day)) {
@@ -915,22 +1004,26 @@ function staff_hours_export_rows(PDO $pdo, ?string $who = null): array
 function staff_shifts_grouped_by_day(array $rows): array
 {
     $days = [];
-    foreach ($rows as $row) {
+    foreach (staff_hours_shift_rows($rows) as $row) {
         $dt = (string) ($row['started_at'] ?? '');
         $ts = strtotime($dt) ?: 0;
         $key = $ts ? date('Y-m-d', $ts) : 'other';
-        $parts = jalali_day_parts($dt);
+        $parts = $dt !== '' ? jalali_day_parts($dt) : null;
         if (!isset($days[$key])) {
             $days[$key] = [
                 'date' => $key,
-                'label' => $parts ? ((string) $parts['label'] . ' ' . to_fa_digits((string) $parts['year'])) : format_fa_datetime($dt),
+                'label' => (is_array($parts) && $parts)
+                    ? ((string) ($parts['label'] ?? '') . ' ' . to_fa_digits((string) ($parts['year'] ?? '')))
+                    : format_fa_datetime($dt),
                 'items' => [],
             ];
         }
         $days[$key]['items'][] = $row;
     }
     foreach ($days as $k => $day) {
-        usort($days[$k]['items'], static fn(array $a, array $b): int => strcmp((string) ($a['started_at'] ?? ''), (string) ($b['started_at'] ?? '')));
+        $items = staff_hours_shift_rows($day['items'] ?? []);
+        usort($items, static fn(array $a, array $b): int => strcmp((string) ($a['started_at'] ?? ''), (string) ($b['started_at'] ?? '')));
+        $days[$k]['items'] = $items;
     }
     krsort($days);
     return $days;
@@ -966,10 +1059,14 @@ function staff_today_action_draft(PDO $pdo, string $userId): string
 function staff_get_day_report(PDO $pdo, string $userId, string $date): ?array
 {
     ensure_secretary_day_reports($pdo);
-    $stmt = $pdo->prepare('SELECT * FROM secretary_day_reports WHERE user_id=? AND report_date=? LIMIT 1');
-    $stmt->execute([$userId, $date]);
-    $row = $stmt->fetch();
-    return $row ?: null;
+    try {
+        $stmt = $pdo->prepare('SELECT * FROM secretary_day_reports WHERE user_id=? AND report_date=? LIMIT 1');
+        $stmt->execute([$userId, $date]);
+        $row = $stmt->fetch();
+        return is_array($row) ? $row : null;
+    } catch (Throwable $ignored) {
+        return null;
+    }
 }
 
 function staff_save_day_report(PDO $pdo, string $userId, string $date, string $body): void

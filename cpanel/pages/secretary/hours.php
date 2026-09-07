@@ -5,14 +5,27 @@ require_once __DIR__ . '/../../includes/staff_hours_ui.php';
 
 $user = require_login(['SECRETARY']);
 ensure_secretary_day_reports($pdo);
-$block = staff_hours_block_for_user($pdo, $user);
-$shift = $block['open'] ?? null;
+try {
+    $block = staff_hours_block_for_user($pdo, $user);
+} catch (Throwable $ignored) {
+    $block = staff_hours_build_block($pdo, is_array($user) ? $user : null, [
+        'kind' => 'secretary',
+        'key' => 'self',
+        'tab_id' => 'self',
+        'label' => staff_actor_label(is_array($user) ? $user : null),
+        'with_reports' => true,
+    ]);
+}
+if (!is_array($block)) {
+    $block = [];
+}
+$shift = is_array($block['open'] ?? null) ? $block['open'] : null;
 $todayDate = date('Y-m-d');
 $todayRows = staff_hours_day_rows($block, $todayDate, $todayDate);
 
-$report = staff_get_day_report($pdo, (string) $user['id'], $todayDate);
-$draft = staff_today_action_draft($pdo, (string) $user['id']);
-$reportBody = (string) ($report['body'] ?? '');
+$report = staff_get_day_report($pdo, (string) ($user['id'] ?? ''), $todayDate);
+$draft = staff_today_action_draft($pdo, (string) ($user['id'] ?? ''));
+$reportBody = is_array($report) ? (string) ($report['body'] ?? '') : '';
 $pageScripts = staff_hours_scripts();
 
 ob_start();

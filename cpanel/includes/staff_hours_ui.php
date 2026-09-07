@@ -24,27 +24,55 @@ function staff_hours_month_tab_label(array $month): string
     return str_starts_with($name, 'کل ') ? $name : ('کل ' . $name);
 }
 
+function staff_hours_people(array $slots): array
+{
+    if ($slots === []) {
+        return [];
+    }
+    if (isset($slots['tab_id']) || isset($slots['kind']) || isset($slots['days']) || array_key_exists('user', $slots)) {
+        return [$slots];
+    }
+    $people = [];
+    foreach (array_values($slots) as $block) {
+        if (is_array($block)) {
+            $people[] = $block;
+        }
+    }
+    return $people;
+}
+
 function staff_hours_render(array $slots, array $opts = []): string
 {
-    $people = array_values($slots);
+    $obLevel = ob_get_level();
+    try {
+    $people = staff_hours_people($slots);
     $canRename = !empty($opts['can_rename']);
     $renameAction = (string) ($opts['rename_action'] ?? '/doctor/staff-hours');
     $exportBase = (string) ($opts['export_base'] ?? '/doctor/staff-hours-export');
     $today = date('Y-m-d');
     $secLabels = [1 => staff_slot_default_label(1), 2 => staff_slot_default_label(2)];
     foreach ($people as $block) {
-        if (($block['kind'] ?? '') === 'secretary' && isset($block['slot'])) {
-            $secLabels[(int) $block['slot']] = (string) ($block['label'] ?? $secLabels[(int) $block['slot']]);
+        if (($block['kind'] ?? '') === 'secretary' && isset($block['slot']) && $block['slot'] !== null && $block['slot'] !== '') {
+            $slotNo = (int) $block['slot'];
+            if ($slotNo === 1 || $slotNo === 2) {
+                $secLabels[$slotNo] = (string) ($block['label'] ?? $secLabels[$slotNo]);
+            }
         }
     }
     $defaultSlotId = (string) (($people[0]['tab_id'] ?? 'sec-1'));
-    $viewer = current_user();
-    $viewerId = (string) ($viewer['id'] ?? '');
-    if ($viewer && ($viewer['role'] ?? '') === 'DOCTOR' && $viewerId !== '') {
+    if ($defaultSlotId === '') {
+        $defaultSlotId = 'sec-1';
+    }
+    $viewer = function_exists('current_user') ? current_user() : null;
+    $viewerId = is_array($viewer) ? (string) ($viewer['id'] ?? '') : '';
+    if (is_array($viewer) && ($viewer['role'] ?? '') === 'DOCTOR' && $viewerId !== '') {
         foreach ($people as $block) {
             $blockUser = is_array($block['user'] ?? null) ? $block['user'] : [];
             if (($block['kind'] ?? '') === 'doctor' && (string) ($blockUser['id'] ?? '') === $viewerId) {
-                $defaultSlotId = (string) ($block['tab_id'] ?? $defaultSlotId);
+                $tabId = (string) ($block['tab_id'] ?? '');
+                if ($tabId !== '') {
+                    $defaultSlotId = $tabId;
+                }
                 break;
             }
         }
@@ -106,10 +134,18 @@ function staff_hours_render(array $slots, array $opts = []): string
 </div>
     <?php
     return (string) ob_get_clean();
+    } catch (Throwable $ignored) {
+        while (ob_get_level() > $obLevel) {
+            ob_end_clean();
+        }
+        return '<h1>ساعت کاری منشی‌ها</h1><p class="muted">بارگذاری ساعت کاری الان ممکن نیست. یک‌بار دیگر صفحه را باز کنید.</p>';
+    }
 }
 
 function staff_hours_render_self(array $block, array $opts = []): string
 {
+    $obLevel = ob_get_level();
+    try {
     $today = (string) ($opts['today'] ?? date('Y-m-d'));
     $title = (string) ($opts['title'] ?? 'ساعت کاری من');
     $intro = (string) ($opts['intro'] ?? '');
@@ -141,14 +177,25 @@ function staff_hours_render_self(array $block, array $opts = []): string
 <?= staff_hours_render_calendar($block, ['today' => $today]) ?>
     <?php
     return (string) ob_get_clean();
+    } catch (Throwable $ignored) {
+        while (ob_get_level() > $obLevel) {
+            ob_end_clean();
+        }
+        return '<h1>ساعت کاری من</h1><p class="muted">بارگذاری ساعت کاری الان ممکن نیست.</p>';
+    }
 }
 
 function staff_hours_render_calendar(array $block, array $opts = []): string
 {
+    $obLevel = ob_get_level();
+    try {
     $today = (string) ($opts['today'] ?? date('Y-m-d'));
     $personWord = staff_hours_person_word($block);
     $cal = staff_hours_calendar($block);
-    $halves = $cal['halves'] ?? [];
+    if (!is_array($cal)) {
+        $cal = [];
+    }
+    $halves = is_array($cal['halves'] ?? null) ? $cal['halves'] : [];
     $defaultHalfId = (string) ($cal['default_half_id'] ?? '');
     if ($halves === []) {
         return '<p class="muted">برای این ' . e($personWord) . ' سابقه‌ای نیست.</p>';
@@ -164,7 +211,12 @@ function staff_hours_render_calendar(array $block, array $opts = []): string
 <div class="binder-tile binder-tile--nested staff-hours-calendar" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($defaultHalfId) ?>" data-binder-tone="<?= e($defaultHalfTone) ?>">
   <div class="binder-tabs" role="tablist" aria-label="نیم‌سال">
     <?php foreach ($halves as $halfId => $half): ?>
-      <?php $halfId = (string) $halfId; ?>
+      <?php
+        if (!is_array($half)) {
+            continue;
+        }
+        $halfId = (string) $halfId;
+      ?>
       <button type="button"
         class="binder-tab <?= e((string) ($half['class'] ?? '')) ?><?= $defaultHalfId === $halfId ? ' is-active' : '' ?>"
         role="tab"
@@ -178,6 +230,9 @@ function staff_hours_render_calendar(array $block, array $opts = []): string
   <div class="binder-body">
     <?php foreach ($halves as $halfId => $half): ?>
       <?php
+        if (!is_array($half)) {
+            continue;
+        }
         $halfId = (string) $halfId;
         $months = is_array($half['months'] ?? null) ? $half['months'] : [];
         $defaultMonthId = (string) ($cal['default_month_id'] ?? '');
@@ -237,6 +292,12 @@ function staff_hours_render_calendar(array $block, array $opts = []): string
 </div>
     <?php
     return (string) ob_get_clean();
+    } catch (Throwable $ignored) {
+        while (ob_get_level() > $obLevel) {
+            ob_end_clean();
+        }
+        return '<p class="muted">نمایش سابقه ممکن نشد.</p>';
+    }
 }
 
 function staff_hours_render_month_panel(array $block, array $month, string $today): string
@@ -304,9 +365,13 @@ function staff_hours_render_month_panel(array $block, array $month, string $toda
     return (string) ob_get_clean();
 }
 
-function staff_hours_format_clock(?string $datetime, string $empty = '—'): string
+function staff_hours_format_clock(mixed $datetime, string $empty = '—'): string
 {
-    if ($datetime === null || trim($datetime) === '') {
+    if ($datetime === null || is_array($datetime) || is_object($datetime)) {
+        return $empty;
+    }
+    $datetime = trim((string) $datetime);
+    if ($datetime === '') {
         return $empty;
     }
 
@@ -315,6 +380,7 @@ function staff_hours_format_clock(?string $datetime, string $empty = '—'): str
 
 function staff_hours_render_shift_lines(array $rows, bool $isToday = false): string
 {
+    $rows = function_exists('staff_hours_shift_rows') ? staff_hours_shift_rows($rows) : $rows;
     if ($rows === []) {
         return '';
     }
@@ -323,13 +389,14 @@ function staff_hours_render_shift_lines(array $rows, bool $isToday = false): str
     ?>
     <ol class="staff-shift-lines">
       <?php foreach ($rows as $i => $row): ?>
+        <?php if (!is_array($row)) { continue; } ?>
         <li>
-          <strong>ورود <?= e(to_fa_digits((string) ($i + 1))) ?></strong>
-          از <?= e(format_fa_datetime((string) $row['started_at'])) ?>
+          <strong>ورود <?= e(to_fa_digits((string) ((int) $i + 1))) ?></strong>
+          از <?= e(format_fa_datetime((string) ($row['started_at'] ?? ''))) ?>
           تا <?= !empty($row['ended_at']) ? e(format_fa_datetime((string) $row['ended_at'])) : ($isToday ? 'الان' : '— هنوز باز') ?>
           · <?= e(staff_format_duration(staff_shift_seconds($row))) ?>
           · <?= e(staff_format_split_line(staff_shift_seconds_split($row))) ?>
-          · <?= e(staff_shift_reason_label($row['end_reason'] ?? null)) ?>
+          · <?= e(staff_shift_reason_label(isset($row['end_reason']) && is_scalar($row['end_reason']) ? (string) $row['end_reason'] : null)) ?>
         </li>
       <?php endforeach; ?>
     </ol>
@@ -340,6 +407,7 @@ function staff_hours_render_shift_lines(array $rows, bool $isToday = false): str
 function staff_hours_render_day_presence(array $rows, array $opts = []): string
 {
     $isToday = !empty($opts['is_today']);
+    $rows = function_exists('staff_hours_shift_rows') ? staff_hours_shift_rows($rows) : $rows;
     if ($rows === []) {
         $empty = (string) ($opts['empty'] ?? ($isToday ? 'هنوز ورودی برای امروز نیست.' : 'در این روز حضوری ثبت نشده.'));
 
@@ -386,15 +454,20 @@ function staff_hours_render_day_presence(array $rows, array $opts = []): string
 function staff_hours_day_rows(array $block, string $dayDate, string $today): array
 {
     $isToday = $dayDate === $today;
-    $day = is_array($block['days'][$dayDate] ?? null) ? $block['days'][$dayDate] : [];
-    $todayRows = is_array($block['today_rows'] ?? null) ? $block['today_rows'] : [];
-    $itemRows = is_array($day['items'] ?? null) ? $day['items'] : [];
+    $daysMap = is_array($block['days'] ?? null) ? $block['days'] : [];
+    $day = is_array($daysMap[$dayDate] ?? null) ? $daysMap[$dayDate] : [];
+    $todayRows = function_exists('staff_hours_shift_rows')
+        ? staff_hours_shift_rows($block['today_rows'] ?? [])
+        : (is_array($block['today_rows'] ?? null) ? $block['today_rows'] : []);
+    $itemRows = function_exists('staff_hours_shift_rows')
+        ? staff_hours_shift_rows($day['items'] ?? [])
+        : (is_array($day['items'] ?? null) ? $day['items'] : []);
     $dayRows = $isToday ? $todayRows : $itemRows;
     if ($isToday && $dayRows === [] && $itemRows !== []) {
         $dayRows = $itemRows;
     }
 
-    return $dayRows;
+    return function_exists('staff_hours_shift_rows') ? staff_hours_shift_rows($dayRows) : (is_array($dayRows) ? $dayRows : []);
 }
 
 function staff_hours_render_tile(array $block, string $dayDate, string $today): string
@@ -550,7 +623,11 @@ function staff_hours_send_export(PDO $pdo, int|string|null $who = null): void
         $who = ($who === 1 || $who === 2) ? ('sec-' . $who) : null;
     }
     $who = is_string($who) && $who !== '' ? $who : null;
-    $rows = staff_hours_export_rows($pdo, $who);
+    try {
+        $rows = staff_hours_export_rows($pdo, $who);
+    } catch (Throwable $ignored) {
+        $rows = [];
+    }
     $fileWho = $who ? (string) preg_replace('/[^a-zA-Z0-9_-]/', '', $who) : 'all';
     if ($fileWho === '') {
         $fileWho = 'all';

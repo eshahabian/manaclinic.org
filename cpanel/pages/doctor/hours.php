@@ -15,6 +15,11 @@ if ($profileUserId !== '' && $profileUserId !== (string) ($hoursUser['id'] ?? ''
     }
 }
 
-$block = staff_hours_block_for_user($pdo, $hoursUser);
+try {
+    $block = staff_hours_block_for_user($pdo, is_array($hoursUser) ? $hoursUser : []);
+    $inner = staff_hours_render_self($block);
+} catch (Throwable $ignored) {
+    $inner = '<h1>ساعت کاری من</h1><p class="muted">بارگذاری ساعت کاری الان ممکن نیست. یک‌بار دیگر صفحه را باز کنید.</p>';
+}
 $pageScripts = staff_hours_scripts();
-render_doctor_page('ساعت کاری من', staff_hours_render_self($block));
+render_doctor_page('ساعت کاری من', $inner);
