@@ -68,7 +68,7 @@ ob_start();
 
   <div>
     <label class="label">روزهای خالی دکتر</label>
-    <div class="slots" id="sec-date-chips"><span class="muted">ابتدا دکتر را انتخاب کنید</span></div>
+    <div class="avail-date-chips" id="sec-date-chips"><span class="muted">ابتدا دکتر را انتخاب کنید</span></div>
   </div>
 
   <div>
@@ -185,8 +185,14 @@ $secretaryBookScripts = '
   var refreshTimer = null;
 
   function pad(n){ return (n < 10 ? "0" : "") + n; }
+  function toFa(n){
+    return String(n).replace(/[0-9]/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹"[d]; })
+      .replace(/[٠-٩]/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹"["٠١٢٣٤٥٦٧٨٩".indexOf(d)]; });
+  }
   function faToEn(str){
-    return (window.manaFaToEn || function(s){ return String(s); })(str);
+    var s = (window.manaFaToEn || function(x){ return String(x); })(str);
+    return String(s).replace(/[۰-۹]/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹".indexOf(d); })
+      .replace(/[٠-٩]/g, function(d){ return "٠١٢٣٤٥٦٧٨٩".indexOf(d); });
   }
   function jalaliToGregorian(text){
     var t = faToEn(text).replace(/-/g,"/").trim();
@@ -199,10 +205,29 @@ $secretaryBookScripts = '
   }
   function gregorianToJalaliText(ymd){
     var p = String(ymd).substring(0,10).split("-");
-    if (p.length !== 3) return ymd;
+    if (p.length !== 3) return toFa(ymd);
     var j = jalaali.toJalaali(parseInt(p[0],10), parseInt(p[1],10), parseInt(p[2],10));
-    return j.jy + "/" + pad(j.jm) + "/" + pad(j.jd);
+    return toFa(j.jy + "/" + pad(j.jm) + "/" + pad(j.jd));
   }
+  function escHtml(s){
+    return String(s).replace(/[&<>"]/g, function(c){
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;" }[c];
+    });
+  }
+  function todayYmd(){
+    var n = new Date();
+    return n.getFullYear() + "-" + pad(n.getMonth() + 1) + "-" + pad(n.getDate());
+  }
+  var MONTH_NAMES = ["", "فروردین", "اردیبهشت", "خرداد", "تیر", "مرداد", "شهریور", "مهر", "آبان", "آذر", "دی", "بهمن", "اسفند"];
+  var MONTH_TONES = [
+    { cls: "binder-tab-in-person", tone: "in-person" },
+    { cls: "binder-tab-online", tone: "online" },
+    { cls: "binder-tab-offline", tone: "offline" },
+    { cls: "binder-tab-archive", tone: "archive" },
+    { cls: "binder-tab-new", tone: "new" }
+  ];
+  var WEEKDAYS = ["یکشنبه", "دوشنبه", "سه‌شنبه", "چهارشنبه", "پنجشنبه", "جمعه", "شنبه"];
+  var lastChipsStructureKey = "";
   function availableList(){
     return (availByDoctor[doctorEl.value] || []).map(function(d){ return String(d).substring(0,10); });
   }
@@ -222,8 +247,8 @@ $secretaryBookScripts = '
     }
     slots.forEach(function(s){
       var value = typeof s === "string" ? s : (s.value || "");
-      var label = typeof s === "string" ? value.replace(/:00$/, "") : (s.label || value.replace(/:00$/, ""));
-      var dateLabel = typeof s === "object" && s.date_label ? s.date_label : "";
+      var label = toFa(typeof s === "string" ? value.replace(/:00$/, "") : (s.label || value.replace(/:00$/, "")));
+      var dateLabel = toFa(typeof s === "object" && s.date_label ? s.date_label : "");
       var b = document.createElement("button");
       b.type = "button";
       b.className = "slot-btn" + (prev && prev === value ? " active" : "");
@@ -316,32 +341,256 @@ $secretaryBookScripts = '
     finish();
   }
 
+  function readChipsNav(){
+    var halfTab = chipsEl.querySelector("[data-avail-half-root] > .binder-tabs > .is-active");
+    var monthTab = chipsEl.querySelector("[data-avail-half-root] > .binder-body > .binder-panel.is-active [data-avail-month-root] > .binder-tabs > .is-active");
+    return {
+      halfId: halfTab ? (halfTab.getAttribute("data-binder-tab") || "") : "",
+      monthId: monthTab ? (monthTab.getAttribute("data-binder-tab") || "") : ""
+    };
+  }
+  function jalaliFromGregorian(g){
+    var p = String(g).substring(0,10).split("-");
+    if (p.length !== 3) return null;
+    var gy = parseInt(p[0],10), gm = parseInt(p[1],10), gd = parseInt(p[2],10);
+    if (!gy || !gm || !gd || !window.jalaali) return null;
+    return jalaali.toJalaali(gy, gm, gd);
+  }
+  function idsForJalali(j){
+    if (!j) return { halfId: "", monthId: "" };
+    return {
+      halfId: "h-" + j.jy + "-" + (j.jm <= 6 ? 1 : 2),
+      monthId: "m-" + j.jy + "-" + pad(j.jm)
+    };
+  }
+  function groupDaysByHalf(list){
+    var byYear = {};
+    list.forEach(function(g){
+      g = String(g).substring(0,10);
+      var j = jalaliFromGregorian(g);
+      if (!j) return;
+      var half = j.jm <= 6 ? 1 : 2;
+      if (!byYear[j.jy]) byYear[j.jy] = { 1: {}, 2: {} };
+      if (!byYear[j.jy][half][j.jm]) byYear[j.jy][half][j.jm] = [];
+      var gp = g.split("-");
+      var dt = new Date(parseInt(gp[0],10), parseInt(gp[1],10) - 1, parseInt(gp[2],10));
+      byYear[j.jy][half][j.jm].push({
+        g: g,
+        jd: j.jd,
+        weekday: WEEKDAYS[dt.getDay()] || "",
+        isToday: g === todayYmd()
+      });
+    });
+    var years = Object.keys(byYear).map(Number).sort(function(a,b){ return a - b; });
+    var yearCount = years.length;
+    var halves = [];
+    years.forEach(function(year){
+      [1, 2].forEach(function(half){
+        var from = half === 1 ? 1 : 7;
+        var to = half === 1 ? 6 : 12;
+        var months = [];
+        var presentCount = 0;
+        for (var m = from; m <= to; m++) {
+          var days = (byYear[year][half][m] || []).slice().sort(function(a,b){
+            return a.g < b.g ? -1 : a.g > b.g ? 1 : 0;
+          });
+          presentCount += days.length;
+          var tone = MONTH_TONES[(m - 1) % MONTH_TONES.length];
+          months.push({
+            id: "m-" + year + "-" + pad(m),
+            month: m,
+            label: MONTH_NAMES[m] || String(m),
+            year: year,
+            days: days,
+            cls: tone.cls,
+            tone: tone.tone
+          });
+        }
+        halves.push({
+          id: "h-" + year + "-" + half,
+          year: year,
+          half: half,
+          label: (half === 1 ? "شش ماه اول سال" : "شش ماه دوم سال") + (yearCount > 1 ? " " + toFa(year) : ""),
+          cls: half === 1 ? "binder-tab-online" : "binder-tab-offline",
+          tone: half === 1 ? "online" : "offline",
+          months: months,
+          presentCount: presentCount
+        });
+      });
+    });
+    return halves;
+  }
+  function pickDefaultNav(halves, selectedG){
+    var ids = {};
+    halves.forEach(function(half){
+      ids[half.id] = {};
+      half.months.forEach(function(month){ ids[half.id][month.id] = month; });
+    });
+    function valid(halfId, monthId){
+      return !!(halfId && monthId && ids[halfId] && ids[halfId][monthId]);
+    }
+    var fromDate = idsForJalali(jalaliFromGregorian(selectedG));
+    if (valid(fromDate.halfId, fromDate.monthId)) return fromDate;
+    var prev = readChipsNav();
+    if (valid(prev.halfId, prev.monthId)) return prev;
+    var now = new Date();
+    var todayJ = window.jalaali ? jalaali.toJalaali(now.getFullYear(), now.getMonth() + 1, now.getDate()) : null;
+    var fromToday = idsForJalali(todayJ);
+    if (valid(fromToday.halfId, fromToday.monthId) && ids[fromToday.halfId][fromToday.monthId].days.length) {
+      return fromToday;
+    }
+    for (var i = 0; i < halves.length; i++) {
+      var half = halves[i];
+      for (var k = 0; k < half.months.length; k++) {
+        if (half.months[k].days.length) {
+          return { halfId: half.id, monthId: half.months[k].id };
+        }
+      }
+    }
+    if (halves[0] && halves[0].months[0]) {
+      return { halfId: halves[0].id, monthId: halves[0].months[0].id };
+    }
+    return { halfId: "", monthId: "" };
+  }
+  function updateActiveDayChip(){
+    var selected = dateEl.value;
+    Array.prototype.forEach.call(chipsEl.querySelectorAll("[data-avail-day]"), function(b){
+      b.classList.toggle("active", b.getAttribute("data-avail-day") === selected);
+    });
+  }
+  function findBinderNode(attr, id, root){
+    var nodes = (root || chipsEl).querySelectorAll("[" + attr + "]");
+    for (var i = 0; i < nodes.length; i++) {
+      if (nodes[i].getAttribute(attr) === id) return nodes[i];
+    }
+    return null;
+  }
+  function revealDateInChips(g){
+    var nav = idsForJalali(jalaliFromGregorian(g));
+    if (!nav.halfId) {
+      updateActiveDayChip();
+      return;
+    }
+    var halfRoot = chipsEl.querySelector("[data-avail-half-root]");
+    var halfTabs = halfRoot ? halfRoot.querySelector(":scope > .binder-tabs") : null;
+    var halfTab = findBinderNode("data-binder-tab", nav.halfId, halfTabs);
+    if (halfTab) halfTab.click();
+    var halfPanel = findBinderNode("data-binder-panel", nav.halfId, halfRoot);
+    var monthTab = findBinderNode("data-binder-tab", nav.monthId, halfPanel);
+    if (monthTab) monthTab.click();
+    updateActiveDayChip();
+  }
+  function renderDayButtons(days){
+    if (!days.length) {
+      return "<p class=\\"muted\\" style=\\"margin:0\\">در این ماه روز خالی ثبت نشده.</p>";
+    }
+    var html = "<div class=\\"slots avail-date-days\\">";
+    days.forEach(function(day){
+      var active = dateEl.value === day.g ? " active" : "";
+      var title = escHtml(gregorianToJalaliText(day.g));
+      html += "<button type=\\"button\\" class=\\"slot-btn" + active + "\\" data-avail-day=\\"" + escHtml(day.g) + "\\" title=\\"" + title + "\\">";
+      html += "<span class=\\"hour-chip-time\\">" + (day.isToday ? "امروز" : escHtml(toFa(day.jd))) + "</span>";
+      html += "<span class=\\"hour-chip-date\\">" + escHtml(day.isToday ? toFa(day.jd) : day.weekday) + "</span>";
+      html += "</button>";
+    });
+    html += "</div>";
+    return html;
+  }
   function renderChips(){
     var list = availableList();
-    chipsEl.innerHTML = "";
     if (!doctorEl.value) {
+      lastChipsStructureKey = "";
       chipsEl.innerHTML = "<span class=\\"muted\\">ابتدا دکتر را انتخاب کنید</span>";
       return;
     }
     if (!list.length) {
+      lastChipsStructureKey = doctorEl.value + "|";
       chipsEl.innerHTML = "<span class=\\"muted\\">برای این دکتر روز خالی آینده‌ای ثبت نشده</span>";
       return;
     }
-    list.forEach(function(g){
-      var b = document.createElement("button");
-      b.type = "button";
-      b.className = "slot-btn" + (dateEl.value === g ? " active" : "");
-      b.textContent = gregorianToJalaliText(g);
-      b.onclick = function(){ selectDate(g); };
-      chipsEl.appendChild(b);
+    if (!window.jalaali || !jalaali.toJalaali) {
+      chipsEl.innerHTML = "";
+      list.forEach(function(g){
+        var b = document.createElement("button");
+        b.type = "button";
+        b.className = "slot-btn" + (dateEl.value === g ? " active" : "");
+        b.textContent = gregorianToJalaliText(g);
+        b.setAttribute("data-avail-day", g);
+        chipsEl.appendChild(b);
+      });
+      return;
+    }
+    var structureKey = doctorEl.value + "|" + list.join(",");
+    if (structureKey === lastChipsStructureKey && chipsEl.querySelector("[data-avail-half-root]")) {
+      revealDateInChips(dateEl.value);
+      return;
+    }
+    lastChipsStructureKey = structureKey;
+    var halves = groupDaysByHalf(list);
+    if (!halves.length) {
+      chipsEl.innerHTML = "<span class=\\"muted\\">برای این دکتر روز خالی آینده‌ای ثبت نشده</span>";
+      return;
+    }
+    var nav = pickDefaultNav(halves, dateEl.value);
+    var html = "";
+    html += "<div class=\\"binder-tile binder-tile--nested\\" data-avail-half-root data-binder-tabs data-binder-hash=\\"0\\" data-binder-initial=\\"" + escHtml(nav.halfId) + "\\" data-binder-tone=\\"online\\">";
+    html += "<div class=\\"binder-tabs\\" role=\\"tablist\\" aria-label=\\"شش‌ماه سال\\">";
+    halves.forEach(function(half){
+      var on = nav.halfId === half.id;
+      html += "<button type=\\"button\\" class=\\"binder-tab " + half.cls + (on ? " is-active" : "") + "\\" role=\\"tab\\" data-binder-tab=\\"" + escHtml(half.id) + "\\" data-binder-tone=\\"" + half.tone + "\\" aria-selected=\\"" + (on ? "true" : "false") + "\\">";
+      html += escHtml(half.label);
+      if (half.presentCount > 0) html += "<span class=\\"binder-tab-count\\">" + escHtml(toFa(half.presentCount)) + "</span>";
+      html += "</button>";
     });
+    html += "</div><div class=\\"binder-body\\">";
+    halves.forEach(function(half){
+      var onHalf = nav.halfId === half.id;
+      var monthInitial = nav.halfId === half.id ? nav.monthId : (half.months[0] ? half.months[0].id : "");
+      if (nav.halfId === half.id) {
+        var hasMonth = half.months.some(function(m){ return m.id === monthInitial; });
+        if (!hasMonth && half.months[0]) monthInitial = half.months[0].id;
+      } else {
+        var firstWithDays = half.months.filter(function(m){ return m.days.length; })[0];
+        monthInitial = (firstWithDays || half.months[0] || {}).id || "";
+      }
+      html += "<section class=\\"binder-panel" + (onHalf ? " is-active" : "") + "\\" data-binder-panel=\\"" + escHtml(half.id) + "\\" role=\\"tabpanel\\"" + (onHalf ? "" : " hidden") + ">";
+      html += "<div class=\\"binder-tile binder-tile--nested avail-date-month-tabs\\" data-avail-month-root data-binder-tabs data-binder-hash=\\"0\\" data-binder-initial=\\"" + escHtml(monthInitial) + "\\" data-binder-tone=\\"" + half.tone + "\\">";
+      html += "<div class=\\"binder-tabs\\" role=\\"tablist\\" aria-label=\\"ماه\\">";
+      half.months.forEach(function(month){
+        var on = monthInitial === month.id;
+        html += "<button type=\\"button\\" class=\\"binder-tab " + month.cls + (on ? " is-active" : "") + "\\" role=\\"tab\\" data-binder-tab=\\"" + escHtml(month.id) + "\\" data-binder-tone=\\"" + month.tone + "\\" aria-selected=\\"" + (on ? "true" : "false") + "\\">";
+        html += escHtml(month.label);
+        if (month.days.length) html += "<span class=\\"binder-tab-count\\">" + escHtml(toFa(month.days.length)) + "</span>";
+        html += "</button>";
+      });
+      html += "</div><div class=\\"binder-body\\">";
+      half.months.forEach(function(month){
+        var on = monthInitial === month.id;
+        html += "<section class=\\"binder-panel" + (on ? " is-active" : "") + "\\" data-binder-panel=\\"" + escHtml(month.id) + "\\" role=\\"tabpanel\\"" + (on ? "" : " hidden") + ">";
+        html += "<h3 class=\\"avail-date-month-heading\\">" + escHtml(month.label);
+        html += " <span class=\\"muted\\">" + escHtml(toFa(month.year)) + " · " + escHtml(toFa(month.days.length)) + " روز</span></h3>";
+        html += renderDayButtons(month.days);
+        html += "</section>";
+      });
+      html += "</div></div></section>";
+    });
+    html += "</div></div>";
+    chipsEl.innerHTML = html;
+    if (window.initBinderTabs) window.initBinderTabs(chipsEl);
   }
+
+  chipsEl.addEventListener("click", function(e){
+    var btn = e.target.closest("[data-avail-day]");
+    if (!btn || !chipsEl.contains(btn)) return;
+    selectDate(btn.getAttribute("data-avail-day"));
+  });
 
   jalaliDatepicker.startWatch({
     selector: "#sec-date-view",
     time: false,
     hideAfterChange: true,
     autoReadOnlyInput: true,
+    persianDigits: true,
     zIndex: 99999,
     dayRendering: function(dayOptions){
       if (!doctorEl.value) {
@@ -368,6 +617,7 @@ $secretaryBookScripts = '
     timeEl.value = "";
     selectedTime = "";
     errEl.style.display = "none";
+    lastChipsStructureKey = "";
     var hasDoctor = !!doctorEl.value;
     dateView.disabled = !hasDoctor;
     dateView.placeholder = hasDoctor ? "تاریخ شمسی خالی" : "ابتدا دکتر را انتخاب کنید";

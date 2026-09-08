@@ -1471,6 +1471,25 @@ a.doctor-dash-stat:hover {
 .doctor-dash-other[open] summary { margin-bottom: .55rem; color: var(--primary-dark); }
 
 .slots { display: flex; flex-wrap: wrap; gap: .5rem; }
+.avail-date-chips {
+  min-width: 0;
+}
+.avail-date-chips > .muted {
+  display: inline-block;
+  padding: .15rem 0;
+}
+.avail-date-month-heading {
+  margin: 0 0 .7rem;
+  font-size: .95rem;
+  font-weight: 700;
+}
+.avail-date-month-heading .muted {
+  font-weight: 400;
+  font-size: .82rem;
+}
+.avail-date-month-tabs > .binder-tabs .binder-tab {
+  min-width: 5.6rem;
+}
 .slot-btn {
   display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
   gap: .12rem;

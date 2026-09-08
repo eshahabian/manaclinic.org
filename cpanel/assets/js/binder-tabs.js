@@ -28,9 +28,11 @@
   }
 
   function initBinder(root) {
+    if (root.getAttribute("data-binder-inited") === "1") return;
     var tabs = list(root, ".binder-tabs", "data-binder-tab");
     var panels = list(root, ".binder-body", "data-binder-panel");
     if (!tabs.length || !panels.length) return;
+    root.setAttribute("data-binder-inited", "1");
     var useHash = root.getAttribute("data-binder-hash") !== "0";
 
     function hasPanel(id) {
@@ -80,5 +82,18 @@
     root.setAttribute("data-binder-tone", toneFromTab(current, current ? current.getAttribute("data-binder-tab") : "in-person"));
   }
 
-  document.querySelectorAll("[data-binder-tabs]").forEach(initBinder);
+  function initBinderTabs(scope) {
+    var roots = [];
+    if (scope && scope.nodeType === 1 && scope.hasAttribute && scope.hasAttribute("data-binder-tabs")) {
+      roots.push(scope);
+    }
+    var base = scope && scope.querySelectorAll ? scope : document;
+    Array.prototype.forEach.call(base.querySelectorAll("[data-binder-tabs]"), function (el) {
+      if (roots.indexOf(el) === -1) roots.push(el);
+    });
+    roots.forEach(initBinder);
+  }
+
+  window.initBinderTabs = initBinderTabs;
+  initBinderTabs(document);
 })();
