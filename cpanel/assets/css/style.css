@@ -978,6 +978,37 @@ body.home-workshop-locked { overflow: hidden; }
 
 .panel-layout { display: grid; gap: 1.5rem; padding: 2.5rem 0; align-items: start; }
 @media (min-width: 768px) { .panel-layout { grid-template-columns: minmax(200px, 240px) minmax(0, 1fr); } }
+@media (max-width: 767px) {
+  .panel-layout {
+    display: flex;
+    flex-direction: column;
+    gap: 1.15rem;
+    padding: 1.15rem 0 2rem;
+  }
+  .side-nav {
+    position: static;
+    width: 100%;
+  }
+  .side-nav nav { gap: .45rem; }
+  .side-nav a { padding: .65rem .75rem; }
+  .panel-main { min-width: 0; }
+  .panel-main .stack > h1 {
+    margin: .15rem 0 0;
+    line-height: 1.55;
+    font-size: 1.35rem;
+  }
+  .binder-tabs {
+    gap: .3rem;
+    margin-bottom: .15rem;
+  }
+  .binder-tab {
+    margin-inline-start: 0;
+    height: auto;
+    min-height: 2.45rem;
+    padding: .55rem .85rem;
+  }
+}
+@media (min-width: 768px) { .panel-layout { grid-template-columns: minmax(200px, 240px) minmax(0, 1fr); } }
 .panel-layout > div:last-child,
 .panel-layout > .panel-main { overflow: visible; position: relative; min-width: 0; }
 .patient-panel-inner { padding: 0; }
@@ -1668,81 +1699,65 @@ jdp-container, .jdp-container, .jdp-overlay {
 }
 .patient-dash-panel-actions {
   display: flex;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   align-items: center;
   gap: .4rem;
 }
 .binder-tile--patient-dash {
-  display: grid;
-  grid-template-columns: 1fr auto;
-  grid-template-areas:
-    "outer actions"
-    "inner inner"
-    "terms terms"
-    "main main";
-  align-items: end;
-  column-gap: .4rem;
+  display: flex;
+  flex-direction: column;
+  gap: .15rem;
+  min-width: 0;
 }
 .binder-tile--patient-dash > .binder-tabs {
-  grid-area: outer;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   margin: 0;
   padding: 0;
+  gap: .3rem;
 }
 .binder-tile--patient-dash > .binder-body {
-  display: contents;
+  display: block;
 }
 .binder-tile--patient-dash > .binder-body > .binder-panel {
   display: none;
 }
 .binder-tile--patient-dash > .binder-body > .binder-panel.is-active {
-  display: contents;
+  display: block;
+}
+.binder-tile--patient-dash > .binder-body > .binder-panel[hidden] {
+  display: none !important;
 }
 .binder-tile--patient-dash .patient-dash-panel-head {
-  display: contents;
+  display: flex;
+  justify-content: flex-end;
+  margin-bottom: .65rem;
 }
 .binder-tile--patient-dash .patient-dash-panel-actions {
-  grid-area: actions;
-  padding-bottom: .35rem;
+  padding-bottom: 0;
 }
 .binder-tile--patient-dash [data-patient-courses],
 .binder-tile--patient-dash [data-patient-book] {
-  display: contents;
+  display: block;
+  min-width: 0;
 }
 .binder-tile--patient-dash .terms-accept {
-  grid-area: terms;
-  padding: .35rem 0 .15rem;
+  padding: .15rem 0 .55rem;
 }
 .binder-tile--patient-dash .binder-tile--nested {
-  display: contents;
+  display: block;
   margin: 0;
 }
 .binder-tile--patient-dash .binder-tile--nested > .binder-tabs {
-  grid-area: inner;
   flex-wrap: wrap;
   overflow-x: visible;
   justify-content: flex-start;
-  margin: 0 0 -1px;
+  margin: 0;
   padding: 0;
+  gap: .3rem;
   z-index: 3;
 }
 .binder-tile--patient-dash .binder-tile--nested > .binder-body {
-  grid-area: main;
-}
-@media (max-width: 760px) {
-  .binder-tile--patient-dash {
-    grid-template-columns: 1fr;
-    grid-template-areas:
-      "outer"
-      "actions"
-      "inner"
-      "terms"
-      "main";
-    align-items: stretch;
-  }
-  .binder-tile--patient-dash .binder-tabs {
-    flex-wrap: wrap;
-  }
+  display: block;
 }
 .patient-appt-row {
   display: flex;
@@ -1779,7 +1794,7 @@ html[dir="ltr"] .binder-body {
 .binder-panel { display: none; }
 .binder-panel.is-active { display: block; }
 .binder-tile--patient-dash > .binder-body > .binder-panel.is-active {
-  display: contents;
+  display: block;
 }
 .binder-tile--patient-dash > .binder-body > .binder-panel[hidden] {
   display: none !important;
