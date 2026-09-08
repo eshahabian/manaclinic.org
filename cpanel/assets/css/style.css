@@ -630,6 +630,15 @@ body.home-workshop-locked { overflow: hidden; }
 }
 
 .video-call-status { margin: .35rem 0 0; color: var(--primary); font-weight: 600; }
+.video-call-permit {
+  margin-top: 1rem;
+  padding: .9rem 1rem;
+  border-radius: .8rem;
+  background: #eef6f3;
+  border: 1px solid var(--line);
+}
+.video-call-permit p { margin: 0 0 .7rem; line-height: 1.7; }
+.video-call-permit[hidden] { display: none; }
 .video-call-stage {
   position: relative;
   margin-top: 1rem;

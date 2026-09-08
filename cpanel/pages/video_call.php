@@ -29,10 +29,14 @@ ob_start();
   data-peer-name="<?= e((string) $peer['name']) ?>"
 >
   <h1>تماس تصویری آزمایشی</h1>
-  <p class="muted" style="margin:0;line-height:1.8">فقط بین شما و <?= e((string) $peer['name']) ?> فعال است. دوربین و میکروفون مرورگر را اجازه دهید.</p>
+  <p class="muted" style="margin:0;line-height:1.8">فقط بین شما و <?= e((string) $peer['name']) ?> فعال است.</p>
   <p class="video-call-status" data-video-status>
     <?= $peerOnline ? 'طرف مقابل آنلاین است.' : 'طرف مقابل فعلاً در این صفحه نیست — هر دو باید این صفحه را باز کنید.' ?>
   </p>
+  <div class="video-call-permit" data-video-permit>
+    <p>برای تماس، مرورگر باید به دوربین و میکروفون دسترسی بدهد.</p>
+    <button type="button" class="btn btn-primary" data-video-permit-btn>اجازه دسترسی به دوربین و میکروفون</button>
+  </div>
 
   <div class="video-call-stage">
     <video class="video-call-remote" data-video-remote autoplay playsinline></video>
@@ -51,7 +55,7 @@ ob_start();
 </div>
 <?php
 $inner = ob_get_clean();
-$GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260908a"></script>';
+$GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260908b"></script>';
 
 $role = (string) ($user['role'] ?? '');
 if ($role === 'DOCTOR') {
