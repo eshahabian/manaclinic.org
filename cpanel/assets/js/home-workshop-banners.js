@@ -11,6 +11,7 @@
     if (titleEl) titleEl.textContent = btn.getAttribute("data-title") || "";
     if (bodyEl) {
       var desc = btn.getAttribute("data-description") || "";
+      var notes = btn.getAttribute("data-notes") || "";
       var meta = btn.getAttribute("data-meta") || "";
       var image = btn.getAttribute("data-image") || "";
       bodyEl.innerHTML = "";
@@ -40,6 +41,19 @@
         d.textContent = line;
         bodyEl.appendChild(d);
       });
+      if (notes && notes !== desc) {
+        var noteLabel = document.createElement("p");
+        noteLabel.className = "home-workshop-goal-label";
+        noteLabel.textContent = "توضیحات";
+        bodyEl.appendChild(noteLabel);
+        notes.split(/\n+/).forEach(function (line) {
+          line = line.trim();
+          if (!line) return;
+          var n = document.createElement("p");
+          n.textContent = line;
+          bodyEl.appendChild(n);
+        });
+      }
       if (!bodyEl.childElementCount) {
         var empty = document.createElement("p");
         empty.className = "muted";

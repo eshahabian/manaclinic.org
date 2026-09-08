@@ -1157,13 +1157,9 @@ function workshop_promo_image_src(array $workshop): string
     return url('/assets/img/workshops/' . workshop_designed_banner_file($workshop));
 }
 
-/** توضیح کوتاه اهداف دوره برای پنجره صفحه اول */
+/** توضیح کوتاه اهداف دوره برای پنجره صفحه اول (نه متن توضیحات پنل) */
 function workshop_promo_blurb(array $workshop): string
 {
-    $custom = trim((string) ($workshop['description'] ?? ''));
-    if ($custom !== '') {
-        return $custom;
-    }
     $title = (string) ($workshop['title'] ?? '');
     $type = (string) ($workshop['type'] ?? '');
 
