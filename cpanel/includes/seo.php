@@ -62,6 +62,9 @@ function seo_render_head(?array $meta = null): string
     $out[] = '<meta name="robots" content="' . e($robots) . '">';
     $out[] = '<meta name="author" content="' . e($site) . '">';
     $out[] = '<meta name="theme-color" content="#1a5c4a">';
+    $out[] = '<link rel="icon" type="image/png" sizes="32x32" href="' . e(url('/assets/img/favicon-32.png')) . '">';
+    $out[] = '<link rel="icon" type="image/png" sizes="192x192" href="' . e(url('/assets/img/favicon-192.png')) . '">';
+    $out[] = '<link rel="apple-touch-icon" href="' . e(url('/assets/img/apple-touch-icon.png')) . '">';
     $out[] = '<link rel="canonical" href="' . e($canonical) . '">';
 
     $out[] = '<meta property="og:locale" content="fa_IR">';

@@ -21,7 +21,7 @@ $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'es
   <?= seo_render_head() ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260908l">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260908m">
   <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
   <script>
   (function(){
@@ -63,7 +63,10 @@ $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'es
 <div class="site-layer">
   <header class="site-header">
     <div class="container-page header-inner">
-      <a class="brand" href="<?= e(url('/')) ?>">مانا کلینیک</a>
+      <a class="brand" href="<?= e(url('/')) ?>">
+        <img class="brand-logo" src="<?= e(url('/assets/img/logo.png')) ?>" width="36" height="36" alt="">
+        مانا کلینیک
+      </a>
       <nav class="nav-links">
         <a href="<?= e(url('/')) ?>">صفحه اصلی</a>
         <a href="<?= e(url('/doctors')) ?>">متخصصان</a>
@@ -102,7 +105,10 @@ $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'es
   <footer class="site-footer">
     <div class="container-page footer-grid">
       <div>
-        <p class="brand">مانا کلینیک</p>
+        <p class="brand">
+          <img class="brand-logo" src="<?= e(url('/assets/img/logo.png')) ?>" width="36" height="36" alt="">
+          مانا کلینیک
+        </p>
         <p class="footer-address muted">
           سعادت‌آباد، خیابان ۳۱ شرقی (جندونی)، روبروی ساختمان پزشکان روزبه، پلاک ۴، واحد ۵، طبقه ۵
         </p>
