@@ -12,9 +12,8 @@
   var permitBtn = root.querySelector("[data-video-permit-btn]");
   var startBtn = root.querySelector("[data-video-start]");
   var hangBtn = root.querySelector("[data-video-hangup]");
-  var acceptBtn = root.querySelector("[data-video-accept]");
-  var declineBtn = root.querySelector("[data-video-decline]");
-  var fsBtns = root.querySelectorAll("[data-video-fs], [data-video-fs-btn]");
+  var enhanceBtn = root.querySelector("[data-video-enhance]");
+  var fsBtns = root.querySelectorAll("[data-video-fs]");
   var token = (document.querySelector('meta[name="csrf-token"]') || {}).content || "";
 
   var pc = null;
@@ -118,6 +117,36 @@
       return;
     }
     if (req) req.call(el);
+  }
+
+  function syncFullscreenIcon() {
+    var on = !!(document.fullscreenElement || document.webkitFullscreenElement);
+    if (stageEl) stageEl.classList.toggle("is-full", on);
+    fsBtns.forEach(function (btn) {
+      btn.setAttribute("aria-label", on ? "خروج از تمام‌صفحه" : "تمام‌صفحه");
+      btn.setAttribute("title", on ? "خروج از تمام‌صفحه" : "تمام‌صفحه");
+    });
+  }
+
+  function syncCallButtons() {
+    var incoming = incomingEl && !incomingEl.hidden;
+    if (startBtn) {
+      startBtn.hidden = !!(calling && !incoming);
+      startBtn.setAttribute("aria-label", incoming ? "پاسخ" : "شروع تماس");
+      startBtn.setAttribute("title", incoming ? "پاسخ" : "شروع تماس");
+    }
+    if (hangBtn) {
+      hangBtn.hidden = !(calling || incoming);
+      hangBtn.setAttribute("aria-label", incoming && !calling ? "رد تماس" : "قطع تماس");
+      hangBtn.setAttribute("title", incoming && !calling ? "رد تماس" : "قطع تماس");
+    }
+  }
+
+  function setRecordingUi(on) {
+    if (!recordBtn) return;
+    recordBtn.classList.toggle("is-recording", !!on);
+    recordBtn.setAttribute("aria-label", on ? "توقف ضبط" : "شروع ضبط");
+    recordBtn.setAttribute("title", on ? "توقف ضبط" : "ضبط تماس");
   }
 
   function mediaErrorText(err) {
@@ -404,9 +433,9 @@
     }
     calling = false;
     if (incomingEl) incomingEl.hidden = true;
-    if (startBtn) startBtn.hidden = false;
-    if (hangBtn) hangBtn.hidden = true;
+    syncCallButtons();
     if (recordBtn) recordBtn.hidden = true;
+    setRecordingUi(false);
   }
 
   function startCall() {
@@ -414,8 +443,7 @@
     media().then(function () {
       calling = true;
       connectedOnce = false;
-      if (startBtn) startBtn.hidden = true;
-      if (hangBtn) hangBtn.hidden = false;
+      syncCallButtons();
       setStatus("در حال تماس… منتظر پاسخ طرف مقابل.");
       startRing();
       var conn = ensurePc();
@@ -468,8 +496,7 @@
       connectedOnce = false;
       stopRing();
       if (incomingEl) incomingEl.hidden = true;
-      if (startBtn) startBtn.hidden = true;
-      if (hangBtn) hangBtn.hidden = false;
+      syncCallButtons();
       setStatus("در حال پاسخ…");
       return answerOffer(offer, true);
     }).catch(function (err) {
@@ -491,6 +518,7 @@
         answerOffer(payload, false).catch(function () {});
       } else if (incomingEl) {
         incomingEl.hidden = false;
+        syncCallButtons();
         setStatus("تماس ورودی از " + peerName);
         startRing();
       }
@@ -587,7 +615,7 @@
       recTimer = null;
     }
     if (!recorder) {
-      if (recordBtn) recordBtn.textContent = "شروع ضبط";
+      setRecordingUi(false);
       return;
     }
     var rec = recorder;
@@ -602,7 +630,7 @@
     } else {
       downloadRecording();
     }
-    if (recordBtn) recordBtn.textContent = "شروع ضبط";
+    setRecordingUi(false);
   }
 
   function startRecording() {
@@ -654,32 +682,36 @@
     recorder.onstop = downloadRecording;
     recorder.start(1000);
     draw();
-    if (recordBtn) recordBtn.textContent = "توقف ضبط";
+    setRecordingUi(true);
   }
 
   if (permitBtn) permitBtn.addEventListener("click", function () {
     ctx();
     requestMedia().catch(function () {});
   });
-  if (startBtn) startBtn.addEventListener("click", startCall);
+  if (startBtn) startBtn.addEventListener("click", function () {
+    if (pendingOffer && !(calling && pc)) acceptCall(pendingOffer);
+    else startCall();
+  });
   if (hangBtn) hangBtn.addEventListener("click", function () {
+    var incoming = incomingEl && !incomingEl.hidden && !calling;
     post({ action: "send", kind: "hangup", payload: null });
     endPeer(true);
-    setStatus("تماس قطع شد.");
-  });
-  if (acceptBtn) acceptBtn.addEventListener("click", function () {
-    if (pendingOffer) acceptCall(pendingOffer);
-  });
-  if (declineBtn) declineBtn.addEventListener("click", function () {
-    pendingOffer = null;
-    if (incomingEl) incomingEl.hidden = true;
-    post({ action: "send", kind: "hangup", payload: null });
-    endPeer(true);
-    setStatus("تماس رد شد.");
+    setStatus(incoming ? "تماس رد شد." : "تماس قطع شد.");
   });
   fsBtns.forEach(function (btn) {
     btn.addEventListener("click", toggleFullscreen);
   });
+  document.addEventListener("fullscreenchange", syncFullscreenIcon);
+  document.addEventListener("webkitfullscreenchange", syncFullscreenIcon);
+  if (enhanceBtn) {
+    enhanceBtn.addEventListener("click", function () {
+      if (!stageEl) return;
+      var on = !stageEl.classList.contains("is-enhanced");
+      stageEl.classList.toggle("is-enhanced", on);
+      enhanceBtn.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+  }
   if (recordBtn) {
     recordBtn.addEventListener("click", function () {
       if (recorder) stopRecording(true);
