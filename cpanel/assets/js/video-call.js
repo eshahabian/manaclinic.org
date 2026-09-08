@@ -3,6 +3,7 @@
   if (!root) return;
   var signalUrl = root.getAttribute("data-signal-url") || "/video-signal";
   var peerName = root.getAttribute("data-peer-name") || "طرف مقابل";
+  var stageEl = root.querySelector("[data-video-stage]");
   var localEl = root.querySelector("[data-video-local]");
   var remoteEl = root.querySelector("[data-video-remote]");
   var statusEl = root.querySelector("[data-video-status]");
@@ -13,12 +14,12 @@
   var hangBtn = root.querySelector("[data-video-hangup]");
   var acceptBtn = root.querySelector("[data-video-accept]");
   var declineBtn = root.querySelector("[data-video-decline]");
+  var fsBtns = root.querySelectorAll("[data-video-fs], [data-video-fs-btn]");
   var token = (document.querySelector('meta[name="csrf-token"]') || {}).content || "";
 
   var pc = null;
   var localStream = null;
   var remoteStream = null;
-  var after = "";
   var calling = false;
   var ready = false;
   var connectedOnce = false;
@@ -51,34 +52,35 @@
     return audioCtx;
   }
 
-  function beep(freq, start, dur, type, gainVal) {
+  function tone(freq, start, dur, vol) {
     var ac = ctx();
     if (!ac) return;
     var osc = ac.createOscillator();
     var gain = ac.createGain();
-    osc.type = type || "sine";
+    var filter = ac.createBiquadFilter();
+    osc.type = "sine";
     osc.frequency.setValueAtTime(freq, ac.currentTime + start);
+    filter.type = "lowpass";
+    filter.frequency.value = 1800;
     gain.gain.setValueAtTime(0.0001, ac.currentTime + start);
-    gain.gain.exponentialRampToValueAtTime(gainVal || 0.08, ac.currentTime + start + 0.02);
+    gain.gain.exponentialRampToValueAtTime(vol || 0.045, ac.currentTime + start + 0.015);
     gain.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + start + dur);
-    osc.connect(gain);
+    osc.connect(filter);
+    filter.connect(gain);
     gain.connect(ac.destination);
     osc.start(ac.currentTime + start);
-    osc.stop(ac.currentTime + start + dur + 0.02);
+    osc.stop(ac.currentTime + start + dur + 0.03);
   }
 
   function playRingBurst() {
-    beep(495, 0, 0.42, "sine", 0.07);
-    beep(425, 0.12, 0.42, "sine", 0.05);
-    beep(495, 0.55, 0.42, "sine", 0.07);
-    beep(425, 0.67, 0.42, "sine", 0.05);
+    tone(340, 0, 0.22, 0.04);
   }
 
   function startRing() {
     stopRing();
     ctx();
     playRingBurst();
-    ringTimer = setInterval(playRingBurst, 3200);
+    ringTimer = setInterval(playRingBurst, 1800);
   }
 
   function stopRing() {
@@ -90,14 +92,23 @@
 
   function playConnected() {
     stopRing();
-    beep(880, 0, 0.16, "sine", 0.09);
-    beep(1175, 0.14, 0.28, "sine", 0.08);
+    tone(760, 0, 0.09, 0.05);
   }
 
   function playDisconnected() {
     stopRing();
-    beep(520, 0, 0.18, "triangle", 0.07);
-    beep(360, 0.14, 0.28, "triangle", 0.06);
+    tone(210, 0, 0.16, 0.035);
+  }
+
+  function toggleFullscreen() {
+    var el = stageEl || root;
+    var req = el.requestFullscreen || el.webkitRequestFullscreen || el.msRequestFullscreen;
+    var exit = document.exitFullscreen || document.webkitExitFullscreen || document.msExitFullscreen;
+    if (document.fullscreenElement || document.webkitFullscreenElement) {
+      if (exit) exit.call(document);
+      return;
+    }
+    if (req) req.call(el);
   }
 
   function mediaErrorText(err) {
@@ -137,7 +148,10 @@
   function iceServers() {
     return [
       { urls: "stun:stun.l.google.com:19302" },
-      { urls: "stun:stun1.l.google.com:19302" }
+      { urls: "stun:stun1.l.google.com:19302" },
+      { urls: "turn:openrelay.metered.ca:80", username: "openrelayproject", credential: "openrelayproject" },
+      { urls: "turn:openrelay.metered.ca:443", username: "openrelayproject", credential: "openrelayproject" },
+      { urls: "turn:openrelay.metered.ca:443?transport=tcp", username: "openrelayproject", credential: "openrelayproject" }
     ];
   }
 
@@ -222,6 +236,7 @@
     });
     if (remoteEl) {
       remoteEl.srcObject = remoteStream;
+      remoteEl.autoplay = true;
       remoteEl.playsInline = true;
       var play = remoteEl.play();
       if (play && play.catch) play.catch(function () {});
@@ -236,13 +251,43 @@
     });
   }
 
+  function waitGathering(conn) {
+    return new Promise(function (resolve) {
+      if (!conn || conn.iceGatheringState === "complete") {
+        resolve();
+        return;
+      }
+      var finished = false;
+      function finish() {
+        if (finished) return;
+        finished = true;
+        conn.removeEventListener("icegatheringstatechange", onChange);
+        resolve();
+      }
+      function onChange() {
+        if (conn.iceGatheringState === "complete") finish();
+      }
+      conn.addEventListener("icegatheringstatechange", onChange);
+      setTimeout(finish, 3500);
+    });
+  }
+
+  function sendLocal(kind, conn) {
+    var desc = conn.localDescription;
+    if (!desc) return Promise.resolve();
+    return post({ action: "send", kind: kind, payload: { type: desc.type, sdp: desc.sdp } });
+  }
+
   function ensurePc() {
     if (pc) {
       addLocalTracks(pc);
       return pc;
     }
     remoteStream = new MediaStream();
-    pc = new RTCPeerConnection({ iceServers: iceServers() });
+    pc = new RTCPeerConnection({
+      iceServers: iceServers(),
+      iceCandidatePoolSize: 4
+    });
     pc.onicecandidate = function (ev) {
       if (ev.candidate) {
         post({ action: "send", kind: "ice", payload: ev.candidate.toJSON ? ev.candidate.toJSON() : ev.candidate });
@@ -295,9 +340,11 @@
       startRing();
       var conn = ensurePc();
       return conn.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true }).then(function (offer) {
-        return conn.setLocalDescription(offer).then(function () {
-          return post({ action: "send", kind: "offer", payload: { type: offer.type, sdp: offer.sdp } });
-        });
+        return conn.setLocalDescription(offer);
+      }).then(function () {
+        return waitGathering(conn);
+      }).then(function () {
+        return sendLocal("offer", conn);
       });
     }).catch(function (err) {
       if (!ready) return;
@@ -312,6 +359,7 @@
     media().then(function () {
       calling = true;
       connectedOnce = false;
+      stopRing();
       if (incomingEl) incomingEl.hidden = true;
       if (startBtn) startBtn.hidden = true;
       if (hangBtn) hangBtn.hidden = false;
@@ -321,9 +369,11 @@
         flushIce();
         return conn.createAnswer();
       }).then(function (answer) {
-        return conn.setLocalDescription(answer).then(function () {
-          return post({ action: "send", kind: "answer", payload: { type: answer.type, sdp: answer.sdp } });
-        });
+        return conn.setLocalDescription(answer);
+      }).then(function () {
+        return waitGathering(conn);
+      }).then(function () {
+        return sendLocal("answer", conn);
       });
     }).catch(function (err) {
       if (!ready) return;
@@ -361,7 +411,7 @@
   }
 
   function poll() {
-    post({ action: "poll", after: after }).then(function (data) {
+    post({ action: "poll" }).then(function (data) {
       if (!data || !data.ok) return;
       if (!calling) {
         var next = data.online
@@ -374,10 +424,7 @@
           lastPeerStatus = next;
         }
       }
-      (data.signals || []).forEach(function (sig) {
-        if (sig.created_at && (!after || sig.created_at >= after)) after = sig.created_at;
-        handle(sig);
-      });
+      (data.signals || []).forEach(handle);
     }).catch(function () {});
   }
 
@@ -401,8 +448,11 @@
     endPeer(true);
     setStatus("تماس رد شد.");
   });
+  fsBtns.forEach(function (btn) {
+    btn.addEventListener("click", toggleFullscreen);
+  });
 
   requestMedia().catch(function () {});
   poll();
-  setInterval(poll, 800);
+  setInterval(poll, 700);
 })();

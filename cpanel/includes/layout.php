@@ -14,14 +14,15 @@ $flash = flash_get();
 $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'eshahabian') === 0;
 ?>
 <!DOCTYPE html>
-<html lang="fa" dir="rtl">
+<html lang="fa" dir="rtl" translate="no">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="google" content="notranslate">
   <?= seo_render_head() ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260908n">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260908o">
   <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
   <script>
   (function(){

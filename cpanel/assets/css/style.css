@@ -647,23 +647,51 @@ body.home-workshop-locked { overflow: hidden; }
   overflow: hidden;
   min-height: 18rem;
 }
+.video-call-stage:fullscreen,
+.video-call-stage:-webkit-full-screen {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+  background: #000;
+}
 .video-call-remote {
   display: block;
   width: 100%;
   height: min(28rem, 62vh);
-  object-fit: cover;
+  object-fit: contain;
   background: #0d1a16;
 }
+.video-call-stage:fullscreen .video-call-remote,
+.video-call-stage:-webkit-full-screen .video-call-remote {
+  height: 100vh;
+  object-fit: contain;
+}
+.video-call-self {
+  display: flex;
+  align-items: center;
+  gap: .75rem;
+  margin-top: .75rem;
+}
 .video-call-local {
-  position: absolute;
-  width: 7.5rem;
-  height: 10rem;
+  width: 7.2rem;
+  height: 5.2rem;
   object-fit: cover;
-  border-radius: .7rem;
-  border: 2px solid #fff;
-  bottom: .7rem;
-  left: .7rem;
+  border-radius: .65rem;
   background: #1a2e28;
+}
+.video-call-self span { font-size: .85rem; color: var(--muted); }
+.video-call-fs {
+  position: absolute;
+  top: .7rem;
+  left: .7rem;
+  border: 0;
+  border-radius: .55rem;
+  padding: .35rem .7rem;
+  background: rgba(0,0,0,.55);
+  color: #fff;
+  cursor: pointer;
+  font-family: inherit;
+  font-size: .8rem;
 }
 .video-call-incoming {
   position: absolute;

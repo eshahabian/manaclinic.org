@@ -59,6 +59,10 @@ if ($action === 'send') {
         video_call_json(['error' => 'نوع پیام نامعتبر است.'], 400);
     }
     $payload = $body['payload'] ?? null;
+    if ($kind === 'offer') {
+        $pdo->prepare("DELETE FROM video_call_signals WHERE room_id=? AND sender_id=? AND kind IN ('offer','answer','ice')")
+            ->execute([$room, $meId]);
+    }
     $pdo->prepare('INSERT INTO video_call_signals (id, room_id, sender_id, kind, payload) VALUES (?,?,?,?,?)')
         ->execute([
             cuid(),

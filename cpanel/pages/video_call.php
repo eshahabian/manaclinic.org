@@ -38,24 +38,29 @@ ob_start();
     <button type="button" class="btn btn-primary" data-video-permit-btn>اجازه دسترسی به دوربین و میکروفون</button>
   </div>
 
-  <div class="video-call-stage">
+  <div class="video-call-stage" data-video-stage>
     <video class="video-call-remote" data-video-remote autoplay playsinline></video>
-    <video class="video-call-local" data-video-local autoplay playsinline muted></video>
     <div class="video-call-incoming" data-video-incoming hidden>
       <p>تماس ورودی از <?= e((string) $peer['name']) ?></p>
       <button type="button" class="btn btn-primary" data-video-accept>پاسخ</button>
       <button type="button" class="btn btn-outline" data-video-decline>رد</button>
     </div>
+    <button type="button" class="video-call-fs" data-video-fs aria-label="تمام‌صفحه">تمام‌صفحه</button>
+  </div>
+  <div class="video-call-self">
+    <video class="video-call-local" data-video-local autoplay playsinline muted></video>
+    <span>تصویر شما</span>
   </div>
 
   <div class="video-call-actions">
     <button type="button" class="btn btn-primary" data-video-start>شروع تماس</button>
     <button type="button" class="btn btn-outline" data-video-hangup hidden>قطع تماس</button>
+    <button type="button" class="btn btn-outline" data-video-fs-btn>تمام‌صفحه</button>
   </div>
 </div>
 <?php
 $inner = ob_get_clean();
-$GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260908c"></script>';
+$GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260908d"></script>';
 
 $role = (string) ($user['role'] ?? '');
 if ($role === 'DOCTOR') {
