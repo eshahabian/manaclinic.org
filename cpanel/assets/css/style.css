@@ -106,7 +106,7 @@ body.nav-open { overflow: hidden; }
 }
 .mobile-nav {
   position: fixed;
-  top: 0;
+  top: 64px;
   right: 0;
   bottom: 0;
   z-index: 55;
@@ -121,7 +121,7 @@ body.nav-open { overflow: hidden; }
 }
 .mobile-nav.is-open { transform: translateX(0); }
 .mobile-nav-inner {
-  padding: 4.75rem 1.1rem 1.5rem;
+  padding: 1.1rem 1.1rem 1.5rem;
   display: grid;
   gap: .35rem;
 }
@@ -179,6 +179,7 @@ body.nav-open { overflow: hidden; }
   .nav-toggle,
   .mobile-nav,
   .mobile-nav-overlay { display: none !important; }
+  body.nav-open { overflow: visible; }
 }
 
 .btn {
@@ -841,8 +842,9 @@ body.home-workshop-locked { overflow: hidden; }
   z-index: 4;
   display: flex;
   align-items: center;
-  flex-wrap: nowrap;
+  flex-wrap: wrap;
   gap: .45rem;
+  max-width: calc(100% - 9rem);
 }
 .video-call-dock {
   position: absolute;
@@ -902,6 +904,28 @@ body.home-workshop-locked { overflow: hidden; }
   white-space: nowrap;
 }
 .video-call-incoming[hidden] { display: none !important; }
+.video-call-alert {
+  position: fixed;
+  top: .75rem;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 80;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: .65rem 1rem;
+  width: min(32rem, calc(100% - 1.5rem));
+  padding: .75rem 1rem;
+  border-radius: .9rem;
+  background: #134437;
+  color: #fff;
+  box-shadow: 0 12px 32px rgba(0,0,0,.28);
+}
+.video-call-alert[hidden] { display: none !important; }
+.video-call-alert-text { margin: 0; font-weight: 700; }
+.video-call-alert-actions { display: flex; gap: .4rem; }
+.video-call-alert .btn-outline { color: #fff; border-color: rgba(255,255,255,.4); }
 
 .home-assistant-tile {
   display: flex;

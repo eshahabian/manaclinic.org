@@ -77,6 +77,9 @@
 
   function unlockSounds() {
     ctx();
+    if ("Notification" in window && Notification.permission === "default") {
+      Notification.requestPermission().catch(function () {});
+    }
     [ringAudio, hangAudio].forEach(function (a) {
       if (!a) return;
       var prevVol = a.volume;
@@ -196,6 +199,7 @@
       hangBtn.setAttribute("aria-label", incoming && !calling ? "رد تماس" : "قطع تماس");
       hangBtn.setAttribute("title", incoming && !calling ? "رد تماس" : "قطع تماس");
     }
+    if (recordBtn) recordBtn.hidden = !(canRecord && calling);
   }
 
   function setRecordingUi(on) {
@@ -381,7 +385,7 @@
       if (!pc || connectedOnce) return;
       connectedOnce = true;
       playConnected();
-      if (recordBtn) recordBtn.hidden = !canRecord;
+      syncCallButtons();
       setStatus("تماس برقرار شد.");
     }
     pc.onconnectionstatechange = function () {
@@ -416,7 +420,6 @@
     calling = false;
     if (incomingEl) incomingEl.hidden = true;
     syncCallButtons();
-    if (recordBtn) recordBtn.hidden = true;
     setRecordingUi(false);
   }
 

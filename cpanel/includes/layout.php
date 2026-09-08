@@ -22,7 +22,7 @@ $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'es
   <?= seo_render_head() ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260908t">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260908u">
   <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
   <script>
   (function(){
@@ -192,6 +192,13 @@ $overviewJs = __DIR__ . '/../assets/js/workshop-overview.js';
 <script src="<?= e(url('/assets/js/particles.js')) ?>?v=20260904t"></script>
 <script src="<?= e(url('/assets/js/password-field.js')) ?>?v=20260908a"></script>
 <script src="<?= e(url('/assets/js/mobile-nav.js')) ?>?v=20260908a"></script>
+<?php
+$videoWatch = function_exists('video_call_watch_config') ? video_call_watch_config($user) : null;
+if ($videoWatch):
+?>
+<script>window.__VIDEO_CALL_WATCH__ = <?= json_encode($videoWatch, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;</script>
+<script src="<?= e(url('/assets/js/video-call-watch.js')) ?>?v=20260908a"></script>
+<?php endif; ?>
 <?php if ($user && ($user['role'] ?? '') === 'SECRETARY'): ?>
 <script src="<?= e(url('/assets/js/secretary-idle.js')) ?>?v=20260906y"></script>
 <?php endif; ?>

@@ -109,6 +109,25 @@ function video_call_nav_link(bool $withType = false): ?array
     return $item;
 }
 
+function video_call_watch_config(?array $user): ?array
+{
+    if (!video_call_allowed($user)) {
+        return null;
+    }
+    global $pdo;
+    if (!$pdo instanceof PDO) {
+        return null;
+    }
+    $peer = video_call_peer($pdo, $user);
+
+    return [
+        'signalUrl' => url('/video-signal'),
+        'callUrl' => url('/video-call'),
+        'peerName' => (string) ($peer['name'] ?? 'طرف مقابل'),
+        'ringUrl' => url('/assets/audio/incoming-call.ogg'),
+    ];
+}
+
 function video_call_json(array $data, int $code = 200): void
 {
     http_response_code($code);
