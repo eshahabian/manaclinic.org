@@ -43,6 +43,17 @@
   var recordBtn = root.querySelector("[data-video-record]");
   var blackoutEl = root.querySelector("[data-video-blackout]");
   var guarded = false;
+  var wantAutoAnswer = false;
+  var autoAnswerUsed = false;
+  var remoteHangTimer = null;
+  try {
+    wantAutoAnswer = sessionStorage.getItem("mana-video-auto-answer") === "1"
+      || /(?:^|[?&])answer=1(?:&|$)/.test(location.search || "");
+    sessionStorage.removeItem("mana-video-auto-answer");
+  } catch (e) {}
+  if (wantAutoAnswer && window.history && window.history.replaceState) {
+    try { history.replaceState({}, "", location.pathname); } catch (e) {}
+  }
 
   function setStatus(text) {
     if (statusEl) statusEl.textContent = text;
@@ -202,6 +213,23 @@
     if (recordBtn) recordBtn.hidden = !(canRecord && calling);
   }
 
+  function tryAutoAnswer() {
+    if (!wantAutoAnswer || autoAnswerUsed || !pendingOffer || calling) return;
+    autoAnswerUsed = true;
+    setStatus("در حال پاسخ…");
+    acceptCall(pendingOffer);
+  }
+
+  function sendHangup() {
+    var body = { action: "send", kind: "hangup", payload: null, _csrf: token };
+    try {
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(signalUrl, new Blob([JSON.stringify(body)], { type: "application/json" }));
+      }
+    } catch (e) {}
+    return post({ action: "send", kind: "hangup", payload: null }).catch(function () {});
+  }
+
   function setRecordingUi(on) {
     if (!recordBtn) return;
     recordBtn.classList.toggle("is-recording", !!on);
@@ -293,6 +321,7 @@
     }
     setPermit(false);
     if (startBtn) startBtn.disabled = false;
+    tryAutoAnswer();
   }
 
   function requestMedia() {
@@ -392,7 +421,14 @@
       if (!pc) return;
       if (pc.connectionState === "connected") markConnected();
       if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
-        setStatus("ارتباط قطع شد. دوباره تماس بگیرید.");
+        if (remoteHangTimer) clearTimeout(remoteHangTimer);
+        remoteHangTimer = setTimeout(function () {
+          if (!pc) return;
+          if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
+            endPeer(true);
+            setStatus("تماس از طرف مقابل قطع شد.");
+          }
+        }, 1200);
       }
     };
     pc.oniceconnectionstatechange = function () {
@@ -404,6 +440,10 @@
   }
 
   function endPeer(playHang) {
+    if (remoteHangTimer) {
+      clearTimeout(remoteHangTimer);
+      remoteHangTimer = null;
+    }
     stopRing();
     stopRecording(true);
     if (playHang) playDisconnected();
@@ -480,6 +520,7 @@
       setStatus("در حال پاسخ…");
       return answerOffer(offer);
     }).catch(function (err) {
+      autoAnswerUsed = false;
       if (!ready) return;
       setStatus("پاسخ به تماس ناموفق بود.");
       endPeer(false);
@@ -501,6 +542,7 @@
         syncCallButtons();
         setStatus("تماس ورودی از " + peerName);
         startRing();
+        tryAutoAnswer();
       }
     } else if (kind === "answer" && payload && pc) {
       if (pc.signalingState !== "have-local-offer") return;
@@ -511,14 +553,15 @@
       pendingIce.push(payload);
       flushIce();
     } else if (kind === "hangup") {
-      if (!calling && incomingEl && incomingEl.hidden) return;
-      endPeer(true);
-      setStatus("تماس قطع شد.");
+      if (pc || calling || (incomingEl && !incomingEl.hidden)) {
+        endPeer(true);
+        setStatus("تماس قطع شد.");
+      }
     }
   }
 
   function poll() {
-    post({ action: "poll", after: lastAfter }).then(function (data) {
+    post({ action: "poll" }).then(function (data) {
       if (!data || !data.ok) return;
       if (!calling) {
         var next = data.online
@@ -533,7 +576,6 @@
       }
       (data.signals || []).forEach(function (sig) {
         handle(sig);
-        if (sig.created_at && sig.created_at > lastAfter) lastAfter = sig.created_at;
       });
     }).catch(function () {});
   }
@@ -665,7 +707,7 @@
   if (permitBtn) permitBtn.addEventListener("click", function () {
     unlockSounds();
     ctx();
-    requestMedia().catch(function () {});
+    requestMedia().then(function () { tryAutoAnswer(); }).catch(function () {});
   });
   if (startBtn) startBtn.addEventListener("click", function () {
     unlockSounds();
@@ -674,7 +716,7 @@
   });
   if (hangBtn) hangBtn.addEventListener("click", function () {
     var incoming = incomingEl && !incomingEl.hidden && !calling;
-    post({ action: "send", kind: "hangup", payload: null });
+    sendHangup();
     endPeer(true);
     setStatus(incoming ? "تماس رد شد." : "تماس قطع شد.");
   });
@@ -721,7 +763,10 @@
   ringAudio = makeSound(ringUrl, true);
   hangAudio = makeSound(hangUrl, false);
   document.addEventListener("click", unlockSounds, { once: true });
-  requestMedia().catch(function () {});
+  window.addEventListener("pagehide", function () {
+    if (calling) sendHangup();
+  });
+  requestMedia().then(function () { tryAutoAnswer(); }).catch(function () {});
   poll();
   setInterval(poll, 700);
 })();

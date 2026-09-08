@@ -27,13 +27,8 @@ if (!is_array($body)) {
 $action = trim((string) ($body['action'] ?? $_GET['action'] ?? 'poll'));
 
 if ($action === 'poll') {
-    $after = trim((string) ($body['after'] ?? $_GET['after'] ?? ''));
-    $sql = 'SELECT id, kind, payload, created_at FROM video_call_signals WHERE room_id=? AND sender_id=? AND created_at >= DATE_SUB(NOW(), INTERVAL 30 SECOND)';
+    $sql = 'SELECT id, kind, payload, created_at FROM video_call_signals WHERE room_id=? AND sender_id=? AND created_at >= DATE_SUB(NOW(), INTERVAL 45 SECOND)';
     $params = [$room, $peerId];
-    if ($after !== '') {
-        $sql .= ' AND created_at > ?';
-        $params[] = $after;
-    }
     $sql .= ' ORDER BY created_at ASC, id ASC LIMIT 80';
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
@@ -56,6 +51,9 @@ if ($action === 'poll') {
 }
 
 if ($action === 'send') {
+    if (is_array($body) && empty(csrf_request_token()) && !empty($body['_csrf'])) {
+        $_POST['_csrf'] = (string) $body['_csrf'];
+    }
     csrf_verify();
     $kind = trim((string) ($body['kind'] ?? ''));
     if (!in_array($kind, ['offer', 'answer', 'ice', 'hangup', 'ringing'], true)) {

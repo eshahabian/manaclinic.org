@@ -32,7 +32,10 @@
   }
 
   function goToCall() {
-    window.location.href = cfg.callUrl;
+    try { sessionStorage.setItem("mana-video-auto-answer", "1"); } catch (e) {}
+    var url = cfg.callUrl || "/video-call";
+    url += (url.indexOf("?") >= 0 ? "&" : "?") + "answer=1";
+    window.location.href = url;
   }
 
   function stopAlert() {
@@ -117,7 +120,7 @@
   }
 
   function poll() {
-    post({ action: "poll", after: lastAfter }).then(function (data) {
+    post({ action: "poll" }).then(function (data) {
       if (!data || !data.ok) return;
       (data.signals || []).forEach(function (sig) {
         handle(sig);

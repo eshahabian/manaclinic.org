@@ -197,7 +197,7 @@ $videoWatch = function_exists('video_call_watch_config') ? video_call_watch_conf
 if ($videoWatch):
 ?>
 <script>window.__VIDEO_CALL_WATCH__ = <?= json_encode($videoWatch, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;</script>
-<script src="<?= e(url('/assets/js/video-call-watch.js')) ?>?v=20260908a"></script>
+<script src="<?= e(url('/assets/js/video-call-watch.js')) ?>?v=20260908b"></script>
 <?php endif; ?>
 <?php if ($user && ($user['role'] ?? '') === 'SECRETARY'): ?>
 <script src="<?= e(url('/assets/js/secretary-idle.js')) ?>?v=20260906y"></script>
