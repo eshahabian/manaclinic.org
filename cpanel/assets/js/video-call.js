@@ -30,7 +30,9 @@
   var ringTimer = null;
   var canRecord = root.getAttribute("data-can-record") === "1";
   var guardCapture = root.getAttribute("data-guard-capture") === "1";
-  var renegotiated = false;
+  var polite = root.getAttribute("data-polite") === "1";
+  var makingOffer = false;
+  var lastAfter = "";
   var recorder = null;
   var recChunks = [];
   var recTimer = null;
@@ -180,16 +182,19 @@
         "X-Requested-With": "XMLHttpRequest"
       },
       body: JSON.stringify(body)
-    }).then(function (r) { return r.json(); });
+    }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok) throw new Error((data && data.error) || "خطای ارتباط");
+        return data;
+      });
+    });
   }
 
   function iceServers() {
     return [
       { urls: "stun:stun.l.google.com:19302" },
       { urls: "stun:stun1.l.google.com:19302" },
-      { urls: "turn:openrelay.metered.ca:80", username: "openrelayproject", credential: "openrelayproject" },
-      { urls: "turn:openrelay.metered.ca:443", username: "openrelayproject", credential: "openrelayproject" },
-      { urls: "turn:openrelay.metered.ca:443?transport=tcp", username: "openrelayproject", credential: "openrelayproject" }
+      { urls: "stun:stun.cloudflare.com:3478" }
     ];
   }
 
@@ -254,44 +259,12 @@
   }
 
   function addLocalTracks(conn) {
-    if (!localStream || !conn) return Promise.resolve();
-    var jobs = [];
+    if (!localStream || !conn) return;
+    var senders = conn.getSenders ? conn.getSenders() : [];
     localStream.getTracks().forEach(function (track) {
-      var sender = null;
-      if (conn.getTransceivers) {
-        conn.getTransceivers().forEach(function (t) {
-          if (sender) return;
-          var kind = (t.receiver && t.receiver.track && t.receiver.track.kind)
-            || (t.sender && t.sender.track && t.sender.track.kind);
-          if (kind === track.kind && t.sender) sender = t.sender;
-        });
-      }
-      if (!sender && conn.getSenders) {
-        sender = conn.getSenders().filter(function (s) { return s.track && s.track.kind === track.kind; })[0] || null;
-      }
-      if (sender && sender.replaceTrack) {
-        jobs.push(Promise.resolve(sender.replaceTrack(track)));
-        return;
-      }
-      conn.addTrack(track, localStream);
+      var already = senders.some(function (s) { return s.track && s.track.id === track.id; });
+      if (!already) conn.addTrack(track, localStream);
     });
-    return Promise.all(jobs);
-  }
-
-  function forceSendRecv(conn) {
-    if (!conn || !conn.getTransceivers) return addLocalTracks(conn);
-    var video = localStream ? localStream.getVideoTracks()[0] : null;
-    var audio = localStream ? localStream.getAudioTracks()[0] : null;
-    var jobs = [];
-    conn.getTransceivers().forEach(function (t) {
-      try { t.direction = "sendrecv"; } catch (e) {}
-      var kind = (t.receiver && t.receiver.track && t.receiver.track.kind)
-        || (t.sender && t.sender.track && t.sender.track.kind);
-      if (!kind) return;
-      if (kind === "video" && video && t.sender && t.sender.replaceTrack) jobs.push(Promise.resolve(t.sender.replaceTrack(video)));
-      if (kind === "audio" && audio && t.sender && t.sender.replaceTrack) jobs.push(Promise.resolve(t.sender.replaceTrack(audio)));
-    });
-    return Promise.all(jobs).then(function () { return addLocalTracks(conn); });
   }
 
   function attachRemoteTrack(ev) {
@@ -331,55 +304,10 @@
     });
   }
 
-  function waitGathering(conn) {
-    return new Promise(function (resolve) {
-      if (!conn || conn.iceGatheringState === "complete") {
-        resolve();
-        return;
-      }
-      var finished = false;
-      function finish() {
-        if (finished) return;
-        finished = true;
-        conn.removeEventListener("icegatheringstatechange", onChange);
-        resolve();
-      }
-      function onChange() {
-        if (conn.iceGatheringState === "complete") finish();
-      }
-      conn.addEventListener("icegatheringstatechange", onChange);
-      setTimeout(finish, 3500);
-    });
-  }
-
   function sendLocal(kind, conn) {
     var desc = conn.localDescription;
     if (!desc) return Promise.resolve();
     return post({ action: "send", kind: kind, payload: { type: desc.type, sdp: desc.sdp } });
-  }
-
-  function mungeSendRecv(desc) {
-    if (!desc || !desc.sdp) return desc;
-    return {
-      type: desc.type,
-      sdp: desc.sdp.replace(/a=recvonly/g, "a=sendrecv").replace(/a=inactive/g, "a=sendrecv")
-    };
-  }
-
-  function maybeRenegotiate(conn) {
-    if (renegotiated || !conn) return Promise.resolve();
-    renegotiated = true;
-    return Promise.resolve(forceSendRecv(conn)).then(function () {
-      return conn.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
-    }).then(function (offer) {
-      return conn.setLocalDescription(mungeSendRecv(offer));
-    }).then(function () {
-      return waitGathering(conn);
-    }).then(function () {
-      return sendLocal("offer", conn);
-    }).catch(function () {
-      renegotiated = false;
-    });
   }
 
   function ensurePc() {
@@ -388,30 +316,30 @@
       return pc;
     }
     remoteStream = new MediaStream();
-    pc = new RTCPeerConnection({
-      iceServers: iceServers(),
-      iceCandidatePoolSize: 4
-    });
+    pc = new RTCPeerConnection({ iceServers: iceServers() });
     pc.onicecandidate = function (ev) {
       if (ev.candidate) {
         post({ action: "send", kind: "ice", payload: ev.candidate.toJSON ? ev.candidate.toJSON() : ev.candidate });
       }
     };
     pc.ontrack = attachRemoteTrack;
+    function markConnected() {
+      if (!pc || connectedOnce) return;
+      connectedOnce = true;
+      playConnected();
+      if (recordBtn) recordBtn.hidden = !canRecord;
+      setStatus("تماس برقرار شد.");
+    }
     pc.onconnectionstatechange = function () {
       if (!pc) return;
-      if (pc.connectionState === "connected") {
-        if (!connectedOnce) {
-          connectedOnce = true;
-          playConnected();
-          forceSendRecv(pc);
-          if (recordBtn) recordBtn.hidden = !canRecord;
-        }
-        setStatus("تماس برقرار شد.");
-      }
+      if (pc.connectionState === "connected") markConnected();
       if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
-        setStatus("ارتباط قطع شد.");
+        setStatus("ارتباط قطع شد. دوباره تماس بگیرید.");
       }
+    };
+    pc.oniceconnectionstatechange = function () {
+      if (!pc) return;
+      if (pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") markConnected();
     };
     addLocalTracks(pc);
     return pc;
@@ -422,7 +350,7 @@
     stopRecording(true);
     if (playHang) playDisconnected();
     connectedOnce = false;
-    renegotiated = false;
+    makingOffer = false;
     pendingIce = [];
     pendingOffer = null;
     if (remoteEl) remoteEl.srcObject = null;
@@ -447,16 +375,15 @@
       setStatus("در حال تماس… منتظر پاسخ طرف مقابل.");
       startRing();
       var conn = ensurePc();
-      return Promise.resolve(forceSendRecv(conn)).then(function () {
-        return conn.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
-      }).then(function (offer) {
-        return conn.setLocalDescription(mungeSendRecv(offer));
+      makingOffer = true;
+      return conn.createOffer().then(function (offer) {
+        return conn.setLocalDescription(offer);
       }).then(function () {
-        return waitGathering(conn);
-      }).then(function () {
+        makingOffer = false;
         return sendLocal("offer", conn);
       });
     }).catch(function (err) {
+      makingOffer = false;
       if (!ready) return;
       setStatus("شروع تماس ناموفق بود. دوباره تلاش کنید.");
       endPeer(false);
@@ -464,28 +391,25 @@
     });
   }
 
-  function answerOffer(offer, renegotiateAfter) {
+  function answerOffer(offer) {
     var conn = ensurePc();
-    return Promise.resolve(addLocalTracks(conn)).then(function () {
+    addLocalTracks(conn);
+    var collision = makingOffer || (conn.signalingState && conn.signalingState !== "stable");
+    var prep = Promise.resolve();
+    if (collision) {
+      if (!polite) return Promise.resolve();
+      prep = conn.setLocalDescription({ type: "rollback" }).catch(function () {});
+    }
+    return prep.then(function () {
       return conn.setRemoteDescription(new RTCSessionDescription(offer));
     }).then(function () {
       flushIce();
-      return forceSendRecv(conn);
-    }).then(function () {
+      addLocalTracks(conn);
       return conn.createAnswer();
     }).then(function (answer) {
-      return conn.setLocalDescription(mungeSendRecv(answer));
-    }).then(function () {
-      return waitGathering(conn);
+      return conn.setLocalDescription(answer);
     }).then(function () {
       return sendLocal("answer", conn);
-    }).then(function () {
-      if (!renegotiateAfter) return;
-      return new Promise(function (resolve) {
-        setTimeout(function () {
-          maybeRenegotiate(conn).then(resolve, resolve);
-        }, 500);
-      });
     });
   }
 
@@ -498,7 +422,7 @@
       if (incomingEl) incomingEl.hidden = true;
       syncCallButtons();
       setStatus("در حال پاسخ…");
-      return answerOffer(offer, true);
+      return answerOffer(offer);
     }).catch(function (err) {
       if (!ready) return;
       setStatus("پاسخ به تماس ناموفق بود.");
@@ -515,7 +439,7 @@
     if (kind === "offer" && payload) {
       pendingOffer = payload;
       if (calling && pc) {
-        answerOffer(payload, false).catch(function () {});
+        answerOffer(payload).catch(function (err) { console.error(err); });
       } else if (incomingEl) {
         incomingEl.hidden = false;
         syncCallButtons();
@@ -523,22 +447,22 @@
         startRing();
       }
     } else if (kind === "answer" && payload && pc) {
+      if (pc.signalingState !== "have-local-offer") return;
       pc.setRemoteDescription(new RTCSessionDescription(payload)).then(function () {
-        return forceSendRecv(pc);
-      }).then(function () {
         flushIce();
-      }).catch(function () {});
+      }).catch(function (err) { console.error(err); });
     } else if (kind === "ice" && payload) {
       pendingIce.push(payload);
       flushIce();
     } else if (kind === "hangup") {
+      if (!calling && incomingEl && incomingEl.hidden) return;
       endPeer(true);
       setStatus("تماس قطع شد.");
     }
   }
 
   function poll() {
-    post({ action: "poll" }).then(function (data) {
+    post({ action: "poll", after: lastAfter }).then(function (data) {
       if (!data || !data.ok) return;
       if (!calling) {
         var next = data.online
@@ -551,7 +475,10 @@
           lastPeerStatus = next;
         }
       }
-      (data.signals || []).forEach(handle);
+      (data.signals || []).forEach(function (sig) {
+        handle(sig);
+        if (sig.created_at && sig.created_at > lastAfter) lastAfter = sig.created_at;
+      });
     }).catch(function () {});
   }
 
@@ -559,16 +486,11 @@
     guarded = !!on;
     root.classList.toggle("is-black", guarded);
     if (blackoutEl) blackoutEl.hidden = !guarded;
-    if (remoteEl) {
-      if (guarded) remoteEl.pause();
-      else remoteEl.play().catch(function () {});
-    }
   }
 
   function captureRisk() {
     if (!guardCapture) return false;
     if (document.hidden || document.visibilityState === "hidden") return true;
-    if (typeof document.hasFocus === "function" && !document.hasFocus()) return true;
     if (document.pictureInPictureElement) return true;
     return false;
   }
@@ -584,13 +506,12 @@
     var kl = k.toLowerCase();
     if (k === "PrintScreen" || k === "Snapshot") {
       setBlackout(true);
+      setTimeout(function () { if (!document.hidden) setBlackout(false); }, 2000);
       return;
     }
-    if ((e.metaKey || e.ctrlKey) && e.shiftKey && (kl === "3" || kl === "4" || kl === "5" || kl === "s")) {
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && (kl === "3" || kl === "4" || kl === "5")) {
       setBlackout(true);
-    }
-    if (e.altKey && (kl === "r" || kl === "g")) {
-      setBlackout(true);
+      setTimeout(function () { if (!document.hidden) setBlackout(false); }, 2000);
     }
   }
 
@@ -720,12 +641,8 @@
   }
 
   if (guardCapture) {
-    ["visibilitychange", "blur", "focus", "pagehide", "pageshow"].forEach(function (ev) {
-      document.addEventListener(ev, tickGuard);
-      window.addEventListener(ev, tickGuard);
-    });
+    document.addEventListener("visibilitychange", tickGuard);
     document.addEventListener("keydown", captureHotkey, true);
-    document.addEventListener("keyup", captureHotkey, true);
     root.addEventListener("contextmenu", function (e) { e.preventDefault(); });
     [localEl, remoteEl].forEach(function (el) {
       if (!el) return;
@@ -741,7 +658,6 @@
         return Promise.reject(new DOMException("Screen capture is not allowed.", "NotAllowedError"));
       };
     }
-    setInterval(tickGuard, 250);
   }
 
   requestMedia().catch(function () {});

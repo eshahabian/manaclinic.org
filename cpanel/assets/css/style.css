@@ -704,6 +704,8 @@ body.home-workshop-locked { overflow: hidden; }
 .video-call-icon-tool {
   width: 2.55rem;
   height: 2.55rem;
+  overflow: hidden;
+  flex: 0 0 auto;
 }
 .video-call-icon-call,
 .video-call-icon-hang {
@@ -722,6 +724,7 @@ body.home-workshop-locked { overflow: hidden; }
   z-index: 4;
   display: flex;
   align-items: center;
+  flex-wrap: nowrap;
   gap: .45rem;
 }
 .video-call-dock {
@@ -734,13 +737,17 @@ body.home-workshop-locked { overflow: hidden; }
   align-items: center;
   gap: 1.1rem;
 }
-.video-call-fs-exit { display: none; }
-.video-call-stage.is-full .video-call-fs-enter,
-.video-call-stage:fullscreen .video-call-fs-enter,
-.video-call-stage:-webkit-full-screen .video-call-fs-enter { display: none; }
-.video-call-stage.is-full .video-call-fs-exit,
-.video-call-stage:fullscreen .video-call-fs-exit,
-.video-call-stage:-webkit-full-screen .video-call-fs-exit { display: block; }
+.video-call-icon .video-call-fs-exit { display: none !important; }
+.video-call-stage.is-full .video-call-icon .video-call-fs-enter,
+.video-call-stage:fullscreen .video-call-icon .video-call-fs-enter,
+.video-call-stage:-webkit-full-screen .video-call-icon .video-call-fs-enter {
+  display: none !important;
+}
+.video-call-stage.is-full .video-call-icon .video-call-fs-exit,
+.video-call-stage:fullscreen .video-call-icon .video-call-fs-exit,
+.video-call-stage:-webkit-full-screen .video-call-icon .video-call-fs-exit {
+  display: block !important;
+}
 .video-call-blackout {
   position: absolute;
   inset: 0;

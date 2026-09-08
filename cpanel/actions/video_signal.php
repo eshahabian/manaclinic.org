@@ -28,9 +28,12 @@ $action = trim((string) ($body['action'] ?? $_GET['action'] ?? 'poll'));
 
 if ($action === 'poll') {
     $after = trim((string) ($body['after'] ?? $_GET['after'] ?? ''));
-    $sql = 'SELECT id, kind, payload, created_at FROM video_call_signals WHERE room_id=? AND sender_id=?';
+    $sql = 'SELECT id, kind, payload, created_at FROM video_call_signals WHERE room_id=? AND sender_id=? AND created_at >= DATE_SUB(NOW(), INTERVAL 30 SECOND)';
     $params = [$room, $peerId];
-    $sql .= ' AND created_at >= DATE_SUB(NOW(), INTERVAL 90 SECOND)';
+    if ($after !== '') {
+        $sql .= ' AND created_at > ?';
+        $params[] = $after;
+    }
     $sql .= ' ORDER BY created_at ASC, id ASC LIMIT 80';
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
@@ -59,7 +62,9 @@ if ($action === 'send') {
         video_call_json(['error' => 'نوع پیام نامعتبر است.'], 400);
     }
     $payload = $body['payload'] ?? null;
-    if ($kind === 'offer') {
+    if ($kind === 'hangup') {
+        $pdo->prepare('DELETE FROM video_call_signals WHERE room_id=?')->execute([$room]);
+    } elseif ($kind === 'offer') {
         $pdo->prepare("DELETE FROM video_call_signals WHERE room_id=? AND sender_id=? AND kind IN ('offer','answer','ice')")
             ->execute([$room, $meId]);
     }
@@ -71,10 +76,6 @@ if ($action === 'send') {
             $kind,
             $payload === null ? null : json_encode($payload, JSON_UNESCAPED_UNICODE),
         ]);
-    if ($kind === 'hangup') {
-        $pdo->prepare("DELETE FROM video_call_signals WHERE room_id=? AND created_at < DATE_SUB(NOW(), INTERVAL 2 MINUTE)")
-            ->execute([$room]);
-    }
     video_call_json(['ok' => true]);
 }
 

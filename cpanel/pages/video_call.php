@@ -29,6 +29,7 @@ ob_start();
   data-peer-name="<?= e((string) $peer['name']) ?>"
   data-can-record="<?= video_call_is_clinician($user) ? '1' : '0' ?>"
   data-guard-capture="<?= video_call_is_clinician($user) ? '0' : '1' ?>"
+  data-polite="<?= video_call_is_clinician($user) ? '0' : '1' ?>"
 >
   <h1>تماس تصویری آزمایشی</h1>
   <p class="muted" style="margin:0;line-height:1.8">فقط بین شما و <?= e((string) $peer['name']) ?> فعال است.</p>
@@ -78,16 +79,17 @@ ob_start();
       <button type="button" class="video-call-icon video-call-icon-call" data-video-start aria-label="شروع تماس" title="شروع تماس">
         <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
           <circle cx="32" cy="32" r="27" stroke="#22c55e" stroke-width="3.6"/>
-          <g transform="rotate(-42 33 33)">
-            <path fill="#22c55e" d="M27.2 21.6c1.4-1.5 3.8-1.5 5.2 0l1.8 2c.9 1 .9 2.5.1 3.6l-1.4 2c-.3.5-.3 1 0 1.4 1.5 2.4 3.7 4.6 6.1 6.1.4.3 1 .3 1.4 0l2-1.4c1.1-.8 2.6-.8 3.6.1l2 1.8c1.5 1.4 1.5 3.8 0 5.2l-1.3 1.3c-1.4 1.4-3.5 1.8-5.4 1-4.7-1.9-8.9-5.2-12.3-9.8-3.3-4.4-5.4-9.5-6-14.6-.3-2 .6-4 2.1-5.4l1.3-1.3z"/>
+          <g transform="translate(32 34) scale(1.55) translate(-12 -12)" fill="#22c55e">
+            <path d="M6.62 10.79c1.44 2.83 3.76 5.14 6.59 6.59l2.2-2.2c.27-.27.67-.36 1.02-.24 1.12.37 2.33.57 3.57.57.55 0 1 .45 1 1V20c0 .55-.45 1-1 1C7.61 21 0 13.39 0 4c0-.55.45-1 1-1h3.5c.55 0 1 .45 1 1 0 1.25.2 2.45.57 3.57.11.35.03.74-.25 1.02l-2.2 2.2z"/>
           </g>
-          <path stroke="#22c55e" stroke-width="2.3" stroke-linecap="round" d="M41.2 15.8c2.3 1.1 4.2 2.8 5.4 5M43.4 13.4c3.1 1.5 5.6 3.8 7.2 6.8M45.6 11c3.9 1.9 7.1 4.9 9.1 8.6"/>
         </svg>
       </button>
       <button type="button" class="video-call-icon video-call-icon-hang" data-video-hangup hidden aria-label="قطع تماس" title="قطع تماس">
         <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
           <circle cx="32" cy="32" r="27" stroke="#ef4444" stroke-width="3.6"/>
-          <path fill="#ef4444" d="M18.5 34.2c1.1-1.8 3.4-2.6 5.4-1.9l3.2 1.1c.9.3 1.5 1.1 1.6 2.1l.2 2.8c.1.7.6 1.2 1.3 1.3 2.6.5 5.3.5 7.9 0 .7-.1 1.2-.6 1.3-1.3l.2-2.8c.1-1 .7-1.8 1.6-2.1l3.2-1.1c2-.7 4.3.1 5.4 1.9l1.2 1.8c1.1 1.7.7 4-1 5.2-3.8 2.7-8.8 4.2-16.2 4.2s-12.4-1.5-16.2-4.2c-1.7-1.2-2.1-3.5-1-5.2l1.2-1.8z"/>
+          <g transform="translate(32 33) scale(1.7) translate(-12 -12)" fill="#ef4444">
+            <path d="M12 9c-1.6 0-3.15.25-4.6.72v3.1c0 .39-.23.74-.56.9-.98.49-1.87 1.12-2.66 1.85-.18.18-.43.28-.7.28-.28 0-.53-.11-.71-.29L.29 13.08c-.18-.17-.29-.42-.29-.7 0-.28.11-.53.29-.71C3.34 8.78 7.46 7 12 7s8.66 1.78 11.71 4.67c.18.18.29.43.29.71 0 .28-.11.53-.29.7l-2.48 2.48c-.18.18-.43.29-.71.29-.27 0-.52-.11-.7-.28-.79-.74-1.69-1.36-2.67-1.85-.33-.16-.56-.5-.56-.9v-3.1C15.15 9.25 13.6 9 12 9z"/>
+          </g>
         </svg>
       </button>
     </div>
@@ -96,7 +98,7 @@ ob_start();
 </div>
 <?php
 $inner = ob_get_clean();
-$GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260908g"></script>';
+$GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260908h"></script>';
 
 $role = (string) ($user['role'] ?? '');
 if ($role === 'DOCTOR') {
