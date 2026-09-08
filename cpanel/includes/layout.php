@@ -22,7 +22,7 @@ $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'es
   <?= seo_render_head() ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260908s">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260908t">
   <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
   <script>
   (function(){
@@ -64,11 +64,25 @@ $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'es
 <div class="site-layer">
   <header class="site-header">
     <div class="container-page header-inner">
-      <a class="brand" href="<?= e(url('/')) ?>">
-        <img class="brand-logo" src="<?= e(url('/assets/img/logo.png')) ?>" width="36" height="36" alt="">
-        مانا کلینیک
-      </a>
-      <nav class="nav-links">
+      <div class="header-brand">
+        <button type="button" class="nav-toggle" aria-label="منو" aria-expanded="false" aria-controls="mobile-nav">
+          <span class="nav-toggle-bars" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </span>
+          <span class="nav-toggle-close" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M6 6l12 12M18 6L6 18"/>
+            </svg>
+          </span>
+        </button>
+        <a class="brand" href="<?= e(url('/')) ?>">
+          <img class="brand-logo" src="<?= e(url('/assets/img/logo.png')) ?>" width="36" height="36" alt="">
+          <span class="brand-text">مانا کلینیک</span>
+        </a>
+      </div>
+      <nav class="nav-links" id="site-nav">
         <a href="<?= e(url('/')) ?>">صفحه اصلی</a>
         <a href="<?= e(url('/doctors')) ?>">متخصصان</a>
         <a href="<?= e(url('/articles')) ?>">مقالات</a>
@@ -93,6 +107,14 @@ $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'es
       </div>
     </div>
   </header>
+  <div class="mobile-nav-overlay" data-nav-overlay aria-hidden="true"></div>
+  <div id="mobile-nav" class="mobile-nav" role="dialog" aria-modal="true" aria-label="منو" aria-hidden="true" inert>
+    <div class="mobile-nav-inner">
+      <div class="mobile-nav-panel" data-mobile-panel hidden></div>
+      <p class="mobile-nav-heading" data-mobile-site-heading hidden>منوی سایت</p>
+      <div data-mobile-site></div>
+    </div>
+  </div>
 
   <main>
     <?php if ($flash): ?>
@@ -169,6 +191,7 @@ $overviewJs = __DIR__ . '/../assets/js/workshop-overview.js';
 <script><?php if (is_file($overviewJs)) { echo file_get_contents($overviewJs); } ?></script>
 <script src="<?= e(url('/assets/js/particles.js')) ?>?v=20260904t"></script>
 <script src="<?= e(url('/assets/js/password-field.js')) ?>?v=20260908a"></script>
+<script src="<?= e(url('/assets/js/mobile-nav.js')) ?>?v=20260908a"></script>
 <?php if ($user && ($user['role'] ?? '') === 'SECRETARY'): ?>
 <script src="<?= e(url('/assets/js/secretary-idle.js')) ?>?v=20260906y"></script>
 <?php endif; ?>

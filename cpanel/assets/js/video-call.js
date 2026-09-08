@@ -28,6 +28,10 @@
   var lastPeerStatus = "";
   var audioCtx = null;
   var ringTimer = null;
+  var ringUrl = root.getAttribute("data-ring-url") || "";
+  var hangUrl = root.getAttribute("data-hang-url") || "";
+  var ringAudio = null;
+  var hangAudio = null;
   var canRecord = root.getAttribute("data-can-record") === "1";
   var guardCapture = root.getAttribute("data-guard-capture") === "1";
   var polite = root.getAttribute("data-polite") === "1";
@@ -62,6 +66,49 @@
     return audioCtx;
   }
 
+  function makeSound(url, loop) {
+    if (!url) return null;
+    var a = new Audio(url);
+    a.preload = "auto";
+    a.loop = !!loop;
+    a.playsInline = true;
+    return a;
+  }
+
+  function unlockSounds() {
+    ctx();
+    [ringAudio, hangAudio].forEach(function (a) {
+      if (!a) return;
+      var prevVol = a.volume;
+      a.volume = 0;
+      var play = a.play();
+      if (play && play.then) {
+        play.then(function () {
+          a.pause();
+          a.currentTime = 0;
+          a.volume = prevVol || 1;
+        }).catch(function () {
+          a.volume = prevVol || 1;
+        });
+      } else {
+        a.volume = prevVol || 1;
+      }
+    });
+  }
+
+  function playFile(audio) {
+    if (!audio) return false;
+    try {
+      audio.pause();
+      audio.currentTime = 0;
+      var play = audio.play();
+      if (play && play.catch) play.catch(function () {});
+      return true;
+    } catch (e) {
+      return false;
+    }
+  }
+
   function tone(freq, start, dur, vol) {
     var ac = ctx();
     if (!ac) return;
@@ -89,6 +136,8 @@
   function startRing() {
     stopRing();
     ctx();
+    if (!ringAudio) ringAudio = makeSound(ringUrl, true);
+    if (playFile(ringAudio)) return;
     playRingBurst();
     ringTimer = setInterval(playRingBurst, 1800);
   }
@@ -98,15 +147,20 @@
       clearInterval(ringTimer);
       ringTimer = null;
     }
+    if (ringAudio) {
+      ringAudio.pause();
+      try { ringAudio.currentTime = 0; } catch (e) {}
+    }
   }
 
   function playConnected() {
     stopRing();
-    tone(760, 0, 0.09, 0.05);
   }
 
   function playDisconnected() {
     stopRing();
+    if (!hangAudio) hangAudio = makeSound(hangUrl, false);
+    if (playFile(hangAudio)) return;
     tone(210, 0, 0.16, 0.035);
   }
 
@@ -373,7 +427,6 @@
       connectedOnce = false;
       syncCallButtons();
       setStatus("در حال تماس… منتظر پاسخ طرف مقابل.");
-      startRing();
       var conn = ensurePc();
       makingOffer = true;
       return conn.createOffer().then(function (offer) {
@@ -607,10 +660,12 @@
   }
 
   if (permitBtn) permitBtn.addEventListener("click", function () {
+    unlockSounds();
     ctx();
     requestMedia().catch(function () {});
   });
   if (startBtn) startBtn.addEventListener("click", function () {
+    unlockSounds();
     if (pendingOffer && !(calling && pc)) acceptCall(pendingOffer);
     else startCall();
   });
@@ -660,6 +715,9 @@
     }
   }
 
+  ringAudio = makeSound(ringUrl, true);
+  hangAudio = makeSound(hangUrl, false);
+  document.addEventListener("click", unlockSounds, { once: true });
   requestMedia().catch(function () {});
   poll();
   setInterval(poll, 700);

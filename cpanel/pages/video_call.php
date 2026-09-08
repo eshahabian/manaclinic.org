@@ -30,6 +30,8 @@ ob_start();
   data-can-record="<?= video_call_is_clinician($user) ? '1' : '0' ?>"
   data-guard-capture="<?= video_call_is_clinician($user) ? '0' : '1' ?>"
   data-polite="<?= video_call_is_clinician($user) ? '0' : '1' ?>"
+  data-ring-url="<?= e(url('/assets/audio/incoming-call.ogg')) ?>"
+  data-hang-url="<?= e(url('/assets/audio/hang-up.ogg')) ?>"
 >
   <h1>تماس تصویری آزمایشی</h1>
   <p class="muted" style="margin:0;line-height:1.8">فقط بین شما و <?= e((string) $peer['name']) ?> فعال است.</p>
@@ -98,7 +100,7 @@ ob_start();
 </div>
 <?php
 $inner = ob_get_clean();
-$GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260908h"></script>';
+$GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260908i"></script>';
 
 $role = (string) ($user['role'] ?? '');
 if ($role === 'DOCTOR') {
