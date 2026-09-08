@@ -13,7 +13,7 @@ ob_start();
 ?>
 <div class="doc-profile-page">
   <h1><?= $incomplete ? 'تکمیل پروفایل حرفه‌ای' : 'پروفایل حرفه‌ای' ?></h1>
-  <?php if ($incomplete && function_exists('doctor_is_shiva') && doctor_is_shiva($ctx['user'] ?? null)): ?>
+  <?php if ($incomplete && function_exists('doctor_skips_profile_gate') && doctor_skips_profile_gate($ctx['user'] ?? null)): ?>
     <p class="doc-onboard-banner">پروفایل را تکمیل کنید.</p>
   <?php elseif ($incomplete): ?>
     <p class="doc-onboard-banner">برای ورود به بقیه پنل، این موارد را کامل کنید. همه فیلدها الزامی است.</p>

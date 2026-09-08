@@ -204,12 +204,25 @@ function doctor_is_shiva(?array $user): bool
     return str_contains((string) ($user['name'] ?? ''), 'گرانمایه');
 }
 
+function doctor_skips_profile_gate(?array $user): bool
+{
+    if (!$user) {
+        return false;
+    }
+    if (doctor_is_shiva($user)) {
+        return true;
+    }
+    $username = strtolower(trim((string) ($user['username'] ?? '')));
+
+    return $username === 'mbabei';
+}
+
 function doctor_must_complete_profile(PDO $pdo, array $user): bool
 {
     if (($user['role'] ?? '') !== 'DOCTOR') {
         return false;
     }
-    if (doctor_is_shiva($user)) {
+    if (doctor_skips_profile_gate($user)) {
         return false;
     }
     static $cache = [];

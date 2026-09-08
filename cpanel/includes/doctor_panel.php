@@ -240,8 +240,8 @@ function render_doctor_page(string $title, string $innerHtml): void
     if (
         $currentPath !== '/doctor/profile'
         && is_array($ctx['user'] ?? null)
-        && function_exists('doctor_is_shiva')
-        && doctor_is_shiva($ctx['user'])
+        && function_exists('doctor_skips_profile_gate')
+        && doctor_skips_profile_gate($ctx['user'])
         && is_array($ctx['profile'] ?? null)
         && function_exists('doctor_profile_is_complete')
         && !doctor_profile_is_complete($ctx['profile'])
