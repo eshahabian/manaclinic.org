@@ -1157,6 +1157,34 @@ function workshop_promo_image_src(array $workshop): string
     return url('/assets/img/workshops/' . workshop_designed_banner_file($workshop));
 }
 
+/** توضیح کوتاه اهداف دوره برای پنجره صفحه اول */
+function workshop_promo_blurb(array $workshop): string
+{
+    $custom = trim((string) ($workshop['description'] ?? ''));
+    if ($custom !== '') {
+        return $custom;
+    }
+    $title = (string) ($workshop['title'] ?? '');
+    $type = (string) ($workshop['type'] ?? '');
+
+    if (preg_match('/زوج|رابطه|ازدواج|همسر/u', $title)) {
+        return 'هدف این دوره، بهتر شدن گفتگو و درک متقابل زوج‌ها، کم‌کردن تنش‌های تکراری و ساختن رابطه‌ای امن‌تر و نزدیک‌تر است.';
+    }
+    if (preg_match('/MBSR|مایند|mindful|استرس|اضطراب|آرامش|ذهن|مدیتیشن|آگاه|تنظیم هیجان/iu', $title)) {
+        return match ($type) {
+            'OFFLINE' => 'هدف این دوره آفلاین، یادگیری گام‌به‌گام ذهن‌آگاهی برای کاهش استرس است؛ تمرین‌ها را با فایل‌های ضبط‌شده و با سرعت خودتان انجام می‌دهید.',
+            'ONLINE' => 'هدف این کارگاه آنلاین، تمرین ذهن‌آگاهی برای کاهش استرس و آرام‌کردن ذهن در جلسات زنده از راه دور است.',
+            default => 'هدف این کارگاه حضوری، یادگیری مهارت‌های ذهن‌آگاهی برای کاهش استرس روزمره، آرام‌کردن ذهن و تمرین حضور در لحظه در فضای گروهی است.',
+        };
+    }
+
+    return match ($type) {
+        'OFFLINE' => 'هدف این دوره آفلاین، یادگیری مهارت‌های کاربردی سلامت روان با محتوای ضبط‌شده و تمرین در زمان دلخواه شماست.',
+        'ONLINE' => 'هدف این کارگاه آنلاین، یادگیری مهارت‌های سلامت روان در جلسات زنده و قابل پیگیری از خانه است.',
+        default => 'هدف این کارگاه حضوری، تمرین مهارت‌های سلامت روان در فضای گروهی و همراهی درمانگر است.',
+    };
+}
+
 function workshop_delete_banner_file(?string $publicPath): void
 {
     $publicPath = (string) $publicPath;

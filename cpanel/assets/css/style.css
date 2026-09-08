@@ -592,6 +592,11 @@ body.home-workshop-locked { overflow: hidden; }
 }
 .home-workshop-modal-body { margin-top: 1rem; line-height: 1.9; }
 .home-workshop-modal-body p { margin: .4rem 0; }
+.home-workshop-goal-label {
+  margin: 1rem 0 .2rem;
+  font-weight: 700;
+  color: var(--primary);
+}
 .home-workshop-modal-photo {
   display: block;
   width: 100%;

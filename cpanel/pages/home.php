@@ -103,6 +103,9 @@ ob_start();
               $bannerSrc = function_exists('workshop_promo_image_src')
                   ? workshop_promo_image_src($promo)
                   : '';
+              $blurb = function_exists('workshop_promo_blurb')
+                  ? workshop_promo_blurb($promo)
+                  : trim((string) ($promo['description'] ?? ''));
               $typeKey = workshop_tab_from_type((string) ($promo['type'] ?? ''));
             ?>
             <button
@@ -110,7 +113,7 @@ ob_start();
               class="home-workshop-banner"
               data-workshop-banner
               data-title="<?= e((string) ($promo['title'] ?? '')) ?>"
-              data-description="<?= e((string) ($promo['description'] ?? '')) ?>"
+              data-description="<?= e($blurb) ?>"
               data-meta="<?= e($meta) ?>"
               data-image="<?= e($bannerSrc) ?>"
               data-apply="<?= e(workshop_apply_url((string) ($promo['id'] ?? ''))) ?>"
@@ -196,7 +199,7 @@ ob_start();
 <?php
 $content = ob_get_clean();
 $pageScripts = '
-<script src="' . e(url('/assets/js/home-workshop-banners.js')) . '?v=20260908f"></script>
+<script src="' . e(url('/assets/js/home-workshop-banners.js')) . '?v=20260908j"></script>
 <script>
 (function(){
   var root = document.getElementById("hero-slideshow");

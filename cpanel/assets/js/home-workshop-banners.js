@@ -27,6 +27,12 @@
         p.textContent = meta;
         bodyEl.appendChild(p);
       }
+      if (desc) {
+        var goal = document.createElement("p");
+        goal.className = "home-workshop-goal-label";
+        goal.textContent = "اهداف دوره";
+        bodyEl.appendChild(goal);
+      }
       desc.split(/\n+/).forEach(function (line) {
         line = line.trim();
         if (!line) return;
