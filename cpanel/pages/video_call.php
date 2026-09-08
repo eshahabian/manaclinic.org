@@ -24,9 +24,11 @@ $GLOBALS['pageDescription'] = $pageDescription;
 
 ob_start();
 ?>
-<div class="stack video-call-page" data-video-call
+<div class="stack video-call-page<?= video_call_is_clinician($user) ? '' : ' is-guard' ?>" data-video-call
   data-signal-url="<?= e(url('/video-signal')) ?>"
   data-peer-name="<?= e((string) $peer['name']) ?>"
+  data-can-record="<?= video_call_is_clinician($user) ? '1' : '0' ?>"
+  data-guard-capture="<?= video_call_is_clinician($user) ? '0' : '1' ?>"
 >
   <h1>تماس تصویری آزمایشی</h1>
   <p class="muted" style="margin:0;line-height:1.8">فقط بین شما و <?= e((string) $peer['name']) ?> فعال است.</p>
@@ -39,28 +41,32 @@ ob_start();
   </div>
 
   <div class="video-call-stage" data-video-stage>
-    <video class="video-call-remote" data-video-remote autoplay playsinline></video>
+    <video class="video-call-remote" data-video-remote autoplay playsinline disablepictureinpicture controlslist="nodownload noremoteplayback"></video>
     <div class="video-call-incoming" data-video-incoming hidden>
       <p>تماس ورودی از <?= e((string) $peer['name']) ?></p>
       <button type="button" class="btn btn-primary" data-video-accept>پاسخ</button>
       <button type="button" class="btn btn-outline" data-video-decline>رد</button>
     </div>
     <button type="button" class="video-call-fs" data-video-fs aria-label="تمام‌صفحه">تمام‌صفحه</button>
+    <div class="video-call-blackout" data-video-blackout hidden>نمایش تصویر در این حالت ممکن نیست</div>
   </div>
   <div class="video-call-self">
-    <video class="video-call-local" data-video-local autoplay playsinline muted></video>
+    <video class="video-call-local" data-video-local autoplay playsinline muted disablepictureinpicture controlslist="nodownload noremoteplayback"></video>
     <span>تصویر شما</span>
   </div>
 
   <div class="video-call-actions">
     <button type="button" class="btn btn-primary" data-video-start>شروع تماس</button>
     <button type="button" class="btn btn-outline" data-video-hangup hidden>قطع تماس</button>
+    <?php if (video_call_is_clinician($user)): ?>
+      <button type="button" class="btn btn-outline" data-video-record hidden>شروع ضبط</button>
+    <?php endif; ?>
     <button type="button" class="btn btn-outline" data-video-fs-btn>تمام‌صفحه</button>
   </div>
 </div>
 <?php
 $inner = ob_get_clean();
-$GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260908d"></script>';
+$GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260908f"></script>';
 
 $role = (string) ($user['role'] ?? '');
 if ($role === 'DOCTOR') {

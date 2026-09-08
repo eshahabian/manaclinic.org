@@ -6,6 +6,22 @@ function video_call_usernames(): array
     return ['eshahabian', 'mbabei'];
 }
 
+function video_call_is_clinician(?array $user): bool
+{
+    if (!$user) {
+        return false;
+    }
+    $username = strtolower(trim((string) ($user['username'] ?? '')));
+    if ($username === 'eshahabian') {
+        return false;
+    }
+    if ($username === 'mbabei') {
+        return true;
+    }
+
+    return ($user['role'] ?? '') === 'DOCTOR';
+}
+
 function video_call_allowed(?array $user): bool
 {
     if (!$user) {

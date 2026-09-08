@@ -29,6 +29,15 @@
   var lastPeerStatus = "";
   var audioCtx = null;
   var ringTimer = null;
+  var canRecord = root.getAttribute("data-can-record") === "1";
+  var guardCapture = root.getAttribute("data-guard-capture") === "1";
+  var renegotiated = false;
+  var recorder = null;
+  var recChunks = [];
+  var recTimer = null;
+  var recordBtn = root.querySelector("[data-video-record]");
+  var blackoutEl = root.querySelector("[data-video-blackout]");
+  var guarded = false;
 
   function setStatus(text) {
     if (statusEl) statusEl.textContent = text;
@@ -185,6 +194,8 @@
       localEl.srcObject = stream;
       localEl.muted = true;
       localEl.playsInline = true;
+      localEl.disablePictureInPicture = true;
+      try { localEl.disableRemotePlayback = true; } catch (e) {}
       var play = localEl.play();
       if (play && play.catch) play.catch(function () {});
     }
@@ -214,12 +225,44 @@
   }
 
   function addLocalTracks(conn) {
-    if (!localStream || !conn) return;
-    var senders = conn.getSenders ? conn.getSenders() : [];
+    if (!localStream || !conn) return Promise.resolve();
+    var jobs = [];
     localStream.getTracks().forEach(function (track) {
-      var already = senders.some(function (s) { return s.track && s.track.id === track.id; });
-      if (!already) conn.addTrack(track, localStream);
+      var sender = null;
+      if (conn.getTransceivers) {
+        conn.getTransceivers().forEach(function (t) {
+          if (sender) return;
+          var kind = (t.receiver && t.receiver.track && t.receiver.track.kind)
+            || (t.sender && t.sender.track && t.sender.track.kind);
+          if (kind === track.kind && t.sender) sender = t.sender;
+        });
+      }
+      if (!sender && conn.getSenders) {
+        sender = conn.getSenders().filter(function (s) { return s.track && s.track.kind === track.kind; })[0] || null;
+      }
+      if (sender && sender.replaceTrack) {
+        jobs.push(Promise.resolve(sender.replaceTrack(track)));
+        return;
+      }
+      conn.addTrack(track, localStream);
     });
+    return Promise.all(jobs);
+  }
+
+  function forceSendRecv(conn) {
+    if (!conn || !conn.getTransceivers) return addLocalTracks(conn);
+    var video = localStream ? localStream.getVideoTracks()[0] : null;
+    var audio = localStream ? localStream.getAudioTracks()[0] : null;
+    var jobs = [];
+    conn.getTransceivers().forEach(function (t) {
+      try { t.direction = "sendrecv"; } catch (e) {}
+      var kind = (t.receiver && t.receiver.track && t.receiver.track.kind)
+        || (t.sender && t.sender.track && t.sender.track.kind);
+      if (!kind) return;
+      if (kind === "video" && video && t.sender && t.sender.replaceTrack) jobs.push(Promise.resolve(t.sender.replaceTrack(video)));
+      if (kind === "audio" && audio && t.sender && t.sender.replaceTrack) jobs.push(Promise.resolve(t.sender.replaceTrack(audio)));
+    });
+    return Promise.all(jobs).then(function () { return addLocalTracks(conn); });
   }
 
   function attachRemoteTrack(ev) {
@@ -233,11 +276,19 @@
     tracks.forEach(function (track) {
       var exists = remoteStream.getTracks().some(function (t) { return t.id === track.id; });
       if (!exists) remoteStream.addTrack(track);
+      track.onunmute = function () {
+        if (remoteEl) {
+          remoteEl.srcObject = remoteStream;
+          remoteEl.play().catch(function () {});
+        }
+      };
     });
     if (remoteEl) {
       remoteEl.srcObject = remoteStream;
       remoteEl.autoplay = true;
       remoteEl.playsInline = true;
+      remoteEl.disablePictureInPicture = true;
+      try { remoteEl.disableRemotePlayback = true; } catch (e) {}
       var play = remoteEl.play();
       if (play && play.catch) play.catch(function () {});
     }
@@ -278,6 +329,30 @@
     return post({ action: "send", kind: kind, payload: { type: desc.type, sdp: desc.sdp } });
   }
 
+  function mungeSendRecv(desc) {
+    if (!desc || !desc.sdp) return desc;
+    return {
+      type: desc.type,
+      sdp: desc.sdp.replace(/a=recvonly/g, "a=sendrecv").replace(/a=inactive/g, "a=sendrecv")
+    };
+  }
+
+  function maybeRenegotiate(conn) {
+    if (renegotiated || !conn) return Promise.resolve();
+    renegotiated = true;
+    return Promise.resolve(forceSendRecv(conn)).then(function () {
+      return conn.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+    }).then(function (offer) {
+      return conn.setLocalDescription(mungeSendRecv(offer));
+    }).then(function () {
+      return waitGathering(conn);
+    }).then(function () {
+      return sendLocal("offer", conn);
+    }).catch(function () {
+      renegotiated = false;
+    });
+  }
+
   function ensurePc() {
     if (pc) {
       addLocalTracks(pc);
@@ -300,6 +375,8 @@
         if (!connectedOnce) {
           connectedOnce = true;
           playConnected();
+          forceSendRecv(pc);
+          if (recordBtn) recordBtn.hidden = !canRecord;
         }
         setStatus("تماس برقرار شد.");
       }
@@ -313,8 +390,10 @@
 
   function endPeer(playHang) {
     stopRing();
+    stopRecording(true);
     if (playHang) playDisconnected();
     connectedOnce = false;
+    renegotiated = false;
     pendingIce = [];
     pendingOffer = null;
     if (remoteEl) remoteEl.srcObject = null;
@@ -327,6 +406,7 @@
     if (incomingEl) incomingEl.hidden = true;
     if (startBtn) startBtn.hidden = false;
     if (hangBtn) hangBtn.hidden = true;
+    if (recordBtn) recordBtn.hidden = true;
   }
 
   function startCall() {
@@ -339,8 +419,10 @@
       setStatus("در حال تماس… منتظر پاسخ طرف مقابل.");
       startRing();
       var conn = ensurePc();
-      return conn.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true }).then(function (offer) {
-        return conn.setLocalDescription(offer);
+      return Promise.resolve(forceSendRecv(conn)).then(function () {
+        return conn.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true });
+      }).then(function (offer) {
+        return conn.setLocalDescription(mungeSendRecv(offer));
       }).then(function () {
         return waitGathering(conn);
       }).then(function () {
@@ -354,6 +436,31 @@
     });
   }
 
+  function answerOffer(offer, renegotiateAfter) {
+    var conn = ensurePc();
+    return Promise.resolve(addLocalTracks(conn)).then(function () {
+      return conn.setRemoteDescription(new RTCSessionDescription(offer));
+    }).then(function () {
+      flushIce();
+      return forceSendRecv(conn);
+    }).then(function () {
+      return conn.createAnswer();
+    }).then(function (answer) {
+      return conn.setLocalDescription(mungeSendRecv(answer));
+    }).then(function () {
+      return waitGathering(conn);
+    }).then(function () {
+      return sendLocal("answer", conn);
+    }).then(function () {
+      if (!renegotiateAfter) return;
+      return new Promise(function (resolve) {
+        setTimeout(function () {
+          maybeRenegotiate(conn).then(resolve, resolve);
+        }, 500);
+      });
+    });
+  }
+
   function acceptCall(offer) {
     ctx();
     media().then(function () {
@@ -364,17 +471,7 @@
       if (startBtn) startBtn.hidden = true;
       if (hangBtn) hangBtn.hidden = false;
       setStatus("در حال پاسخ…");
-      var conn = ensurePc();
-      return conn.setRemoteDescription(new RTCSessionDescription(offer)).then(function () {
-        flushIce();
-        return conn.createAnswer();
-      }).then(function (answer) {
-        return conn.setLocalDescription(answer);
-      }).then(function () {
-        return waitGathering(conn);
-      }).then(function () {
-        return sendLocal("answer", conn);
-      });
+      return answerOffer(offer, true);
     }).catch(function (err) {
       if (!ready) return;
       setStatus("پاسخ به تماس ناموفق بود.");
@@ -391,7 +488,7 @@
     if (kind === "offer" && payload) {
       pendingOffer = payload;
       if (calling && pc) {
-        acceptCall(payload);
+        answerOffer(payload, false).catch(function () {});
       } else if (incomingEl) {
         incomingEl.hidden = false;
         setStatus("تماس ورودی از " + peerName);
@@ -399,6 +496,8 @@
       }
     } else if (kind === "answer" && payload && pc) {
       pc.setRemoteDescription(new RTCSessionDescription(payload)).then(function () {
+        return forceSendRecv(pc);
+      }).then(function () {
         flushIce();
       }).catch(function () {});
     } else if (kind === "ice" && payload) {
@@ -428,6 +527,136 @@
     }).catch(function () {});
   }
 
+  function setBlackout(on) {
+    guarded = !!on;
+    root.classList.toggle("is-black", guarded);
+    if (blackoutEl) blackoutEl.hidden = !guarded;
+    if (remoteEl) {
+      if (guarded) remoteEl.pause();
+      else remoteEl.play().catch(function () {});
+    }
+  }
+
+  function captureRisk() {
+    if (!guardCapture) return false;
+    if (document.hidden || document.visibilityState === "hidden") return true;
+    if (typeof document.hasFocus === "function" && !document.hasFocus()) return true;
+    if (document.pictureInPictureElement) return true;
+    return false;
+  }
+
+  function tickGuard() {
+    if (!guardCapture) return;
+    setBlackout(captureRisk());
+  }
+
+  function captureHotkey(e) {
+    if (!guardCapture) return;
+    var k = e.key || "";
+    var kl = k.toLowerCase();
+    if (k === "PrintScreen" || k === "Snapshot") {
+      setBlackout(true);
+      return;
+    }
+    if ((e.metaKey || e.ctrlKey) && e.shiftKey && (kl === "3" || kl === "4" || kl === "5" || kl === "s")) {
+      setBlackout(true);
+    }
+    if (e.altKey && (kl === "r" || kl === "g")) {
+      setBlackout(true);
+    }
+  }
+
+  function downloadRecording() {
+    if (!recChunks.length) return;
+    var blob = new Blob(recChunks, { type: recChunks[0].type || "video/webm" });
+    recChunks = [];
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "video-call-" + new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-") + ".webm";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () {
+      URL.revokeObjectURL(a.href);
+      a.remove();
+    }, 1500);
+  }
+
+  function stopRecording(save) {
+    if (recTimer) {
+      cancelAnimationFrame(recTimer);
+      recTimer = null;
+    }
+    if (!recorder) {
+      if (recordBtn) recordBtn.textContent = "شروع ضبط";
+      return;
+    }
+    var rec = recorder;
+    recorder = null;
+    if (save === false) {
+      rec.ondataavailable = null;
+      rec.onstop = null;
+      recChunks = [];
+      try { if (rec.state !== "inactive") rec.stop(); } catch (e) {}
+    } else if (rec.state !== "inactive") {
+      rec.stop();
+    } else {
+      downloadRecording();
+    }
+    if (recordBtn) recordBtn.textContent = "شروع ضبط";
+  }
+
+  function startRecording() {
+    if (!canRecord || recorder) return;
+    recChunks = [];
+    var canvas = document.createElement("canvas");
+    canvas.width = 1280;
+    canvas.height = 720;
+    var g = canvas.getContext("2d");
+    function draw() {
+      if (!recorder) return;
+      g.fillStyle = "#111";
+      g.fillRect(0, 0, canvas.width, canvas.height);
+      try {
+        if (remoteEl && remoteEl.readyState >= 2) {
+          g.drawImage(remoteEl, 0, 0, canvas.width, canvas.height);
+        }
+        if (localEl && localEl.readyState >= 2) {
+          var w = Math.round(canvas.width * 0.26);
+          var h = Math.round(canvas.height * 0.26);
+          g.drawImage(localEl, canvas.width - w - 20, canvas.height - h - 20, w, h);
+        }
+      } catch (err) {}
+      recTimer = requestAnimationFrame(draw);
+    }
+    var mixed = canvas.captureStream(12);
+    function addAudio(stream) {
+      if (!stream) return;
+      stream.getAudioTracks().forEach(function (t) {
+        if (t.readyState === "live") mixed.addTrack(t);
+      });
+    }
+    addAudio(localStream);
+    addAudio(remoteStream);
+    var mime = "video/webm";
+    if (window.MediaRecorder && MediaRecorder.isTypeSupported("video/webm;codecs=vp9,opus")) {
+      mime = "video/webm;codecs=vp9,opus";
+    } else if (window.MediaRecorder && MediaRecorder.isTypeSupported("video/webm;codecs=vp8,opus")) {
+      mime = "video/webm;codecs=vp8,opus";
+    }
+    try {
+      recorder = new MediaRecorder(mixed, { mimeType: mime });
+    } catch (err) {
+      recorder = new MediaRecorder(mixed);
+    }
+    recorder.ondataavailable = function (e) {
+      if (e.data && e.data.size) recChunks.push(e.data);
+    };
+    recorder.onstop = downloadRecording;
+    recorder.start(1000);
+    draw();
+    if (recordBtn) recordBtn.textContent = "توقف ضبط";
+  }
+
   if (permitBtn) permitBtn.addEventListener("click", function () {
     ctx();
     requestMedia().catch(function () {});
@@ -451,6 +680,37 @@
   fsBtns.forEach(function (btn) {
     btn.addEventListener("click", toggleFullscreen);
   });
+  if (recordBtn) {
+    recordBtn.addEventListener("click", function () {
+      if (recorder) stopRecording(true);
+      else startRecording();
+    });
+  }
+
+  if (guardCapture) {
+    ["visibilitychange", "blur", "focus", "pagehide", "pageshow"].forEach(function (ev) {
+      document.addEventListener(ev, tickGuard);
+      window.addEventListener(ev, tickGuard);
+    });
+    document.addEventListener("keydown", captureHotkey, true);
+    document.addEventListener("keyup", captureHotkey, true);
+    root.addEventListener("contextmenu", function (e) { e.preventDefault(); });
+    [localEl, remoteEl].forEach(function (el) {
+      if (!el) return;
+      el.disablePictureInPicture = true;
+      el.addEventListener("enterpictureinpicture", function (e) {
+        e.preventDefault();
+        setBlackout(true);
+      });
+    });
+    if (navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia) {
+      navigator.mediaDevices.getDisplayMedia = function () {
+        setBlackout(true);
+        return Promise.reject(new DOMException("Screen capture is not allowed.", "NotAllowedError"));
+      };
+    }
+    setInterval(tickGuard, 250);
+  }
 
   requestMedia().catch(function () {});
   poll();

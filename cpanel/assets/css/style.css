@@ -692,6 +692,27 @@ body.home-workshop-locked { overflow: hidden; }
   cursor: pointer;
   font-family: inherit;
   font-size: .8rem;
+  z-index: 2;
+}
+.video-call-blackout {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  background: #000;
+  color: #666;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: .95rem;
+}
+.video-call-blackout[hidden] { display: none !important; }
+.video-call-page.is-black .video-call-blackout {
+  display: flex !important;
+}
+.video-call-page.is-black .video-call-remote,
+.video-call-page.is-black .video-call-local {
+  visibility: hidden;
+  filter: brightness(0) contrast(0);
 }
 .video-call-incoming {
   position: absolute;
