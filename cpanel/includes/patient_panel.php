@@ -18,7 +18,7 @@ function patient_request_path(): string
 
 function patient_nav(): array
 {
-    return [
+    $nav = [
         ['href' => '/dashboard', 'label' => 'خلاصه'],
         ['href' => '/dashboard/appointments', 'label' => 'نوبت‌های من'],
         ['href' => '/doctors', 'label' => 'رزرو نوبت جدید'],
@@ -34,6 +34,12 @@ function patient_nav(): array
         ['href' => '/dashboard/profile', 'label' => 'پروفایل'],
         ['href' => '/change-password', 'label' => 'تغییر رمز عبور'],
     ];
+    $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link() : null;
+    if ($videoLink) {
+        array_splice($nav, -1, 0, [$videoLink]);
+    }
+
+    return $nav;
 }
 
 function patient_nav_is_active(string $href, string $currentPath, bool $exact = false): bool

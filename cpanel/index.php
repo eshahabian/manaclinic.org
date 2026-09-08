@@ -61,6 +61,7 @@ require_once __DIR__ . '/includes/handover.php';
 require_once __DIR__ . '/includes/user_cleanup.php';
 require_once __DIR__ . '/includes/seo.php';
 require_once __DIR__ . '/includes/doctor_profile_fields.php';
+require_once __DIR__ . '/includes/video_call.php';
 
 $pdo = db_connect($config);
 ensure_doctor_profile_schema($pdo);
@@ -116,6 +117,8 @@ $routes = [
     'POST /register' => 'actions/register.php',
     'GET /change-password' => 'pages/change_password.php',
     'POST /change-password' => 'actions/change_password.php',
+    'GET /video-call' => 'pages/video_call.php',
+    'POST /video-signal' => 'actions/video_signal.php',
 
     'GET /dashboard' => 'pages/patient/dashboard.php',
     'GET /dashboard/appointments' => 'pages/patient/appointments.php',

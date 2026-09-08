@@ -11,6 +11,8 @@ Disallow: /workshops/apply
 Disallow: /logout
 Disallow: /install
 Disallow: /change-password
+Disallow: /video-call
+Disallow: /video-signal
 Disallow: /assistant/chat
 Disallow: /assistant/send
 

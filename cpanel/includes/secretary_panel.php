@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 function secretary_nav(): array
 {
-    return [
+    $nav = [
         ['href' => '/secretary/messages', 'label' => 'پیام‌ها'],
         ['href' => '/secretary/patients', 'label' => 'مراجعه‌کنندگان'],
         ['href' => '/secretary/appointments', 'label' => 'نوبت‌ها'],
@@ -12,6 +12,12 @@ function secretary_nav(): array
         ['href' => '/secretary/hours', 'label' => 'ساعت کاری'],
         ['href' => '/change-password', 'label' => 'تغییر رمز عبور'],
     ];
+    $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link() : null;
+    if ($videoLink) {
+        array_splice($nav, -1, 0, [$videoLink]);
+    }
+
+    return $nav;
 }
 
 function render_secretary_page(string $title, string $innerHtml): void

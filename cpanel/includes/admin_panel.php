@@ -15,7 +15,7 @@ function admin_pending_doctor_count(): int
 }
 
 function admin_nav(): array {
-    return [
+    $nav = [
         ['href' => '/admin', 'label' => 'خلاصه'],
         ['href' => '/admin/users', 'label' => 'کاربران'],
         ['href' => '/admin/appointments', 'label' => 'نوبت‌ها'],
@@ -38,6 +38,12 @@ function admin_nav(): array {
         ['href' => '/doctor/staff-messages', 'label' => 'پیام‌های درمانگر'],
         ['href' => '/change-password', 'label' => 'تغییر رمز عبور'],
     ];
+    $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link() : null;
+    if ($videoLink) {
+        array_splice($nav, -1, 0, [$videoLink]);
+    }
+
+    return $nav;
 }
 
 function render_admin_page(string $title, string $innerHtml): void {

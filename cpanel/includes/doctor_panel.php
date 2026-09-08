@@ -56,6 +56,10 @@ function doctor_nav(): array
         $nav[] = ['type' => 'link', 'href' => '/doctor/staff-hours', 'label' => 'ساعت کاری منشی‌ها'];
     }
     $nav[] = ['type' => 'link', 'href' => '/doctor/staff-messages', 'label' => 'پیام‌ها'];
+    $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link(true) : null;
+    if ($videoLink) {
+        $nav[] = $videoLink;
+    }
     $nav[] = ['type' => 'link', 'href' => '/change-password', 'label' => 'تغییر رمز عبور'];
 
     return $nav;

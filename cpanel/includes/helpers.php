@@ -278,6 +278,7 @@ function request_expects_json(): bool
         '/pay-workshop',
         '/cancel-enrollment',
         '/cancel-appointment',
+        '/video-signal',
     ], true);
 }
 
