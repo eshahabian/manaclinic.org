@@ -17,12 +17,17 @@
 
   var pc = null;
   var localStream = null;
+  var remoteStream = null;
   var after = "";
   var calling = false;
   var ready = false;
+  var connectedOnce = false;
   var seen = {};
   var pendingOffer = null;
+  var pendingIce = [];
   var lastPeerStatus = "";
+  var audioCtx = null;
+  var ringTimer = null;
 
   function setStatus(text) {
     if (statusEl) statusEl.textContent = text;
@@ -35,6 +40,64 @@
       var p = permitEl.querySelector("p");
       if (p) p.textContent = message;
     }
+  }
+
+  function ctx() {
+    if (!audioCtx) {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (Ctx) audioCtx = new Ctx();
+    }
+    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  }
+
+  function beep(freq, start, dur, type, gainVal) {
+    var ac = ctx();
+    if (!ac) return;
+    var osc = ac.createOscillator();
+    var gain = ac.createGain();
+    osc.type = type || "sine";
+    osc.frequency.setValueAtTime(freq, ac.currentTime + start);
+    gain.gain.setValueAtTime(0.0001, ac.currentTime + start);
+    gain.gain.exponentialRampToValueAtTime(gainVal || 0.08, ac.currentTime + start + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.0001, ac.currentTime + start + dur);
+    osc.connect(gain);
+    gain.connect(ac.destination);
+    osc.start(ac.currentTime + start);
+    osc.stop(ac.currentTime + start + dur + 0.02);
+  }
+
+  function playRingBurst() {
+    beep(495, 0, 0.42, "sine", 0.07);
+    beep(425, 0.12, 0.42, "sine", 0.05);
+    beep(495, 0.55, 0.42, "sine", 0.07);
+    beep(425, 0.67, 0.42, "sine", 0.05);
+  }
+
+  function startRing() {
+    stopRing();
+    ctx();
+    playRingBurst();
+    ringTimer = setInterval(playRingBurst, 3200);
+  }
+
+  function stopRing() {
+    if (ringTimer) {
+      clearInterval(ringTimer);
+      ringTimer = null;
+    }
+  }
+
+  function playConnected() {
+    stopRing();
+    beep(880, 0, 0.16, "sine", 0.09);
+    beep(1175, 0.14, 0.28, "sine", 0.08);
+  }
+
+  function playDisconnected() {
+    stopRing();
+    beep(520, 0, 0.18, "triangle", 0.07);
+    beep(360, 0.14, 0.28, "triangle", 0.06);
   }
 
   function mediaErrorText(err) {
@@ -136,30 +199,81 @@
     return requestMedia();
   }
 
+  function addLocalTracks(conn) {
+    if (!localStream || !conn) return;
+    var senders = conn.getSenders ? conn.getSenders() : [];
+    localStream.getTracks().forEach(function (track) {
+      var already = senders.some(function (s) { return s.track && s.track.id === track.id; });
+      if (!already) conn.addTrack(track, localStream);
+    });
+  }
+
+  function attachRemoteTrack(ev) {
+    if (!remoteStream) remoteStream = new MediaStream();
+    var tracks = [];
+    if (ev.streams && ev.streams[0]) {
+      tracks = ev.streams[0].getTracks();
+    } else if (ev.track) {
+      tracks = [ev.track];
+    }
+    tracks.forEach(function (track) {
+      var exists = remoteStream.getTracks().some(function (t) { return t.id === track.id; });
+      if (!exists) remoteStream.addTrack(track);
+    });
+    if (remoteEl) {
+      remoteEl.srcObject = remoteStream;
+      remoteEl.playsInline = true;
+      var play = remoteEl.play();
+      if (play && play.catch) play.catch(function () {});
+    }
+  }
+
+  function flushIce() {
+    if (!pc || !pc.remoteDescription) return;
+    var batch = pendingIce.splice(0, pendingIce.length);
+    batch.forEach(function (c) {
+      pc.addIceCandidate(new RTCIceCandidate(c)).catch(function () {});
+    });
+  }
+
   function ensurePc() {
-    if (pc) return pc;
+    if (pc) {
+      addLocalTracks(pc);
+      return pc;
+    }
+    remoteStream = new MediaStream();
     pc = new RTCPeerConnection({ iceServers: iceServers() });
     pc.onicecandidate = function (ev) {
       if (ev.candidate) {
         post({ action: "send", kind: "ice", payload: ev.candidate.toJSON ? ev.candidate.toJSON() : ev.candidate });
       }
     };
-    pc.ontrack = function (ev) {
-      if (remoteEl) remoteEl.srcObject = ev.streams[0] || new MediaStream([ev.track]);
-    };
+    pc.ontrack = attachRemoteTrack;
     pc.onconnectionstatechange = function () {
       if (!pc) return;
-      if (pc.connectionState === "connected") setStatus("تماس برقرار شد.");
-      if (pc.connectionState === "disconnected" || pc.connectionState === "failed") setStatus("ارتباط قطع شد.");
+      if (pc.connectionState === "connected") {
+        if (!connectedOnce) {
+          connectedOnce = true;
+          playConnected();
+        }
+        setStatus("تماس برقرار شد.");
+      }
+      if (pc.connectionState === "disconnected" || pc.connectionState === "failed") {
+        setStatus("ارتباط قطع شد.");
+      }
     };
-    if (localStream) {
-      localStream.getTracks().forEach(function (t) { pc.addTrack(t, localStream); });
-    }
+    addLocalTracks(pc);
     return pc;
   }
 
-  function endPeer() {
+  function endPeer(playHang) {
+    stopRing();
+    if (playHang) playDisconnected();
+    connectedOnce = false;
+    pendingIce = [];
+    pendingOffer = null;
     if (remoteEl) remoteEl.srcObject = null;
+    remoteStream = null;
     if (pc) {
       try { pc.close(); } catch (e) {}
       pc = null;
@@ -171,11 +285,14 @@
   }
 
   function startCall() {
+    ctx();
     media().then(function () {
       calling = true;
+      connectedOnce = false;
       if (startBtn) startBtn.hidden = true;
       if (hangBtn) hangBtn.hidden = false;
-      setStatus("در حال تماس…");
+      setStatus("در حال تماس… منتظر پاسخ طرف مقابل.");
+      startRing();
       var conn = ensurePc();
       return conn.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: true }).then(function (offer) {
         return conn.setLocalDescription(offer).then(function () {
@@ -185,20 +302,23 @@
     }).catch(function (err) {
       if (!ready) return;
       setStatus("شروع تماس ناموفق بود. دوباره تلاش کنید.");
-      endPeer();
+      endPeer(false);
       console.error(err);
     });
   }
 
   function acceptCall(offer) {
+    ctx();
     media().then(function () {
       calling = true;
+      connectedOnce = false;
       if (incomingEl) incomingEl.hidden = true;
       if (startBtn) startBtn.hidden = true;
       if (hangBtn) hangBtn.hidden = false;
       setStatus("در حال پاسخ…");
       var conn = ensurePc();
       return conn.setRemoteDescription(new RTCSessionDescription(offer)).then(function () {
+        flushIce();
         return conn.createAnswer();
       }).then(function (answer) {
         return conn.setLocalDescription(answer).then(function () {
@@ -208,7 +328,7 @@
     }).catch(function (err) {
       if (!ready) return;
       setStatus("پاسخ به تماس ناموفق بود.");
-      endPeer();
+      endPeer(false);
       console.error(err);
     });
   }
@@ -220,19 +340,22 @@
     var payload = sig.payload;
     if (kind === "offer" && payload) {
       pendingOffer = payload;
-      if (calling) {
+      if (calling && pc) {
         acceptCall(payload);
       } else if (incomingEl) {
         incomingEl.hidden = false;
         setStatus("تماس ورودی از " + peerName);
+        startRing();
       }
     } else if (kind === "answer" && payload && pc) {
-      pc.setRemoteDescription(new RTCSessionDescription(payload)).catch(function () {});
-    } else if (kind === "ice" && payload && pc) {
-      pc.addIceCandidate(new RTCIceCandidate(payload)).catch(function () {});
+      pc.setRemoteDescription(new RTCSessionDescription(payload)).then(function () {
+        flushIce();
+      }).catch(function () {});
+    } else if (kind === "ice" && payload) {
+      pendingIce.push(payload);
+      flushIce();
     } else if (kind === "hangup") {
-      pendingOffer = null;
-      endPeer();
+      endPeer(true);
       setStatus("تماس قطع شد.");
     }
   }
@@ -244,7 +367,7 @@
         var next = data.online
           ? peerName + " آنلاین است."
           : peerName + " فعلاً در این صفحه نیست — هر دو باید این صفحه را باز کنید.";
-        if (ready && next !== lastPeerStatus) {
+        if (ready && next !== lastPeerStatus && !ringTimer) {
           lastPeerStatus = next;
           setStatus(next);
         } else if (!ready) {
@@ -252,19 +375,20 @@
         }
       }
       (data.signals || []).forEach(function (sig) {
-        if (sig.created_at && sig.created_at > after) after = sig.created_at;
+        if (sig.created_at && (!after || sig.created_at >= after)) after = sig.created_at;
         handle(sig);
       });
     }).catch(function () {});
   }
 
   if (permitBtn) permitBtn.addEventListener("click", function () {
+    ctx();
     requestMedia().catch(function () {});
   });
   if (startBtn) startBtn.addEventListener("click", startCall);
   if (hangBtn) hangBtn.addEventListener("click", function () {
     post({ action: "send", kind: "hangup", payload: null });
-    endPeer();
+    endPeer(true);
     setStatus("تماس قطع شد.");
   });
   if (acceptBtn) acceptBtn.addEventListener("click", function () {
@@ -274,10 +398,11 @@
     pendingOffer = null;
     if (incomingEl) incomingEl.hidden = true;
     post({ action: "send", kind: "hangup", payload: null });
+    endPeer(true);
     setStatus("تماس رد شد.");
   });
 
   requestMedia().catch(function () {});
   poll();
-  setInterval(poll, 1200);
+  setInterval(poll, 800);
 })();

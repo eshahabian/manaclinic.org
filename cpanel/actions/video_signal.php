@@ -30,13 +30,8 @@ if ($action === 'poll') {
     $after = trim((string) ($body['after'] ?? $_GET['after'] ?? ''));
     $sql = 'SELECT id, kind, payload, created_at FROM video_call_signals WHERE room_id=? AND sender_id=?';
     $params = [$room, $peerId];
-    if ($after !== '') {
-        $sql .= ' AND created_at > ?';
-        $params[] = $after;
-    } else {
-        $sql .= ' AND created_at >= DATE_SUB(NOW(), INTERVAL 45 SECOND)';
-    }
-    $sql .= ' ORDER BY created_at ASC, id ASC LIMIT 40';
+    $sql .= ' AND created_at >= DATE_SUB(NOW(), INTERVAL 90 SECOND)';
+    $sql .= ' ORDER BY created_at ASC, id ASC LIMIT 80';
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
     $signals = [];
