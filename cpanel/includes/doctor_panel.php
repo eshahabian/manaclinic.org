@@ -37,17 +37,28 @@ function doctor_can_view_staff_hours(?array $user = null): bool
 
 function doctor_nav(): array
 {
+    $unread = 0;
+    global $pdo;
+    $ctx = is_array($GLOBALS['doctor_ctx'] ?? null) ? $GLOBALS['doctor_ctx'] : null;
+    $userId = $ctx ? doctor_ctx_user_id($ctx) : (string) (current_user()['id'] ?? '');
+    if ($pdo instanceof PDO && $userId !== '' && function_exists('count_unread_notifications')) {
+        $unread = count_unread_notifications($pdo, $userId);
+    }
+
     $nav = [
-        ['type' => 'link', 'href' => '/doctor', 'label' => 'خلاصه'],
+        [
+            'type' => 'link',
+            'href' => '/doctor/notifications',
+            'label' => 'اعلان‌ها',
+            'badge' => $unread,
+            'badge_tone' => 'new',
+        ],
     ];
     $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link(true) : null;
     if ($videoLink) {
         $nav[] = $videoLink;
     }
     $nav = array_merge($nav, [
-        ['type' => 'group', 'label' => 'گفتگو و پیام'],
-        ['type' => 'link', 'href' => '/doctor/intakes', 'label' => 'گفتگوهای دستیار'],
-        ['type' => 'link', 'href' => '/doctor/notifications', 'label' => 'اعلان‌ها'],
         ['type' => 'group', 'label' => 'نوبت و پرونده'],
         ['type' => 'link', 'href' => '/doctor/appointments', 'label' => 'نوبت‌ها'],
         ['type' => 'link', 'href' => '/doctor/availability', 'label' => 'روزهای خالی'],
@@ -271,11 +282,7 @@ function render_doctor_page(string $title, string $innerHtml): void
             <?php else: ?>
               <?php
                 $href = (string) $item['href'];
-                if ($href === '/doctor') {
-                    $active = $currentPath === $href || str_ends_with($currentPath, '/doctor');
-                } else {
-                    $active = str_contains($currentPath, $href);
-                }
+                $active = str_contains($currentPath, $href);
               ?>
               <a class="<?= $active ? 'is-active' : '' ?>" href="<?= e(url($href)) ?>">
                 <span class="side-nav-link-main">
@@ -284,6 +291,9 @@ function render_doctor_page(string $title, string $innerHtml): void
                   <?php endif; ?>
                   <?= e($item['label']) ?>
                 </span>
+                <?php if ((int) ($item['badge'] ?? 0) > 0): ?>
+                  <span class="side-nav-badge<?= (($item['badge_tone'] ?? '') === 'new') ? ' side-nav-badge-new' : '' ?>"><?= e(to_fa_digits((string) (int) $item['badge'])) ?></span>
+                <?php endif; ?>
               </a>
             <?php endif; ?>
           <?php endforeach; ?>

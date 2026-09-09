@@ -15,6 +15,12 @@ function admin_pending_doctor_count(): int
 }
 
 function admin_nav(): array {
+    $unread = 0;
+    global $pdo;
+    $user = current_user();
+    if ($pdo instanceof PDO && $user && function_exists('count_unread_notifications')) {
+        $unread = count_unread_notifications($pdo, (string) ($user['id'] ?? ''));
+    }
     $nav = [
         ['href' => '/admin', 'label' => 'خلاصه'],
         ['href' => '/admin/users', 'label' => 'کاربران'],
@@ -25,9 +31,7 @@ function admin_nav(): array {
         ['href' => '/admin/staff-messages', 'label' => 'پیام‌ها'],
         ['href' => '/secretary/messages', 'label' => 'پنل منشی'],
         ['type' => 'group', 'label' => 'کار درمانگرها'],
-        ['href' => '/doctor', 'label' => 'خلاصه درمانگر'],
-        ['href' => '/doctor/intakes', 'label' => 'گفتگوهای دستیار'],
-        ['href' => '/doctor/notifications', 'label' => 'اعلان‌ها'],
+        ['href' => '/doctor/notifications', 'label' => 'اعلان‌ها', 'badge' => $unread, 'badge_tone' => 'new'],
         ['href' => '/doctor/appointments', 'label' => 'نوبت‌های درمانگر'],
         ['href' => '/doctor/availability', 'label' => 'روزهای خالی'],
         ['href' => '/doctor/patients', 'label' => 'پرونده مراجعه‌کنندگان'],
@@ -80,7 +84,7 @@ function render_admin_page(string $title, string $innerHtml): void {
                   <?= e($item['label']) ?>
                 </span>
                 <?php if ((int) ($item['badge'] ?? 0) > 0): ?>
-                  <span class="side-nav-badge"><?= e(to_fa_digits((string) (int) $item['badge'])) ?></span>
+                  <span class="side-nav-badge<?= (($item['badge_tone'] ?? '') === 'new') ? ' side-nav-badge-new' : '' ?>"><?= e(to_fa_digits((string) (int) $item['badge'])) ?></span>
                 <?php endif; ?>
               </a>
             <?php endif; ?>

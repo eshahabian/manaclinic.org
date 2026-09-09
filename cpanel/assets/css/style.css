@@ -1549,6 +1549,10 @@ body.home-workshop-locked { overflow: hidden; }
   border-radius: 999px; background: var(--primary); color: #fff;
   font-size: .72rem; font-weight: 700; line-height: 1.35rem; text-align: center;
 }
+.side-nav-badge-new {
+  background: var(--danger);
+  color: #fff;
+}
 
 .panel-back {
   display: flex;

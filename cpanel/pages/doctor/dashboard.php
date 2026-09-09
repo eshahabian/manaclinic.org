@@ -162,13 +162,12 @@ ob_start();
           <h2>گفتگوها و پیام‌های دستیار</h2>
         </div>
         <div class="doctor-dash-card-actions">
-          <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/intakes')) ?>">همه گفتگوها</a>
-          <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/notifications?kind=assistant')) ?>">اعلان‌ها</a>
+          <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/notifications?kind=assistant')) ?>">اعلان دستیار</a>
         </div>
       </div>
 
       <div class="doctor-dash-stats">
-        <a class="doctor-dash-stat" href="<?= e(url('/doctor/intakes')) ?>">
+        <a class="doctor-dash-stat" href="<?= e(url('/doctor/notifications?kind=assistant')) ?>">
           <strong><?= (int) $intakeTotal ?></strong>
           <span>گفتگوی ارسال‌شده</span>
         </a>
@@ -205,7 +204,7 @@ ob_start();
       <?php if ($aiNotifs): ?>
         <h3 class="doctor-dash-sub">اعلان‌های دستیار</h3>
         <p class="muted" style="margin:0 0 .55rem;font-size:.85rem">
-          <a href="<?= e(url('/doctor/notifications?kind=assistant')) ?>">مشاهده جداگانه اعلان‌ها</a>
+          <a href="<?= e(url('/doctor/notifications?kind=assistant')) ?>">مشاهده اعلان دستیار و گفتگوها</a>
         </p>
         <ul class="doctor-dash-list doctor-dash-list--compact">
           <?php foreach (array_slice($aiNotifs, 0, 4) as $n): ?>

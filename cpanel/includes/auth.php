@@ -179,7 +179,7 @@ function panel_href_for(?array $user): ?string
     }
     return match ($user['role']) {
         'ADMIN' => '/admin',
-        'DOCTOR' => '/doctor',
+        'DOCTOR' => '/doctor/notifications',
         'SECRETARY' => '/secretary/messages',
         'PATIENT' => '/dashboard',
         default => null,

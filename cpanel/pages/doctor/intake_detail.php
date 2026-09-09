@@ -12,7 +12,7 @@ $id = trim((string) ($_GET['id'] ?? ''));
 $session = $id !== '' ? assistant_session_get($pdo, $id) : null;
 if (!$session || ($session['status'] ?? '') !== 'SENT') {
     flash_set('error', 'گفتگو یافت نشد.');
-    redirect('/doctor/intakes');
+    redirect('/doctor/notifications?kind=assistant');
 }
 
 $patientId = trim((string) ($session['patient_id'] ?? ''));
@@ -40,8 +40,7 @@ ob_start();
 ?>
 <div class="panel">
   <p class="panel-back">
-    <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor')) ?>">بازگشت به پنل</a>
-    <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/patients#intakes')) ?>">گفتگوهای دستیار</a>
+    <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/notifications?kind=assistant')) ?>">بازگشت به اعلان‌ها</a>
     <?php if (!empty($session['patient_id'])): ?>
       <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/patients/' . $session['patient_id'] . '#intakes')) ?>">پرونده مراجعه‌کننده</a>
     <?php endif; ?>
