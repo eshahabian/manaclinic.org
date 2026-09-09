@@ -39,6 +39,12 @@ function doctor_nav(): array
 {
     $nav = [
         ['type' => 'link', 'href' => '/doctor', 'label' => 'خلاصه'],
+    ];
+    $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link(true) : null;
+    if ($videoLink) {
+        $nav[] = $videoLink;
+    }
+    $nav = array_merge($nav, [
         ['type' => 'group', 'label' => 'گفتگو و پیام'],
         ['type' => 'link', 'href' => '/doctor/intakes', 'label' => 'گفتگوهای دستیار'],
         ['type' => 'link', 'href' => '/doctor/notifications', 'label' => 'اعلان‌ها'],
@@ -51,15 +57,11 @@ function doctor_nav(): array
         ['type' => 'link', 'href' => '/doctor/articles', 'label' => 'مقالات'],
         ['type' => 'link', 'href' => '/doctor/profile', 'label' => 'پروفایل حرفه‌ای'],
         ['type' => 'group', 'label' => 'حساب'],
-    ];
+    ]);
     if (doctor_can_view_staff_hours()) {
         $nav[] = ['type' => 'link', 'href' => '/doctor/staff-hours', 'label' => 'ساعت کاری منشی‌ها'];
     }
     $nav[] = ['type' => 'link', 'href' => '/doctor/staff-messages', 'label' => 'پیام‌ها'];
-    $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link(true) : null;
-    if ($videoLink) {
-        $nav[] = $videoLink;
-    }
     $nav[] = ['type' => 'link', 'href' => '/change-password', 'label' => 'تغییر رمز عبور'];
 
     return $nav;

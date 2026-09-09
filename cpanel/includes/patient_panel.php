@@ -36,7 +36,7 @@ function patient_nav(): array
     ];
     $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link() : null;
     if ($videoLink) {
-        array_splice($nav, -1, 0, [$videoLink]);
+        array_splice($nav, 1, 0, [$videoLink]);
     }
 
     return $nav;
