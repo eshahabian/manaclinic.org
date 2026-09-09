@@ -12,26 +12,64 @@ $userId = doctor_ctx_user_id($ctx);
 ensure_assistant_schema($pdo);
 ensure_workshop_schema($pdo);
 
-// نوبت‌های پیش‌رو
 $apptStmt = $pdo->prepare("
-  SELECT a.*, u.name AS patient_name,
+  SELECT a.*, u.name AS patient_name, u.phone,
          cu.name AS actor_name, cu.username AS actor_username
   FROM appointments a
   JOIN users u ON u.id = a.patient_id
   LEFT JOIN users cu ON cu.id = a.created_by_user_id
-  WHERE a.doctor_id=? AND a.status IN ('CONFIRMED','PENDING_PAYMENT') AND a.starts_at >= NOW()
+  WHERE a.doctor_id=?
   ORDER BY a.starts_at ASC
-  LIMIT 6
 ");
 $apptStmt->execute([$doctorId]);
-$appointments = $apptStmt->fetchAll();
+$allAppointments = $apptStmt->fetchAll();
 
-$apptCountStmt = $pdo->prepare("
-  SELECT COUNT(*) FROM appointments
-  WHERE doctor_id=? AND status IN ('CONFIRMED','PENDING_PAYMENT') AND starts_at >= NOW()
-");
-$apptCountStmt->execute([$doctorId]);
-$apptTotal = (int) $apptCountStmt->fetchColumn();
+$now = time();
+$upcomingAppointments = [];
+foreach ($allAppointments as $row) {
+    $status = (string) ($row['status'] ?? '');
+    $start = strtotime((string) ($row['starts_at'] ?? '')) ?: 0;
+    if (!in_array($status, ['CANCELLED', 'COMPLETED'], true) && $start >= $now) {
+        $upcomingAppointments[] = $row;
+    }
+}
+$apptTotal = count($upcomingAppointments);
+$dashApptYmd = group_appointments_by_jalali_ymd($allAppointments, 'dash-ap', 'current');
+
+$jalaliNow = jalali_current_month_meta();
+$curJy = (int) ($jalaliNow['year'] ?? 0);
+$curJm = (int) ($jalaliNow['month'] ?? 1);
+[$prevJy, $prevJm] = jalali_shift_month($curJy, $curJm, -1);
+$thisMonthItems = appointments_in_jalali_month($allAppointments, $curJy, $curJm);
+$prevMonthItems = appointments_in_jalali_month($allAppointments, $prevJy, $prevJm);
+$thisMonthPeople = appointment_unique_patient_count($thisMonthItems);
+$prevMonthPeople = appointment_unique_patient_count($prevMonthItems);
+$prevMonthMeta = jalali_month_meta_from_parts($prevJy, $prevJm);
+$thisMonthMeta = jalali_month_meta_from_parts($curJy, $curJm);
+
+$ymdRenderDash = static function (array $list): void {
+    if (!$list) {
+        echo '<p class="muted binder-empty">نوبتی در این بازه نیست.</p>';
+        return;
+    }
+    echo '<ul class="doctor-dash-list">';
+    foreach ($list as $a) {
+        if (!is_array($a)) {
+            continue;
+        }
+        echo '<li><div class="doctor-dash-row"><div>';
+        echo '<strong>' . e((string) ($a['patient_name'] ?? '')) . '</strong>';
+        echo '<span class="muted">' . e(format_fa_datetime((string) ($a['starts_at'] ?? ''))) . '</span>';
+        echo staff_sign_html(['name' => $a['actor_name'] ?? '', 'username' => $a['actor_username'] ?? ''], 'ثبت نوبت');
+        echo '</div><div class="doctor-dash-row-actions">';
+        echo '<span class="badge">' . e(appointment_row_status_label($a)) . '</span>';
+        if (!empty($a['patient_id'])) {
+            echo '<a class="btn btn-outline btn-sm" href="' . e(url('/doctor/patients/' . $a['patient_id'])) . '">پرونده</a>';
+        }
+        echo '</div></div></li>';
+    }
+    echo '</ul>';
+};
 
 // گفتگوهای دستیار
 $intakeRows = $pdo->query("
@@ -92,7 +130,7 @@ ob_start();
   <header class="doctor-dash-head">
     <div>
       <h1>سلام، <?= e(doctor_ctx_user_name($ctx)) ?></h1>
-      <p class="muted">خلاصه کار امروز — از تب بالا بین گفتگوها، نوبت‌ها و کارگاه‌ها جابه‌جا شوید.</p>
+      <p class="muted">خلاصه کار — نوبت منشی و رزرو آنلاین اینجاست. از تب نوبت‌ها سال، ماه و روز را جدا کنید.</p>
     </div>
     <?php if ($unreadCount > 0): ?>
       <span class="badge doctor-dash-badge"><?= (int) $unreadCount ?> پیام خوانده‌نشده</span>
@@ -229,38 +267,31 @@ ob_start();
       </div>
 
       <div class="doctor-dash-stats">
-        <div class="doctor-dash-stat">
+        <a class="doctor-dash-stat" href="<?= e(url('/doctor/appointments')) ?>">
           <strong><?= (int) $apptTotal ?></strong>
           <span>نوبت پیش‌رو</span>
-        </div>
+        </a>
+        <a class="doctor-dash-stat" href="<?= e(url('/doctor/appointments')) ?>">
+          <strong><?= (int) $thisMonthPeople ?></strong>
+          <span><?= e((string) ($thisMonthMeta['short'] ?? 'این ماه')) ?> · <?= e(to_fa_digits((string) count($thisMonthItems))) ?> نوبت</span>
+        </a>
+        <a class="doctor-dash-stat" href="<?= e(url('/doctor/appointments?tab=done')) ?>">
+          <strong><?= (int) $prevMonthPeople ?></strong>
+          <span><?= e((string) ($prevMonthMeta['short'] ?? 'ماه پیش')) ?> · <?= e(to_fa_digits((string) count($prevMonthItems))) ?> نوبت</span>
+        </a>
         <div class="doctor-dash-stat">
           <a href="<?= e(url('/doctor/availability')) ?>">روزهای خالی</a>
           <span>مدیریت تقویم</span>
         </div>
       </div>
 
-      <h3 class="doctor-dash-sub">نوبت‌های نزدیک</h3>
-      <?php if (!$appointments): ?>
-        <p class="muted doctor-dash-empty">نوبت پیش‌رویی نیست.</p>
-      <?php else: ?>
-        <ul class="doctor-dash-list">
-          <?php foreach ($appointments as $a): ?>
-            <li>
-              <div class="doctor-dash-row">
-                <div>
-                  <strong><?= e((string) $a['patient_name']) ?></strong>
-                  <span class="muted"><?= e(format_fa_datetime((string) $a['starts_at'])) ?></span>
-                  <?= staff_sign_html(['name' => $a['actor_name'] ?? '', 'username' => $a['actor_username'] ?? '']) ?>
-                </div>
-                <div class="doctor-dash-row-actions">
-                  <span class="badge"><?= e(appointment_status_label((string) $a['status'])) ?></span>
-                  <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/patients/' . $a['patient_id'])) ?>">پرونده</a>
-                </div>
-              </div>
-            </li>
-          <?php endforeach; ?>
-        </ul>
-      <?php endif; ?>
+      <h3 class="doctor-dash-sub">همه نوبت‌ها بر اساس تاریخ</h3>
+      <?php
+        $ymdPack = $dashApptYmd;
+        $ymdEmpty = 'هنوز نوبتی برای شما ثبت نشده است.';
+        $ymdRenderItems = $ymdRenderDash;
+        require __DIR__ . '/../../includes/appointment_ymd_binder.php';
+      ?>
       <p style="margin-top:1rem">
         <a class="btn btn-primary btn-sm" href="<?= e(url('/doctor/patients')) ?>">پرونده مراجعه‌کنندگان</a>
       </p>
@@ -339,7 +370,7 @@ ob_start();
     </div>
   </div>
 </div>
-<script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260904u"></script>
+<script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260909a"></script>
 <script>
 (function () {
   var root = document.querySelector('[data-dash-tabs]');

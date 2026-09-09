@@ -34,66 +34,22 @@ foreach ($rows as $row) {
 usort($upcoming, static fn(array $a, array $b): int => strcmp((string) $a['starts_at'], (string) $b['starts_at']));
 usort($done, static fn(array $a, array $b): int => strcmp((string) $b['starts_at'], (string) $a['starts_at']));
 
+$upcomingYmd = group_appointments_by_jalali_ymd($upcoming, 'doc-up', 'current');
+$doneYmd = group_appointments_by_jalali_ymd($done, 'doc-dn', 'latest');
+
 $tabParam = trim((string) ($_GET['tab'] ?? ''));
 $binderInitial = in_array($tabParam, ['upcoming', 'done'], true) ? $tabParam : 'upcoming';
 
-if (!function_exists('doctor_appointment_cards')) {
-    function doctor_appointment_cards(array $list, string $empty): void
-    {
-        if (!$list) {
-            echo '<p class="muted binder-empty">' . e($empty) . '</p>';
-            return;
-        }
-        echo '<div class="stack">';
-        foreach ($list as $a) {
-            $time = jalali_day_parts((string) $a['starts_at']);
-            ?>
-      <div class="panel appt-card">
-        <div class="appt-card-top">
-          <div>
-            <strong><?= e($a['patient_name']) ?></strong>
-            <div class="muted" style="font-size:.85rem"><?= e((string) ($a['phone'] ?: $a['email'])) ?></div>
-            <div style="margin-top:.35rem;font-size:.9rem">
-              <?= e(format_fa_datetime((string) $a['starts_at'])) ?>
-              <?php if (!empty($time['time_fa'])): ?>
-                · ساعت <?= e((string) $time['time_fa']) ?>
-              <?php endif; ?>
-            </div>
-            <?= staff_sign_html(['name' => $a['actor_name'] ?? '', 'username' => $a['actor_username'] ?? '']) ?>
-          </div>
-          <div class="appt-card-meta">
-            <span class="badge"><?= e(appointment_row_status_label($a)) ?></span>
-            <?php if ($a['amount']): ?>
-              <div class="muted"><?= e(format_price((int) $a['amount'])) ?> — <?= e(payment_status_label((string) $a['pay_status'])) ?></div>
-            <?php endif; ?>
-          </div>
-        </div>
-        <?= appointment_notes_html($a) ?>
-        <div class="appt-card-actions">
-          <?= staff_receipt_view_html($a['payment_id'] ?? null, $a['receipt_path'] ?? null, false) ?>
-          <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/patients/' . $a['patient_id'])) ?>">پرونده مراجعه‌کننده</a>
-          <?= appointment_cancel_form((string) $a['id'], (string) $a['status'], '/doctor/appointments', '/doctor/appointments') ?>
-          <?= admin_appointment_delete_form((string) $a['id'], '/doctor/appointments') ?>
-          <?php if ($a['status'] === 'CONFIRMED'): ?>
-            <form method="post" action="<?= e(url('/doctor/appointments')) ?>">
-              <input type="hidden" name="id" value="<?= e($a['id']) ?>">
-              <input type="hidden" name="status" value="COMPLETED">
-              <input type="hidden" name="next" value="/doctor/appointments">
-              <button class="btn btn-outline btn-sm" type="submit">انجام شد</button>
-            </form>
-          <?php endif; ?>
-        </div>
-      </div>
-            <?php
-        }
-        echo '</div>';
-    }
-}
+$ymdRenderDoctor = static function (array $list): void {
+    $appointmentList = $list;
+    $appointmentEmpty = 'نوبتی در این بازه نیست.';
+    require __DIR__ . '/../../includes/doctor_appointment_cards.php';
+};
 
 ob_start();
 ?>
 <h1>نوبت‌های مراجعه‌کنندگان</h1>
-<p class="muted" style="margin-top:.35rem">نوبت‌های پیش‌رو و انجام‌شده جدا هستند.</p>
+<p class="muted" style="margin-top:.35rem">نوبت منشی و رزرو آنلاین اینجاست. سال، ماه و روز را بزنید تا همه افراد همان بازه را ببینید.</p>
 
 <div class="binder-tile" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($binderInitial) ?>" data-binder-tone="<?= e($binderInitial === 'done' ? 'archive' : 'appts') ?>" style="margin-top:1.25rem">
   <div class="binder-tabs" role="tablist" aria-label="دسته‌بندی نوبت‌ها">
@@ -118,15 +74,25 @@ ob_start();
   </div>
   <div class="binder-body">
     <section class="binder-panel<?= $binderInitial === 'upcoming' ? ' is-active' : '' ?>" data-binder-panel="upcoming" role="tabpanel"<?= $binderInitial === 'upcoming' ? '' : ' hidden' ?>>
-      <?php doctor_appointment_cards($upcoming, 'نوبت پیش‌رویی نیست.'); ?>
+      <?php
+        $ymdPack = $upcomingYmd;
+        $ymdEmpty = 'نوبت پیش‌رویی نیست.';
+        $ymdRenderItems = $ymdRenderDoctor;
+        require __DIR__ . '/../../includes/appointment_ymd_binder.php';
+      ?>
     </section>
     <section class="binder-panel<?= $binderInitial === 'done' ? ' is-active' : '' ?>" data-binder-panel="done" role="tabpanel"<?= $binderInitial === 'done' ? '' : ' hidden' ?>>
-      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">نوبت‌های برگزارشده، گذشته یا لغو شده در این بخش هستند.</p>
-      <?php doctor_appointment_cards($done, 'نوبت انجام‌شده‌ای نیست.'); ?>
+      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">نوبت‌های برگزارشده، گذشته یا لغو شده. از تب ماه می‌توانید ببینید ماه پیش با چه کسانی وقت داشته‌اید.</p>
+      <?php
+        $ymdPack = $doneYmd;
+        $ymdEmpty = 'نوبت انجام‌شده‌ای نیست.';
+        $ymdRenderItems = $ymdRenderDoctor;
+        require __DIR__ . '/../../includes/appointment_ymd_binder.php';
+      ?>
     </section>
   </div>
 </div>
 <?php
-$pageScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260906o"></script>';
+$pageScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260909a"></script>';
 $GLOBALS['pageScripts'] = $pageScripts;
 render_doctor_page('نوبت‌ها', ob_get_clean());

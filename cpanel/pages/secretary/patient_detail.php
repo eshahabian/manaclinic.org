@@ -55,15 +55,7 @@ $enrolls = $pdo->prepare("
 $enrolls->execute([$id]);
 $enrollments = $enrolls->fetchAll();
 
-$monthPack = group_appointments_by_jalali_month($appointments, false);
-$monthGroups = attach_jalali_days_to_month_groups($monthPack['months']);
-if ($monthGroups && !isset($monthGroups[$monthPack['default_id']])) {
-    $keys = array_keys($monthGroups);
-    $monthPack['default_id'] = (string) end($keys);
-}
-$defaultMonthId = isset($monthGroups[$monthPack['default_id']])
-    ? (string) $monthPack['default_id']
-    : (string) (array_key_first($monthGroups) ?? '');
+$patientApptYmd = group_appointments_by_jalali_ymd($appointments, 'sec-pt', 'latest');
 
 $tab = trim((string) ($_GET['tab'] ?? 'appts'));
 if (!in_array($tab, ['appts', 'workshops'], true)) {
@@ -101,66 +93,44 @@ ob_start();
   </div>
   <div class="binder-body">
     <section class="binder-panel<?= $tab === 'appts' ? ' is-active' : '' ?>" data-binder-panel="appts" role="tabpanel"<?= $tab === 'appts' ? '' : ' hidden' ?>>
-      <?php if (!$monthGroups): ?>
-        <p class="muted">هنوز نوبتی برای این مراجعه‌کننده ثبت نشده است.</p>
-      <?php else: ?>
-        <div class="binder-tile binder-tile--nested" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($defaultMonthId) ?>" data-binder-tone="<?= e((string) ($monthGroups[$defaultMonthId]['tone'] ?? 'appts')) ?>">
-          <div class="binder-tabs" role="tablist" aria-label="ماه نوبت‌ها">
-            <?php foreach ($monthGroups as $mid => $bucket): ?>
-              <button type="button"
-                class="binder-tab <?= e((string) ($bucket['class'] ?? 'binder-tab-appts')) ?><?= $defaultMonthId === $mid ? ' is-active' : '' ?>"
-                role="tab"
-                data-binder-tab="<?= e((string) $mid) ?>"
-                data-binder-tone="<?= e((string) ($bucket['tone'] ?? 'appts')) ?>"
-                aria-selected="<?= $defaultMonthId === $mid ? 'true' : 'false' ?>">
-                <?= e((string) ($bucket['tab_label'] ?? $bucket['short'] ?? $mid)) ?>
-                <span class="binder-tab-count"><?= count($bucket['items'] ?? []) ?></span>
-              </button>
-            <?php endforeach; ?>
-          </div>
-          <div class="binder-body">
-            <?php foreach ($monthGroups as $mid => $bucket): ?>
-              <section class="binder-panel<?= $defaultMonthId === $mid ? ' is-active' : '' ?>" data-binder-panel="<?= e((string) $mid) ?>" role="tabpanel"<?= $defaultMonthId === $mid ? '' : ' hidden' ?>>
-                <h2 class="binder-sub" style="margin-top:0">نوبت‌های <?= e((string) ($bucket['label'] ?? '')) ?></h2>
-                <?php foreach (($bucket['days'] ?? []) as $day): ?>
-                  <div class="appt-day-block">
-                    <h3 class="appt-day-title"><?= e((string) ($day['label'] ?? '')) ?></h3>
-                    <div class="stack">
-                      <?php foreach (($day['items'] ?? []) as $a): ?>
-                        <?php $time = jalali_day_parts((string) $a['starts_at']); ?>
-                        <div class="panel stack">
-                          <div class="row-between">
-                            <div>
-                              <strong>ساعت <?= e($time['time_fa'] ?? format_fa_datetime((string) $a['starts_at'])) ?></strong>
-                              <div class="muted" style="font-size:.85rem;margin-top:.3rem">دکتر: <?= e((string) $a['doctor_name']) ?></div>
-                              <?php if (!empty($a['actor_name']) || !empty($a['actor_username'])): ?>
-                                <?= staff_sign_html(['name' => $a['actor_name'] ?? '', 'username' => $a['actor_username'] ?? ''], 'نوبت ثبت‌شده توسط') ?>
-                              <?php endif; ?>
-                              <?php if (!empty($a['recorder_name']) || !empty($a['recorder_username'])): ?>
-                                <?= staff_sign_html(['name' => $a['recorder_name'] ?? '', 'username' => $a['recorder_username'] ?? ''], 'فیش بارگذاری‌شده توسط') ?>
-                              <?php endif; ?>
-                            </div>
-                            <div style="text-align:left">
-                              <span class="badge"><?= e(appointment_row_status_label($a)) ?></span>
-                              <?php if ($a['amount'] !== null): ?>
-                                <div class="muted" style="font-size:.8rem;margin-top:.35rem"><?= e(format_price((int) $a['amount'])) ?> — <?= e(payment_status_label((string) $a['pay_status'])) ?></div>
-                              <?php endif; ?>
-                            </div>
-                          </div>
-                          <?= appointment_notes_html($a) ?>
-                          <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
-                            <?= staff_receipt_view_html($a['payment_id'] ?? null, $a['receipt_path'] ?? null, true, $selfPath) ?>
-                          </div>
-                        </div>
-                      <?php endforeach; ?>
-                    </div>
-                  </div>
-                <?php endforeach; ?>
-              </section>
-            <?php endforeach; ?>
-          </div>
-        </div>
-      <?php endif; ?>
+      <?php
+        $ymdPack = $patientApptYmd;
+        $ymdEmpty = 'هنوز نوبتی برای این مراجعه‌کننده ثبت نشده است.';
+        $ymdRenderItems = static function (array $list) use ($selfPath): void {
+            if (!$list) {
+                echo '<p class="muted binder-empty">نوبتی در این بازه نیست.</p>';
+                return;
+            }
+            echo '<div class="stack">';
+            foreach ($list as $a) {
+                if (!is_array($a)) {
+                    continue;
+                }
+                $time = jalali_day_parts((string) ($a['starts_at'] ?? ''));
+                echo '<div class="panel stack"><div class="row-between"><div>';
+                echo '<strong>ساعت ' . e((string) ($time['time_fa'] ?? format_fa_datetime((string) ($a['starts_at'] ?? '')))) . '</strong>';
+                echo '<div class="muted" style="font-size:.85rem;margin-top:.3rem">دکتر: ' . e((string) ($a['doctor_name'] ?? '')) . '</div>';
+                if (!empty($a['actor_name']) || !empty($a['actor_username'])) {
+                    echo staff_sign_html(['name' => $a['actor_name'] ?? '', 'username' => $a['actor_username'] ?? ''], 'نوبت ثبت‌شده توسط');
+                }
+                if (!empty($a['recorder_name']) || !empty($a['recorder_username'])) {
+                    echo staff_sign_html(['name' => $a['recorder_name'] ?? '', 'username' => $a['recorder_username'] ?? ''], 'فیش بارگذاری‌شده توسط');
+                }
+                echo '</div><div style="text-align:left">';
+                echo '<span class="badge">' . e(appointment_row_status_label($a)) . '</span>';
+                if ($a['amount'] !== null) {
+                    echo '<div class="muted" style="font-size:.8rem;margin-top:.35rem">' . e(format_price((int) $a['amount'])) . ' — ' . e(payment_status_label((string) ($a['pay_status'] ?? ''))) . '</div>';
+                }
+                echo '</div></div>';
+                echo appointment_notes_html($a);
+                echo '<div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">';
+                echo staff_receipt_view_html($a['payment_id'] ?? null, $a['receipt_path'] ?? null, true, $selfPath);
+                echo '</div></div>';
+            }
+            echo '</div>';
+        };
+        require __DIR__ . '/../../includes/appointment_ymd_binder.php';
+      ?>
       <p style="margin-top:1.25rem">
         <a class="btn btn-primary" href="<?= e(url('/secretary/appointments?tab=new')) ?>">ثبت نوبت جدید</a>
       </p>
@@ -220,5 +190,5 @@ ob_start();
 </div>
 <?php
 $inner = ob_get_clean();
-$pageScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260906f"></script>';
+$pageScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260909a"></script>';
 render_secretary_page((string) $patient['name'], $inner);

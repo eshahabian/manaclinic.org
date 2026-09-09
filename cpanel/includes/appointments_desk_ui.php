@@ -13,7 +13,6 @@ $rows = $pdo->query("
   LEFT JOIN payments p ON p.appointment_id = a.id
   LEFT JOIN users cu ON cu.id = a.created_by_user_id
   ORDER BY a.starts_at DESC
-  LIMIT 200
 ")->fetchAll();
 
 $upcoming = [];
@@ -30,6 +29,13 @@ foreach ($rows as $row) {
     }
 }
 usort($upcoming, static fn(array $a, array $b): int => strcmp((string) $a['starts_at'], (string) $b['starts_at']));
+$upcomingYmd = group_appointments_by_jalali_ymd($upcoming, 'desk-up', 'current');
+$doneYmd = group_appointments_by_jalali_ymd($done, 'desk-dn', 'latest');
+$ymdRenderDesk = static function (array $list): void {
+    $appointmentList = $list;
+    $appointmentEmpty = 'نوبتی در این بازه نیست.';
+    require __DIR__ . '/secretary_appointment_cards.php';
+};
 
 $tabParam = trim((string) ($_GET['tab'] ?? ''));
 $binderInitial = in_array($tabParam, ['new', 'upcoming', 'done'], true) ? $tabParam : 'upcoming';
@@ -43,7 +49,7 @@ ob_start();
 ?>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
 <h1>نوبت‌ها</h1>
-<p class="muted" style="margin-top:.35rem;font-size:.9rem">نوبت جدید را از تب صورتی ثبت کنید؛ نوبت‌های پیش‌رو و انجام‌شده جدا دیده می‌شوند.</p>
+<p class="muted" style="margin-top:.35rem;font-size:.9rem">نوبت جدید را از تب صورتی ثبت کنید. در پیش‌رو و انجام‌شده، سال، ماه و روز را جدا ببینید.</p>
 <?php if (!empty($appointmentsDeskAdminTools)): ?>
   <div class="appt-toolbar">
     <form method="post" action="<?= e(url('/admin/appointments')) ?>" onsubmit="return confirm('همه نوبت‌ها برای همیشه حذف شوند؟');">
@@ -71,14 +77,24 @@ ob_start();
       <?= $secretaryBookFormHtml ?? '' ?>
     </section>
     <section class="binder-panel<?= $binderInitial === 'upcoming' ? ' is-active' : '' ?>" data-binder-panel="upcoming" role="tabpanel"<?= $binderInitial === 'upcoming' ? '' : ' hidden' ?>>
-      <?php $appointmentList = $upcoming; $appointmentEmpty = 'نوبت پیش‌رویی نیست.'; require __DIR__ . '/secretary_appointment_cards.php'; ?>
+      <?php
+        $ymdPack = $upcomingYmd;
+        $ymdEmpty = 'نوبت پیش‌رویی نیست.';
+        $ymdRenderItems = $ymdRenderDesk;
+        require __DIR__ . '/appointment_ymd_binder.php';
+      ?>
     </section>
     <section class="binder-panel<?= $binderInitial === 'done' ? ' is-active' : '' ?>" data-binder-panel="done" role="tabpanel"<?= $binderInitial === 'done' ? '' : ' hidden' ?>>
-      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">نوبت‌های برگزارشده، گذشته یا لغو شده در این بخش هستند. اگر مراجع سر وقت آمد ولی کنسل کرد، از همین کارت «ثبت کنسلی مراجع» را بزنید.</p>
-      <?php $appointmentList = $done; $appointmentEmpty = 'نوبت انجام‌شده‌ای نیست.'; require __DIR__ . '/secretary_appointment_cards.php'; ?>
+      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">نوبت‌های برگزارشده، گذشته یا لغو شده. اگر مراجع سر وقت آمد ولی کنسل کرد، از همین کارت «ثبت کنسلی مراجع» را بزنید.</p>
+      <?php
+        $ymdPack = $doneYmd;
+        $ymdEmpty = 'نوبت انجام‌شده‌ای نیست.';
+        $ymdRenderItems = $ymdRenderDesk;
+        require __DIR__ . '/appointment_ymd_binder.php';
+      ?>
     </section>
   </div>
 </div>
 <?php
 $appointmentsDeskHtml = ob_get_clean();
-$appointmentsDeskScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260908v"></script>' . ($secretaryBookScripts ?? '');
+$appointmentsDeskScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260909a"></script>' . ($secretaryBookScripts ?? '');
