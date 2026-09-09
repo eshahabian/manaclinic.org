@@ -96,7 +96,9 @@ $peerName = (string) ($session['title'] ?? 'جلسه');
 $callActive = $room && !empty($session['room']);
 
 ob_start();
+$wmName = $peerName !== '' ? $peerName : 'جلسه';
 ?>
+<div class="vc-shell">
 <div class="vc-lobby">
   <div class="vc-lobby-side">
     <div class="vc-lobby-brand">
@@ -176,7 +178,7 @@ ob_start();
       data-signal-url="<?= e(url('/video-signal')) ?>"
       data-room="<?= e((string) ($session['room'] ?? '')) ?>"
       data-me="<?= e((string) ($user['id'] ?? '')) ?>"
-      data-peer-name="<?= e($peerName) ?>"
+      data-peer-name="<?= e($wmName) ?>"
       data-media="<?= e($media) ?>"
       data-can-start="<?= $clinician ? '1' : '0' ?>"
       data-can-record="<?= $clinician ? '1' : '0' ?>"
@@ -186,23 +188,8 @@ ob_start();
       data-hang-url="<?= e(url('/assets/audio/hang-up.ogg')) ?>"
       <?= $callActive ? '' : 'hidden' ?>
     >
-      <div class="video-call-head">
-        <img class="video-call-logo" src="<?= e(url('/assets/img/mana-call.png')) ?>?v=20260909c" width="56" height="56" alt="مانا">
-        <div>
-          <h1 data-vc-call-title><?= e($peerName) ?></h1>
-          <p class="muted" style="margin:0;line-height:1.8">
-            <span data-vc-call-kind><?= $media === 'audio' ? 'تماس صوتی' : 'تماس مانا' ?></span>
-            <?php if ($room && (string) ($room['kind'] ?? '') === 'workshop'): ?> · جلسه کارگاه (هر هفته همین اتاق)<?php endif; ?>
-          </p>
-          <p class="video-call-status" data-video-status><?= $callActive ? 'در حال اتصال…' : 'آماده تماس' ?></p>
-          <p class="vc-share" data-vc-share-wrap<?= $shareUrl ? '' : ' hidden' ?>>
-            <input class="input" id="vc-share-link" readonly dir="ltr" value="<?= e($shareUrl) ?>">
-            <button type="button" class="btn btn-outline btn-sm" data-copy-share>کپی لینک جلسه</button>
-          </p>
-        </div>
-        <button type="button" class="btn btn-outline btn-sm" data-vc-end-tile>پایان در این کاشی</button>
-      </div>
-  <div class="video-call-permit" data-video-permit>
+  <p class="video-call-status" data-video-status hidden><?= $callActive ? 'در حال اتصال…' : 'آماده تماس' ?></p>
+  <div class="video-call-permit" data-video-permit hidden>
     <p>برای تماس، مرورگر باید به <?= $media === 'audio' ? 'میکروفون' : 'دوربین و میکروفون' ?> دسترسی بدهد.</p>
     <button type="button" class="btn btn-primary" data-video-permit-btn>اجازه دسترسی</button>
   </div>
@@ -233,6 +220,7 @@ ob_start();
           <path stroke="currentColor" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round" d="M27 21v6h-6M37 21v6h6M27 43v-6h-6M37 43v-6h6"/>
         </svg>
       </button>
+      <span class="vc-stage-watermark" data-vc-watermark><?= $callActive ? e('در حال تماس با ' . $wmName) : '' ?></span>
       <?php if ($clinician): ?>
         <button type="button" class="video-call-icon video-call-icon-tool" data-video-record hidden aria-label="شروع ضبط" title="ضبط تماس">
           <svg viewBox="0 0 64 64" fill="none" aria-hidden="true">
@@ -276,19 +264,27 @@ ob_start();
     </div>
   </div>
 </div>
+<?php if ($clinician): ?>
+<div class="vc-share-tile" data-vc-share-wrap<?= $shareUrl ? '' : ' hidden' ?>>
+  <strong>لینک جلسه</strong>
+  <p class="muted vc-group-hint">این لینک را بفرستید تا طرف مقابل وارد همین جلسه شود.</p>
+  <div class="vc-share">
+    <input class="input" id="vc-share-link" readonly dir="ltr" value="<?= e($shareUrl) ?>">
+    <button type="button" class="btn btn-outline btn-sm" data-copy-share>کپی لینک جلسه</button>
+  </div>
+</div>
+<?php endif; ?>
+</div>
 <script>
 document.querySelector("[data-copy-share]")?.addEventListener("click", function(){
   var el = document.getElementById("vc-share-link");
   if (!el) return;
   navigator.clipboard.writeText(el.value).then(function(){ this.textContent = "کپی شد"; }.bind(this)).catch(function(){});
 });
-document.querySelector("[data-vc-end-tile]")?.addEventListener("click", function(){
-  if (window.ManaVideoCall && window.ManaVideoCall.stop) window.ManaVideoCall.stop();
-});
 </script>
 <?php
 $inner = ob_get_clean();
-$GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260909e"></script>'
+$GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260909g"></script>'
     . '<script src="' . e(url('/assets/js/video-call-lobby.js')) . '?v=20260909f"></script>';
 
 $role = (string) ($user['role'] ?? '');

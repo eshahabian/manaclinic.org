@@ -978,7 +978,17 @@ body.home-workshop-locked { overflow: hidden; }
   align-items: center;
   flex-wrap: wrap;
   gap: .45rem;
-  max-width: calc(100% - 9rem);
+  max-width: calc(100% - 8.5rem);
+}
+.vc-stage-watermark {
+  margin: 0;
+  max-width: 16rem;
+  font-size: .7rem;
+  font-weight: 600;
+  line-height: 1.4;
+  color: #fff;
+  text-shadow: 0 1px 3px rgba(0,0,0,.8);
+  pointer-events: none;
 }
 .video-call-dock {
   position: absolute;
@@ -1074,6 +1084,15 @@ body.home-workshop-locked { overflow: hidden; }
   object-fit: cover;
   flex-shrink: 0;
 }
+.vc-shell { display: grid; gap: 1.25rem; }
+.vc-share-tile {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  padding: 1rem 1.1rem 1.15rem;
+}
+.vc-share-tile[hidden] { display: none !important; }
+.vc-share-tile strong { display: block; margin-bottom: .35rem; }
 .vc-lobby {
   display: grid;
   gap: 1.25rem;
@@ -1185,9 +1204,8 @@ body.home-workshop-locked { overflow: hidden; }
   border-radius: 0;
   min-height: 18rem;
 }
-.vc-in-tile .video-call-head {
-  padding: .85rem 1rem .35rem;
-}
+.vc-in-tile .video-call-head { display: none; }
+.vc-in-tile .video-call-permit { margin: .75rem 1rem 0; }
 .vc-lobby-hero { width: 6.5rem; height: 6.5rem; border-radius: 50%; }
 .vc-avatar {
   position: relative;

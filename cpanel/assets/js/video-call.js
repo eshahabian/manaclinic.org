@@ -542,11 +542,9 @@
       if (info.answer) {
         try { sessionStorage.setItem("mana-video-auto-answer", "1"); } catch (e) {}
       }
-      var titleEl = root.querySelector("[data-vc-call-title]");
-      if (titleEl) titleEl.textContent = info.title || "تماس مانا";
-      var kindEl = root.querySelector("[data-vc-call-kind]");
-      if (kindEl) kindEl.textContent = info.media === "audio" ? "تماس صوتی" : "تماس مانا";
-      var shareWrap = root.querySelector("[data-vc-share-wrap]");
+      var mark = root.querySelector("[data-vc-watermark]");
+      if (mark) mark.textContent = info.title ? ("در حال تماس با " + info.title) : "";
+      var shareWrap = document.querySelector("[data-vc-share-wrap]");
       var shareInput = document.getElementById("vc-share-link");
       if (shareInput) shareInput.value = info.shareUrl || "";
       if (shareWrap) shareWrap.hidden = !info.shareUrl;
@@ -566,6 +564,10 @@
         root.setAttribute("data-room", "");
       }
       if (idle) idle.hidden = false;
+      var shareWrap = document.querySelector("[data-vc-share-wrap]");
+      if (shareWrap) shareWrap.hidden = true;
+      var mark = document.querySelector("[data-vc-watermark]");
+      if (mark) mark.textContent = "";
     }
   };
 

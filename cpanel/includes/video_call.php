@@ -583,7 +583,7 @@ function video_call_session_payload(PDO $pdo, array $user, array $room, string $
     if ((string) ($room['kind'] ?? '') === 'direct') {
         foreach ($members as $m) {
             if ((string) ($m['id'] ?? '') !== $me) {
-                $peerName = video_call_public_name($m);
+                $peerName = trim((string) ($m['name'] ?? $peerName));
                 break;
             }
         }
