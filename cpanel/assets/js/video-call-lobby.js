@@ -104,8 +104,18 @@
 
   function personHtml(item, cls) {
     var letter = item.letter || (item.name ? String(item.name).charAt(0) : "م");
+    var payload = esc(JSON.stringify({
+      id: item.id,
+      name: item.name,
+      online: !!item.online,
+      role: item.role || "PATIENT",
+      videoUrl: item.videoUrl || "",
+      audioUrl: item.audioUrl || "",
+      letter: letter,
+      peer: item.peer || item.id
+    }));
     return (
-      '<div class="vc-person' + (cls ? " " + cls : "") + '" data-id="' + esc(item.id) + '">' +
+      '<div class="vc-person' + (cls ? " " + cls : "") + '" data-user-id="' + esc(item.id) + '" data-id="' + esc(item.id) + '" data-vc-select="' + payload + '">' +
         '<span class="vc-avatar vc-avatar-sm">' +
           '<span class="vc-avatar-fallback">' + esc(letter) + "</span>" +
           '<span class="vc-dot' + (item.online ? " is-online" : " is-offline") + '"></span>' +
@@ -114,6 +124,35 @@
         '<span class="muted">' + (item.online ? "آنلاین" : "آفلاین") + "</span></span>" +
       "</div>"
     );
+  }
+
+  function renderHomeList(items) {
+    var ul = app.querySelector("[data-vc-home-list]");
+    if (!ul) return;
+    if (!items || !items.length) {
+      ul.innerHTML = '<li class="muted vc-empty">مخاطبی پیدا نشد.</li>';
+      return;
+    }
+    ul.innerHTML = items.map(function (item) {
+      return "<li>" + personHtml(item) + "</li>";
+    }).join("");
+  }
+
+  function fetchContacts(q) {
+    return post({ action: "contacts", q: String(q || ""), limit: 80 }).then(function (data) {
+      return (data && data.ok && data.items) ? data.items : [];
+    });
+  }
+
+  function runSearch(q) {
+    q = String(q || "").trim();
+    fetchContacts(q).then(function (items) {
+      renderHomeList(items);
+      if (overlay && !overlay.hidden) {
+        overlayCatalog = items;
+        renderOverlayLists(overlayCatalog);
+      }
+    }).catch(function () {});
   }
 
   function renderPicked() {
@@ -188,24 +227,6 @@
     }
     if (composer) composer.hidden = false;
     renderPicked();
-    filterLists(searchInput ? searchInput.value : "");
-  }
-
-  function filterLists(q) {
-    q = String(q || "").trim();
-    var pane = app.querySelector('[data-vc-pane="' + tab + '"]');
-    if (pane) {
-      pane.querySelectorAll("li").forEach(function (li) {
-        var text = (li.textContent || "").replace(/\s+/g, " ");
-        li.hidden = q !== "" && text.indexOf(q) === -1;
-      });
-    }
-    if (overlay && !overlay.hidden && overlaySource) {
-      overlaySource.querySelectorAll("li").forEach(function (li) {
-        var text = (li.textContent || "").replace(/\s+/g, " ");
-        li.hidden = q !== "" && text.indexOf(q) === -1;
-      });
-    }
   }
 
   function renderOverlayLists(items) {
@@ -233,8 +254,8 @@
     overlayCatalog = catalog();
     renderOverlayLists(overlayCatalog);
     overlay.hidden = false;
-    post({ action: "contacts", q: "", limit: 80 }).then(function (data) {
-      overlayCatalog = (data && data.items) || catalog();
+    fetchContacts(searchInput ? searchInput.value : "").then(function (items) {
+      overlayCatalog = items.length ? items : catalog();
       renderOverlayLists(overlayCatalog);
     }).catch(function () {
       overlayCatalog = catalog();
@@ -521,7 +542,7 @@
   if (searchInput) {
     searchInput.addEventListener("input", function () {
       clearTimeout(timer);
-      timer = setTimeout(function () { filterLists(searchInput.value); }, 120);
+      timer = setTimeout(function () { runSearch(searchInput.value); }, 180);
     });
   }
 

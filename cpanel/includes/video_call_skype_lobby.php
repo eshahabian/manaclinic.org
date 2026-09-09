@@ -19,7 +19,7 @@ foreach ($savedRooms as $sr) {
 ?>
 <aside class="vc-side">
   <div class="vc-side-user">
-    <img class="vc-side-logo" src="<?= e(url('/assets/img/mana-call.png')) ?>?v=20260910c" width="22" height="22" alt="">
+    <img class="vc-side-logo" src="<?= e(url('/assets/img/mana-call.png')) ?>?v=20260910d" width="22" height="22" alt="">
     <strong><?= e($meName) ?></strong>
   </div>
   <div class="vc-chrome" role="tablist" aria-label="بخش‌های تماس مانا">
@@ -44,15 +44,15 @@ foreach ($savedRooms as $sr) {
     <div class="vc-side-tabs">
       <span class="is-on">مخاطبین</span>
     </div>
-    <?php if (!$patients): ?>
-      <p class="muted vc-empty">مراجعه‌کننده‌ای در فهرست نیست.</p>
-    <?php else: ?>
-      <ul class="vc-people" data-vc-home-list>
+    <ul class="vc-people" data-vc-home-list>
+      <?php if (!$patients): ?>
+        <li class="muted vc-empty">مراجعه‌کننده‌ای در فهرست نیست.</li>
+      <?php else: ?>
         <?php foreach ($patients as $c): ?>
           <li><?= video_call_person_row_html($c, true, false, 'select') ?></li>
         <?php endforeach; ?>
-      </ul>
-    <?php endif; ?>
+      <?php endif; ?>
+    </ul>
   </div>
 
   <div class="vc-pane" data-vc-pane="calls" hidden>

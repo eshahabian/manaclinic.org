@@ -71,6 +71,16 @@ function ensure_video_call_schema(PDO $pdo): void
         INDEX idx_vcrm_user (user_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
+    $pdo->exec("
+      CREATE TABLE IF NOT EXISTS video_call_contact_stats (
+        host_user_id VARCHAR(32) NOT NULL,
+        peer_user_id VARCHAR(32) NOT NULL,
+        call_count INT NOT NULL DEFAULT 0,
+        last_at DATETIME NOT NULL,
+        PRIMARY KEY (host_user_id, peer_user_id),
+        INDEX idx_vccs_host (host_user_id, call_count, last_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
     video_call_purge_mbsr_groups($pdo);
     $ready = true;
 }
@@ -279,27 +289,123 @@ function video_call_contact_payload(array $c): array
     ];
 }
 
+function video_call_normalize_search(string $q): string
+{
+    $q = function_exists('normalize_input') ? normalize_input($q) : trim($q);
+    $q = str_replace(['ي', 'ك', '‌'], ['ی', 'ک', ''], $q);
+    $q = preg_replace('/\s+/u', ' ', $q) ?? $q;
+
+    return trim($q);
+}
+
+function video_call_bump_contact(PDO $pdo, string $hostId, string $peerId): void
+{
+    $hostId = trim($hostId);
+    $peerId = trim($peerId);
+    if ($hostId === '' || $peerId === '' || $hostId === $peerId) {
+        return;
+    }
+    ensure_video_call_schema($pdo);
+    $pdo->prepare("
+      INSERT INTO video_call_contact_stats (host_user_id, peer_user_id, call_count, last_at)
+      VALUES (?,?,1,NOW())
+      ON DUPLICATE KEY UPDATE call_count = call_count + 1, last_at = NOW()
+    ")->execute([$hostId, $peerId]);
+}
+
+function video_call_bump_room_contacts(PDO $pdo, array $user, array $room): void
+{
+    $me = (string) ($user['id'] ?? '');
+    if ($me === '' || !video_call_is_clinician($user)) {
+        return;
+    }
+    foreach (video_call_room_members_public($pdo, $room) as $m) {
+        $id = (string) ($m['id'] ?? '');
+        if ($id !== '' && $id !== $me) {
+            video_call_bump_contact($pdo, $me, $id);
+        }
+    }
+}
+
+function video_call_contact_freq_sql(): string
+{
+    return "
+      LEFT JOIN (
+        SELECT peer_id, SUM(score) AS hits, MAX(last_at) AS last_at
+        FROM (
+          SELECT peer_user_id AS peer_id, call_count * 10 AS score, last_at
+          FROM video_call_contact_stats
+          WHERE host_user_id = ?
+          UNION ALL
+          SELECT m.user_id AS peer_id, COUNT(*) * 4 AS score, MAX(r.created_at) AS last_at
+          FROM video_call_room_members m
+          JOIN video_call_rooms r ON r.id = m.room_id
+          WHERE r.host_user_id = ? AND m.user_id <> ?
+          GROUP BY m.user_id
+          UNION ALL
+          SELECT IF(
+              SUBSTRING_INDEX(SUBSTRING(r.room_key, 4), '-', 1) = ?,
+              SUBSTRING_INDEX(SUBSTRING(r.room_key, 4), '-', -1),
+              SUBSTRING_INDEX(SUBSTRING(r.room_key, 4), '-', 1)
+            ) AS peer_id,
+            8 AS score,
+            r.created_at AS last_at
+          FROM video_call_rooms r
+          WHERE r.kind = 'direct'
+            AND (
+              r.host_user_id = ?
+              OR r.room_key LIKE CONCAT('dm-', ?, '-%')
+              OR r.room_key LIKE CONCAT('dm-%-', ?)
+            )
+          UNION ALL
+          SELECT a.patient_id AS peer_id, COUNT(*) AS score, MAX(a.starts_at) AS last_at
+          FROM appointments a
+          JOIN doctor_profiles me ON me.id = a.doctor_id
+          WHERE me.user_id = ? AND a.status <> 'CANCELLED'
+          GROUP BY a.patient_id
+        ) ranked
+        GROUP BY peer_id
+      ) freq ON freq.peer_id = u.id
+    ";
+}
+
 function video_call_contacts(PDO $pdo, array $user, string $q = '', string $onlyRole = '', int $limit = 40, array $onlyIds = []): array
 {
     $me = (string) ($user['id'] ?? '');
     $role = (string) ($user['role'] ?? '');
-    $q = trim($q);
+    $q = video_call_normalize_search($q);
     $like = '%' . $q . '%';
+    $phoneLike = preg_match('/[0-9]{3,}/', $q) ? '%' . $q . '%' : '';
     $onlyRole = strtoupper(trim($onlyRole));
     $onlyIds = array_values(array_unique(array_filter(array_map('strval', $onlyIds))));
     $limit = max(1, min(80, $onlyIds ? count($onlyIds) : $limit));
     $rows = [];
+    $freqSql = video_call_contact_freq_sql();
+    $freqParams = [$me, $me, $me, $me, $me, $me, $me, $me];
+    $searchSql = '';
+    $searchParams = [];
+    if ($q !== '') {
+        $searchSql = "
+          AND (
+            REPLACE(REPLACE(REPLACE(u.name,'ي','ی'),'ك','ک'),'‌','') LIKE ?
+            OR REPLACE(REPLACE(REPLACE(u.username,'ي','ی'),'ك','ک'),'‌','') LIKE ?
+            OR (? <> '' AND u.phone LIKE ?)
+          )
+        ";
+        $searchParams = [$like, $like, $phoneLike, $phoneLike];
+    }
     if ($role === 'DOCTOR' || $role === 'ADMIN') {
         $roles = in_array($onlyRole, ['PATIENT', 'DOCTOR'], true) ? [$onlyRole] : ['PATIENT', 'DOCTOR'];
         $inRoles = implode(',', array_fill(0, count($roles), '?'));
         $sql = "
-          SELECT DISTINCT u.id, u.name, u.username, u.role, dp.avatar_url
+          SELECT u.id, u.name, u.username, u.role, MAX(dp.avatar_url) AS avatar_url
           FROM users u
           LEFT JOIN doctor_profiles dp ON dp.user_id = u.id
+          $freqSql
           WHERE u.id <> ?
             AND u.role IN ($inRoles)
         ";
-        $params = array_merge([$me], $roles);
+        $params = array_merge($freqParams, [$me], $roles);
         if ($role === 'DOCTOR') {
             $sql .= "
               AND (
@@ -316,30 +422,49 @@ function video_call_contacts(PDO $pdo, array $user, string $q = '', string $only
                   JOIN doctor_profiles me ON me.id = w.doctor_id
                   WHERE me.user_id = ? AND e.status IN ('CONFIRMED','COMPLETED')
                 )
+                OR u.id IN (SELECT peer_user_id FROM video_call_contact_stats WHERE host_user_id = ?)
+                OR u.id IN (
+                  SELECT m.user_id FROM video_call_room_members m
+                  JOIN video_call_rooms r ON r.id = m.room_id
+                  WHERE r.host_user_id = ?
+                )
+                OR EXISTS (
+                  SELECT 1 FROM video_call_rooms r
+                  WHERE r.kind = 'direct'
+                    AND (
+                      r.room_key LIKE CONCAT('dm-', u.id, '-%')
+                      OR r.room_key LIKE CONCAT('dm-%-', u.id)
+                    )
+                    AND (
+                      r.host_user_id = ?
+                      OR r.room_key LIKE CONCAT('dm-', ?, '-%')
+                      OR r.room_key LIKE CONCAT('dm-%-', ?)
+                    )
+                )
               )
             ";
-            $params[] = $me;
-            $params[] = $me;
-            $params[] = $me;
+            $params = array_merge($params, [$me, $me, $me, $me, $me, $me, $me, $me]);
         }
         if ($onlyIds) {
             $sql .= ' AND u.id IN (' . implode(',', array_fill(0, count($onlyIds), '?')) . ')';
             $params = array_merge($params, $onlyIds);
         }
-        if ($q !== '') {
-            $sql .= ' AND (u.name LIKE ? OR u.username LIKE ?)';
-            $params[] = $like;
-            $params[] = $like;
-        }
-        $sql .= ' ORDER BY u.name ASC LIMIT ' . $limit;
+        $sql .= $searchSql;
+        $params = array_merge($params, $searchParams);
+        $sql .= '
+          GROUP BY u.id, u.name, u.username, u.role
+          ORDER BY COALESCE(MAX(freq.hits), 0) DESC, MAX(freq.last_at) DESC, u.name ASC
+          LIMIT ' . $limit;
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
         $rows = $stmt->fetchAll();
     } else {
         $sql = "
-          SELECT DISTINCT u.id, u.name, u.username, u.role, dp.avatar_url
+          SELECT u.id, u.name, u.username, u.role, dp.avatar_url,
+                 COALESCE(st.call_count, 0) AS contact_hits
           FROM users u
           JOIN doctor_profiles dp ON dp.user_id = u.id
+          LEFT JOIN video_call_contact_stats st ON st.host_user_id = u.id AND st.peer_user_id = ?
           WHERE u.id <> ? AND u.role = 'DOCTOR'
             AND (
               dp.id IN (SELECT doctor_id FROM appointments WHERE patient_id = ?)
@@ -350,13 +475,10 @@ function video_call_contacts(PDO $pdo, array $user, string $q = '', string $only
               )
             )
         ";
-        $params = [$me, $me, $me];
-        if ($q !== '') {
-            $sql .= ' AND (u.name LIKE ? OR u.username LIKE ?)';
-            $params[] = $like;
-            $params[] = $like;
-        }
-        $sql .= ' ORDER BY u.name ASC LIMIT 40';
+        $params = [$me, $me, $me, $me];
+        $sql .= $searchSql;
+        $params = array_merge($params, $searchParams);
+        $sql .= ' ORDER BY contact_hits DESC, u.name ASC LIMIT 40';
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
         $rows = $stmt->fetchAll();

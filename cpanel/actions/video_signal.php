@@ -26,7 +26,7 @@ if ($action === 'ping' || $action === 'inbox' || $action === 'contacts') {
         }
         $q = trim((string) ($body['q'] ?? $_GET['q'] ?? ''));
         $limit = (int) ($body['limit'] ?? 40);
-        $rows = video_call_contacts($pdo, $user, $q, 'PATIENT', $limit > 0 ? $limit : 40);
+        $rows = video_call_contacts($pdo, $user, $q, 'PATIENT', $limit > 0 ? $limit : 80);
         $items = [];
         foreach ($rows as $c) {
             $items[] = video_call_contact_payload($c);
@@ -81,6 +81,7 @@ if ($action === 'open') {
     if (!$openRoom || !video_call_user_can_access_room($pdo, $user, $openRoom)) {
         video_call_json(['error' => 'اتاق تماس در دسترس نیست.'], 403);
     }
+    video_call_bump_room_contacts($pdo, $user, $openRoom);
     video_call_json(video_call_session_payload($pdo, $user, $openRoom, $media));
 }
 
@@ -101,6 +102,7 @@ if ($action === 'create_group') {
             trim((string) ($body['workshop'] ?? ''))
         );
         $media = trim((string) ($body['media'] ?? 'video')) === 'audio' ? 'audio' : 'video';
+        video_call_bump_room_contacts($pdo, $user, $room);
         video_call_json(video_call_session_payload($pdo, $user, $room, $media));
     } catch (RuntimeException $e) {
         video_call_json(['error' => $e->getMessage()], 400);
