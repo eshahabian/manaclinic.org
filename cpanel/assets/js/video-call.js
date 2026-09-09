@@ -44,12 +44,17 @@
   var recTimer = null;
   var guarded = false;
   var joined = false;
+  var dialing = false;
   var wantAutoAnswer = false;
+  var autoDial = false;
+  var ac = typeof AbortController !== "undefined" ? new AbortController() : null;
+  var bindOpts = ac ? { signal: ac.signal } : false;
   try {
     wantAutoAnswer = sessionStorage.getItem("mana-video-auto-answer") === "1"
       || /(?:^|[?&])answer=1(?:&|$)/.test(location.search || "");
     sessionStorage.removeItem("mana-video-auto-answer");
   } catch (e) {}
+  autoDial = root.getAttribute("data-auto-dial") === "1";
 
   function setStatus(text) {
     if (statusEl) statusEl.textContent = text;
@@ -184,6 +189,10 @@
       if (!already) conn.addTrack(track, localStream);
     });
   }
+  function descPayload(desc) {
+    if (!desc) return null;
+    return { type: desc.type, sdp: desc.sdp };
+  }
   function ensurePeer(userId) {
     if (!userId || userId === meId) return null;
     if (peers[userId]) {
@@ -201,15 +210,21 @@
       }
     };
     pc.ontrack = function (ev) {
-      var tracks = ev.streams && ev.streams[0] ? ev.streams[0].getTracks() : (ev.track ? [ev.track] : []);
-      tracks.forEach(function (track) {
-        if (!remoteStream.getTracks().some(function (t) { return t.id === track.id; })) {
-          remoteStream.addTrack(track);
+      var stream = ev.streams && ev.streams[0] ? ev.streams[0] : null;
+      if (stream) {
+        rec.remoteStream = stream;
+        if (vid) {
+          vid.srcObject = stream;
+          vid.play().catch(function () {});
         }
-      });
-      if (vid) {
-        vid.srcObject = remoteStream;
-        vid.play().catch(function () {});
+      } else if (ev.track) {
+        if (!remoteStream.getTracks().some(function (t) { return t.id === ev.track.id; })) {
+          remoteStream.addTrack(ev.track);
+        }
+        if (vid) {
+          vid.srcObject = remoteStream;
+          vid.play().catch(function () {});
+        }
       }
       if (stageEl) stageEl.classList.add("is-live");
     };
@@ -233,13 +248,15 @@
   }
   function offerTo(userId) {
     var rec = ensurePeer(userId);
-    if (!rec) return Promise.resolve();
+    if (!rec || rec.makingOffer) return Promise.resolve();
+    if (rec.pc.signalingState !== "stable") return Promise.resolve();
     rec.makingOffer = true;
-    return rec.pc.createOffer().then(function (offer) {
+    addLocalTracks(rec.pc);
+    return rec.pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: !audioOnly }).then(function (offer) {
       return rec.pc.setLocalDescription(offer);
     }).then(function () {
       rec.makingOffer = false;
-      return sendTo("offer", userId, rec.pc.localDescription);
+      return sendTo("offer", userId, descPayload(rec.pc.localDescription));
     }).catch(function (err) {
       rec.makingOffer = false;
       console.error(err);
@@ -247,7 +264,7 @@
   }
   function answerFrom(userId, offer) {
     var rec = ensurePeer(userId);
-    if (!rec) return Promise.resolve();
+    if (!rec || !offer) return Promise.resolve();
     addLocalTracks(rec.pc);
     return rec.pc.setRemoteDescription(new RTCSessionDescription(offer)).then(function () {
       flushIce(rec);
@@ -255,7 +272,9 @@
     }).then(function (answer) {
       return rec.pc.setLocalDescription(answer);
     }).then(function () {
-      return sendTo("answer", userId, rec.pc.localDescription);
+      return sendTo("answer", userId, descPayload(rec.pc.localDescription));
+    }).catch(function (err) {
+      console.error(err);
     });
   }
   function closePeer(userId) {
@@ -272,6 +291,7 @@
     Object.keys(peers).forEach(closePeer);
     calling = false;
     joined = false;
+    dialing = false;
     pendingOffers = {};
     if (stageEl) stageEl.classList.remove("is-live");
     if (incomingEl) incomingEl.hidden = true;
@@ -299,9 +319,8 @@
   function syncButtons() {
     var incoming = incomingEl && !incomingEl.hidden && !calling;
     if (startBtn) {
-      var showStart = canStart || incoming;
-      startBtn.hidden = !showStart;
-      startBtn.disabled = false;
+      startBtn.hidden = calling || !(canStart || incoming);
+      startBtn.disabled = dialing;
       startBtn.setAttribute("title", incoming ? "پاسخ" : "شروع تماس");
     }
     if (hangBtn) hangBtn.hidden = !(calling || incoming || Object.keys(peers).length);
@@ -313,48 +332,55 @@
       sendTo("ringing", m.id, { name: peerName });
     });
   }
-  function joinRoom(members) {
-    joined = true;
-    calling = true;
-    syncButtons();
-    sendTo("join", "", { name: peerName });
-    (members || []).forEach(function (m) {
-      if (!m || m.id === meId) return;
-      if (meId < m.id) offerTo(m.id);
-    });
+  function flushPendingAnswers() {
     Object.keys(pendingOffers).forEach(function (id) {
       var off = pendingOffers[id];
       delete pendingOffers[id];
-      media().then(function () { return answerFrom(id, off); }).catch(function () {});
+      answerFrom(id, off);
     });
   }
-  function startCall(members) {
+  function startCall() {
+    if (dialing || calling) return;
+    dialing = true;
+    syncButtons();
     media().then(function () {
-      function go(list) {
-        setStatus("در حال تماس…");
-        if (canStart) ringMembers(list || []);
-        joinRoom(list || []);
-      }
-      if (members && members.length) {
-        go(members);
-        return;
-      }
-      post({ action: "poll" }).then(function (data) {
-        go((data && data.members) || []);
-      }).catch(function () { go([]); });
-    }).catch(function () {});
+      return post({ action: "poll" });
+    }).then(function (data) {
+      var list = (data && data.members) || [];
+      setStatus("در حال تماس…");
+      if (canStart) ringMembers(list);
+      calling = true;
+      joined = true;
+      dialing = false;
+      syncButtons();
+      list.forEach(function (m) {
+        if (m && m.id && m.id !== meId) offerTo(m.id);
+      });
+    }).catch(function () {
+      dialing = false;
+      syncButtons();
+    });
   }
   function acceptIncoming() {
+    if (dialing || calling) {
+      flushPendingAnswers();
+      return;
+    }
+    dialing = true;
+    syncButtons();
     media().then(function () {
       if (incomingEl) incomingEl.hidden = true;
       stopRing();
-      joinRoom([]);
-      Object.keys(pendingOffers).forEach(function (id) {
-        var off = pendingOffers[id];
-        delete pendingOffers[id];
-        answerFrom(id, off);
-      });
-    }).catch(function () {});
+      calling = true;
+      joined = true;
+      dialing = false;
+      syncButtons();
+      sendTo("join", "", { name: peerName });
+      flushPendingAnswers();
+    }).catch(function () {
+      dialing = false;
+      syncButtons();
+    });
   }
   function handle(sig) {
     if (!sig || seen[sig.id]) return;
@@ -372,12 +398,13 @@
         if (wantAutoAnswer) acceptIncoming();
       }
     } else if (kind === "join") {
-      if (calling && from && from !== meId && meId < from) {
-        media().then(function () { return offerTo(from); }).catch(function () {});
+      if (calling && canStart && from && from !== meId) {
+        offerTo(from);
       }
     } else if (kind === "offer" && payload) {
       pendingOffers[from] = payload;
       if (calling) {
+        delete pendingOffers[from];
         media().then(function () { return answerFrom(from, payload); }).catch(function () {});
       } else if (incomingEl) {
         incomingEl.hidden = false;
@@ -413,9 +440,9 @@
         var next = names.length ? ("آنلاین: " + names.join("، ")) : "مخاطب فعلاً آفلاین است.";
         if (next !== lastStatus) { lastStatus = next; setStatus(next); }
       }
-      if (calling && isGroup) {
+      if (calling && isGroup && canStart) {
         (data.members || []).forEach(function (m) {
-          if (m && m.id !== meId && meId < m.id && !peers[m.id]) offerTo(m.id);
+          if (m && m.id !== meId && !peers[m.id]) offerTo(m.id);
         });
       }
     }).catch(function () {});
@@ -469,59 +496,71 @@
     setRecordingUi(true);
   }
 
-  if (permitBtn) permitBtn.addEventListener("click", function () {
+  function on(el, ev, fn) {
+    if (!el) return;
+    if (bindOpts) el.addEventListener(ev, fn, bindOpts);
+    else el.addEventListener(ev, fn);
+  }
+  on(permitBtn, "click", function () {
     ctx();
     requestMedia().then(function () {
-      if (isGroup && !canStart) startCall([]);
+      if (wantAutoAnswer || (!canStart && isGroup)) acceptIncoming();
+      else if (canStart) startCall();
     }).catch(function () {});
   });
-  if (startBtn) startBtn.addEventListener("click", function () {
+  on(startBtn, "click", function () {
     ctx();
     if (incomingEl && !incomingEl.hidden && !calling) acceptIncoming();
-    else startCall([]);
+    else if (canStart) startCall();
   });
-  if (hangBtn) hangBtn.addEventListener("click", function () {
+  on(hangBtn, "click", function () {
     sendTo("hangup", "", null);
-    endAll(true);
-    if (window.ManaVideoCall) window.ManaVideoCall.stop(true);
+    if (window.ManaVideoCall) window.ManaVideoCall.stop();
   });
   fsBtns.forEach(function (btn) {
-    btn.addEventListener("click", function () {
+    on(btn, "click", function () {
       var el = stageEl || root;
       if (document.fullscreenElement) document.exitFullscreen();
       else if (el.requestFullscreen) el.requestFullscreen();
     });
   });
-  if (enhanceBtn) enhanceBtn.addEventListener("click", function () {
-    var on = !stageEl.classList.contains("is-enhanced");
-    stageEl.classList.toggle("is-enhanced", on);
-    enhanceBtn.setAttribute("aria-pressed", on ? "true" : "false");
+  on(enhanceBtn, "click", function () {
+    var enabled = !stageEl.classList.contains("is-enhanced");
+    stageEl.classList.toggle("is-enhanced", enabled);
+    enhanceBtn.setAttribute("aria-pressed", enabled ? "true" : "false");
   });
-  if (recordBtn) recordBtn.addEventListener("click", function () {
+  on(recordBtn, "click", function () {
     if (recorder) stopRecording();
     else startRecording();
   });
   if (guardCapture) {
     document.addEventListener("visibilitychange", function () {
-      var on = document.hidden;
-      root.classList.toggle("is-black", on);
-      if (blackoutEl) blackoutEl.hidden = !on;
-    });
+      var hidden = document.hidden;
+      root.classList.toggle("is-black", hidden);
+      if (blackoutEl) blackoutEl.hidden = !hidden;
+    }, bindOpts || false);
   }
   window.addEventListener("pagehide", function () {
     if (calling) sendTo("leave", "", null);
-  });
+  }, bindOpts || false);
   syncButtons();
   requestMedia().then(function () {
-    if (isGroup) startCall([]);
-    else if (wantAutoAnswer) acceptIncoming();
+    if (wantAutoAnswer) acceptIncoming();
+    else if (autoDial && canStart) startCall();
+    else if (isGroup && canStart) startCall();
+    else if (isGroup && !canStart) acceptIncoming();
   }).catch(function () {});
   poll();
   var pollTimer = setInterval(poll, 800);
   return function () {
+    if (ac) ac.abort();
     clearInterval(pollTimer);
     try { sendTo("leave", "", null); } catch (e) {}
     endAll(false);
+    if (localStream) {
+      localStream.getTracks().forEach(function (t) { t.stop(); });
+      localStream = null;
+    }
   };
   }
 
@@ -541,6 +580,9 @@
       root.setAttribute("data-can-start", info.canStart ? "1" : "0");
       if (info.answer) {
         try { sessionStorage.setItem("mana-video-auto-answer", "1"); } catch (e) {}
+        root.setAttribute("data-auto-dial", "0");
+      } else {
+        root.setAttribute("data-auto-dial", info.autoStart === false ? "0" : "1");
       }
       var mark = root.querySelector("[data-vc-watermark]");
       if (mark) mark.textContent = info.title ? ("در حال تماس با " + info.title) : "";

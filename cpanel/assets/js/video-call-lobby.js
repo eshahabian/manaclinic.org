@@ -24,11 +24,17 @@
     }).then(function (r) { return r.json(); });
   }
 
+  var opening = false;
   function openInTile(opts) {
+    if (opening) return;
+    opening = true;
     post(Object.assign({ action: "open" }, opts)).then(function (data) {
       if (!data || !data.ok) return;
+      data.autoStart = true;
       if (window.ManaVideoCall && window.ManaVideoCall.start) window.ManaVideoCall.start(data);
-    }).catch(function () {});
+    }).catch(function () {}).then(function () {
+      opening = false;
+    });
   }
 
   document.addEventListener("click", function (ev) {
