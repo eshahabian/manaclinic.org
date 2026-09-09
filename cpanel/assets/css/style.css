@@ -269,8 +269,23 @@ body.nav-open { overflow: hidden; }
   .mobile-nav,
   .mobile-nav-overlay { display: none !important; }
   body.nav-open { overflow: visible; }
-  .header-inner { justify-content: flex-start; }
-  .nav-links { margin-inline-start: auto; }
+  .header-inner {
+    justify-content: space-between;
+    flex-wrap: nowrap;
+  }
+  .header-brand,
+  .header-actions {
+    flex: 1 1 0;
+    min-width: 0;
+  }
+  .header-actions {
+    justify-content: flex-end;
+  }
+  .nav-links {
+    flex: 0 1 auto;
+    justify-content: center;
+    margin-inline: 0;
+  }
 }
 
 .btn {
