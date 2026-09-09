@@ -46,6 +46,250 @@ function workshop_path_doctor_url(string $enrollmentId): string
     return url('/doctor/workshops/path?enrollment=' . rawurlencode($enrollmentId));
 }
 
+function workshop_doctor_board_url(array $workshop, string $sessionId = ''): string
+{
+    $workshopId = (string) ($workshop['id'] ?? '');
+    $archived = function_exists('workshop_is_archived') && workshop_is_archived($workshop);
+    $tab = $archived
+        ? 'archive'
+        : (function_exists('workshop_courses_tab_for_type')
+            ? workshop_courses_tab_for_type((string) ($workshop['type'] ?? ''))
+            : 'in-person');
+    $url = url('/doctor/workshops?tab=' . rawurlencode($tab) . '&doctor_path=' . rawurlencode($workshopId));
+    if ($sessionId !== '') {
+        return $url . '#doctor-step-' . rawurlencode($sessionId);
+    }
+
+    return $url . '#workshop-' . rawurlencode($workshopId) . '-doctor-path';
+}
+
+function workshop_doctor_board_close_url(array $workshop): string
+{
+    $archived = function_exists('workshop_is_archived') && workshop_is_archived($workshop);
+    $tab = $archived
+        ? 'archive'
+        : (function_exists('workshop_courses_tab_for_type')
+            ? workshop_courses_tab_for_type((string) ($workshop['type'] ?? ''))
+            : 'in-person');
+
+    return url('/doctor/workshops?tab=' . rawurlencode($tab) . '#workshop-' . rawurlencode((string) ($workshop['id'] ?? '')));
+}
+
+function workshop_doctor_path_board(PDO $pdo, array $workshop, array $enrollments): array
+{
+    require_once __DIR__ . '/workshop_sessions.php';
+    require_once __DIR__ . '/workshop_media.php';
+    $workshopId = (string) ($workshop['id'] ?? '');
+    workshop_sessions_sync(
+        $pdo,
+        $workshopId,
+        (string) ($workshop['type'] ?? 'OFFLINE'),
+        (string) ($workshop['starts_at'] ?? date('Y-m-d H:i:s')),
+        (string) ($workshop['ends_at'] ?? date('Y-m-d H:i:s')),
+        [],
+        function_exists('workshop_session_interval_normalize')
+            ? workshop_session_interval_normalize((string) ($workshop['session_interval'] ?? 'WEEKLY'))
+            : 'WEEKLY'
+    );
+    $sessions = workshop_sessions_with_media($pdo, $workshopId);
+    $notesMap = workshop_session_notes_map($pdo, $workshopId);
+    $today = date('Y-m-d');
+    $offline = function_exists('workshop_is_offline') && workshop_is_offline((string) ($workshop['type'] ?? ''));
+    $people = [];
+    foreach ($enrollments as $enr) {
+        if (!is_array($enr)) {
+            continue;
+        }
+        if (!in_array((string) ($enr['status'] ?? ''), workshop_path_member_statuses(), true)) {
+            continue;
+        }
+        $people[] = $enr;
+    }
+    $steps = [];
+    foreach ($sessions as $i => $session) {
+        if (!is_array($session)) {
+            continue;
+        }
+        $sid = (string) ($session['id'] ?? '');
+        if ($sid === '') {
+            continue;
+        }
+        $date = (string) ($session['session_date'] ?? '');
+        $note = $notesMap['by_session'][$sid] ?? ($date !== '' ? ($notesMap['by_date'][$date] ?? null) : null);
+        $visual = workshop_path_date_state($date, $today);
+        $displayState = $offline && $visual === 'future' ? 'open' : $visual;
+        $steps[] = [
+            'id' => $sid,
+            'index' => $i + 1,
+            'title' => (string) ($session['title'] ?? ('جلسه ' . ($i + 1))),
+            'date' => $date,
+            'date_fa' => $date !== '' ? to_jalali_label($date) : '',
+            'state' => $displayState,
+            'visual' => $displayState,
+            'doctor_note' => (string) ($note['note_text'] ?? ''),
+            'note_id' => (string) ($note['id'] ?? ''),
+            'files' => is_array($session['files'] ?? null) ? $session['files'] : [],
+        ];
+    }
+    $progress = workshop_path_progress(array_map(static function (array $step): array {
+        $step['patient_note'] = (string) ($step['doctor_note'] ?? '');
+        return $step;
+    }, $steps), $offline);
+
+    return [
+        'workshop' => $workshop,
+        'steps' => $steps,
+        'people' => $people,
+        'progress' => $progress,
+        'offline' => $offline,
+        'post_url' => url('/doctor/workshops/doctor-path'),
+        'media_post' => url('/doctor/workshop-media'),
+    ];
+}
+
+function workshop_path_rich_toolbar_html(string $toolbarId): string
+{
+    ob_start();
+    ?>
+          <div class="clinical-toolbar workshop-path-toolbar" id="<?= e($toolbarId) ?>" data-rich-toolbar>
+            <button type="button" class="tool-btn bold" data-cmd="bold" title="ضخیم">B</button>
+            <span class="tool-sep"></span>
+            <span class="muted" style="font-size:.8rem;margin-inline-end:.25rem">هایلایت</span>
+            <button type="button" class="swatch yellow" data-hl="#ffe566" title="زرد"></button>
+            <button type="button" class="swatch green" data-hl="#8fd6a8" title="سبز"></button>
+            <button type="button" class="swatch pink" data-hl="#f5a3c0" title="صورتی"></button>
+            <button type="button" class="swatch blue" data-hl="#8eb7e8" title="آبی"></button>
+            <button type="button" class="tool-btn" data-cmd="removeFormat" title="پاک کردن فرمت">پاک‌کردن رنگ</button>
+          </div>
+    <?php
+    return (string) ob_get_clean();
+}
+
+function workshop_doctor_path_render(array $board): string
+{
+    $workshop = is_array($board['workshop'] ?? null) ? $board['workshop'] : [];
+    $steps = is_array($board['steps'] ?? null) ? $board['steps'] : [];
+    $people = is_array($board['people'] ?? null) ? $board['people'] : [];
+    $progress = is_array($board['progress'] ?? null) ? $board['progress'] : [];
+    $postUrl = (string) ($board['post_url'] ?? '');
+    $mediaPost = (string) ($board['media_post'] ?? '');
+    $workshopId = (string) ($workshop['id'] ?? '');
+    $current = (int) ($progress['current'] ?? 0);
+    global $config;
+    $mediaMaxMb = (int) ($config['workshop_media_max_mb'] ?? 300);
+
+    ob_start();
+    ?>
+<div class="workshop-path-wrap workshop-doctor-board" id="workshop-<?= e($workshopId) ?>-doctor-path">
+  <div class="workshop-path-motivate" role="status">
+    <strong>مسیر و یادداشت‌های درمانگر</strong>
+    <?php if ((int) ($progress['total'] ?? 0) > 0): ?>
+      <span class="workshop-path-motivate-count">
+        جلسه <?= e(to_fa_digits((string) max(1, $current))) ?> از <?= e(to_fa_digits((string) $progress['total'])) ?>
+      </span>
+    <?php endif; ?>
+    <p>یادداشت خصوصی فقط برای شماست. اگر بخواهید، همان جلسه می‌توانید فقط به یک مراجع پیام بدهید و فایل جلسه را همین‌جا بگذارید.</p>
+  </div>
+
+  <?php if ($steps === []): ?>
+    <p class="muted">هنوز جلسه‌ای برای این دوره تعریف نشده است. کارگاه را ذخیره کنید تا روزهای برگزاری ساخته شود.</p>
+  <?php else: ?>
+    <ol class="workshop-path">
+      <?php foreach ($steps as $step): ?>
+        <?php
+          $state = (string) ($step['visual'] ?? $step['state'] ?? 'open');
+          $isCurrent = $current > 0 && (int) ($step['index'] ?? 0) === $current;
+          $classes = 'workshop-path-step is-' . preg_replace('/[^a-z]/', '', $state);
+          if ($isCurrent) {
+              $classes .= ' is-current';
+          }
+          $sid = (string) ($step['id'] ?? '');
+          $noteHtml = function_exists('rich_html_for_display')
+              ? rich_html_for_display((string) ($step['doctor_note'] ?? ''))
+              : e((string) ($step['doctor_note'] ?? ''));
+          $files = is_array($step['files'] ?? null) ? $step['files'] : [];
+        ?>
+        <li class="<?= e($classes) ?>" id="doctor-step-<?= e($sid) ?>">
+          <span class="workshop-path-dot" aria-hidden="true">
+            <?php if ($state === 'past'): ?>✓<?php elseif ($state === 'today' || $isCurrent): ?>●<?php else: ?>○<?php endif; ?>
+          </span>
+          <div class="workshop-path-card">
+            <div class="workshop-path-card-head">
+              <strong><?= e((string) ($step['title'] ?? 'جلسه')) ?></strong>
+              <span class="badge"><?= e(workshop_path_state_label($state)) ?></span>
+            </div>
+            <?php if (!empty($step['date_fa'])): ?>
+              <div class="muted" style="font-size:.85rem;margin-top:.25rem"><?= e((string) $step['date_fa']) ?></div>
+            <?php endif; ?>
+
+            <form class="workshop-path-form" method="post" action="<?= e($postUrl) ?>" enctype="multipart/form-data" data-rich-note>
+              <?= csrf_field() ?>
+              <input type="hidden" name="workshop_id" value="<?= e($workshopId) ?>">
+              <input type="hidden" name="session_id" value="<?= e($sid) ?>">
+              <input type="hidden" name="note_id" value="<?= e((string) ($step['note_id'] ?? '')) ?>">
+
+              <span class="workshop-path-note-label">یادداشت خصوصی من</span>
+              <?= workshop_path_rich_toolbar_html('doctor-note-toolbar-' . $sid) ?>
+              <div
+                class="clinical-editor workshop-path-editor"
+                contenteditable="true"
+                role="textbox"
+                data-rich-editor
+                data-placeholder="نکات جلسه را بنویسید؛ کلمه را انتخاب کنید و Bold یا هایلایت بزنید…"
+              ><?= $noteHtml ?></div>
+              <textarea name="note_html" hidden data-rich-hidden><?= e((string) ($step['doctor_note'] ?? '')) ?></textarea>
+
+              <label class="workshop-path-note-label" for="patient-msg-<?= e($sid) ?>">پیام خصوصی برای مراجع (اختیاری)</label>
+              <textarea class="input" id="patient-msg-<?= e($sid) ?>" name="patient_message" rows="3" maxlength="4000" placeholder="اگر خالی بماند فقط یادداشت خودتان ذخیره می‌شود. این متن را فقط مراجع انتخاب‌شده می‌بیند…"></textarea>
+              <label class="label" for="share-enr-<?= e($sid) ?>">ارسال پیام به</label>
+              <select class="input" id="share-enr-<?= e($sid) ?>" name="share_enrollment_id">
+                <option value="">ارسال نشود</option>
+                <?php if (count($people) > 1): ?>
+                  <option value="ALL">همه شرکت‌کننده‌های تأییدشده</option>
+                <?php endif; ?>
+                <?php foreach ($people as $enr): ?>
+                  <option value="<?= e((string) ($enr['id'] ?? '')) ?>"><?= e((string) ($enr['patient_name'] ?? 'مراجع')) ?></option>
+                <?php endforeach; ?>
+              </select>
+              <?php if (!$people): ?>
+                <p class="muted" style="margin:.35rem 0 0;font-size:.8rem">هنوز شرکت‌کننده تأییدشده‌ای نیست؛ پیام بعد از تأیید ثبت‌نام قابل ارسال است.</p>
+              <?php endif; ?>
+
+              <span class="workshop-path-note-label">فایل‌های این جلسه</span>
+              <p class="muted" style="margin:0 0 .45rem;font-size:.8rem">حداکثر <?= e(to_fa_digits((string) $mediaMaxMb)) ?> مگابایت برای هر فایل. فقط اعضای تأییدشده این فایل‌ها را در مسیر خود می‌بینند.</p>
+              <div class="workshop-session-slots workshop-path-files">
+                <?php foreach (['PDF' => ['پی‌دی‌اف', '.pdf,application/pdf'], 'AUDIO' => ['صوت', 'audio/*,.mp3,.m4a,.wav,.ogg'], 'VIDEO' => ['ویدیو', 'video/*,.mp4,.webm,.mov']] as $kind => $meta): ?>
+                  <?php $existing = is_array($files[$kind] ?? null) ? $files[$kind] : null; ?>
+                  <div class="workshop-session-kind">
+                    <label class="label"><?= e($meta[0]) ?></label>
+                    <?php if ($existing): ?>
+                      <div class="muted" style="font-size:.78rem;margin-bottom:.35rem">
+                        <?= e((string) ($existing['original_name'] ?? 'فایل')) ?>
+                        <?php if (!empty($existing['file_size'])): ?>
+                          · <?= e(workshop_media_format_size((int) $existing['file_size'])) ?>
+                        <?php endif; ?>
+                      </div>
+                      <?php if ($mediaPost !== '' && !empty($existing['id'])): ?>
+                        <button type="submit" class="btn btn-outline btn-sm" name="delete_media_id" value="<?= e((string) $existing['id']) ?>" formnovalidate onclick="return confirm('این فایل حذف شود؟')">حذف</button>
+                      <?php endif; ?>
+                    <?php endif; ?>
+                    <input class="input" type="file" name="path_file[<?= e($kind) ?>]" accept="<?= e($meta[1]) ?>">
+                  </div>
+                <?php endforeach; ?>
+              </div>
+
+              <button class="btn btn-primary btn-sm" type="submit">ذخیره این جلسه</button>
+            </form>
+          </div>
+        </li>
+      <?php endforeach; ?>
+    </ol>
+  <?php endif; ?>
+</div>
+    <?php
+    return (string) ob_get_clean();
+}
+
 function workshop_path_date_state(string $sessionDate, string $today): string
 {
     if ($sessionDate === '') {

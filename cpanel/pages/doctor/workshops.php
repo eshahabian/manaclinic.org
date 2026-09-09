@@ -70,10 +70,30 @@ $sessionsByWorkshop = workshop_sessions_map_for_ids(
 $grouped = workshop_group_for_tabs($workshops);
 $peerGrouped = workshop_group_for_tabs($peerWorkshops);
 $tabParam = trim((string) ($_GET['tab'] ?? ''));
+$openDoctorPathId = trim((string) ($_GET['doctor_path'] ?? ''));
+$doctorPathBoardById = [];
+if ($openDoctorPathId !== '') {
+    foreach ($workshops as $w) {
+        if ((string) ($w['id'] ?? '') !== $openDoctorPathId) {
+            continue;
+        }
+        $doctorPathBoardById[$openDoctorPathId] = workshop_doctor_path_board(
+            $pdo,
+            $w,
+            $workshopEnrollmentsById[$openDoctorPathId] ?? []
+        );
+        break;
+    }
+}
 if ($editWorkshop) {
     $binderInitial = 'new';
 } elseif (in_array($tabParam, ['in-person', 'online', 'offline', 'new', 'archive'], true)) {
     $binderInitial = $tabParam;
+} elseif ($openDoctorPathId !== '' && isset($doctorPathBoardById[$openDoctorPathId])) {
+    $opened = $doctorPathBoardById[$openDoctorPathId]['workshop'] ?? [];
+    $binderInitial = (function_exists('workshop_is_archived') && workshop_is_archived($opened))
+        ? 'archive'
+        : workshop_courses_tab_for_type((string) ($opened['type'] ?? ''));
 } else {
     $binderInitial = '';
 }
@@ -341,7 +361,7 @@ ob_start();
                 <?php if (!empty($note['session_at'])): ?>
                   <div class="muted" style="font-size:.8rem;margin-top:.25rem"><?= e(format_workshop_datetime_fa((string) $note['session_at'])) ?></div>
                 <?php endif; ?>
-                <p style="margin:.5rem 0 0;line-height:1.7;white-space:pre-wrap"><?= e($note['note_text']) ?></p>
+                <div style="margin:.5rem 0 0;line-height:1.7"><?= function_exists('rich_html_for_display') ? rich_html_for_display((string) $note['note_text']) : nl2br(e((string) $note['note_text'])) ?></div>
               </div>
               <form method="post" action="<?= e(url('/doctor/workshop-session-note')) ?>" onsubmit="return confirm('این یادداشت حذف شود؟')">
                 <input type="hidden" name="action" value="delete">
@@ -680,5 +700,18 @@ ob_start();
 })();
 </script>
 <script src="<?= e(url('/assets/js/workshop-session-media.js')) ?>?v=20260906u"></script>
+<script src="<?= e(url('/assets/js/rich-editor.js')) ?>?v=20260909a"></script>
+<script>
+if (window.initRichEditors) { window.initRichEditors(document); }
+(function(){
+  var board = document.querySelector(".workshop-doctor-board");
+  if (!board) return;
+  var hash = window.location.hash || "";
+  var target = hash.indexOf("doctor-step-") === 1 ? document.getElementById(hash.slice(1)) : board;
+  if (target) {
+    setTimeout(function(){ target.scrollIntoView({ behavior: "smooth", block: "start" }); }, 120);
+  }
+})();
+</script>
 <?php
 render_doctor_page('کارگاه‌ها', ob_get_clean());

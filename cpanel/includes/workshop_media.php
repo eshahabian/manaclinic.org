@@ -421,6 +421,40 @@ function workshop_media_process_session_uploads(PDO $pdo, string $workshopId, ?s
     return $saved;
 }
 
+function workshop_media_process_path_session_files(
+    PDO $pdo,
+    string $workshopId,
+    ?string $doctorProfileId,
+    string $sessionId,
+    string $sessionTitle,
+    string $filesKey = 'path_file'
+): int {
+    $files = $_FILES[$filesKey] ?? [];
+    if (!is_array($files['name'] ?? null) || $sessionId === '') {
+        return 0;
+    }
+    $saved = 0;
+    foreach (['PDF', 'AUDIO', 'VIDEO'] as $kind) {
+        $file = [
+            'name' => (string) ($files['name'][$kind] ?? ''),
+            'type' => (string) ($files['type'][$kind] ?? ''),
+            'tmp_name' => (string) ($files['tmp_name'][$kind] ?? ''),
+            'error' => (int) ($files['error'][$kind] ?? UPLOAD_ERR_NO_FILE),
+            'size' => (int) ($files['size'][$kind] ?? 0),
+        ];
+        if ($file['error'] === UPLOAD_ERR_NO_FILE) {
+            continue;
+        }
+        $title = trim($sessionTitle) !== ''
+            ? $sessionTitle . ' — ' . workshop_media_kind_label($kind)
+            : workshop_media_kind_label($kind);
+        workshop_media_save_upload($pdo, $workshopId, $doctorProfileId, $kind, $title, null, $file, $sessionId);
+        $saved++;
+    }
+
+    return $saved;
+}
+
 /** بارگذاری چند فایل از فرم ایجاد/ویرایش کارگاه — doctorProfileId=null یعنی دسترسی منشی */
 function workshop_media_process_form_uploads(PDO $pdo, string $workshopId, ?string $doctorProfileId): int
 {

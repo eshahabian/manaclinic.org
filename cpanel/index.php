@@ -176,6 +176,7 @@ $routes = [
     'GET /doctor/workshops' => 'pages/doctor/workshops.php',
     'GET /doctor/workshops/path' => 'pages/doctor/workshop_path.php',
     'POST /doctor/workshops/path-note' => 'actions/doctor_workshop_path_note.php',
+    'POST /doctor/workshops/doctor-path' => 'actions/doctor_workshop_doctor_path.php',
     'GET /doctor/workshops/qa' => 'pages/doctor/workshop_qa.php',
     'POST /doctor/workshops/qa' => 'actions/doctor_workshop_qa.php',
     'POST /doctor/workshops' => 'actions/doctor_workshops.php',

@@ -2918,6 +2918,29 @@ body.workshop-overview-locked { overflow: hidden; }
 .workshop-path-form { margin-top: .35rem; }
 .workshop-path-form .input { width: 100%; min-height: 5.2rem; }
 .workshop-path-form .btn { margin-top: .5rem; }
+.workshop-doctor-board {
+  margin-top: .85rem;
+}
+.workshop-path-card .workshop-path-toolbar {
+  margin: .15rem 0 .45rem;
+  padding: .45rem .55rem;
+}
+.workshop-path-card .workshop-path-editor {
+  min-height: 8.2rem;
+  max-height: 16rem;
+  padding: .7rem .8rem;
+  font-size: .92rem;
+  line-height: 1.75;
+}
+.workshop-path-files {
+  margin-top: .15rem;
+}
+.workshop-path-form select.input {
+  width: 100%;
+  min-height: 0;
+  height: auto;
+  margin-bottom: .15rem;
+}
 .workshop-path-locked { margin: .65rem 0 0; font-size: .85rem; }
 .workshop-path-media { margin-top: .7rem; }
 .workshop-path-media .wm-video-box,

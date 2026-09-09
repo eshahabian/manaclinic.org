@@ -92,6 +92,14 @@ function ensure_workshop_session_notes_schema(PDO $pdo): void
         CONSTRAINT fk_wsn_doctor FOREIGN KEY (doctor_id) REFERENCES doctor_profiles(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
+    try {
+        $col = $pdo->query("SHOW COLUMNS FROM workshop_session_notes LIKE 'session_id'")->fetch();
+        if (!$col) {
+            $pdo->exec("ALTER TABLE workshop_session_notes ADD COLUMN session_id VARCHAR(32) NULL AFTER doctor_id");
+            $pdo->exec("ALTER TABLE workshop_session_notes ADD INDEX idx_wsn_session (workshop_id, session_id)");
+        }
+    } catch (Throwable $ignored) {
+    }
     $ready = true;
 }
 
@@ -516,6 +524,27 @@ function workshop_session_notes_list(PDO $pdo, string $workshopId): array
     return $stmt->fetchAll();
 }
 
+function workshop_session_notes_map(PDO $pdo, string $workshopId): array
+{
+    $bySession = [];
+    $byDate = [];
+    foreach (workshop_session_notes_list($pdo, $workshopId) as $note) {
+        if (!is_array($note)) {
+            continue;
+        }
+        $sid = trim((string) ($note['session_id'] ?? ''));
+        if ($sid !== '' && !isset($bySession[$sid])) {
+            $bySession[$sid] = $note;
+        }
+        $date = substr((string) ($note['session_at'] ?? ''), 0, 10);
+        if ($date !== '' && !isset($byDate[$date])) {
+            $byDate[$date] = $note;
+        }
+    }
+
+    return ['by_session' => $bySession, 'by_date' => $byDate];
+}
+
 function workshop_session_note_save(
     PDO $pdo,
     string $workshopId,
@@ -523,18 +552,20 @@ function workshop_session_note_save(
     string $sessionTitle,
     string $noteText,
     ?string $sessionAt,
-    ?string $noteId = null
+    ?string $noteId = null,
+    ?string $sessionId = null
 ): string {
     ensure_workshop_session_notes_schema($pdo);
     $sessionTitle = trim($sessionTitle);
-    $noteText = trim($noteText);
-    if ($sessionTitle === '' || $noteText === '') {
-        throw new RuntimeException('عنوان جلسه و متن یادداشت الزامی است.');
-    }
+    $noteText = function_exists('sanitize_rich_html') ? sanitize_rich_html($noteText) : trim($noteText);
+    $sessionId = $sessionId !== null ? trim($sessionId) : '';
     $own = $pdo->prepare('SELECT id FROM workshops WHERE id=? AND doctor_id=? LIMIT 1');
     $own->execute([$workshopId, $doctorProfileId]);
     if (!$own->fetch()) {
         throw new RuntimeException('کارگاه یافت نشد.');
+    }
+    if ($sessionTitle === '') {
+        throw new RuntimeException('عنوان جلسه الزامی است.');
     }
     if ($sessionAt !== null && $sessionAt !== '') {
         if (!strtotime($sessionAt)) {
@@ -544,20 +575,34 @@ function workshop_session_note_save(
         $sessionAt = null;
     }
 
+    if ($sessionId !== '' && $noteId === null) {
+        $found = $pdo->prepare('SELECT id FROM workshop_session_notes WHERE workshop_id=? AND doctor_id=? AND session_id=? LIMIT 1');
+        $found->execute([$workshopId, $doctorProfileId, $sessionId]);
+        $noteId = (string) ($found->fetchColumn() ?: '') ?: null;
+    }
+
+    if ($noteText === '') {
+        if ($noteId) {
+            $pdo->prepare('DELETE FROM workshop_session_notes WHERE id=? AND workshop_id=? AND doctor_id=?')
+                ->execute([$noteId, $workshopId, $doctorProfileId]);
+        }
+        return (string) ($noteId ?? '');
+    }
+
     if ($noteId) {
         $pdo->prepare('
           UPDATE workshop_session_notes
-          SET session_title=?, session_at=?, note_text=?
+          SET session_title=?, session_at=?, note_text=?, session_id=COALESCE(?, session_id)
           WHERE id=? AND workshop_id=? AND doctor_id=?
-        ')->execute([$sessionTitle, $sessionAt, $noteText, $noteId, $workshopId, $doctorProfileId]);
+        ')->execute([$sessionTitle, $sessionAt, $noteText, $sessionId !== '' ? $sessionId : null, $noteId, $workshopId, $doctorProfileId]);
         return $noteId;
     }
 
     $id = cuid();
     $pdo->prepare('
-      INSERT INTO workshop_session_notes (id, workshop_id, doctor_id, session_title, session_at, note_text)
-      VALUES (?,?,?,?,?,?)
-    ')->execute([$id, $workshopId, $doctorProfileId, $sessionTitle, $sessionAt, $noteText]);
+      INSERT INTO workshop_session_notes (id, workshop_id, doctor_id, session_id, session_title, session_at, note_text)
+      VALUES (?,?,?,?,?,?,?)
+    ')->execute([$id, $workshopId, $doctorProfileId, $sessionId !== '' ? $sessionId : null, $sessionTitle, $sessionAt, $noteText]);
     return $id;
 }
 

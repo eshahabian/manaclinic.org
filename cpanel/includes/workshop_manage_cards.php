@@ -12,6 +12,8 @@ $workshopEnrollmentsById = $workshopEnrollmentsById ?? [];
 $workshopEditBase = $workshopRole === 'secretary' ? '/secretary/workshops' : '/doctor/workshops';
 $workshopPostBase = $workshopEditBase;
 $workshopMediaPost = $workshopRole === 'secretary' ? '/secretary/workshop-media' : '/doctor/workshop-media';
+$openDoctorPathId = $openDoctorPathId ?? '';
+$doctorPathBoardById = $doctorPathBoardById ?? [];
 ?>
 <?php if (!$workshopList): ?>
   <p class="muted binder-empty"><?= e($workshopEmpty) ?></p>
@@ -126,8 +128,10 @@ $workshopMediaPost = $workshopRole === 'secretary' ? '/secretary/workshop-media'
         <?php endif; ?>
         <?php if ($workshopRole === 'doctor'): ?>
           <?php
+            $wid = (string) $workshop['id'];
+            $doctorBoardOpen = $openDoctorPathId !== '' && $openDoctorPathId === $wid;
             $pathPeople = [];
-            foreach (($workshopEnrollmentsById[(string) $workshop['id']] ?? []) as $enr) {
+            foreach (($workshopEnrollmentsById[$wid] ?? []) as $enr) {
                 if (!is_array($enr)) {
                     continue;
                 }
@@ -137,6 +141,24 @@ $workshopMediaPost = $workshopRole === 'secretary' ? '/secretary/workshop-media'
                 $pathPeople[] = $enr;
             }
           ?>
+            <div class="workshop-path-people">
+              <h3 class="workshop-path-people-title">مسیر و یادداشت‌های دکتر</h3>
+              <ul class="workshop-path-people-list">
+                <li>
+                  <span>یادداشت جلسات، پیام خصوصی برای مراجع، فایل هر جلسه</span>
+                  <?php if (function_exists('workshop_doctor_board_url')): ?>
+                    <?php if ($doctorBoardOpen && function_exists('workshop_doctor_board_close_url')): ?>
+                      <a class="btn btn-outline btn-sm" href="<?= e(workshop_doctor_board_close_url($workshop)) ?>">بستن مسیر</a>
+                    <?php else: ?>
+                      <a class="btn btn-outline btn-sm" href="<?= e(workshop_doctor_board_url($workshop)) ?>">مسیر و یادداشت</a>
+                    <?php endif; ?>
+                  <?php endif; ?>
+                </li>
+              </ul>
+              <?php if ($doctorBoardOpen && !empty($doctorPathBoardById[$wid]) && function_exists('workshop_doctor_path_render')): ?>
+                <?= workshop_doctor_path_render($doctorPathBoardById[$wid]) ?>
+              <?php endif; ?>
+            </div>
           <?php if ($pathPeople): ?>
             <div class="workshop-path-people">
               <h3 class="workshop-path-people-title">مسیر و یادداشت شرکت‌کننده‌ها</h3>

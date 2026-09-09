@@ -24,11 +24,20 @@
     return true;
   }
 
+  function resolveEl(value, root) {
+    if (!value) return null;
+    if (typeof value === "string") {
+      return (root || document).querySelector(value);
+    }
+    return value;
+  }
+
   global.initRichEditor = function (opts) {
-    var editor = document.querySelector(opts.editor);
-    var toolbar = document.querySelector(opts.toolbar);
-    var form = document.querySelector(opts.form);
-    var hidden = document.querySelector(opts.hidden);
+    var form = resolveEl(opts.form);
+    var scope = form || document;
+    var editor = resolveEl(opts.editor, scope);
+    var toolbar = resolveEl(opts.toolbar, scope);
+    var hidden = resolveEl(opts.hidden, scope);
     if (!editor || !toolbar || !form || !hidden) return;
 
     function focusEditor() {
@@ -71,6 +80,18 @@
 
     form.addEventListener("submit", function () {
       hidden.value = editor.innerHTML;
+    });
+  };
+
+  global.initRichEditors = function (root) {
+    var scope = root || document;
+    scope.querySelectorAll("form[data-rich-note]").forEach(function (form) {
+      global.initRichEditor({
+        form: form,
+        editor: form.querySelector("[data-rich-editor]"),
+        toolbar: form.querySelector("[data-rich-toolbar]"),
+        hidden: form.querySelector("[data-rich-hidden]"),
+      });
     });
   };
 })(window);
