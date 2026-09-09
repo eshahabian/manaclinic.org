@@ -592,6 +592,8 @@
       if (shareWrap) shareWrap.hidden = !info.shareUrl;
       root.hidden = false;
       if (idle) idle.hidden = true;
+      var composer = document.querySelector("[data-vc-composer]");
+      if (composer) composer.hidden = true;
       var stage = root.querySelector("[data-video-stage]");
       if (stage) stage.classList.toggle("is-group", !!info.group);
       liveDestroy = attach(root);
@@ -605,7 +607,9 @@
         root.hidden = true;
         root.setAttribute("data-room", "");
       }
-      if (idle) idle.hidden = false;
+      var composer = document.querySelector("[data-vc-composer]");
+      if (composer) composer.hidden = false;
+      if (idle) idle.hidden = !!composer;
       var shareWrap = document.querySelector("[data-vc-share-wrap]");
       if (shareWrap) shareWrap.hidden = true;
       var mark = document.querySelector("[data-vc-watermark]");

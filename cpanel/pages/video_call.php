@@ -24,7 +24,7 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && $clinician) {
             if (!is_array($memberIds)) {
                 $memberIds = [];
             }
-            $room = video_call_create_group($pdo, $user, post('title'), $memberIds);
+            $room = video_call_create_group($pdo, $user, post('title'), $memberIds, post('workshop'));
             $picked = count(array_filter($memberIds));
             flash_set('success', $picked > 0
                 ? 'گروه ذخیره شد و افراد انتخاب‌شده به جلسه اضافه شدند.'
@@ -34,6 +34,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && $clinician) {
             flash_set('error', $e->getMessage());
             redirect('/video-call');
         }
+    }
+    if ($action === 'delete_group') {
+        try {
+            video_call_delete_hosted_room($pdo, $user, post('room'));
+            flash_set('success', 'گروه حذف شد.');
+        } catch (RuntimeException $e) {
+            flash_set('error', $e->getMessage());
+        }
+        redirect('/video-call');
     }
 }
 
@@ -87,7 +96,8 @@ $pageTitle = 'تماس مانا';
 $GLOBALS['pageRobots'] = 'noindex,nofollow';
 $q = trim((string) ($_GET['q'] ?? ''));
 $contacts = video_call_contacts($pdo, $user, '', $clinician ? 'DOCTOR' : '', 40);
-$patientHits = $clinician ? video_call_contacts($pdo, $user, $q, 'PATIENT', 5) : [];
+$patients = $clinician ? video_call_contacts($pdo, $user, $q !== '' ? $q : '', 'PATIENT', 80) : [];
+$workshops = $clinician ? video_call_host_workshops($pdo, $user) : [];
 $savedRooms = video_call_saved_rooms($pdo, $user);
 $members = $room ? video_call_room_members_public($pdo, $room) : [];
 $session = $room ? video_call_session_payload($pdo, $user, $room, $media) : null;
@@ -98,44 +108,20 @@ $callActive = $room && !empty($session['room']);
 ob_start();
 $wmName = $peerName !== '' ? $peerName : 'جلسه';
 ?>
-<div class="vc-shell">
+<div class="vc-shell<?= $clinician ? ' vc-skype' : '' ?>"<?php if ($clinician): ?> data-vc-app data-signal-url="<?= e(url('/video-signal')) ?>"<?php endif; ?>>
 <div class="vc-lobby">
+  <?php if ($clinician): ?>
+    <?php require __DIR__ . '/../includes/video_call_skype_lobby.php'; ?>
+  <?php else: ?>
   <div class="vc-lobby-side">
     <div class="vc-lobby-brand">
       <img src="<?= e(url('/assets/img/mana-call.png')) ?>?v=20260909c" width="44" height="44" alt="">
       <div>
         <strong>تماس مانا</strong>
-        <p class="muted" style="margin:.15rem 0 0;font-size:.8rem">وضعیت آنلاین مثل تلگرام، کنار عکس</p>
+        <p class="muted" style="margin:.15rem 0 0;font-size:.8rem">تماس را درمانگر شروع می‌کند</p>
       </div>
     </div>
-    <?php if ($clinician): ?>
-    <div class="vc-search-wrap" data-vc-search data-signal-url="<?= e(url('/video-signal')) ?>">
-      <input class="input" type="search" data-vc-search-input value="<?= e($q) ?>" placeholder="جستجوی مراجعه‌کننده…" autocomplete="off">
-      <ul class="vc-search-drop" data-vc-search-drop>
-        <?php if (!$patientHits): ?>
-          <li class="vc-search-empty muted">مراجعه‌کننده‌ای یافت نشد.</li>
-        <?php else: ?>
-          <?php foreach ($patientHits as $c): ?>
-            <li><?= video_call_person_row_html($c, true, true) ?></li>
-          <?php endforeach; ?>
-        <?php endif; ?>
-      </ul>
-    </div>
-    <?php endif; ?>
-    <?php if ($clinician): ?>
-      <div class="vc-lobby-actions">
-        <form method="post" action="<?= e(url('/video-call')) ?>" class="vc-group-form" id="vc-group-form">
-          <?= csrf_field() ?>
-          <input type="hidden" name="action" value="create_group">
-          <input class="input" name="title" placeholder="نام گروه / جلسه هفتگی" required>
-          <p class="muted vc-group-hint">مربع جلوی اسم کوتاه مراجعه‌کننده در جعبه جستجو را بزنید.</p>
-          <button class="btn btn-primary btn-sm" type="submit">ساخت گروه و ذخیره</button>
-        </form>
-      </div>
-    <?php else: ?>
-      <p class="muted" style="font-size:.85rem;line-height:1.7">تماس را درمانگر شروع می‌کند. شما فقط می‌توانید قبول کنید یا وارد جلسه کارگاه شوید.</p>
-    <?php endif; ?>
-
+      <p class="muted" style="font-size:.85rem;line-height:1.7">وقتی درمانگر تماس بگیرد، اعلان برایتان می‌آید. برای کارگاه آنلاین از دکمه ورود به جلسه استفاده کنید.</p>
     <?php if ($savedRooms): ?>
       <h2 class="vc-list-title">جلسه‌های ذخیره‌شده</h2>
       <ul class="vc-people">
@@ -145,33 +131,48 @@ $wmName = $peerName !== '' ? $peerName : 'جلسه';
               <span class="vc-avatar vc-avatar-md vc-avatar-room">گ</span>
               <span class="vc-person-meta">
                 <strong><?= e((string) $sr['title']) ?></strong>
-                <span class="muted"><?= (string) ($sr['kind'] ?? '') === 'workshop' ? 'کارگاه — هر هفته همین لینک' : 'گروه ذخیره‌شده' ?></span>
+                <span class="muted"><?= (string) ($sr['kind'] ?? '') === 'workshop' ? 'کارگاه' : 'گروه' ?></span>
               </span>
             </a>
           </li>
         <?php endforeach; ?>
       </ul>
     <?php endif; ?>
-
-    <h2 class="vc-list-title"><?= $clinician ? 'درمانگرها' : 'افراد' ?></h2>
+    <h2 class="vc-list-title">افراد</h2>
     <?php if (!$contacts): ?>
-      <p class="muted" style="font-size:.85rem"><?= $clinician ? 'درمانگر دیگری در لیست نیست.' : 'هنوز مخاطبی برای تماس نیست.' ?></p>
+      <p class="muted" style="font-size:.85rem">هنوز مخاطبی برای تماس نیست.</p>
     <?php else: ?>
       <ul class="vc-people">
         <?php foreach ($contacts as $c): ?>
-          <li><?= video_call_person_row_html($c, $clinician, false) ?></li>
+          <li><?= video_call_person_row_html($c, false, false) ?></li>
         <?php endforeach; ?>
       </ul>
     <?php endif; ?>
   </div>
+  <?php endif; ?>
   <div class="vc-lobby-main">
-    <div class="vc-idle" data-vc-idle<?= $callActive ? ' hidden' : '' ?>>
+    <?php if ($clinician): ?>
+    <div class="vc-composer" data-vc-composer<?= $callActive ? ' hidden' : '' ?>>
+      <header class="vc-composer-head">
+        <strong data-vc-composer-title>خانه</strong>
+        <button type="button" class="btn btn-outline btn-sm" data-vc-save-open hidden>ذخیره گروه در مخاطبین</button>
+      </header>
+      <div class="vc-drop" data-vc-drop>
+        <p data-vc-drop-hint>مخاطب را از فهرست انتخاب کنید، یا برای گروه روی آیکون گروه بزنید و + را بزنید.</p>
+        <ul class="vc-picked" data-vc-picked></ul>
+      </div>
+      <div class="vc-composer-actions">
+        <button type="button" class="vc-call-btn vc-call-video" data-vc-video disabled>تماس تصویری</button>
+        <button type="button" class="vc-call-btn vc-call-audio" data-vc-audio disabled>تماس</button>
+        <button type="button" class="vc-plus-btn" data-vc-plus title="افزودن افراد" aria-label="افزودن افراد">+</button>
+      </div>
+    </div>
+    <?php endif; ?>
+    <div class="vc-idle" data-vc-idle<?= ($callActive || $clinician) ? ' hidden' : '' ?>>
       <img class="vc-lobby-hero" src="<?= e(url('/assets/img/mana-call.png')) ?>?v=20260909c" width="160" height="160" alt="تماس مانا">
       <h1>تماس مانا</h1>
       <p class="muted" style="max-width:28rem;line-height:1.8">
-        <?= $clinician
-          ? 'مخاطب را انتخاب کنید، تماس تصویری یا فقط صوتی بگیرید، گروه بسازید یا لینک جلسه را بفرستید.'
-          : 'وقتی درمانگر تماس بگیرد، اعلان برایتان می‌آید. برای کارگاه آنلاین از دکمه ورود به جلسه استفاده کنید.' ?>
+        وقتی درمانگر تماس بگیرد، اعلان برایتان می‌آید. برای کارگاه آنلاین از دکمه ورود به جلسه استفاده کنید.
       </p>
     </div>
     <div class="stack video-call-page vc-in-tile<?= $clinician ? '' : ' is-guard' ?>" data-video-call
@@ -265,6 +266,39 @@ $wmName = $peerName !== '' ? $peerName : 'جلسه';
   </div>
 </div>
 <?php if ($clinician): ?>
+<div class="vc-overlay" data-vc-overlay hidden>
+  <div class="vc-overlay-card" role="dialog" aria-modal="true" aria-labelledby="vc-add-title">
+    <h2 id="vc-add-title">افزودن افراد</h2>
+    <p class="muted">مخاطب را انتخاب کنید، به گروه اضافه کنید، بعد ذخیره یا تماس بگیرید.</p>
+    <div class="vc-overlay-grid">
+      <div>
+        <h3>انتخاب مخاطب</h3>
+        <ul class="vc-people" data-vc-overlay-source></ul>
+        <button type="button" class="btn btn-outline btn-sm" data-vc-overlay-select>انتخاب</button>
+      </div>
+      <div>
+        <h3>افراد این گروه</h3>
+        <ul class="vc-people" data-vc-overlay-picked></ul>
+        <button type="button" class="btn btn-outline btn-sm" data-vc-overlay-remove>حذف از گروه</button>
+      </div>
+    </div>
+    <div class="vc-overlay-save">
+      <label class="label" for="vc-group-title">ذخیره گروه با نام</label>
+      <input class="input" id="vc-group-title" data-vc-group-title placeholder="مثلاً گروه ذهن‌آگاهی">
+      <label class="label" for="vc-group-workshop">افزودن به کارگاه</label>
+      <select class="input" id="vc-group-workshop" data-vc-group-workshop>
+        <option value="">بدون کارگاه</option>
+        <?php foreach ($workshops as $w): ?>
+          <option value="<?= e((string) $w['id']) ?>"><?= e((string) $w['title']) ?> · <?= e(workshop_type_label((string) ($w['type'] ?? ''))) ?></option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div class="vc-overlay-foot">
+      <button type="button" class="btn btn-primary" data-vc-overlay-add>افزودن</button>
+      <button type="button" class="btn btn-outline" data-vc-overlay-cancel>انصراف</button>
+    </div>
+  </div>
+</div>
 <div class="vc-share-tile" data-vc-share-wrap<?= $shareUrl ? '' : ' hidden' ?>>
   <strong>لینک جلسه</strong>
   <p class="muted vc-group-hint">این لینک را بفرستید تا طرف مقابل وارد همین جلسه شود.</p>
@@ -284,8 +318,8 @@ document.querySelector("[data-copy-share]")?.addEventListener("click", function(
 </script>
 <?php
 $inner = ob_get_clean();
-$GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260909h"></script>'
-    . '<script src="' . e(url('/assets/js/video-call-lobby.js')) . '?v=20260909h"></script>';
+$GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260910a"></script>'
+    . '<script src="' . e(url('/assets/js/video-call-lobby.js')) . '?v=20260910a"></script>';
 
 $role = (string) ($user['role'] ?? '');
 if ($role === 'DOCTOR') {

@@ -71,6 +71,7 @@ function ensure_video_call_schema(PDO $pdo): void
         INDEX idx_vcrm_user (user_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
+    video_call_purge_mbsr_groups($pdo);
     $ready = true;
 }
 
@@ -226,17 +227,18 @@ function video_call_avatar_html(array $person, bool $online, string $size = 'md'
     return (string) ob_get_clean();
 }
 
-function video_call_person_row_html(array $c, bool $clinician, bool $pick = false): string
+function video_call_person_row_html(array $c, bool $clinician, bool $pick = false, string $mode = 'buttons'): string
 {
     $isPatient = (string) ($c['role'] ?? '') === 'PATIENT';
     $label = video_call_public_name($c);
     $roleLabel = $isPatient ? 'مراجعه‌کننده' : 'درمانگر';
+    $payload = htmlspecialchars(json_encode(video_call_contact_payload($c), JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
     ob_start();
     ?>
-            <div class="vc-person" data-user-id="<?= e((string) ($c['id'] ?? '')) ?>">
+            <div class="vc-person" data-user-id="<?= e((string) ($c['id'] ?? '')) ?>"<?php if ($mode === 'select'): ?> data-vc-select="<?= $payload ?>"<?php endif; ?>>
               <?php if ($clinician && $pick && $isPatient): ?>
                 <label class="vc-pick-wrap" title="انتخاب برای گروه">
-                  <input class="vc-pick" type="checkbox" form="vc-group-form" name="members[]" value="<?= e((string) $c['id']) ?>">
+                  <input class="vc-pick" type="checkbox" value="<?= e((string) $c['id']) ?>">
                 </label>
               <?php endif; ?>
               <?= video_call_avatar_html($c, !empty($c['online'])) ?>
@@ -244,7 +246,7 @@ function video_call_person_row_html(array $c, bool $clinician, bool $pick = fals
                 <strong><?= e($label) ?></strong>
                 <span class="muted"><?= !empty($c['online']) ? 'آنلاین' : 'آفلاین' ?> · <?= e($roleLabel) ?></span>
               </span>
-              <?php if ($clinician): ?>
+              <?php if ($clinician && $mode === 'buttons'): ?>
                 <span class="vc-person-calls">
                   <button type="button" class="btn btn-primary btn-sm" data-vc-call data-peer="<?= e((string) $c['id']) ?>" data-media="video">تصویری</button>
                   <button type="button" class="btn btn-outline btn-sm" data-vc-call data-peer="<?= e((string) $c['id']) ?>" data-media="audio">صوتی</button>
@@ -434,6 +436,11 @@ function video_call_user_can_access_room(PDO $pdo, array $user, array $room): bo
         if ($en->fetch()) {
             return true;
         }
+        $memWs = $pdo->prepare('SELECT user_id FROM video_call_room_members WHERE room_id=? AND user_id=? LIMIT 1');
+        $memWs->execute([(string) $room['id'], $me]);
+        if ($memWs->fetch()) {
+            return true;
+        }
         $doc = $pdo->prepare('
           SELECT dp.user_id FROM workshops w
           JOIN doctor_profiles dp ON dp.id = w.doctor_id
@@ -523,21 +530,107 @@ function video_call_ensure_workshop_room(PDO $pdo, string $workshopId, string $a
     return $room;
 }
 
-function video_call_create_group(PDO $pdo, array $user, string $title, array $memberIds = []): array
+function video_call_erase_room_rows(PDO $pdo, array $room): void
+{
+    $id = (string) ($room['id'] ?? '');
+    $key = (string) ($room['room_key'] ?? '');
+    if ($id === '') {
+        return;
+    }
+    $pdo->prepare('DELETE FROM video_call_signals WHERE room_id=? OR room_id=?')->execute([$key !== '' ? $key : $id, $id]);
+    $pdo->prepare('DELETE FROM video_call_room_members WHERE room_id=?')->execute([$id]);
+    $pdo->prepare('DELETE FROM video_call_rooms WHERE id=?')->execute([$id]);
+}
+
+/** یک‌بار گروه آزمایشی MBSR را پاک می‌کند؛ ساخت گروه بعدی با این نام را مسدود نمی‌کند */
+function video_call_purge_mbsr_groups(PDO $pdo): void
+{
+    try {
+        $pdo->exec("
+          CREATE TABLE IF NOT EXISTS video_call_meta (
+            k VARCHAR(64) NOT NULL,
+            v VARCHAR(255) NOT NULL,
+            PRIMARY KEY (k)
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+        $done = $pdo->query("SELECT v FROM video_call_meta WHERE k='mbsr_purged' LIMIT 1");
+        if ($done && (string) ($done->fetchColumn() ?: '') === '1') {
+            return;
+        }
+        $rows = $pdo->query("
+          SELECT id, room_key, title
+          FROM video_call_rooms
+          WHERE kind = 'group'
+            AND (
+              LOWER(title) LIKE '%mbsr%'
+              OR LOWER(room_key) LIKE '%mbsr%'
+            )
+        ")->fetchAll();
+        foreach ($rows as $row) {
+            if (is_array($row)) {
+                video_call_erase_room_rows($pdo, $row);
+            }
+        }
+        $pdo->prepare("INSERT INTO video_call_meta (k, v) VALUES ('mbsr_purged','1') ON DUPLICATE KEY UPDATE v='1'")
+            ->execute();
+    } catch (Throwable $ignored) {
+    }
+}
+
+function video_call_delete_hosted_room(PDO $pdo, array $user, string $roomKey): void
+{
+    if (!video_call_is_clinician($user)) {
+        throw new RuntimeException('فقط درمانگر می‌تواند گروه را حذف کند.');
+    }
+    $room = video_call_room_by_key($pdo, $roomKey);
+    if (!$room) {
+        throw new RuntimeException('گروه یافت نشد.');
+    }
+    if ((string) ($room['kind'] ?? '') !== 'group') {
+        throw new RuntimeException('فقط گروه ذخیره‌شده قابل حذف است.');
+    }
+    $host = (string) ($room['host_user_id'] ?? '');
+    $me = (string) ($user['id'] ?? '');
+    $admin = (string) ($user['role'] ?? '') === 'ADMIN';
+    if ($host !== $me && !$admin) {
+        throw new RuntimeException('فقط سازنده گروه می‌تواند آن را حذف کند.');
+    }
+    video_call_erase_room_rows($pdo, $room);
+}
+
+function video_call_create_group(PDO $pdo, array $user, string $title, array $memberIds = [], string $workshopId = ''): array
 {
     if (!video_call_is_clinician($user)) {
         throw new RuntimeException('فقط درمانگر می‌تواند گروه بسازد.');
     }
     $title = trim($title);
-    if ($title === '') {
-        $title = 'جلسه گروهی';
-    }
+    $workshopId = trim($workshopId);
     $add = [];
     $memberIds = array_values(array_unique(array_filter(array_map('strval', $memberIds))));
     if ($memberIds) {
         foreach (video_call_contacts($pdo, $user, '', 'PATIENT', count($memberIds), $memberIds) as $c) {
             $add[(string) ($c['id'] ?? '')] = true;
         }
+    }
+    if ($workshopId !== '') {
+        $room = video_call_ensure_workshop_room($pdo, $workshopId, (string) $user['id']);
+        if (!$room) {
+            throw new RuntimeException('این کارگاه برای شما در دسترس نیست.');
+        }
+        if ($title !== '') {
+            $pdo->prepare('UPDATE video_call_rooms SET title=? WHERE id=?')->execute([$title, (string) $room['id']]);
+            $room['title'] = $title;
+        }
+        $ins = $pdo->prepare('INSERT IGNORE INTO video_call_room_members (room_id, user_id) VALUES (?,?)');
+        $ins->execute([(string) $room['id'], (string) $user['id']]);
+        foreach (array_keys($add) as $uid) {
+            $ins->execute([(string) $room['id'], $uid]);
+        }
+
+        return $room;
+    }
+    if ($title === '') {
+        $title = 'جلسه گروهی';
     }
     $key = 'grp-' . cuid();
     $room = video_call_upsert_room($pdo, $key, 'group', $title, (string) $user['id']);
@@ -548,6 +641,31 @@ function video_call_create_group(PDO $pdo, array $user, string $title, array $me
     }
 
     return $room;
+}
+
+/** کارگاه‌های درمانگر برای اتصال گروه تماس */
+function video_call_host_workshops(PDO $pdo, array $user): array
+{
+    $uid = (string) ($user['id'] ?? '');
+    if ($uid === '') {
+        return [];
+    }
+    $sql = "
+      SELECT w.id, w.title, w.type, w.status
+      FROM workshops w
+      JOIN doctor_profiles dp ON dp.id = w.doctor_id
+      WHERE w.status NOT IN ('CANCELLED')
+    ";
+    $params = [];
+    if ((string) ($user['role'] ?? '') === 'DOCTOR') {
+        $sql .= ' AND dp.user_id = ?';
+        $params[] = $uid;
+    }
+    $sql .= ' ORDER BY w.created_at DESC LIMIT 80';
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+
+    return $stmt->fetchAll() ?: [];
 }
 
 function video_call_room_url(array $room, array $extra = []): string
