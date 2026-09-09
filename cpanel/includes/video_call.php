@@ -247,7 +247,7 @@ function video_call_person_row_html(array $c, bool $clinician, bool $pick = fals
                   <input class="vc-pick" type="checkbox" value="<?= e((string) $c['id']) ?>">
                 </label>
               <?php endif; ?>
-              <?= video_call_avatar_html($c, !empty($c['online'])) ?>
+              <?= video_call_avatar_html($c, !empty($c['online']), 'sm') ?>
               <span class="vc-person-meta">
                 <strong><?= e($label) ?></strong>
                 <span class="muted"><?= !empty($c['online']) ? 'آنلاین' : 'آفلاین' ?> · <?= e($roleLabel) ?></span>

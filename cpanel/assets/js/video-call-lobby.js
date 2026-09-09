@@ -106,7 +106,7 @@
     var letter = item.letter || (item.name ? String(item.name).charAt(0) : "م");
     return (
       '<div class="vc-person' + (cls ? " " + cls : "") + '" data-id="' + esc(item.id) + '">' +
-        '<span class="vc-avatar vc-avatar-md">' +
+        '<span class="vc-avatar vc-avatar-sm">' +
           '<span class="vc-avatar-fallback">' + esc(letter) + "</span>" +
           '<span class="vc-dot' + (item.online ? " is-online" : " is-offline") + '"></span>' +
         "</span>" +
