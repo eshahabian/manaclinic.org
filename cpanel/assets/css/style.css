@@ -1078,15 +1078,20 @@ body.home-workshop-locked { overflow: hidden; }
   display: grid;
   gap: 1.25rem;
   min-height: 70vh;
+  align-items: stretch;
 }
 @media (min-width: 860px) {
-  .vc-lobby { grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); align-items: start; }
+  .vc-lobby {
+    grid-template-columns: minmax(280px, 360px) minmax(0, 1fr);
+    align-items: stretch;
+  }
 }
 .vc-lobby-side {
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 1rem;
   padding: 1rem .9rem 1.2rem;
+  align-self: stretch;
 }
 .vc-lobby-brand {
   display: flex;
@@ -1097,6 +1102,19 @@ body.home-workshop-locked { overflow: hidden; }
 .vc-lobby-brand img { width: 2.75rem; height: 2.75rem; border-radius: 50%; }
 .vc-search { margin-bottom: .75rem; }
 .vc-group-form { display: grid; gap: .45rem; margin-bottom: .85rem; }
+.vc-group-hint { margin: 0; font-size: .78rem; line-height: 1.6; }
+.vc-pick-wrap {
+  display: grid;
+  place-items: center;
+  flex-shrink: 0;
+}
+.vc-pick {
+  width: 1.05rem;
+  height: 1.05rem;
+  margin: 0;
+  accent-color: var(--primary);
+  cursor: pointer;
+}
 .vc-list-title { font-size: .82rem; margin: 1rem 0 .4rem; color: var(--muted); }
 .vc-people { list-style: none; margin: 0; padding: 0; display: grid; gap: .35rem; }
 .vc-person {
@@ -1115,14 +1133,18 @@ body.home-workshop-locked { overflow: hidden; }
 .vc-lobby-main {
   display: grid;
   place-items: center;
-  align-content: center;
+  align-content: start;
+  justify-content: center;
   text-align: center;
   gap: .65rem;
-  padding: 2rem 1rem;
+  padding: 1.15rem 1rem 2rem;
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 1rem;
   min-height: 22rem;
+  align-self: stretch;
+  height: 100%;
+  box-sizing: border-box;
 }
 .vc-lobby-hero { width: 8rem; height: 8rem; border-radius: 50%; }
 .vc-avatar {

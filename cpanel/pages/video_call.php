@@ -20,8 +20,15 @@ if (($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && $clinician) {
     $action = post('action');
     if ($action === 'create_group') {
         try {
-            $room = video_call_create_group($pdo, $user, post('title'));
-            flash_set('success', 'گروه ذخیره شد. هر هفته می‌توانید وارد همین جلسه شوید.');
+            $memberIds = $_POST['members'] ?? [];
+            if (!is_array($memberIds)) {
+                $memberIds = [];
+            }
+            $room = video_call_create_group($pdo, $user, post('title'), $memberIds);
+            $picked = count(array_filter($memberIds));
+            flash_set('success', $picked > 0
+                ? 'گروه ذخیره شد و افراد انتخاب‌شده به جلسه اضافه شدند.'
+                : 'گروه ذخیره شد. هر هفته می‌توانید وارد همین جلسه شوید.');
             redirect('/video-call?room=' . rawurlencode((string) $room['room_key']));
         } catch (RuntimeException $e) {
             flash_set('error', $e->getMessage());
@@ -110,10 +117,11 @@ if (!$room):
     </form>
     <?php if ($clinician): ?>
       <div class="vc-lobby-actions">
-        <form method="post" action="<?= e(url('/video-call')) ?>" class="vc-group-form">
+        <form method="post" action="<?= e(url('/video-call')) ?>" class="vc-group-form" id="vc-group-form">
           <?= csrf_field() ?>
           <input type="hidden" name="action" value="create_group">
           <input class="input" name="title" placeholder="نام گروه / جلسه هفتگی" required>
+          <p class="muted vc-group-hint">برای گروه، مربع جلوی اسم مراجعه‌کننده را بزنید.</p>
           <button class="btn btn-primary btn-sm" type="submit">ساخت گروه و ذخیره</button>
         </form>
       </div>
@@ -146,10 +154,15 @@ if (!$room):
         <?php foreach ($contacts as $c): ?>
           <li>
             <div class="vc-person">
+              <?php if ($clinician && (string) ($c['role'] ?? '') === 'PATIENT'): ?>
+                <label class="vc-pick-wrap" title="انتخاب برای گروه">
+                  <input class="vc-pick" type="checkbox" form="vc-group-form" name="members[]" value="<?= e((string) $c['id']) ?>">
+                </label>
+              <?php endif; ?>
               <?= video_call_avatar_html($c, !empty($c['online'])) ?>
               <span class="vc-person-meta">
                 <strong><?= e((string) $c['name']) ?></strong>
-                <span class="muted"><?= !empty($c['online']) ? 'آنلاین' : 'آفلاین' ?><?= (string) ($c['role'] ?? '') === 'DOCTOR' ? ' · درمانگر' : '' ?></span>
+                <span class="muted"><?= !empty($c['online']) ? 'آنلاین' : 'آفلاین' ?> · <?= (string) ($c['role'] ?? '') === 'DOCTOR' ? 'درمانگر' : 'مراجعه‌کننده' ?></span>
               </span>
               <?php if ($clinician): ?>
                 <span class="vc-person-calls">

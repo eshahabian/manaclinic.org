@@ -234,6 +234,7 @@ function video_call_contacts(PDO $pdo, array $user, string $q = ''): array
             $sql .= "
               AND (
                 u.role = 'DOCTOR'
+                OR u.preferred_doctor_id IN (SELECT id FROM doctor_profiles WHERE user_id = ?)
                 OR u.id IN (
                   SELECT a.patient_id FROM appointments a
                   JOIN doctor_profiles me ON me.id = a.doctor_id
@@ -249,13 +250,14 @@ function video_call_contacts(PDO $pdo, array $user, string $q = ''): array
             ";
             $params[] = $me;
             $params[] = $me;
+            $params[] = $me;
         }
         if ($q !== '') {
             $sql .= ' AND (u.name LIKE ? OR u.username LIKE ?)';
             $params[] = $like;
             $params[] = $like;
         }
-        $sql .= ' ORDER BY u.role ASC, u.name ASC LIMIT 80';
+        $sql .= " ORDER BY CASE u.role WHEN 'PATIENT' THEN 0 ELSE 1 END, u.name ASC LIMIT 120";
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
         $rows = $stmt->fetchAll();
@@ -455,7 +457,7 @@ function video_call_ensure_workshop_room(PDO $pdo, string $workshopId, string $a
     return $room;
 }
 
-function video_call_create_group(PDO $pdo, array $user, string $title): array
+function video_call_create_group(PDO $pdo, array $user, string $title, array $memberIds = []): array
 {
     if (!video_call_is_clinician($user)) {
         throw new RuntimeException('فقط درمانگر می‌تواند گروه بسازد.');
@@ -464,10 +466,26 @@ function video_call_create_group(PDO $pdo, array $user, string $title): array
     if ($title === '') {
         $title = 'جلسه گروهی';
     }
+    $allowed = [];
+    foreach (video_call_contacts($pdo, $user) as $c) {
+        if ((string) ($c['role'] ?? '') === 'PATIENT') {
+            $allowed[(string) ($c['id'] ?? '')] = true;
+        }
+    }
+    $add = [];
+    foreach ($memberIds as $id) {
+        $id = trim((string) $id);
+        if ($id !== '' && isset($allowed[$id])) {
+            $add[$id] = true;
+        }
+    }
     $key = 'grp-' . cuid();
     $room = video_call_upsert_room($pdo, $key, 'group', $title, (string) $user['id']);
-    $pdo->prepare('INSERT IGNORE INTO video_call_room_members (room_id, user_id) VALUES (?,?)')
-        ->execute([(string) $room['id'], (string) $user['id']]);
+    $ins = $pdo->prepare('INSERT IGNORE INTO video_call_room_members (room_id, user_id) VALUES (?,?)');
+    $ins->execute([(string) $room['id'], (string) $user['id']]);
+    foreach (array_keys($add) as $uid) {
+        $ins->execute([(string) $room['id'], $uid]);
+    }
 
     return $room;
 }
