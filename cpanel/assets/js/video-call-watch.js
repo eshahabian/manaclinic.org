@@ -1,5 +1,4 @@
 (function () {
-  if (document.querySelector("[data-video-call]")) return;
   var cfg = window.__VIDEO_CALL_WATCH__;
   if (!cfg || !cfg.signalUrl) return;
 
@@ -28,6 +27,18 @@
 
   function goToCall() {
     try { sessionStorage.setItem("mana-video-auto-answer", "1"); } catch (e) {}
+    if (window.ManaVideoCall && window.ManaVideoCall.start && current && current.room && document.querySelector("[data-vc-idle]")) {
+      post({ action: "open", room: current.room }).then(function (data) {
+        if (data && data.ok) {
+          data.answer = true;
+          window.ManaVideoCall.start(data);
+          stopAlert();
+        }
+      }).catch(function () {
+        window.location.href = (cfg.callUrl || "/video-call") + "?room=" + encodeURIComponent(current.room) + "&answer=1";
+      });
+      return;
+    }
     var url = cfg.callUrl || "/video-call";
     if (current && current.room) {
       url += (url.indexOf("?") >= 0 ? "&" : "?") + "room=" + encodeURIComponent(current.room) + "&answer=1";
@@ -95,7 +106,7 @@
     }, 900);
     if ("Notification" in window && Notification.permission === "granted") {
       try {
-        var note = new Notification("تماس تصویری مانا", { body: "تماس ورودی از " + name, tag: "mana-video-incoming", renotify: true });
+        var note = new Notification("تماس مانا", { body: "تماس ورودی از " + name, tag: "mana-video-incoming", renotify: true });
         note.onclick = function () { window.focus(); goToCall(); };
       } catch (e) {}
     }
@@ -103,6 +114,8 @@
   }
 
   function tick() {
+    var onCall = document.querySelector("[data-video-call]");
+    if (onCall && onCall.getAttribute("data-room")) return;
     post({ action: "inbox" }).then(function (data) {
       if (document.hidden) return;
       if (!data || !data.ok) return;

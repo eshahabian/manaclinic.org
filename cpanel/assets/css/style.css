@@ -1150,19 +1150,43 @@ body.home-workshop-locked { overflow: hidden; }
 .vc-person-calls { display: flex; flex-wrap: wrap; gap: .25rem; }
 .vc-lobby-main {
   display: grid;
+  align-content: stretch;
+  text-align: center;
+  gap: 0;
+  padding: 0;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  min-height: 22rem;
+  align-self: stretch;
+  height: 100%;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.vc-idle {
+  display: grid;
   place-items: center;
   align-content: start;
   justify-content: center;
   text-align: center;
   gap: .65rem;
   padding: 1.15rem 1rem 2rem;
-  background: var(--card);
-  border: 1px solid var(--line);
-  border-radius: 1rem;
-  min-height: 18rem;
-  align-self: stretch;
   height: 100%;
   box-sizing: border-box;
+}
+.vc-idle[hidden],
+.vc-in-tile[hidden] { display: none !important; }
+.vc-in-tile {
+  text-align: start;
+  min-height: 22rem;
+}
+.vc-in-tile .video-call-stage {
+  margin-top: 0;
+  border-radius: 0;
+  min-height: 18rem;
+}
+.vc-in-tile .video-call-head {
+  padding: .85rem 1rem .35rem;
 }
 .vc-lobby-hero { width: 6.5rem; height: 6.5rem; border-radius: 50%; }
 .vc-avatar {

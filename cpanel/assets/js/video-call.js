@@ -1,6 +1,7 @@
 (function () {
-  var root = document.querySelector("[data-video-call]");
-  if (!root) return;
+  var liveDestroy = null;
+  function attach(root) {
+  if (!root) return function () {};
   var signalUrl = root.getAttribute("data-signal-url") || "/video-signal";
   var room = root.getAttribute("data-room") || "";
   var meId = root.getAttribute("data-me") || "";
@@ -482,7 +483,7 @@
   if (hangBtn) hangBtn.addEventListener("click", function () {
     sendTo("hangup", "", null);
     endAll(true);
-    setStatus("تماس قطع شد.");
+    if (window.ManaVideoCall) window.ManaVideoCall.stop(true);
   });
   fsBtns.forEach(function (btn) {
     btn.addEventListener("click", function () {
@@ -516,5 +517,69 @@
     else if (wantAutoAnswer) acceptIncoming();
   }).catch(function () {});
   poll();
-  setInterval(poll, 800);
+  var pollTimer = setInterval(poll, 800);
+  return function () {
+    clearInterval(pollTimer);
+    try { sendTo("leave", "", null); } catch (e) {}
+    endAll(false);
+  };
+  }
+
+  window.ManaVideoCall = {
+    start: function (info) {
+      var root = document.querySelector("[data-video-call]");
+      var idle = document.querySelector("[data-vc-idle]");
+      if (!root || !info || !info.room) return;
+      if (liveDestroy) {
+        liveDestroy();
+        liveDestroy = null;
+      }
+      root.setAttribute("data-room", info.room);
+      root.setAttribute("data-peer-name", info.title || "تماس مانا");
+      root.setAttribute("data-media", info.media === "audio" ? "audio" : "video");
+      root.setAttribute("data-group", info.group ? "1" : "0");
+      root.setAttribute("data-can-start", info.canStart ? "1" : "0");
+      if (info.answer) {
+        try { sessionStorage.setItem("mana-video-auto-answer", "1"); } catch (e) {}
+      }
+      var titleEl = root.querySelector("[data-vc-call-title]");
+      if (titleEl) titleEl.textContent = info.title || "تماس مانا";
+      var kindEl = root.querySelector("[data-vc-call-kind]");
+      if (kindEl) kindEl.textContent = info.media === "audio" ? "تماس صوتی" : "تماس مانا";
+      var shareWrap = root.querySelector("[data-vc-share-wrap]");
+      var shareInput = document.getElementById("vc-share-link");
+      if (shareInput) shareInput.value = info.shareUrl || "";
+      if (shareWrap) shareWrap.hidden = !info.shareUrl;
+      root.hidden = false;
+      if (idle) idle.hidden = true;
+      var stage = root.querySelector("[data-video-stage]");
+      if (stage) stage.classList.toggle("is-group", !!info.group);
+      liveDestroy = attach(root);
+    },
+    stop: function (skipDestroy) {
+      if (!skipDestroy && liveDestroy) liveDestroy();
+      liveDestroy = null;
+      var root = document.querySelector("[data-video-call]");
+      var idle = document.querySelector("[data-vc-idle]");
+      if (root) {
+        root.hidden = true;
+        root.setAttribute("data-room", "");
+      }
+      if (idle) idle.hidden = false;
+    }
+  };
+
+  var bootRoot = document.querySelector("[data-video-call]");
+  var bootRoom = bootRoot && bootRoot.getAttribute("data-room");
+  if (bootRoom) {
+    window.ManaVideoCall.start({
+      room: bootRoom,
+      title: bootRoot.getAttribute("data-peer-name"),
+      media: bootRoot.getAttribute("data-media"),
+      group: bootRoot.getAttribute("data-group") === "1",
+      canStart: bootRoot.getAttribute("data-can-start") === "1",
+      shareUrl: (document.getElementById("vc-share-link") || {}).value || "",
+      answer: /(?:^|[?&])answer=1(?:&|$)/.test(location.search || "")
+    });
+  }
 })();

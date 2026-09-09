@@ -61,6 +61,28 @@ if ($action === 'ping' || $action === 'inbox' || $action === 'contacts') {
     video_call_json(['ok' => true, 'items' => $items]);
 }
 
+if ($action === 'open') {
+    $media = trim((string) ($body['media'] ?? 'video')) === 'audio' ? 'audio' : 'video';
+    $peerId = trim((string) ($body['peer'] ?? ''));
+    $workshopId = trim((string) ($body['workshop'] ?? ''));
+    $openKey = trim((string) ($body['room'] ?? ''));
+    $openRoom = null;
+    if ($peerId !== '') {
+        if (!video_call_is_clinician($user)) {
+            video_call_json(['error' => 'فقط درمانگر می‌تواند تماس را شروع کند.'], 403);
+        }
+        $openRoom = video_call_ensure_direct_room($pdo, $user, $peerId);
+    } elseif ($workshopId !== '') {
+        $openRoom = video_call_ensure_workshop_room($pdo, $workshopId, $meId);
+    } elseif ($openKey !== '') {
+        $openRoom = video_call_room_by_key($pdo, $openKey);
+    }
+    if (!$openRoom || !video_call_user_can_access_room($pdo, $user, $openRoom)) {
+        video_call_json(['error' => 'اتاق تماس در دسترس نیست.'], 403);
+    }
+    video_call_json(video_call_session_payload($pdo, $user, $openRoom, $media));
+}
+
 $roomKey = trim((string) ($body['room'] ?? $_GET['room'] ?? ''));
 $joinToken = trim((string) ($body['join'] ?? ''));
 $room = null;

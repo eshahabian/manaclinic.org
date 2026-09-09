@@ -129,7 +129,7 @@ function video_call_nav_link(bool $withType = false): ?array
     }
     $item = [
         'href' => '/video-call',
-        'label' => 'تماس تصویری مانا',
+        'label' => 'تماس مانا',
         'icon' => url('/assets/img/mana-call.png'),
     ];
     if ($withType) {
@@ -246,8 +246,8 @@ function video_call_person_row_html(array $c, bool $clinician, bool $pick = fals
               </span>
               <?php if ($clinician): ?>
                 <span class="vc-person-calls">
-                  <a class="btn btn-primary btn-sm" href="<?= e(video_call_direct_url((string) $c['id'], 'video')) ?>">تصویری</a>
-                  <a class="btn btn-outline btn-sm" href="<?= e(video_call_direct_url((string) $c['id'], 'audio')) ?>">صوتی</a>
+                  <button type="button" class="btn btn-primary btn-sm" data-vc-call data-peer="<?= e((string) $c['id']) ?>" data-media="video">تصویری</button>
+                  <button type="button" class="btn btn-outline btn-sm" data-vc-call data-peer="<?= e((string) $c['id']) ?>" data-media="audio">صوتی</button>
                 </span>
               <?php endif; ?>
             </div>
@@ -267,6 +267,7 @@ function video_call_contact_payload(array $c): array
         'videoUrl' => video_call_direct_url((string) ($c['id'] ?? ''), 'video'),
         'audioUrl' => video_call_direct_url((string) ($c['id'] ?? ''), 'audio'),
         'letter' => function_exists('mb_substr') ? mb_substr($name, 0, 1) : substr($name, 0, 1),
+        'peer' => (string) ($c['id'] ?? ''),
     ];
 }
 
@@ -571,6 +572,34 @@ function video_call_workshop_enter_url(string $workshopId): string
 function video_call_direct_url(string $peerId, string $media = 'video'): string
 {
     return url('/video-call?peer=' . rawurlencode($peerId) . '&media=' . rawurlencode($media));
+}
+
+function video_call_session_payload(PDO $pdo, array $user, array $room, string $media = 'video'): array
+{
+    $media = $media === 'audio' ? 'audio' : 'video';
+    $members = video_call_room_members_public($pdo, $room);
+    $peerName = (string) ($room['title'] ?? 'جلسه');
+    $me = (string) ($user['id'] ?? '');
+    if ((string) ($room['kind'] ?? '') === 'direct') {
+        foreach ($members as $m) {
+            if ((string) ($m['id'] ?? '') !== $me) {
+                $peerName = video_call_public_name($m);
+                break;
+            }
+        }
+    }
+    $clinician = video_call_is_clinician($user);
+
+    return [
+        'ok' => true,
+        'room' => (string) ($room['room_key'] ?? ''),
+        'title' => $peerName,
+        'kind' => (string) ($room['kind'] ?? ''),
+        'group' => (string) ($room['kind'] ?? '') !== 'direct',
+        'media' => $media,
+        'shareUrl' => $clinician ? video_call_share_url($room) : '',
+        'canStart' => $clinician,
+    ];
 }
 
 function video_call_room_members_public(PDO $pdo, array $room): array

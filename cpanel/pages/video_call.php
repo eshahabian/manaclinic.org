@@ -7,7 +7,7 @@ require_once __DIR__ . '/../includes/doctor_profile_fields.php';
 
 $user = require_login();
 if (!video_call_allowed($user)) {
-    flash_set('error', 'تماس تصویری مانا برای حساب شما فعال نیست.');
+    flash_set('error', 'تماس مانا برای حساب شما فعال نیست.');
     redirect(panel_href_for($user) ?: '/');
 }
 
@@ -59,7 +59,7 @@ if ($workshopId !== '') {
         flash_set('error', 'جلسه آنلاین این کارگاه در دسترس نیست.');
         redirect('/video-call');
     }
-    redirect('/video-call?room=' . rawurlencode((string) $room['room_key']));
+    $roomKey = (string) $room['room_key'];
 }
 
 if ($peerId !== '') {
@@ -83,33 +83,26 @@ if ($roomKey !== '') {
     }
 }
 
-$pageTitle = 'تماس تصویری مانا';
+$pageTitle = 'تماس مانا';
 $GLOBALS['pageRobots'] = 'noindex,nofollow';
 $q = trim((string) ($_GET['q'] ?? ''));
-$contacts = $room ? [] : video_call_contacts($pdo, $user, '', $clinician ? 'DOCTOR' : '', 40);
-$patientHits = (!$room && $clinician) ? video_call_contacts($pdo, $user, $q, 'PATIENT', 5) : [];
-$savedRooms = $room ? [] : video_call_saved_rooms($pdo, $user);
+$contacts = video_call_contacts($pdo, $user, '', $clinician ? 'DOCTOR' : '', 40);
+$patientHits = $clinician ? video_call_contacts($pdo, $user, $q, 'PATIENT', 5) : [];
+$savedRooms = video_call_saved_rooms($pdo, $user);
 $members = $room ? video_call_room_members_public($pdo, $room) : [];
-$shareUrl = $room && $clinician ? video_call_share_url($room) : '';
-$peerName = (string) ($room['title'] ?? 'جلسه');
-if ($room && (string) ($room['kind'] ?? '') === 'direct') {
-    foreach ($members as $m) {
-        if ((string) ($m['id'] ?? '') !== (string) ($user['id'] ?? '')) {
-            $peerName = (string) ($m['name'] ?? $peerName);
-            break;
-        }
-    }
-}
+$session = $room ? video_call_session_payload($pdo, $user, $room, $media) : null;
+$shareUrl = (string) ($session['shareUrl'] ?? '');
+$peerName = (string) ($session['title'] ?? 'جلسه');
+$callActive = $room && !empty($session['room']);
 
 ob_start();
-if (!$room):
 ?>
 <div class="vc-lobby">
   <div class="vc-lobby-side">
     <div class="vc-lobby-brand">
       <img src="<?= e(url('/assets/img/mana-call.png')) ?>?v=20260909c" width="44" height="44" alt="">
       <div>
-        <strong>تماس تصویری مانا</strong>
+        <strong>تماس مانا</strong>
         <p class="muted" style="margin:.15rem 0 0;font-size:.8rem">وضعیت آنلاین مثل تلگرام، کنار عکس</p>
       </div>
     </div>
@@ -146,7 +139,7 @@ if (!$room):
       <ul class="vc-people">
         <?php foreach ($savedRooms as $sr): ?>
           <li>
-            <a class="vc-person" href="<?= e(video_call_room_url($sr)) ?>">
+            <a class="vc-person" href="<?= e(video_call_room_url($sr)) ?>" data-vc-room="<?= e((string) ($sr['room_key'] ?? '')) ?>">
               <span class="vc-avatar vc-avatar-md vc-avatar-room">گ</span>
               <span class="vc-person-meta">
                 <strong><?= e((string) $sr['title']) ?></strong>
@@ -170,53 +163,51 @@ if (!$room):
     <?php endif; ?>
   </div>
   <div class="vc-lobby-main">
-    <img class="vc-lobby-hero" src="<?= e(url('/assets/img/mana-call.png')) ?>?v=20260909c" width="160" height="160" alt="تماس تصویری مانا">
-    <h1>تماس تصویری مانا</h1>
-    <p class="muted" style="max-width:28rem;line-height:1.8">
-      <?= $clinician
-        ? 'مخاطب را انتخاب کنید، تماس تصویری یا فقط صوتی بگیرید، گروه بسازید یا لینک جلسه را بفرستید.'
-        : 'وقتی درمانگر تماس بگیرد، اعلان برایتان می‌آید. برای کارگاه آنلاین از دکمه ورود به جلسه استفاده کنید.' ?>
-    </p>
-  </div>
-</div>
-<?php else: ?>
-<div class="stack video-call-page<?= $clinician ? '' : ' is-guard' ?>" data-video-call
-  data-signal-url="<?= e(url('/video-signal')) ?>"
-  data-room="<?= e((string) $room['room_key']) ?>"
-  data-me="<?= e((string) ($user['id'] ?? '')) ?>"
-  data-peer-name="<?= e($peerName) ?>"
-  data-media="<?= e($media) ?>"
-  data-can-start="<?= $clinician ? '1' : '0' ?>"
-  data-can-record="<?= $clinician ? '1' : '0' ?>"
-  data-guard-capture="<?= $clinician ? '0' : '1' ?>"
-  data-group="<?= (string) ($room['kind'] ?? '') !== 'direct' ? '1' : '0' ?>"
-  data-ring-url="<?= e(url('/assets/audio/incoming-call.ogg')) ?>"
-  data-hang-url="<?= e(url('/assets/audio/hang-up.ogg')) ?>"
->
-  <div class="video-call-head">
-    <img class="video-call-logo" src="<?= e(url('/assets/img/mana-call.png')) ?>?v=20260909c" width="56" height="56" alt="مانا">
-    <div>
-      <h1><?= e($peerName) ?></h1>
-      <p class="muted" style="margin:0;line-height:1.8">
-        <?= $media === 'audio' ? 'تماس صوتی' : 'تماس تصویری مانا' ?>
-        <?php if ((string) ($room['kind'] ?? '') === 'workshop'): ?> · جلسه کارگاه (هر هفته همین اتاق)<?php endif; ?>
+    <div class="vc-idle" data-vc-idle<?= $callActive ? ' hidden' : '' ?>>
+      <img class="vc-lobby-hero" src="<?= e(url('/assets/img/mana-call.png')) ?>?v=20260909c" width="160" height="160" alt="تماس مانا">
+      <h1>تماس مانا</h1>
+      <p class="muted" style="max-width:28rem;line-height:1.8">
+        <?= $clinician
+          ? 'مخاطب را انتخاب کنید، تماس تصویری یا فقط صوتی بگیرید، گروه بسازید یا لینک جلسه را بفرستید.'
+          : 'وقتی درمانگر تماس بگیرد، اعلان برایتان می‌آید. برای کارگاه آنلاین از دکمه ورود به جلسه استفاده کنید.' ?>
       </p>
-      <p class="video-call-status" data-video-status>در حال اتصال…</p>
-      <?php if ($shareUrl): ?>
-        <p class="vc-share">
-          <input class="input" id="vc-share-link" readonly dir="ltr" value="<?= e($shareUrl) ?>">
-          <button type="button" class="btn btn-outline btn-sm" data-copy-share>کپی لینک جلسه</button>
-        </p>
-      <?php endif; ?>
     </div>
-    <a class="btn btn-outline btn-sm" href="<?= e(url('/video-call')) ?>">بازگشت به لیست</a>
-  </div>
+    <div class="stack video-call-page vc-in-tile<?= $clinician ? '' : ' is-guard' ?>" data-video-call
+      data-signal-url="<?= e(url('/video-signal')) ?>"
+      data-room="<?= e((string) ($session['room'] ?? '')) ?>"
+      data-me="<?= e((string) ($user['id'] ?? '')) ?>"
+      data-peer-name="<?= e($peerName) ?>"
+      data-media="<?= e($media) ?>"
+      data-can-start="<?= $clinician ? '1' : '0' ?>"
+      data-can-record="<?= $clinician ? '1' : '0' ?>"
+      data-guard-capture="<?= $clinician ? '0' : '1' ?>"
+      data-group="<?= !empty($session['group']) ? '1' : '0' ?>"
+      data-ring-url="<?= e(url('/assets/audio/incoming-call.ogg')) ?>"
+      data-hang-url="<?= e(url('/assets/audio/hang-up.ogg')) ?>"
+      <?= $callActive ? '' : 'hidden' ?>
+    >
+      <div class="video-call-head">
+        <img class="video-call-logo" src="<?= e(url('/assets/img/mana-call.png')) ?>?v=20260909c" width="56" height="56" alt="مانا">
+        <div>
+          <h1 data-vc-call-title><?= e($peerName) ?></h1>
+          <p class="muted" style="margin:0;line-height:1.8">
+            <span data-vc-call-kind><?= $media === 'audio' ? 'تماس صوتی' : 'تماس مانا' ?></span>
+            <?php if ($room && (string) ($room['kind'] ?? '') === 'workshop'): ?> · جلسه کارگاه (هر هفته همین اتاق)<?php endif; ?>
+          </p>
+          <p class="video-call-status" data-video-status><?= $callActive ? 'در حال اتصال…' : 'آماده تماس' ?></p>
+          <p class="vc-share" data-vc-share-wrap<?= $shareUrl ? '' : ' hidden' ?>>
+            <input class="input" id="vc-share-link" readonly dir="ltr" value="<?= e($shareUrl) ?>">
+            <button type="button" class="btn btn-outline btn-sm" data-copy-share>کپی لینک جلسه</button>
+          </p>
+        </div>
+        <button type="button" class="btn btn-outline btn-sm" data-vc-end-tile>پایان در این کاشی</button>
+      </div>
   <div class="video-call-permit" data-video-permit>
     <p>برای تماس، مرورگر باید به <?= $media === 'audio' ? 'میکروفون' : 'دوربین و میکروفون' ?> دسترسی بدهد.</p>
     <button type="button" class="btn btn-primary" data-video-permit-btn>اجازه دسترسی</button>
   </div>
 
-  <div class="video-call-stage<?= (string) ($room['kind'] ?? '') !== 'direct' ? ' is-group' : '' ?>" data-video-stage>
+  <div class="video-call-stage<?= ($room && (string) ($room['kind'] ?? '') !== 'direct') ? ' is-group' : '' ?>" data-video-stage>
     <div class="video-call-brand" data-video-brand aria-hidden="true">
       <img src="<?= e(url('/assets/img/mana-call.png')) ?>?v=20260909c" width="176" height="176" alt="">
     </div>
@@ -282,6 +273,8 @@ if (!$room):
     </div>
     <div class="video-call-blackout" data-video-blackout hidden>نمایش تصویر در این حالت ممکن نیست</div>
   </div>
+    </div>
+  </div>
 </div>
 <script>
 document.querySelector("[data-copy-share]")?.addEventListener("click", function(){
@@ -289,15 +282,14 @@ document.querySelector("[data-copy-share]")?.addEventListener("click", function(
   if (!el) return;
   navigator.clipboard.writeText(el.value).then(function(){ this.textContent = "کپی شد"; }.bind(this)).catch(function(){});
 });
+document.querySelector("[data-vc-end-tile]")?.addEventListener("click", function(){
+  if (window.ManaVideoCall && window.ManaVideoCall.stop) window.ManaVideoCall.stop();
+});
 </script>
 <?php
-endif;
 $inner = ob_get_clean();
-if ($room) {
-    $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260909d"></script>';
-} elseif ($clinician) {
-    $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call-lobby.js')) . '?v=20260909e"></script>';
-}
+$GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260909e"></script>'
+    . '<script src="' . e(url('/assets/js/video-call-lobby.js')) . '?v=20260909f"></script>';
 
 $role = (string) ($user['role'] ?? '');
 if ($role === 'DOCTOR') {
