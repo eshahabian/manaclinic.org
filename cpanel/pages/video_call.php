@@ -318,8 +318,8 @@ document.querySelector("[data-copy-share]")?.addEventListener("click", function(
 </script>
 <?php
 $inner = ob_get_clean();
-$GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260910a"></script>'
-    . '<script src="' . e(url('/assets/js/video-call-lobby.js')) . '?v=20260910a"></script>';
+$GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260910b"></script>'
+    . '<script src="' . e(url('/assets/js/video-call-lobby.js')) . '?v=20260910b"></script>';
 
 $role = (string) ($user['role'] ?? '');
 if ($role === 'DOCTOR') {

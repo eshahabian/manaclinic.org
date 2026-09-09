@@ -181,12 +181,18 @@ function video_call_workshop_key(string $workshopId): string
     return 'ws-' . $workshopId;
 }
 
-function video_call_public_name(array $person): string
+function video_call_public_name(array $person, ?bool $full = null): string
 {
     $name = trim((string) ($person['name'] ?? ''));
     $role = (string) ($person['role'] ?? '');
-    if ($role !== 'PATIENT') {
-        return $name !== '' ? $name : 'کاربر';
+    if ($full === null) {
+        $full = video_call_is_clinician(current_user());
+    }
+    if ($full || $role !== 'PATIENT') {
+        if ($name !== '') {
+            return $name;
+        }
+        return $role === 'PATIENT' ? 'مراجعه‌کننده' : 'کاربر';
     }
     $parts = preg_split('/\s+/u', $name) ?: [];
     $parts = array_values(array_filter($parts, static fn ($p) => $p !== ''));
