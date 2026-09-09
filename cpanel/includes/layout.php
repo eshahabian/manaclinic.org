@@ -32,7 +32,7 @@ $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'es
   <?= seo_render_head() ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260909b">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260909c">
   <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
   <script>
   (function(){
@@ -107,6 +107,15 @@ $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'es
         <?php endif; ?>
       </nav>
       <div class="header-actions">
+        <button type="button" class="theme-toggle" id="theme-toggle" title="حالت شب" aria-label="حالت شب">
+          <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 3v2M12 19v2M5 12H3M21 12h-2M6.2 6.2l1.4 1.4M16.4 16.4l1.4 1.4M6.2 17.8l1.4-1.4M16.4 7.6l1.4-1.4"/>
+          </svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4 7 7 0 0 0 20 14.5z"/>
+          </svg>
+        </button>
         <?php if ($user): ?>
           <span class="user-name"><?= e($user['name']) ?></span>
           <a class="btn btn-outline" href="<?= e(url('/logout')) ?>">خروج</a>
@@ -120,9 +129,75 @@ $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'es
   <div class="mobile-nav-overlay" data-nav-overlay aria-hidden="true"></div>
   <div id="mobile-nav" class="mobile-nav" role="dialog" aria-modal="true" aria-label="منو" aria-hidden="true" inert>
     <div class="mobile-nav-inner">
+      <?php
+        $bookNext = '/doctors';
+        $bookHref = $user ? url($bookNext) : url('/register?next=' . rawurlencode($bookNext));
+        $workshopsHref = ($user && ($user['role'] ?? '') === 'PATIENT')
+          ? url('/dashboard/workshops')
+          : url('/#home-workshop-banners');
+        $assistantOn = function_exists('assistant_enabled') ? assistant_enabled() : false;
+      ?>
+      <nav class="mobile-nav-grid" aria-label="منوی سایت">
+        <a class="mobile-nav-tile" href="<?= e($workshopsHref) ?>">
+          <span class="mobile-nav-tile-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 19V7h16v12H4zM8 7V5h8v2M9 11h6M9 15h4"/></svg>
+          </span>
+          <span>کارگاه‌ها</span>
+        </a>
+        <a class="mobile-nav-tile mobile-nav-tile-accent" href="<?= e($bookHref) ?>">
+          <span class="mobile-nav-tile-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4M16 3v4M4 10h16M9 14h2v2H9z"/></svg>
+          </span>
+          <span>گرفتن نوبت</span>
+        </a>
+        <a class="mobile-nav-tile" href="<?= e(url('/')) ?>">
+          <span class="mobile-nav-tile-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 11.5 12 4l8 7.5V20H4v-8.5z"/><path d="M10 20v-6h4v6"/></svg>
+          </span>
+          <span>صفحه اصلی سایت</span>
+        </a>
+        <a class="mobile-nav-tile" href="<?= e(url('/articles')) ?>">
+          <span class="mobile-nav-tile-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 4h9l5 5v11H6V4z"/><path d="M15 4v5h5M9 13h6M9 17h4"/></svg>
+          </span>
+          <span>مقالات</span>
+        </a>
+        <a class="mobile-nav-tile" href="<?= e(url('/tests')) ?>">
+          <span class="mobile-nav-tile-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 4h8v4H8zM6 8h12v12H6z"/><path d="M9 13l2 2 4-4"/></svg>
+          </span>
+          <span>آزمون‌ها</span>
+        </a>
+        <?php if ($assistantOn): ?>
+          <a class="mobile-nav-tile" href="<?= e(url('/assistant')) ?>">
+            <span class="mobile-nav-tile-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="10" r="4"/><path d="M5 20c1.5-3 4-5 7-5s5.5 2 7 5"/></svg>
+            </span>
+            <span>دستیار هوشمند</span>
+          </a>
+        <?php endif; ?>
+        <a class="mobile-nav-tile" href="<?= e(url('/about')) ?>">
+          <span class="mobile-nav-tile-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 11v5M12 8h.01"/></svg>
+          </span>
+          <span>درباره ما</span>
+        </a>
+        <a class="mobile-nav-tile" href="<?= e(url('/contact')) ?>">
+          <span class="mobile-nav-tile-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 6h14v12H5z"/><path d="M5 8l7 5 7-5"/></svg>
+          </span>
+          <span>تماس با ما</span>
+        </a>
+        <?php if ($panelHref): ?>
+          <a class="mobile-nav-tile" href="<?= e(url($panelHref)) ?>">
+            <span class="mobile-nav-tile-icon" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16v12H4z"/><path d="M8 7V5h8v2"/></svg>
+            </span>
+            <span>پنل من</span>
+          </a>
+        <?php endif; ?>
+      </nav>
       <div class="mobile-nav-panel" data-mobile-panel hidden></div>
-      <p class="mobile-nav-heading" data-mobile-site-heading hidden>منوی سایت</p>
-      <div data-mobile-site></div>
     </div>
   </div>
 
@@ -191,16 +266,7 @@ $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'es
     </div>
   </footer>
 </div>
-<div class="site-chrome" aria-label="ابزار صفحه">
-  <button type="button" class="site-chrome-btn" id="theme-toggle" title="حالت شب" aria-label="حالت شب">
-    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-      <circle cx="12" cy="12" r="4"/>
-      <path d="M12 3v2M12 19v2M5 12H3M21 12h-2M6.2 6.2l1.4 1.4M16.4 16.4l1.4 1.4M6.2 17.8l1.4-1.4M16.4 7.6l1.4-1.4"/>
-    </svg>
-    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
-      <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4 7 7 0 0 0 20 14.5z"/>
-    </svg>
-  </button>
+<div class="site-chrome" aria-label="بازگشت به بالا">
   <button type="button" class="site-chrome-btn site-chrome-top is-hidden" id="back-to-top" title="بازگشت به بالا" aria-label="بازگشت به بالا">
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
       <path d="M6 14l6-6 6 6"/>
@@ -217,8 +283,8 @@ $overviewJs = __DIR__ . '/../assets/js/workshop-overview.js';
 <script><?php if (is_file($overviewJs)) { echo file_get_contents($overviewJs); } ?></script>
 <script src="<?= e(url('/assets/js/particles.js')) ?>?v=20260904t"></script>
 <script src="<?= e(url('/assets/js/password-field.js')) ?>?v=20260908a"></script>
-<script src="<?= e(url('/assets/js/mobile-nav.js')) ?>?v=20260908a"></script>
-<script src="<?= e(url('/assets/js/site-chrome.js')) ?>?v=20260909a"></script>
+<script src="<?= e(url('/assets/js/mobile-nav.js')) ?>?v=20260909b"></script>
+<script src="<?= e(url('/assets/js/site-chrome.js')) ?>?v=20260909b"></script>
 <?php
 $videoWatch = function_exists('video_call_watch_config') ? video_call_watch_config($user) : null;
 if ($videoWatch):

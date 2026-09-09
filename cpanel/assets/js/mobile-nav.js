@@ -5,9 +5,6 @@
   if (!toggle || !overlay || !drawer) return;
 
   var panelSlot = drawer.querySelector("[data-mobile-panel]");
-  var siteSlot = drawer.querySelector("[data-mobile-site]");
-  var siteHeading = drawer.querySelector("[data-mobile-site-heading]");
-  var siteNav = document.querySelector(".nav-links");
   var sideNav = document.querySelector(".side-nav");
   var mqDesktop = window.matchMedia("(min-width: 768px)");
   var open = false;
@@ -20,16 +17,6 @@
       if (nav) panelSlot.appendChild(nav.cloneNode(true));
       panelSlot.hidden = false;
       panelSlot.dataset.filled = "1";
-      if (siteHeading) siteHeading.hidden = false;
-    }
-    if (siteNav && siteSlot && !siteSlot.dataset.filled) {
-      var clone = document.createElement("nav");
-      clone.className = "mobile-nav-links";
-      Array.prototype.forEach.call(siteNav.children, function (child) {
-        clone.appendChild(child.cloneNode(true));
-      });
-      siteSlot.appendChild(clone);
-      siteSlot.dataset.filled = "1";
     }
   }
 
