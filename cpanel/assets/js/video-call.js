@@ -413,6 +413,7 @@
     function markConnected() {
       if (!pc || connectedOnce) return;
       connectedOnce = true;
+      if (stageEl) stageEl.classList.add("is-live");
       playConnected();
       syncCallButtons();
       setStatus("تماس برقرار شد.");
@@ -448,6 +449,7 @@
     stopRecording(true);
     if (playHang) playDisconnected();
     connectedOnce = false;
+    if (stageEl) stageEl.classList.remove("is-live");
     makingOffer = false;
     pendingIce = [];
     pendingOffer = null;

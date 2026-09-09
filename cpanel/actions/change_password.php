@@ -8,9 +8,8 @@ $current = normalize_input((string) ($_POST['current_password'] ?? ''));
 $new = normalize_input((string) ($_POST['new_password'] ?? ''));
 $confirm = normalize_input((string) ($_POST['new_password_confirm'] ?? ''));
 
-$minPass = password_min_length();
-if (strlen($new) < $minPass) {
-    flash_set('error', 'رمز جدید حداقل ' . to_fa_digits((string) $minPass) . ' کاراکتر باشد.');
+if ($new === '') {
+    flash_set('error', 'رمز جدید را وارد کنید.');
     redirect('/change-password');
 }
 if (preg_match('/[^\x00-\x7F]/', $new) || preg_match('/[^\x00-\x7F]/', $confirm)) {

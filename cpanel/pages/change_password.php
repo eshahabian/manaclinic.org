@@ -27,6 +27,7 @@ ob_start();
     <?= password_field_html('new_password', 'new_password', [
         'label' => 'رمز جدید',
         'autocomplete' => 'new-password',
+        'rules' => false,
     ]) ?>
     <?= password_field_html('new_password_confirm', 'new_password_confirm', [
         'label' => 'تکرار رمز جدید',

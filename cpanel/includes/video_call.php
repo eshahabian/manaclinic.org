@@ -101,7 +101,7 @@ function video_call_nav_link(bool $withType = false): ?array
     if (!video_call_allowed(current_user())) {
         return null;
     }
-    $item = ['href' => '/video-call', 'label' => 'تماس تصویری (آزمایشی)'];
+    $item = ['href' => '/video-call', 'label' => 'تماس تصویری مانا'];
     if ($withType) {
         $item['type'] = 'link';
     }

@@ -747,7 +747,50 @@ body.home-workshop-locked { overflow: hidden; }
   margin-top: 1.15rem;
 }
 
+.video-call-head {
+  display: flex;
+  align-items: center;
+  gap: .85rem;
+}
+.video-call-head h1 { margin: 0; }
+.video-call-logo {
+  display: block;
+  width: 3.5rem;
+  height: 3.5rem;
+  flex: 0 0 auto;
+  object-fit: cover;
+  border-radius: 50%;
+  background: var(--primary-dark);
+  box-shadow: 0 4px 14px rgba(19, 68, 55, .28);
+}
 .video-call-status { margin: .35rem 0 0; color: var(--primary); font-weight: 600; }
+.video-call-brand {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+  transition: opacity .28s ease, visibility .28s ease;
+}
+.video-call-brand img {
+  width: 9rem;
+  height: 9rem;
+  object-fit: cover;
+  border-radius: 50%;
+  background: var(--primary-dark);
+  box-shadow: 0 12px 32px rgba(0, 0, 0, .4), 0 0 0 4px rgba(27, 94, 75, .45);
+}
+.video-call-stage.is-live .video-call-brand,
+.video-call-page.is-black .video-call-brand {
+  opacity: 0;
+  visibility: hidden;
+}
+@media (max-width: 560px) {
+  .video-call-logo { width: 2.85rem; height: 2.85rem; }
+  .video-call-brand img { width: 6.75rem; height: 6.75rem; }
+}
 .video-call-permit {
   margin-top: 1rem;
   padding: .9rem 1rem;

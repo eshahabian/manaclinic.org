@@ -16,12 +16,12 @@ function password_field_html(string $id, string $name, array $opts = []): string
     $label = (string) ($opts['label'] ?? 'رمز عبور');
     $autocomplete = (string) ($opts['autocomplete'] ?? 'current-password');
     $required = !array_key_exists('required', $opts) || !empty($opts['required']);
-    $min = (int) ($opts['minlength'] ?? password_min_length());
+    $min = array_key_exists('minlength', $opts) ? max(0, (int) $opts['minlength']) : 0;
     $value = (string) ($opts['value'] ?? '');
     $pair = (string) ($opts['pair'] ?? '');
     $isConfirm = !empty($opts['confirm']);
-    $showRules = array_key_exists('rules', $opts) ? !empty($opts['rules']) : !$isConfirm;
-    $placeholder = (string) ($opts['placeholder'] ?? ($isConfirm ? 'تکرار رمز' : 'حداقل ' . to_fa_digits((string) $min) . ' کاراکتر'));
+    $showRules = array_key_exists('rules', $opts) ? !empty($opts['rules']) : (!$isConfirm && $min > 0);
+    $placeholder = (string) ($opts['placeholder'] ?? ($isConfirm ? 'تکرار رمز' : ($min > 0 ? 'حداقل ' . to_fa_digits((string) $min) . ' کاراکتر' : '')));
 
     ob_start();
     ?>
@@ -34,14 +34,14 @@ function password_field_html(string $id, string $name, array $opts = []): string
           name="<?= e($name) ?>"
           type="password"
           <?= $required ? 'required' : '' ?>
-          minlength="<?= $min ?>"
+          <?= $min > 0 ? 'minlength="' . $min . '"' : '' ?>
           dir="ltr"
           lang="en"
           autocomplete="<?= e($autocomplete) ?>"
           placeholder="<?= e($placeholder) ?>"
           value="<?= e($value) ?>"
           data-password-input
-          data-password-min="<?= $min ?>"
+          <?= $min > 0 ? 'data-password-min="' . $min . '"' : '' ?>
           <?= $isConfirm ? 'data-password-confirm="1"' : '' ?>
           <?= $pair !== '' ? 'data-password-pair="' . e($pair) . '"' : '' ?>
         >
@@ -50,7 +50,7 @@ function password_field_html(string $id, string $name, array $opts = []): string
           <svg class="password-toggle-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18M10.6 10.6A3.1 3.1 0 0 0 12 15.1a3.1 3.1 0 0 0 3.1-3.1M6.5 6.7C4.4 8.2 2.8 10.4 2.4 12c0 0 3.6 6.2 9.6 6.2 1.7 0 3.2-.4 4.5-1M17.5 8.2C19.4 9.6 20.8 11.3 21.6 12c0 0-1.3 2.2-3.6 4"/></svg>
         </button>
       </div>
-      <?php if ($showRules): ?>
+      <?php if ($showRules && $min > 0): ?>
         <p class="password-rules muted">حداقل <?= e(to_fa_digits((string) $min)) ?> کاراکتر، با حروف و اعداد انگلیسی.</p>
       <?php endif; ?>
       <p class="password-lang-warn" data-password-lang hidden>زبان صفحه‌کلید را انگلیسی کنید.</p>

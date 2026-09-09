@@ -17,8 +17,8 @@ if (!$peer) {
 }
 
 $peerOnline = video_call_is_online($pdo, (string) $peer['id']);
-$pageTitle = 'تماس تصویری آزمایشی';
-$pageDescription = 'تماس تصویری آزمایشی مانا کلینیک.';
+$pageTitle = 'تماس تصویری مانا';
+$pageDescription = 'تماس تصویری مانا کلینیک.';
 $GLOBALS['pageRobots'] = 'noindex,nofollow';
 $GLOBALS['pageDescription'] = $pageDescription;
 
@@ -33,17 +33,25 @@ ob_start();
   data-ring-url="<?= e(url('/assets/audio/incoming-call.ogg')) ?>"
   data-hang-url="<?= e(url('/assets/audio/hang-up.ogg')) ?>"
 >
-  <h1>تماس تصویری آزمایشی</h1>
-  <p class="muted" style="margin:0;line-height:1.8">فقط بین شما و <?= e((string) $peer['name']) ?> فعال است.</p>
-  <p class="video-call-status" data-video-status>
-    <?= $peerOnline ? 'طرف مقابل آنلاین است.' : 'طرف مقابل فعلاً در این صفحه نیست — هر دو باید این صفحه را باز کنید.' ?>
-  </p>
+  <div class="video-call-head">
+    <img class="video-call-logo" src="<?= e(url('/assets/img/mana-call.png')) ?>?v=20260908w" width="56" height="56" alt="مانا">
+    <div>
+      <h1>تماس تصویری مانا</h1>
+      <p class="muted" style="margin:0;line-height:1.8">فقط بین شما و <?= e((string) $peer['name']) ?> فعال است.</p>
+      <p class="video-call-status" data-video-status>
+        <?= $peerOnline ? 'طرف مقابل آنلاین است.' : 'طرف مقابل فعلاً در این صفحه نیست — هر دو باید این صفحه را باز کنید.' ?>
+      </p>
+    </div>
+  </div>
   <div class="video-call-permit" data-video-permit>
     <p>برای تماس، مرورگر باید به دوربین و میکروفون دسترسی بدهد.</p>
     <button type="button" class="btn btn-primary" data-video-permit-btn>اجازه دسترسی به دوربین و میکروفون</button>
   </div>
 
   <div class="video-call-stage" data-video-stage>
+    <div class="video-call-brand" data-video-brand aria-hidden="true">
+      <img src="<?= e(url('/assets/img/mana-call.png')) ?>?v=20260908w" width="176" height="176" alt="">
+    </div>
     <video class="video-call-remote" data-video-remote autoplay playsinline disablepictureinpicture controlslist="nodownload noremoteplayback"></video>
     <div class="video-call-self">
       <video class="video-call-local" data-video-local autoplay playsinline muted disablepictureinpicture controlslist="nodownload noremoteplayback"></video>
@@ -100,7 +108,7 @@ ob_start();
 </div>
 <?php
 $inner = ob_get_clean();
-$GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260908k"></script>';
+$GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260908w"></script>';
 
 $role = (string) ($user['role'] ?? '');
 if ($role === 'DOCTOR') {
