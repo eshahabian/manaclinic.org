@@ -406,45 +406,6 @@ function video_call_contacts(PDO $pdo, array $user, string $q = '', string $only
             AND u.role IN ($inRoles)
         ";
         $params = array_merge($freqParams, [$me], $roles);
-        if ($role === 'DOCTOR') {
-            $sql .= "
-              AND (
-                u.role = 'DOCTOR'
-                OR u.preferred_doctor_id IN (SELECT id FROM doctor_profiles WHERE user_id = ?)
-                OR u.id IN (
-                  SELECT a.patient_id FROM appointments a
-                  JOIN doctor_profiles me ON me.id = a.doctor_id
-                  WHERE me.user_id = ?
-                )
-                OR u.id IN (
-                  SELECT e.patient_id FROM workshop_enrollments e
-                  JOIN workshops w ON w.id = e.workshop_id
-                  JOIN doctor_profiles me ON me.id = w.doctor_id
-                  WHERE me.user_id = ? AND e.status IN ('CONFIRMED','COMPLETED')
-                )
-                OR u.id IN (SELECT peer_user_id FROM video_call_contact_stats WHERE host_user_id = ?)
-                OR u.id IN (
-                  SELECT m.user_id FROM video_call_room_members m
-                  JOIN video_call_rooms r ON r.id = m.room_id
-                  WHERE r.host_user_id = ?
-                )
-                OR EXISTS (
-                  SELECT 1 FROM video_call_rooms r
-                  WHERE r.kind = 'direct'
-                    AND (
-                      r.room_key LIKE CONCAT('dm-', u.id, '-%')
-                      OR r.room_key LIKE CONCAT('dm-%-', u.id)
-                    )
-                    AND (
-                      r.host_user_id = ?
-                      OR r.room_key LIKE CONCAT('dm-', ?, '-%')
-                      OR r.room_key LIKE CONCAT('dm-%-', ?)
-                    )
-                )
-              )
-            ";
-            $params = array_merge($params, [$me, $me, $me, $me, $me, $me, $me, $me]);
-        }
         if ($onlyIds) {
             $sql .= ' AND u.id IN (' . implode(',', array_fill(0, count($onlyIds), '?')) . ')';
             $params = array_merge($params, $onlyIds);
