@@ -19,10 +19,20 @@ $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'es
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="google" content="notranslate">
+  <script>
+  (function(){
+    try {
+      var t = localStorage.getItem("mana-theme");
+      if (t === "dark" || t === "light") {
+        document.documentElement.setAttribute("data-theme", t);
+      }
+    } catch (e) {}
+  })();
+  </script>
   <?= seo_render_head() ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260909a">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260909b">
   <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
   <script>
   (function(){
@@ -181,6 +191,22 @@ $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'es
     </div>
   </footer>
 </div>
+<div class="site-chrome" aria-label="ابزار صفحه">
+  <button type="button" class="site-chrome-btn" id="theme-toggle" title="حالت شب" aria-label="حالت شب">
+    <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+      <circle cx="12" cy="12" r="4"/>
+      <path d="M12 3v2M12 19v2M5 12H3M21 12h-2M6.2 6.2l1.4 1.4M16.4 16.4l1.4 1.4M6.2 17.8l1.4-1.4M16.4 7.6l1.4-1.4"/>
+    </svg>
+    <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+      <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4 7 7 0 0 0 20 14.5z"/>
+    </svg>
+  </button>
+  <button type="button" class="site-chrome-btn site-chrome-top is-hidden" id="back-to-top" title="بازگشت به بالا" aria-label="بازگشت به بالا">
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+      <path d="M6 14l6-6 6 6"/>
+    </svg>
+  </button>
+</div>
 <?php
 if (!function_exists('workshop_overview_modal_html')) {
     require_once __DIR__ . '/workshop_overview.php';
@@ -192,6 +218,7 @@ $overviewJs = __DIR__ . '/../assets/js/workshop-overview.js';
 <script src="<?= e(url('/assets/js/particles.js')) ?>?v=20260904t"></script>
 <script src="<?= e(url('/assets/js/password-field.js')) ?>?v=20260908a"></script>
 <script src="<?= e(url('/assets/js/mobile-nav.js')) ?>?v=20260908a"></script>
+<script src="<?= e(url('/assets/js/site-chrome.js')) ?>?v=20260909a"></script>
 <?php
 $videoWatch = function_exists('video_call_watch_config') ? video_call_watch_config($user) : null;
 if ($videoWatch):
