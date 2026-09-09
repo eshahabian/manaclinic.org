@@ -64,16 +64,6 @@ require_once __DIR__ . '/includes/doctor_profile_fields.php';
 require_once __DIR__ . '/includes/video_call.php';
 
 $pdo = db_connect($config);
-ensure_doctor_profile_schema($pdo);
-ensure_workshop_schema($pdo);
-ensure_workshop_media_schema($pdo);
-ensure_articles_schema($pdo);
-require_once __DIR__ . '/includes/availability.php';
-ensure_availability_schema($pdo);
-ensure_assistant_schema($pdo);
-ensure_staff_desk_schema($pdo);
-ensure_handover_schema($pdo);
-purge_dummy_clinic_bookings($pdo);
 
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 $base = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/\\');
@@ -86,13 +76,28 @@ if ($path !== '/') {
 }
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+$isLightRequest = $path === '/video-signal' || $path === '/secretary/heartbeat';
+
+if (!$isLightRequest) {
+    ensure_doctor_profile_schema($pdo);
+    ensure_workshop_schema($pdo);
+    ensure_workshop_media_schema($pdo);
+    ensure_articles_schema($pdo);
+    require_once __DIR__ . '/includes/availability.php';
+    ensure_availability_schema($pdo);
+    ensure_assistant_schema($pdo);
+    ensure_staff_desk_schema($pdo);
+    ensure_handover_schema($pdo);
+    purge_dummy_clinic_bookings($pdo);
+}
+
 if (strtoupper((string) $method) === 'POST') {
     csrf_verify();
 }
 
 // seed مقالات فقط روی صفحات عمومی GET — نه روی API چت (جلوگیری از HTML/تایم‌اوت وسط گفتگو)
 $isAssistantApi = str_starts_with($path, '/assistant/chat') || str_starts_with($path, '/assistant/send');
-if ($method === 'GET' && !$isAssistantApi) {
+if ($method === 'GET' && !$isAssistantApi && !$isLightRequest) {
     ensure_featured_psychology_article($pdo);
 }
 

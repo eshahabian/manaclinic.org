@@ -86,7 +86,8 @@ if ($roomKey !== '') {
 $pageTitle = 'تماس تصویری مانا';
 $GLOBALS['pageRobots'] = 'noindex,nofollow';
 $q = trim((string) ($_GET['q'] ?? ''));
-$contacts = $room ? [] : video_call_contacts($pdo, $user, $q);
+$contacts = $room ? [] : video_call_contacts($pdo, $user, '', $clinician ? 'DOCTOR' : '', 40);
+$patientHits = (!$room && $clinician) ? video_call_contacts($pdo, $user, $q, 'PATIENT', 5) : [];
 $savedRooms = $room ? [] : video_call_saved_rooms($pdo, $user);
 $members = $room ? video_call_room_members_public($pdo, $room) : [];
 $shareUrl = $room && $clinician ? video_call_share_url($room) : '';
@@ -112,16 +113,27 @@ if (!$room):
         <p class="muted" style="margin:.15rem 0 0;font-size:.8rem">وضعیت آنلاین مثل تلگرام، کنار عکس</p>
       </div>
     </div>
-    <form class="vc-search" method="get" action="<?= e(url('/video-call')) ?>">
-      <input class="input" type="search" name="q" value="<?= e($q) ?>" placeholder="جستجوی افراد…">
-    </form>
+    <?php if ($clinician): ?>
+    <div class="vc-search-wrap" data-vc-search data-signal-url="<?= e(url('/video-signal')) ?>">
+      <input class="input" type="search" data-vc-search-input value="<?= e($q) ?>" placeholder="جستجوی مراجعه‌کننده…" autocomplete="off">
+      <ul class="vc-search-drop" data-vc-search-drop>
+        <?php if (!$patientHits): ?>
+          <li class="vc-search-empty muted">مراجعه‌کننده‌ای یافت نشد.</li>
+        <?php else: ?>
+          <?php foreach ($patientHits as $c): ?>
+            <li><?= video_call_person_row_html($c, true, true) ?></li>
+          <?php endforeach; ?>
+        <?php endif; ?>
+      </ul>
+    </div>
+    <?php endif; ?>
     <?php if ($clinician): ?>
       <div class="vc-lobby-actions">
         <form method="post" action="<?= e(url('/video-call')) ?>" class="vc-group-form" id="vc-group-form">
           <?= csrf_field() ?>
           <input type="hidden" name="action" value="create_group">
           <input class="input" name="title" placeholder="نام گروه / جلسه هفتگی" required>
-          <p class="muted vc-group-hint">برای گروه، مربع جلوی اسم مراجعه‌کننده را بزنید.</p>
+          <p class="muted vc-group-hint">مربع جلوی اسم کوتاه مراجعه‌کننده در جعبه جستجو را بزنید.</p>
           <button class="btn btn-primary btn-sm" type="submit">ساخت گروه و ذخیره</button>
         </form>
       </div>
@@ -146,32 +158,13 @@ if (!$room):
       </ul>
     <?php endif; ?>
 
-    <h2 class="vc-list-title">افراد</h2>
+    <h2 class="vc-list-title"><?= $clinician ? 'درمانگرها' : 'افراد' ?></h2>
     <?php if (!$contacts): ?>
-      <p class="muted" style="font-size:.85rem">هنوز مخاطبی برای تماس نیست.</p>
+      <p class="muted" style="font-size:.85rem"><?= $clinician ? 'درمانگر دیگری در لیست نیست.' : 'هنوز مخاطبی برای تماس نیست.' ?></p>
     <?php else: ?>
       <ul class="vc-people">
         <?php foreach ($contacts as $c): ?>
-          <li>
-            <div class="vc-person">
-              <?php if ($clinician && (string) ($c['role'] ?? '') === 'PATIENT'): ?>
-                <label class="vc-pick-wrap" title="انتخاب برای گروه">
-                  <input class="vc-pick" type="checkbox" form="vc-group-form" name="members[]" value="<?= e((string) $c['id']) ?>">
-                </label>
-              <?php endif; ?>
-              <?= video_call_avatar_html($c, !empty($c['online'])) ?>
-              <span class="vc-person-meta">
-                <strong><?= e((string) $c['name']) ?></strong>
-                <span class="muted"><?= !empty($c['online']) ? 'آنلاین' : 'آفلاین' ?> · <?= (string) ($c['role'] ?? '') === 'DOCTOR' ? 'درمانگر' : 'مراجعه‌کننده' ?></span>
-              </span>
-              <?php if ($clinician): ?>
-                <span class="vc-person-calls">
-                  <a class="btn btn-primary btn-sm" href="<?= e(video_call_direct_url((string) $c['id'], 'video')) ?>">تصویری</a>
-                  <a class="btn btn-outline btn-sm" href="<?= e(video_call_direct_url((string) $c['id'], 'audio')) ?>">صوتی</a>
-                </span>
-              <?php endif; ?>
-            </div>
-          </li>
+          <li><?= video_call_person_row_html($c, $clinician, false) ?></li>
         <?php endforeach; ?>
       </ul>
     <?php endif; ?>
@@ -302,6 +295,8 @@ endif;
 $inner = ob_get_clean();
 if ($room) {
     $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260909d"></script>';
+} elseif ($clinician) {
+    $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call-lobby.js')) . '?v=20260909e"></script>';
 }
 
 $role = (string) ($user['role'] ?? '');

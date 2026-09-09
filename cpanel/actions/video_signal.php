@@ -19,11 +19,19 @@ if (!is_array($body)) {
 }
 $action = trim((string) ($body['action'] ?? $_GET['action'] ?? 'poll'));
 
-if ($action === 'ping') {
-    video_call_json(['ok' => true]);
-}
-
-if ($action === 'inbox') {
+if ($action === 'ping' || $action === 'inbox' || $action === 'contacts') {
+    if ($action === 'contacts') {
+        if (!video_call_is_clinician($user)) {
+            video_call_json(['error' => 'فقط درمانگر می‌تواند جستجو کند.'], 403);
+        }
+        $q = trim((string) ($body['q'] ?? $_GET['q'] ?? ''));
+        $rows = video_call_contacts($pdo, $user, $q, 'PATIENT', 5);
+        $items = [];
+        foreach ($rows as $c) {
+            $items[] = video_call_contact_payload($c);
+        }
+        video_call_json(['ok' => true, 'items' => $items]);
+    }
     $stmt = $pdo->prepare("
       SELECT s.id, s.room_id, s.sender_id, s.kind, s.payload, s.created_at,
              u.name AS sender_name, r.title AS room_title, r.kind AS room_kind

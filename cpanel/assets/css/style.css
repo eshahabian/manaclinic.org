@@ -1077,7 +1077,6 @@ body.home-workshop-locked { overflow: hidden; }
 .vc-lobby {
   display: grid;
   gap: 1.25rem;
-  min-height: 70vh;
   align-items: stretch;
 }
 @media (min-width: 860px) {
@@ -1101,6 +1100,25 @@ body.home-workshop-locked { overflow: hidden; }
 }
 .vc-lobby-brand img { width: 2.75rem; height: 2.75rem; border-radius: 50%; }
 .vc-search { margin-bottom: .75rem; }
+.vc-search-wrap { position: relative; margin-bottom: .75rem; }
+.vc-search-drop {
+  display: none;
+  position: absolute;
+  z-index: 20;
+  inset-inline: 0;
+  top: calc(100% + .25rem);
+  margin: 0;
+  padding: .35rem;
+  list-style: none;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: .75rem;
+  box-shadow: 0 10px 28px rgba(16, 40, 32, .12);
+  max-height: 22rem;
+  overflow: auto;
+}
+.vc-search-wrap.is-open .vc-search-drop { display: grid; gap: .25rem; }
+.vc-search-empty { padding: .65rem .5rem; font-size: .82rem; }
 .vc-group-form { display: grid; gap: .45rem; margin-bottom: .85rem; }
 .vc-group-hint { margin: 0; font-size: .78rem; line-height: 1.6; }
 .vc-pick-wrap {
@@ -1141,12 +1159,12 @@ body.home-workshop-locked { overflow: hidden; }
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: 1rem;
-  min-height: 22rem;
+  min-height: 18rem;
   align-self: stretch;
   height: 100%;
   box-sizing: border-box;
 }
-.vc-lobby-hero { width: 8rem; height: 8rem; border-radius: 50%; }
+.vc-lobby-hero { width: 6.5rem; height: 6.5rem; border-radius: 50%; }
 .vc-avatar {
   position: relative;
   display: inline-flex;

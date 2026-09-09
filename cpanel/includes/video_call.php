@@ -40,18 +40,6 @@ function ensure_video_call_schema(PDO $pdo): void
         INDEX idx_vcs_target (target_id, created_at)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
-    try {
-        $col = $pdo->query("SHOW COLUMNS FROM video_call_signals LIKE 'target_id'")->fetch();
-        if (!$col) {
-            $pdo->exec("ALTER TABLE video_call_signals ADD COLUMN target_id VARCHAR(32) NULL AFTER sender_id");
-            $pdo->exec("ALTER TABLE video_call_signals ADD INDEX idx_vcs_target (target_id, created_at)");
-        }
-    } catch (Throwable $ignored) {
-    }
-    try {
-        $pdo->exec("ALTER TABLE video_call_signals MODIFY room_id VARCHAR(80) NOT NULL");
-    } catch (Throwable $ignored) {
-    }
     $pdo->exec("
       CREATE TABLE IF NOT EXISTS video_call_presence (
         user_id VARCHAR(32) PRIMARY KEY,
@@ -192,11 +180,35 @@ function video_call_workshop_key(string $workshopId): string
     return 'ws-' . $workshopId;
 }
 
+function video_call_public_name(array $person): string
+{
+    $name = trim((string) ($person['name'] ?? ''));
+    $role = (string) ($person['role'] ?? '');
+    if ($role !== 'PATIENT') {
+        return $name !== '' ? $name : 'کاربر';
+    }
+    $parts = preg_split('/\s+/u', $name) ?: [];
+    $parts = array_values(array_filter($parts, static fn ($p) => $p !== ''));
+    if ($parts === []) {
+        return 'مراجعه‌کننده';
+    }
+    $first = $parts[0];
+    if (count($parts) === 1) {
+        $ch = function_exists('mb_substr') ? mb_substr($first, 0, 1) : substr($first, 0, 1);
+
+        return $ch . '***';
+    }
+    $last = $parts[count($parts) - 1];
+    $ini = function_exists('mb_substr') ? mb_substr($last, 0, 1) : substr($last, 0, 1);
+
+    return $first . ' ' . $ini . '.';
+}
+
 function video_call_avatar_html(array $person, bool $online, string $size = 'md'): string
 {
-    $name = trim((string) ($person['name'] ?? 'کاربر'));
+    $name = video_call_public_name($person);
     $src = '';
-    if (function_exists('doctor_avatar_src')) {
+    if ((string) ($person['role'] ?? '') !== 'PATIENT' && function_exists('doctor_avatar_src')) {
         $src = doctor_avatar_src((string) ($person['avatar_url'] ?? ''));
     }
     $cls = 'vc-avatar vc-avatar-' . preg_replace('/[^a-z]/', '', $size);
@@ -214,22 +226,71 @@ function video_call_avatar_html(array $person, bool $online, string $size = 'md'
     return (string) ob_get_clean();
 }
 
-function video_call_contacts(PDO $pdo, array $user, string $q = ''): array
+function video_call_person_row_html(array $c, bool $clinician, bool $pick = false): string
+{
+    $isPatient = (string) ($c['role'] ?? '') === 'PATIENT';
+    $label = video_call_public_name($c);
+    $roleLabel = $isPatient ? 'مراجعه‌کننده' : 'درمانگر';
+    ob_start();
+    ?>
+            <div class="vc-person" data-user-id="<?= e((string) ($c['id'] ?? '')) ?>">
+              <?php if ($clinician && $pick && $isPatient): ?>
+                <label class="vc-pick-wrap" title="انتخاب برای گروه">
+                  <input class="vc-pick" type="checkbox" form="vc-group-form" name="members[]" value="<?= e((string) $c['id']) ?>">
+                </label>
+              <?php endif; ?>
+              <?= video_call_avatar_html($c, !empty($c['online'])) ?>
+              <span class="vc-person-meta">
+                <strong><?= e($label) ?></strong>
+                <span class="muted"><?= !empty($c['online']) ? 'آنلاین' : 'آفلاین' ?> · <?= e($roleLabel) ?></span>
+              </span>
+              <?php if ($clinician): ?>
+                <span class="vc-person-calls">
+                  <a class="btn btn-primary btn-sm" href="<?= e(video_call_direct_url((string) $c['id'], 'video')) ?>">تصویری</a>
+                  <a class="btn btn-outline btn-sm" href="<?= e(video_call_direct_url((string) $c['id'], 'audio')) ?>">صوتی</a>
+                </span>
+              <?php endif; ?>
+            </div>
+    <?php
+    return (string) ob_get_clean();
+}
+
+function video_call_contact_payload(array $c): array
+{
+    $name = video_call_public_name($c);
+
+    return [
+        'id' => (string) ($c['id'] ?? ''),
+        'name' => $name,
+        'online' => !empty($c['online']),
+        'role' => (string) ($c['role'] ?? ''),
+        'videoUrl' => video_call_direct_url((string) ($c['id'] ?? ''), 'video'),
+        'audioUrl' => video_call_direct_url((string) ($c['id'] ?? ''), 'audio'),
+        'letter' => function_exists('mb_substr') ? mb_substr($name, 0, 1) : substr($name, 0, 1),
+    ];
+}
+
+function video_call_contacts(PDO $pdo, array $user, string $q = '', string $onlyRole = '', int $limit = 40, array $onlyIds = []): array
 {
     $me = (string) ($user['id'] ?? '');
     $role = (string) ($user['role'] ?? '');
     $q = trim($q);
     $like = '%' . $q . '%';
+    $onlyRole = strtoupper(trim($onlyRole));
+    $onlyIds = array_values(array_unique(array_filter(array_map('strval', $onlyIds))));
+    $limit = max(1, min(80, $onlyIds ? count($onlyIds) : $limit));
     $rows = [];
     if ($role === 'DOCTOR' || $role === 'ADMIN') {
+        $roles = in_array($onlyRole, ['PATIENT', 'DOCTOR'], true) ? [$onlyRole] : ['PATIENT', 'DOCTOR'];
+        $inRoles = implode(',', array_fill(0, count($roles), '?'));
         $sql = "
           SELECT DISTINCT u.id, u.name, u.username, u.role, dp.avatar_url
           FROM users u
           LEFT JOIN doctor_profiles dp ON dp.user_id = u.id
           WHERE u.id <> ?
-            AND u.role IN ('PATIENT','DOCTOR')
+            AND u.role IN ($inRoles)
         ";
-        $params = [$me];
+        $params = array_merge([$me], $roles);
         if ($role === 'DOCTOR') {
             $sql .= "
               AND (
@@ -252,12 +313,16 @@ function video_call_contacts(PDO $pdo, array $user, string $q = ''): array
             $params[] = $me;
             $params[] = $me;
         }
+        if ($onlyIds) {
+            $sql .= ' AND u.id IN (' . implode(',', array_fill(0, count($onlyIds), '?')) . ')';
+            $params = array_merge($params, $onlyIds);
+        }
         if ($q !== '') {
             $sql .= ' AND (u.name LIKE ? OR u.username LIKE ?)';
             $params[] = $like;
             $params[] = $like;
         }
-        $sql .= " ORDER BY CASE u.role WHEN 'PATIENT' THEN 0 ELSE 1 END, u.name ASC LIMIT 120";
+        $sql .= ' ORDER BY u.name ASC LIMIT ' . $limit;
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);
         $rows = $stmt->fetchAll();
@@ -466,17 +531,11 @@ function video_call_create_group(PDO $pdo, array $user, string $title, array $me
     if ($title === '') {
         $title = 'جلسه گروهی';
     }
-    $allowed = [];
-    foreach (video_call_contacts($pdo, $user) as $c) {
-        if ((string) ($c['role'] ?? '') === 'PATIENT') {
-            $allowed[(string) ($c['id'] ?? '')] = true;
-        }
-    }
     $add = [];
-    foreach ($memberIds as $id) {
-        $id = trim((string) $id);
-        if ($id !== '' && isset($allowed[$id])) {
-            $add[$id] = true;
+    $memberIds = array_values(array_unique(array_filter(array_map('strval', $memberIds))));
+    if ($memberIds) {
+        foreach (video_call_contacts($pdo, $user, '', 'PATIENT', count($memberIds), $memberIds) as $c) {
+            $add[(string) ($c['id'] ?? '')] = true;
         }
     }
     $key = 'grp-' . cuid();

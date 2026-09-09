@@ -103,8 +103,8 @@
   }
 
   function tick() {
-    post({ action: "ping" }).catch(function () {});
     post({ action: "inbox" }).then(function (data) {
+      if (document.hidden) return;
       if (!data || !data.ok) return;
       var items = data.items || [];
       if (!items.length) {
@@ -123,6 +123,15 @@
       Notification.requestPermission().catch(function () {});
     }, { once: true });
   }
+  function schedule() {
+    setTimeout(function () {
+      tick();
+      schedule();
+    }, document.hidden ? 25000 : 8000);
+  }
   tick();
-  setInterval(tick, 2500);
+  schedule();
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) tick();
+  });
 })();
