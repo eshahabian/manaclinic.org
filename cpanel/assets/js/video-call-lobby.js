@@ -69,12 +69,17 @@
   var audioBtn = app.querySelector("[data-vc-audio]");
   var saveBtn = app.querySelector("[data-vc-save-open]");
   var searchInput = app.querySelector("[data-vc-search-input]");
+  var searchWrap = app.querySelector("[data-vc-search]");
+  var searchDrop = app.querySelector("[data-vc-search-drop]");
   var tab = "home";
   var members = [];
   var overlayPicked = {};
   var overlayHighlight = { source: "", picked: "" };
   var savedRoomKey = "";
   var timer = null;
+  var searchSeq = 0;
+  var suggestItems = [];
+  var suggestIndex = -1;
 
   function esc(s) {
     return String(s || "")
@@ -126,33 +131,95 @@
     );
   }
 
-  function renderHomeList(items) {
-    var ul = app.querySelector("[data-vc-home-list]");
-    if (!ul) return;
-    if (!items || !items.length) {
-      ul.innerHTML = '<li class="muted vc-empty">مخاطبی پیدا نشد.</li>';
-      return;
-    }
-    ul.innerHTML = items.map(function (item) {
-      return "<li>" + personHtml(item) + "</li>";
-    }).join("");
-  }
-
-  function fetchContacts(q) {
-    return post({ action: "contacts", q: String(q || ""), limit: 80 }).then(function (data) {
+  function fetchContacts(q, limit) {
+    return post({ action: "contacts", q: String(q || ""), limit: limit || 8 }).then(function (data) {
       return (data && data.ok && data.items) ? data.items : [];
     });
   }
 
+  function closeSuggest() {
+    suggestItems = [];
+    suggestIndex = -1;
+    if (searchWrap) searchWrap.classList.remove("is-open");
+    if (searchInput) searchInput.setAttribute("aria-expanded", "false");
+    if (searchDrop) searchDrop.innerHTML = "";
+  }
+
+  function renderSuggest(items, q) {
+    suggestItems = items || [];
+    suggestIndex = suggestItems.length ? 0 : -1;
+    if (!searchDrop || !searchWrap) return;
+    if (!String(q || "").trim()) {
+      closeSuggest();
+      return;
+    }
+    if (!suggestItems.length) {
+      searchDrop.innerHTML = '<li class="muted vc-search-empty">کسی با این نام پیدا نشد.</li>';
+    } else {
+      searchDrop.innerHTML = suggestItems.map(function (item, i) {
+        return "<li>" + personHtml(item, i === suggestIndex ? "is-on" : "") + "</li>";
+      }).join("");
+    }
+    searchWrap.classList.add("is-open");
+    if (searchInput) searchInput.setAttribute("aria-expanded", "true");
+  }
+
+  function highlightSuggest(i) {
+    if (!searchDrop) return;
+    var rows = searchDrop.querySelectorAll(".vc-person");
+    if (!rows.length) return;
+    suggestIndex = (i + rows.length) % rows.length;
+    rows.forEach(function (el, idx) {
+      el.classList.toggle("is-on", idx === suggestIndex);
+    });
+    if (rows[suggestIndex] && rows[suggestIndex].scrollIntoView) {
+      rows[suggestIndex].scrollIntoView({ block: "nearest" });
+    }
+  }
+
+  function pickContact(item) {
+    if (!item || !item.id) return;
+    closeSuggest();
+    if (searchInput) searchInput.value = item.name || "";
+    if (overlay && !overlay.hidden) {
+      overlayPicked[item.id] = item;
+      overlayHighlight.picked = item.id;
+      overlayHighlight.source = "";
+      var seen = false;
+      overlayCatalog.forEach(function (row) { if (row.id === item.id) seen = true; });
+      if (!seen) overlayCatalog.unshift(item);
+      renderOverlayLists(overlayCatalog);
+      return;
+    }
+    members = [item];
+    savedRoomKey = "";
+    if (groupTitle) groupTitle.value = "";
+    if (groupWorkshop) groupWorkshop.value = "";
+    renderPicked();
+  }
+
   function runSearch(q) {
     q = String(q || "").trim();
-    fetchContacts(q).then(function (items) {
-      renderHomeList(items);
+    var seq = ++searchSeq;
+    if (!q) {
+      closeSuggest();
+      if (overlay && !overlay.hidden) {
+        overlayCatalog = catalog();
+        renderOverlayLists(overlayCatalog);
+      }
+      return;
+    }
+    fetchContacts(q, 8).then(function (items) {
+      if (seq !== searchSeq) return;
+      renderSuggest(items, q);
       if (overlay && !overlay.hidden) {
         overlayCatalog = items;
         renderOverlayLists(overlayCatalog);
       }
-    }).catch(function () {});
+    }).catch(function () {
+      if (seq !== searchSeq) return;
+      renderSuggest([], q);
+    });
   }
 
   function renderPicked() {
@@ -254,7 +321,7 @@
     overlayCatalog = catalog();
     renderOverlayLists(overlayCatalog);
     overlay.hidden = false;
-    fetchContacts(searchInput ? searchInput.value : "").then(function (items) {
+    fetchContacts(searchInput ? searchInput.value : "", searchInput && searchInput.value.trim() ? 8 : 5).then(function (items) {
       overlayCatalog = items.length ? items : catalog();
       renderOverlayLists(overlayCatalog);
     }).catch(function () {
@@ -398,6 +465,12 @@
   });
 
   app.addEventListener("click", function (ev) {
+    var suggestPerson = ev.target.closest("[data-vc-search-drop] [data-vc-select]");
+    if (suggestPerson) {
+      ev.preventDefault();
+      pickContact(parseSelect(suggestPerson));
+      return;
+    }
     var person = ev.target.closest("[data-vc-home-list] [data-vc-select]");
     if (person) {
       ev.preventDefault();
@@ -536,13 +609,37 @@
     });
   }
   document.addEventListener("keydown", function (ev) {
-    if (ev.key === "Escape" && overlay && !overlay.hidden) closeOverlay();
+    if (ev.key === "Escape") {
+      if (searchWrap && searchWrap.classList.contains("is-open")) {
+        closeSuggest();
+        return;
+      }
+      if (overlay && !overlay.hidden) closeOverlay();
+      return;
+    }
+    if (!searchWrap || !searchWrap.classList.contains("is-open")) return;
+    if (ev.key === "ArrowDown") {
+      ev.preventDefault();
+      highlightSuggest(suggestIndex + 1);
+    } else if (ev.key === "ArrowUp") {
+      ev.preventDefault();
+      highlightSuggest(suggestIndex - 1);
+    } else if (ev.key === "Enter" && suggestIndex >= 0 && suggestItems[suggestIndex]) {
+      ev.preventDefault();
+      pickContact(suggestItems[suggestIndex]);
+    }
+  });
+  document.addEventListener("click", function (ev) {
+    if (searchWrap && !searchWrap.contains(ev.target)) closeSuggest();
   });
 
   if (searchInput) {
     searchInput.addEventListener("input", function () {
       clearTimeout(timer);
-      timer = setTimeout(function () { runSearch(searchInput.value); }, 180);
+      timer = setTimeout(function () { runSearch(searchInput.value); }, 120);
+    });
+    searchInput.addEventListener("focus", function () {
+      if (String(searchInput.value || "").trim()) runSearch(searchInput.value);
     });
   }
 

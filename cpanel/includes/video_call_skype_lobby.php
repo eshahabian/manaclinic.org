@@ -19,7 +19,7 @@ foreach ($savedRooms as $sr) {
 ?>
 <aside class="vc-side">
   <div class="vc-side-user">
-    <img class="vc-side-logo" src="<?= e(url('/assets/img/mana-call.png')) ?>?v=20260910d" width="22" height="22" alt="">
+    <img class="vc-side-logo" src="<?= e(url('/assets/img/mana-call.png')) ?>?v=20260910e" width="22" height="22" alt="">
     <strong><?= e($meName) ?></strong>
   </div>
   <div class="vc-chrome" role="tablist" aria-label="بخش‌های تماس مانا">
@@ -37,7 +37,8 @@ foreach ($savedRooms as $sr) {
     </button>
   </div>
   <div class="vc-search-wrap" data-vc-search>
-    <input class="input" type="search" data-vc-search-input placeholder="جستجو…" autocomplete="off">
+    <input class="input" type="search" data-vc-search-input placeholder="جستجو…" autocomplete="off" spellcheck="false" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="vc-search-drop">
+    <ul class="vc-search-drop" data-vc-search-drop id="vc-search-drop" role="listbox"></ul>
   </div>
 
   <div class="vc-pane is-active" data-vc-pane="home">

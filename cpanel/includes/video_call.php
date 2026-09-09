@@ -451,9 +451,14 @@ function video_call_contacts(PDO $pdo, array $user, string $q = '', string $only
         }
         $sql .= $searchSql;
         $params = array_merge($params, $searchParams);
+        $orderPrefix = '';
+        if ($q !== '') {
+            $orderPrefix = "CASE WHEN REPLACE(REPLACE(REPLACE(u.name,'ي','ی'),'ك','ک'),'‌','') LIKE ? THEN 0 ELSE 1 END, ";
+            $params[] = $q . '%';
+        }
         $sql .= '
           GROUP BY u.id, u.name, u.username, u.role
-          ORDER BY COALESCE(MAX(freq.hits), 0) DESC, MAX(freq.last_at) DESC, u.name ASC
+          ORDER BY ' . $orderPrefix . 'COALESCE(MAX(freq.hits), 0) DESC, MAX(freq.last_at) DESC, u.name ASC
           LIMIT ' . $limit;
         $stmt = $pdo->prepare($sql);
         $stmt->execute($params);

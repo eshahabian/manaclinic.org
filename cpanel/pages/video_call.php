@@ -94,9 +94,8 @@ if ($roomKey !== '') {
 
 $pageTitle = 'تماس مانا';
 $GLOBALS['pageRobots'] = 'noindex,nofollow';
-$q = trim((string) ($_GET['q'] ?? ''));
-$contacts = video_call_contacts($pdo, $user, '', $clinician ? 'DOCTOR' : '', 40);
-$patients = $clinician ? video_call_contacts($pdo, $user, $q !== '' ? $q : '', 'PATIENT', 80) : [];
+$patients = $clinician ? video_call_contacts($pdo, $user, '', 'PATIENT', 5) : [];
+$contacts = $clinician ? [] : video_call_contacts($pdo, $user, '', '', 5);
 $workshops = $clinician ? video_call_host_workshops($pdo, $user) : [];
 $savedRooms = video_call_saved_rooms($pdo, $user);
 $members = $room ? video_call_room_members_public($pdo, $room) : [];
@@ -318,8 +317,8 @@ document.querySelector("[data-copy-share]")?.addEventListener("click", function(
 </script>
 <?php
 $inner = ob_get_clean();
-$GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260910d"></script>'
-    . '<script src="' . e(url('/assets/js/video-call-lobby.js')) . '?v=20260910d"></script>';
+$GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260910e"></script>'
+    . '<script src="' . e(url('/assets/js/video-call-lobby.js')) . '?v=20260910e"></script>';
 
 $role = (string) ($user['role'] ?? '');
 if ($role === 'DOCTOR') {
