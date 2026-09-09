@@ -8,58 +8,58 @@ declare(strict_types=1);
 $ymdPack = is_array($ymdPack ?? null) ? $ymdPack : [];
 $ymdEmpty = (string) ($ymdEmpty ?? 'نوبتی در این بخش نیست.');
 $ymdRenderItems = $ymdRenderItems ?? null;
-$years = is_array($ymdPack['years'] ?? null) ? $ymdPack['years'] : [];
-$defaultYearId = (string) ($ymdPack['default_year_id'] ?? '');
-if ($defaultYearId === '' || !isset($years[$defaultYearId])) {
-    $defaultYearId = (string) (array_key_first($years) ?? '');
+$halves = is_array($ymdPack['halves'] ?? null) ? $ymdPack['halves'] : [];
+$defaultHalfId = (string) ($ymdPack['default_half_id'] ?? $ymdPack['default_year_id'] ?? '');
+if ($defaultHalfId === '' || !isset($halves[$defaultHalfId])) {
+    $defaultHalfId = (string) (array_key_first($halves) ?? '');
 }
 
-if (!$years) {
+if (!$halves) {
     echo '<p class="muted binder-empty">' . e($ymdEmpty) . '</p>';
     return;
 }
 
-$defaultYear = is_array($years[$defaultYearId] ?? null) ? $years[$defaultYearId] : [];
-$defaultYearTone = (string) ($defaultYear['tone'] ?? 'in-person');
+$defaultHalf = is_array($halves[$defaultHalfId] ?? null) ? $halves[$defaultHalfId] : [];
+$defaultHalfTone = (string) ($defaultHalf['tone'] ?? 'online');
 ?>
-<div class="binder-tile binder-tile--nested appt-ymd" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($defaultYearId) ?>" data-binder-tone="<?= e($defaultYearTone) ?>">
-  <div class="binder-tabs" role="tablist" aria-label="سال">
-    <?php foreach ($years as $yearId => $year): ?>
+<div class="binder-tile binder-tile--nested appt-ymd" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($defaultHalfId) ?>" data-binder-tone="<?= e($defaultHalfTone) ?>">
+  <div class="binder-tabs" role="tablist" aria-label="شش‌ماه سال">
+    <?php foreach ($halves as $halfId => $half): ?>
       <?php
-        if (!is_array($year)) {
+        if (!is_array($half)) {
             continue;
         }
-        $yearId = (string) $yearId;
+        $halfId = (string) $halfId;
       ?>
       <button type="button"
-        class="binder-tab <?= e((string) ($year['class'] ?? 'binder-tab-in-person')) ?><?= $defaultYearId === $yearId ? ' is-active' : '' ?>"
+        class="binder-tab <?= e((string) ($half['class'] ?? 'binder-tab-online')) ?><?= $defaultHalfId === $halfId ? ' is-active' : '' ?>"
         role="tab"
-        data-binder-tab="<?= e($yearId) ?>"
-        data-binder-tone="<?= e((string) ($year['tone'] ?? 'in-person')) ?>"
-        aria-selected="<?= $defaultYearId === $yearId ? 'true' : 'false' ?>">
-        <?= e((string) ($year['label'] ?? $yearId)) ?>
-        <span class="binder-tab-count"><?= e(to_fa_digits((string) ($year['count'] ?? 0))) ?></span>
+        data-binder-tab="<?= e($halfId) ?>"
+        data-binder-tone="<?= e((string) ($half['tone'] ?? 'online')) ?>"
+        aria-selected="<?= $defaultHalfId === $halfId ? 'true' : 'false' ?>">
+        <?= e((string) ($half['label'] ?? $halfId)) ?>
+        <span class="binder-tab-count"><?= e(to_fa_digits((string) ($half['count'] ?? 0))) ?></span>
       </button>
     <?php endforeach; ?>
   </div>
   <div class="binder-body">
-    <?php foreach ($years as $yearId => $year): ?>
+    <?php foreach ($halves as $halfId => $half): ?>
       <?php
-        if (!is_array($year)) {
+        if (!is_array($half)) {
             continue;
         }
-        $yearId = (string) $yearId;
-        $months = is_array($year['months'] ?? null) ? $year['months'] : [];
+        $halfId = (string) $halfId;
+        $months = is_array($half['months'] ?? null) ? $half['months'] : [];
         $defaultMonthId = (string) ($ymdPack['default_month_id'] ?? '');
         if ($defaultMonthId === '' || !isset($months[$defaultMonthId])) {
             $defaultMonthId = (string) (array_key_first($months) ?? '');
         }
         $defaultMonth = is_array($months[$defaultMonthId] ?? null) ? $months[$defaultMonthId] : [];
-        $monthTone = (string) ($defaultMonth['tone'] ?? $year['tone'] ?? 'in-person');
+        $monthTone = (string) ($defaultMonth['tone'] ?? $half['tone'] ?? 'in-person');
       ?>
-      <section class="binder-panel<?= $defaultYearId === $yearId ? ' is-active' : '' ?>" data-binder-panel="<?= e($yearId) ?>" role="tabpanel"<?= $defaultYearId === $yearId ? '' : ' hidden' ?>>
+      <section class="binder-panel<?= $defaultHalfId === $halfId ? ' is-active' : '' ?>" data-binder-panel="<?= e($halfId) ?>" role="tabpanel"<?= $defaultHalfId === $halfId ? '' : ' hidden' ?>>
         <?php if (!$months): ?>
-          <p class="muted">ماهی در این سال ثبت نشده است.</p>
+          <p class="muted">ماهی در این شش‌ماه نیست.</p>
         <?php else: ?>
           <div class="binder-tile binder-tile--nested" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($defaultMonthId) ?>" data-binder-tone="<?= e($monthTone) ?>">
             <div class="binder-tabs" role="tablist" aria-label="ماه">
