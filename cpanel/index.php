@@ -118,6 +118,7 @@ $routes = [
     'GET /change-password' => 'pages/change_password.php',
     'POST /change-password' => 'actions/change_password.php',
     'GET /video-call' => 'pages/video_call.php',
+    'POST /video-call' => 'pages/video_call.php',
     'POST /video-signal' => 'actions/video_signal.php',
 
     'GET /dashboard' => 'pages/patient/dashboard.php',

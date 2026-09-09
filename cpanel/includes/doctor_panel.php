@@ -275,7 +275,14 @@ function render_doctor_page(string $title, string $innerHtml): void
                     $active = str_contains($currentPath, $href);
                 }
               ?>
-              <a class="<?= $active ? 'is-active' : '' ?>" href="<?= e(url($href)) ?>"><?= e($item['label']) ?></a>
+              <a class="<?= $active ? 'is-active' : '' ?>" href="<?= e(url($href)) ?>">
+                <span class="side-nav-link-main">
+                  <?php if (!empty($item['icon'])): ?>
+                    <img class="side-nav-call-logo" src="<?= e((string) $item['icon']) ?>" alt="" width="22" height="22">
+                  <?php endif; ?>
+                  <?= e($item['label']) ?>
+                </span>
+              </a>
             <?php endif; ?>
           <?php endforeach; ?>
         </nav>

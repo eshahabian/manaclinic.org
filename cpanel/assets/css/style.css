@@ -1061,6 +1061,116 @@ body.home-workshop-locked { overflow: hidden; }
 .video-call-alert-actions { display: flex; gap: .4rem; }
 .video-call-alert .btn-outline { color: #fff; border-color: rgba(255,255,255,.4); }
 
+.side-nav-link-main {
+  display: flex;
+  align-items: center;
+  gap: .45rem;
+  min-width: 0;
+}
+.side-nav-call-logo {
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: 50%;
+  object-fit: cover;
+  flex-shrink: 0;
+}
+.vc-lobby {
+  display: grid;
+  gap: 1.25rem;
+  min-height: 70vh;
+}
+@media (min-width: 860px) {
+  .vc-lobby { grid-template-columns: minmax(280px, 340px) minmax(0, 1fr); align-items: start; }
+}
+.vc-lobby-side {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  padding: 1rem .9rem 1.2rem;
+}
+.vc-lobby-brand {
+  display: flex;
+  align-items: center;
+  gap: .7rem;
+  margin-bottom: .85rem;
+}
+.vc-lobby-brand img { width: 2.75rem; height: 2.75rem; border-radius: 50%; }
+.vc-search { margin-bottom: .75rem; }
+.vc-group-form { display: grid; gap: .45rem; margin-bottom: .85rem; }
+.vc-list-title { font-size: .82rem; margin: 1rem 0 .4rem; color: var(--muted); }
+.vc-people { list-style: none; margin: 0; padding: 0; display: grid; gap: .35rem; }
+.vc-person {
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  padding: .45rem .4rem;
+  border-radius: .75rem;
+  text-decoration: none;
+  color: inherit;
+}
+.vc-person:hover { background: var(--bg-soft); }
+.vc-person-meta { min-width: 0; flex: 1; display: grid; }
+.vc-person-meta strong { font-size: .9rem; }
+.vc-person-calls { display: flex; flex-wrap: wrap; gap: .25rem; }
+.vc-lobby-main {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  text-align: center;
+  gap: .65rem;
+  padding: 2rem 1rem;
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  min-height: 22rem;
+}
+.vc-lobby-hero { width: 8rem; height: 8rem; border-radius: 50%; }
+.vc-avatar {
+  position: relative;
+  display: inline-flex;
+  width: 2.6rem;
+  height: 2.6rem;
+  flex-shrink: 0;
+}
+.vc-avatar img,
+.vc-avatar-fallback,
+.vc-avatar-room {
+  width: 100%;
+  height: 100%;
+  border-radius: 50%;
+  object-fit: cover;
+  display: grid;
+  place-items: center;
+  background: var(--bg-soft);
+  color: var(--primary);
+  font-weight: 700;
+}
+.vc-dot {
+  position: absolute;
+  width: .72rem;
+  height: .72rem;
+  border-radius: 50%;
+  border: 2px solid var(--card);
+  bottom: 0;
+  inset-inline-end: 0;
+  background: #94a3b8;
+}
+.vc-dot.is-online { background: #22c55e; }
+.vc-share { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; margin: .5rem 0 0; }
+.vc-share .input { flex: 1; min-width: 12rem; font-size: .8rem; }
+.vc-remotes {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(42%, 1fr));
+  gap: .35rem;
+  padding: .35rem;
+  min-height: 18rem;
+}
+.vc-remote-tile { min-height: 0; background: #000; border-radius: .6rem; overflow: hidden; }
+.vc-remote-tile video { width: 100%; height: 100%; object-fit: cover; display: block; }
+.video-call-stage.is-group .video-call-brand { opacity: .25; }
+
 .home-assistant-tile {
   display: flex;
   align-items: center;

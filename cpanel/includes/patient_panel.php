@@ -88,7 +88,12 @@ function render_patient_page(string $title, string $innerHtml): void
               }
             ?>
             <a class="<?= $parentActive ? 'is-active' : '' ?>" href="<?= e(url($href)) ?>">
-              <?= e((string) $item['label']) ?>
+              <span class="side-nav-link-main">
+                <?php if (!empty($item['icon'])): ?>
+                  <img class="side-nav-call-logo" src="<?= e((string) $item['icon']) ?>" alt="" width="22" height="22">
+                <?php endif; ?>
+                <?= e((string) $item['label']) ?>
+              </span>
               <?php if ($href === '/dashboard/workshops' && $counts['available'] > 0): ?>
                 <span class="side-nav-badge"><?= (int) $counts['available'] ?></span>
               <?php endif; ?>

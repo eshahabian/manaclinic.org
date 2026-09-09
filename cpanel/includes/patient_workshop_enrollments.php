@@ -83,6 +83,9 @@ $emptyEnrollments = $emptyEnrollments ?? 'هنوز در کارگاهی از ای
               <a href="<?= e($navUri) ?>" class="btn btn-outline btn-sm enrollment-nav-btn">مسیر‌یابی</a>
             <?php endif; ?>
           <?php endif; ?>
+          <?php if ($confirmed && ($e['type'] ?? '') === 'ONLINE' && function_exists('video_call_workshop_enter_url')): ?>
+            <a class="btn btn-primary btn-sm" href="<?= e(video_call_workshop_enter_url((string) ($e['workshop_id'] ?? ''))) ?>">ورود به جلسه آنلاین</a>
+          <?php endif; ?>
           <?php if ($confirmed && ($e['type'] ?? '') === 'OFFLINE' && function_exists('workshop_path_url')): ?>
             <a class="btn btn-primary btn-sm" href="<?= e(workshop_path_url((string) $e['id'])) ?>">ورود به دوره</a>
           <?php elseif ($confirmed && function_exists('workshop_path_url')): ?>

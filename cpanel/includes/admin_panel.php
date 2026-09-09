@@ -73,7 +73,12 @@ function render_admin_page(string $title, string $innerHtml): void {
                 }
               ?>
               <a class="<?= $active ? 'is-active' : '' ?>" href="<?= e(url($href)) ?>">
-                <?= e($item['label']) ?>
+                <span class="side-nav-link-main">
+                  <?php if (!empty($item['icon'])): ?>
+                    <img class="side-nav-call-logo" src="<?= e((string) $item['icon']) ?>" alt="" width="22" height="22">
+                  <?php endif; ?>
+                  <?= e($item['label']) ?>
+                </span>
                 <?php if ((int) ($item['badge'] ?? 0) > 0): ?>
                   <span class="side-nav-badge"><?= e(to_fa_digits((string) (int) $item['badge'])) ?></span>
                 <?php endif; ?>

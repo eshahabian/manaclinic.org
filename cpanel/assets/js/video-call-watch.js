@@ -4,13 +4,13 @@
   if (!cfg || !cfg.signalUrl) return;
 
   var token = (document.querySelector('meta[name="csrf-token"]') || {}).content || "";
-  var lastAfter = "";
   var seen = {};
   var ringing = false;
   var ringAudio = null;
   var titleTimer = null;
   var origTitle = document.title;
   var banner = null;
+  var current = null;
 
   function post(body) {
     return fetch(cfg.signalUrl, {
@@ -26,20 +26,20 @@
     }).then(function (r) { return r.json(); });
   }
 
-  function askNotify() {
-    if (!("Notification" in window)) return;
-    if (Notification.permission === "default") Notification.requestPermission().catch(function () {});
-  }
-
   function goToCall() {
     try { sessionStorage.setItem("mana-video-auto-answer", "1"); } catch (e) {}
     var url = cfg.callUrl || "/video-call";
-    url += (url.indexOf("?") >= 0 ? "&" : "?") + "answer=1";
+    if (current && current.room) {
+      url += (url.indexOf("?") >= 0 ? "&" : "?") + "room=" + encodeURIComponent(current.room) + "&answer=1";
+    } else {
+      url += (url.indexOf("?") >= 0 ? "&" : "?") + "answer=1";
+    }
     window.location.href = url;
   }
 
   function stopAlert() {
     ringing = false;
+    current = null;
     if (ringAudio) {
       ringAudio.pause();
       try { ringAudio.currentTime = 0; } catch (e) {}
@@ -65,20 +65,19 @@
       "</div>";
     document.body.appendChild(banner);
     banner.querySelector("[data-vc-alert-open]").addEventListener("click", goToCall);
-    banner.querySelector("[data-vc-alert-dismiss]").addEventListener("click", function () {
-      stopAlert();
-    });
+    banner.querySelector("[data-vc-alert-dismiss]").addEventListener("click", stopAlert);
     return banner;
   }
 
-  function startAlert() {
+  function startAlert(item) {
     if (ringing) return;
     ringing = true;
+    current = item;
     var bar = ensureBanner();
     var text = bar.querySelector(".video-call-alert-text");
-    if (text) text.textContent = "تماس ورودی از " + cfg.peerName;
+    var name = (item && (item.sender_name || item.title)) || "درمانگر";
+    if (text) text.textContent = "تماس ورودی از " + name;
     bar.hidden = false;
-
     if (cfg.ringUrl) {
       if (!ringAudio) {
         ringAudio = new Audio(cfg.ringUrl);
@@ -89,48 +88,41 @@
       var play = ringAudio.play();
       if (play && play.catch) play.catch(function () {});
     }
-
     var flip = false;
     titleTimer = setInterval(function () {
       flip = !flip;
       document.title = flip ? "تماس ورودی…" : origTitle;
     }, 900);
-
     if ("Notification" in window && Notification.permission === "granted") {
       try {
-        var note = new Notification("تماس تصویری مانا کلینیک", {
-          body: "تماس ورودی از " + cfg.peerName,
-          tag: "mana-video-incoming",
-          renotify: true
-        });
-        note.onclick = function () {
-          window.focus();
-          goToCall();
-        };
+        var note = new Notification("تماس تصویری مانا", { body: "تماس ورودی از " + name, tag: "mana-video-incoming", renotify: true });
+        note.onclick = function () { window.focus(); goToCall(); };
       } catch (e) {}
     }
     if (navigator.vibrate) navigator.vibrate([200, 100, 200]);
   }
 
-  function handle(sig) {
-    if (!sig || seen[sig.id]) return;
-    seen[sig.id] = true;
-    if (sig.kind === "offer") startAlert();
-    if (sig.kind === "hangup") stopAlert();
-  }
-
-  function poll() {
-    post({ action: "poll" }).then(function (data) {
+  function tick() {
+    post({ action: "ping" }).catch(function () {});
+    post({ action: "inbox" }).then(function (data) {
       if (!data || !data.ok) return;
-      (data.signals || []).forEach(function (sig) {
-        handle(sig);
-        if (sig.created_at && sig.created_at > lastAfter) lastAfter = sig.created_at;
-      });
+      var items = data.items || [];
+      if (!items.length) {
+        if (ringing) stopAlert();
+        return;
+      }
+      var item = items[0];
+      if (seen[item.id]) return;
+      seen[item.id] = true;
+      startAlert(item);
     }).catch(function () {});
   }
 
-  document.addEventListener("click", askNotify, { once: true });
-  askNotify();
-  poll();
-  setInterval(poll, 2000);
+  if ("Notification" in window && Notification.permission === "default") {
+    document.addEventListener("click", function () {
+      Notification.requestPermission().catch(function () {});
+    }, { once: true });
+  }
+  tick();
+  setInterval(tick, 2500);
 })();

@@ -86,6 +86,9 @@ $doctorPathBoardById = $doctorPathBoardById ?? [];
           <div class="workshop-card-actions">
             <?php if ($workshopRole === 'doctor'): ?>
               <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/workshop-export?id=' . $workshop['id'])) ?>">خروجی ثبت‌نام‌ها</a>
+              <?php if (($workshop['type'] ?? '') === 'ONLINE' && function_exists('video_call_workshop_enter_url')): ?>
+                <a class="btn btn-primary btn-sm" href="<?= e(video_call_workshop_enter_url((string) $workshop['id'])) ?>">ورود به جلسه آنلاین</a>
+              <?php endif; ?>
               <?php if (($workshop['type'] ?? '') === 'OFFLINE' && function_exists('workshop_qa_url_doctor')): ?>
                 <a class="btn btn-outline btn-sm" href="<?= e(workshop_qa_url_doctor((string) $workshop['id'])) ?>">تالار گفتگو</a>
               <?php endif; ?>
