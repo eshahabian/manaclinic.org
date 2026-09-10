@@ -230,11 +230,52 @@ function workshop_session_interval_field_html(?string $current, bool $isNew = fa
     return $html;
 }
 
+/** زمان واقعی کارگاه؛ تاریخ خالی / صفر / نامعتبر = null (جلسات هفتگی بدون بازه) */
+function workshop_datetime_ts(?string $value): ?int
+{
+    $value = trim(str_replace('T', ' ', (string) $value));
+    if ($value === '' || str_starts_with($value, '0000-00-00')) {
+        return null;
+    }
+    if (!preg_match('/^(19|20)\d{2}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?/', $value)) {
+        return null;
+    }
+    $ts = strtotime($value);
+    if ($ts === false || $ts <= 0) {
+        return null;
+    }
+
+    return $ts;
+}
+
+/** SQL: کارگاه زمان‌دار که پایانش گذشته (تاریخ خالی آرشیو نیست) */
+function workshop_sql_col(string $alias, string $column): string
+{
+    return $alias === '' ? $column : $alias . '.' . $column;
+}
+
+function workshop_sql_end_in_past(string $alias = 'w'): string
+{
+    $type = workshop_sql_col($alias, 'type');
+    $ends = workshop_sql_col($alias, 'ends_at');
+
+    return "{$type} <> 'OFFLINE' AND {$ends} IS NOT NULL AND {$ends} >= '1970-01-02' AND {$ends} <= NOW()";
+}
+
+/** SQL: هنوز در جریان — آفلاین، بدون تاریخ، یا پایان در آینده */
+function workshop_sql_not_ended(string $alias = 'w'): string
+{
+    $type = workshop_sql_col($alias, 'type');
+    $ends = workshop_sql_col($alias, 'ends_at');
+
+    return "({$type} = 'OFFLINE' OR {$ends} IS NULL OR {$ends} < '1970-01-02' OR {$ends} > NOW())";
+}
+
 /** کارگاه‌هایی که مراجعه‌کننده در لیست «دوره‌های من» می‌بیند (هنوز تمام نشده) */
 function workshop_patient_list_sql(string $alias = 'w'): string
 {
     $a = $alias;
-    return "{$a}.is_published = 1 AND {$a}.status NOT IN ('CANCELLED', 'COMPLETED') AND ({$a}.type = 'OFFLINE' OR {$a}.ends_at > NOW())";
+    return "{$a}.is_published = 1 AND {$a}.status NOT IN ('CANCELLED', 'COMPLETED') AND " . workshop_sql_not_ended($a);
 }
 
 /** کارگاه‌هایی که مراجعه‌کننده هنوز می‌تواند ثبت‌نام کند (تا دکتر ببندد) */
@@ -1325,8 +1366,8 @@ function workshop_home_banners(PDO $pdo, int $limit = 8): array
             AND w.status IN ('PUBLISHED','COMPLETED')
           ORDER BY
             CASE
-              WHEN w.status = 'COMPLETED' OR (w.type <> 'OFFLINE' AND w.ends_at <= NOW()) THEN 2
-              WHEN w.type = 'OFFLINE' OR (w.starts_at <= NOW() AND w.ends_at >= NOW()) THEN 0
+              WHEN w.status = 'COMPLETED' OR (" . workshop_sql_end_in_past('w') . ") THEN 2
+              WHEN w.type = 'OFFLINE' OR w.ends_at IS NULL OR w.ends_at < '1970-01-02' OR (w.starts_at <= NOW() AND w.ends_at >= NOW()) THEN 0
               ELSE 1
             END,
             w.starts_at DESC
@@ -1342,15 +1383,19 @@ function workshop_home_banners(PDO $pdo, int $limit = 8): array
 /** کارگاه تمام‌شده یا لغوشده در آرشیو دیده می‌شود */
 function workshop_is_archived(array $workshop): bool
 {
-    $status = (string) ($workshop['status'] ?? '');
-    if (in_array($status, ['COMPLETED', 'CANCELLED'], true)) {
+    $status = strtoupper(trim((string) ($workshop['workshop_status'] ?? '')));
+    if ($status === '') {
+        $status = strtoupper(trim((string) ($workshop['status'] ?? '')));
+    }
+    if (in_array($status, ['COMPLETED', 'CANCELLED', 'ARCHIVE', 'ARCHIVED'], true)) {
         return true;
     }
-    if ((string) ($workshop['type'] ?? '') === 'OFFLINE') {
+    if (workshop_is_offline((string) ($workshop['type'] ?? ''))) {
         return false;
     }
-    $end = strtotime((string) ($workshop['ends_at'] ?? ''));
-    return $end !== false && $end <= time();
+    $end = workshop_datetime_ts((string) ($workshop['ends_at'] ?? ''));
+
+    return $end !== null && $end <= time();
 }
 
 /** کارگاه حضوری/آنلاین که زمانش گذشته، تسویه و به آرشیو می‌رود */
@@ -1362,11 +1407,20 @@ function workshop_archive_expired(PDO $pdo): void
     }
     $done = true;
     try {
+        $pdo->exec("
+          UPDATE workshops
+          SET status = 'PUBLISHED'
+          WHERE status = 'COMPLETED'
+            AND (ends_at IS NULL OR ends_at < '1970-01-02')
+        ");
+    } catch (Throwable $e) {
+        // ستون یا enum قدیمی — ادامه بده
+    }
+    try {
         $rows = $pdo->query("
           SELECT id, doctor_id FROM workshops
           WHERE status NOT IN ('COMPLETED','CANCELLED')
-            AND type <> 'OFFLINE'
-            AND ends_at <= NOW()
+            AND " . workshop_sql_end_in_past('') . "
         ")->fetchAll();
     } catch (Throwable $e) {
         return;

@@ -43,6 +43,15 @@ foreach ($intakes as $session) {
 $intakeYmdPack = group_appointments_by_jalali_ymd($intakeMapped, 'intk', 'latest', ['fill' => 'none']);
 
 $enrollments = doctor_patient_enrollments_for_doctor($pdo, $doctorId, $patientId);
+$activeEnrollments = [];
+$archivedEnrollments = [];
+foreach ($enrollments as $en) {
+    if (workshop_is_archived($en)) {
+        $archivedEnrollments[] = $en;
+    } else {
+        $activeEnrollments[] = $en;
+    }
+}
 $privateQa = doctor_patient_private_qa_for_doctor($pdo, $doctorId, $patientId);
 $pathNotes = doctor_patient_path_notes_for_doctor($pdo, $doctorId, $patientId);
 $callStats = doctor_patient_call_stats($pdo, doctor_ctx_user_id($ctx), $patientId);
@@ -316,36 +325,53 @@ ob_start();
         <?php if (!$enrollments): ?>
           <p class="muted" style="margin:0">این فرد در کارگاه شما ثبت‌نام نکرده است.</p>
         <?php else: ?>
-          <ul class="ehr-list">
-            <?php foreach ($enrollments as $en): ?>
-              <?php
-                $enType = (string) ($en['type'] ?? '');
-                $intervalLabel = $enType !== 'OFFLINE' && function_exists('workshop_session_interval_label')
-                    ? workshop_session_interval_label((string) ($en['session_interval'] ?? 'WEEKLY'))
-                    : '';
-                $sessionCount = (int) ($en['session_count'] ?? 0);
-                $enrolledAt = (string) (($en['enrolled_at'] ?? '') ?: ($en['created_at'] ?? ''));
-                $editUrl = url('/doctor/workshops?edit=' . rawurlencode((string) $en['workshop_id']));
-              ?>
-              <li>
-                <div>
-                  <strong><?= e((string) $en['title']) ?></strong>
-                  <p class="muted">
-                    <?= e(workshop_type_label($enType)) ?>
-                    <?php if ($intervalLabel !== ''): ?> · <?= e($intervalLabel) ?><?php endif; ?>
-                    <?php if ($sessionCount > 0): ?> · <?= to_fa_digits((string) $sessionCount) ?> جلسه<?php endif; ?>
-                    · <?= e(enrollment_status_label((string) $en['status'])) ?>
-                    · <?= $enrolledAt !== '' ? e(format_fa_datetime($enrolledAt)) : '—' ?>
-                  </p>
-                </div>
-                <div class="ehr-list-actions">
-                  <a class="btn btn-outline btn-sm" href="<?= e(workshop_path_doctor_url((string) $en['id'])) ?>">مسیر دوره</a>
-                  <a class="btn btn-outline btn-sm" href="<?= e(workshop_qa_url_doctor((string) $en['workshop_id'])) ?>">تالار</a>
-                  <a class="btn btn-outline btn-sm" href="<?= e($editUrl) ?>">ویرایش</a>
-                </div>
-              </li>
-            <?php endforeach; ?>
-          </ul>
+          <?php
+            $chartEnrollmentBlocks = [
+                ['rows' => $activeEnrollments, 'archived' => false, 'heading' => ''],
+                ['rows' => $archivedEnrollments, 'archived' => true, 'heading' => 'آرشیو'],
+            ];
+          ?>
+          <?php if (!$activeEnrollments): ?>
+            <p class="muted" style="margin:0">کارگاه فعالی برای این فرد نیست؛ موارد تمام‌شده در آرشیو هستند.</p>
+          <?php endif; ?>
+          <?php foreach ($chartEnrollmentBlocks as $block): ?>
+            <?php if (!$block['rows']) { continue; } ?>
+            <?php if ($block['heading'] !== ''): ?>
+              <h3 class="muted" style="font-size:.9rem;margin:1rem 0 .35rem"><?= e($block['heading']) ?></h3>
+            <?php endif; ?>
+            <ul class="ehr-list">
+              <?php foreach ($block['rows'] as $en): ?>
+                <?php
+                  $enType = (string) ($en['type'] ?? '');
+                  $intervalLabel = $enType !== 'OFFLINE' && function_exists('workshop_session_interval_label')
+                      ? workshop_session_interval_label((string) ($en['session_interval'] ?? 'WEEKLY'))
+                      : '';
+                  $sessionCount = (int) ($en['session_count'] ?? 0);
+                  $enrolledAt = (string) (($en['enrolled_at'] ?? '') ?: ($en['created_at'] ?? ''));
+                  $editUrl = url('/doctor/workshops?edit=' . rawurlencode((string) $en['workshop_id']));
+                  $archivedRow = !empty($block['archived']);
+                ?>
+                <li>
+                  <div>
+                    <strong><?= e((string) $en['title']) ?></strong>
+                    <span class="ehr-pill<?= $archivedRow ? ' ehr-pill-mute' : '' ?>"><?= $archivedRow ? 'آرشیو' : 'فعال' ?></span>
+                    <p class="muted">
+                      <?= e(workshop_type_label($enType)) ?>
+                      <?php if ($intervalLabel !== ''): ?> · <?= e($intervalLabel) ?><?php endif; ?>
+                      <?php if ($sessionCount > 0): ?> · <?= to_fa_digits((string) $sessionCount) ?> جلسه<?php endif; ?>
+                      · <?= e(enrollment_status_label((string) $en['status'])) ?>
+                      · <?= $enrolledAt !== '' ? e(format_fa_datetime($enrolledAt)) : '—' ?>
+                    </p>
+                  </div>
+                  <div class="ehr-list-actions">
+                    <a class="btn btn-outline btn-sm" href="<?= e(workshop_path_doctor_url((string) $en['id'])) ?>">مسیر دوره</a>
+                    <a class="btn btn-outline btn-sm" href="<?= e(workshop_qa_url_doctor((string) $en['workshop_id'])) ?>">تالار</a>
+                    <a class="btn btn-outline btn-sm" href="<?= e($editUrl) ?>">ویرایش</a>
+                  </div>
+                </li>
+              <?php endforeach; ?>
+            </ul>
+          <?php endforeach; ?>
         <?php endif; ?>
       </article>
       <article class="ehr-card">
