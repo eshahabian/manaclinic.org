@@ -51,6 +51,9 @@ html[data-theme="dark"] {
 html, body {
   font-family: var(--font);
 }
+html {
+  background: var(--bg);
+}
 body {
   margin: 0;
   background: var(--bg);
@@ -64,9 +67,10 @@ button, input, textarea, select, .panel, nav, .nav-links, .mobile-nav {
 a { color: inherit; text-decoration: none; }
 #particle-canvas {
   position: fixed; inset: 0; width: 100%; height: 100%;
-  z-index: 0; pointer-events: none;
+  z-index: 0; pointer-events: none; background: transparent;
 }
-.site-layer { position: relative; z-index: 1; }
+.site-layer { position: relative; z-index: 1; background: transparent; }
+.site-layer > main { background: transparent; }
 .container-page { width: min(1200px, calc(100% - 2rem)); margin-inline: auto; }
 .container-page-wide { width: min(1240px, calc(100% - 2rem)); margin-inline: auto; }
 
@@ -737,17 +741,16 @@ select option {
   padding: 1.35rem 0 0;
   background: transparent;
 }
-.home-daily-quote .container-page {
-  isolation: isolate;
-  border: 1px solid rgba(255, 255, 255, .62);
+.home-daily-quote-panel {
+  width: min(1200px, calc(100% - 2rem));
+  margin-inline: auto;
+  border: 1px solid rgba(255, 255, 255, .42);
   border-radius: 1.1rem;
-  background: rgba(255, 255, 255, .36);
+  background: rgba(255, 255, 255, .08);
   padding: 1.15rem 1.35rem 1.25rem;
-  box-shadow:
-    0 10px 28px rgba(26, 46, 40, .08),
-    inset 0 1px 0 rgba(255, 255, 255, .7);
-  backdrop-filter: blur(18px) saturate(165%);
-  -webkit-backdrop-filter: blur(18px) saturate(165%);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .28);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 .home-daily-quote-label {
   margin: 0 0 .45rem;
@@ -755,6 +758,7 @@ select option {
   letter-spacing: .08em;
   color: var(--accent);
   font-weight: 600;
+  text-shadow: 0 1px 8px var(--bg);
 }
 .home-daily-quote-text {
   margin: 0;
@@ -767,20 +771,19 @@ select option {
   line-height: 1.9;
   color: var(--fg);
   max-width: 42rem;
+  text-shadow: 0 1px 10px var(--bg), 0 0 2px var(--bg);
 }
-html[data-theme="dark"] .home-daily-quote .container-page {
-  background: rgba(18, 28, 25, .52);
-  border-color: rgba(232, 240, 236, .16);
-  box-shadow:
-    0 12px 32px rgba(0, 0, 0, .32),
-    inset 0 1px 0 rgba(255, 255, 255, .1);
+html[data-theme="dark"] .home-daily-quote-panel {
+  background: rgba(255, 255, 255, .05);
+  border-color: rgba(232, 240, 236, .22);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .12);
 }
 html[data-theme="dark"] .home-daily-quote-text p {
   color: #eef6f2;
 }
 @media (prefers-reduced-transparency: reduce) {
-  .home-daily-quote .container-page {
-    background: color-mix(in srgb, var(--card) 88%, transparent);
+  .home-daily-quote-panel {
+    background: color-mix(in srgb, var(--card) 72%, transparent);
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
   }

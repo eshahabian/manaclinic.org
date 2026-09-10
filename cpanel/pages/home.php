@@ -66,7 +66,7 @@ ob_start();
 
 <?php if ($dailyQuote !== ''): ?>
 <aside class="home-daily-quote" aria-labelledby="home-daily-quote-label">
-  <div class="container-page">
+  <div class="home-daily-quote-panel">
     <p class="home-daily-quote-label" id="home-daily-quote-label">جملهٔ امروز</p>
     <blockquote class="home-daily-quote-text">
       <p><?= e($dailyQuote) ?></p>
