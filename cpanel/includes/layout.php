@@ -12,6 +12,17 @@ $user = current_user();
 $panelHref = panel_href_for($user);
 $flash = flash_get();
 $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'eshahabian') === 0;
+$pageBodyClass = trim((string) ($GLOBALS['pageBodyClass'] ?? ($pageBodyClass ?? '')));
+$bodyAttrs = '';
+if ($pageBodyClass !== '') {
+    $bodyAttrs .= ' class="' . e($pageBodyClass) . '"';
+}
+if ($colorfulParticles) {
+    $bodyAttrs .= ' data-particles="colorful"';
+}
+if ($user && ($user['role'] ?? '') === 'SECRETARY') {
+    $bodyAttrs .= ' data-secretary-desk="1" data-heartbeat="' . e(url('/secretary/heartbeat')) . '" data-logout="' . e(url('/logout')) . '"';
+}
 ?>
 <!DOCTYPE html>
 <html lang="fa" dir="rtl" translate="no">
@@ -32,7 +43,7 @@ $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'es
   <?= seo_render_head() ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260910e">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260910f">
   <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
   <script>
   (function(){
@@ -69,7 +80,7 @@ $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'es
     <?= $pageHead ?>
   <?php endif; ?>
 </head>
-<body<?= $colorfulParticles ? ' data-particles="colorful"' : '' ?><?= ($user && ($user['role'] ?? '') === 'SECRETARY') ? ' data-secretary-desk="1" data-heartbeat="' . e(url('/secretary/heartbeat')) . '" data-logout="' . e(url('/logout')) . '"' : '' ?>>
+<body<?= $bodyAttrs ?>>
 <canvas id="particle-canvas" aria-hidden="true"></canvas>
 <div class="site-layer">
   <header class="site-header">
