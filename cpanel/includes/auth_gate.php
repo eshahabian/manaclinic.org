@@ -78,22 +78,23 @@ $nameDict = isset($pdo) ? build_name_transliterations_client_map($pdo) : [];
           </label>
           <?php endif; ?>
         </div>
-        <label class="auth-line">
-          <span>نام کاربری</span>
-          <?php if ($role === 'DOCTOR'): ?>
-            <input name="username" id="username" required dir="ltr" autocomplete="username">
-            <p class="auth-hint" id="username-hint">با حروف انگلیسی، عدد یا نقطه؛ حداقل ۳ کاراکتر.</p>
-          <?php else: ?>
-            <input name="username" id="username" required dir="ltr" readonly tabindex="-1">
-            <p class="auth-hint" id="username-hint">با وارد کردن نام، به‌صورت خودکار ساخته می‌شود.</p>
+        <div class="auth-grid">
+          <label class="auth-line">
+            <span>نام کاربری</span>
+            <?php if ($role === 'DOCTOR'): ?>
+              <input name="username" id="username" required dir="ltr" autocomplete="username">
+            <?php else: ?>
+              <input name="username" id="username" required dir="ltr" readonly tabindex="-1">
+            <?php endif; ?>
+          </label>
+          <?php if ($role !== 'DOCTOR'): ?>
+          <label class="auth-line">
+            <span>موبایل</span>
+            <input name="phone" id="phone" required dir="ltr" inputmode="tel" autocomplete="tel">
+          </label>
           <?php endif; ?>
-        </label>
-        <?php if ($role !== 'DOCTOR'): ?>
-        <label class="auth-line">
-          <span>موبایل</span>
-          <input name="phone" id="phone" required dir="ltr" inputmode="tel" autocomplete="tel">
-        </label>
-        <?php endif; ?>
+        </div>
+        <p class="auth-hint" id="username-hint"><?= $role === 'DOCTOR' ? 'نام کاربری با حروف انگلیسی، عدد یا نقطه.' : 'نام کاربری با وارد کردن نام ساخته می‌شود.' ?></p>
         <div class="auth-grid">
           <?= password_field_html('password', 'password', [
               'label' => 'رمز عبور',
