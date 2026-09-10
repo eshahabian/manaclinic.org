@@ -49,7 +49,7 @@ function ensure_doctor_clinical_tables(PDO $pdo): void
 }
 
 /**
- * مراجعه‌کننده اگر درمانگر ترجیحی‌اش همین دکتر باشد یا حداقل یک نوبت با او داشته باشد قابل دسترسی است.
+ * پرونده فقط برای درمانگر مسئول: ترجیحی، نوبت مشترک، یا کارگاه همین دکتر. ادمین مستثنی است.
  * @return array{patient: array, appointments: array}
  */
 function require_doctor_patient_access(PDO $pdo, array $ctx, string $patientId): array
@@ -57,7 +57,7 @@ function require_doctor_patient_access(PDO $pdo, array $ctx, string $patientId):
     ensure_doctor_clinical_tables($pdo);
     $doctorId = $ctx['profile']['id'];
 
-    $patientStmt = $pdo->prepare("SELECT id, username, name, phone, preferred_doctor_id, created_at FROM users WHERE id=? AND role='PATIENT' LIMIT 1");
+    $patientStmt = $pdo->prepare("SELECT id, username, name, phone, email, preferred_doctor_id, created_at FROM users WHERE id=? AND role='PATIENT' LIMIT 1");
     $patientStmt->execute([$patientId]);
     $patient = $patientStmt->fetch();
     if (!$patient) {
@@ -69,8 +69,20 @@ function require_doctor_patient_access(PDO $pdo, array $ctx, string $patientId):
     $check->execute([$doctorId, $patientId]);
     $hasAppointment = (int) $check->fetchColumn() > 0;
     $isPreferred = (string) ($patient['preferred_doctor_id'] ?? '') === (string) $doctorId;
+    $hasWorkshop = false;
+    try {
+        $ws = $pdo->prepare("
+          SELECT COUNT(*) FROM workshop_enrollments e
+          JOIN workshops w ON w.id = e.workshop_id
+          WHERE e.patient_id=? AND w.doctor_id=?
+        ");
+        $ws->execute([$patientId, $doctorId]);
+        $hasWorkshop = (int) $ws->fetchColumn() > 0;
+    } catch (Throwable $e) {
+        $hasWorkshop = false;
+    }
     $isAdmin = is_admin_user($ctx['user'] ?? null) || !empty($ctx['admin_mode']);
-    if (!$hasAppointment && !$isPreferred && !$isAdmin) {
+    if (!$hasAppointment && !$isPreferred && !$hasWorkshop && !$isAdmin) {
         flash_set('error', 'دسترسی به پرونده این مراجعه‌کننده برای شما مجاز نیست.');
         redirect('/doctor/patients');
     }
@@ -158,13 +170,13 @@ function doctor_patient_assistant_sessions(PDO $pdo, string $patientId, array $e
       FROM assistant_sessions s
       LEFT JOIN users u ON u.id = s.patient_id
       WHERE (
-        (s.patient_id = ? AND s.status = 'SENT' AND s.sent_at IS NOT NULL)
+        (s.patient_id = ? AND s.status IN ('SENT','COMPLETED') )
     ";
     $params = [$patientId];
     if ($extraIds) {
         $place = implode(',', array_fill(0, count($extraIds), '?'));
-        $sql .= " OR s.id IN ({$place})";
-        $params = array_merge($params, $extraIds);
+        $sql .= " OR (s.id IN ({$place}) AND (s.patient_id = ? OR s.patient_id IS NULL))";
+        $params = array_merge($params, $extraIds, [$patientId]);
     }
     $sql .= ') ORDER BY COALESCE(s.sent_at, s.created_at) DESC';
     $stmt = $pdo->prepare($sql);
@@ -234,6 +246,94 @@ function get_or_create_patient_chart(PDO $pdo, string $doctorId, string $patient
         ->execute([$id, $doctorId, $patientId, '']);
     $stmt->execute([$doctorId, $patientId]);
     return $stmt->fetch() ?: ['id' => $id, 'doctor_id' => $doctorId, 'patient_id' => $patientId, 'history_text' => ''];
+}
+
+function doctor_patient_enrollments_for_doctor(PDO $pdo, string $doctorId, string $patientId): array
+{
+    try {
+        $stmt = $pdo->prepare("
+          SELECT e.id, e.status, e.created_at, w.id AS workshop_id, w.title, w.type, w.status AS workshop_status
+          FROM workshop_enrollments e
+          JOIN workshops w ON w.id = e.workshop_id
+          WHERE e.patient_id=? AND w.doctor_id=?
+          ORDER BY e.created_at DESC
+        ");
+        $stmt->execute([$patientId, $doctorId]);
+        return $stmt->fetchAll();
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function doctor_patient_private_qa_for_doctor(PDO $pdo, string $doctorId, string $patientId): array
+{
+    if (function_exists('ensure_workshop_qa_schema')) {
+        ensure_workshop_qa_schema($pdo);
+    }
+    try {
+        $stmt = $pdo->prepare("
+          SELECT q.id, q.body, q.created_at, q.author_kind, q.parent_id, q.workshop_id,
+                 w.title AS workshop_title, au.name AS author_name
+          FROM workshop_qa_posts q
+          JOIN workshops w ON w.id = q.workshop_id
+          JOIN users au ON au.id = q.author_user_id
+          WHERE w.doctor_id=?
+            AND q.is_private=1
+            AND (q.audience_user_id=? OR q.author_user_id=?)
+          ORDER BY q.created_at DESC
+          LIMIT 80
+        ");
+        $stmt->execute([$doctorId, $patientId, $patientId]);
+        return $stmt->fetchAll();
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function doctor_patient_path_notes_for_doctor(PDO $pdo, string $doctorId, string $patientId): array
+{
+    if (function_exists('ensure_workshop_path_notes_schema')) {
+        ensure_workshop_path_notes_schema($pdo);
+    }
+    try {
+        $stmt = $pdo->prepare("
+          SELECT n.id, n.kind, n.body, n.updated_at, n.created_at, n.enrollment_id, n.session_id,
+                 w.title AS workshop_title, w.id AS workshop_id,
+                 s.title AS session_title
+          FROM workshop_path_notes n
+          JOIN workshop_enrollments e ON e.id = n.enrollment_id
+          JOIN workshops w ON w.id = e.workshop_id
+          LEFT JOIN workshop_sessions s ON s.id = n.session_id
+          WHERE e.patient_id=? AND w.doctor_id=?
+          ORDER BY COALESCE(n.updated_at, n.created_at) DESC
+          LIMIT 80
+        ");
+        $stmt->execute([$patientId, $doctorId]);
+        return $stmt->fetchAll();
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function doctor_patient_call_stats(PDO $pdo, string $doctorUserId, string $patientId): array
+{
+    if ($doctorUserId === '' || $patientId === '') {
+        return ['call_count' => 0, 'last_at' => null];
+    }
+    try {
+        $stmt = $pdo->prepare('SELECT call_count, last_at FROM video_call_contact_stats WHERE host_user_id=? AND peer_user_id=? LIMIT 1');
+        $stmt->execute([$doctorUserId, $patientId]);
+        $row = $stmt->fetch();
+        if (!is_array($row)) {
+            return ['call_count' => 0, 'last_at' => null];
+        }
+        return [
+            'call_count' => (int) ($row['call_count'] ?? 0),
+            'last_at' => $row['last_at'] ?? null,
+        ];
+    } catch (Throwable $e) {
+        return ['call_count' => 0, 'last_at' => null];
+    }
 }
 
 /** HTML امن برای ادیتور شرح حال (bold / سایز / هایلایت) */

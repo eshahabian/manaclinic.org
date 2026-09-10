@@ -26,11 +26,16 @@ $stmt = $pdo->prepare("
         SELECT 1 FROM appointments ax
         WHERE ax.patient_id = u.id AND ax.doctor_id = ?
       )
+      OR EXISTS (
+        SELECT 1 FROM workshop_enrollments e
+        JOIN workshops w ON w.id = e.workshop_id
+        WHERE e.patient_id = u.id AND w.doctor_id = ?
+      )
     )
   GROUP BY u.id, u.name, u.username, u.phone
   ORDER BY last_visit IS NULL ASC, last_visit DESC, u.name ASC
 ");
-$stmt->execute([$doctorId, $doctorId, $doctorId]);
+$stmt->execute([$doctorId, $doctorId, $doctorId, $doctorId]);
 $patients = $stmt->fetchAll();
 
 $noteCounts = [];
@@ -57,7 +62,7 @@ $binderInitial = in_array($tabParam, ['chart', 'intakes'], true) ? $tabParam : '
 ob_start();
 ?>
 <h1>پرونده مراجعه‌کنندگان</h1>
-<p class="muted">این بخش کاملاً خصوصی است؛ فقط شما می‌توانید شرح حال، یادداشت جلسات و گفتگوها را ببینید.</p>
+<p class="muted">فقط مراجعه‌کنندگانی که درمانگر مسئول‌شان شما هستید (ترجیحی، نوبت یا کارگاه شما). پرونده‌شان برای درمانگر دیگر باز نیست.</p>
 
 <div class="binder-tile" data-binder-tabs data-binder-initial="<?= e($binderInitial) ?>" data-binder-tone="<?= e($binderInitial === 'intakes' ? 'workshops' : 'appts') ?>" style="margin-top:1.25rem">
   <div class="binder-tabs" role="tablist" aria-label="بخش‌های پرونده">

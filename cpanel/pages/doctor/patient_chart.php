@@ -4,6 +4,9 @@ require_once __DIR__ . '/../../includes/doctor_panel.php';
 require_once __DIR__ . '/../../includes/doctor_clinical.php';
 require_once __DIR__ . '/../../includes/assistant.php';
 require_once __DIR__ . '/../../includes/appointment_cancel.php';
+require_once __DIR__ . '/../../includes/workshops.php';
+require_once __DIR__ . '/../../includes/workshop_qa.php';
+require_once __DIR__ . '/../../includes/workshop_path.php';
 
 $ctx = require_doctor_profile($pdo);
 $patientId = (string) ($_GET['id'] ?? '');
@@ -15,6 +18,8 @@ $access = require_doctor_patient_access($pdo, $ctx, $patientId);
 $patient = $access['patient'];
 $appointments = $access['appointments'];
 $doctorId = $ctx['profile']['id'];
+$doctorName = doctor_ctx_user_name($ctx);
+$isPreferred = (string) ($patient['preferred_doctor_id'] ?? '') === (string) $doctorId;
 
 $chart = get_or_create_patient_chart($pdo, $doctorId, $patientId);
 $historyExtraIds = extract_assistant_session_ids_from_history((string) ($chart['history_text'] ?? ''));
@@ -37,142 +42,349 @@ foreach ($intakes as $session) {
 }
 $intakeYmdPack = group_appointments_by_jalali_ymd($intakeMapped, 'intk', 'latest', ['fill' => 'none']);
 
-$tabParam = trim((string) ($_GET['tab'] ?? ''));
-$binderInitial = in_array($tabParam, ['chart', 'intakes'], true) ? $tabParam : 'chart';
+$enrollments = doctor_patient_enrollments_for_doctor($pdo, $doctorId, $patientId);
+$privateQa = doctor_patient_private_qa_for_doctor($pdo, $doctorId, $patientId);
+$pathNotes = doctor_patient_path_notes_for_doctor($pdo, $doctorId, $patientId);
+$callStats = doctor_patient_call_stats($pdo, doctor_ctx_user_id($ctx), $patientId);
+
+$noteCount = 0;
+foreach ($notesByApp as $n) {
+    if (trim((string) ($n['note_text'] ?? '')) !== '') {
+        $noteCount++;
+    }
+}
+
+$tabs = ['overview', 'chart', 'sessions', 'intakes', 'workshops', 'messages'];
+$tabParam = trim((string) ($_GET['tab'] ?? 'overview'));
+if (!in_array($tabParam, $tabs, true)) {
+    $tabParam = 'overview';
+}
+$chartBase = url('/doctor/patients/' . $patientId);
+$tabUrl = static function (string $tab) use ($chartBase): string {
+    return $chartBase . ($tab === 'overview' ? '' : ('?tab=' . rawurlencode($tab)));
+};
+$initial = function_exists('mb_substr') ? mb_substr((string) $patient['name'], 0, 1) : substr((string) $patient['name'], 0, 1);
+$lastVisit = $appointments[0]['starts_at'] ?? null;
+$historySnippet = trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($historyClean), ENT_QUOTES, 'UTF-8')) ?? '');
+if (function_exists('mb_strlen') && mb_strlen($historySnippet) > 220) {
+    $historySnippet = mb_substr($historySnippet, 0, 217) . '…';
+}
 
 ob_start();
 ?>
-<p style="margin:0 0 .75rem"><a href="<?= e(url('/doctor/patients')) ?>" class="muted" style="font-size:.9rem">← بازگشت به لیست مراجعه‌کنندگان</a></p>
-<div class="row-between" style="align-items:flex-start;margin-bottom:1rem">
-  <div>
-    <h1 style="margin:0"><?= e($patient['name']) ?></h1>
-    <p class="muted" style="margin:.35rem 0 0;font-size:.9rem" dir="ltr">
-      <?= e((string)$patient['username']) ?>
-      <?= $patient['phone'] ? ' · ' . e((string)$patient['phone']) : '' ?>
-    </p>
-  </div>
-  <span class="badge">محرمانه — فقط شما</span>
-</div>
+<div class="ehr-shell">
+  <p class="ehr-back"><a href="<?= e(url('/doctor/patients')) ?>">← همهٔ مراجعه‌کنندگان</a></p>
 
-<div class="binder-tile" data-binder-tabs data-binder-initial="<?= e($binderInitial) ?>" data-binder-tone="<?= e($binderInitial === 'intakes' ? 'workshops' : 'appts') ?>">
-  <div class="binder-tabs" role="tablist" aria-label="بخش‌های پرونده">
-    <button type="button" class="binder-tab binder-tab-appts<?= $binderInitial === 'chart' ? ' is-active' : '' ?>" role="tab" data-binder-tab="chart" data-binder-tone="appts" aria-selected="<?= $binderInitial === 'chart' ? 'true' : 'false' ?>">
-      پرونده مراجعه‌کننده
-    </button>
-    <button type="button" class="binder-tab binder-tab-workshops<?= $binderInitial === 'intakes' ? ' is-active' : '' ?>" role="tab" data-binder-tab="intakes" data-binder-tone="workshops" aria-selected="<?= $binderInitial === 'intakes' ? 'true' : 'false' ?>">
-      گفتگوهای دستیار <span class="binder-tab-count"><?= count($intakes) ?></span>
-    </button>
-  </div>
-  <div class="binder-body">
-    <section class="binder-panel<?= $binderInitial === 'chart' ? ' is-active' : '' ?>" data-binder-panel="chart" role="tabpanel"<?= $binderInitial === 'chart' ? '' : ' hidden' ?>>
-      <div class="clinical-board">
-        <div>
-          <h2 style="margin:0;font-size:1.1rem">شرح حال</h2>
-          <p class="muted" style="margin:.35rem 0 0;font-size:.85rem">
-            متن را انتخاب کنید، بعد Bold / سایز / رنگ هایلایت بزنید. یادداشت جلسات را از سال و ماه انتخاب کنید.
-          </p>
+  <header class="ehr-header">
+    <div class="ehr-identity">
+      <span class="ehr-avatar" aria-hidden="true"><?= e($initial) ?></span>
+      <div class="ehr-identity-text">
+        <div class="ehr-title-row">
+          <h1><?= e($patient['name']) ?></h1>
+          <span class="ehr-lock" title="فقط درمانگر مسئول این پرونده">محرمانه — فقط درمانگر مسئول</span>
         </div>
-
-        <form method="post" action="<?= e(url('/doctor/patients/' . $patientId . '/history')) ?>" id="history-form">
-          <div class="clinical-toolbar" id="clinical-toolbar">
-            <button type="button" class="tool-btn bold" data-cmd="bold" title="ضخیم">B</button>
-            <span class="tool-sep"></span>
-            <button type="button" class="tool-btn" data-fontsize="14">۱۴</button>
-            <button type="button" class="tool-btn" data-fontsize="16">۱۶</button>
-            <button type="button" class="tool-btn" data-fontsize="18">۱۸</button>
-            <button type="button" class="tool-btn" data-fontsize="22">۲۲</button>
-            <span class="tool-sep"></span>
-            <span class="muted" style="font-size:.8rem;margin-inline-end:.25rem">هایلایت</span>
-            <button type="button" class="swatch yellow" data-hl="#ffe566" title="زرد"></button>
-            <button type="button" class="swatch green" data-hl="#8fd6a8" title="سبز"></button>
-            <button type="button" class="swatch pink" data-hl="#f5a3c0" title="صورتی"></button>
-            <button type="button" class="swatch blue" data-hl="#8eb7e8" title="آبی"></button>
-            <button type="button" class="tool-btn" data-cmd="removeFormat" title="پاک کردن فرمت">پاک‌کردن رنگ</button>
-          </div>
-
-          <div
-            id="clinical-editor"
-            class="clinical-editor"
-            contenteditable="true"
-            role="textbox"
-            aria-label="شرح حال"
-            data-placeholder="شرح حال مراجعه‌کننده را اینجا بنویسید..."
-          ><?= $historyHtml ?></div>
-          <textarea name="history_text" id="history_text" hidden></textarea>
-
-          <div style="margin-top:.85rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
-            <button class="btn btn-primary" type="submit">ذخیره شرح حال</button>
-            <?php if (!empty($chart['updated_at'])): ?>
-              <span class="muted" style="font-size:.8rem">آخرین ویرایش: <?= e(format_fa_datetime($chart['updated_at'])) ?></span>
-            <?php endif; ?>
-          </div>
-        </form>
-
-        <div>
-          <p class="clinical-sessions-label">یادداشت جلسات</p>
-          <p class="muted" style="margin:.25rem 0 .75rem;font-size:.8rem">سال، ماه و روز را انتخاب کنید؛ بعد روی جلسه کلیک کنید تا یادداشت را ببینید یا بنویسید.</p>
-          <?php
-            $ymdPack = $sessionYmd;
-            $ymdEmpty = 'هنوز جلسه‌ای ثبت نشده.';
-            $ymdNoun = 'جلسه';
-            $ymdAllPrefix = 'جلسات';
-            $ymdShowPeople = false;
-            $ymdClass = 'session-ymd';
-            $ymdRenderItems = function (array $list) use ($notesByApp, $patientId): void {
-                if (!$list) {
-                    echo '<p class="muted" style="margin:0">در این بازه مراجعه‌ای ثبت نشده.</p>';
-                    return;
-                }
-                echo '<div class="clinical-session-grid" data-session-note-grid>';
-                foreach ($list as $a) {
-                    if (!is_array($a)) {
-                        continue;
-                    }
-                    $note = $notesByApp[$a['id']] ?? null;
-                    $hasNote = $note && trim((string) ($note['note_text'] ?? '')) !== '';
-                    $day = jalali_day_parts((string) $a['starts_at']);
-                    ?>
-                    <div class="session-note-box<?= $hasNote ? ' has-note' : '' ?>" data-box>
-                      <button type="button" class="session-note-toggle" data-toggle>
-                        <span class="sn-date"><?= e($day['label'] ?? format_fa_datetime((string) $a['starts_at'])) ?></span>
-                        <span class="sn-meta">
-                          <?= $day ? 'ساعت ' . e($day['time_fa']) . ' · ' : '' ?>
-                          <?= e(appointment_row_status_label($a)) ?>
-                          · <?= $hasNote ? 'دارای یادداشت' : 'بدون یادداشت' ?>
-                        </span>
-                      </button>
-                      <div class="session-note-panel" data-panel>
-                        <form method="post" action="<?= e(url('/doctor/patients/' . $patientId . '/session-note')) ?>">
-                          <input type="hidden" name="appointment_id" value="<?= e($a['id']) ?>">
-                          <label class="label">یادداشت این جلسه</label>
-                          <textarea class="input" name="note_text" rows="5" placeholder="مشاهدات، مداخلات، تکالیف..."><?= e((string) ($note['note_text'] ?? '')) ?></textarea>
-                          <?= appointment_notes_html($a) ?>
-                          <div style="margin-top:.75rem;display:flex;gap:.5rem;flex-wrap:wrap">
-                            <button class="btn btn-primary btn-sm" type="submit">ذخیره</button>
-                            <button class="btn btn-outline btn-sm" type="button" data-close>بستن</button>
-                            <?= appointment_cancel_form((string) $a['id'], (string) $a['status'], '/doctor/appointments', '/doctor/patients/' . $patientId) ?>
-                            <?= function_exists('admin_appointment_delete_form') ? admin_appointment_delete_form((string) $a['id'], '/doctor/patients/' . $patientId) : '' ?>
-                          </div>
-                        </form>
-                      </div>
-                    </div>
-                    <?php
-                }
-                echo '</div>';
-            };
-            require __DIR__ . '/../../includes/appointment_ymd_binder.php';
-          ?>
-        </div>
+        <p class="ehr-meta" dir="ltr">
+          <span>@<?= e((string) $patient['username']) ?></span>
+          <?php if (!empty($patient['phone'])): ?>
+            <span><?= e((string) $patient['phone']) ?></span>
+          <?php endif; ?>
+          <?php if (!empty($patient['email'])): ?>
+            <span><?= e((string) $patient['email']) ?></span>
+          <?php endif; ?>
+        </p>
+        <p class="ehr-clinician">
+          درمانگر مسئول: <strong><?= e($doctorName) ?></strong>
+          <?php if ($isPreferred): ?>
+            <span class="ehr-pill">درمانگر ترجیحی</span>
+          <?php else: ?>
+            <span class="ehr-pill ehr-pill-mute">نوبت یا کارگاه مشترک</span>
+          <?php endif; ?>
+        </p>
       </div>
+    </div>
+    <div class="ehr-header-actions">
+      <a class="btn btn-outline btn-sm" href="<?= e(url('/video-call?peer=' . rawurlencode($patientId))) ?>">تماس مانا</a>
+      <a class="btn btn-primary btn-sm" href="<?= e($tabUrl('sessions')) ?>">یادداشت جلسه</a>
+    </div>
+  </header>
+
+  <nav class="ehr-tabs" role="tablist" aria-label="بخش‌های پرونده بالینی">
+    <a class="<?= $tabParam === 'overview' ? 'is-on' : '' ?>" href="<?= e($tabUrl('overview')) ?>">نمای کلی</a>
+    <a class="<?= $tabParam === 'chart' ? 'is-on' : '' ?>" href="<?= e($tabUrl('chart')) ?>">شرح حال</a>
+    <a class="<?= $tabParam === 'sessions' ? 'is-on' : '' ?>" href="<?= e($tabUrl('sessions')) ?>">جلسات <span><?= to_fa_digits((string) count($appointments)) ?></span></a>
+    <a class="<?= $tabParam === 'intakes' ? 'is-on' : '' ?>" href="<?= e($tabUrl('intakes')) ?>">دستیار هوشمند <span><?= to_fa_digits((string) count($intakes)) ?></span></a>
+    <a class="<?= $tabParam === 'workshops' ? 'is-on' : '' ?>" href="<?= e($tabUrl('workshops')) ?>">کارگاه و مسیر <span><?= to_fa_digits((string) count($enrollments)) ?></span></a>
+    <a class="<?= $tabParam === 'messages' ? 'is-on' : '' ?>" href="<?= e($tabUrl('messages')) ?>">پیام خصوصی <span><?= to_fa_digits((string) count($privateQa)) ?></span></a>
+  </nav>
+
+  <?php if ($tabParam === 'overview'): ?>
+    <section class="ehr-grid-stats">
+      <article class="ehr-stat">
+        <span>نوبت‌ها</span>
+        <strong><?= to_fa_digits((string) count($appointments)) ?></strong>
+        <small><?= $lastVisit ? 'آخرین: ' . e(format_fa_datetime((string) $lastVisit)) : 'هنوز نوبتی نیست' ?></small>
+      </article>
+      <article class="ehr-stat">
+        <span>یادداشت جلسه</span>
+        <strong><?= to_fa_digits((string) $noteCount) ?></strong>
+        <small>فقط یادداشت‌های شما</small>
+      </article>
+      <article class="ehr-stat">
+        <span>گفتگوی دستیار</span>
+        <strong><?= to_fa_digits((string) count($intakes)) ?></strong>
+        <small>ارسال‌شده یا کامل‌شده</small>
+      </article>
+      <article class="ehr-stat">
+        <span>کارگاه</span>
+        <strong><?= to_fa_digits((string) count($enrollments)) ?></strong>
+        <small><?= to_fa_digits((string) count($pathNotes)) ?> یادداشت مسیر</small>
+      </article>
+      <article class="ehr-stat">
+        <span>پیام خصوصی کارگاه</span>
+        <strong><?= to_fa_digits((string) count($privateQa)) ?></strong>
+        <small>فقط بین شما و این فرد</small>
+      </article>
+      <article class="ehr-stat">
+        <span>تماس مانا</span>
+        <strong><?= to_fa_digits((string) (int) ($callStats['call_count'] ?? 0)) ?></strong>
+        <small><?= !empty($callStats['last_at']) ? 'آخرین: ' . e(format_fa_datetime((string) $callStats['last_at'])) : 'هنوز تماسی ثبت نشده' ?></small>
+      </article>
     </section>
-    <section class="binder-panel<?= $binderInitial === 'intakes' ? ' is-active' : '' ?>" data-binder-panel="intakes" role="tabpanel"<?= $binderInitial === 'intakes' ? '' : ' hidden' ?>>
-      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">گفتگوها را با سال، ماه و روز جدا ببینید. روی تاریخ بزنید تا ببینید <?= e($patient['name']) ?> کی با دستیار حرف زده است.</p>
+    <div class="ehr-split">
+      <article class="ehr-card">
+        <header class="ehr-card-head">
+          <h2>شرح حال</h2>
+          <a href="<?= e($tabUrl('chart')) ?>">ویرایش</a>
+        </header>
+        <?php if ($historySnippet !== ''): ?>
+          <p class="ehr-preview"><?= e($historySnippet) ?></p>
+        <?php else: ?>
+          <p class="muted">هنوز شرح حالی نوشته نشده. از تب شرح حال مثل چارت Jane / SimplePractice یادداشت بالینی را شروع کنید.</p>
+        <?php endif; ?>
+      </article>
+      <article class="ehr-card">
+        <header class="ehr-card-head">
+          <h2>فعالیت اخیر</h2>
+        </header>
+        <ul class="ehr-timeline">
+          <?php
+          $recent = [];
+          foreach (array_slice($appointments, 0, 4) as $a) {
+              $recent[] = ['t' => (string) $a['starts_at'], 'label' => 'نوبت · ' . appointment_row_status_label($a)];
+          }
+          foreach (array_slice($intakes, 0, 3) as $s) {
+              $recent[] = ['t' => (string) (($s['sent_at'] ?? '') ?: ($s['created_at'] ?? '')), 'label' => 'دستیار هوشمند'];
+          }
+          foreach (array_slice($privateQa, 0, 3) as $q) {
+              $recent[] = ['t' => (string) $q['created_at'], 'label' => 'پیام خصوصی کارگاه'];
+          }
+          usort($recent, static fn ($x, $y) => strcmp((string) ($y['t'] ?? ''), (string) ($x['t'] ?? '')));
+          $recent = array_slice($recent, 0, 8);
+          ?>
+          <?php if (!$recent): ?>
+            <li class="muted">هنوز رویدادی برای این پرونده نیست.</li>
+          <?php else: ?>
+            <?php foreach ($recent as $ev): ?>
+              <li>
+                <time><?= $ev['t'] !== '' ? e(format_fa_datetime($ev['t'])) : '—' ?></time>
+                <span><?= e($ev['label']) ?></span>
+              </li>
+            <?php endforeach; ?>
+          <?php endif; ?>
+        </ul>
+      </article>
+    </div>
+  <?php endif; ?>
+
+  <?php if ($tabParam === 'chart'): ?>
+    <section class="ehr-card clinical-board">
+      <header class="ehr-card-head">
+        <div>
+          <h2>شرح حال بالینی</h2>
+          <p class="muted" style="margin:.3rem 0 0;font-size:.85rem">مثل psychotherapy note جدا از لیست جلسات است؛ فقط شما می‌بینید.</p>
+        </div>
+      </header>
+      <form method="post" action="<?= e(url('/doctor/patients/' . $patientId . '/history')) ?>" id="history-form">
+        <div class="clinical-toolbar" id="clinical-toolbar">
+          <button type="button" class="tool-btn bold" data-cmd="bold" title="ضخیم">B</button>
+          <span class="tool-sep"></span>
+          <button type="button" class="tool-btn" data-fontsize="14">۱۴</button>
+          <button type="button" class="tool-btn" data-fontsize="16">۱۶</button>
+          <button type="button" class="tool-btn" data-fontsize="18">۱۸</button>
+          <button type="button" class="tool-btn" data-fontsize="22">۲۲</button>
+          <span class="tool-sep"></span>
+          <span class="muted" style="font-size:.8rem;margin-inline-end:.25rem">هایلایت</span>
+          <button type="button" class="swatch yellow" data-hl="#ffe566" title="زرد"></button>
+          <button type="button" class="swatch green" data-hl="#8fd6a8" title="سبز"></button>
+          <button type="button" class="swatch pink" data-hl="#f5a3c0" title="صورتی"></button>
+          <button type="button" class="swatch blue" data-hl="#8eb7e8" title="آبی"></button>
+          <button type="button" class="tool-btn" data-cmd="removeFormat" title="پاک کردن فرمت">پاک‌کردن رنگ</button>
+        </div>
+        <div id="clinical-editor" class="clinical-editor" contenteditable="true" role="textbox" aria-label="شرح حال" data-placeholder="شرح حال مراجعه‌کننده را اینجا بنویسید..."><?= $historyHtml ?></div>
+        <textarea name="history_text" id="history_text" hidden></textarea>
+        <div style="margin-top:.85rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+          <button class="btn btn-primary" type="submit">ذخیره شرح حال</button>
+          <?php if (!empty($chart['updated_at'])): ?>
+            <span class="muted" style="font-size:.8rem">آخرین ویرایش: <?= e(format_fa_datetime($chart['updated_at'])) ?></span>
+          <?php endif; ?>
+        </div>
+      </form>
+    </section>
+  <?php endif; ?>
+
+  <?php if ($tabParam === 'sessions'): ?>
+    <section class="ehr-card">
+      <header class="ehr-card-head">
+        <div>
+          <h2>جلسات و progress note</h2>
+          <p class="muted" style="margin:.3rem 0 0;font-size:.85rem">هر نوبت یک یادداشت جلسه دارد؛ سال و ماه را مثل پرونده‌های کلینیکی فیلتر کنید.</p>
+        </div>
+      </header>
       <?php
-        $intakeMonthEmpty = 'هنوز گفتگویی از دستیار برای این مراجعه‌کننده ارسال نشده است.';
+        $ymdPack = $sessionYmd;
+        $ymdEmpty = 'هنوز جلسه‌ای ثبت نشده.';
+        $ymdNoun = 'جلسه';
+        $ymdAllPrefix = 'جلسات';
+        $ymdShowPeople = false;
+        $ymdClass = 'session-ymd';
+        $ymdRenderItems = function (array $list) use ($notesByApp, $patientId): void {
+            if (!$list) {
+                echo '<p class="muted" style="margin:0">در این بازه مراجعه‌ای ثبت نشده.</p>';
+                return;
+            }
+            echo '<div class="clinical-session-grid" data-session-note-grid>';
+            foreach ($list as $a) {
+                if (!is_array($a)) {
+                    continue;
+                }
+                $note = $notesByApp[$a['id']] ?? null;
+                $hasNote = $note && trim((string) ($note['note_text'] ?? '')) !== '';
+                $day = jalali_day_parts((string) $a['starts_at']);
+                ?>
+                <div class="session-note-box<?= $hasNote ? ' has-note' : '' ?>" data-box>
+                  <button type="button" class="session-note-toggle" data-toggle>
+                    <span class="sn-date"><?= e($day['label'] ?? format_fa_datetime((string) $a['starts_at'])) ?></span>
+                    <span class="sn-meta">
+                      <?= $day ? 'ساعت ' . e($day['time_fa']) . ' · ' : '' ?>
+                      <?= e(appointment_row_status_label($a)) ?>
+                      · <?= $hasNote ? 'دارای یادداشت' : 'بدون یادداشت' ?>
+                    </span>
+                  </button>
+                  <div class="session-note-panel" data-panel>
+                    <form method="post" action="<?= e(url('/doctor/patients/' . $patientId . '/session-note')) ?>">
+                      <input type="hidden" name="appointment_id" value="<?= e($a['id']) ?>">
+                      <label class="label">یادداشت این جلسه</label>
+                      <textarea class="input" name="note_text" rows="5" placeholder="مشاهدات، مداخلات، تکالیف..."><?= e((string) ($note['note_text'] ?? '')) ?></textarea>
+                      <?= appointment_notes_html($a) ?>
+                      <div style="margin-top:.75rem;display:flex;gap:.5rem;flex-wrap:wrap">
+                        <button class="btn btn-primary btn-sm" type="submit">ذخیره</button>
+                        <button class="btn btn-outline btn-sm" type="button" data-close>بستن</button>
+                        <?= appointment_cancel_form((string) $a['id'], (string) $a['status'], '/doctor/appointments', '/doctor/patients/' . $patientId . '?tab=sessions') ?>
+                        <?= function_exists('admin_appointment_delete_form') ? admin_appointment_delete_form((string) $a['id'], '/doctor/patients/' . $patientId . '?tab=sessions') : '' ?>
+                      </div>
+                    </form>
+                  </div>
+                </div>
+                <?php
+            }
+            echo '</div>';
+        };
+        require __DIR__ . '/../../includes/appointment_ymd_binder.php';
+      ?>
+    </section>
+  <?php endif; ?>
+
+  <?php if ($tabParam === 'intakes'): ?>
+    <section class="ehr-card">
+      <header class="ehr-card-head">
+        <div>
+          <h2>گفتگو با دستیار هوشمند</h2>
+          <p class="muted" style="margin:.3rem 0 0;font-size:.85rem">هر گفتگویی که این مراجعه‌کننده با دستیار داشته و به کلینیک رسیده، فقط در پرونده خودش برای شماست.</p>
+        </div>
+      </header>
+      <?php
+        $intakeMonthEmpty = 'هنوز گفتگویی از دستیار برای این مراجعه‌کننده نیست.';
         require __DIR__ . '/../../includes/doctor_intake_month_binder.php';
       ?>
     </section>
-  </div>
+  <?php endif; ?>
+
+  <?php if ($tabParam === 'workshops'): ?>
+    <section class="ehr-stack">
+      <article class="ehr-card">
+        <header class="ehr-card-head"><h2>ثبت‌نام کارگاه‌های شما</h2></header>
+        <?php if (!$enrollments): ?>
+          <p class="muted" style="margin:0">این فرد در کارگاه شما ثبت‌نام نکرده است.</p>
+        <?php else: ?>
+          <ul class="ehr-list">
+            <?php foreach ($enrollments as $en): ?>
+              <li>
+                <div>
+                  <strong><?= e((string) $en['title']) ?></strong>
+                  <p class="muted">
+                    <?= e(workshop_type_label((string) $en['type'])) ?>
+                    · <?= e(enrollment_status_label((string) $en['status'])) ?>
+                    · <?= e(format_fa_datetime((string) $en['created_at'])) ?>
+                  </p>
+                </div>
+                <a class="btn btn-outline btn-sm" href="<?= e(workshop_path_doctor_url((string) $en['id'])) ?>">مسیر دوره</a>
+              </li>
+            <?php endforeach; ?>
+          </ul>
+        <?php endif; ?>
+      </article>
+      <article class="ehr-card">
+        <header class="ehr-card-head"><h2>یادداشت مسیر دوره</h2></header>
+        <?php if (!$pathNotes): ?>
+          <p class="muted" style="margin:0">یادداشت مربی یا شرکت‌کننده برای این فرد ثبت نشده.</p>
+        <?php else: ?>
+          <ul class="ehr-feed">
+            <?php foreach ($pathNotes as $pn): ?>
+              <li>
+                <p class="ehr-feed-meta">
+                  <?= (string) ($pn['kind'] ?? '') === 'instructor' ? 'یادداشت درمانگر' : 'یادداشت شرکت‌کننده' ?>
+                  · <?= e((string) ($pn['workshop_title'] ?? '')) ?>
+                  <?php if (!empty($pn['session_title'])): ?> · <?= e((string) $pn['session_title']) ?><?php endif; ?>
+                  · <?= e(format_fa_datetime((string) (($pn['updated_at'] ?? '') ?: ($pn['created_at'] ?? '')))) ?>
+                </p>
+                <p><?= nl2br(e((string) $pn['body'])) ?></p>
+                <a href="<?= e(workshop_path_doctor_url((string) $pn['enrollment_id'])) ?>">مدیریت در مسیر دوره</a>
+              </li>
+            <?php endforeach; ?>
+          </ul>
+        <?php endif; ?>
+      </article>
+    </section>
+  <?php endif; ?>
+
+  <?php if ($tabParam === 'messages'): ?>
+    <section class="ehr-card">
+      <header class="ehr-card-head">
+        <div>
+          <h2>پیام خصوصی کارگاه</h2>
+          <p class="muted" style="margin:.3rem 0 0;font-size:.85rem">پیام‌هایی که در تالار خصوصی کارگاه برای این فرد گذاشته‌اید یا او برای شما فرستاده.</p>
+        </div>
+      </header>
+      <?php if (!$privateQa): ?>
+        <p class="muted" style="margin:0">پیام خصوصی‌ای بین شما و این فرد در کارگاه نیست.</p>
+      <?php else: ?>
+        <ul class="ehr-feed">
+          <?php foreach ($privateQa as $qa): ?>
+            <li>
+              <p class="ehr-feed-meta">
+                <?= (string) ($qa['author_kind'] ?? '') === 'instructor' ? 'از درمانگر' : 'از مراجعه‌کننده' ?>
+                · <?= e((string) ($qa['author_name'] ?? '')) ?>
+                · <?= e((string) ($qa['workshop_title'] ?? '')) ?>
+                · <?= e(format_fa_datetime((string) $qa['created_at'])) ?>
+              </p>
+              <p><?= nl2br(e((string) $qa['body'])) ?></p>
+              <a href="<?= e(workshop_qa_url_doctor((string) $qa['workshop_id'])) ?>">باز کردن تالار کارگاه</a>
+            </li>
+          <?php endforeach; ?>
+        </ul>
+      <?php endif; ?>
+    </section>
+  <?php endif; ?>
 </div>
 <?php
 $inner = ob_get_clean();
@@ -181,12 +393,14 @@ $pageScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260
 <script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910r"></script>
 <script src="' . e(url('/assets/js/rich-editor.js')) . '"></script>
 <script>
-initRichEditor({
-  editor: "#clinical-editor",
-  toolbar: "#clinical-toolbar",
-  form: "#history-form",
-  hidden: "#history_text"
-});
+if (document.querySelector("#clinical-editor")) {
+  initRichEditor({
+    editor: "#clinical-editor",
+    toolbar: "#clinical-toolbar",
+    form: "#history-form",
+    hidden: "#history_text"
+  });
+}
 (function(){
   document.addEventListener("click", function(e){
     var closeBtn = e.target.closest("[data-close]");
