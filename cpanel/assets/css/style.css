@@ -4321,18 +4321,38 @@ body.workshop-overview-locked { overflow: hidden; }
 }
 .ehr-grid-stats {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(10.5rem, 1fr));
-  gap: .65rem;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: .5rem;
 }
 .ehr-stat {
   background: var(--card);
   border: 1px solid var(--line);
   border-radius: .85rem;
-  padding: .85rem .95rem;
+  padding: .7rem .55rem;
+  min-width: 0;
 }
-.ehr-stat span { display: block; font-size: .78rem; color: var(--muted); }
-.ehr-stat strong { display: block; margin-top: .2rem; font-size: 1.45rem; }
-.ehr-stat small { display: block; margin-top: .25rem; font-size: .75rem; color: var(--muted); }
+.ehr-stat span {
+  display: block;
+  font-size: .72rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  line-height: 1.35;
+}
+.ehr-stat strong { display: block; margin-top: .15rem; font-size: 1.25rem; }
+.ehr-stat small {
+  display: block;
+  margin-top: .2rem;
+  font-size: .68rem;
+  color: var(--muted);
+  overflow-wrap: anywhere;
+  line-height: 1.4;
+}
+@media (max-width: 1100px) {
+  .ehr-grid-stats { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 640px) {
+  .ehr-grid-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 .ehr-split { display: grid; gap: .75rem; }
 @media (min-width: 860px) {
   .ehr-split { grid-template-columns: 1.2fr .8fr; }
