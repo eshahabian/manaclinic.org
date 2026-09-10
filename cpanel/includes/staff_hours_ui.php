@@ -4,7 +4,7 @@ declare(strict_types=1);
 function staff_hours_scripts(): string
 {
     return '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260910p"></script>'
-        . '<script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910p"></script>';
+        . '<script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910r"></script>';
 }
 
 function staff_hours_person_word(array $block): string
@@ -174,7 +174,7 @@ function staff_hours_render_self(array $block, array $opts = []): string
 </div>
 
 <h2 class="binder-sub" style="margin-top:1.5rem">انتخاب ماه</h2>
-<p class="muted" style="margin:.2rem 0 .85rem">با زدن «کل شهریور» یا «کل مهر» بازه، روزهای حضور، زمان حضور و عادی/اضافه‌کار همان ماه را می‌بینید.</p>
+<p class="muted" style="margin:.2rem 0 .85rem">سال، ماه و روز را از منوی کرکره‌ای انتخاب کنید تا حضور همان روز دیده شود.</p>
 <?= staff_hours_render_calendar($block, ['today' => $today]) ?>
     <?php
     return (string) ob_get_clean();
@@ -214,10 +214,14 @@ function staff_hours_render_calendar(array $block, array $opts = []): string
     }
     $defaultMonth = is_array($defaultMonths[$defaultMonthId] ?? null) ? $defaultMonths[$defaultMonthId] : [];
     $monthDays = is_array($defaultMonth['days'] ?? null) ? $defaultMonth['days'] : [];
-    $allId = $defaultMonthId . '-all';
     $defaultDayId = (string) ($cal['default_day_id'] ?? '');
-    if ($defaultDayId === '' || !isset($monthDays[$today])) {
-        $defaultDayId = $allId;
+    if ($defaultDayId === '' || str_ends_with($defaultDayId, '-all')) {
+        if (isset($monthDays[$today]) && is_array($monthDays[$today])) {
+            $defaultDayId = (string) ($monthDays[$today]['id'] ?? '');
+        } else {
+            $firstDay = array_values($monthDays)[0] ?? [];
+            $defaultDayId = (string) (is_array($firstDay) ? ($firstDay['id'] ?? '') : '');
+        }
     }
 
     ob_start();
@@ -265,25 +269,20 @@ function staff_hours_render_calendar(array $block, array $opts = []): string
               }
               $monthId = (string) $monthId;
               $days = is_array($month['days'] ?? null) ? $month['days'] : [];
-              $monthAllId = $monthId . '-all';
               $monthOn = $defaultYearId === $yearId && $defaultMonthId === $monthId;
             ?>
             <section data-ymd-month="<?= e($monthId) ?>"
                      data-ymd-label="<?= e((string) ($month['tab_label'] ?? $month['short'] ?? $monthId)) ?>"
-                     data-ymd-count="<?= e((string) ($month['present_count'] ?? 0)) ?>"
                      <?= $monthOn ? '' : ' hidden' ?>>
-              <section data-ymd-day="<?= e($monthAllId) ?>"
-                       data-ymd-label="کل <?= e((string) ($month['short'] ?? 'ماه')) ?>"
-                       data-ymd-count="<?= e((string) ($month['present_count'] ?? 0)) ?>"
-                       <?= ($monthOn && $defaultDayId === $monthAllId) ? '' : ' hidden' ?>>
-                <?= staff_hours_render_month_panel($block, $month, $today) ?>
-              </section>
               <?php foreach ($days as $day): ?>
                 <?php
                   if (!is_array($day)) {
                       continue;
                   }
                   $did = (string) ($day['id'] ?? '');
+                  if ($did === '' || str_ends_with($did, '-all')) {
+                      continue;
+                  }
                   $dayOn = $monthOn && $defaultDayId === $did;
                 ?>
                 <section data-ymd-day="<?= e($did) ?>"

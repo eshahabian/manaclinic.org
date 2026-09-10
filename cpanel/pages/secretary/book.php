@@ -105,7 +105,7 @@ $secretaryBookScripts = '
 <script src="' . e(url('/assets/js/name-transliterate.js')) . '?v=20260906p"></script>
 <script src="' . e(url('/assets/js/form-draft.js')) . '?v=20260906p"></script>
 <script src="' . e(url('/assets/js/secretary-patient-form.js')) . '?v=20260906p"></script>
-<script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910p"></script>
+<script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910r"></script>
 <script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
 <script>
@@ -372,6 +372,14 @@ $secretaryBookScripts = '
     if (!window.jalaali) return null;
     return jalaali.toJalaali(now.getFullYear(), now.getMonth() + 1, now.getDate());
   }
+  function monthLength(jy, jm){
+    if (window.jalaali && typeof jalaali.jalaaliMonthLength === "function") {
+      return jalaali.jalaaliMonthLength(jy, jm);
+    }
+    if (jm <= 6) return 31;
+    if (jm <= 11) return 30;
+    return 29;
+  }
   function groupDaysByYear(list){
     var byYear = {};
     list.forEach(function(g){
@@ -379,28 +387,45 @@ $secretaryBookScripts = '
       var j = jalaliFromGregorian(g);
       if (!j) return;
       if (!byYear[j.jy]) byYear[j.jy] = {};
-      if (!byYear[j.jy][j.jm]) byYear[j.jy][j.jm] = [];
+      if (!byYear[j.jy][j.jm]) byYear[j.jy][j.jm] = {};
       var gp = g.split("-");
       var dt = new Date(parseInt(gp[0],10), parseInt(gp[1],10) - 1, parseInt(gp[2],10));
-      byYear[j.jy][j.jm].push({
+      byYear[j.jy][j.jm][g] = {
         g: g,
         jd: j.jd,
         weekday: WEEKDAYS[dt.getDay()] || "",
         isToday: g === todayYmd()
-      });
+      };
     });
     var cur = currentJalali();
-    var currentYear = cur ? cur.jy : 0;
+    var currentYear = cur ? cur.jy : 1405;
     var years = Object.keys(byYear).map(Number);
-    if (currentYear && years.indexOf(currentYear) < 0) years.push(currentYear);
-    years.sort(function(a,b){ return b - a; });
-    return years.map(function(year){
+    years.push(currentYear);
+    years.push(1410);
+    years = years.filter(function(y){ return y > 0; });
+    var minY = Math.min.apply(null, years);
+    var maxY = Math.max(Math.max.apply(null, years), 1410);
+    var out = [];
+    for (var year = maxY; year >= minY; year--) {
       var months = [];
       for (var m = 1; m <= 12; m++) {
-        if (year !== currentYear && !(byYear[year] && byYear[year][m] && byYear[year][m].length)) continue;
-        var days = ((byYear[year] && byYear[year][m]) || []).slice().sort(function(a,b){
-          return a.g < b.g ? -1 : a.g > b.g ? 1 : 0;
-        });
+        var len = monthLength(year, m);
+        var days = [];
+        for (var d = 1; d <= len; d++) {
+          var gdate = "";
+          if (window.jalaali) {
+            var g = jalaali.toGregorian(year, m, d);
+            gdate = g.gy + "-" + pad(g.gm) + "-" + pad(g.gd);
+          }
+          var existing = byYear[year] && byYear[year][m] && byYear[year][m][gdate] ? byYear[year][m][gdate] : null;
+          var dt = gdate ? new Date(gdate + "T12:00:00") : null;
+          days.push(existing || {
+            g: gdate,
+            jd: d,
+            weekday: dt ? (WEEKDAYS[dt.getDay()] || "") : "",
+            isToday: gdate === todayYmd()
+          });
+        }
         months.push({
           id: "m-" + year + "-" + pad(m),
           month: m,
@@ -409,13 +434,14 @@ $secretaryBookScripts = '
           days: days
         });
       }
-      return {
+      out.push({
         id: "y-" + year,
         year: year,
         label: toFa(year),
         months: months
-      };
-    }).filter(function(y){ return y.months.length; });
+      });
+    }
+    return out;
   }
   function pickDefaultNav(years, selectedG){
     var ids = {};
@@ -514,15 +540,11 @@ $secretaryBookScripts = '
     years.forEach(function(year){
       html += "<section data-ymd-year=\\"" + escHtml(year.id) + "\\" data-ymd-label=\\"" + escHtml(year.label) + "\\"" + (nav.yearId === year.id ? "" : " hidden") + ">";
       year.months.forEach(function(month){
-        html += "<section data-ymd-month=\\"" + escHtml(month.id) + "\\" data-ymd-label=\\"" + escHtml(month.label) + "\\" data-ymd-count=\\"" + escHtml(String(month.days.length)) + "\\" hidden>";
-        if (!month.days.length) {
-          html += "<section data-ymd-day=\\"\\" data-ymd-label=\\"روز خالی نیست\\" hidden><p class=\\"muted\\" style=\\"margin:0\\">در این ماه روز خالی ثبت نشده.</p></section>";
-        } else {
-          month.days.forEach(function(day){
-            var lab = day.isToday ? "امروز" : (toFa(day.jd) + " " + day.weekday);
-            html += "<section data-ymd-day=\\"" + escHtml(day.g) + "\\" data-ymd-label=\\"" + escHtml(lab) + "\\" hidden></section>";
-          });
-        }
+        html += "<section data-ymd-month=\\"" + escHtml(month.id) + "\\" data-ymd-label=\\"" + escHtml(month.label) + "\\" hidden>";
+        month.days.forEach(function(day){
+          var lab = day.isToday ? "امروز" : toFa(day.jd);
+          html += "<section data-ymd-day=\\"" + escHtml(day.g) + "\\" data-ymd-label=\\"" + escHtml(lab) + "\\" hidden></section>";
+        });
         html += "</section>";
       });
       html += "</section>";

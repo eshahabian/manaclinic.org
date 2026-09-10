@@ -35,7 +35,11 @@ if ($defaultMonthId === '' || !isset($defaultMonths[$defaultMonthId])) {
     $defaultMonthId = (string) (array_key_first($defaultMonths) ?? '');
 }
 $defaultMonth = is_array($defaultMonths[$defaultMonthId] ?? null) ? $defaultMonths[$defaultMonthId] : [];
-$defaultDayId = (string) ($ymdPack['default_day_id'] ?? $defaultMonth['all_id'] ?? ($defaultMonthId . '-all'));
+$defaultDayId = (string) ($ymdPack['default_day_id'] ?? '');
+$defaultDays = is_array($defaultMonth['days'] ?? null) ? $defaultMonth['days'] : [];
+if ($defaultDayId === '' || str_ends_with($defaultDayId, '-all') || (!isset($defaultDays[$defaultDayId]) && !isset($defaultMonth['days'][$defaultDayId]))) {
+    $defaultDayId = ymd_pick_default_day_id($defaultMonth, date('Y-m-d'));
+}
 ?>
 <div class="<?= e($ymdWrapClass) ?>"
      data-ymd-cascade
@@ -80,57 +84,29 @@ $defaultDayId = (string) ($ymdPack['default_day_id'] ?? $defaultMonth['all_id'] 
               }
               $monthId = (string) $monthId;
               $days = is_array($month['days'] ?? null) ? $month['days'] : [];
-              $allId = (string) ($month['all_id'] ?? ($monthId . '-all'));
-              $people = (int) ($month['people'] ?? 0);
               $itemCount = count($month['items'] ?? []);
               $slotCount = count($month['open_slots'] ?? []);
-              $count = (int) ($month['count'] ?? ($itemCount + $slotCount));
-              $names = is_array($month['people_names'] ?? null) ? $month['people_names'] : [];
               $monthOn = $defaultYearId === $yearId && $defaultMonthId === $monthId;
             ?>
             <section data-ymd-month="<?= e($monthId) ?>"
                      data-ymd-label="<?= e((string) ($month['tab_label'] ?? $month['short'] ?? $monthId)) ?>"
-                     data-ymd-count="<?= e((string) $count) ?>"
                      <?= $monthOn ? '' : ' hidden' ?>>
-              <section class="ymd-day-panel<?= ($monthOn && $defaultDayId === $allId) ? ' is-active' : '' ?>"
-                       data-ymd-day="<?= e($allId) ?>"
-                       data-ymd-label="کل <?= e((string) ($month['short'] ?? 'ماه')) ?>"
-                       data-ymd-count="<?= e((string) $count) ?>"
-                       <?= ($monthOn && $defaultDayId === $allId) ? '' : ' hidden' ?>>
-                <h2 class="binder-sub" style="margin-top:0"><?= e($ymdAllPrefix) ?> <?= e((string) ($month['label'] ?? '')) ?></h2>
-                <p class="appt-ymd-summary muted">
-                  <?= e(to_fa_digits((string) $itemCount)) ?> <?= e($ymdNoun) ?>
-                  <?php if ($ymdShowPeople && $people > 0): ?>
-                    · <?= e(to_fa_digits((string) $people)) ?> نفر
-                  <?php endif; ?>
-                  <?php if ($slotCount > 0): ?>
-                    · <?= e(to_fa_digits((string) $slotCount)) ?> ساعت خالی
-                  <?php endif; ?>
-                </p>
-                <?php if ($ymdShowPeople && $names): ?>
-                  <p class="appt-ymd-people"><?= e(implode('، ', array_values($names))) ?></p>
-                <?php endif; ?>
-                <?php
-                  if (is_callable($ymdRenderItems)) {
-                      $ymdRenderItems($month['items'] ?? [], $month);
-                  }
-                ?>
-              </section>
               <?php foreach ($days as $day): ?>
                 <?php
                   if (!is_array($day)) {
                       continue;
                   }
                   $did = (string) ($day['id'] ?? '');
+                  if ($did === '' || str_ends_with($did, '-all')) {
+                      continue;
+                  }
                   $dayOn = $monthOn && $defaultDayId === $did;
                   $dayItems = $day['items'] ?? [];
                   $daySlots = $day['open_slots'] ?? [];
-                  $dayCount = (int) ($day['count'] ?? (count($dayItems) + count($daySlots)));
                 ?>
                 <section class="ymd-day-panel<?= $dayOn ? ' is-active' : '' ?>"
                          data-ymd-day="<?= e($did) ?>"
                          data-ymd-label="<?= e((string) ($day['tab_label'] ?? $day['label'] ?? '')) ?>"
-                         data-ymd-count="<?= e((string) $dayCount) ?>"
                          <?= $dayOn ? '' : ' hidden' ?>>
                   <h2 class="binder-sub" style="margin-top:0"><?= e((string) ($day['label'] ?? '')) ?></h2>
                   <p class="appt-ymd-summary muted">

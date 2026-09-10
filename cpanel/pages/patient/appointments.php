@@ -57,7 +57,7 @@ ob_start();
 <?= booking_terms_modal_html('terms-modal') ?>
 <?= booking_terms_styles() ?>
 <script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260904u"></script>
-<script src="<?= e(url('/assets/js/ymd-cascade.js')) ?>?v=20260910q"></script>
+<script src="<?= e(url('/assets/js/ymd-cascade.js')) ?>?v=20260910r"></script>
 <script src="<?= e(url('/assets/js/patient-book-slots.js')) ?>?v=20260904y"></script>
 <script>
 (function(){

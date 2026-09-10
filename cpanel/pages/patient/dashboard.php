@@ -93,7 +93,7 @@ ob_start();
 $dashContent = ob_get_clean();
 $GLOBALS['pageScripts'] = '
 <script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260904u"></script>
-<script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910q"></script>
+<script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910r"></script>
 <script src="' . e(url('/assets/js/patient-courses.js')) . '?v=20260906w"></script>
 <script src="' . e(url('/assets/js/patient-book-slots.js')) . '?v=20260904y"></script>'
   . booking_terms_script('terms-accept-dash', '.dash-book-btn');

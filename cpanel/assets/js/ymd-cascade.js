@@ -1,15 +1,16 @@
 (function () {
-  function opt(value, label, count) {
+  function opt(value, label) {
     var o = document.createElement("option");
     o.value = value;
-    o.textContent = count ? (label + " (" + count + ")") : label;
+    o.textContent = label;
     return o;
   }
   function fillSelect(sel, items, selected) {
     if (!sel) return;
     sel.innerHTML = "";
     items.forEach(function (item) {
-      sel.appendChild(opt(item.id, item.label, item.count));
+      if (!item.id) return;
+      sel.appendChild(opt(item.id, item.label));
     });
     if (selected && items.some(function (i) { return i.id === selected; })) {
       sel.value = selected;

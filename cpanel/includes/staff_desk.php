@@ -846,37 +846,34 @@ function staff_hours_calendar(array $block): array
         }
     }
 
-    $yearsFound = [$currentJy => true];
+    $yearsFound = [$currentJy => true, ymd_jalali_max_year() => true];
     foreach (array_keys($present) as $gdate) {
         $meta = jalali_month_meta_from_datetime($gdate . ' 12:00:00');
         if ($meta) {
             $yearsFound[(int) $meta['year']] = true;
         }
     }
-    krsort($yearsFound);
-
     $rawKey = $block['key'] ?? $block['tab_id'] ?? $block['slot'] ?? '1';
     if (is_array($rawKey) || is_object($rawKey)) {
         $rawKey = '1';
     }
     $slot = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) $rawKey) ?: '1';
+    $yearList = array_map('intval', array_keys($yearsFound));
+    $yearList = array_values(array_filter($yearList, static fn(int $jy): bool => $jy > 0));
+    $minJy = $yearList ? min($yearList) : $currentJy;
+    $maxJy = max($yearList ? max($yearList) : $currentJy, ymd_jalali_max_year());
     $years = [];
-    foreach (array_keys($yearsFound) as $jy) {
+    for ($jy = $maxJy; $jy >= $minJy; $jy--) {
         $jy = (int) $jy;
-        if ($jy < 1) {
-            continue;
-        }
         $months = [];
         $presentCount = 0;
         for ($jm = 1; $jm <= 12; $jm++) {
             $meta = jalali_month_meta_from_parts($jy, $jm);
             $len = jalali_month_length($jy, $jm);
             $days = [];
+            $monthPresent = 0;
             for ($jd = 1; $jd <= $len; $jd++) {
                 $gdate = jalali_ymd($jy, $jm, $jd);
-                if (empty($present[$gdate])) {
-                    continue;
-                }
                 $parts = jalali_day_parts($gdate . ' 12:00:00') ?? [];
                 $days[$gdate] = [
                     'id' => 's' . $slot . '-d-' . $gdate,
@@ -886,10 +883,10 @@ function staff_hours_calendar(array $block): array
                     'tab_label' => $gdate === $today ? 'امروز' : (string) ($parts['day_fa'] ?? to_fa_digits((string) $jd)),
                     'is_today' => $gdate === $today,
                 ];
-                $presentCount++;
-            }
-            if ($days === [] && $jy !== $currentJy) {
-                continue;
+                if (!empty($present[$gdate])) {
+                    $monthPresent++;
+                    $presentCount++;
+                }
             }
             $monthId = 's' . $slot . '-m-' . (string) ($meta['key'] ?? sprintf('%04d-%02d', $jy, $jm));
             if (!is_array($meta)) {
@@ -899,12 +896,8 @@ function staff_hours_calendar(array $block): array
                 'id' => $monthId,
                 'length' => $len,
                 'days' => $days,
-                'present_count' => count($days),
-                'range_tab_label' => 'کل ' . (string) ($meta['tab_label'] ?? $meta['short'] ?? 'ماه'),
+                'present_count' => $monthPresent,
             ]);
-        }
-        if ($presentCount === 0 && $jy !== $currentJy) {
-            continue;
         }
         $yearId = 's' . $slot . '-y-' . $jy;
         $years[$yearId] = [
@@ -923,7 +916,7 @@ function staff_hours_calendar(array $block): array
         $defaultYearId = (string) (array_key_first($years) ?? '');
     }
     $defaultMonthId = 's' . $slot . '-m-' . sprintf('%04d-%02d', $currentJy, $currentJm);
-    $defaultDayId = isset($present[$today]) ? ('s' . $slot . '-d-' . $today) : '';
+    $defaultDayId = 's' . $slot . '-d-' . $today;
 
     return [
         'years' => $years,

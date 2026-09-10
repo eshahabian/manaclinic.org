@@ -614,7 +614,13 @@ function attach_open_slots_to_ymd_pack(array $pack, array $slots, string $prefer
         $months = is_array($year['months'] ?? null) ? $year['months'] : [];
         $yearCount = (int) ($year['count'] ?? 0);
         foreach ($months as $monthId => $month) {
-            $month['days'] = appointment_finalize_day_groups(is_array($month['days'] ?? null) ? $month['days'] : []);
+            $jy = (int) ($month['year'] ?? ($year['year'] ?? 0));
+            $jm = (int) ($month['month'] ?? 0);
+            if ($jy > 0 && $jm > 0) {
+                $month['days'] = ymd_pad_month_days($prefix, $jy, $jm, is_array($month['days'] ?? null) ? $month['days'] : [], $today);
+            } else {
+                $month['days'] = appointment_finalize_day_groups(is_array($month['days'] ?? null) ? $month['days'] : []);
+            }
             $open = is_array($month['open_slots'] ?? null) ? $month['open_slots'] : [];
             $month['open_slots'] = $open;
             $month['count'] = count($month['items'] ?? []) + count($open);

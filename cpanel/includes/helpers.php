@@ -699,9 +699,82 @@ function appointment_empty_month_bucket(string $prefix, int $jy, int $jm): array
     ]);
 }
 
+function ymd_jalali_max_year(): int
+{
+    return 1410;
+}
+
 function ymd_cascade_script(): string
 {
-    return '<script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910q"></script>';
+    return '<script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910r"></script>';
+}
+
+function ymd_empty_day_bucket(string $prefix, int $jy, int $jm, int $jd, string $today): array
+{
+    $g = jalali_ymd($jy, $jm, $jd);
+    $months = jalali_month_names();
+    $month = $months[$jm] ?? (string) $jm;
+    return [
+        'id' => $prefix . '-d-' . $g,
+        'date' => $g,
+        'sort' => $g,
+        'day' => $jd,
+        'label' => to_fa_digits((string) $jd) . ' ' . $month,
+        'tab_label' => $g === $today ? 'امروز' : to_fa_digits((string) $jd),
+        'is_today' => $g === $today,
+        'items' => [],
+        'open_slots' => [],
+    ];
+}
+
+function ymd_pad_month_days(string $prefix, int $jy, int $jm, array $days, string $today): array
+{
+    $len = jalali_month_length($jy, $jm);
+    $byDate = [];
+    foreach ($days as $day) {
+        if (!is_array($day)) {
+            continue;
+        }
+        $date = (string) ($day['date'] ?? '');
+        if ($date !== '' && $date !== 'other') {
+            $byDate[$date] = $day;
+        }
+    }
+    $out = [];
+    for ($jd = 1; $jd <= $len; $jd++) {
+        $g = jalali_ymd($jy, $jm, $jd);
+        $dayId = $prefix . '-d-' . $g;
+        if (isset($byDate[$g]) && is_array($byDate[$g])) {
+            $bucket = $byDate[$g];
+            $empty = ymd_empty_day_bucket($prefix, $jy, $jm, $jd, $today);
+            $out[$dayId] = array_merge($empty, $bucket, [
+                'id' => $dayId,
+                'date' => $g,
+                'sort' => $g,
+                'tab_label' => (string) ($bucket['tab_label'] ?? $empty['tab_label']),
+                'label' => (string) ($bucket['label'] ?? $empty['label']),
+            ]);
+            continue;
+        }
+        $out[$dayId] = ymd_empty_day_bucket($prefix, $jy, $jm, $jd, $today);
+    }
+    return appointment_finalize_day_groups($out);
+}
+
+function ymd_pick_default_day_id(array $month, string $today): string
+{
+    $days = is_array($month['days'] ?? null) ? $month['days'] : [];
+    foreach ($days as $id => $day) {
+        if ((string) (($day['date'] ?? '')) === $today) {
+            return (string) ($day['id'] ?? $id);
+        }
+    }
+    $first = array_key_first($days);
+    if ($first === null) {
+        return '';
+    }
+    $firstDay = $days[$first];
+    return (string) (is_array($firstDay) ? ($firstDay['id'] ?? $first) : $first);
 }
 
 function ymd_row_datetime(array $row, string $key = 'starts_at'): string
@@ -798,34 +871,37 @@ function group_appointments_by_jalali_ymd(array $appointments, string $prefix = 
     }
 
     $yearNums = array_keys($byYear);
-    if ($fill !== 'none') {
-        $yearNums[] = $currentJy;
-    }
+    $yearNums[] = $currentJy;
+    $yearNums[] = ymd_jalali_max_year();
     $yearNums = array_values(array_unique(array_map('intval', $yearNums)));
-    rsort($yearNums);
+    $yearNums = array_values(array_filter($yearNums, static fn(int $jy): bool => $jy > 0));
+    if ($yearNums === []) {
+        $yearNums = [$currentJy];
+    }
+    $minJy = min($yearNums);
+    $maxJy = max(max($yearNums), ymd_jalali_max_year());
     $years = [];
 
-    foreach ($yearNums as $jy) {
+    for ($jy = $maxJy; $jy >= $minJy; $jy--) {
         $jy = (int) $jy;
-        if ($jy < 1) {
-            continue;
-        }
         $yearMonths = is_array($byYear[$jy] ?? null) ? $byYear[$jy] : [];
         $yearItems = [];
         $months = [];
         for ($jm = 1; $jm <= 12; $jm++) {
             $monthId = $prefix . '-m-' . sprintf('%04d-%02d', $jy, $jm);
-            $hasBucket = isset($yearMonths[$monthId]);
-            $allowEmpty = $jy === $currentJy && $fill !== 'none'
-                && ($fill === 'year' || $jm >= $currentJm);
-            if (!$hasBucket && !$allowEmpty) {
-                continue;
-            }
-            $month = $hasBucket ? $yearMonths[$monthId] : appointment_empty_month_bucket($prefix, $jy, $jm);
+            $month = isset($yearMonths[$monthId]) && is_array($yearMonths[$monthId])
+                ? $yearMonths[$monthId]
+                : appointment_empty_month_bucket($prefix, $jy, $jm);
             if (!isset($month['open_slots']) || !is_array($month['open_slots'])) {
                 $month['open_slots'] = [];
             }
-            $month['days'] = appointment_finalize_day_groups(is_array($month['days'] ?? null) ? $month['days'] : []);
+            $month['days'] = ymd_pad_month_days(
+                $prefix,
+                $jy,
+                $jm,
+                is_array($month['days'] ?? null) ? $month['days'] : [],
+                $today
+            );
             $monthItems = $month['items'] ?? [];
             $month['count'] = count($monthItems) + count($month['open_slots']);
             $month['people'] = appointment_unique_patient_count($monthItems);
@@ -834,9 +910,6 @@ function group_appointments_by_jalali_ymd(array $appointments, string $prefix = 
             foreach ($monthItems as $row) {
                 $yearItems[] = $row;
             }
-        }
-        if ($months === [] || ($yearItems === [] && ($fill === 'none' || $jy !== $currentJy))) {
-            continue;
         }
         $yearId = $prefix . '-y-' . $jy;
         $years[$yearId] = [
@@ -916,7 +989,7 @@ function group_appointments_by_jalali_ymd(array $appointments, string $prefix = 
         }
     }
     $defaultMonth = is_array($yearMonths[$defaultMonthId] ?? null) ? $yearMonths[$defaultMonthId] : [];
-    $defaultDayId = (string) ($defaultMonth['all_id'] ?? ($defaultMonthId . '-all'));
+    $defaultDayId = ymd_pick_default_day_id($defaultMonth, $today);
 
     return [
         'years' => $years,

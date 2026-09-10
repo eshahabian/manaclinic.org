@@ -191,5 +191,5 @@ ob_start();
 <?php
 $inner = ob_get_clean();
 $pageScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260910p"></script>'
-    . '<script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910p"></script>';
+    . '<script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910r"></script>';
 render_secretary_page((string) $patient['name'], $inner);
