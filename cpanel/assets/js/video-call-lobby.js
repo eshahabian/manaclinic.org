@@ -125,14 +125,19 @@
           '<span class="vc-avatar-fallback">' + esc(letter) + "</span>" +
           '<span class="vc-dot' + (item.online ? " is-online" : " is-offline") + '"></span>' +
         "</span>" +
-        '<span class="vc-person-meta"><strong>' + esc(item.name || "مراجعه‌کننده") + "</strong>" +
-        '<span class="muted">' + (item.online ? "آنلاین" : "آفلاین") + "</span></span>" +
+        '<span class="vc-person-meta"><strong>' + esc(item.name || "مخاطب") + "</strong>" +
+        '<span class="muted">' + (item.online ? "آنلاین" : "آفلاین") + (item.role === "DOCTOR" ? " · درمانگر" : " · مراجعه‌کننده") + "</span></span>" +
       "</div>"
     );
   }
 
-  function fetchContacts(q, limit) {
-    return post({ action: "contacts", q: String(q || ""), limit: limit || 8 }).then(function (data) {
+  function fetchContacts(q, limit, roles) {
+    return post({
+      action: "contacts",
+      q: String(q || ""),
+      limit: limit || 8,
+      roles: roles || "PATIENT"
+    }).then(function (data) {
       return (data && data.ok && data.items) ? data.items : [];
     });
   }
@@ -203,19 +208,11 @@
     var seq = ++searchSeq;
     if (!q) {
       closeSuggest();
-      if (overlay && !overlay.hidden) {
-        overlayCatalog = catalog();
-        renderOverlayLists(overlayCatalog);
-      }
       return;
     }
-    fetchContacts(q, 8).then(function (items) {
+    fetchContacts(q, 8, "PATIENT").then(function (items) {
       if (seq !== searchSeq) return;
       renderSuggest(items, q);
-      if (overlay && !overlay.hidden) {
-        overlayCatalog = items;
-        renderOverlayLists(overlayCatalog);
-      }
     }).catch(function () {
       if (seq !== searchSeq) return;
       renderSuggest([], q);
@@ -313,21 +310,28 @@
   }
 
   var overlayCatalog = [];
+  var overlaySearchTimer = null;
+  var overlaySearchEl = app.querySelector("[data-vc-overlay-search]");
+  function loadOverlayPeople(q) {
+    q = String(q || "").trim();
+    fetchContacts(q, q ? 12 : 4, "ALL").then(function (items) {
+      overlayCatalog = items;
+      renderOverlayLists(overlayCatalog);
+    }).catch(function () {
+      overlayCatalog = catalog().slice(0, 4);
+      renderOverlayLists(overlayCatalog);
+    });
+  }
   function openOverlay() {
     if (!overlay) return;
     overlayPicked = {};
     members.forEach(function (m) { overlayPicked[m.id] = m; });
     overlayHighlight = { source: "", picked: "" };
-    overlayCatalog = catalog();
+    overlayCatalog = catalog().slice(0, 4);
     renderOverlayLists(overlayCatalog);
     overlay.hidden = false;
-    fetchContacts(searchInput ? searchInput.value : "", searchInput && searchInput.value.trim() ? 8 : 5).then(function (items) {
-      overlayCatalog = items.length ? items : catalog();
-      renderOverlayLists(overlayCatalog);
-    }).catch(function () {
-      overlayCatalog = catalog();
-      renderOverlayLists(overlayCatalog);
-    });
+    if (overlaySearchEl) overlaySearchEl.value = "";
+    loadOverlayPeople("");
   }
 
   function closeOverlay() {
@@ -640,6 +644,15 @@
     });
     searchInput.addEventListener("focus", function () {
       if (String(searchInput.value || "").trim()) runSearch(searchInput.value);
+    });
+  }
+
+  if (overlaySearchEl) {
+    overlaySearchEl.addEventListener("input", function () {
+      clearTimeout(overlaySearchTimer);
+      overlaySearchTimer = setTimeout(function () {
+        loadOverlayPeople(overlaySearchEl.value);
+      }, 140);
     });
   }
 

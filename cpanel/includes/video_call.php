@@ -702,7 +702,15 @@ function video_call_create_group(PDO $pdo, array $user, string $title, array $me
     $add = [];
     $memberIds = array_values(array_unique(array_filter(array_map('strval', $memberIds))));
     if ($memberIds) {
-        foreach (video_call_contacts($pdo, $user, '', 'PATIENT', count($memberIds), $memberIds) as $c) {
+        $in = implode(',', array_fill(0, count($memberIds), '?'));
+        $stmt = $pdo->prepare("
+          SELECT id FROM users
+          WHERE id IN ($in)
+            AND id <> ?
+            AND role IN ('PATIENT','DOCTOR')
+        ");
+        $stmt->execute(array_merge($memberIds, [(string) ($user['id'] ?? '')]));
+        foreach ($stmt->fetchAll() as $c) {
             $add[(string) ($c['id'] ?? '')] = true;
         }
     }

@@ -272,6 +272,9 @@ $wmName = $peerName !== '' ? $peerName : 'جلسه';
     <div class="vc-overlay-grid">
       <div>
         <h3>انتخاب مخاطب</h3>
+        <div class="vc-overlay-search">
+          <input class="input" type="search" data-vc-overlay-search placeholder="جستجوی درمانگر یا مراجعه‌کننده…" autocomplete="off">
+        </div>
         <ul class="vc-people" data-vc-overlay-source></ul>
         <button type="button" class="btn btn-outline btn-sm" data-vc-overlay-select>انتخاب</button>
       </div>
@@ -317,8 +320,8 @@ document.querySelector("[data-copy-share]")?.addEventListener("click", function(
 </script>
 <?php
 $inner = ob_get_clean();
-$GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260910e"></script>'
-    . '<script src="' . e(url('/assets/js/video-call-lobby.js')) . '?v=20260910e"></script>';
+$GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260910k"></script>'
+    . '<script src="' . e(url('/assets/js/video-call-lobby.js')) . '?v=20260910k"></script>';
 
 $role = (string) ($user['role'] ?? '');
 if ($role === 'DOCTOR') {
