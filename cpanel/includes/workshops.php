@@ -241,7 +241,7 @@ function workshop_datetime_ts(?string $value): ?int
         return null;
     }
     $ts = strtotime($value);
-    if ($ts === false || $ts <= 0) {
+    if ($ts === false || $ts < strtotime('1970-01-02 00:00:00')) {
         return null;
     }
 
