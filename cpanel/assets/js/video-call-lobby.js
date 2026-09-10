@@ -673,4 +673,113 @@
   }
 
   setTab("home");
+
+  var knownOnline = null;
+  var toastEl = null;
+  var toastTimer = null;
+  var toastQueue = [];
+  function ensureOnlineToast() {
+    if (toastEl) return toastEl;
+    toastEl = document.createElement("div");
+    toastEl.className = "vc-online-toast";
+    toastEl.hidden = true;
+    toastEl.setAttribute("role", "status");
+    toastEl.innerHTML = '<span class="vc-dot is-online" aria-hidden="true"></span><p></p>';
+    document.body.appendChild(toastEl);
+    return toastEl;
+  }
+  function showOnlineToast(name) {
+    var text = (name || "مخاطب") + " آنلاین شد";
+    toastQueue.push(text);
+    if (toastTimer) return;
+    flushOnlineToast();
+  }
+  function flushOnlineToast() {
+    if (!toastQueue.length) {
+      toastTimer = null;
+      if (toastEl) toastEl.hidden = true;
+      return;
+    }
+    var bar = ensureOnlineToast();
+    var p = bar.querySelector("p");
+    if (p) p.textContent = toastQueue.shift();
+    bar.hidden = false;
+    if ("Notification" in window && Notification.permission === "granted" && document.hidden) {
+      try {
+        var note = new Notification("تماس مانا", { body: p ? p.textContent : "کسی آنلاین شد", tag: "mana-video-online", renotify: true });
+        note.onclick = function () { window.focus(); };
+      } catch (e) {}
+    }
+    if (navigator.vibrate) navigator.vibrate(80);
+    toastTimer = setTimeout(function () {
+      toastTimer = null;
+      flushOnlineToast();
+    }, toastQueue.length ? 2800 : 4500);
+  }
+  function markPersonOnline(el, online) {
+    if (!el) return;
+    var dot = el.querySelector(".vc-dot");
+    if (dot) {
+      dot.classList.toggle("is-online", !!online);
+      dot.classList.toggle("is-offline", !online);
+      dot.setAttribute("title", online ? "آنلاین" : "آفلاین");
+    }
+    var muted = el.querySelector(".muted");
+    if (muted) {
+      muted.textContent = muted.textContent.replace(/آنلاین|آفلاین/, online ? "آنلاین" : "آفلاین");
+    }
+    var raw = el.getAttribute("data-vc-select");
+    if (raw) {
+      try {
+        var item = JSON.parse(raw);
+        item.online = !!online;
+        el.setAttribute("data-vc-select", JSON.stringify(item));
+      } catch (e) {}
+    }
+  }
+  function pollPresence() {
+    post({ action: "presence" }).then(function (data) {
+      if (!data || !data.ok) return;
+      var items = data.items || [];
+      var nowOnline = {};
+      items.forEach(function (item) {
+        if (!item || !item.id) return;
+        if (item.online) nowOnline[item.id] = item;
+        app.querySelectorAll('[data-user-id="' + item.id + '"]').forEach(function (el) {
+          markPersonOnline(el, !!item.online);
+        });
+      });
+      if (knownOnline === null) {
+        knownOnline = nowOnline;
+        return;
+      }
+      Object.keys(nowOnline).forEach(function (id) {
+        if (!knownOnline[id]) {
+          showOnlineToast(nowOnline[id].name);
+          if ("Notification" in window && Notification.permission === "granted" && !document.hidden) {
+            try {
+              new Notification("تماس مانا", { body: (nowOnline[id].name || "مخاطب") + " آنلاین شد", tag: "mana-online-" + id });
+            } catch (e) {}
+          }
+        }
+      });
+      knownOnline = nowOnline;
+    }).catch(function () {});
+  }
+  if ("Notification" in window && Notification.permission === "default") {
+    document.addEventListener("click", function () {
+      Notification.requestPermission().catch(function () {});
+    }, { once: true });
+  }
+  function schedulePresence() {
+    setTimeout(function () {
+      pollPresence();
+      schedulePresence();
+    }, document.hidden ? 12000 : 5000);
+  }
+  pollPresence();
+  schedulePresence();
+  document.addEventListener("visibilitychange", function () {
+    if (!document.hidden) pollPresence();
+  });
 })();

@@ -19,6 +19,18 @@ if (!is_array($body)) {
 }
 $action = trim((string) ($body['action'] ?? $_GET['action'] ?? 'poll'));
 
+if ($action === 'presence') {
+    if (!video_call_is_clinician($user)) {
+        video_call_json(['ok' => true, 'items' => []]);
+    }
+    $rows = video_call_contacts($pdo, $user, '', '', 80);
+    $items = [];
+    foreach ($rows as $c) {
+        $items[] = video_call_contact_payload($c);
+    }
+    video_call_json(['ok' => true, 'items' => $items]);
+}
+
 if ($action === 'ping' || $action === 'inbox' || $action === 'contacts') {
     if ($action === 'contacts') {
         if (!video_call_is_clinician($user)) {

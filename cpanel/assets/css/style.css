@@ -1271,6 +1271,34 @@ body.home-workshop-locked { overflow: hidden; }
   background: #94a3b8;
 }
 .vc-dot.is-online { background: #22c55e; }
+.vc-online-toast {
+  position: fixed;
+  top: .85rem;
+  inset-inline-end: .85rem;
+  z-index: 81;
+  display: flex;
+  align-items: center;
+  gap: .55rem;
+  max-width: min(22rem, calc(100vw - 1.5rem));
+  padding: .7rem .95rem;
+  border-radius: .85rem;
+  background: #134437;
+  color: #fff;
+  box-shadow: 0 12px 28px rgba(0,0,0,.28);
+  font-weight: 700;
+  font-size: .9rem;
+  line-height: 1.5;
+}
+.vc-online-toast[hidden] { display: none !important; }
+.vc-online-toast .vc-dot {
+  position: static;
+  width: .65rem;
+  height: .65rem;
+  inset: auto;
+  border-color: rgba(255,255,255,.35);
+  flex-shrink: 0;
+}
+.vc-online-toast p { margin: 0; }
 .vc-share { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; margin: .5rem 0 0; }
 .vc-share .input { flex: 1; min-width: 12rem; font-size: .8rem; }
 .vc-remotes {
