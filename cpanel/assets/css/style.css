@@ -1,3 +1,14 @@
+/* B Homa: uses installed copy via local(), else CDN. To self-host, add assets/fonts/BHoma.woff2 and a url() here. */
+@font-face {
+  font-family: "B Homa";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local("B Homa"), local("BHoma"),
+    url("https://db.onlinewebfonts.com/t/2ee8450347fdb0d8b65fd12d337ea781.woff2") format("woff2"),
+    url("https://db.onlinewebfonts.com/t/2ee8450347fdb0d8b65fd12d337ea781.woff") format("woff");
+}
+
 :root {
   --bg: #f7f5f0;
   --bg-soft: #e8efe9;
@@ -1737,7 +1748,9 @@ body.is-auth {
   gap: .38rem;
 }
 .auth-form-register .auth-form-title {
-  font-size: 1.35rem;
+  font-family: "B Homa", "BHoma", "Amiri", serif;
+  font-size: 1.55rem;
+  font-weight: 400;
   margin: 0;
 }
 .auth-form-register .auth-form-title::after { margin-top: .3rem; margin-bottom: .1rem; }
@@ -1868,7 +1881,8 @@ body.is-auth {
 }
 .auth-card[data-mode="register"] .auth-band-page[data-band="register"] .auth-band-copy {
   right: 0;
-  width: 34%;
+  width: 38%;
+  padding-inline: .55rem;
 }
 .auth-band-page.is-on { opacity: 1; }
 .auth-kicker,
@@ -1888,6 +1902,17 @@ body.is-auth {
   font-style: italic;
   line-height: 1.25;
   color: #fff;
+}
+.auth-card[data-mode="register"] .auth-band-page[data-band="register"] .auth-kicker,
+.auth-card[data-mode="register"] .auth-band-page[data-band="register"] .auth-welcome {
+  font-family: "B Homa", "BHoma", "Amiri", serif;
+  font-style: normal;
+  font-weight: 400;
+}
+.auth-card[data-mode="register"] .auth-band-page[data-band="register"] .auth-welcome {
+  font-size: clamp(1.12rem, 1.85vw, 1.48rem);
+  line-height: 1.8;
+  max-width: 13.5em;
 }
 .auth-card .password-field { display: grid; gap: .28rem; }
 .auth-card .password-field .label { font-size: .82rem; color: #5a6a63; }

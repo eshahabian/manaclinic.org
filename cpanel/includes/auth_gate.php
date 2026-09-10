@@ -133,7 +133,7 @@ $nameDict = isset($pdo) ? build_name_transliterations_client_map($pdo) : [];
         <div class="auth-band-page<?= $authMode === 'register' ? ' is-on' : '' ?>" data-band="register">
           <div class="auth-band-copy">
             <p class="auth-kicker">مانا کلینیک</p>
-            <h2 class="auth-welcome">ثبت‌نام</h2>
+            <h2 class="auth-welcome">بیا یه حال خوب را با هم تجربه کنیم</h2>
           </div>
         </div>
       </div>
