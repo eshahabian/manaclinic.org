@@ -27,6 +27,8 @@ $pageTitle = 'کلینیک روانشناسی سعادت‌آباد';
 $pageDescription = 'مانا کلینیک سعادت‌آباد؛ روانشناسی، روان‌درمانی، زوج‌درمانی، کارگاه و دوره آموزشی، رزرو نوبت آنلاین و دستیار هوشمند سلامت روان.';
 $pageCanonical = url('/');
 $pageKeywords = 'مانا کلینیک, روانشناس سعادت آباد, رزرو نوبت روانشناسی, کارگاه روانشناسی, زوج درمانی, مشاوره اضطراب';
+require_once dirname(__DIR__) . '/includes/daily_quotes.php';
+$dailyQuote = daily_quote_for_date();
 $workshopBanners = function_exists('workshop_home_banners') ? workshop_home_banners($pdo) : [];
 $heroSlides = [
     url('/assets/img/hero.png'),
@@ -61,6 +63,17 @@ ob_start();
     <?php endforeach; ?>
   </div>
 </section>
+
+<?php if ($dailyQuote !== ''): ?>
+<aside class="home-daily-quote" aria-labelledby="home-daily-quote-label">
+  <div class="container-page">
+    <p class="home-daily-quote-label" id="home-daily-quote-label">جملهٔ امروز</p>
+    <blockquote class="home-daily-quote-text">
+      <p><?= e($dailyQuote) ?></p>
+    </blockquote>
+  </div>
+</aside>
+<?php endif; ?>
 
 <section class="container-page section">
       <div class="home-specialists-block">
