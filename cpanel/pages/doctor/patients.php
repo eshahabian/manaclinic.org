@@ -29,7 +29,8 @@ $stmt = $pdo->prepare("
       OR EXISTS (
         SELECT 1 FROM workshop_enrollments e
         JOIN workshops w ON w.id = e.workshop_id
-        WHERE e.patient_id = u.id AND w.doctor_id = ?
+        " . doctor_workshop_host_join('w') . "
+        WHERE e.patient_id = u.id
       )
     )
   GROUP BY u.id, u.name, u.username, u.phone

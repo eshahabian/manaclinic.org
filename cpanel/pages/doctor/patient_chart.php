@@ -318,16 +318,31 @@ ob_start();
         <?php else: ?>
           <ul class="ehr-list">
             <?php foreach ($enrollments as $en): ?>
+              <?php
+                $enType = (string) ($en['type'] ?? '');
+                $intervalLabel = $enType !== 'OFFLINE' && function_exists('workshop_session_interval_label')
+                    ? workshop_session_interval_label((string) ($en['session_interval'] ?? 'WEEKLY'))
+                    : '';
+                $sessionCount = (int) ($en['session_count'] ?? 0);
+                $enrolledAt = (string) (($en['enrolled_at'] ?? '') ?: ($en['created_at'] ?? ''));
+                $editUrl = url('/doctor/workshops?edit=' . rawurlencode((string) $en['workshop_id']));
+              ?>
               <li>
                 <div>
                   <strong><?= e((string) $en['title']) ?></strong>
                   <p class="muted">
-                    <?= e(workshop_type_label((string) $en['type'])) ?>
+                    <?= e(workshop_type_label($enType)) ?>
+                    <?php if ($intervalLabel !== ''): ?> · <?= e($intervalLabel) ?><?php endif; ?>
+                    <?php if ($sessionCount > 0): ?> · <?= to_fa_digits((string) $sessionCount) ?> جلسه<?php endif; ?>
                     · <?= e(enrollment_status_label((string) $en['status'])) ?>
-                    · <?= e(format_fa_datetime((string) $en['created_at'])) ?>
+                    · <?= $enrolledAt !== '' ? e(format_fa_datetime($enrolledAt)) : '—' ?>
                   </p>
                 </div>
-                <a class="btn btn-outline btn-sm" href="<?= e(workshop_path_doctor_url((string) $en['id'])) ?>">مسیر دوره</a>
+                <div class="ehr-list-actions">
+                  <a class="btn btn-outline btn-sm" href="<?= e(workshop_path_doctor_url((string) $en['id'])) ?>">مسیر دوره</a>
+                  <a class="btn btn-outline btn-sm" href="<?= e(workshop_qa_url_doctor((string) $en['workshop_id'])) ?>">تالار</a>
+                  <a class="btn btn-outline btn-sm" href="<?= e($editUrl) ?>">ویرایش</a>
+                </div>
               </li>
             <?php endforeach; ?>
           </ul>

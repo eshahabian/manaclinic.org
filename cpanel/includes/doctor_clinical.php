@@ -74,9 +74,10 @@ function require_doctor_patient_access(PDO $pdo, array $ctx, string $patientId):
         $ws = $pdo->prepare("
           SELECT COUNT(*) FROM workshop_enrollments e
           JOIN workshops w ON w.id = e.workshop_id
-          WHERE e.patient_id=? AND w.doctor_id=?
+          " . doctor_workshop_host_join('w') . "
+          WHERE e.patient_id=?
         ");
-        $ws->execute([$patientId, $doctorId]);
+        $ws->execute([$doctorId, $patientId]);
         $hasWorkshop = (int) $ws->fetchColumn() > 0;
     } catch (Throwable $e) {
         $hasWorkshop = false;
@@ -248,20 +249,78 @@ function get_or_create_patient_chart(PDO $pdo, string $doctorId, string $patient
     return $stmt->fetch() ?: ['id' => $id, 'doctor_id' => $doctorId, 'patient_id' => $patientId, 'history_text' => ''];
 }
 
+/**
+ * کارگاه‌هایی که این پروفایل درمانگر میزبان آن‌هاست.
+ * workshops.doctor_id معمولاً doctor_profiles.id است؛ اگر به‌اشتباه user_id ذخیره شده باشد هم پیدا می‌شود.
+ */
+function doctor_workshop_host_join(string $workshopAlias = 'w'): string
+{
+    $w = $workshopAlias;
+
+    return "INNER JOIN doctor_profiles host ON host.id = ? AND ({$w}.doctor_id = host.id OR {$w}.doctor_id = host.user_id)";
+}
+
+/**
+ * ثبت‌نام روی خود کارگاه، یا اگر workshop_id به‌اشتباه شناسه جلسه باشد از طریق workshop_sessions.
+ */
+function doctor_enrollment_workshop_join(string $enrollmentAlias = 'e', string $workshopAlias = 'w'): string
+{
+    $e = $enrollmentAlias;
+    $w = $workshopAlias;
+
+    return "
+      LEFT JOIN workshops {$w}_direct ON {$w}_direct.id = {$e}.workshop_id
+      LEFT JOIN workshop_sessions {$w}_sess ON {$w}_sess.id = {$e}.workshop_id
+      INNER JOIN workshops {$w} ON {$w}.id = COALESCE({$w}_direct.id, {$w}_sess.workshop_id)
+    ";
+}
+
 function doctor_patient_enrollments_for_doctor(PDO $pdo, string $doctorId, string $patientId): array
 {
+    $sessionsFile = __DIR__ . '/workshop_sessions.php';
+    if (is_file($sessionsFile)) {
+        require_once $sessionsFile;
+    }
+    if (function_exists('ensure_workshop_schema')) {
+        ensure_workshop_schema($pdo);
+    }
+    if (function_exists('ensure_workshop_sessions_schema')) {
+        ensure_workshop_sessions_schema($pdo);
+    }
     try {
         $stmt = $pdo->prepare("
-          SELECT e.id, e.status, e.created_at, w.id AS workshop_id, w.title, w.type, w.status AS workshop_status
+          SELECT e.id, e.status, e.enrolled_at,
+                 e.enrolled_at AS created_at,
+                 w.id AS workshop_id, w.title, w.type, w.status AS workshop_status,
+                 w.session_interval, w.starts_at, w.ends_at,
+                 (SELECT COUNT(*) FROM workshop_sessions s WHERE s.workshop_id = w.id) AS session_count
           FROM workshop_enrollments e
-          JOIN workshops w ON w.id = e.workshop_id
-          WHERE e.patient_id=? AND w.doctor_id=?
-          ORDER BY e.created_at DESC
+          " . doctor_enrollment_workshop_join() . "
+          " . doctor_workshop_host_join('w') . "
+          WHERE e.patient_id=?
+          ORDER BY e.enrolled_at DESC
         ");
-        $stmt->execute([$patientId, $doctorId]);
+        $stmt->execute([$doctorId, $patientId]);
         return $stmt->fetchAll();
     } catch (Throwable $e) {
-        return [];
+        try {
+            $stmt = $pdo->prepare("
+              SELECT e.id, e.status, e.enrolled_at,
+                     e.enrolled_at AS created_at,
+                     w.id AS workshop_id, w.title, w.type, w.status AS workshop_status,
+                     w.session_interval, w.starts_at, w.ends_at,
+                     0 AS session_count
+              FROM workshop_enrollments e
+              JOIN workshops w ON w.id = e.workshop_id
+              " . doctor_workshop_host_join('w') . "
+              WHERE e.patient_id=?
+              ORDER BY e.enrolled_at DESC
+            ");
+            $stmt->execute([$doctorId, $patientId]);
+            return $stmt->fetchAll();
+        } catch (Throwable $ignored) {
+            return [];
+        }
     }
 }
 
@@ -276,9 +335,9 @@ function doctor_patient_private_qa_for_doctor(PDO $pdo, string $doctorId, string
                  w.title AS workshop_title, au.name AS author_name
           FROM workshop_qa_posts q
           JOIN workshops w ON w.id = q.workshop_id
+          " . doctor_workshop_host_join('w') . "
           JOIN users au ON au.id = q.author_user_id
-          WHERE w.doctor_id=?
-            AND q.is_private=1
+          WHERE q.is_private=1
             AND (q.audience_user_id=? OR q.author_user_id=?)
           ORDER BY q.created_at DESC
           LIMIT 80
@@ -292,8 +351,15 @@ function doctor_patient_private_qa_for_doctor(PDO $pdo, string $doctorId, string
 
 function doctor_patient_path_notes_for_doctor(PDO $pdo, string $doctorId, string $patientId): array
 {
+    $sessionsFile = __DIR__ . '/workshop_sessions.php';
+    if (is_file($sessionsFile)) {
+        require_once $sessionsFile;
+    }
     if (function_exists('ensure_workshop_path_notes_schema')) {
         ensure_workshop_path_notes_schema($pdo);
+    }
+    if (function_exists('ensure_workshop_sessions_schema')) {
+        ensure_workshop_sessions_schema($pdo);
     }
     try {
         $stmt = $pdo->prepare("
@@ -302,16 +368,35 @@ function doctor_patient_path_notes_for_doctor(PDO $pdo, string $doctorId, string
                  s.title AS session_title
           FROM workshop_path_notes n
           JOIN workshop_enrollments e ON e.id = n.enrollment_id
-          JOIN workshops w ON w.id = e.workshop_id
+          " . doctor_enrollment_workshop_join() . "
+          " . doctor_workshop_host_join('w') . "
           LEFT JOIN workshop_sessions s ON s.id = n.session_id
-          WHERE e.patient_id=? AND w.doctor_id=?
+          WHERE e.patient_id=?
           ORDER BY COALESCE(n.updated_at, n.created_at) DESC
           LIMIT 80
         ");
-        $stmt->execute([$patientId, $doctorId]);
+        $stmt->execute([$doctorId, $patientId]);
         return $stmt->fetchAll();
     } catch (Throwable $e) {
-        return [];
+        try {
+            $stmt = $pdo->prepare("
+              SELECT n.id, n.kind, n.body, n.updated_at, n.created_at, n.enrollment_id, n.session_id,
+                     w.title AS workshop_title, w.id AS workshop_id,
+                     s.title AS session_title
+              FROM workshop_path_notes n
+              JOIN workshop_enrollments e ON e.id = n.enrollment_id
+              JOIN workshops w ON w.id = e.workshop_id
+              " . doctor_workshop_host_join('w') . "
+              LEFT JOIN workshop_sessions s ON s.id = n.session_id
+              WHERE e.patient_id=?
+              ORDER BY COALESCE(n.updated_at, n.created_at) DESC
+              LIMIT 80
+            ");
+            $stmt->execute([$doctorId, $patientId]);
+            return $stmt->fetchAll();
+        } catch (Throwable $ignored) {
+            return [];
+        }
     }
 }
 

@@ -4386,12 +4386,19 @@ body.workshop-overview-locked { overflow: hidden; }
   display: flex;
   justify-content: space-between;
   gap: .75rem;
-  align-items: center;
+  align-items: flex-start;
   padding: .7rem 0;
   border-bottom: 1px solid var(--line);
 }
 .ehr-list li:last-child { border-bottom: 0; }
 .ehr-list p { margin: .25rem 0 0; font-size: .82rem; }
+.ehr-list-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  justify-content: flex-end;
+  flex-shrink: 0;
+}
 .ehr-feed li {
   padding: .75rem 0;
   border-bottom: 1px solid var(--line);
