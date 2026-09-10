@@ -1745,12 +1745,12 @@ body.is-auth {
   border-bottom: 1px solid #d7cfc2;
   background: transparent;
   border-radius: 0;
-  padding: .45rem 1.8rem .45rem 0;
+  padding: .45rem 2.2rem .45rem .15rem;
   color: inherit;
   font: inherit;
   outline: none;
 }
-.auth-card .password-field .input { padding-left: 2.4rem; }
+.auth-card .password-field .input { padding-left: .2rem; padding-right: 2.2rem; }
 .auth-line input:focus,
 .auth-card .password-field .input:focus,
 .auth-select:focus { border-bottom-color: var(--auth-gold, #c4a574); }
@@ -1758,21 +1758,19 @@ body.is-auth {
   position: relative;
   display: block;
 }
-.auth-line-row svg {
+.auth-card .auth-line-row svg,
+.auth-card .password-toggle {
   position: absolute;
-  inset-inline-end: 0;
+  left: auto;
+  right: 0;
+  inset-inline: auto 0;
   top: 50%;
   transform: translateY(-50%);
   color: #8a7f70;
 }
 .auth-card .password-toggle {
-  position: absolute;
-  inset-inline-end: 0;
-  top: 50%;
-  transform: translateY(-50%);
   background: none;
   border: 0;
-  color: #8a7f70;
   cursor: pointer;
   padding: .2rem;
 }
@@ -1818,33 +1816,45 @@ body.is-auth {
 .auth-band-page {
   position: absolute;
   inset: 0;
-  display: grid;
-  align-content: center;
-  justify-items: start;
-  gap: .7rem;
   color: #f4f7f5;
   opacity: 0;
   transition: opacity .25s ease;
+  pointer-events: none;
 }
-.auth-card[data-mode="login"] .auth-band-page[data-band="login"] {
-  padding: 2rem 56% 2rem 8%;
+.auth-band-copy {
+  position: absolute;
+  top: 50%;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: .45rem;
+  text-align: center;
+  transform: translateY(-50%);
 }
-.auth-card[data-mode="register"] .auth-band-page[data-band="register"] {
-  padding: 2rem 6% 2rem 62%;
+.auth-card[data-mode="login"] .auth-band-page[data-band="login"] .auth-band-copy {
+  left: 0;
+  width: 40%;
+}
+.auth-card[data-mode="register"] .auth-band-page[data-band="register"] .auth-band-copy {
+  right: 0;
+  width: 34%;
 }
 .auth-band-page.is-on { opacity: 1; }
-.auth-kicker {
-  margin: 0;
-  letter-spacing: .12em;
-  font-size: clamp(1.35rem, 2.4vw, 1.85rem);
-  font-weight: 700;
-  color: #f3ead8;
-}
+.auth-kicker,
 .auth-welcome {
   margin: 0;
-  font-family: "Cormorant Garamond", "Vazirmatn", serif;
-  font-size: clamp(1.8rem, 3vw, 2.4rem);
-  font-weight: 600;
+  font-family: "Amiri", "Vazirmatn", serif;
+  font-weight: 700;
+  text-align: center;
+}
+.auth-kicker {
+  font-size: clamp(1.7rem, 2.8vw, 2.25rem);
+  letter-spacing: 0;
+  color: #f6edd8;
+}
+.auth-welcome {
+  font-size: clamp(2.1rem, 3.4vw, 2.85rem);
+  font-style: italic;
   line-height: 1.25;
   color: #fff;
 }
@@ -3902,6 +3912,7 @@ body.workshop-overview-locked { overflow: hidden; }
 .password-field { display: grid; gap: .35rem; }
 .password-field-box { position: relative; }
 .password-field-box .input { padding-left: 2.6rem; }
+.auth-card .password-field-box .input { padding-left: .2rem; padding-right: 2.2rem; }
 .password-toggle {
   position: absolute;
   left: .45rem;
@@ -4089,6 +4100,7 @@ body.workshop-overview-locked { overflow: hidden; }
 .password-field { display: grid; gap: .35rem; }
 .password-field-box { position: relative; }
 .password-field-box .input { padding-left: 2.6rem; }
+.auth-card .password-field-box .input { padding-left: .2rem; padding-right: 2.2rem; }
 .password-toggle {
   position: absolute;
   left: .45rem;

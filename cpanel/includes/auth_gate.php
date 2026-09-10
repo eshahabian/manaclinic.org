@@ -125,12 +125,16 @@ $nameDict = isset($pdo) ? build_name_transliterations_client_map($pdo) : [];
       <span class="auth-band-edge auth-band-trail"></span>
       <div class="auth-band-inner">
         <div class="auth-band-page<?= $authMode === 'login' ? ' is-on' : '' ?>" data-band="login">
-          <p class="auth-kicker">مانا کلینیک</p>
-          <h2 class="auth-welcome">خوش آمدید</h2>
+          <div class="auth-band-copy">
+            <p class="auth-kicker">مانا کلینیک</p>
+            <h2 class="auth-welcome">خوش آمدید</h2>
+          </div>
         </div>
         <div class="auth-band-page<?= $authMode === 'register' ? ' is-on' : '' ?>" data-band="register">
-          <p class="auth-kicker">مانا کلینیک</p>
-          <h2 class="auth-welcome">ثبت‌نام</h2>
+          <div class="auth-band-copy">
+            <p class="auth-kicker">مانا کلینیک</p>
+            <h2 class="auth-welcome">ثبت‌نام</h2>
+          </div>
         </div>
       </div>
     </div>
@@ -147,7 +151,7 @@ window.ManaAuthGate = {
 };
 </script>
 <?php
-$GLOBALS['pageHead'] = ($GLOBALS['pageHead'] ?? '') . '<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,600;1,600&display=swap" rel="stylesheet">';
+$GLOBALS['pageHead'] = ($GLOBALS['pageHead'] ?? '') . '<link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,700&display=swap" rel="stylesheet">';
 $GLOBALS['pageBodyClass'] = trim(($GLOBALS['pageBodyClass'] ?? '') . ' is-auth');
 $GLOBALS['pageScripts'] = ($GLOBALS['pageScripts'] ?? '')
     . '<script src="' . e(url('/assets/js/name-transliterate.js')) . '?v=20260906p"></script>'
