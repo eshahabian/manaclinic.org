@@ -8,6 +8,13 @@ declare(strict_types=1);
 $ymdPack = is_array($ymdPack ?? null) ? $ymdPack : [];
 $ymdEmpty = (string) ($ymdEmpty ?? 'نوبتی در این بخش نیست.');
 $ymdRenderItems = $ymdRenderItems ?? null;
+$ymdNoun = (string) ($ymdNoun ?? 'نوبت');
+$ymdAllPrefix = (string) ($ymdAllPrefix ?? 'نوبت‌های');
+$ymdShowPeople = $ymdShowPeople ?? true;
+$ymdWrapClass = trim((string) ($ymdExtraClass ?? $ymdClass ?? ''));
+if ($ymdWrapClass === '' || !str_contains($ymdWrapClass, 'ymd-cascade')) {
+    $ymdWrapClass = trim('ymd-cascade appt-ymd ' . $ymdWrapClass);
+}
 $years = is_array($ymdPack['years'] ?? null) && $ymdPack['years'] !== []
     ? $ymdPack['years']
     : (is_array($ymdPack['halves'] ?? null) ? $ymdPack['halves'] : []);
@@ -30,7 +37,7 @@ if ($defaultMonthId === '' || !isset($defaultMonths[$defaultMonthId])) {
 $defaultMonth = is_array($defaultMonths[$defaultMonthId] ?? null) ? $defaultMonths[$defaultMonthId] : [];
 $defaultDayId = (string) ($ymdPack['default_day_id'] ?? $defaultMonth['all_id'] ?? ($defaultMonthId . '-all'));
 ?>
-<div class="ymd-cascade appt-ymd"
+<div class="<?= e($ymdWrapClass) ?>"
      data-ymd-cascade
      data-ymd-initial-year="<?= e($defaultYearId) ?>"
      data-ymd-initial-month="<?= e($defaultMonthId) ?>"
@@ -75,7 +82,9 @@ $defaultDayId = (string) ($ymdPack['default_day_id'] ?? $defaultMonth['all_id'] 
               $days = is_array($month['days'] ?? null) ? $month['days'] : [];
               $allId = (string) ($month['all_id'] ?? ($monthId . '-all'));
               $people = (int) ($month['people'] ?? 0);
-              $count = (int) ($month['count'] ?? 0);
+              $itemCount = count($month['items'] ?? []);
+              $slotCount = count($month['open_slots'] ?? []);
+              $count = (int) ($month['count'] ?? ($itemCount + $slotCount));
               $names = is_array($month['people_names'] ?? null) ? $month['people_names'] : [];
               $monthOn = $defaultYearId === $yearId && $defaultMonthId === $monthId;
             ?>
@@ -88,19 +97,22 @@ $defaultDayId = (string) ($ymdPack['default_day_id'] ?? $defaultMonth['all_id'] 
                        data-ymd-label="کل <?= e((string) ($month['short'] ?? 'ماه')) ?>"
                        data-ymd-count="<?= e((string) $count) ?>"
                        <?= ($monthOn && $defaultDayId === $allId) ? '' : ' hidden' ?>>
-                <h2 class="binder-sub" style="margin-top:0">نوبت‌های <?= e((string) ($month['label'] ?? '')) ?></h2>
+                <h2 class="binder-sub" style="margin-top:0"><?= e($ymdAllPrefix) ?> <?= e((string) ($month['label'] ?? '')) ?></h2>
                 <p class="appt-ymd-summary muted">
-                  <?= e(to_fa_digits((string) $count)) ?> نوبت
-                  <?php if ($people > 0): ?>
+                  <?= e(to_fa_digits((string) $itemCount)) ?> <?= e($ymdNoun) ?>
+                  <?php if ($ymdShowPeople && $people > 0): ?>
                     · <?= e(to_fa_digits((string) $people)) ?> نفر
                   <?php endif; ?>
+                  <?php if ($slotCount > 0): ?>
+                    · <?= e(to_fa_digits((string) $slotCount)) ?> ساعت خالی
+                  <?php endif; ?>
                 </p>
-                <?php if ($names): ?>
+                <?php if ($ymdShowPeople && $names): ?>
                   <p class="appt-ymd-people"><?= e(implode('، ', array_values($names))) ?></p>
                 <?php endif; ?>
                 <?php
                   if (is_callable($ymdRenderItems)) {
-                      $ymdRenderItems($month['items'] ?? []);
+                      $ymdRenderItems($month['items'] ?? [], $month);
                   }
                 ?>
               </section>
@@ -111,22 +123,28 @@ $defaultDayId = (string) ($ymdPack['default_day_id'] ?? $defaultMonth['all_id'] 
                   }
                   $did = (string) ($day['id'] ?? '');
                   $dayOn = $monthOn && $defaultDayId === $did;
+                  $dayItems = $day['items'] ?? [];
+                  $daySlots = $day['open_slots'] ?? [];
+                  $dayCount = (int) ($day['count'] ?? (count($dayItems) + count($daySlots)));
                 ?>
                 <section class="ymd-day-panel<?= $dayOn ? ' is-active' : '' ?>"
                          data-ymd-day="<?= e($did) ?>"
                          data-ymd-label="<?= e((string) ($day['tab_label'] ?? $day['label'] ?? '')) ?>"
-                         data-ymd-count="<?= e((string) ($day['count'] ?? 0)) ?>"
+                         data-ymd-count="<?= e((string) $dayCount) ?>"
                          <?= $dayOn ? '' : ' hidden' ?>>
                   <h2 class="binder-sub" style="margin-top:0"><?= e((string) ($day['label'] ?? '')) ?></h2>
                   <p class="appt-ymd-summary muted">
-                    <?= e(to_fa_digits((string) ($day['count'] ?? 0))) ?> نوبت
-                    <?php if ((int) ($day['people'] ?? 0) > 0): ?>
+                    <?= e(to_fa_digits((string) count($dayItems))) ?> <?= e($ymdNoun) ?>
+                    <?php if ($ymdShowPeople && (int) ($day['people'] ?? 0) > 0): ?>
                       · <?= e(to_fa_digits((string) ($day['people'] ?? 0))) ?> نفر
+                    <?php endif; ?>
+                    <?php if (count($daySlots) > 0): ?>
+                      · <?= e(to_fa_digits((string) count($daySlots))) ?> ساعت خالی
                     <?php endif; ?>
                   </p>
                   <?php
                     if (is_callable($ymdRenderItems)) {
-                        $ymdRenderItems($day['items'] ?? []);
+                        $ymdRenderItems($dayItems, $day);
                     }
                   ?>
                 </section>

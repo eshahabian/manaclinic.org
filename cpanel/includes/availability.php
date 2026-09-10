@@ -566,3 +566,87 @@ function patient_month_groups_with_open_slots(PDO $pdo, array $appointments, str
     $pack['months'] = attach_open_slots_to_month_groups($pack['months'], $slots, $preferredDoctorId);
     return $pack;
 }
+
+function attach_open_slots_to_ymd_pack(array $pack, array $slots, string $preferredDoctorId = ''): array
+{
+    if ($preferredDoctorId !== '') {
+        usort($slots, static function (array $a, array $b) use ($preferredDoctorId): int {
+            $ap = (($a['doctor_id'] ?? '') === $preferredDoctorId) ? 0 : 1;
+            $bp = (($b['doctor_id'] ?? '') === $preferredDoctorId) ? 0 : 1;
+            if ($ap !== $bp) {
+                return $ap <=> $bp;
+            }
+            return strcmp((string) ($a['starts_at'] ?? ''), (string) ($b['starts_at'] ?? ''));
+        });
+    }
+    $prefix = (string) ($pack['prefix'] ?? 'ymd');
+    $today = date('Y-m-d');
+    $years = is_array($pack['years'] ?? null) ? $pack['years'] : [];
+    foreach ($slots as $slot) {
+        if (!is_array($slot)) {
+            continue;
+        }
+        $datetime = (string) ($slot['starts_at'] ?? '');
+        $meta = jalali_month_meta_from_datetime($datetime);
+        if (!$meta) {
+            continue;
+        }
+        $yearId = $prefix . '-y-' . (int) $meta['year'];
+        $monthId = $prefix . '-m-' . sprintf('%04d-%02d', (int) $meta['year'], (int) $meta['month']);
+        if (!isset($years[$yearId]['months'][$monthId]) || !is_array($years[$yearId]['months'][$monthId])) {
+            continue;
+        }
+        if (!isset($years[$yearId]['months'][$monthId]['open_slots']) || !is_array($years[$yearId]['months'][$monthId]['open_slots'])) {
+            $years[$yearId]['months'][$monthId]['open_slots'] = [];
+        }
+        $years[$yearId]['months'][$monthId]['open_slots'][] = $slot;
+        $day = ymd_new_day_bucket($prefix, $datetime, $today);
+        $dayId = (string) $day['id'];
+        if (!isset($years[$yearId]['months'][$monthId]['days'][$dayId])) {
+            $years[$yearId]['months'][$monthId]['days'][$dayId] = $day;
+        }
+        if (!isset($years[$yearId]['months'][$monthId]['days'][$dayId]['open_slots']) || !is_array($years[$yearId]['months'][$monthId]['days'][$dayId]['open_slots'])) {
+            $years[$yearId]['months'][$monthId]['days'][$dayId]['open_slots'] = [];
+        }
+        $years[$yearId]['months'][$monthId]['days'][$dayId]['open_slots'][] = $slot;
+    }
+    foreach ($years as $yearId => $year) {
+        $months = is_array($year['months'] ?? null) ? $year['months'] : [];
+        $yearCount = (int) ($year['count'] ?? 0);
+        foreach ($months as $monthId => $month) {
+            $month['days'] = appointment_finalize_day_groups(is_array($month['days'] ?? null) ? $month['days'] : []);
+            $open = is_array($month['open_slots'] ?? null) ? $month['open_slots'] : [];
+            $month['open_slots'] = $open;
+            $month['count'] = count($month['items'] ?? []) + count($open);
+            $months[$monthId] = $month;
+            $yearCount += count($open);
+        }
+        $years[$yearId]['months'] = $months;
+        $years[$yearId]['count'] = $yearCount;
+    }
+    $pack['years'] = $years;
+    $pack['halves'] = $years;
+    return $pack;
+}
+
+function patient_ymd_groups_with_open_slots(PDO $pdo, array $appointments, string $preferredDoctorId = ''): array
+{
+    $pack = group_appointments_by_jalali_ymd($appointments, 'pat', 'current', ['fill' => 'rest']);
+    $range = jalali_remaining_year_gregorian_range();
+    $slots = patient_open_slots_between($pdo, $range['start'], $range['end']);
+    return attach_open_slots_to_ymd_pack($pack, $slots, $preferredDoctorId);
+}
+
+function doctor_availability_ymd_groups(array $items): array
+{
+    $mapped = [];
+    foreach ($items as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $date = substr((string) ($item['date'] ?? ''), 0, 10);
+        $item['starts_at'] = $date !== '' ? $date . ' 12:00:00' : '';
+        $mapped[] = $item;
+    }
+    return group_appointments_by_jalali_ymd($mapped, 'avail', 'current', ['fill' => 'rest']);
+}

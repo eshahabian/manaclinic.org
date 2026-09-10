@@ -134,17 +134,17 @@ ob_start();
   </div>
   <div class="binder-body">
     <section class="binder-panel<?= $activeBinder === 'in-person' ? ' is-active' : '' ?>" data-binder-panel="in-person" role="tabpanel"<?= $activeBinder === 'in-person' ? '' : ' hidden' ?>>
-      <?php $workshopList = $grouped['in-person']; $workshopEmpty = 'کارگاه حضوری فعالی نیست.'; $workshopRole = 'secretary'; require __DIR__ . '/../../includes/workshop_manage_cards.php'; ?>
+      <?php $workshopList = $grouped['in-person']; $workshopEmpty = 'کارگاه حضوری فعالی نیست.'; $workshopRole = 'secretary'; $workshopYmdPrefix = 'sec-ip'; $workshopYmdKind = 'manage'; require __DIR__ . '/../../includes/workshop_ymd_list.php'; ?>
     </section>
     <section class="binder-panel<?= $activeBinder === 'online' ? ' is-active' : '' ?>" data-binder-panel="online" role="tabpanel"<?= $activeBinder === 'online' ? '' : ' hidden' ?>>
-      <?php $workshopList = $grouped['online']; $workshopEmpty = 'کارگاه آنلاین فعالی نیست.'; $workshopRole = 'secretary'; require __DIR__ . '/../../includes/workshop_manage_cards.php'; ?>
+      <?php $workshopList = $grouped['online']; $workshopEmpty = 'کارگاه آنلاین فعالی نیست.'; $workshopRole = 'secretary'; $workshopYmdPrefix = 'sec-on'; $workshopYmdKind = 'manage'; require __DIR__ . '/../../includes/workshop_ymd_list.php'; ?>
     </section>
     <section class="binder-panel<?= $activeBinder === 'offline' ? ' is-active' : '' ?>" data-binder-panel="offline" role="tabpanel"<?= $activeBinder === 'offline' ? '' : ' hidden' ?>>
-      <?php $workshopList = $grouped['offline']; $workshopEmpty = 'دوره آفلاین فعالی نیست.'; $workshopRole = 'secretary'; require __DIR__ . '/../../includes/workshop_manage_cards.php'; ?>
+      <?php $workshopList = $grouped['offline']; $workshopEmpty = 'دوره آفلاین فعالی نیست.'; $workshopRole = 'secretary'; $workshopYmdPrefix = 'sec-off'; $workshopYmdKind = 'manage'; require __DIR__ . '/../../includes/workshop_ymd_list.php'; ?>
     </section>
     <section class="binder-panel<?= $activeBinder === 'archive' ? ' is-active' : '' ?>" data-binder-panel="archive" role="tabpanel"<?= $activeBinder === 'archive' ? '' : ' hidden' ?>>
       <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">کارگاه‌هایی که زمانشان تمام شده، خودکار به آرشیو می‌آیند.</p>
-      <?php $workshopList = $grouped['archive']; $workshopEmpty = 'هنوز کارگاهی در آرشیو نیست.'; $workshopRole = 'secretary'; require __DIR__ . '/../../includes/workshop_manage_cards.php'; ?>
+      <?php $workshopList = $grouped['archive']; $workshopEmpty = 'هنوز کارگاهی در آرشیو نیست.'; $workshopRole = 'secretary'; $workshopYmdPrefix = 'sec-arch'; $workshopYmdKind = 'manage'; require __DIR__ . '/../../includes/workshop_ymd_list.php'; ?>
     </section>
     <section class="binder-panel<?= $activeBinder === 'enroll' ? ' is-active' : '' ?>" data-binder-panel="enroll" role="tabpanel"<?= $activeBinder === 'enroll' ? '' : ' hidden' ?>>
       <p class="muted" style="margin:0 0 .85rem;font-size:.9rem;line-height:1.7">ورودی کارگاه را اینجا ثبت کنید. همان لحظه برای منشی‌های دیگر هم دیده می‌شود تا ثبت تکراری پیش نیاید.</p>
@@ -390,6 +390,7 @@ ob_start();
 
 <script src="<?= e(url('/assets/js/search-select.js')) ?>?v=20260905a"></script>
 <script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260906v"></script>
+<script src="<?= e(url('/assets/js/ymd-cascade.js')) ?>?v=20260910q"></script>
 <script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>

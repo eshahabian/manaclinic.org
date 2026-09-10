@@ -62,18 +62,22 @@ $tabParam = $workshopBinderInitial;
         <?php
           $workshopList = $grouped[$id] ?? [];
           $archiveView = false;
-          $emptyAvailable = $meta['empty'];
-          require __DIR__ . '/patient_workshop_available.php';
+          $workshopEmpty = $meta['empty'];
+          $workshopYmdPrefix = 'ptc-' . preg_replace('/[^a-z]/', '', (string) $id);
+          $workshopYmdKind = 'catalog';
+          require __DIR__ . '/workshop_ymd_list.php';
         ?>
         <?php endif; ?>
         <?php if ($showEnrollments): ?>
         <h2 class="binder-sub"<?= $showCatalog ? '' : ' style="margin-top:0"' ?>><?= $workshopBinderMode === 'requested' ? 'درخواست‌های این دسته' : ($workshopBinderMode === 'mine' ? 'دوره‌های تأییدشده' : 'ثبت‌نام‌های من') ?></h2>
         <?php
-          $enrollmentList = $enrollmentsByTab[$id] ?? [];
-          $emptyEnrollments = $workshopBinderMode === 'requested'
+          $workshopList = $enrollmentsByTab[$id] ?? [];
+          $workshopEmpty = $workshopBinderMode === 'requested'
             ? 'در این دسته درخواست در انتظاری ندارید.'
             : ($workshopBinderMode === 'mine' ? 'هنوز کارگاه تأییدشده‌ای در این دسته ندارید.' : 'هنوز در کارگاهی از این دسته ثبت‌نام نکرده‌اید.');
-          require __DIR__ . '/patient_workshop_enrollments.php';
+          $workshopYmdPrefix = 'pte-' . preg_replace('/[^a-z]/', '', (string) $id);
+          $workshopYmdKind = 'enroll';
+          require __DIR__ . '/workshop_ymd_list.php';
         ?>
         <?php endif; ?>
       </section>
@@ -86,16 +90,20 @@ $tabParam = $workshopBinderInitial;
       <?php
         $workshopList = $grouped['archive'] ?? [];
         $archiveView = true;
-        $emptyAvailable = 'هنوز کارگاهی در آرشیو نیست.';
-        require __DIR__ . '/patient_workshop_available.php';
+        $workshopEmpty = 'هنوز کارگاهی در آرشیو نیست.';
+        $workshopYmdPrefix = 'ptc-arch';
+        $workshopYmdKind = 'catalog';
+        require __DIR__ . '/workshop_ymd_list.php';
       ?>
       <?php endif; ?>
       <?php if ($showEnrollments): ?>
       <h2 class="binder-sub"<?= $showCatalog ? '' : ' style="margin-top:0"' ?>><?= $workshopBinderMode === 'requested' ? 'درخواست‌های آرشیو' : 'ثبت‌نام‌های آرشیو من' ?></h2>
       <?php
-        $enrollmentList = $enrollmentsByTab['archive'] ?? [];
-        $emptyEnrollments = $workshopBinderMode === 'requested' ? 'درخواست آرشیوشده‌ای ندارید.' : 'ثبت‌نام آرشیوشده‌ای ندارید.';
-        require __DIR__ . '/patient_workshop_enrollments.php';
+        $workshopList = $enrollmentsByTab['archive'] ?? [];
+        $workshopEmpty = $workshopBinderMode === 'requested' ? 'درخواست آرشیوشده‌ای ندارید.' : 'ثبت‌نام آرشیوشده‌ای ندارید.';
+        $workshopYmdPrefix = 'pte-arch';
+        $workshopYmdKind = 'enroll';
+        require __DIR__ . '/workshop_ymd_list.php';
       ?>
       <?php endif; ?>
     </section>

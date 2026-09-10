@@ -97,9 +97,12 @@ ob_start();
     <section class="binder-panel<?= $binderInitial === 'intakes' ? ' is-active' : '' ?>" data-binder-panel="intakes" role="tabpanel"<?= $binderInitial === 'intakes' ? '' : ' hidden' ?>>
       <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">اینجا فقط گفتگوهای مهمان است. گفتگوی مراجعه‌کننده ثبت‌نام‌شده را از پرونده همان فرد ببینید.</p>
       <?php
-        $intakeMonthPack = doctor_intake_month_groups($intakeRows);
-        $intakeMonthGroups = $intakeMonthPack['months'];
-        $intakeMonthDefault = $intakeMonthPack['default_id'];
+        $intakeMapped = [];
+        foreach ($intakeRows as $session) {
+            $session['starts_at'] = (string) (($session['sent_at'] ?? '') ?: ($session['created_at'] ?? ''));
+            $intakeMapped[] = $session;
+        }
+        $intakeYmdPack = group_appointments_by_jalali_ymd($intakeMapped, 'gintk', 'latest', ['fill' => 'none']);
         $intakeMonthEmpty = 'هنوز گفتگویی ارسال نشده است.';
         require __DIR__ . '/../../includes/doctor_intake_month_binder.php';
       ?>
@@ -108,6 +111,7 @@ ob_start();
 </div>
 <?php
 $pageScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260905c"></script>
+<script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910q"></script>
 <script>
 (function(){
   document.addEventListener("click", function(e){

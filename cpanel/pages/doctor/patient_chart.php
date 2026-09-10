@@ -28,13 +28,14 @@ foreach ($notesStmt->fetchAll() as $n) {
     $notesByApp[$n['appointment_id']] = $n;
 }
 
-$monthPack = doctor_session_month_groups($appointments);
-$monthGroups = $monthPack['months'];
-$defaultMonthId = $monthPack['default_id'];
+$sessionYmd = group_appointments_by_jalali_ymd($appointments, 'sess', 'latest', ['fill' => 'none']);
 $intakes = doctor_patient_assistant_sessions($pdo, $patientId, $historyExtraIds);
-$intakeMonthPack = doctor_intake_month_groups($intakes);
-$intakeMonthGroups = $intakeMonthPack['months'];
-$intakeMonthDefault = $intakeMonthPack['default_id'];
+$intakeMapped = [];
+foreach ($intakes as $session) {
+    $session['starts_at'] = (string) (($session['sent_at'] ?? '') ?: ($session['created_at'] ?? ''));
+    $intakeMapped[] = $session;
+}
+$intakeYmdPack = group_appointments_by_jalali_ymd($intakeMapped, 'intk', 'latest', ['fill' => 'none']);
 
 $tabParam = trim((string) ($_GET['tab'] ?? ''));
 $binderInitial = in_array($tabParam, ['chart', 'intakes'], true) ? $tabParam : 'chart';
@@ -68,7 +69,7 @@ ob_start();
         <div>
           <h2 style="margin:0;font-size:1.1rem">شرح حال</h2>
           <p class="muted" style="margin:.35rem 0 0;font-size:.85rem">
-            متن را انتخاب کنید، بعد Bold / سایز / رنگ هایلایت بزنید. یادداشت جلسات را از تب ماه انتخاب کنید.
+            متن را انتخاب کنید، بعد Bold / سایز / رنگ هایلایت بزنید. یادداشت جلسات را از سال و ماه انتخاب کنید.
           </p>
         </div>
 
@@ -109,74 +110,63 @@ ob_start();
 
         <div>
           <p class="clinical-sessions-label">یادداشت جلسات</p>
-          <p class="muted" style="margin:.25rem 0 .75rem;font-size:.8rem">ماه را انتخاب کنید؛ بعد روی روز مراجعه کلیک کنید تا یادداشت را ببینید یا بنویسید.</p>
-          <?php if (!$monthGroups): ?>
-            <p class="muted" style="margin:0">هنوز جلسه‌ای ثبت نشده.</p>
-          <?php else: ?>
-            <div class="binder-tile binder-tile--nested" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($defaultMonthId) ?>" data-binder-tone="<?= e((string) ($monthGroups[$defaultMonthId]['tone'] ?? 'in-person')) ?>">
-              <div class="binder-tabs" role="tablist" aria-label="ماه جلسات">
-                <?php foreach ($monthGroups as $id => $bucket): ?>
-                  <button type="button"
-                    class="binder-tab <?= e((string) ($bucket['class'] ?? 'binder-tab-in-person')) ?><?= $defaultMonthId === $id ? ' is-active' : '' ?>"
-                    role="tab"
-                    data-binder-tab="<?= e((string) $id) ?>"
-                    data-binder-tone="<?= e((string) ($bucket['tone'] ?? 'in-person')) ?>"
-                    aria-selected="<?= $defaultMonthId === $id ? 'true' : 'false' ?>">
-                    <?= e((string) ($bucket['tab_label'] ?? $bucket['short'] ?? $id)) ?>
-                    <span class="binder-tab-count"><?= count($bucket['items'] ?? []) ?></span>
-                  </button>
-                <?php endforeach; ?>
-              </div>
-              <div class="binder-body">
-                <?php foreach ($monthGroups as $id => $bucket): ?>
-                  <section class="binder-panel<?= $defaultMonthId === $id ? ' is-active' : '' ?>" data-binder-panel="<?= e((string) $id) ?>" role="tabpanel"<?= $defaultMonthId === $id ? '' : ' hidden' ?>>
-                    <h2 class="binder-sub" style="margin-top:0"><?= e((string) ($bucket['label'] ?? '')) ?></h2>
-                    <div class="clinical-session-grid" data-session-note-grid>
-                      <?php foreach (($bucket['items'] ?? []) as $a): ?>
-                        <?php
-                          $note = $notesByApp[$a['id']] ?? null;
-                          $hasNote = $note && trim((string) $note['note_text']) !== '';
-                          $day = jalali_day_parts((string) $a['starts_at']);
-                        ?>
-                        <div class="session-note-box<?= $hasNote ? ' has-note' : '' ?>" data-box>
-                          <button type="button" class="session-note-toggle" data-toggle>
-                            <span class="sn-date"><?= e($day['label'] ?? format_fa_datetime((string) $a['starts_at'])) ?></span>
-                            <span class="sn-meta">
-                              <?= $day ? 'ساعت ' . e($day['time_fa']) . ' · ' : '' ?>
-                              <?= e(appointment_row_status_label($a)) ?>
-                              · <?= $hasNote ? 'دارای یادداشت' : 'بدون یادداشت' ?>
-                            </span>
-                          </button>
-                          <div class="session-note-panel" data-panel>
-                            <form method="post" action="<?= e(url('/doctor/patients/' . $patientId . '/session-note')) ?>">
-                              <input type="hidden" name="appointment_id" value="<?= e($a['id']) ?>">
-                              <label class="label">یادداشت این جلسه</label>
-                              <textarea class="input" name="note_text" rows="5" placeholder="مشاهدات، مداخلات، تکالیف..."><?= e((string) ($note['note_text'] ?? '')) ?></textarea>
-                              <?= appointment_notes_html($a) ?>
-                              <div style="margin-top:.75rem;display:flex;gap:.5rem;flex-wrap:wrap">
-                                <button class="btn btn-primary btn-sm" type="submit">ذخیره</button>
-                                <button class="btn btn-outline btn-sm" type="button" data-close>بستن</button>
-                                <?= appointment_cancel_form((string) $a['id'], (string) $a['status'], '/doctor/appointments', '/doctor/patients/' . $patientId) ?>
-                                <?= function_exists('admin_appointment_delete_form') ? admin_appointment_delete_form((string) $a['id'], '/doctor/patients/' . $patientId) : '' ?>
-                              </div>
-                            </form>
+          <p class="muted" style="margin:.25rem 0 .75rem;font-size:.8rem">سال، ماه و روز را انتخاب کنید؛ بعد روی جلسه کلیک کنید تا یادداشت را ببینید یا بنویسید.</p>
+          <?php
+            $ymdPack = $sessionYmd;
+            $ymdEmpty = 'هنوز جلسه‌ای ثبت نشده.';
+            $ymdNoun = 'جلسه';
+            $ymdAllPrefix = 'جلسات';
+            $ymdShowPeople = false;
+            $ymdClass = 'session-ymd';
+            $ymdRenderItems = function (array $list) use ($notesByApp, $patientId): void {
+                if (!$list) {
+                    echo '<p class="muted" style="margin:0">در این بازه مراجعه‌ای ثبت نشده.</p>';
+                    return;
+                }
+                echo '<div class="clinical-session-grid" data-session-note-grid>';
+                foreach ($list as $a) {
+                    if (!is_array($a)) {
+                        continue;
+                    }
+                    $note = $notesByApp[$a['id']] ?? null;
+                    $hasNote = $note && trim((string) ($note['note_text'] ?? '')) !== '';
+                    $day = jalali_day_parts((string) $a['starts_at']);
+                    ?>
+                    <div class="session-note-box<?= $hasNote ? ' has-note' : '' ?>" data-box>
+                      <button type="button" class="session-note-toggle" data-toggle>
+                        <span class="sn-date"><?= e($day['label'] ?? format_fa_datetime((string) $a['starts_at'])) ?></span>
+                        <span class="sn-meta">
+                          <?= $day ? 'ساعت ' . e($day['time_fa']) . ' · ' : '' ?>
+                          <?= e(appointment_row_status_label($a)) ?>
+                          · <?= $hasNote ? 'دارای یادداشت' : 'بدون یادداشت' ?>
+                        </span>
+                      </button>
+                      <div class="session-note-panel" data-panel>
+                        <form method="post" action="<?= e(url('/doctor/patients/' . $patientId . '/session-note')) ?>">
+                          <input type="hidden" name="appointment_id" value="<?= e($a['id']) ?>">
+                          <label class="label">یادداشت این جلسه</label>
+                          <textarea class="input" name="note_text" rows="5" placeholder="مشاهدات، مداخلات، تکالیف..."><?= e((string) ($note['note_text'] ?? '')) ?></textarea>
+                          <?= appointment_notes_html($a) ?>
+                          <div style="margin-top:.75rem;display:flex;gap:.5rem;flex-wrap:wrap">
+                            <button class="btn btn-primary btn-sm" type="submit">ذخیره</button>
+                            <button class="btn btn-outline btn-sm" type="button" data-close>بستن</button>
+                            <?= appointment_cancel_form((string) $a['id'], (string) $a['status'], '/doctor/appointments', '/doctor/patients/' . $patientId) ?>
+                            <?= function_exists('admin_appointment_delete_form') ? admin_appointment_delete_form((string) $a['id'], '/doctor/patients/' . $patientId) : '' ?>
                           </div>
-                        </div>
-                      <?php endforeach; ?>
-                      <?php if (empty($bucket['items'])): ?>
-                        <p class="muted" style="margin:0">در این ماه مراجعه‌ای ثبت نشده.</p>
-                      <?php endif; ?>
+                        </form>
+                      </div>
                     </div>
-                  </section>
-                <?php endforeach; ?>
-              </div>
-            </div>
-          <?php endif; ?>
+                    <?php
+                }
+                echo '</div>';
+            };
+            require __DIR__ . '/../../includes/appointment_ymd_binder.php';
+          ?>
         </div>
       </div>
     </section>
     <section class="binder-panel<?= $binderInitial === 'intakes' ? ' is-active' : '' ?>" data-binder-panel="intakes" role="tabpanel"<?= $binderInitial === 'intakes' ? '' : ' hidden' ?>>
-      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">گفتگوها ماه‌به‌ماه جدا شده‌اند. روی تاریخ بزنید تا ببینید <?= e($patient['name']) ?> کی با دستیار حرف زده است.</p>
+      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">گفتگوها را با سال، ماه و روز جدا ببینید. روی تاریخ بزنید تا ببینید <?= e($patient['name']) ?> کی با دستیار حرف زده است.</p>
       <?php
         $intakeMonthEmpty = 'هنوز گفتگویی از دستیار برای این مراجعه‌کننده ارسال نشده است.';
         require __DIR__ . '/../../includes/doctor_intake_month_binder.php';
@@ -188,6 +178,7 @@ ob_start();
 $inner = ob_get_clean();
 
 $pageScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260905c"></script>
+<script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910q"></script>
 <script src="' . e(url('/assets/js/rich-editor.js')) . '"></script>
 <script>
 initRichEditor({

@@ -25,12 +25,17 @@ $tabParam = trim((string) ($_GET['month'] ?? ''));
 if ($tabParam !== '' && isset($monthGroups[$tabParam])) {
     $defaultMonthId = $tabParam;
 }
+$availYmd = doctor_availability_ymd_groups($items);
+if (preg_match('/(\d{4})-(\d{2})/', $tabParam, $monthMatch)) {
+    $availYmd['default_year_id'] = 'avail-y-' . $monthMatch[1];
+    $availYmd['default_month_id'] = 'avail-m-' . $monthMatch[1] . '-' . $monthMatch[2];
+}
 $todayYmd = date('Y-m-d');
 
 ob_start();
 ?>
 <h1>روزهای خالی</h1>
-<p class="muted">یک روز را از تقویم بزنید، یا تب <strong>کل ماه</strong> را انتخاب کنید تا ساعت‌ها روی همهٔ روزهای باقی‌مانده همان ماه اعمال شود. پایین صفحه، تب هر ماه با «کل شهریور» / «کل مهر» بازهٔ کل ماه را نشان می‌دهد؛ روی ساعت هر روز بزنید تا خالی بودن یا نام رزروکننده مشخص شود.</p>
+<p class="muted">یک روز را از تقویم بزنید، یا «کل ماه» را انتخاب کنید تا ساعت‌ها روی همهٔ روزهای باقی‌مانده همان ماه اعمال شود. پایین صفحه سال، ماه و روز را از منوی کرکره‌ای انتخاب کنید؛ روی ساعت هر روز بزنید تا خالی بودن یا نام رزروکننده مشخص شود.</p>
 <form class="panel form-stack" method="post" action="<?= e(url('/doctor/availability')) ?>" id="avail-save-form" style="margin-top:1rem;max-width:40rem">
   <input type="hidden" name="action" id="avail-action" value="save">
   <div class="binder-tile binder-tile--nested" data-binder-tabs data-binder-hash="0" data-binder-initial="avail-day" data-binder-tone="in-person">
@@ -94,154 +99,18 @@ ob_start();
   </div>
   <button class="btn btn-primary" type="submit" id="avail-submit-btn">افزودن / به‌روزرسانی</button>
 </form>
-<div class="binder-tile" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($defaultMonthId) ?>" data-binder-tone="<?= e((string) ($monthGroups[$defaultMonthId]['tone'] ?? 'in-person')) ?>" style="margin-top:1.5rem">
-  <div class="binder-tabs" role="tablist" aria-label="ماه روزهای خالی">
-    <?php foreach ($monthGroups as $mid => $bucket): ?>
-      <button type="button"
-        class="binder-tab <?= e((string) ($bucket['class'] ?? 'binder-tab-in-person')) ?><?= $defaultMonthId === $mid ? ' is-active' : '' ?>"
-        role="tab"
-        data-binder-tab="<?= e((string) $mid) ?>"
-        data-binder-tone="<?= e((string) ($bucket['tone'] ?? 'in-person')) ?>"
-        aria-selected="<?= $defaultMonthId === $mid ? 'true' : 'false' ?>">
-        <?= e((string) ($bucket['tab_label'] ?? $bucket['short'] ?? $mid)) ?>
-        <span class="binder-tab-count"><?= to_fa_digits((string) count($bucket['items'] ?? [])) ?></span>
-      </button>
-    <?php endforeach; ?>
-  </div>
-  <div class="binder-body">
-    <?php foreach ($monthGroups as $mid => $bucket): ?>
-      <?php
-        $mid = (string) $mid;
-        $monthShort = (string) ($bucket['short'] ?? $bucket['tab_label'] ?? 'ماه');
-        $monthAllId = $mid . '-all';
-        $monthItems = is_array($bucket['items'] ?? null) ? $bucket['items'] : [];
-        $itemsByDate = doctor_availability_items_by_date($monthItems);
-        $jy = (int) ($bucket['year'] ?? 0);
-        $jm = (int) ($bucket['month'] ?? 0);
-        $monthLen = ($jy > 0 && $jm > 0) ? jalali_month_length($jy, $jm) : 0;
-        $rangeLabel = doctor_availability_month_range_label($bucket);
-      ?>
-      <section class="binder-panel<?= $defaultMonthId === $mid ? ' is-active' : '' ?>" data-binder-panel="<?= e($mid) ?>" role="tabpanel"<?= $defaultMonthId === $mid ? '' : ' hidden' ?>>
-        <div class="binder-tile binder-tile--nested" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($monthAllId) ?>" data-binder-tone="<?= e((string) ($bucket['tone'] ?? 'in-person')) ?>">
-          <div class="binder-tabs" role="tablist" aria-label="<?= e($rangeLabel) ?>">
-            <button type="button"
-              class="binder-tab binder-tab-appts avail-month-range-tab is-active"
-              role="tab"
-              data-binder-tab="<?= e($monthAllId) ?>"
-              data-binder-tone="appts"
-              aria-selected="true">
-              <?= e($rangeLabel) ?>
-            </button>
-            <?php foreach ($monthItems as $item): ?>
-              <?php
-                $dayDate = substr((string) ($item['date'] ?? ''), 0, 10);
-                if ($dayDate === '') {
-                    continue;
-                }
-                $dayId = $mid . '-d-' . $dayDate;
-                $parts = jalali_day_parts($dayDate . ' 12:00:00') ?? [];
-                $dayTab = $dayDate === $todayYmd ? 'امروز' : (string) ($parts['day_fa'] ?? to_fa_digits((string) ($parts['day'] ?? '')));
-              ?>
-              <button type="button"
-                class="binder-tab <?= e((string) ($bucket['class'] ?? 'binder-tab-in-person')) ?>"
-                role="tab"
-                data-binder-tab="<?= e($dayId) ?>"
-                data-binder-tone="<?= e((string) ($bucket['tone'] ?? 'in-person')) ?>"
-                aria-selected="false">
-                <?= e($dayTab) ?>
-              </button>
-            <?php endforeach; ?>
-          </div>
-          <div class="binder-body">
-            <section class="binder-panel is-active" data-binder-panel="<?= e($monthAllId) ?>" role="tabpanel">
-              <h2 class="binder-sub" style="margin-top:0">
-                <?= e($rangeLabel) ?>
-                <?php if ($monthLen > 0): ?>
-                  <span class="muted" style="font-weight:400;font-size:.85rem">
-                    · از <?= e(to_fa_digits('1')) ?> تا <?= e(to_fa_digits((string) $monthLen)) ?> <?= e($monthShort) ?>
-                    · <?= e(to_fa_digits((string) count($monthItems))) ?> روز اعلام‌شده
-                  </span>
-                <?php endif; ?>
-              </h2>
-              <?php if ($monthLen > 0 && $jy > 0): ?>
-                <div class="avail-month-days" aria-label="روزهای <?= e($monthShort) ?>">
-                  <?php for ($jd = 1; $jd <= $monthLen; $jd++): ?>
-                    <?php
-                      $gdate = jalali_ymd($jy, $jm, $jd);
-                      $saved = $itemsByDate[$gdate] ?? null;
-                      $cls = 'avail-month-day';
-                      if ($gdate === $todayYmd) {
-                          $cls .= ' is-today';
-                      }
-                      if ($gdate < $todayYmd) {
-                          $cls .= ' is-past';
-                      }
-                      if ($saved) {
-                          $cls .= ' is-saved';
-                      }
-                    ?>
-                    <span class="<?= e($cls) ?>" title="<?= e(to_jalali_label($gdate)) ?>">
-                      <?= e(to_fa_digits((string) $jd)) ?>
-                    </span>
-                  <?php endfor; ?>
-                </div>
-              <?php endif; ?>
-              <form class="panel form-stack avail-month-apply" method="post" action="<?= e(url('/doctor/availability')) ?>" data-avail-month-form>
-                <input type="hidden" name="action" value="save_month">
-                <input type="hidden" name="month_key" value="<?= e((string) ($bucket['key'] ?? '')) ?>">
-                <p class="muted" style="margin:0;font-size:.85rem;line-height:1.7">ساعت‌های انتخابی روی <strong>همهٔ روزهای باقی‌مانده <?= e($monthShort) ?></strong> اعمال می‌شود (از امروز به بعد).</p>
-                <div class="hour-picker" data-hour-picker>
-                  <?php foreach ($bookingHours as $hour): ?>
-                    <label class="hour-chip">
-                      <input type="checkbox" name="hours[]" value="<?= (int) $hour ?>" checked>
-                      <span class="hour-chip-time"><?= e(appointment_hour_chip_label((int) $hour)) ?></span>
-                    </label>
-                  <?php endforeach; ?>
-                </div>
-                <div style="display:flex;gap:.5rem;flex-wrap:wrap">
-                  <button type="button" class="btn btn-outline btn-sm" data-select-all-hours>انتخاب همه (۲۴ ساعت)</button>
-                  <button type="button" class="btn btn-outline btn-sm" data-clear-all-hours>پاک کردن</button>
-                </div>
-                <button class="btn btn-primary" type="submit">اعمال به <?= e($rangeLabel) ?></button>
-              </form>
-              <?php if (empty($monthItems)): ?>
-                <p class="muted">در این ماه هنوز روز خالی ثبت نشده. از فرم بالا ساعت را به کل ماه اعمال کنید.</p>
-              <?php else: ?>
-                <div class="stack">
-                  <?php foreach ($monthItems as $item): ?>
-                    <?= doctor_availability_render_day_card(
-                        $bookingHours,
-                        $bookedMap,
-                        substr((string) ($item['date'] ?? ''), 0, 10),
-                        $item
-                    ) ?>
-                  <?php endforeach; ?>
-                </div>
-              <?php endif; ?>
-            </section>
-            <?php foreach ($monthItems as $item): ?>
-              <?php
-                $dayDate = substr((string) ($item['date'] ?? ''), 0, 10);
-                if ($dayDate === '') {
-                    continue;
-                }
-                $dayId = $mid . '-d-' . $dayDate;
-              ?>
-              <section class="binder-panel" data-binder-panel="<?= e($dayId) ?>" role="tabpanel" hidden>
-                <?= doctor_availability_render_day_card($bookingHours, $bookedMap, $dayDate, $item) ?>
-              </section>
-            <?php endforeach; ?>
-          </div>
-        </div>
-      </section>
-    <?php endforeach; ?>
-  </div>
+<div style="margin-top:1.5rem">
+<?php
+  $ymdPack = $availYmd;
+  require __DIR__ . '/../../includes/doctor_availability_ymd_binder.php';
+?>
 </div>
 <?php
 $inner = ob_get_clean();
 $pageHead = '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">';
 $pageScripts = '
 <script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260907i"></script>
+<script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910q"></script>
 <script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
 <script>

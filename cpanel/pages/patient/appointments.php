@@ -18,9 +18,7 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute([$user['id']]);
 $appointments = $stmt->fetchAll();
-$monthPack = patient_month_groups_with_open_slots($pdo, $appointments, (string) ($user['preferred_doctor_id'] ?? ''));
-$monthGroups = $monthPack['months'];
-$defaultMonthId = $monthPack['default_id'];
+$ymdPack = patient_ymd_groups_with_open_slots($pdo, $appointments, (string) ($user['preferred_doctor_id'] ?? ''));
 $booked = isset($_GET['booked']);
 $payUrl = url('/dashboard/pay');
 $cancelUrl = url('/cancel-appointment');
@@ -51,9 +49,7 @@ ob_start();
   <?= booking_terms_acceptance_html('terms-accept-dash') ?>
   <div data-patient-book data-book-url="<?= e(url('/book')) ?>" data-after-url="<?= e(url('/dashboard/appointments?booked=1')) ?>" data-terms-id="terms-accept-dash">
   <?php
-    $monthBinderNested = false;
     $appointmentItemMode = 'manage';
-    $monthBinderAria = 'انتخاب ماه نوبت';
     require __DIR__ . '/../../includes/patient_appointments_month_binder.php';
   ?>
   </div>
@@ -61,6 +57,7 @@ ob_start();
 <?= booking_terms_modal_html('terms-modal') ?>
 <?= booking_terms_styles() ?>
 <script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260904u"></script>
+<script src="<?= e(url('/assets/js/ymd-cascade.js')) ?>?v=20260910q"></script>
 <script src="<?= e(url('/assets/js/patient-book-slots.js')) ?>?v=20260904y"></script>
 <script>
 (function(){

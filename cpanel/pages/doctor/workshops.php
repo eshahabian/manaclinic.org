@@ -178,20 +178,20 @@ ob_start();
   </div>
   <div class="binder-body">
     <section class="binder-panel<?= $activeBinder === 'in-person' ? ' is-active' : '' ?>" data-binder-panel="in-person" role="tabpanel"<?= $activeBinder === 'in-person' ? '' : ' hidden' ?>>
-      <?php $workshopList = $grouped['in-person']; $workshopEmpty = 'کارگاه حضوری فعالی ندارید.'; $workshopRole = 'doctor'; require __DIR__ . '/../../includes/workshop_manage_cards.php'; ?>
+      <?php $workshopList = $grouped['in-person']; $workshopEmpty = 'کارگاه حضوری فعالی ندارید.'; $workshopRole = 'doctor'; $workshopYmdPrefix = 'doc-ip'; $workshopYmdKind = 'manage'; require __DIR__ . '/../../includes/workshop_ymd_list.php'; ?>
       <?php $peerList = $peerGrouped['in-person']; require __DIR__ . '/../../includes/workshop_peer_block.php'; ?>
     </section>
     <section class="binder-panel<?= $activeBinder === 'online' ? ' is-active' : '' ?>" data-binder-panel="online" role="tabpanel"<?= $activeBinder === 'online' ? '' : ' hidden' ?>>
-      <?php $workshopList = $grouped['online']; $workshopEmpty = 'کارگاه آنلاین فعالی ندارید.'; $workshopRole = 'doctor'; require __DIR__ . '/../../includes/workshop_manage_cards.php'; ?>
+      <?php $workshopList = $grouped['online']; $workshopEmpty = 'کارگاه آنلاین فعالی ندارید.'; $workshopRole = 'doctor'; $workshopYmdPrefix = 'doc-on'; $workshopYmdKind = 'manage'; require __DIR__ . '/../../includes/workshop_ymd_list.php'; ?>
       <?php $peerList = $peerGrouped['online']; require __DIR__ . '/../../includes/workshop_peer_block.php'; ?>
     </section>
     <section class="binder-panel<?= $activeBinder === 'offline' ? ' is-active' : '' ?>" data-binder-panel="offline" role="tabpanel"<?= $activeBinder === 'offline' ? '' : ' hidden' ?>>
-      <?php $workshopList = $grouped['offline']; $workshopEmpty = 'دوره آفلاین فعالی ندارید.'; $workshopRole = 'doctor'; require __DIR__ . '/../../includes/workshop_manage_cards.php'; ?>
+      <?php $workshopList = $grouped['offline']; $workshopEmpty = 'دوره آفلاین فعالی ندارید.'; $workshopRole = 'doctor'; $workshopYmdPrefix = 'doc-off'; $workshopYmdKind = 'manage'; require __DIR__ . '/../../includes/workshop_ymd_list.php'; ?>
       <?php $peerList = $peerGrouped['offline']; require __DIR__ . '/../../includes/workshop_peer_block.php'; ?>
     </section>
     <section class="binder-panel<?= $activeBinder === 'archive' ? ' is-active' : '' ?>" data-binder-panel="archive" role="tabpanel"<?= $activeBinder === 'archive' ? '' : ' hidden' ?>>
       <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">کارگاه‌هایی که زمانشان تمام شده یا پایان داده شده‌اند، خودکار اینجا می‌آیند.</p>
-      <?php $workshopList = $grouped['archive']; $workshopEmpty = 'هنوز کارگاهی در آرشیو نیست.'; $workshopRole = 'doctor'; require __DIR__ . '/../../includes/workshop_manage_cards.php'; ?>
+      <?php $workshopList = $grouped['archive']; $workshopEmpty = 'هنوز کارگاهی در آرشیو نیست.'; $workshopRole = 'doctor'; $workshopYmdPrefix = 'doc-arch'; $workshopYmdKind = 'manage'; require __DIR__ . '/../../includes/workshop_ymd_list.php'; ?>
     </section>
     <section class="binder-panel<?= $activeBinder === 'new' ? ' is-active' : '' ?>" data-binder-panel="new" role="tabpanel"<?= $activeBinder === 'new' ? '' : ' hidden' ?>>
       <div class="stack">
@@ -445,6 +445,7 @@ ob_start();
 </template>
 
 <script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260906v"></script>
+<script src="<?= e(url('/assets/js/ymd-cascade.js')) ?>?v=20260910q"></script>
 <script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>

@@ -343,24 +343,13 @@ ob_start();
           ?>
           <?php foreach ($dashWsTabs as $tabId => $tabData): ?>
             <section class="binder-panel<?= !empty($tabData['active']) ? ' is-active' : '' ?>" data-binder-panel="<?= e($tabId) ?>" role="tabpanel"<?= empty($tabData['active']) ? ' hidden' : '' ?>>
-              <?php if (!$tabData['list']): ?>
-                <p class="muted doctor-dash-empty"><?= e($tabData['empty']) ?></p>
-              <?php else: ?>
-                <ul class="doctor-dash-list">
-                  <?php foreach (array_slice($tabData['list'], 0, 8) as $w): ?>
-                    <li>
-                      <a href="<?= e(url('/doctor/workshops?edit=' . urlencode((string) $w['id']))) ?>">
-                        <strong><?= e((string) $w['title']) ?></strong>
-                        <span class="muted">
-                          <?= e(workshop_type_label((string) $w['type'])) ?>
-                          · <?= (int) ($w['enrolled_count'] ?? 0) ?> نفر
-                          · <?= workshop_is_archived($w) ? 'آرشیو' : (!empty($w['is_published']) ? 'منتشرشده' : 'پیش‌نویس') ?>
-                        </span>
-                      </a>
-                    </li>
-                  <?php endforeach; ?>
-                </ul>
-              <?php endif; ?>
+              <?php
+                $workshopList = $tabData['list'];
+                $workshopEmpty = $tabData['empty'];
+                $workshopYmdPrefix = 'dws-' . preg_replace('/[^a-z]/', '', (string) $tabId);
+                $workshopYmdKind = 'dash';
+                require __DIR__ . '/../../includes/workshop_ymd_list.php';
+              ?>
             </section>
           <?php endforeach; ?>
         </div>
@@ -370,7 +359,7 @@ ob_start();
   </div>
 </div>
 <script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260910p"></script>
-<script src="<?= e(url('/assets/js/ymd-cascade.js')) ?>?v=20260910p"></script>
+<script src="<?= e(url('/assets/js/ymd-cascade.js')) ?>?v=20260910q"></script>
 <script>
 (function () {
   var root = document.querySelector('[data-dash-tabs]');

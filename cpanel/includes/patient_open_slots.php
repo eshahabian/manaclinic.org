@@ -22,7 +22,7 @@ foreach ($openSlots as $slot) {
 ?>
 <h2 class="binder-sub">ساعت‌های خالی اعلام‌شده</h2>
 <?php if (!$groups): ?>
-  <p class="muted binder-empty">هنوز روز و ساعتی برای این ماه اعلام نشده است.</p>
+  <p class="muted binder-empty">هنوز روز و ساعتی برای این بازه اعلام نشده است.</p>
 <?php else: ?>
   <div class="stack">
     <?php foreach ($groups as $group): ?>

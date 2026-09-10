@@ -672,10 +672,13 @@ function appointment_finalize_day_groups(array $days): array
     uasort($days, static fn(array $a, array $b): int => strcmp((string) ($a['sort'] ?? ''), (string) ($b['sort'] ?? '')));
     foreach ($days as $dayId => $day) {
         $dayItems = $day['items'] ?? [];
-        usort($dayItems, static fn(array $a, array $b): int => strcmp((string) ($a['starts_at'] ?? ''), (string) ($b['starts_at'] ?? '')));
+        usort($dayItems, static fn(array $a, array $b): int => strcmp(ymd_row_datetime($a), ymd_row_datetime($b)));
         $days[$dayId]['items'] = $dayItems;
-        $days[$dayId]['count'] = count($dayItems);
+        $days[$dayId]['count'] = count($dayItems) + count($day['open_slots'] ?? []);
         $days[$dayId]['people'] = appointment_unique_patient_count($dayItems);
+        if (!isset($days[$dayId]['open_slots']) || !is_array($days[$dayId]['open_slots'])) {
+            $days[$dayId]['open_slots'] = [];
+        }
     }
     return $days;
 }
@@ -688,11 +691,53 @@ function appointment_empty_month_bucket(string $prefix, int $jy, int $jm): array
         'id' => $monthId,
         'all_id' => $monthId . '-all',
         'items' => [],
+        'open_slots' => [],
         'days' => [],
         'count' => 0,
         'people' => 0,
         'people_names' => [],
     ]);
+}
+
+function ymd_cascade_script(): string
+{
+    return '<script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910q"></script>';
+}
+
+function ymd_row_datetime(array $row, string $key = 'starts_at'): string
+{
+    $raw = trim((string) ($row[$key] ?? ''));
+    if ($raw !== '') {
+        return $raw;
+    }
+    $date = substr(trim((string) ($row['date'] ?? '')), 0, 10);
+    return $date !== '' ? $date . ' 12:00:00' : '';
+}
+
+function ymd_datetime_is_dated(string $datetime): bool
+{
+    $ts = strtotime($datetime);
+    if (!$ts) {
+        return false;
+    }
+    return (int) date('Y', $ts) >= 2020;
+}
+
+function ymd_new_day_bucket(string $prefix, string $datetime, string $today): array
+{
+    $ts = strtotime($datetime) ?: 0;
+    $gkey = $ts ? date('Y-m-d', $ts) : 'other';
+    $dayParts = jalali_day_parts($datetime);
+    return [
+        'id' => $prefix . '-d-' . $gkey,
+        'date' => $gkey,
+        'sort' => $gkey,
+        'label' => (string) ($dayParts['label'] ?? ($gkey !== 'other' ? to_jalali_label($gkey) : 'بدون تاریخ')),
+        'tab_label' => $gkey === $today ? 'امروز' : (string) ($dayParts['day_fa'] ?? to_fa_digits((string) ($dayParts['day'] ?? ''))),
+        'is_today' => $gkey === $today,
+        'items' => [],
+        'open_slots' => [],
+    ];
 }
 
 /**
@@ -701,56 +746,61 @@ function appointment_empty_month_bucket(string $prefix, int $jy, int $jm): array
  * @param array<int, array<string, mixed>> $appointments
  * @return array{years: array<string, array<string, mixed>>, default_year_id: string, default_month_id: string, empty: bool}
  */
-function group_appointments_by_jalali_ymd(array $appointments, string $prefix = 'ymd', string $prefer = 'current'): array
+function group_appointments_by_jalali_ymd(array $appointments, string $prefix = 'ymd', string $prefer = 'current', array $opts = []): array
 {
     $prefix = preg_replace('/[^a-zA-Z0-9_-]/', '', $prefix) ?: 'ymd';
+    $datetimeKey = (string) ($opts['datetime_key'] ?? 'starts_at');
+    $fill = (string) ($opts['fill'] ?? 'year');
+    if (!in_array($fill, ['year', 'rest', 'none'], true)) {
+        $fill = 'year';
+    }
     $today = date('Y-m-d');
     $current = jalali_current_month_meta();
     $currentJy = (int) ($current['year'] ?? 0);
     $currentJm = (int) ($current['month'] ?? 1);
     $byYear = [];
+    $undated = [];
 
     foreach ($appointments as $row) {
         if (!is_array($row)) {
             continue;
         }
-        $meta = jalali_month_meta_from_datetime((string) ($row['starts_at'] ?? ''));
+        $datetime = ymd_row_datetime($row, $datetimeKey);
+        if ($datetime === '' || !ymd_datetime_is_dated($datetime)) {
+            $undated[] = $row;
+            continue;
+        }
+        $meta = jalali_month_meta_from_datetime($datetime);
         if (!$meta) {
+            $undated[] = $row;
             continue;
         }
         $jy = (int) $meta['year'];
         $jm = (int) $meta['month'];
         $monthId = $prefix . '-m-' . sprintf('%04d-%02d', $jy, $jm);
-        $ts = strtotime((string) ($row['starts_at'] ?? '')) ?: 0;
-        $gkey = $ts ? date('Y-m-d', $ts) : 'other';
-        $dayParts = jalali_day_parts((string) ($row['starts_at'] ?? ''));
-        $dayId = $prefix . '-d-' . $gkey;
+        $day = ymd_new_day_bucket($prefix, $datetime, $today);
+        $dayId = (string) $day['id'];
 
         if (!isset($byYear[$jy][$monthId])) {
             $byYear[$jy][$monthId] = array_merge($meta, [
                 'id' => $monthId,
                 'all_id' => $monthId . '-all',
                 'items' => [],
+                'open_slots' => [],
                 'days' => [],
             ]);
         }
         $byYear[$jy][$monthId]['items'][] = $row;
         if (!isset($byYear[$jy][$monthId]['days'][$dayId])) {
-            $byYear[$jy][$monthId]['days'][$dayId] = [
-                'id' => $dayId,
-                'date' => $gkey,
-                'sort' => $gkey,
-                'label' => (string) ($dayParts['label'] ?? ($gkey !== 'other' ? to_jalali_label($gkey) : 'بدون تاریخ')),
-                'tab_label' => $gkey === $today ? 'امروز' : (string) ($dayParts['day_fa'] ?? to_fa_digits((string) ($dayParts['day'] ?? ''))),
-                'is_today' => $gkey === $today,
-                'items' => [],
-            ];
+            $byYear[$jy][$monthId]['days'][$dayId] = $day;
         }
         $byYear[$jy][$monthId]['days'][$dayId]['items'][] = $row;
     }
 
     $yearNums = array_keys($byYear);
-    $yearNums[] = $currentJy;
+    if ($fill !== 'none') {
+        $yearNums[] = $currentJy;
+    }
     $yearNums = array_values(array_unique(array_map('intval', $yearNums)));
     rsort($yearNums);
     $years = [];
@@ -766,13 +816,18 @@ function group_appointments_by_jalali_ymd(array $appointments, string $prefix = 
         for ($jm = 1; $jm <= 12; $jm++) {
             $monthId = $prefix . '-m-' . sprintf('%04d-%02d', $jy, $jm);
             $hasBucket = isset($yearMonths[$monthId]);
-            if (!$hasBucket && $jy !== $currentJy) {
+            $allowEmpty = $jy === $currentJy && $fill !== 'none'
+                && ($fill === 'year' || $jm >= $currentJm);
+            if (!$hasBucket && !$allowEmpty) {
                 continue;
             }
             $month = $hasBucket ? $yearMonths[$monthId] : appointment_empty_month_bucket($prefix, $jy, $jm);
+            if (!isset($month['open_slots']) || !is_array($month['open_slots'])) {
+                $month['open_slots'] = [];
+            }
             $month['days'] = appointment_finalize_day_groups(is_array($month['days'] ?? null) ? $month['days'] : []);
             $monthItems = $month['items'] ?? [];
-            $month['count'] = count($monthItems);
+            $month['count'] = count($monthItems) + count($month['open_slots']);
             $month['people'] = appointment_unique_patient_count($monthItems);
             $month['people_names'] = appointment_unique_patient_names($monthItems);
             $months[$monthId] = $month;
@@ -780,7 +835,7 @@ function group_appointments_by_jalali_ymd(array $appointments, string $prefix = 
                 $yearItems[] = $row;
             }
         }
-        if ($yearItems === [] && $jy !== $currentJy) {
+        if ($months === [] || ($yearItems === [] && ($fill === 'none' || $jy !== $currentJy))) {
             continue;
         }
         $yearId = $prefix . '-y-' . $jy;
@@ -797,15 +852,69 @@ function group_appointments_by_jalali_ymd(array $appointments, string $prefix = 
         ];
     }
 
+    if ($undated) {
+        $yearId = $prefix . '-y-undated';
+        $monthId = $prefix . '-m-undated';
+        $allId = $monthId . '-all';
+        $years[$yearId] = [
+            'id' => $yearId,
+            'year' => 0,
+            'label' => 'بدون تاریخ',
+            'class' => 'binder-tab-offline',
+            'tone' => 'offline',
+            'months' => [
+                $monthId => [
+                    'id' => $monthId,
+                    'all_id' => $allId,
+                    'key' => '',
+                    'label' => 'بدون تاریخ',
+                    'short' => 'بدون تاریخ',
+                    'tab_label' => 'بدون تاریخ',
+                    'year' => 0,
+                    'month' => 0,
+                    'items' => $undated,
+                    'open_slots' => [],
+                    'days' => [],
+                    'count' => count($undated),
+                    'people' => appointment_unique_patient_count($undated),
+                    'people_names' => appointment_unique_patient_names($undated),
+                ],
+            ],
+            'items' => $undated,
+            'count' => count($undated),
+            'people' => appointment_unique_patient_count($undated),
+        ];
+    }
+
     $currentYearId = $prefix . '-y-' . $currentJy;
     $currentMonthId = $prefix . '-m-' . sprintf('%04d-%02d', $currentJy, $currentJm);
     $defaultYearId = isset($years[$currentYearId])
         ? $currentYearId
         : (string) (array_key_first($years) ?? '');
+    if ($prefer === 'latest' && $years) {
+        foreach ($years as $yearId => $year) {
+            if ((int) ($year['count'] ?? 0) > 0 && (int) ($year['year'] ?? 0) > 0) {
+                $defaultYearId = (string) $yearId;
+                break;
+            }
+        }
+    }
     $yearMonths = is_array($years[$defaultYearId]['months'] ?? null) ? $years[$defaultYearId]['months'] : [];
     $defaultMonthId = isset($yearMonths[$currentMonthId])
         ? $currentMonthId
         : (string) (array_key_first($yearMonths) ?? '');
+    if ($prefer === 'latest' && $yearMonths) {
+        $picked = '';
+        foreach (array_reverse($yearMonths, true) as $monthId => $month) {
+            if ((int) ($month['count'] ?? 0) > 0) {
+                $picked = (string) $monthId;
+                break;
+            }
+        }
+        if ($picked !== '') {
+            $defaultMonthId = $picked;
+        }
+    }
     $defaultMonth = is_array($yearMonths[$defaultMonthId] ?? null) ? $yearMonths[$defaultMonthId] : [];
     $defaultDayId = (string) ($defaultMonth['all_id'] ?? ($defaultMonthId . '-all'));
 
@@ -821,6 +930,7 @@ function group_appointments_by_jalali_ymd(array $appointments, string $prefix = 
         'current_year' => $currentJy,
         'current_month' => $currentJm,
         'prefer' => $prefer,
+        'fill' => $fill,
     ];
 }
 

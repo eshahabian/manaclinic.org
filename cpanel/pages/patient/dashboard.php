@@ -17,9 +17,7 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute([$user['id']]);
 $appointments = $stmt->fetchAll();
-$monthPack = patient_month_groups_with_open_slots($pdo, $appointments, (string) ($user['preferred_doctor_id'] ?? ''));
-$monthGroups = $monthPack['months'];
-$defaultMonthId = $monthPack['default_id'];
+$ymdPack = patient_ymd_groups_with_open_slots($pdo, $appointments, (string) ($user['preferred_doctor_id'] ?? ''));
 
 $ws = patient_workshop_tab_data($pdo, (string) $user['id']);
 $wallet = $ws['wallet'];
@@ -37,7 +35,7 @@ ob_start();
 ?>
 <div class="stack">
   <h1>سلام <?= e($user['name']) ?></h1>
-  <p class="muted">نوبت‌ها را ماه‌به‌ماه ببینید و کارگاه‌ها را از تب رنگی ثبت‌نام کنید.</p>
+  <p class="muted">نوبت‌ها و کارگاه‌ها را با انتخاب سال، ماه و روز ببینید.</p>
   <p id="course-msg" class="course-flash" style="display:none" role="status"></p>
   <p id="dash-book-msg" class="course-flash" style="display:none" role="status"></p>
 
@@ -63,9 +61,7 @@ ob_start();
         <?= booking_terms_acceptance_html('terms-accept-dash') ?>
         <div data-patient-book data-book-url="<?= e(url('/book')) ?>" data-after-url="<?= e(url('/dashboard/appointments?booked=1')) ?>" data-terms-id="terms-accept-dash">
         <?php
-          $monthBinderNested = true;
           $appointmentItemMode = 'simple';
-          $monthBinderAria = 'انتخاب ماه نوبت';
           require __DIR__ . '/../../includes/patient_appointments_month_binder.php';
         ?>
         </div>
@@ -97,6 +93,7 @@ ob_start();
 $dashContent = ob_get_clean();
 $GLOBALS['pageScripts'] = '
 <script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260904u"></script>
+<script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910q"></script>
 <script src="' . e(url('/assets/js/patient-courses.js')) . '?v=20260906w"></script>
 <script src="' . e(url('/assets/js/patient-book-slots.js')) . '?v=20260904y"></script>'
   . booking_terms_script('terms-accept-dash', '.dash-book-btn');
