@@ -38,7 +38,7 @@ if ($action === 'ping' || $action === 'inbox' || $action === 'contacts') {
         }
         $q = trim((string) ($body['q'] ?? $_GET['q'] ?? ''));
         $limit = (int) ($body['limit'] ?? 40);
-        $roles = strtoupper(trim((string) ($body['roles'] ?? 'PATIENT')));
+        $roles = strtoupper(trim((string) ($body['roles'] ?? 'ALL')));
         $onlyRole = ($roles === 'ALL' || $roles === '') ? '' : $roles;
         $rows = video_call_contacts($pdo, $user, $q, $onlyRole, $limit > 0 ? $limit : 80);
         $items = [];

@@ -245,9 +245,15 @@ function video_call_avatar_html(array $person, bool $online, string $size = 'md'
 
 function video_call_person_row_html(array $c, bool $clinician, bool $pick = false, string $mode = 'buttons'): string
 {
-    $isPatient = (string) ($c['role'] ?? '') === 'PATIENT';
+    $roleKey = (string) ($c['role'] ?? '');
+    $isPatient = $roleKey === 'PATIENT';
     $label = video_call_public_name($c);
-    $roleLabel = $isPatient ? 'مراجعه‌کننده' : 'درمانگر';
+    $roleLabel = match ($roleKey) {
+        'DOCTOR' => 'درمانگر',
+        'ADMIN' => 'مدیر',
+        'SECRETARY' => 'منشی',
+        default => 'مراجعه‌کننده',
+    };
     $payload = htmlspecialchars(json_encode(video_call_contact_payload($c), JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
     ob_start();
     ?>
@@ -296,6 +302,39 @@ function video_call_normalize_search(string $q): string
     $q = preg_replace('/\s+/u', ' ', $q) ?? $q;
 
     return trim($q);
+}
+
+/** ارقام قابل جستجو در موبایل (۰۹۱۰، +98، فاصله و خط تیره) */
+function video_call_search_digits(string $q): string
+{
+    $q = function_exists('normalize_phone') ? normalize_phone($q) : video_call_normalize_search($q);
+    $q = preg_replace('/\D+/', '', $q) ?? '';
+
+    return $q;
+}
+
+function video_call_phone_like_needles(string $digits): array
+{
+    if (strlen($digits) < 3) {
+        return [];
+    }
+    $out = ['%' . $digits . '%'];
+    if (str_starts_with($digits, '98') && strlen($digits) >= 10) {
+        $nat = substr($digits, 2);
+        $out[] = '%' . $nat . '%';
+        $out[] = '%0' . $nat . '%';
+    }
+    if (str_starts_with($digits, '0') && strlen($digits) >= 10) {
+        $nat = substr($digits, 1);
+        $out[] = '%' . $nat . '%';
+        $out[] = '%98' . $nat . '%';
+    }
+    if (!str_starts_with($digits, '0') && !str_starts_with($digits, '98') && strlen($digits) >= 10) {
+        $out[] = '%0' . $digits . '%';
+        $out[] = '%98' . $digits . '%';
+    }
+
+    return array_values(array_unique($out));
 }
 
 function video_call_bump_contact(PDO $pdo, string $hostId, string $peerId): void
@@ -375,7 +414,8 @@ function video_call_contacts(PDO $pdo, array $user, string $q = '', string $only
     $role = (string) ($user['role'] ?? '');
     $q = video_call_normalize_search($q);
     $like = '%' . $q . '%';
-    $phoneLike = preg_match('/[0-9]{3,}/', $q) ? '%' . $q . '%' : '';
+    $digits = video_call_search_digits($q);
+    $phoneNeedles = video_call_phone_like_needles($digits);
     $onlyRole = strtoupper(trim($onlyRole));
     $onlyIds = array_values(array_unique(array_filter(array_map('strval', $onlyIds))));
     $limit = max(1, min(80, $onlyIds ? count($onlyIds) : $limit));
@@ -385,17 +425,31 @@ function video_call_contacts(PDO $pdo, array $user, string $q = '', string $only
     $searchSql = '';
     $searchParams = [];
     if ($q !== '') {
+        $nameNorm = "REPLACE(REPLACE(REPLACE(LOWER(u.name),'ي','ی'),'ك','ک'),'‌','')";
+        $userNorm = 'LOWER(u.username)';
         $searchSql = "
           AND (
-            REPLACE(REPLACE(REPLACE(u.name,'ي','ی'),'ك','ک'),'‌','') LIKE ?
-            OR REPLACE(REPLACE(REPLACE(u.username,'ي','ی'),'ك','ک'),'‌','') LIKE ?
-            OR (? <> '' AND u.phone LIKE ?)
-          )
+            $nameNorm LIKE LOWER(?)
+            OR $userNorm LIKE LOWER(?)
+            OR LOWER(IFNULL(u.email,'')) LIKE LOWER(?)
+            OR IFNULL(u.phone,'') LIKE ?
         ";
-        $searchParams = [$like, $like, $phoneLike, $phoneLike];
+        $searchParams = [$like, $like, $like, '%' . $q . '%'];
+        if ($digits !== '') {
+            $searchSql .= " OR REPLACE(REPLACE(REPLACE(REPLACE(IFNULL(u.phone,''),' ',''),'-',''),'+',''),'.','') LIKE ? ";
+            $searchParams[] = '%' . $digits . '%';
+        }
+        foreach ($phoneNeedles as $needle) {
+            $searchSql .= " OR IFNULL(u.phone,'') LIKE ? ";
+            $searchParams[] = $needle;
+        }
+        $searchSql .= '
+          )
+        ';
     }
     if ($role === 'DOCTOR' || $role === 'ADMIN') {
-        $roles = in_array($onlyRole, ['PATIENT', 'DOCTOR'], true) ? [$onlyRole] : ['PATIENT', 'DOCTOR'];
+        $allowedRoles = ['PATIENT', 'DOCTOR', 'ADMIN', 'SECRETARY'];
+        $roles = in_array($onlyRole, $allowedRoles, true) ? [$onlyRole] : $allowedRoles;
         $inRoles = implode(',', array_fill(0, count($roles), '?'));
         $sql = "
           SELECT u.id, u.name, u.username, u.role, MAX(dp.avatar_url) AS avatar_url
@@ -414,7 +468,13 @@ function video_call_contacts(PDO $pdo, array $user, string $q = '', string $only
         $params = array_merge($params, $searchParams);
         $orderPrefix = '';
         if ($q !== '') {
-            $orderPrefix = "CASE WHEN REPLACE(REPLACE(REPLACE(u.name,'ي','ی'),'ك','ک'),'‌','') LIKE ? THEN 0 ELSE 1 END, ";
+            $orderPrefix = "CASE
+              WHEN LOWER(u.username) = LOWER(?) THEN 0
+              WHEN LOWER(u.username) LIKE LOWER(?) THEN 1
+              WHEN REPLACE(REPLACE(REPLACE(LOWER(u.name),'ي','ی'),'ك','ک'),'‌','') LIKE LOWER(?) THEN 2
+              ELSE 3 END, ";
+            $params[] = $q;
+            $params[] = $q . '%';
             $params[] = $q . '%';
         }
         $sql .= '
@@ -707,7 +767,7 @@ function video_call_create_group(PDO $pdo, array $user, string $title, array $me
           SELECT id FROM users
           WHERE id IN ($in)
             AND id <> ?
-            AND role IN ('PATIENT','DOCTOR')
+            AND role IN ('PATIENT','DOCTOR','ADMIN','SECRETARY')
         ");
         $stmt->execute(array_merge($memberIds, [(string) ($user['id'] ?? '')]));
         foreach ($stmt->fetchAll() as $c) {

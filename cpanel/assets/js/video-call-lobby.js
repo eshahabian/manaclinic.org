@@ -126,7 +126,7 @@
           '<span class="vc-dot' + (item.online ? " is-online" : " is-offline") + '"></span>' +
         "</span>" +
         '<span class="vc-person-meta"><strong>' + esc(item.name || "مخاطب") + "</strong>" +
-        '<span class="muted">' + (item.online ? "آنلاین" : "آفلاین") + (item.role === "DOCTOR" ? " · درمانگر" : " · مراجعه‌کننده") + "</span></span>" +
+        '<span class="muted">' + (item.online ? "آنلاین" : "آفلاین") + " · " + (item.role === "DOCTOR" ? "درمانگر" : item.role === "ADMIN" ? "مدیر" : item.role === "SECRETARY" ? "منشی" : "مراجعه‌کننده") + "</span></span>" +
       "</div>"
     );
   }
@@ -136,7 +136,7 @@
       action: "contacts",
       q: String(q || ""),
       limit: limit || 8,
-      roles: roles || "PATIENT"
+      roles: roles || "ALL"
     }).then(function (data) {
       return (data && data.ok && data.items) ? data.items : [];
     });
@@ -210,7 +210,7 @@
       closeSuggest();
       return;
     }
-    fetchContacts(q, 8, "PATIENT").then(function (items) {
+    fetchContacts(q, 24, "ALL").then(function (items) {
       if (seq !== searchSeq) return;
       renderSuggest(items, q);
     }).catch(function () {
@@ -317,7 +317,7 @@
   var overlaySearchEl = app.querySelector("[data-vc-overlay-search]");
   function loadOverlayPeople(q) {
     q = String(q || "").trim();
-    fetchContacts(q, q ? 12 : 4, "ALL").then(function (items) {
+    fetchContacts(q, q ? 24 : 4, "ALL").then(function (items) {
       overlayCatalog = items;
       renderOverlayLists(overlayCatalog);
     }).catch(function () {
