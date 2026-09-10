@@ -807,11 +807,13 @@ function staff_hours_block_for_user(PDO $pdo, array $user): array
     ]);
 }
 
-/** تقویم شمسی: نیم‌سال، ماه، روزهای حضور */
+/** تقویم شمسی: سال، ماه، روزهای حضور */
 function staff_hours_calendar(array $block): array
 {
     $emptyCal = [
+        'years' => [],
         'halves' => [],
+        'default_year_id' => '',
         'default_half_id' => '',
         'default_month_id' => '',
         'default_day_id' => '',
@@ -844,94 +846,90 @@ function staff_hours_calendar(array $block): array
         }
     }
 
-    $years = [$currentJy => true];
+    $yearsFound = [$currentJy => true];
     foreach (array_keys($present) as $gdate) {
         $meta = jalali_month_meta_from_datetime($gdate . ' 12:00:00');
         if ($meta) {
-            $years[(int) $meta['year']] = true;
+            $yearsFound[(int) $meta['year']] = true;
         }
     }
-    krsort($years);
+    krsort($yearsFound);
 
     $rawKey = $block['key'] ?? $block['tab_id'] ?? $block['slot'] ?? '1';
     if (is_array($rawKey) || is_object($rawKey)) {
         $rawKey = '1';
     }
     $slot = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) $rawKey) ?: '1';
-    $yearCount = count($years);
-    $halves = [];
-    foreach (array_keys($years) as $jy) {
+    $years = [];
+    foreach (array_keys($yearsFound) as $jy) {
         $jy = (int) $jy;
         if ($jy < 1) {
             continue;
         }
-        foreach ([1, 2] as $half) {
-            $from = $half === 1 ? 1 : 7;
-            $to = $half === 1 ? 6 : 12;
-            $months = [];
-            $presentCount = 0;
-            for ($jm = $from; $jm <= $to; $jm++) {
-                $meta = jalali_month_meta_from_parts($jy, $jm);
-                $len = jalali_month_length($jy, $jm);
-                $days = [];
-                for ($jd = 1; $jd <= $len; $jd++) {
-                    $gdate = jalali_ymd($jy, $jm, $jd);
-                    if (empty($present[$gdate])) {
-                        continue;
-                    }
-                    $parts = jalali_day_parts($gdate . ' 12:00:00') ?? [];
-                    $days[$gdate] = [
-                        'id' => 's' . $slot . '-d-' . $gdate,
-                        'date' => $gdate,
-                        'day' => $jd,
-                        'label' => (string) ($parts['label'] ?? to_fa_digits((string) $jd)),
-                        'tab_label' => $gdate === $today ? 'امروز' : (string) ($parts['day_fa'] ?? to_fa_digits((string) $jd)),
-                        'is_today' => $gdate === $today,
-                    ];
-                    $presentCount++;
+        $months = [];
+        $presentCount = 0;
+        for ($jm = 1; $jm <= 12; $jm++) {
+            $meta = jalali_month_meta_from_parts($jy, $jm);
+            $len = jalali_month_length($jy, $jm);
+            $days = [];
+            for ($jd = 1; $jd <= $len; $jd++) {
+                $gdate = jalali_ymd($jy, $jm, $jd);
+                if (empty($present[$gdate])) {
+                    continue;
                 }
-                $monthId = 's' . $slot . '-m-' . (string) ($meta['key'] ?? sprintf('%04d-%02d', $jy, $jm));
-                if (!is_array($meta)) {
-                    $meta = [];
-                }
-                $months[$monthId] = array_merge($meta, [
-                    'id' => $monthId,
-                    'length' => $len,
-                    'days' => $days,
-                    'present_count' => count($days),
-                    'range_tab_label' => 'کل ' . (string) ($meta['tab_label'] ?? $meta['short'] ?? 'ماه'),
-                ]);
+                $parts = jalali_day_parts($gdate . ' 12:00:00') ?? [];
+                $days[$gdate] = [
+                    'id' => 's' . $slot . '-d-' . $gdate,
+                    'date' => $gdate,
+                    'day' => $jd,
+                    'label' => (string) ($parts['label'] ?? to_fa_digits((string) $jd)),
+                    'tab_label' => $gdate === $today ? 'امروز' : (string) ($parts['day_fa'] ?? to_fa_digits((string) $jd)),
+                    'is_today' => $gdate === $today,
+                ];
+                $presentCount++;
             }
-            $isCurrentYear = $jy === $currentJy;
-            if (!$isCurrentYear && $presentCount === 0) {
+            if ($days === [] && $jy !== $currentJy) {
                 continue;
             }
-            $halfId = 's' . $slot . '-y' . $jy . '-h' . $half;
-            $base = $half === 1 ? 'نیم‌سال اول' : 'نیم‌سال دوم';
-            $halves[$halfId] = [
-                'id' => $halfId,
-                'year' => $jy,
-                'half' => $half,
-                'label' => $yearCount > 1 ? ($base . ' ' . to_fa_digits((string) $jy)) : $base,
-                'class' => $half === 1 ? 'binder-tab-online' : 'binder-tab-offline',
-                'tone' => $half === 1 ? 'online' : 'offline',
-                'months' => $months,
-                'present_count' => $presentCount,
-            ];
+            $monthId = 's' . $slot . '-m-' . (string) ($meta['key'] ?? sprintf('%04d-%02d', $jy, $jm));
+            if (!is_array($meta)) {
+                $meta = [];
+            }
+            $months[$monthId] = array_merge($meta, [
+                'id' => $monthId,
+                'length' => $len,
+                'days' => $days,
+                'present_count' => count($days),
+                'range_tab_label' => 'کل ' . (string) ($meta['tab_label'] ?? $meta['short'] ?? 'ماه'),
+            ]);
         }
+        if ($presentCount === 0 && $jy !== $currentJy) {
+            continue;
+        }
+        $yearId = 's' . $slot . '-y-' . $jy;
+        $years[$yearId] = [
+            'id' => $yearId,
+            'year' => $jy,
+            'label' => to_fa_digits((string) $jy),
+            'class' => 'binder-tab-online',
+            'tone' => 'online',
+            'months' => $months,
+            'present_count' => $presentCount,
+        ];
     }
 
-    $defaultHalf = $currentJm <= 6 ? 1 : 2;
-    $defaultHalfId = 's' . $slot . '-y' . $currentJy . '-h' . $defaultHalf;
-    if (!isset($halves[$defaultHalfId])) {
-        $defaultHalfId = (string) (array_key_first($halves) ?? '');
+    $defaultYearId = 's' . $slot . '-y-' . $currentJy;
+    if (!isset($years[$defaultYearId])) {
+        $defaultYearId = (string) (array_key_first($years) ?? '');
     }
     $defaultMonthId = 's' . $slot . '-m-' . sprintf('%04d-%02d', $currentJy, $currentJm);
     $defaultDayId = isset($present[$today]) ? ('s' . $slot . '-d-' . $today) : '';
 
     return [
-        'halves' => $halves,
-        'default_half_id' => $defaultHalfId,
+        'years' => $years,
+        'halves' => $years,
+        'default_year_id' => $defaultYearId,
+        'default_half_id' => $defaultYearId,
         'default_month_id' => $defaultMonthId,
         'default_day_id' => $defaultDayId,
         'today' => $today,

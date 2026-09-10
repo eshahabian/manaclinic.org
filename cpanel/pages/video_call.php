@@ -320,7 +320,7 @@ document.querySelector("[data-copy-share]")?.addEventListener("click", function(
 </script>
 <?php
 $inner = ob_get_clean();
-$GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260910m"></script>'
+$GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260910p"></script>'
     . '<script src="' . e(url('/assets/js/video-call-lobby.js')) . '?v=20260910n"></script>';
 
 $role = (string) ($user['role'] ?? '');

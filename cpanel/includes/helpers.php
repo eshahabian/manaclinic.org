@@ -696,11 +696,10 @@ function appointment_empty_month_bucket(string $prefix, int $jy, int $jm): array
 }
 
 /**
- * نوبت‌ها مثل بقیه سایت: شش‌ماه اول/دوم سال → ماه → روز.
- * prefer=current ماه جاری؛ latest آخرین ماهی که نوبت دارد.
+ * نوبت‌ها: سال (پیش‌فرض امسال) → ماه → روز.
  *
  * @param array<int, array<string, mixed>> $appointments
- * @return array{halves: array<string, array<string, mixed>>, default_half_id: string, default_month_id: string, empty: bool}
+ * @return array{years: array<string, array<string, mixed>>, default_year_id: string, default_month_id: string, empty: bool}
  */
 function group_appointments_by_jalali_ymd(array $appointments, string $prefix = 'ymd', string $prefer = 'current'): array
 {
@@ -751,13 +750,10 @@ function group_appointments_by_jalali_ymd(array $appointments, string $prefix = 
     }
 
     $yearNums = array_keys($byYear);
-    if ($prefer !== 'latest' || !$yearNums) {
-        $yearNums[] = $currentJy;
-    }
+    $yearNums[] = $currentJy;
     $yearNums = array_values(array_unique(array_map('intval', $yearNums)));
     rsort($yearNums);
-    $yearCount = count($yearNums);
-    $halves = [];
+    $years = [];
 
     foreach ($yearNums as $jy) {
         $jy = (int) $jy;
@@ -765,95 +761,62 @@ function group_appointments_by_jalali_ymd(array $appointments, string $prefix = 
             continue;
         }
         $yearMonths = is_array($byYear[$jy] ?? null) ? $byYear[$jy] : [];
-        $yearHasItems = false;
-        foreach ($yearMonths as $bucket) {
-            if (!empty($bucket['items'])) {
-                $yearHasItems = true;
-                break;
-            }
-        }
-        if (!$yearHasItems && $jy !== $currentJy) {
-            continue;
-        }
-        foreach ([1, 2] as $half) {
-            $from = $half === 1 ? 1 : 7;
-            $to = $half === 1 ? 6 : 12;
-            $months = [];
-            $halfItems = [];
-            for ($jm = $from; $jm <= $to; $jm++) {
-                $monthId = $prefix . '-m-' . sprintf('%04d-%02d', $jy, $jm);
-                $month = $yearMonths[$monthId] ?? appointment_empty_month_bucket($prefix, $jy, $jm);
-                $month['days'] = appointment_finalize_day_groups(is_array($month['days'] ?? null) ? $month['days'] : []);
-                $monthItems = $month['items'] ?? [];
-                $month['count'] = count($monthItems);
-                $month['people'] = appointment_unique_patient_count($monthItems);
-                $month['people_names'] = appointment_unique_patient_names($monthItems);
-                $months[$monthId] = $month;
-                foreach ($monthItems as $row) {
-                    $halfItems[] = $row;
-                }
-            }
-            if ($halfItems === [] && $jy !== $currentJy) {
+        $yearItems = [];
+        $months = [];
+        for ($jm = 1; $jm <= 12; $jm++) {
+            $monthId = $prefix . '-m-' . sprintf('%04d-%02d', $jy, $jm);
+            $hasBucket = isset($yearMonths[$monthId]);
+            if (!$hasBucket && $jy !== $currentJy) {
                 continue;
             }
-            $halfId = $prefix . '-h-' . $jy . '-' . $half;
-            $base = $half === 1 ? 'شش ماه اول سال' : 'شش ماه دوم سال';
-            $halves[$halfId] = [
-                'id' => $halfId,
-                'year' => $jy,
-                'half' => $half,
-                'label' => $yearCount > 1 ? ($base . ' ' . to_fa_digits((string) $jy)) : $base,
-                'class' => $half === 1 ? 'binder-tab-online' : 'binder-tab-offline',
-                'tone' => $half === 1 ? 'online' : 'offline',
-                'months' => $months,
-                'items' => $halfItems,
-                'count' => count($halfItems),
-                'people' => appointment_unique_patient_count($halfItems),
-            ];
-        }
-    }
-
-    $currentHalf = $currentJm <= 6 ? 1 : 2;
-    $currentHalfId = $prefix . '-h-' . $currentJy . '-' . $currentHalf;
-    $currentMonthId = $prefix . '-m-' . sprintf('%04d-%02d', $currentJy, $currentJm);
-    $defaultHalfId = '';
-    $defaultMonthId = '';
-
-    if ($prefer === 'latest') {
-        $bestSort = -1;
-        foreach ($halves as $hid => $half) {
-            $halfMonths = is_array($half['months'] ?? null) ? $half['months'] : [];
-            foreach ($halfMonths as $mid => $month) {
-                if (empty($month['items'])) {
-                    continue;
-                }
-                $sort = (int) ($month['sort'] ?? 0);
-                if ($sort >= $bestSort) {
-                    $bestSort = $sort;
-                    $defaultHalfId = (string) $hid;
-                    $defaultMonthId = (string) $mid;
-                }
+            $month = $hasBucket ? $yearMonths[$monthId] : appointment_empty_month_bucket($prefix, $jy, $jm);
+            $month['days'] = appointment_finalize_day_groups(is_array($month['days'] ?? null) ? $month['days'] : []);
+            $monthItems = $month['items'] ?? [];
+            $month['count'] = count($monthItems);
+            $month['people'] = appointment_unique_patient_count($monthItems);
+            $month['people_names'] = appointment_unique_patient_names($monthItems);
+            $months[$monthId] = $month;
+            foreach ($monthItems as $row) {
+                $yearItems[] = $row;
             }
         }
-    } else {
-        $defaultHalfId = isset($halves[$currentHalfId])
-            ? $currentHalfId
-            : (string) (array_key_first($halves) ?? '');
-        $halfMonths = is_array($halves[$defaultHalfId]['months'] ?? null) ? $halves[$defaultHalfId]['months'] : [];
-        if (isset($halfMonths[$currentMonthId])) {
-            $defaultMonthId = $currentMonthId;
-        } else {
-            $defaultMonthId = (string) (array_key_first($halfMonths) ?? '');
+        if ($yearItems === [] && $jy !== $currentJy) {
+            continue;
         }
+        $yearId = $prefix . '-y-' . $jy;
+        $years[$yearId] = [
+            'id' => $yearId,
+            'year' => $jy,
+            'label' => to_fa_digits((string) $jy),
+            'class' => 'binder-tab-online',
+            'tone' => 'online',
+            'months' => $months,
+            'items' => $yearItems,
+            'count' => count($yearItems),
+            'people' => appointment_unique_patient_count($yearItems),
+        ];
     }
 
+    $currentYearId = $prefix . '-y-' . $currentJy;
+    $currentMonthId = $prefix . '-m-' . sprintf('%04d-%02d', $currentJy, $currentJm);
+    $defaultYearId = isset($years[$currentYearId])
+        ? $currentYearId
+        : (string) (array_key_first($years) ?? '');
+    $yearMonths = is_array($years[$defaultYearId]['months'] ?? null) ? $years[$defaultYearId]['months'] : [];
+    $defaultMonthId = isset($yearMonths[$currentMonthId])
+        ? $currentMonthId
+        : (string) (array_key_first($yearMonths) ?? '');
+    $defaultMonth = is_array($yearMonths[$defaultMonthId] ?? null) ? $yearMonths[$defaultMonthId] : [];
+    $defaultDayId = (string) ($defaultMonth['all_id'] ?? ($defaultMonthId . '-all'));
+
     return [
-        'halves' => $halves,
-        'years' => [],
-        'default_half_id' => $defaultHalfId,
-        'default_year_id' => $defaultHalfId,
+        'years' => $years,
+        'halves' => $years,
+        'default_year_id' => $defaultYearId,
+        'default_half_id' => $defaultYearId,
         'default_month_id' => $defaultMonthId,
-        'empty' => $halves === [],
+        'default_day_id' => $defaultDayId,
+        'empty' => $years === [],
         'prefix' => $prefix,
         'current_year' => $currentJy,
         'current_month' => $currentJm,

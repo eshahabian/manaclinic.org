@@ -93,6 +93,7 @@ ob_start();
   </div>
 </div>
 <?php
-$pageScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260909a"></script>';
+$pageScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260910p"></script>'
+    . '<script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910p"></script>';
 $GLOBALS['pageScripts'] = $pageScripts;
 render_doctor_page('نوبت‌ها', ob_get_clean());

@@ -34,6 +34,7 @@
   var seen = {};
   var peers = {};
   var pendingOffers = {};
+  var iceHold = {};
   var lastStatus = "";
   var audioCtx = null;
   var ringTimer = null;
@@ -118,9 +119,8 @@
     if (audioOnly) return [{ audio: true, video: false }];
     return [
       { audio: true, video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } },
-      { audio: true, video: true },
       { audio: true, video: { facingMode: "user" } },
-      { audio: true, video: false }
+      { audio: true, video: true }
     ];
   }
   function getUserMediaFallback(index, sets) {
@@ -176,15 +176,70 @@
     var vid = document.createElement("video");
     vid.autoplay = true;
     vid.playsInline = true;
+    vid.setAttribute("playsinline", "true");
+    vid.setAttribute("autoplay", "true");
     vid.setAttribute("data-video-remote", "1");
     wrap.appendChild(vid);
     remotesEl.appendChild(wrap);
     return wrap;
   }
+  function playRemote(vid, stream) {
+    if (!vid) return;
+    if (stream) vid.srcObject = stream;
+    vid.playsInline = true;
+    var start = function () {
+      var p = vid.play();
+      if (p && p.catch) {
+        p.catch(function () {
+          vid.muted = true;
+          vid.play().then(function () {
+            setTimeout(function () {
+              vid.muted = false;
+              vid.play().catch(function () {});
+            }, 120);
+          }).catch(function () {});
+        });
+      }
+    };
+    start();
+    var ms = vid.srcObject;
+    if (ms && ms.getVideoTracks) {
+      ms.getVideoTracks().forEach(function (t) {
+        t.enabled = true;
+        t.onunmute = start;
+      });
+    }
+  }
+  function senderKind(conn, sender) {
+    if (!conn || !sender || !conn.getTransceivers) return "";
+    var list = conn.getTransceivers() || [];
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].sender === sender) {
+        if (list[i].receiver && list[i].receiver.track && list[i].receiver.track.kind) {
+          return list[i].receiver.track.kind;
+        }
+        if (sender.track && sender.track.kind) return sender.track.kind;
+      }
+    }
+    return sender.track ? sender.track.kind : "";
+  }
   function addLocalTracks(conn) {
     if (!localStream || !conn) return;
-    var senders = conn.getSenders ? conn.getSenders() : [];
     localStream.getTracks().forEach(function (track) {
+      if (!track || track.readyState === "ended") return;
+      track.enabled = true;
+      var senders = conn.getSenders ? conn.getSenders() : [];
+      var sender = null;
+      for (var i = 0; i < senders.length; i++) {
+        var s = senders[i];
+        if (s.track === track) { sender = s; break; }
+        if (s.track && s.track.kind === track.kind) { sender = s; break; }
+        if (!s.track && senderKind(conn, s) === track.kind) { sender = s; break; }
+      }
+      if (sender && sender.replaceTrack) {
+        if (sender.track !== track) sender.replaceTrack(track).catch(function () {});
+        return;
+      }
       var already = senders.some(function (s) { return s.track && s.track.id === track.id; });
       if (!already) conn.addTrack(track, localStream);
     });
@@ -195,10 +250,7 @@
   }
   function ensurePeer(userId) {
     if (!userId || userId === meId) return null;
-    if (peers[userId]) {
-      addLocalTracks(peers[userId].pc);
-      return peers[userId];
-    }
+    if (peers[userId]) return peers[userId];
     var tile = remoteTile(userId);
     var vid = tile ? tile.querySelector("video") : null;
     var remoteStream = new MediaStream();
@@ -210,21 +262,16 @@
       }
     };
     pc.ontrack = function (ev) {
+      if (ev.track) ev.track.enabled = true;
       var stream = ev.streams && ev.streams[0] ? ev.streams[0] : null;
       if (stream) {
         rec.remoteStream = stream;
-        if (vid) {
-          vid.srcObject = stream;
-          vid.play().catch(function () {});
-        }
+        playRemote(vid, stream);
       } else if (ev.track) {
         if (!remoteStream.getTracks().some(function (t) { return t.id === ev.track.id; })) {
           remoteStream.addTrack(ev.track);
         }
-        if (vid) {
-          vid.srcObject = remoteStream;
-          vid.play().catch(function () {});
-        }
+        playRemote(vid, remoteStream);
       }
       if (stageEl) stageEl.classList.add("is-live");
     };
@@ -236,8 +283,11 @@
         stopRing();
       }
     };
-    addLocalTracks(pc);
     peers[userId] = rec;
+    if (iceHold[userId] && iceHold[userId].length) {
+      rec.pendingIce = rec.pendingIce.concat(iceHold[userId]);
+      delete iceHold[userId];
+    }
     return rec;
   }
   function flushIce(rec) {
@@ -252,6 +302,14 @@
     if (rec.pc.signalingState !== "stable") return Promise.resolve();
     rec.makingOffer = true;
     addLocalTracks(rec.pc);
+    if (!audioOnly && rec.pc.addTransceiver) {
+      var hasVideo = (rec.pc.getTransceivers() || []).some(function (t) {
+        var kind = (t.receiver && t.receiver.track && t.receiver.track.kind)
+          || (t.sender && t.sender.track && t.sender.track.kind);
+        return kind === "video";
+      });
+      if (!hasVideo) rec.pc.addTransceiver("video", { direction: "sendrecv" });
+    }
     return rec.pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: !audioOnly }).then(function (offer) {
       return rec.pc.setLocalDescription(offer);
     }).then(function () {
@@ -265,8 +323,13 @@
   function answerFrom(userId, offer) {
     var rec = ensurePeer(userId);
     if (!rec || !offer) return Promise.resolve();
-    addLocalTracks(rec.pc);
     return rec.pc.setRemoteDescription(new RTCSessionDescription(offer)).then(function () {
+      addLocalTracks(rec.pc);
+      (rec.pc.getTransceivers ? rec.pc.getTransceivers() : []).forEach(function (t) {
+        try {
+          if (t.direction === "recvonly" || t.direction === "inactive") t.direction = "sendrecv";
+        } catch (e) {}
+      });
       flushIce(rec);
       return rec.pc.createAnswer();
     }).then(function (answer) {
@@ -418,10 +481,13 @@
         rec.pc.setRemoteDescription(new RTCSessionDescription(payload)).then(function () { flushIce(rec); }).catch(function () {});
       }
     } else if (kind === "ice" && payload) {
-      var recIce = ensurePeer(from);
+      var recIce = peers[from];
       if (recIce) {
         recIce.pendingIce.push(payload);
         flushIce(recIce);
+      } else {
+        iceHold[from] = iceHold[from] || [];
+        iceHold[from].push(payload);
       }
     } else if (kind === "hangup" || kind === "leave") {
       if (from) closePeer(from);

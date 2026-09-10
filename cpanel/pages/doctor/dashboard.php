@@ -369,7 +369,8 @@ ob_start();
     </div>
   </div>
 </div>
-<script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260909a"></script>
+<script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260910p"></script>
+<script src="<?= e(url('/assets/js/ymd-cascade.js')) ?>?v=20260910p"></script>
 <script>
 (function () {
   var root = document.querySelector('[data-dash-tabs]');

@@ -3,7 +3,8 @@ declare(strict_types=1);
 
 function staff_hours_scripts(): string
 {
-    return '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260907h"></script>';
+    return '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260910p"></script>'
+        . '<script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910p"></script>';
 }
 
 function staff_hours_person_word(array $block): string
@@ -195,96 +196,105 @@ function staff_hours_render_calendar(array $block, array $opts = []): string
     if (!is_array($cal)) {
         $cal = [];
     }
-    $halves = is_array($cal['halves'] ?? null) ? $cal['halves'] : [];
-    $defaultHalfId = (string) ($cal['default_half_id'] ?? '');
-    if ($halves === []) {
+    $years = is_array($cal['years'] ?? null) && $cal['years'] !== []
+        ? $cal['years']
+        : (is_array($cal['halves'] ?? null) ? $cal['halves'] : []);
+    $defaultYearId = (string) ($cal['default_year_id'] ?? $cal['default_half_id'] ?? '');
+    if ($years === []) {
         return '<p class="muted">برای این ' . e($personWord) . ' سابقه‌ای نیست.</p>';
     }
-    if ($defaultHalfId === '' || !isset($halves[$defaultHalfId])) {
-        $defaultHalfId = (string) (array_key_first($halves) ?? '');
+    if ($defaultYearId === '' || !isset($years[$defaultYearId])) {
+        $defaultYearId = (string) (array_key_first($years) ?? '');
     }
-    $defaultHalf = is_array($halves[$defaultHalfId] ?? null) ? $halves[$defaultHalfId] : [];
-    $defaultHalfTone = (string) ($defaultHalf['tone'] ?? 'online');
+    $defaultYear = is_array($years[$defaultYearId] ?? null) ? $years[$defaultYearId] : [];
+    $defaultMonths = is_array($defaultYear['months'] ?? null) ? $defaultYear['months'] : [];
+    $defaultMonthId = (string) ($cal['default_month_id'] ?? '');
+    if ($defaultMonthId === '' || !isset($defaultMonths[$defaultMonthId])) {
+        $defaultMonthId = (string) (array_key_first($defaultMonths) ?? '');
+    }
+    $defaultMonth = is_array($defaultMonths[$defaultMonthId] ?? null) ? $defaultMonths[$defaultMonthId] : [];
+    $monthDays = is_array($defaultMonth['days'] ?? null) ? $defaultMonth['days'] : [];
+    $allId = $defaultMonthId . '-all';
+    $defaultDayId = (string) ($cal['default_day_id'] ?? '');
+    if ($defaultDayId === '' || !isset($monthDays[$today])) {
+        $defaultDayId = $allId;
+    }
 
     ob_start();
     ?>
-<div class="binder-tile binder-tile--nested staff-hours-calendar" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($defaultHalfId) ?>" data-binder-tone="<?= e($defaultHalfTone) ?>">
-  <div class="binder-tabs" role="tablist" aria-label="نیم‌سال">
-    <?php foreach ($halves as $halfId => $half): ?>
-      <?php
-        if (!is_array($half)) {
-            continue;
-        }
-        $halfId = (string) $halfId;
-      ?>
-      <button type="button"
-        class="binder-tab <?= e((string) ($half['class'] ?? '')) ?><?= $defaultHalfId === $halfId ? ' is-active' : '' ?>"
-        role="tab"
-        data-binder-tab="<?= e($halfId) ?>"
-        data-binder-tone="<?= e((string) ($half['tone'] ?? 'online')) ?>"
-        aria-selected="<?= $defaultHalfId === $halfId ? 'true' : 'false' ?>">
-        <?= e((string) ($half['label'] ?? '')) ?>
-      </button>
-    <?php endforeach; ?>
+<div class="ymd-cascade staff-hours-calendar"
+     data-ymd-cascade
+     data-ymd-initial-year="<?= e($defaultYearId) ?>"
+     data-ymd-initial-month="<?= e($defaultMonthId) ?>"
+     data-ymd-initial-day="<?= e($defaultDayId) ?>">
+  <div class="ymd-cascade-bar">
+    <label class="ymd-cascade-field">سال
+      <select class="input ymd-cascade-select" data-ymd-select="year" aria-label="سال">
+        <?php foreach ($years as $yearId => $year): ?>
+          <?php if (!is_array($year)) { continue; } ?>
+          <option value="<?= e((string) $yearId) ?>"<?= $defaultYearId === (string) $yearId ? ' selected' : '' ?>>
+            <?= e((string) ($year['label'] ?? $yearId)) ?>
+          </option>
+        <?php endforeach; ?>
+      </select>
+    </label>
+    <label class="ymd-cascade-field">ماه
+      <select class="input ymd-cascade-select" data-ymd-select="month" aria-label="ماه"></select>
+    </label>
+    <label class="ymd-cascade-field">روز
+      <select class="input ymd-cascade-select" data-ymd-select="day" aria-label="روز"></select>
+    </label>
   </div>
-  <div class="binder-body">
-    <?php foreach ($halves as $halfId => $half): ?>
+  <div class="ymd-cascade-body">
+    <?php foreach ($years as $yearId => $year): ?>
       <?php
-        if (!is_array($half)) {
+        if (!is_array($year)) {
             continue;
         }
-        $halfId = (string) $halfId;
-        $months = is_array($half['months'] ?? null) ? $half['months'] : [];
-        $defaultMonthId = (string) ($cal['default_month_id'] ?? '');
-        if ($defaultMonthId === '' || !isset($months[$defaultMonthId])) {
-            $defaultMonthId = (string) (array_key_first($months) ?? '');
-        }
-        $monthTone = (string) ($half['tone'] ?? 'in-person');
-        $defaultMonth = is_array($months[$defaultMonthId] ?? null) ? $months[$defaultMonthId] : [];
-        if ($defaultMonth !== []) {
-            $monthTone = (string) ($defaultMonth['tone'] ?? $monthTone);
-        }
+        $yearId = (string) $yearId;
+        $months = is_array($year['months'] ?? null) ? $year['months'] : [];
       ?>
-      <section class="binder-panel<?= $defaultHalfId === $halfId ? ' is-active' : '' ?>" data-binder-panel="<?= e($halfId) ?>" role="tabpanel"<?= $defaultHalfId === $halfId ? '' : ' hidden' ?>>
+      <section data-ymd-year="<?= e($yearId) ?>" data-ymd-label="<?= e((string) ($year['label'] ?? $yearId)) ?>"<?= $defaultYearId === $yearId ? '' : ' hidden' ?>>
         <?php if (!$months): ?>
-          <p class="muted">ماهی در این نیم‌سال نیست.</p>
+          <p class="muted">ماهی در این سال نیست.</p>
         <?php else: ?>
-          <div class="binder-tile binder-tile--nested staff-hours-month-tabs" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($defaultMonthId) ?>" data-binder-tone="<?= e($monthTone) ?>">
-            <div class="binder-tabs" role="tablist" aria-label="ماه">
-              <?php foreach ($months as $monthId => $month): ?>
+          <?php foreach ($months as $monthId => $month): ?>
+            <?php
+              if (!is_array($month)) {
+                  continue;
+              }
+              $monthId = (string) $monthId;
+              $days = is_array($month['days'] ?? null) ? $month['days'] : [];
+              $monthAllId = $monthId . '-all';
+              $monthOn = $defaultYearId === $yearId && $defaultMonthId === $monthId;
+            ?>
+            <section data-ymd-month="<?= e($monthId) ?>"
+                     data-ymd-label="<?= e((string) ($month['tab_label'] ?? $month['short'] ?? $monthId)) ?>"
+                     data-ymd-count="<?= e((string) ($month['present_count'] ?? 0)) ?>"
+                     <?= $monthOn ? '' : ' hidden' ?>>
+              <section data-ymd-day="<?= e($monthAllId) ?>"
+                       data-ymd-label="کل <?= e((string) ($month['short'] ?? 'ماه')) ?>"
+                       data-ymd-count="<?= e((string) ($month['present_count'] ?? 0)) ?>"
+                       <?= ($monthOn && $defaultDayId === $monthAllId) ? '' : ' hidden' ?>>
+                <?= staff_hours_render_month_panel($block, $month, $today) ?>
+              </section>
+              <?php foreach ($days as $day): ?>
                 <?php
-                  if (!is_array($month)) {
+                  if (!is_array($day)) {
                       continue;
                   }
-                  $monthId = (string) $monthId;
+                  $did = (string) ($day['id'] ?? '');
+                  $dayOn = $monthOn && $defaultDayId === $did;
                 ?>
-                <button type="button"
-                  class="binder-tab staff-hours-range-tab <?= e((string) ($month['class'] ?? 'binder-tab-in-person')) ?><?= $defaultMonthId === $monthId ? ' is-active' : '' ?>"
-                  role="tab"
-                  data-binder-tab="<?= e($monthId) ?>"
-                  data-binder-tone="<?= e((string) ($month['tone'] ?? 'in-person')) ?>"
-                  aria-selected="<?= $defaultMonthId === $monthId ? 'true' : 'false' ?>">
-                  <?= e(staff_hours_month_tab_label($month)) ?>
-                  <?php if ((int) ($month['present_count'] ?? 0) > 0): ?>
-                    <span class="binder-tab-count"><?= e(to_fa_digits((string) $month['present_count'])) ?></span>
-                  <?php endif; ?>
-                </button>
-              <?php endforeach; ?>
-            </div>
-            <div class="binder-body">
-              <?php foreach ($months as $monthId => $month): ?>
-                <?php
-                  if (!is_array($month)) {
-                      continue;
-                  }
-                  $monthId = (string) $monthId;
-                ?>
-                <section class="binder-panel<?= $defaultMonthId === $monthId ? ' is-active' : '' ?>" data-binder-panel="<?= e($monthId) ?>" role="tabpanel"<?= $defaultMonthId === $monthId ? '' : ' hidden' ?>>
-                  <?= staff_hours_render_month_panel($block, $month, $today) ?>
+                <section data-ymd-day="<?= e($did) ?>"
+                         data-ymd-label="<?= e((string) ($day['tab_label'] ?? $day['label'] ?? '')) ?>"
+                         <?= $dayOn ? '' : ' hidden' ?>>
+                  <h2 class="binder-sub" style="margin-top:0"><?= e((string) ($day['label'] ?? '')) ?></h2>
+                  <?= staff_hours_render_tile($block, (string) ($day['date'] ?? ''), $today) ?>
                 </section>
               <?php endforeach; ?>
-            </div>
-          </div>
+            </section>
+          <?php endforeach; ?>
         <?php endif; ?>
       </section>
     <?php endforeach; ?>
@@ -302,15 +312,6 @@ function staff_hours_render_calendar(array $block, array $opts = []): string
 
 function staff_hours_render_month_panel(array $block, array $month, string $today): string
 {
-    $days = is_array($month['days'] ?? null) ? $month['days'] : [];
-    $defaultDayId = '';
-    if (isset($days[$today]) && is_array($days[$today])) {
-        $defaultDayId = (string) ($days[$today]['id'] ?? '');
-    } elseif ($days) {
-        $first = reset($days);
-        $defaultDayId = is_array($first) ? (string) ($first['id'] ?? '') : '';
-    }
-
     ob_start();
     ?>
 <div class="staff-hours-month-main">
@@ -321,45 +322,6 @@ function staff_hours_render_month_panel(array $block, array $month, string $toda
     </span>
   </h2>
   <?= staff_hours_render_month_tile($block, $month, $today) ?>
-  <?php if ($days): ?>
-    <div class="staff-hours-day-drill">
-      <h3 class="staff-hours-day-drill-title">جزئیات روز</h3>
-      <p class="muted staff-hours-day-drill-hint">جمع ماه همین بالاست. برای ورود و خروج یک روز، تب آن را بزنید.</p>
-      <div class="binder-tile binder-tile--nested" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($defaultDayId) ?>" data-binder-tone="<?= e((string) ($month['tone'] ?? 'in-person')) ?>">
-        <div class="binder-tabs" role="tablist" aria-label="روزهای حضور">
-          <?php foreach ($days as $day): ?>
-            <?php
-              if (!is_array($day)) {
-                  continue;
-              }
-              $did = (string) ($day['id'] ?? '');
-            ?>
-            <button type="button"
-              class="binder-tab <?= e((string) ($month['class'] ?? 'binder-tab-in-person')) ?><?= $defaultDayId === $did ? ' is-active' : '' ?>"
-              role="tab"
-              data-binder-tab="<?= e($did) ?>"
-              data-binder-tone="<?= e((string) ($month['tone'] ?? 'in-person')) ?>"
-              aria-selected="<?= $defaultDayId === $did ? 'true' : 'false' ?>">
-              <?= e((string) ($day['tab_label'] ?? '')) ?>
-            </button>
-          <?php endforeach; ?>
-        </div>
-        <div class="binder-body">
-          <?php foreach ($days as $day): ?>
-            <?php
-              if (!is_array($day)) {
-                  continue;
-              }
-              $did = (string) ($day['id'] ?? '');
-            ?>
-            <section class="binder-panel<?= $defaultDayId === $did ? ' is-active' : '' ?>" data-binder-panel="<?= e($did) ?>" role="tabpanel"<?= $defaultDayId === $did ? '' : ' hidden' ?>>
-              <?= staff_hours_render_tile($block, (string) ($day['date'] ?? ''), $today) ?>
-            </section>
-          <?php endforeach; ?>
-        </div>
-      </div>
-    </div>
-  <?php endif; ?>
 </div>
     <?php
     return (string) ob_get_clean();

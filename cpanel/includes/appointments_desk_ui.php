@@ -97,4 +97,6 @@ ob_start();
 </div>
 <?php
 $appointmentsDeskHtml = ob_get_clean();
-$appointmentsDeskScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260909a"></script>' . ($secretaryBookScripts ?? '');
+$appointmentsDeskScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260910p"></script>'
+    . '<script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910p"></script>'
+    . ($secretaryBookScripts ?? '');
