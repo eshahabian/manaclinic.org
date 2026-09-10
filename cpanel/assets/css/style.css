@@ -1471,8 +1471,9 @@ body.home-workshop-locked { overflow: hidden; }
 @media (min-width: 720px) {
   .vc-overlay-grid { grid-template-columns: 1fr 1fr; }
 }
-.vc-overlay-search { margin: 0 0 .45rem; }
+.vc-overlay-search { margin: 0 0 .75rem; }
 .vc-overlay-search .input { font-size: .85rem; }
+.vc-overlay-grid .vc-people {
   min-height: 10rem;
   max-height: 16rem;
   overflow: auto;

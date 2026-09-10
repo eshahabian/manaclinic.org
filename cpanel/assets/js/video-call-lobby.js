@@ -295,17 +295,20 @@
 
   function renderOverlayLists(items) {
     if (!overlaySource || !overlayPickedEl) return;
+    var seen = {};
     var sourceHtml = [];
     var pickedHtml = [];
-    (items || []).forEach(function (item) {
+    Object.keys(overlayPicked).forEach(function (id) {
+      var item = overlayPicked[id];
       if (!item || !item.id) return;
-      if (overlayPicked[item.id]) {
-        pickedHtml.push("<li>" + personHtml(item, item.id === overlayHighlight.picked ? "is-on" : "") + "</li>");
-      } else {
-        sourceHtml.push("<li>" + personHtml(item, item.id === overlayHighlight.source ? "is-on" : "") + "</li>");
-      }
+      seen[item.id] = true;
+      pickedHtml.push("<li>" + personHtml(item, item.id === overlayHighlight.picked ? "is-on" : "") + "</li>");
     });
-    overlaySource.innerHTML = sourceHtml.join("") || '<li class="muted vc-empty">مخاطبی نیست.</li>';
+    (items || []).forEach(function (item) {
+      if (!item || !item.id || seen[item.id] || overlayPicked[item.id]) return;
+      sourceHtml.push("<li>" + personHtml(item, item.id === overlayHighlight.source ? "is-on" : "") + "</li>");
+    });
+    overlaySource.innerHTML = sourceHtml.join("") || '<li class="muted vc-empty">مخاطبی نیست. جستجو کنید.</li>';
     overlayPickedEl.innerHTML = pickedHtml.join("") || '<li class="muted vc-empty">هنوز کسی اضافه نشده.</li>';
   }
 
