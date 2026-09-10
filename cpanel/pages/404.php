@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 $pageTitle = 'یافت نشد';
+$pageDescription = 'این صفحه در مانا کلینیک پیدا نشد. به صفحه اصلی برگردید یا از منو نوبت و مقالات را ببینید.';
+$pageRobots = 'noindex,follow';
 ob_start();
 ?>
 <div class="container-page section" style="text-align:center;min-height:50vh;display:grid;place-content:center">

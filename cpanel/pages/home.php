@@ -23,7 +23,7 @@ $articles = $pdo->query("
 $leadArticle = $articles[0] ?? null;
 $moreArticles = array_slice($articles, 1);
 
-$pageTitle = 'خانه';
+$pageTitle = 'کلینیک روانشناسی سعادت‌آباد';
 $pageDescription = 'مانا کلینیک سعادت‌آباد؛ روانشناسی، روان‌درمانی، زوج‌درمانی، کارگاه و دوره آموزشی، رزرو نوبت آنلاین و دستیار هوشمند سلامت روان.';
 $pageCanonical = url('/');
 $pageKeywords = 'مانا کلینیک, روانشناس سعادت آباد, رزرو نوبت روانشناسی, کارگاه روانشناسی, زوج درمانی, مشاوره اضطراب';

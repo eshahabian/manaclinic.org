@@ -4,6 +4,9 @@ declare(strict_types=1);
 $tests = psych_tests_catalog();
 $testsSidebarActive = 'index';
 $pageTitle = 'آزمون‌های روانشناسی';
+$pageDescription = 'آزمون‌های روانشناسی مانا کلینیک: غربالگری اضطراب، افسردگی، استرس و شخصیت. جایگزین تشخیص بالینی نیست؛ در سعادت‌آباد می‌توانید نوبت بگیرید.';
+$pageCanonical = url('/tests');
+$pageKeywords = 'آزمون روانشناسی, پرسشنامه افسردگی بک, آزمون اضطراب, مانا کلینیک';
 
 ob_start();
 ?>

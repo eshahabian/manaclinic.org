@@ -22,7 +22,7 @@ ob_start();
     <?php foreach ($articles as $article): ?>
       <a class="panel card-link" href="<?= e(url('/articles/' . $article['slug'])) ?>">
         <?php if (!empty($article['cover_url'])): ?>
-          <img class="article-card-cover" src="<?= e(url((string) $article['cover_url'])) ?>" alt="">
+          <img class="article-card-cover" src="<?= e(url((string) $article['cover_url'])) ?>" alt="<?= e($article['title']) ?>">
         <?php endif; ?>
         <span class="badge"><?= e($article['author_name']) ?></span>
         <h2 style="margin:.75rem 0 0;font-size:1.25rem;line-height:1.7"><?= e($article['title']) ?></h2>

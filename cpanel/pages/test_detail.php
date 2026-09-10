@@ -7,12 +7,18 @@ $test = psych_test_by_slug($slug);
 if (!$test) {
     http_response_code(404);
     $pageTitle = 'یافت نشد';
+    $pageRobots = 'noindex,follow';
     require __DIR__ . '/404.php';
     exit;
 }
 
 $testsSidebarActive = $test['slug'];
 $pageTitle = $test['title'];
+$pageDescription = trim((string) ($test['description'] ?? '')) !== ''
+    ? (string) $test['description'] . ' آزمون روانشناسی در مانا کلینیک سعادت‌آباد؛ جایگزین تشخیص بالینی نیست.'
+    : ($test['title'] . ' — آزمون روانشناسی مانا کلینیک سعادت‌آباد.');
+$pageCanonical = url('/tests/' . $test['slug']);
+$pageKeywords = $test['title'] . ', ' . ($test['abbr'] ?? '') . ', آزمون روانشناسی, مانا کلینیک';
 
 ob_start();
 ?>

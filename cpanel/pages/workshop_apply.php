@@ -52,6 +52,7 @@ $title = (string) ($workshop['title'] ?? 'دوره');
 $pageTitle = 'ثبت‌نام «' . $title . '»';
 $pageDescription = 'ثبت‌نام دوره «' . $title . '» در مانا کلینیک سعادت‌آباد.';
 $pageCanonical = url($applyPath);
+$GLOBALS['pageTitle'] = $pageTitle;
 $GLOBALS['pageRobots'] = 'noindex,nofollow';
 $GLOBALS['pageDescription'] = $pageDescription;
 $GLOBALS['pageCanonical'] = $pageCanonical;

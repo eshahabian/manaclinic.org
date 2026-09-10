@@ -3,6 +3,14 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/seo.php';
 
+foreach (['pageTitle', 'pageDescription', 'pageCanonical', 'pageKeywords', 'pageRobots', 'pageImage', 'pageOgType', 'pageJsonLd'] as $seoKey) {
+    if (isset($$seoKey) && $$seoKey !== null && $$seoKey !== '') {
+        $GLOBALS[$seoKey] = $$seoKey;
+    } elseif (isset($GLOBALS[$seoKey])) {
+        $$seoKey = $GLOBALS[$seoKey];
+    }
+}
+
 $pageTitle = $GLOBALS['pageTitle'] ?? ($pageTitle ?? null);
 $pageHead = $GLOBALS['pageHead'] ?? ($pageHead ?? '');
 $pageScripts = $GLOBALS['pageScripts'] ?? ($pageScripts ?? '');

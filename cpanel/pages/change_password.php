@@ -4,6 +4,7 @@ declare(strict_types=1);
 $user = require_login();
 $forced = !empty($user['must_change_password']);
 $pageTitle = 'تغییر رمز عبور';
+$pageRobots = 'noindex,nofollow';
 ob_start();
 ?>
 <div class="auth-wrap">

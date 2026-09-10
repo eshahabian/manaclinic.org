@@ -15,6 +15,7 @@ $doctor = $stmt->fetch();
 if (!$doctor) {
     http_response_code(404);
     $pageTitle = 'یافت نشد';
+    $pageRobots = 'noindex,follow';
     require __DIR__ . '/404.php';
     exit;
 }
@@ -67,6 +68,19 @@ $knows = doctor_profile_labels($focus, doctor_focus_options());
 if ($knows !== []) {
     $pageJsonLd['knowsAbout'] = $knows;
 }
+$pageJsonLd = [
+    '@graph' => [
+        $pageJsonLd,
+        [
+            '@type' => 'BreadcrumbList',
+            'itemListElement' => [
+                ['@type' => 'ListItem', 'position' => 1, 'name' => 'خانه', 'item' => seo_absolute_url('/')],
+                ['@type' => 'ListItem', 'position' => 2, 'name' => 'متخصصان', 'item' => seo_absolute_url('/doctors')],
+                ['@type' => 'ListItem', 'position' => 3, 'name' => $doctor['name'], 'item' => seo_absolute_url($pageCanonical)],
+            ],
+        ],
+    ],
+];
 $pageHead = '
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
 ';

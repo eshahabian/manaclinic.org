@@ -2,8 +2,9 @@
 declare(strict_types=1);
 
 $pageTitle = 'درباره ما';
-$pageDescription = 'درباره مانا کلینیک؛ فضای امن برای مشاوره روانشناسی، روان‌درمانی و رشد فردی در تهران.';
+$pageDescription = 'درباره مانا کلینیک سعادت‌آباد تهران؛ مشاوره روانشناسی، روان‌درمانی، زوج‌درمانی و فضای امن درمان. تلفن ۰۹۱۰۱۳۸۷۸۳۸ و ۰۲۱۲۲۰۶۵۷۷۴.';
 $pageCanonical = url('/about');
+$pageKeywords = 'درباره مانا کلینیک, کلینیک روانشناسی سعادت آباد, روان‌درمانی تهران';
 ob_start();
 ?>
 <div class="container-page section" style="max-width:48rem">

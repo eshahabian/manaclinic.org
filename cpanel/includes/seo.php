@@ -74,11 +74,13 @@ function seo_render_head(?array $meta = null): string
     $out[] = '<meta property="og:description" content="' . e($description) . '">';
     $out[] = '<meta property="og:url" content="' . e($canonical) . '">';
     $out[] = '<meta property="og:image" content="' . e($image) . '">';
+    $out[] = '<meta property="og:image:alt" content="' . e($title) . '">';
 
     $out[] = '<meta name="twitter:card" content="summary_large_image">';
     $out[] = '<meta name="twitter:title" content="' . e($fullTitle) . '">';
     $out[] = '<meta name="twitter:description" content="' . e($description) . '">';
     $out[] = '<meta name="twitter:image" content="' . e($image) . '">';
+    $out[] = '<meta name="twitter:image:alt" content="' . e($title) . '">';
 
     // LocalBusiness + WebSite JSON-LD پیش‌فرض
     $defaultLd = [
@@ -116,6 +118,14 @@ function seo_render_head(?array $meta = null): string
                 'name' => $site,
                 'inLanguage' => 'fa-IR',
                 'publisher' => ['@id' => seo_absolute_url('/') . '#clinic'],
+                'potentialAction' => [
+                    '@type' => 'SearchAction',
+                    'target' => [
+                        '@type' => 'EntryPoint',
+                        'urlTemplate' => seo_absolute_url('/doctors') . '?q={search_term_string}',
+                    ],
+                    'query-input' => 'required name=search_term_string',
+                ],
             ],
         ],
     ];
@@ -128,7 +138,7 @@ function seo_render_head(?array $meta = null): string
         }
     }
 
-    $out[] = '<script type="application/ld+json">' . json_encode($defaultLd, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . '</script>';
+    $out[] = '<script type="application/ld+json">' . json_encode($defaultLd, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP) . '</script>';
 
     return implode("\n  ", $out);
 }

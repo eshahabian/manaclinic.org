@@ -15,5 +15,6 @@ Disallow: /video-call
 Disallow: /video-signal
 Disallow: /assistant/chat
 Disallow: /assistant/send
+Disallow: /assistant/report
 
 Sitemap: https://manaclinic.org/sitemap.xml

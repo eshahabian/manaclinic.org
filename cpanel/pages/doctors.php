@@ -27,6 +27,13 @@ $pageTitle = 'متخصصان';
 $pageDescription = 'روانشناسان مانا کلینیک سعادت‌آباد؛ انتخاب درمانگر بر اساس حوزه درمان و رزرو نوبت آنلاین.';
 $pageCanonical = url('/doctors');
 $pageKeywords = 'روانشناس, متخصص روانشناسی, رزرو نوبت, مانا کلینیک';
+$GLOBALS['pageTitle'] = $pageTitle;
+$GLOBALS['pageDescription'] = $pageDescription;
+$GLOBALS['pageCanonical'] = $pageCanonical;
+$GLOBALS['pageKeywords'] = $pageKeywords;
+if ($q !== '') {
+    $GLOBALS['pageRobots'] = 'noindex,follow';
+}
 $currentUser = current_user();
 $isPatientViewer = $currentUser && ($currentUser['role'] ?? '') === 'PATIENT';
 ob_start();

@@ -25,6 +25,7 @@ if ($intake === '') {
 }
 
 $pageTitle = 'گزارش گفتگو';
+$pageRobots = 'noindex,nofollow';
 $pageHead = '<style>
 @media print {
   .site-header, .site-footer, #particle-canvas, .no-print, .flash { display: none !important; }

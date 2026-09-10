@@ -32,6 +32,7 @@ $pageJsonLd = [
     'description' => $pageDescription,
     'inLanguage' => 'fa-IR',
     'datePublished' => $article['published_at'] ?? null,
+    'dateModified' => $article['updated_at'] ?? ($article['published_at'] ?? null),
     'author' => [
         '@type' => 'Person',
         'name' => $article['author_name'],
@@ -39,12 +40,26 @@ $pageJsonLd = [
     'publisher' => [
         '@type' => 'Organization',
         'name' => 'مانا کلینیک',
-        'url' => 'https://manaclinic.org',
+        'url' => seo_absolute_url('/'),
     ],
     'mainEntityOfPage' => seo_absolute_url($pageCanonical),
 ];
+$pageJsonLdGraph = [
+    '@graph' => [
+        $pageJsonLd,
+        [
+            '@type' => 'BreadcrumbList',
+            'itemListElement' => [
+                ['@type' => 'ListItem', 'position' => 1, 'name' => 'خانه', 'item' => seo_absolute_url('/')],
+                ['@type' => 'ListItem', 'position' => 2, 'name' => 'مقالات', 'item' => seo_absolute_url('/articles')],
+                ['@type' => 'ListItem', 'position' => 3, 'name' => $article['title'], 'item' => seo_absolute_url($pageCanonical)],
+            ],
+        ],
+    ],
+];
+$pageJsonLd = $pageJsonLdGraph;
 if (!empty($article['cover_url'])) {
-    $pageJsonLd['image'] = seo_absolute_url(url((string) $article['cover_url']));
+    $pageJsonLd['@graph'][0]['image'] = seo_absolute_url(url((string) $article['cover_url']));
 }
 
 ob_start();

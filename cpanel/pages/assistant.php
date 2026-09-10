@@ -11,6 +11,9 @@ if (!assistant_enabled()) {
 ensure_assistant_schema($pdo);
 
 $pageTitle = 'با من حرف بزن';
+$pageDescription = 'دستیار هوشمند مانا کلینیک برای پیدا کردن درمانگر یا کارگاه مناسب. تشخیص پزشکی نیست؛ در بحران با اورژانس ۱۱۵ تماس بگیرید.';
+$pageCanonical = url('/assistant');
+$pageKeywords = 'دستیار هوشمند روانشناسی, چت روانشناس, مانا کلینیک';
 $user = current_user();
 $isPatient = $user && ($user['role'] ?? '') === 'PATIENT';
 $resumeSession = trim((string) ($_GET['session'] ?? ''));
