@@ -1761,9 +1761,10 @@ body.is-auth {
 .auth-card .auth-line-row svg,
 .auth-card .password-toggle {
   position: absolute;
-  left: auto;
-  right: 0;
-  inset-inline: auto 0;
+  left: auto !important;
+  right: .15rem !important;
+  inset-inline-start: 0 !important;
+  inset-inline-end: auto !important;
   top: 50%;
   transform: translateY(-50%);
   color: #8a7f70;
@@ -3933,6 +3934,10 @@ body.workshop-overview-locked { overflow: hidden; }
 .password-toggle .password-toggle-show { display: block; }
 .password-toggle.is-on .password-toggle-show { display: none; }
 .password-toggle.is-on .password-toggle-hide { display: block; }
+.auth-card .password-toggle {
+  left: auto !important;
+  right: .15rem !important;
+}
 .password-rules { margin: 0; font-size: .78rem; line-height: 1.6; }
 .password-lang-warn,
 .password-match-warn {
@@ -4121,6 +4126,10 @@ body.workshop-overview-locked { overflow: hidden; }
 .password-toggle .password-toggle-show { display: block; }
 .password-toggle.is-on .password-toggle-show { display: none; }
 .password-toggle.is-on .password-toggle-hide { display: block; }
+.auth-card .password-toggle {
+  left: auto !important;
+  right: .15rem !important;
+}
 .password-rules { margin: 0; font-size: .78rem; line-height: 1.6; }
 .password-lang-warn,
 .password-match-warn {
