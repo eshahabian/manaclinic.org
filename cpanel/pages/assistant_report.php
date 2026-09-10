@@ -36,7 +36,7 @@ $pageHead = '<style>
 .assistant-report pre {
   white-space: pre-wrap;
   word-break: break-word;
-  font-family: Vazirmatn, Tahoma, sans-serif;
+  font-family: inherit;
   line-height: 1.9;
   font-size: .95rem;
   background: #f7faf8;
