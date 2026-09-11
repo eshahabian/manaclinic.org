@@ -966,8 +966,28 @@ body.home-workshop-locked { overflow: hidden; }
 .video-call-stage.is-live .video-call-brand,
 .video-call-stage:has(.vc-remote-tile) .video-call-brand,
 .video-call-page.is-black .video-call-brand {
-  opacity: 0;
-  visibility: hidden;
+  opacity: 0 !important;
+  visibility: hidden !important;
+  z-index: 0;
+}
+.vc-remotes {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(42%, 1fr));
+  gap: .35rem;
+  padding: .35rem;
+  min-height: 18rem;
+}
+.vc-remote-tile { min-height: 18rem; height: 100%; background: #0d1a16; border-radius: .6rem; overflow: hidden; position: relative; z-index: 3; }
+.vc-remote-tile video {
+  width: 100%;
+  height: 100%;
+  min-height: 18rem;
+  object-fit: cover;
+  display: block;
+  background: #0d1a16;
 }
 @media (max-width: 560px) {
   .video-call-logo { width: 2.85rem; height: 2.85rem; }
@@ -1377,25 +1397,6 @@ body.home-workshop-locked { overflow: hidden; }
 .vc-online-toast p { margin: 0; }
 .vc-share { display: flex; gap: .4rem; flex-wrap: wrap; align-items: center; margin: .5rem 0 0; }
 .vc-share .input { flex: 1; min-width: 12rem; font-size: .8rem; }
-.vc-remotes {
-  position: absolute;
-  inset: 0;
-  z-index: 2;
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(42%, 1fr));
-  gap: .35rem;
-  padding: .35rem;
-  min-height: 18rem;
-}
-.vc-remote-tile { min-height: 18rem; height: 100%; background: #0d1a16; border-radius: .6rem; overflow: hidden; }
-.vc-remote-tile video {
-  width: 100%;
-  height: 100%;
-  min-height: 18rem;
-  object-fit: contain;
-  display: block;
-  background: #0d1a16;
-}
 .video-call-stage.is-group .video-call-brand { opacity: .25; }
 
 .vc-skype .vc-side {
@@ -1607,7 +1608,7 @@ body.home-workshop-locked { overflow: hidden; }
 .video-call-stage.is-audio .video-call-self {
   opacity: .92;
 }
-.video-call-stage.is-audio.is-live .video-call-brand {
+.video-call-stage.is-audio.is-live:not(:has(video[data-video-remote])) .video-call-brand {
   opacity: .9;
   visibility: visible;
 }

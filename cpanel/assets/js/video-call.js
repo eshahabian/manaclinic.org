@@ -193,41 +193,75 @@
     vid.autoplay = true;
     vid.muted = true;
     vid.playsInline = true;
-    vid.setAttribute("playsinline", "true");
-    vid.setAttribute("webkit-playsinline", "true");
-    vid.setAttribute("autoplay", "true");
-    vid.setAttribute("muted", "true");
+    vid.controls = false;
+    vid.disablePictureInPicture = true;
+    vid.setAttribute("playsinline", "");
+    vid.setAttribute("webkit-playsinline", "");
+    vid.setAttribute("autoplay", "");
+    vid.setAttribute("muted", "");
     vid.setAttribute("data-video-remote", "1");
     wrap.appendChild(vid);
     remotesEl.appendChild(wrap);
     return wrap;
   }
+  function bindRemoteStream(vid, stream) {
+    if (!vid || !stream) return;
+    // موبایل: وقتی ویدیو بعد از صدا به همان stream اضافه شود باید srcObject دوباره ست شود
+    try { vid.pause(); } catch (e) {}
+    vid.srcObject = null;
+    vid.srcObject = stream;
+  }
   function playRemote(vid, stream) {
     if (!vid) return;
-    if (stream && vid.srcObject !== stream) vid.srcObject = stream;
+    if (stream) bindRemoteStream(vid, stream);
     vid.playsInline = true;
-    vid.setAttribute("playsinline", "true");
-    vid.setAttribute("webkit-playsinline", "true");
+    vid.setAttribute("playsinline", "");
+    vid.setAttribute("webkit-playsinline", "");
     vid.autoplay = true;
+    var wantSound = !audioOnly;
     var start = function () {
       vid.muted = true;
       var p = vid.play();
-      if (p && p.then) {
-        p.then(function () {
-          setTimeout(function () {
-            vid.muted = false;
-            vid.play().catch(function () { vid.muted = true; });
-          }, 200);
-        }).catch(function () {});
-      }
+      if (!p || !p.then) return;
+      p.then(function () {
+        if (!wantSound) return;
+        setTimeout(function () {
+          vid.muted = false;
+          vid.play().catch(function () {
+            vid.muted = true;
+            vid.play().catch(function () {});
+          });
+        }, 250);
+      }).catch(function () {
+        vid.muted = true;
+        vid.play().catch(function () {});
+      });
     };
+    if (vid.readyState >= 2) start();
+    else {
+      vid.onloadedmetadata = start;
+      vid.onloadeddata = start;
+    }
     start();
     var ms = vid.srcObject;
-    if (ms && ms.getVideoTracks) {
-      ms.getVideoTracks().forEach(function (t) {
+    if (ms && ms.getTracks) {
+      ms.getTracks().forEach(function (t) {
         t.enabled = true;
-        t.onunmute = start;
+        if (t.kind === "video") {
+          try { t.contentHint = "motion"; } catch (e) {}
+          t.onunmute = function () { bindRemoteStream(vid, ms); start(); };
+        }
       });
+    }
+  }
+  function markLive(hasVideo) {
+    if (!stageEl) return;
+    stageEl.classList.add("is-live");
+    if (hasVideo) {
+      stageEl.classList.remove("is-audio");
+      root.classList.remove("is-audio");
+    } else {
+      stageEl.classList.toggle("is-audio", !!audioOnly);
     }
   }
   function senderKind(conn, sender) {
@@ -287,21 +321,28 @@
       }
     };
     pc.ontrack = function (ev) {
-      if (ev.track) ev.track.enabled = true;
+      if (ev.track) {
+        ev.track.enabled = true;
+        try { if (ev.track.kind === "video") ev.track.contentHint = "motion"; } catch (e) {}
+      }
       var stream = ev.streams && ev.streams[0] ? ev.streams[0] : null;
-      if (stream) {
-        rec.remoteStream = stream;
-        playRemote(vid, stream);
-      } else if (ev.track) {
-        if (!remoteStream.getTracks().some(function (t) { return t.id === ev.track.id; })) {
+      if (!stream) {
+        if (ev.track && !remoteStream.getTracks().some(function (t) { return t.id === ev.track.id; })) {
           remoteStream.addTrack(ev.track);
         }
-        playRemote(vid, remoteStream);
+        stream = remoteStream;
+      } else {
+        // مطمئن شو همه ترک‌ها (مخصوصاً ویدیو) داخل stream قابل پخش هستند
+        if (ev.track && !stream.getTracks().some(function (t) { return t.id === ev.track.id; })) {
+          stream.addTrack(ev.track);
+        }
       }
-      if (stageEl) {
-        stageEl.classList.add("is-live");
-        stageEl.classList.toggle("is-audio", !!audioOnly);
+      rec.remoteStream = stream;
+      if (tile && ev.track && ev.track.kind === "video") {
+        tile.classList.remove("is-audio");
       }
+      playRemote(vid, stream);
+      markLive(!!(ev.track && ev.track.kind === "video") || !!(stream.getVideoTracks && stream.getVideoTracks().length));
     };
     pc.onconnectionstatechange = function () {
       if (pc.connectionState === "connected") {
@@ -310,8 +351,8 @@
         syncButtons();
         setStatus("تماس برقرار شد.");
         stopRing();
-        if (stageEl) stageEl.classList.add("is-live");
-        playRemote(vid, rec.remoteStream);
+        markLive(!!(rec.remoteStream && rec.remoteStream.getVideoTracks && rec.remoteStream.getVideoTracks().length));
+        if (rec.remoteStream) playRemote(vid, rec.remoteStream);
       }
     };
     pc.oniceconnectionstatechange = function () {
@@ -396,7 +437,16 @@
       addLocalTracks(rec.pc);
       (rec.pc.getTransceivers ? rec.pc.getTransceivers() : []).forEach(function (t) {
         try {
-          if (t.direction === "recvonly" || t.direction === "inactive") t.direction = "sendrecv";
+          var kind = (t.receiver && t.receiver.track && t.receiver.track.kind)
+            || (t.sender && t.sender.track && t.sender.track.kind)
+            || "";
+          if (audioOnly && kind === "video") {
+            t.direction = "inactive";
+            return;
+          }
+          if (t.direction === "recvonly" || t.direction === "inactive" || t.direction === "sendonly") {
+            t.direction = "sendrecv";
+          }
         } catch (e) {}
       });
       flushIce(rec);
@@ -676,8 +726,14 @@
     ctx();
     if (localEl) localEl.play().catch(function () {});
     root.querySelectorAll("[data-video-remote]").forEach(function (vid) {
+      if (vid.srcObject) {
+        bindRemoteStream(vid, vid.srcObject);
+      }
       vid.muted = false;
-      vid.play().catch(function () {});
+      vid.play().catch(function () {
+        vid.muted = true;
+        vid.play().catch(function () {});
+      });
     });
   });
   on(hangBtn, "click", function () {
