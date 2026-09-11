@@ -63,6 +63,61 @@
     });
     return window.__VC_PRIMING__;
   }
+
+  // Mobile patient safeguard: WebRTC can be live while the call tile remains visually blank.
+  // Keep only the patient-side active call container and stage explicitly visible; do not touch clinician UI.
+  function fixPatientCallUi() {
+    var root = document.querySelector("[data-video-call]");
+    if (!root || root.getAttribute("data-can-start") === "1") return;
+    var room = root.getAttribute("data-room") || "";
+    if (!room || root.hidden) return;
+
+    root.style.display = "block";
+    root.style.visibility = "visible";
+    root.style.opacity = "1";
+    root.style.minHeight = "min(62vh, 28rem)";
+
+    var main = root.closest(".vc-lobby-main");
+    if (main) {
+      main.style.display = "block";
+      main.style.visibility = "visible";
+      main.style.opacity = "1";
+      main.style.minHeight = "min(62vh, 28rem)";
+    }
+
+    var stage = root.querySelector("[data-video-stage]");
+    if (stage) {
+      stage.style.display = "block";
+      stage.style.visibility = "visible";
+      stage.style.opacity = "1";
+      stage.style.position = "relative";
+      stage.style.width = "100%";
+      stage.style.minHeight = "min(62vh, 28rem)";
+      stage.style.height = "min(62vh, 28rem)";
+      stage.style.background = "#12241f";
+    }
+
+    // Permission dialogs on mobile can briefly trigger visibilitychange. Restore the UI once visible again.
+    if (!document.hidden) {
+      root.classList.remove("is-black");
+      var blackout = root.querySelector("[data-video-blackout]");
+      if (blackout) blackout.hidden = true;
+      var local = root.querySelector("[data-video-local]");
+      if (local) {
+        local.style.visibility = "visible";
+        local.style.opacity = "1";
+        local.style.filter = "none";
+        if (local.srcObject) local.play().catch(function () {});
+      }
+      root.querySelectorAll("[data-video-remote]").forEach(function (vid) {
+        vid.style.visibility = "visible";
+        vid.style.opacity = "1";
+        vid.style.filter = "none";
+        if (vid.srcObject) vid.play().catch(function () {});
+      });
+    }
+  }
+
   function goToCall() {
     try { sessionStorage.setItem("mana-video-auto-answer", "1"); } catch (e) {}
     var media = mediaOf(current);
@@ -74,6 +129,9 @@
           data.answer = true;
           data.media = media;
           window.ManaVideoCall.start(data);
+          setTimeout(fixPatientCallUi, 0);
+          setTimeout(fixPatientCallUi, 250);
+          setTimeout(fixPatientCallUi, 1000);
           stopAlert();
         }
       }).catch(function () {
@@ -154,6 +212,7 @@
   }
 
   function tick() {
+    fixPatientCallUi();
     var onCall = document.querySelector("[data-video-call]");
     if (onCall && onCall.getAttribute("data-room")) return;
     post({ action: "inbox" }).then(function (data) {
@@ -184,7 +243,15 @@
   }
   tick();
   schedule();
+  var uiTimer = setInterval(fixPatientCallUi, 600);
   document.addEventListener("visibilitychange", function () {
-    if (!document.hidden) tick();
+    if (!document.hidden) {
+      fixPatientCallUi();
+      setTimeout(fixPatientCallUi, 250);
+      tick();
+    }
   });
+  window.addEventListener("pagehide", function () {
+    clearInterval(uiTimer);
+  }, { once: true });
 })();
