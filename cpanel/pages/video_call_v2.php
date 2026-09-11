@@ -1,218 +1,45 @@
 <?php
 declare(strict_types=1);
-
 require_once __DIR__ . '/../includes/video_call.php';
 require_once __DIR__ . '/../includes/livekit.php';
-
 $user = require_login();
-if (!video_call_allowed($user)) {
-    flash_set('error', 'تماس مانا برای حساب شما فعال نیست.');
-    redirect(panel_href_for($user) ?: '/');
-}
-
+if (!video_call_allowed($user)) { flash_set('error','تماس مانا برای حساب شما فعال نیست.'); redirect(panel_href_for($user) ?: '/'); }
 ensure_video_call_schema($pdo);
-
-// Public call links use a share token (?join=...). Resolve that token to the
-// current canonical room key at request time so V2 does not depend on the
-// room-key/room-number format and remains compatible if that format changes.
-$joinToken = trim((string) ($_GET['join'] ?? ''));
-$requestedRoomKey = trim((string) ($_GET['room'] ?? ''));
+$clinician = video_call_is_clinician($user);
+$joinToken = trim((string)($_GET['join'] ?? ''));
+$roomKey = trim((string)($_GET['room'] ?? ''));
 $room = null;
-$roomKey = '';
-
-if ($joinToken !== '') {
-    $room = video_call_join_via_token($pdo, $user, $joinToken);
-    if (!$room) {
-        flash_set('error', 'این لینک تماس معتبر نیست یا این جلسه در دسترس شما نیست.');
-        redirect('/video-call-v2');
-    }
-    $roomKey = (string) ($room['room_key'] ?? '');
-} elseif ($requestedRoomKey !== '') {
-    // Keep ?room=... for internal/backward-compatible testing only.
-    $room = video_call_room_by_key($pdo, $requestedRoomKey);
-    if (!$room || !video_call_user_can_access_room($pdo, $user, $room)) {
-        flash_set('error', 'این جلسه در دسترس شما نیست.');
-        redirect('/video-call-v2');
-    }
-    $roomKey = (string) ($room['room_key'] ?? $requestedRoomKey);
-}
-
-$pageTitle = 'تماس مانا V2';
-$GLOBALS['pageRobots'] = 'noindex,nofollow';
-$ready = mana_livekit_ready();
-$title = $room ? (string) ($room['title'] ?? 'جلسه') : 'نسخه آزمایشی LiveKit';
-
-ob_start();
-?>
-<div class="container-page section" style="max-width:72rem" data-livekit-v2 data-room="<?= e($roomKey) ?>">
-  <div class="panel stack" style="gap:.75rem">
-    <div style="display:flex;align-items:center;justify-content:space-between;gap:1rem;flex-wrap:wrap">
-      <div>
-        <h1 style="margin:0">تماس مانا V2</h1>
-        <p class="muted" style="margin:.3rem 0 0"><?= e($title) ?></p>
-      </div>
-      <span class="badge"><?= $ready ? 'LiveKit آماده' : 'نیازمند تنظیم LiveKit' ?></span>
-    </div>
-
-    <?php if (!$roomKey): ?>
-      <p style="margin:0;line-height:1.9">
-        این صفحه نسخه آزمایشی موتور جدید تماس است و به تماس فعلی سایت دست نمی‌زند.
-        برای تست، لینک دعوت فعلی را با مسیر <code>/video-call-v2?join=...</code> باز کنید.
-      </p>
-    <?php elseif (!$ready): ?>
-      <div class="flash flash-error" style="margin:0">
-        LiveKit هنوز روی هاست تنظیم نشده است. متغیرهای LIVEKIT_URL، LIVEKIT_API_KEY و LIVEKIT_API_SECRET باید در محیط PHP قرار بگیرند.
-      </div>
-    <?php else: ?>
-      <div class="lkv2-toolbar" style="display:flex;gap:.5rem;flex-wrap:wrap">
-        <button type="button" class="btn btn-primary" data-lk-connect>ورود به تماس</button>
-        <button type="button" class="btn btn-outline" data-lk-camera disabled>دوربین</button>
-        <button type="button" class="btn btn-outline" data-lk-mic disabled>میکروفون</button>
-        <button type="button" class="btn btn-outline" data-lk-leave disabled>خروج</button>
-      </div>
-      <p class="muted" data-lk-status style="margin:0">آماده اتصال</p>
-      <div data-lk-grid style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:.75rem;min-height:18rem;background:#0d1a16;border-radius:1rem;padding:.75rem"></div>
-    <?php endif; ?>
-  </div>
+if ($joinToken !== '') { $room = video_call_join_via_token($pdo,$user,$joinToken); if (!$room) { flash_set('error','این جلسه در دسترس شما نیست.'); redirect('/video-call'); } $roomKey=(string)$room['room_key']; }
+elseif ($roomKey !== '') { $room=video_call_room_by_key($pdo,$roomKey); if (!$room || !video_call_user_can_access_room($pdo,$user,$room)) { flash_set('error','این جلسه در دسترس شما نیست.'); redirect('/video-call'); } }
+$pageTitle='تماس مانا'; $GLOBALS['pageRobots']='noindex,nofollow'; $ready=mana_livekit_ready(); $title=$room?(string)($room['title']??'جلسه'):'تماس مانا';
+ob_start(); ?>
+<style>
+.mana-live{position:fixed;inset:0;z-index:10000;background:#07120f;color:#fff;display:flex;flex-direction:column;font-family:inherit}.mana-live-head{height:58px;display:flex;align-items:center;justify-content:space-between;padding:0 18px;background:#0b1b17}.mana-live-stage{position:relative;flex:1;min-height:0;overflow:hidden;background:#07120f}.mana-live-grid{position:absolute;inset:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(280px,1fr));gap:2px}.mana-live-grid.one{display:block}.mana-participant{position:relative;width:100%;height:100%;min-height:240px;overflow:hidden;background:#10231e}.mana-participant video{width:100%;height:100%;object-fit:cover;display:block}.mana-participant.local{position:absolute;z-index:5;left:16px;bottom:86px;width:min(25vw,190px);height:min(32vw,145px);min-height:0;border-radius:12px;box-shadow:0 4px 24px #0008;border:2px solid #ffffff55}.mana-label{position:absolute;right:8px;bottom:8px;background:#0008;padding:4px 8px;border-radius:7px;font-size:12px}.mana-controls{position:absolute;z-index:8;left:50%;bottom:20px;transform:translateX(-50%);display:flex;gap:12px;align-items:center}.mana-ctl{width:52px;height:52px;border:0;border-radius:50%;background:#ffffff18;color:#fff;display:grid;place-items:center;font-size:22px;cursor:pointer}.mana-ctl.hang{background:#d92d20}.mana-ctl.record{background:#ffffff18}.mana-ctl.record.on{background:#d92d20}.mana-status{position:absolute;z-index:7;top:18px;left:50%;transform:translateX(-50%);background:#0009;padding:8px 14px;border-radius:18px;font-size:13px}.mana-record-note{position:absolute;z-index:7;top:62px;left:50%;transform:translateX(-50%);background:#fff;color:#222;padding:9px 13px;border-radius:10px;font-size:13px;box-shadow:0 3px 20px #0005}.mana-error{margin:auto;padding:30px;text-align:center}.mana-live button svg{width:25px;height:25px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}@media(max-width:700px){.mana-live-head{height:50px;padding:0 10px}.mana-live-head strong{font-size:14px}.mana-participant.local{width:105px;height:140px;left:10px;bottom:82px}.mana-controls{bottom:16px}.mana-ctl{width:48px;height:48px}.mana-record-note{width:calc(100% - 30px);text-align:center}}
+</style>
+<?php if (!$roomKey || !$ready): ?><div class="mana-live"><div class="mana-error"><h2>تماس مانا</h2><p><?= !$ready?'LiveKit تنظیم نشده است.':'جلسه‌ای انتخاب نشده است.' ?></p><a class="btn btn-primary" href="/video-call">بازگشت</a></div></div><?php else: ?>
+<div class="mana-live" id="manaLive" data-room="<?= e($roomKey) ?>" data-clinician="<?= $clinician?'1':'0' ?>">
+ <div class="mana-live-head"><strong><?= e($title) ?></strong><span id="callClock">00:00</span></div>
+ <div class="mana-live-stage" id="stage"><div class="mana-live-grid" id="remoteGrid"></div><div id="localHost"></div><div class="mana-status" id="status">در حال اتصال…</div><?php if($clinician): ?><div class="mana-record-note" id="recordNote">در صورت تمایل به ضبط جلسه، دکمه ضبط را بزنید.</div><?php endif; ?>
+ <div class="mana-controls">
+  <button class="mana-ctl" id="mic" aria-label="میکروفون"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2M12 19v3M8 22h8"/></svg></button>
+  <button class="mana-ctl hang" id="hang" aria-label="قطع تماس"><svg viewBox="0 0 24 24"><path d="M5.2 15.3a11 11 0 0 1 13.6 0l2-2.7a2 2 0 0 0-.4-2.8A14.8 14.8 0 0 0 3.6 9.8a2 2 0 0 0-.4 2.8l2 2.7Z"/></svg></button>
+  <button class="mana-ctl" id="cam" aria-label="دوربین"><svg viewBox="0 0 24 24"><path d="M15 10l4.5-3v10L15 14v3H3V7h12v3Z"/></svg></button>
+  <button class="mana-ctl" id="full" aria-label="تمام صفحه"><svg viewBox="0 0 24 24"><path d="M8 3H3v5M16 3h5v5M8 21H3v-5M16 21h5v-5"/></svg></button>
+  <?php if($clinician): ?><button class="mana-ctl record" id="record" aria-label="ضبط"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" fill="currentColor" stroke="none"/></svg></button><?php endif; ?>
+ </div></div>
 </div>
-
-<?php if ($roomKey && $ready): ?>
-<script src="https://cdn.jsdelivr.net/npm/livekit-client/dist/livekit-client.umd.min.js"></script>
-<script>
-(function () {
-  var root = document.querySelector('[data-livekit-v2]');
-  if (!root || !window.LivekitClient) return;
-  var roomKey = root.getAttribute('data-room') || '';
-  var grid = root.querySelector('[data-lk-grid]');
-  var statusEl = root.querySelector('[data-lk-status]');
-  var connectBtn = root.querySelector('[data-lk-connect]');
-  var cameraBtn = root.querySelector('[data-lk-camera]');
-  var micBtn = root.querySelector('[data-lk-mic]');
-  var leaveBtn = root.querySelector('[data-lk-leave]');
-  var Room = LivekitClient.Room;
-  var RoomEvent = LivekitClient.RoomEvent;
-  var Track = LivekitClient.Track;
-  var room = null;
-
-  function status(text) { if (statusEl) statusEl.textContent = text; }
-  function tileId(identity) { return 'lkv2-' + String(identity || '').replace(/[^a-zA-Z0-9_-]/g, '_'); }
-  function getTile(identity, label) {
-    var id = tileId(identity);
-    var el = document.getElementById(id);
-    if (el) return el;
-    el = document.createElement('div');
-    el.id = id;
-    el.style.cssText = 'position:relative;min-height:15rem;background:#12241f;border-radius:.85rem;overflow:hidden;display:grid;place-items:center;color:#fff';
-    var name = document.createElement('span');
-    name.textContent = label || 'شرکت‌کننده';
-    name.style.cssText = 'position:absolute;right:.6rem;bottom:.45rem;z-index:3;background:rgba(0,0,0,.55);padding:.2rem .45rem;border-radius:.4rem;font-size:.75rem';
-    el.appendChild(name);
-    grid.appendChild(el);
-    return el;
-  }
-  function attachTrack(track, participant, local) {
-    var identity = participant && participant.identity ? participant.identity : (local ? 'local' : 'remote');
-    var tile = getTile(identity, local ? 'شما' : 'شرکت‌کننده');
-    var element = track.attach();
-    if (track.kind === Track.Kind.Video) {
-      element.autoplay = true;
-      element.playsInline = true;
-      element.setAttribute('playsinline', '');
-      element.style.cssText = 'width:100%;height:100%;min-height:15rem;object-fit:cover;display:block;background:#0d1a16';
-      var old = tile.querySelector('video');
-      if (old && old !== element) old.remove();
-      tile.insertBefore(element, tile.firstChild);
-    } else if (track.kind === Track.Kind.Audio) {
-      element.autoplay = true;
-      element.style.display = 'none';
-      tile.appendChild(element);
-    }
-  }
-  function attachLocalPublished(publication) {
-    if (publication && publication.track) attachTrack(publication.track, room.localParticipant, true);
-  }
-  function setButtons(connected) {
-    connectBtn.disabled = connected;
-    cameraBtn.disabled = !connected;
-    micBtn.disabled = !connected;
-    leaveBtn.disabled = !connected;
-  }
-
-  connectBtn.addEventListener('click', function () {
-    connectBtn.disabled = true;
-    status('در حال دریافت دسترسی امن…');
-    fetch('/livekit-token', {
-      method: 'POST',
-      credentials: 'same-origin',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'X-CSRF-Token': (document.querySelector('meta[name="csrf-token"]') || {}).content || ''
-      },
-      body: JSON.stringify({ room: roomKey })
-    }).then(function (r) {
-      return r.json().then(function (data) {
-        if (!r.ok || !data.ok) throw new Error((data && data.error) || 'خطای اتصال');
-        return data;
-      });
-    }).then(async function (data) {
-      status('در حال اتصال به سرور تماس…');
-      room = new Room({ adaptiveStream: true, dynacast: true });
-      room.on(RoomEvent.TrackSubscribed, function (track, publication, participant) {
-        attachTrack(track, participant, false);
-      });
-      room.on(RoomEvent.TrackUnsubscribed, function (track) {
-        try { track.detach().forEach(function (el) { el.remove(); }); } catch (e) {}
-      });
-      room.on(RoomEvent.LocalTrackPublished, function (publication) {
-        attachLocalPublished(publication);
-      });
-      room.on(RoomEvent.ParticipantDisconnected, function (participant) {
-        var tile = document.getElementById(tileId(participant.identity));
-        if (tile) tile.remove();
-      });
-      room.on(RoomEvent.Reconnecting, function () { status('در حال اتصال مجدد…'); });
-      room.on(RoomEvent.Reconnected, function () { status('اتصال دوباره برقرار شد.'); });
-      room.on(RoomEvent.Disconnected, function () {
-        status('تماس پایان یافت.');
-        setButtons(false);
-      });
-      await room.connect(data.serverUrl, data.participantToken, { autoSubscribe: true });
-      status('متصل شد؛ در انتظار اجازه دوربین و میکروفون…');
-      await room.localParticipant.enableCameraAndMicrophone();
-      room.localParticipant.trackPublications.forEach(function (pub) { attachLocalPublished(pub); });
-      status('تماس برقرار است.');
-      setButtons(true);
-    }).catch(function (err) {
-      status(err && err.message ? err.message : 'اتصال برقرار نشد.');
-      connectBtn.disabled = false;
-      if (room) { try { room.disconnect(); } catch (e) {} room = null; }
-    });
-  });
-
-  cameraBtn.addEventListener('click', async function () {
-    if (!room) return;
-    var enabled = !room.localParticipant.isCameraEnabled;
-    await room.localParticipant.setCameraEnabled(enabled);
-    cameraBtn.textContent = enabled ? 'خاموش کردن دوربین' : 'روشن کردن دوربین';
-  });
-  micBtn.addEventListener('click', async function () {
-    if (!room) return;
-    var enabled = !room.localParticipant.isMicrophoneEnabled;
-    await room.localParticipant.setMicrophoneEnabled(enabled);
-    micBtn.textContent = enabled ? 'قطع میکروفون' : 'وصل میکروفون';
-  });
-  leaveBtn.addEventListener('click', function () {
-    if (room) room.disconnect();
-    room = null;
-    grid.innerHTML = '';
-    status('از تماس خارج شدید.');
-    setButtons(false);
-  });
-  window.addEventListener('pagehide', function () { if (room) room.disconnect(); });
-})();
-</script>
+<script src="https://cdn.jsdelivr.net/npm/livekit-client@2.22.3/dist/livekit-client.umd.min.js"></script>
+<script>(function(){
+var root=document.getElementById('manaLive'),roomKey=root.dataset.room,clinician=root.dataset.clinician==='1',status=document.getElementById('status'),grid=document.getElementById('remoteGrid'),localHost=document.getElementById('localHost'),room=null,startAt=Date.now(),rec=null,chunks=[];
+function setStatus(s){status.textContent=s;status.hidden=false} function id(s){return 'p-'+String(s).replace(/[^a-zA-Z0-9_-]/g,'_')}
+function tile(identity,local){var host=local?localHost:grid,el=document.getElementById(id(identity));if(el)return el;el=document.createElement('div');el.id=id(identity);el.className='mana-participant'+(local?' local':'');var lab=document.createElement('span');lab.className='mana-label';lab.textContent=local?'شما':'شرکت‌کننده';el.appendChild(lab);host.appendChild(el);return el}
+function attach(track,p,local){var el=track.attach();el.autoplay=true;el.playsInline=true;el.setAttribute('playsinline','');if(track.kind===LivekitClient.Track.Kind.Video){var t=tile(p&&p.identity?p.identity:'local',local),old=t.querySelector('video');if(old)old.remove();t.insertBefore(el,t.firstChild)}else{el.style.display='none';document.body.appendChild(el)}}
+function localTracks(){room.localParticipant.trackPublications.forEach(function(pub){if(pub.track)attach(pub.track,room.localParticipant,true)})}
+function token(){return fetch('/livekit-token',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-Token':(document.querySelector('meta[name="csrf-token"]')||{}).content||''},body:JSON.stringify({room:roomKey})}).then(function(r){return r.json().then(function(d){if(!r.ok||!d.ok)throw new Error(d.error||'خطای اتصال');return d})})}
+async function connect(){try{var d=await token();room=new LivekitClient.Room({adaptiveStream:true,dynacast:true});room.on(LivekitClient.RoomEvent.TrackSubscribed,function(t,pub,p){attach(t,p,false)});room.on(LivekitClient.RoomEvent.ParticipantDisconnected,function(p){var e=document.getElementById(id(p.identity));if(e)e.remove()});room.on(LivekitClient.RoomEvent.Reconnecting,function(){setStatus('در حال اتصال مجدد…')});room.on(LivekitClient.RoomEvent.Reconnected,function(){setStatus('تماس برقرار است');setTimeout(function(){status.hidden=true},1500)});room.on(LivekitClient.RoomEvent.Disconnected,function(){setStatus('تماس پایان یافت')});await room.connect(d.serverUrl,d.participantToken,{autoSubscribe:true});await room.localParticipant.enableCameraAndMicrophone();localTracks();setStatus('تماس برقرار است');setTimeout(function(){status.hidden=true},1800);if(clinician)setTimeout(function(){var n=document.getElementById('recordNote');if(n)n.remove()},9000)}catch(e){setStatus(e.message||'اتصال برقرار نشد')}}
+document.getElementById('mic').onclick=async function(){if(room)await room.localParticipant.setMicrophoneEnabled(!room.localParticipant.isMicrophoneEnabled)};document.getElementById('cam').onclick=async function(){if(room)await room.localParticipant.setCameraEnabled(!room.localParticipant.isCameraEnabled)};document.getElementById('hang').onclick=function(){if(room)room.disconnect();location.href='/video-call'};document.getElementById('full').onclick=function(){var s=document.getElementById('stage');if(!document.fullscreenElement){(s.requestFullscreen||s.webkitRequestFullscreen).call(s)}else{(document.exitFullscreen||document.webkitExitFullscreen).call(document)}};
+if(clinician){document.getElementById('record').onclick=function(){var b=this;if(rec&&rec.state==='recording'){rec.stop();b.classList.remove('on');return}try{var stream=new MediaStream();document.querySelectorAll('.mana-live video').forEach(function(v){if(v.srcObject)v.srcObject.getTracks().forEach(function(t){stream.addTrack(t)})});rec=new MediaRecorder(stream);chunks=[];rec.ondataavailable=function(e){if(e.data.size)chunks.push(e.data)};rec.onstop=function(){var a=document.createElement('a');a.href=URL.createObjectURL(new Blob(chunks,{type:rec.mimeType||'video/webm'}));a.download='mana-session-'+new Date().toISOString().replace(/[:.]/g,'-')+'.webm';a.click();setTimeout(function(){URL.revokeObjectURL(a.href)},1000)};rec.start(1000);b.classList.add('on');var n=document.getElementById('recordNote');if(n)n.remove()}catch(e){setStatus('ضبط در این مرورگر در دسترس نیست')}}}
+setInterval(function(){var s=Math.floor((Date.now()-startAt)/1000),m=Math.floor(s/60);document.getElementById('callClock').textContent=String(m).padStart(2,'0')+':'+String(s%60).padStart(2,'0')},1000);window.addEventListener('pagehide',function(){if(room)room.disconnect()});connect();
+})();</script>
 <?php endif; ?>
-<?php
-$content = ob_get_clean();
-require __DIR__ . '/../includes/layout.php';
+<?php $content=ob_get_clean(); require __DIR__.'/../includes/layout.php';
