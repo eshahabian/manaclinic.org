@@ -7,7 +7,16 @@ RewriteRule ^storage(/|$) - [F]
 RewriteRule ^(config\.php|config\.sample\.php)$ - [F]
 RewriteRule \.(env|sql|log|bak|old)$ - [F]
 
-# مسیرهای آزمایشی موتور جدید تماس؛ مستقل از router اصلی
+# پل امن LiveKit: فایل قدیمی lobby دست‌نخورده می‌ماند و از alias لود می‌شود.
+RewriteRule ^assets/js/video-call-lobby-legacy\.js$ assets/js/video-call-lobby.js [END]
+RewriteRule ^assets/js/video-call-lobby\.js$ assets/js/video-call-livekit-bridge.js [END]
+
+# لینک‌های ورود به تماس اصلی (room/join/peer/workshop) به موتور LiveKit منتقل شوند.
+# Query string عمداً حفظ می‌شود تا شناسه اتاق/دعوت به فرمت خاصی وابسته نباشد.
+RewriteCond %{QUERY_STRING} (^|&)(join|room|peer|workshop)= [NC]
+RewriteRule ^video-call/?$ /video-call-v2 [R=302,END,NE]
+
+# موتور LiveKit؛ مستقل از router اصلی
 RewriteRule ^video-call-v2/?$ livekit-v2.php [END]
 RewriteRule ^livekit-token/?$ livekit-token-v2.php [END]
 
