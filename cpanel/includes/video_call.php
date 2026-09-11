@@ -203,6 +203,15 @@ function video_call_ice_servers(): array
     return $servers;
 }
 
+function video_call_clear_ended_signals(PDO $pdo, string $roomKey): void
+{
+    if ($roomKey === '') {
+        return;
+    }
+    $pdo->prepare("DELETE FROM video_call_signals WHERE room_id=? AND kind IN ('hangup','leave')")
+        ->execute([$roomKey]);
+}
+
 function video_call_json(array $data, int $code = 200): void
 {
     http_response_code($code);

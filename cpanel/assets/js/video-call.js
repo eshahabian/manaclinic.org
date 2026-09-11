@@ -49,6 +49,9 @@
   var dialing = false;
   var wantAutoAnswer = false;
   var autoDial = false;
+  var pollPrimed = false;
+  var sessionLive = false;
+  var closingUi = false;
   var ac = typeof AbortController !== "undefined" ? new AbortController() : null;
   var bindOpts = ac ? { signal: ac.signal } : false;
   try {
@@ -270,7 +273,7 @@
     var remoteStream = new MediaStream();
     var pc = new RTCPeerConnection({
       iceServers: iceServers(),
-      iceCandidatePoolSize: 4,
+      iceTransportPolicy: "all",
       bundlePolicy: "max-bundle",
       rtcpMuxPolicy: "require"
     });
@@ -317,7 +320,7 @@
         if (!peers[userId] || pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") return;
         try { if (pc.restartIce) pc.restartIce(); } catch (e) {}
         offerTo(userId, true);
-      }, st === "failed" ? 500 : 2800);
+      }, st === "failed" ? 2500 : 5000);
     };
     peers[userId] = rec;
     if (iceHold[userId] && iceHold[userId].length) {
@@ -414,6 +417,8 @@
     if (tile) tile.remove();
   }
   function leaveUi() {
+    if (closingUi) return;
+    closingUi = true;
     if (window.ManaVideoCall) window.ManaVideoCall.stop();
   }
   function endAll(playHang) {
@@ -487,6 +492,7 @@
       if (canStart) ringMembers(list);
       calling = true;
       joined = true;
+      sessionLive = true;
       dialing = false;
       syncButtons();
       list.forEach(function (m) {
@@ -509,6 +515,7 @@
       stopRing();
       calling = true;
       joined = true;
+      sessionLive = true;
       dialing = false;
       syncButtons();
       sendTo("join", "", { name: peerName });
@@ -562,19 +569,28 @@
         iceHold[from] = iceHold[from] || [];
         iceHold[from].push(payload);
       }
-    } else if (kind === "hangup" || kind === "leave") {
+    } else if (kind === "leave") {
       if (from) closePeer(from);
-      if (!isGroup || Object.keys(peers).length === 0) {
-        endAll(true);
-        setStatus("تماس قطع شد.");
-        setTimeout(leaveUi, 220);
-      }
+    } else if (kind === "hangup") {
+      if (from) closePeer(from);
+      if (!sessionLive) return;
+      if (isGroup && Object.keys(peers).length > 0) return;
+      endAll(true);
+      setStatus("تماس قطع شد.");
+      setTimeout(leaveUi, 400);
     }
   }
   function poll() {
     post({ action: "poll" }).then(function (data) {
       if (!data || !data.ok) return;
-      (data.signals || []).forEach(handle);
+      (data.signals || []).forEach(function (sig) {
+        if (!pollPrimed && sig && (sig.kind === "hangup" || sig.kind === "leave")) {
+          if (sig.id) seen[sig.id] = true;
+          return;
+        }
+        handle(sig);
+      });
+      pollPrimed = true;
       if (!calling && canStart) {
         var names = (data.members || []).filter(function (m) { return m.id !== meId && m.online; }).map(function (m) { return m.name; });
         var next = names.length ? ("آنلاین: " + names.join("، ")) : "مخاطب فعلاً آفلاین است.";
@@ -693,10 +709,12 @@
   }).catch(function () {});
   poll();
   var pollTimer = setInterval(poll, 800);
-  return function () {
+  return function (reason) {
     if (ac) ac.abort();
     clearInterval(pollTimer);
-    try { sendTo("leave", "", null); } catch (e) {}
+    if (reason !== "replace" && sessionLive) {
+      try { sendTo("leave", "", null); } catch (e) {}
+    }
     endAll(false);
     if (localStream) {
       localStream.getTracks().forEach(function (t) { t.stop(); });
@@ -713,7 +731,7 @@
       if (!root || !info || !info.room) return;
       if (info.iceServers && info.iceServers.length) window.__VIDEO_ICE__ = info.iceServers;
       if (liveDestroy) {
-        liveDestroy();
+        liveDestroy("replace");
         liveDestroy = null;
       }
       root.setAttribute("data-room", info.room);

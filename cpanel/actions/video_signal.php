@@ -100,6 +100,7 @@ if ($action === 'open') {
         video_call_json(['error' => 'اتاق تماس در دسترس نیست.'], 403);
     }
     video_call_bump_room_contacts($pdo, $user, $openRoom);
+    video_call_clear_ended_signals($pdo, (string) ($openRoom['room_key'] ?? ''));
     video_call_json(video_call_session_payload($pdo, $user, $openRoom, $media));
 }
 
@@ -121,6 +122,7 @@ if ($action === 'create_group') {
         );
         $media = trim((string) ($body['media'] ?? 'video')) === 'audio' ? 'audio' : 'video';
         video_call_bump_room_contacts($pdo, $user, $room);
+        video_call_clear_ended_signals($pdo, (string) ($room['room_key'] ?? ''));
         video_call_json(video_call_session_payload($pdo, $user, $room, $media));
     } catch (RuntimeException $e) {
         video_call_json(['error' => $e->getMessage()], 400);
@@ -203,6 +205,9 @@ if ($action === 'send') {
         $targetId = null;
     }
     $payload = $body['payload'] ?? null;
+    if ($kind === 'ringing') {
+        video_call_clear_ended_signals($pdo, $roomKey);
+    }
     if ($kind === 'hangup' && $targetId === null) {
         $pdo->prepare('DELETE FROM video_call_signals WHERE room_id=?')->execute([$roomKey]);
     } elseif ($kind === 'offer' && $targetId) {
