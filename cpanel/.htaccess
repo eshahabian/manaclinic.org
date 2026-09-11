@@ -7,20 +7,20 @@ RewriteRule ^storage(/|$) - [F]
 RewriteRule ^(config\.php|config\.sample\.php)$ - [F]
 RewriteRule \.(env|sql|log|bak|old)$ - [F]
 
-# Always revalidate the call scripts while the LiveKit migration is active.
-# This prevents mobile browsers from keeping the older lobby/watcher code.
+# Always revalidate call scripts while the LiveKit migration is active.
 <IfModule mod_headers.c>
-  <FilesMatch "^video-call-(lobby|livekit-bridge|watch)\.js$">
+  <FilesMatch "^video-call-(lobby|livekit-bridge|livekit-bridge-v2|watch)\.js$">
     Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
     Header set Pragma "no-cache"
     Header set Expires "0"
   </FilesMatch>
 </IfModule>
 
-# Keep the original lobby UI but route the actual media call to the standalone
-# LiveKit page. The legacy script stays available to the bridge for UI actions.
+# Preserve the original lobby UI. The public lobby script is replaced by a tiny
+# launcher that redirects the media session to the standalone LiveKit page
+# immediately, before the slower legacy lobby controller finishes loading.
 RewriteRule ^assets/js/video-call-lobby-legacy\.js$ assets/js/video-call-lobby.js [END]
-RewriteRule ^assets/js/video-call-lobby\.js$ assets/js/video-call-livekit-bridge.js [END]
+RewriteRule ^assets/js/video-call-lobby\.js$ assets/js/video-call-livekit-bridge-v2.js [END]
 
 # LiveKit endpoints.
 RewriteRule ^video-call-v2/?$ livekit-v2.php [END]
