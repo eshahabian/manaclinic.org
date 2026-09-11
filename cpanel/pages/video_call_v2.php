@@ -11,11 +11,30 @@ if (!video_call_allowed($user)) {
 }
 
 ensure_video_call_schema($pdo);
-$roomKey = trim((string) ($_GET['room'] ?? ''));
-$room = $roomKey !== '' ? video_call_room_by_key($pdo, $roomKey) : null;
-if ($roomKey !== '' && (!$room || !video_call_user_can_access_room($pdo, $user, $room))) {
-    flash_set('error', 'این جلسه در دسترس شما نیست.');
-    redirect('/video-call-v2');
+
+// Public call links use a share token (?join=...). Resolve that token to the
+// current canonical room key at request time so V2 does not depend on the
+// room-key/room-number format and remains compatible if that format changes.
+$joinToken = trim((string) ($_GET['join'] ?? ''));
+$requestedRoomKey = trim((string) ($_GET['room'] ?? ''));
+$room = null;
+$roomKey = '';
+
+if ($joinToken !== '') {
+    $room = video_call_join_via_token($pdo, $user, $joinToken);
+    if (!$room) {
+        flash_set('error', 'این لینک تماس معتبر نیست یا این جلسه در دسترس شما نیست.');
+        redirect('/video-call-v2');
+    }
+    $roomKey = (string) ($room['room_key'] ?? '');
+} elseif ($requestedRoomKey !== '') {
+    // Keep ?room=... for internal/backward-compatible testing only.
+    $room = video_call_room_by_key($pdo, $requestedRoomKey);
+    if (!$room || !video_call_user_can_access_room($pdo, $user, $room)) {
+        flash_set('error', 'این جلسه در دسترس شما نیست.');
+        redirect('/video-call-v2');
+    }
+    $roomKey = (string) ($room['room_key'] ?? $requestedRoomKey);
 }
 
 $pageTitle = 'تماس مانا V2';
@@ -38,7 +57,7 @@ ob_start();
     <?php if (!$roomKey): ?>
       <p style="margin:0;line-height:1.9">
         این صفحه نسخه آزمایشی موتور جدید تماس است و به تماس فعلی سایت دست نمی‌زند.
-        برای تست باید با پارامتر <code>?room=...</code> وارد یکی از اتاق‌های مجاز شوید.
+        برای تست، لینک دعوت فعلی را با مسیر <code>/video-call-v2?join=...</code> باز کنید.
       </p>
     <?php elseif (!$ready): ?>
       <div class="flash flash-error" style="margin:0">
