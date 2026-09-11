@@ -25,11 +25,18 @@
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
     var pre = window.__VC_PRESTREAM__;
     if (pre && pre.getTracks().some(function (t) { return t.readyState === "live"; })) return;
+    if (window.__VC_PRIMING__) return;
     var req = audioOnly
       ? navigator.mediaDevices.getUserMedia({ audio: true, video: false })
       : navigator.mediaDevices.getUserMedia({ audio: true, video: { facingMode: "user" } })
           .catch(function () { return navigator.mediaDevices.getUserMedia({ audio: true, video: true }); });
-    req.then(function (stream) { window.__VC_PRESTREAM__ = stream; }).catch(function () {});
+    window.__VC_PRIMING__ = req.then(function (stream) {
+      window.__VC_PRESTREAM__ = stream;
+      return stream;
+    }).catch(function () {
+      window.__VC_PRIMING__ = null;
+      return null;
+    });
   }
   function openInTile(opts) {
     if (opening) return;

@@ -323,8 +323,8 @@ $inner = ob_get_clean();
 $GLOBALS['pageScripts'] = '<script>window.__VIDEO_ICE__ = '
     . json_encode(video_call_ice_servers(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
     . ';</script>'
-    . '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260911c"></script>'
-    . '<script src="' . e(url('/assets/js/video-call-lobby.js')) . '?v=20260911c"></script>';
+    . '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260911d"></script>'
+    . '<script src="' . e(url('/assets/js/video-call-lobby.js')) . '?v=20260911d"></script>';
 
 $role = (string) ($user['role'] ?? '');
 if ($role === 'DOCTOR') {

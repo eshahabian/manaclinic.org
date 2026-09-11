@@ -187,17 +187,6 @@ function video_call_ice_servers(): array
                 'credential' => $turnPass,
             ];
         }
-    } else {
-        $servers[] = [
-            'urls' => [
-                'turn:openrelay.metered.ca:80',
-                'turn:openrelay.metered.ca:443',
-                'turn:openrelay.metered.ca:80?transport=tcp',
-                'turn:openrelay.metered.ca:443?transport=tcp',
-            ],
-            'username' => 'openrelayproject',
-            'credential' => 'openrelayproject',
-        ];
     }
 
     return $servers;
