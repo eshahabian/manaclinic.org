@@ -133,10 +133,10 @@
   }
   function constraintSets() {
     var mic = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
-    if (audioOnly) return [{ audio: mic, video: false }];
+    if (audioOnly) return [{ audio: true, video: false }, { audio: mic, video: false }];
     return [
-      { audio: mic, video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } },
-      { audio: mic, video: { facingMode: "user" } },
+      { audio: true, video: { facingMode: "user" } },
+      { audio: mic, video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } } },
       { audio: true, video: true }
     ];
   }
@@ -159,14 +159,25 @@
     if (localEl) {
       localEl.srcObject = stream;
       localEl.muted = true;
+      localEl.playsInline = true;
+      localEl.setAttribute("playsinline", "true");
+      localEl.setAttribute("webkit-playsinline", "true");
       var play = localEl.play();
       if (play && play.catch) play.catch(function () {});
     }
     setPermit(false);
+    root.classList.remove("is-black");
+    if (blackoutEl) blackoutEl.hidden = true;
   }
   function requestMedia() {
     setStatus("منتظر اجازه دسترسی…");
-    return getUserMediaFallback(0).then(function (stream) {
+    var pre = window.__VC_PRESTREAM__;
+    var readyPre = pre && pre.getTracks().some(function (t) { return t.readyState === "live"; });
+    var start = readyPre ? Promise.resolve(pre) : getUserMediaFallback(0);
+    return start.then(function (stream) {
+      window.__VC_PRESTREAM__ = stream;
+      return ensureCamera(stream);
+    }).then(function (stream) {
       attachLocal(stream);
       setStatus(canStart ? "آماده تماس." : "آماده پذیرش تماس.");
       return stream;
@@ -176,6 +187,18 @@
       setStatus(mediaErrorText(err));
       throw err;
     });
+  }
+  function ensureCamera(stream) {
+    if (!stream) return Promise.reject(new Error("دوربین یا میکروفون در دسترس نیست."));
+    if (audioOnly) return Promise.resolve(stream);
+    if (stream.getVideoTracks().some(function (t) { return t.readyState === "live"; })) {
+      return Promise.resolve(stream);
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return Promise.resolve(stream);
+    return navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: "user" } }).then(function (vs) {
+      vs.getVideoTracks().forEach(function (t) { stream.addTrack(t); });
+      return stream;
+    }).catch(function () { return stream; });
   }
   function media() {
     if (localStream && localStream.getTracks().some(function (t) { return t.readyState === "live"; })) {
@@ -192,28 +215,46 @@
     wrap.setAttribute("data-peer", id);
     var vid = document.createElement("video");
     vid.autoplay = true;
+    vid.muted = false;
     vid.playsInline = true;
     vid.setAttribute("playsinline", "true");
+    vid.setAttribute("webkit-playsinline", "true");
     vid.setAttribute("autoplay", "true");
     vid.setAttribute("data-video-remote", "1");
     wrap.appendChild(vid);
     remotesEl.appendChild(wrap);
+    if (stageEl) stageEl.classList.add("is-live");
     return wrap;
+  }
+  function wireVideo(vid) {
+    if (!vid || vid.getAttribute("data-vc-wired") === "1") return;
+    vid.setAttribute("data-vc-wired", "1");
+    vid.addEventListener("loadedmetadata", function () {
+      playRemote(vid, null);
+    });
   }
   function playRemote(vid, stream) {
     if (!vid) return;
-    if (stream) vid.srcObject = stream;
     vid.playsInline = true;
+    vid.setAttribute("playsinline", "true");
+    vid.setAttribute("webkit-playsinline", "true");
+    vid.autoplay = true;
+    if (stream) vid.srcObject = stream;
+    wireVideo(vid);
     var start = function () {
       var p = vid.play();
       if (p && p.catch) {
         p.catch(function () {
+          var wasMuted = vid.muted;
           vid.muted = true;
           vid.play().then(function () {
-            setTimeout(function () {
+            if (!wasMuted) {
               vid.muted = false;
-              vid.play().catch(function () {});
-            }, 120);
+              vid.play().catch(function () {
+                vid.muted = true;
+                vid.play().catch(function () {});
+              });
+            }
           }).catch(function () {});
         });
       }
@@ -225,6 +266,22 @@
         t.enabled = true;
         t.onunmute = start;
       });
+    }
+  }
+  function attachRemoteTracks(rec) {
+    if (!rec || !rec.pc) return;
+    var stream = rec.remoteStream || new MediaStream();
+    rec.remoteStream = stream;
+    (rec.pc.getReceivers ? rec.pc.getReceivers() : []).forEach(function (r) {
+      if (!r || !r.track || r.track.readyState === "ended") return;
+      r.track.enabled = true;
+      if (!stream.getTracks().some(function (t) { return t.id === r.track.id; })) {
+        stream.addTrack(r.track);
+      }
+    });
+    if (stream.getTracks().length) {
+      playRemote(rec.vid, stream);
+      if (stageEl) stageEl.classList.add("is-live");
     }
   }
   function senderKind(conn, sender) {
@@ -293,6 +350,7 @@
         if (!remoteStream.getTracks().some(function (t) { return t.id === ev.track.id; })) {
           remoteStream.addTrack(ev.track);
         }
+        rec.remoteStream = remoteStream;
         playRemote(vid, remoteStream);
       }
       if (stageEl) {
@@ -303,9 +361,13 @@
     pc.onconnectionstatechange = function () {
       if (pc.connectionState === "connected") {
         calling = true;
+        sessionLive = true;
         syncButtons();
         setStatus("تماس برقرار شد.");
         stopRing();
+        if (stageEl) stageEl.classList.add("is-live");
+        attachRemoteTracks(rec);
+        addLocalTracks(pc);
       }
     };
     pc.oniceconnectionstatechange = function () {
@@ -669,6 +731,14 @@
     if (incomingEl && !incomingEl.hidden && !calling) acceptIncoming();
     else if (canStart) startCall();
   });
+  on(stageEl, "click", function () {
+    ctx();
+    Object.keys(peers).forEach(function (id) { attachRemoteTracks(peers[id]); });
+    if (localEl) localEl.play().catch(function () {});
+    root.querySelectorAll("[data-video-remote]").forEach(function (vid) {
+      vid.play().catch(function () {});
+    });
+  });
   on(hangBtn, "click", function () {
     sendTo("hangup", "", null);
     endAll(true);
@@ -691,10 +761,21 @@
     else startRecording();
   });
   if (guardCapture) {
+    var hideTimer = null;
     document.addEventListener("visibilitychange", function () {
-      var hidden = document.hidden;
-      root.classList.toggle("is-black", hidden);
-      if (blackoutEl) blackoutEl.hidden = !hidden;
+      if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+      if (!document.hidden) {
+        root.classList.remove("is-black");
+        if (blackoutEl) blackoutEl.hidden = true;
+        Object.keys(peers).forEach(function (id) { attachRemoteTracks(peers[id]); });
+        return;
+      }
+      hideTimer = setTimeout(function () {
+        hideTimer = null;
+        if (!document.hidden) return;
+        root.classList.add("is-black");
+        if (blackoutEl) blackoutEl.hidden = false;
+      }, 1600);
     }, bindOpts || false);
   }
   window.addEventListener("pagehide", function () {
@@ -716,10 +797,19 @@
       try { sendTo("leave", "", null); } catch (e) {}
     }
     endAll(false);
-    if (localStream) {
+    if (reason !== "replace") {
+      var hold = window.__VC_PRESTREAM__;
+      if (hold) {
+        hold.getTracks().forEach(function (t) { t.stop(); });
+        window.__VC_PRESTREAM__ = null;
+      } else if (localStream) {
+        localStream.getTracks().forEach(function (t) { t.stop(); });
+      }
+    } else if (localStream && localStream !== window.__VC_PRESTREAM__) {
       localStream.getTracks().forEach(function (t) { t.stop(); });
-      localStream = null;
     }
+    localStream = null;
+  };
   };
   }
 

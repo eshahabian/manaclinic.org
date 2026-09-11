@@ -200,7 +200,7 @@ $wmName = $peerName !== '' ? $peerName : 'جلسه';
     </div>
     <div class="vc-remotes" data-video-remotes></div>
     <div class="video-call-self">
-      <video class="video-call-local" data-video-local autoplay playsinline muted disablepictureinpicture controlslist="nodownload noremoteplayback"></video>
+      <video class="video-call-local" data-video-local autoplay playsinline muted webkit-playsinline disablepictureinpicture controlslist="nodownload noremoteplayback"></video>
     </div>
     <p class="video-call-incoming" data-video-incoming hidden>تماس ورودی</p>
     <div class="video-call-tools">
@@ -323,8 +323,8 @@ $inner = ob_get_clean();
 $GLOBALS['pageScripts'] = '<script>window.__VIDEO_ICE__ = '
     . json_encode(video_call_ice_servers(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
     . ';</script>'
-    . '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260911b"></script>'
-    . '<script src="' . e(url('/assets/js/video-call-lobby.js')) . '?v=20260911b"></script>';
+    . '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260911c"></script>'
+    . '<script src="' . e(url('/assets/js/video-call-lobby.js')) . '?v=20260911c"></script>';
 
 $role = (string) ($user['role'] ?? '');
 if ($role === 'DOCTOR') {
