@@ -28,32 +28,9 @@
   function mediaOf(item) {
     return item && item.media === "audio" ? "audio" : "video";
   }
-  function primeMedia(audioOnly) {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      return Promise.resolve(null);
-    }
-    var pre = window.__VC_PRESTREAM__;
-    if (pre && pre.getTracks().some(function (t) { return t.readyState === "live"; })) {
-      return Promise.resolve(pre);
-    }
-    if (window.__VC_PRIMING__) return window.__VC_PRIMING__;
-    var req = audioOnly
-      ? navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-      : navigator.mediaDevices.getUserMedia({ audio: true, video: { facingMode: "user" } })
-          .catch(function () { return navigator.mediaDevices.getUserMedia({ audio: true, video: true }); });
-    window.__VC_PRIMING__ = req.then(function (stream) {
-      window.__VC_PRESTREAM__ = stream;
-      return stream;
-    }).catch(function () {
-      window.__VC_PRIMING__ = null;
-      return null;
-    });
-    return window.__VC_PRIMING__;
-  }
   function goToCall() {
     try { sessionStorage.setItem("mana-video-auto-answer", "1"); } catch (e) {}
     var media = mediaOf(current);
-    primeMedia(media === "audio");
     if (window.ManaVideoCall && window.ManaVideoCall.start && current && current.room && document.querySelector("[data-vc-idle]")) {
       post({ action: "open", room: current.room, media: media }).then(function (data) {
         if (data && data.ok) {

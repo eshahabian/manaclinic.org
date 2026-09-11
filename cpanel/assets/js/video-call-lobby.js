@@ -21,27 +21,9 @@
   }
 
   var opening = false;
-  function primeMedia(audioOnly) {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
-    var pre = window.__VC_PRESTREAM__;
-    if (pre && pre.getTracks().some(function (t) { return t.readyState === "live"; })) return;
-    if (window.__VC_PRIMING__) return;
-    var req = audioOnly
-      ? navigator.mediaDevices.getUserMedia({ audio: true, video: false })
-      : navigator.mediaDevices.getUserMedia({ audio: true, video: { facingMode: "user" } })
-          .catch(function () { return navigator.mediaDevices.getUserMedia({ audio: true, video: true }); });
-    window.__VC_PRIMING__ = req.then(function (stream) {
-      window.__VC_PRESTREAM__ = stream;
-      return stream;
-    }).catch(function () {
-      window.__VC_PRIMING__ = null;
-      return null;
-    });
-  }
   function openInTile(opts) {
     if (opening) return;
     opening = true;
-    primeMedia((opts && opts.media) === "audio");
     post(Object.assign({ action: "open" }, opts)).then(function (data) {
       if (!data || !data.ok) {
         if (data && data.error) window.alert(data.error);
@@ -416,7 +398,6 @@
     var title = groupTitle ? groupTitle.value.trim() : "";
     var one = members.length === 1 && !workshop;
     opening = true;
-    primeMedia(media === "audio");
     var req;
     if (savedRoomKey) {
       req = post({ action: "open", room: savedRoomKey, media: media });
