@@ -45,4 +45,4 @@ require_once __DIR__ . '/includes/video_call.php';
 require_once __DIR__ . '/includes/livekit.php';
 
 $pdo = db_connect($config);
-require __DIR__ . '/pages/video_call_v2.php';
+require __DIR__ . '/pages/video_call_livekit.php';
