@@ -7,13 +7,10 @@ RewriteRule ^storage(/|$) - [F]
 RewriteRule ^(config\.php|config\.sample\.php)$ - [F]
 RewriteRule \.(env|sql|log|bak|old)$ - [F]
 
-# LiveKit bridge: the visible Mana call page stays in place; only its call engine is replaced.
-# The original lobby script remains available through the legacy alias for rollback/UI behavior.
-RewriteRule ^assets/js/video-call-lobby-legacy\.js$ assets/js/video-call-lobby.js [END]
-RewriteRule ^assets/js/video-call-lobby\.js$ assets/js/video-call-livekit-bridge.js [END]
-
-# LiveKit endpoints.
+# LiveKit endpoints. Keep the existing Mana lobby untouched; the actual media
+# call runs on a standalone page so mobile rendering is isolated from legacy UI.
 RewriteRule ^video-call-v2/?$ livekit-v2.php [END]
+RewriteRule ^video-call-live/?$ livekit-v2.php [END]
 RewriteRule ^video-call-embed/?$ livekit-embed.php [END]
 RewriteRule ^livekit-token/?$ livekit-token-v2.php [END]
 
