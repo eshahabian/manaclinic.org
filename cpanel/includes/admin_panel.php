@@ -27,6 +27,7 @@ function admin_nav(): array {
         ['href' => '/admin/appointments', 'label' => 'نوبت‌ها'],
         ['href' => '/admin/doctors', 'label' => 'درمانگرها', 'badge' => admin_pending_doctor_count()],
         ['href' => '/admin/articles', 'label' => 'مقالات'],
+        ['href' => '/admin/video-call-engine', 'label' => 'مسیر تماس تصویری'],
         ['href' => '/admin/staff-hours', 'label' => 'ساعت کاری منشی‌ها'],
         ['href' => '/admin/staff-messages', 'label' => 'پیام‌ها'],
         ['href' => '/secretary/messages', 'label' => 'پنل منشی'],
