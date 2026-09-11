@@ -22,6 +22,11 @@ return [
     'session_name' => 'mana_clinic_sess',
     'allow_install' => false, // فقط هنگام نصب اولیه true کنید؛ بعد حتماً false بماند
 
+    // موتور جدید تماس مانا (LiveKit Cloud) — مقادیر واقعی فقط در config.php خصوصی سرور
+    'livekit_url' => '', // نمونه: wss://your-project.livekit.cloud
+    'livekit_api_key' => '',
+    'livekit_api_secret' => '',
+
     // دستیار گفت‌وگوی «با من حرف بزن»
     'assistant_enabled' => true,
     // Metis AI / درگاه OpenAI-compatible — کلید را فقط در config.php بگذارید (نه در git)
