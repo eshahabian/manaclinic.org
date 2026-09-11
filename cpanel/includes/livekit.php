@@ -73,6 +73,10 @@ function mana_livekit_token(array $user, string $roomRef, int $ttl = 7200): arra
     }
 
     $now = time();
+    $displayName = trim((string) ($user['name'] ?? ''));
+    if ($displayName === '') {
+        $displayName = 'کاربر مانا';
+    }
     $header = [
         'alg' => 'HS256',
         'typ' => 'JWT',
@@ -80,12 +84,14 @@ function mana_livekit_token(array $user, string $roomRef, int $ttl = 7200): arra
     $payload = [
         'iss' => $cfg['key'],
         'sub' => mana_livekit_identity($userId),
+        'name' => $displayName,
         'nbf' => $now - 5,
         'iat' => $now,
         'exp' => $now + max(300, min($ttl, 21600)),
         'video' => [
             'roomJoin' => true,
             'room' => mana_livekit_room_name($roomRef),
+            'roomCreate' => true,
             'canPublish' => true,
             'canSubscribe' => true,
             'canPublishData' => true,

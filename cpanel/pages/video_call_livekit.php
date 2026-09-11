@@ -48,7 +48,9 @@ if (($join !== '' || $workshop !== '' || $peer !== '' || $requestedRoom !== '')
 $roomKey = $room ? (string) ($room['room_key'] ?? '') : '';
 $ready = mana_livekit_ready();
 $title = $room ? trim((string) ($room['title'] ?? 'جلسه')) : 'تماس مانا';
-if ($title === '') $title = 'جلسه';
+if ($title === '') {
+    $title = 'جلسه';
+}
 
 if ($room && $roomKey !== '' && $ready) {
     $me = (string) ($user['id'] ?? '');
@@ -86,14 +88,17 @@ ob_start();
 <div class="container-page section" style="max-width:76rem" data-livekit-v2 data-room="<?= e($roomKey) ?>" data-media="<?= e($media) ?>" data-auto="<?= $auto ? '1' : '0' ?>">
   <div class="panel stack" style="gap:.75rem">
     <div style="display:flex;justify-content:space-between;gap:1rem;align-items:center;flex-wrap:wrap">
-      <div><h1 style="margin:0">تماس مانا</h1><p class="muted" style="margin:.3rem 0 0"><?= e($title) ?></p></div>
+      <div>
+        <h1 style="margin:0">تماس مانا</h1>
+        <p class="muted" style="margin:.3rem 0 0"><?= e($title) ?></p>
+      </div>
       <?php if ($roomKey && $ready): ?><span class="badge">ارتباط امن</span><?php endif; ?>
     </div>
     <?php if (!$roomKey): ?>
       <p>برای شروع تماس، یک مخاطب یا جلسه را انتخاب کنید.</p>
       <div><a class="btn btn-primary" href="<?= e(url('/video-call')) ?>">بازگشت</a></div>
     <?php elseif (!$ready): ?>
-      <div class="flash flash-error">سرویس تماس امن موقتاً آماده نیست.</div>
+      <div class="flash flash-error">سرویس تماس امن موقتاً آماده نیست. کلیدهای LiveKit را در config.php تنظیم کنید.</div>
     <?php else: ?>
       <div style="display:flex;gap:.5rem;flex-wrap:wrap">
         <button type="button" class="btn btn-primary" data-lk-connect><?= $answer ? 'پاسخ و ورود' : 'ورود به تماس' ?></button>
@@ -101,34 +106,154 @@ ob_start();
         <button type="button" class="btn btn-outline" data-lk-mic disabled>میکروفون</button>
         <button type="button" class="btn btn-outline" data-lk-leave disabled>خروج</button>
       </div>
-      <p class="muted" data-lk-status style="margin:0">آماده اتصال</p>
+      <p class="muted" data-lk-status style="margin:0">آماده اتصال — برای تصویر روی «ورود به تماس» بزنید</p>
       <div data-lk-grid style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:.75rem;min-height:18rem;background:#0d1a16;border-radius:1rem;padding:.75rem"></div>
     <?php endif; ?>
   </div>
 </div>
 <?php if ($roomKey && $ready): ?>
 <script src="https://cdn.jsdelivr.net/npm/livekit-client@2.22.3/dist/livekit-client.umd.min.js"></script>
+<script src="<?= e(url('/assets/js/mana-livekit-call.js')) ?>?v=20260911l"></script>
 <script>
-(function(){
-  var root=document.querySelector('[data-livekit-v2]'); if(!root)return;
-  var key=root.dataset.room||'', audioOnly=root.dataset.media==='audio', auto=root.dataset.auto==='1';
-  var grid=root.querySelector('[data-lk-grid]'), statusEl=root.querySelector('[data-lk-status]');
-  var connectBtn=root.querySelector('[data-lk-connect]'), cameraBtn=root.querySelector('[data-lk-camera]'), micBtn=root.querySelector('[data-lk-mic]'), leaveBtn=root.querySelector('[data-lk-leave]');
-  var room=null, busy=false;
-  function status(s){if(statusEl)statusEl.textContent=s;}
-  function buttons(on){connectBtn.disabled=on||busy;cameraBtn.disabled=!on;micBtn.disabled=!on;leaveBtn.disabled=!on;}
-  function id(s){return 'lk-'+String(s||'').replace(/[^a-zA-Z0-9_-]/g,'_');}
-  function tile(identity,label){var x=document.getElementById(id(identity));if(x)return x;x=document.createElement('div');x.id=id(identity);x.style.cssText='position:relative;min-height:15rem;background:#12241f;border-radius:.85rem;overflow:hidden;display:grid;place-items:center;color:#fff';var n=document.createElement('span');n.textContent=label||'شرکت‌کننده';n.style.cssText='position:absolute;right:.6rem;bottom:.45rem;z-index:3;background:rgba(0,0,0,.55);padding:.2rem .45rem;border-radius:.4rem;font-size:.75rem';x.appendChild(n);grid.appendChild(x);return x;}
-  function attach(track,p,local){var T=LivekitClient.Track, who=p&&p.identity?p.identity:(local?'local':'remote'), x=tile(who,local?'شما':'شرکت‌کننده'), el=track.attach();el.autoplay=true;el.playsInline=true;el.setAttribute('playsinline','');if(track.kind===T.Kind.Video){el.style.cssText='width:100%;height:100%;min-height:15rem;object-fit:cover;display:block;background:#0d1a16';var old=x.querySelector('video');if(old&&old!==el)old.remove();x.insertBefore(el,x.firstChild);}else{el.style.display='none';x.appendChild(el);}var p1=el.play();if(p1&&p1.catch)p1.catch(function(){});}
-  function localPub(pub){if(pub&&pub.track&&room)attach(pub.track,room.localParticipant,true);}
-  function unlock(){grid.querySelectorAll('audio,video').forEach(function(el){var p=el.play();if(p&&p.catch)p.catch(function(){});});}
-  async function connect(){if(busy||!window.LivekitClient)return;busy=true;buttons(false);status('در حال دریافت دسترسی امن…');try{var r=await fetch('/livekit-token',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({room:key})});var d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||'خطای اتصال');room=new LivekitClient.Room({adaptiveStream:true,dynacast:true});room.on(LivekitClient.RoomEvent.TrackSubscribed,function(t,pub,p){attach(t,p,false);});room.on(LivekitClient.RoomEvent.TrackUnsubscribed,function(t){try{t.detach().forEach(function(el){el.remove();});}catch(e){}});room.on(LivekitClient.RoomEvent.LocalTrackPublished,localPub);room.on(LivekitClient.RoomEvent.ParticipantDisconnected,function(p){var x=document.getElementById(id(p.identity));if(x)x.remove();});room.on(LivekitClient.RoomEvent.Reconnecting,function(){status('در حال اتصال مجدد…');});room.on(LivekitClient.RoomEvent.Reconnected,function(){status('اتصال دوباره برقرار شد.');});room.on(LivekitClient.RoomEvent.Disconnected,function(){busy=false;status('تماس پایان یافت.');buttons(false);});status('در حال اتصال…');await room.connect(d.serverUrl,d.participantToken,{autoSubscribe:true});status(audioOnly?'در انتظار اجازه میکروفون…':'در انتظار اجازه دوربین و میکروفون…');if(audioOnly)await room.localParticipant.setMicrophoneEnabled(true);else await room.localParticipant.enableCameraAndMicrophone();room.localParticipant.trackPublications.forEach(localPub);busy=false;status('تماس برقرار است.');buttons(true);unlock();}catch(e){busy=false;status(e&&e.message?e.message:'اتصال برقرار نشد.');if(room){try{room.disconnect();}catch(x){}room=null;}buttons(false);}}
-  connectBtn.addEventListener('click',function(){unlock();connect();});
-  cameraBtn.addEventListener('click',async function(){if(!room)return;var on=!room.localParticipant.isCameraEnabled;await room.localParticipant.setCameraEnabled(on);cameraBtn.textContent=on?'خاموش کردن دوربین':'روشن کردن دوربین';});
-  micBtn.addEventListener('click',async function(){if(!room)return;var on=!room.localParticipant.isMicrophoneEnabled;await room.localParticipant.setMicrophoneEnabled(on);micBtn.textContent=on?'قطع میکروفون':'وصل میکروفون';});
-  leaveBtn.addEventListener('click',function(){if(room)room.disconnect();room=null;grid.innerHTML='';status('از تماس خارج شدید.');buttons(false);});
-  grid.addEventListener('click',unlock);document.addEventListener('visibilitychange',function(){if(!document.hidden)unlock();});window.addEventListener('pagehide',function(){if(room)room.disconnect();});
-  if(auto)setTimeout(connect,80);
+(function () {
+  var root = document.querySelector("[data-livekit-v2]");
+  if (!root || !window.ManaLiveKit) return;
+  var key = root.dataset.room || "";
+  var audioOnly = root.dataset.media === "audio";
+  var auto = root.dataset.auto === "1";
+  var grid = root.querySelector("[data-lk-grid]");
+  var statusEl = root.querySelector("[data-lk-status]");
+  var connectBtn = root.querySelector("[data-lk-connect]");
+  var cameraBtn = root.querySelector("[data-lk-camera]");
+  var micBtn = root.querySelector("[data-lk-mic]");
+  var leaveBtn = root.querySelector("[data-lk-leave]");
+  var csrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || "";
+  var room = null;
+  var busy = false;
+
+  function status(s) { if (statusEl) statusEl.textContent = s; }
+  function buttons(on) {
+    connectBtn.disabled = on || busy;
+    cameraBtn.disabled = !on;
+    micBtn.disabled = !on;
+    leaveBtn.disabled = !on;
+  }
+  function id(s) { return "lk-" + String(s || "").replace(/[^a-zA-Z0-9_-]/g, "_"); }
+  function tile(identity, label) {
+    var x = document.getElementById(id(identity));
+    if (x) return x;
+    x = document.createElement("div");
+    x.id = id(identity);
+    x.style.cssText = "position:relative;min-height:15rem;background:#12241f;border-radius:.85rem;overflow:hidden;display:grid;place-items:center;color:#fff";
+    var n = document.createElement("span");
+    n.textContent = label || "شرکت‌کننده";
+    n.style.cssText = "position:absolute;right:.6rem;bottom:.45rem;z-index:3;background:rgba(0,0,0,.55);padding:.2rem .45rem;border-radius:.4rem;font-size:.75rem";
+    x.appendChild(n);
+    grid.appendChild(x);
+    return x;
+  }
+  function getContainer(p, local) {
+    return tile(p && p.identity ? p.identity : (local ? "local" : "remote"), local ? "شما" : "شرکت‌کننده");
+  }
+  function attach(track, p, local) {
+    ManaLiveKit.attachTrack(track, getContainer(p, local), {
+      muted: !!local && ManaLiveKit.isVideoTrack(track),
+      mirrored: !!local && ManaLiveKit.isVideoTrack(track),
+      prepend: true
+    });
+  }
+  function localPub(pub) {
+    if (pub && pub.track && room) attach(pub.track, room.localParticipant, true);
+  }
+  function unlock() {
+    grid.querySelectorAll("audio,video").forEach(function (el) { ManaLiveKit.safePlay(el); });
+  }
+
+  async function connect() {
+    if (busy || room || !window.LivekitClient) return;
+    busy = true;
+    buttons(false);
+    status("در حال اتصال امن…");
+    try {
+      var res = await ManaLiveKit.connectRoom({
+        roomKey: key,
+        csrf: csrf,
+        audioOnly: audioOnly,
+        onStatus: status,
+        hooks: {
+          getContainer: getContainer,
+          onTrack: function (t, pub, p) { attach(t, p, false); },
+          onLocalPub: localPub,
+          onParticipantLeft: function (p) {
+            var x = document.getElementById(id(p.identity));
+            if (x) x.remove();
+          },
+          onDisconnected: function () {
+            busy = false;
+            room = null;
+            status("تماس پایان یافت.");
+            buttons(false);
+          },
+          onStatus: status
+        }
+      });
+      room = res.room;
+      busy = false;
+      buttons(true);
+      unlock();
+      if (!audioOnly && !(res.media && res.media.cam)) {
+        status("صدا وصل شد؛ برای تصویر دوباره روی ورود بزنید یا دکمه دوربین را لمس کنید.");
+      } else {
+        status("تماس برقرار است.");
+      }
+      cameraBtn.textContent = room.localParticipant.isCameraEnabled ? "خاموش کردن دوربین" : "روشن کردن دوربین";
+      micBtn.textContent = room.localParticipant.isMicrophoneEnabled ? "قطع میکروفون" : "وصل میکروفون";
+    } catch (e) {
+      busy = false;
+      status(e && e.message ? e.message : "اتصال برقرار نشد.");
+      if (room) {
+        try { room.disconnect(); } catch (x) {}
+        room = null;
+      }
+      buttons(false);
+    }
+  }
+
+  connectBtn.addEventListener("click", function () { unlock(); connect(); });
+  cameraBtn.addEventListener("click", async function () {
+    if (!room) return;
+    try {
+      var on = !room.localParticipant.isCameraEnabled;
+      await room.localParticipant.setCameraEnabled(on);
+      room.localParticipant.trackPublications.forEach(localPub);
+      cameraBtn.textContent = on ? "خاموش کردن دوربین" : "روشن کردن دوربین";
+    } catch (e) {
+      status(e && e.message ? e.message : "دوربین فعال نشد.");
+    }
+  });
+  micBtn.addEventListener("click", async function () {
+    if (!room) return;
+    try {
+      var on = !room.localParticipant.isMicrophoneEnabled;
+      await room.localParticipant.setMicrophoneEnabled(on);
+      micBtn.textContent = on ? "قطع میکروفون" : "وصل میکروفون";
+    } catch (e) {
+      status(e && e.message ? e.message : "میکروفون فعال نشد.");
+    }
+  });
+  leaveBtn.addEventListener("click", function () {
+    if (room) room.disconnect();
+    room = null;
+    grid.innerHTML = "";
+    status("از تماس خارج شدید.");
+    buttons(false);
+  });
+  grid.addEventListener("click", unlock);
+  document.addEventListener("visibilitychange", function () { if (!document.hidden) unlock(); });
+  window.addEventListener("pagehide", function () { if (room) room.disconnect(); });
+
+  // Auto only after a short delay; if camera is blocked, user can tap the main button.
+  if (auto) setTimeout(connect, 80);
 })();
 </script>
 <?php endif; ?>

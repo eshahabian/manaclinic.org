@@ -43,6 +43,8 @@ $canRecord = (string) ($user['role'] ?? '') === 'DOCTOR';
 @keyframes pulse{50%{opacity:.45}}
 #recordHint{position:absolute;top:52px;left:50%;transform:translateX(-50%);z-index:14;max-width:88%;background:rgba(0,0,0,.76);color:#fff;padding:9px 12px;border-radius:10px;font-size:12px;line-height:1.7;text-align:center;display:none}#recordHint.show{display:block}
 #empty{position:absolute;inset:0;display:grid;place-items:center;color:#aebdb7;font-size:13px;z-index:1;pointer-events:none}
+#camFix{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);z-index:15;display:none;flex-direction:column;gap:8px;align-items:center;background:rgba(0,0,0,.72);padding:14px 16px;border-radius:12px;max-width:90%}
+#camFix.show{display:flex}#camFix button{border:0;background:#1b5e4b;color:#fff;border-radius:10px;padding:10px 14px;cursor:pointer;font-size:13px}
 @media(max-width:640px){#localBox{width:29%;height:23%;right:8px;bottom:74px}.iconBtn,.iconBtn img{width:50px;height:50px}#controls{bottom:9px;gap:14px}.smallBtn{width:34px;height:34px}}
 </style>
 </head>
@@ -52,6 +54,7 @@ $canRecord = (string) ($user['role'] ?? '') === 'DOCTOR';
   <div id="empty">در انتظار ورود طرف مقابل…</div>
   <div id="localBox"><span class="label">شما</span></div>
   <p id="status">در حال آماده‌سازی تماس…</p>
+  <div id="camFix"><button type="button" id="enableCam">فعال‌سازی دوربین و میکروفون</button></div>
   <div id="topTools">
     <button type="button" class="smallBtn" id="fullscreen" title="تمام صفحه" aria-label="تمام صفحه">⛶</button>
     <?php if ($canRecord): ?><button type="button" class="smallBtn" id="recordBtn" title="ضبط جلسه" aria-label="ضبط جلسه"><span class="recDot"></span></button><?php endif; ?>
@@ -64,29 +67,83 @@ $canRecord = (string) ($user['role'] ?? '') === 'DOCTOR';
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/livekit-client@2.22.3/dist/livekit-client.umd.min.js"></script>
+<script src="/assets/js/mana-livekit-call.js?v=20260911l"></script>
 <script>
 (function(){
 var root=document.getElementById('call'),key=root.dataset.room||'',audioOnly=root.dataset.media==='audio',canRecord=root.dataset.canRecord==='1';
 var remoteGrid=document.getElementById('remoteGrid'),localBox=document.getElementById('localBox'),empty=document.getElementById('empty'),statusEl=document.getElementById('status');
 var connectBtn=document.getElementById('connect'),leaveBtn=document.getElementById('leave'),fullBtn=document.getElementById('fullscreen'),closeBtn=document.getElementById('close'),recordBtn=document.getElementById('recordBtn'),recordHint=document.getElementById('recordHint');
+var camFix=document.getElementById('camFix'),enableCamBtn=document.getElementById('enableCam');
 var room=null,busy=false,csrf=(document.querySelector('meta[name="csrf-token"]')||{}).content||'',everConnected=false;
 var recorder=null,recordChunks=[],drawTimer=null,recCanvas=null,recCtx=null,audioCtx=null,audioDest=null,audioSources=[];
 function status(s){statusEl.textContent=s||'';statusEl.style.display=s?'block':'none'}
 function controls(on){connectBtn.hidden=on;leaveBtn.hidden=!on;connectBtn.disabled=busy;leaveBtn.disabled=busy}
+function showCamFix(on){if(camFix)camFix.classList.toggle('show',!!on)}
 function tid(s){return 'lk-'+String(s||'').replace(/[^a-zA-Z0-9_-]/g,'_')}
 function updateLayout(){var n=remoteGrid.querySelectorAll('.remoteTile').length;remoteGrid.classList.toggle('direct',n<=1);empty.style.display=n?'none':'grid'}
 function remoteTile(id){var x=document.getElementById(tid(id));if(x)return x;x=document.createElement('div');x.id=tid(id);x.className='remoteTile';var n=document.createElement('span');n.className='label';n.textContent='شرکت‌کننده';x.appendChild(n);remoteGrid.appendChild(x);updateLayout();return x}
-function attach(track,p,local){var el=track.attach();el.autoplay=true;el.playsInline=true;el.setAttribute('playsinline','');if(track.kind===LivekitClient.Track.Kind.Video){if(local){var oldL=localBox.querySelector('video');if(oldL&&oldL!==el)oldL.remove();localBox.insertBefore(el,localBox.firstChild);localBox.classList.add('has-video')}else{var x=remoteTile(p&&p.identity?p.identity:'remote'),old=x.querySelector('video');if(old&&old!==el)old.remove();x.insertBefore(el,x.firstChild)}}else{el.style.display='none';document.body.appendChild(el)}var pr=el.play();if(pr&&pr.catch)pr.catch(function(){})}
+function getContainer(p,local){return local?localBox:remoteTile(p&&p.identity?p.identity:'remote')}
+function attach(track,p,local){
+  if(!window.ManaLiveKit)return;
+  ManaLiveKit.attachTrack(track,getContainer(p,local),{
+    muted:!!local&&ManaLiveKit.isVideoTrack(track),
+    mirrored:!!local&&ManaLiveKit.isVideoTrack(track),
+    prepend:true,
+    onVideo:function(){if(local)localBox.classList.add('has-video');updateLayout();}
+  });
+}
 function localPub(pub){if(pub&&pub.track&&room)attach(pub.track,room.localParticipant,true)}
-function unlock(){document.querySelectorAll('audio,video').forEach(function(el){var p=el.play();if(p&&p.catch)p.catch(function(){})})}
+function unlock(){document.querySelectorAll('audio,video').forEach(function(el){if(window.ManaLiveKit)ManaLiveKit.safePlay(el); else {var p=el.play();if(p&&p.catch)p.catch(function(){})}})}
 function showRecordHint(){if(!canRecord||!recordHint)return;recordHint.classList.add('show');setTimeout(function(){recordHint.classList.remove('show')},9000)}
 function mediaTrack(pub){return pub&&pub.track&&(pub.track.mediaStreamTrack||pub.track._mediaStreamTrack)||null}
 function addAudioTrack(track){if(!audioCtx||!audioDest||!track)return;try{var src=audioCtx.createMediaStreamSource(new MediaStream([track]));src.connect(audioDest);audioSources.push(src)}catch(e){}}
 function stopRecording(silent){if(!recorder)return;try{recorder.stop()}catch(e){}if(drawTimer){cancelAnimationFrame(drawTimer);drawTimer=null}if(audioSources.length)audioSources.forEach(function(s){try{s.disconnect()}catch(e){}});audioSources=[];if(audioCtx){try{audioCtx.close()}catch(e){}audioCtx=null}audioDest=null;if(recordBtn){recordBtn.classList.remove('recording');recordBtn.title='ضبط جلسه'}if(!silent)status('ضبط پایان یافت و فایل آماده می‌شود…')}
 function startRecording(){if(!canRecord||recorder||!room)return;if(!window.MediaRecorder||!HTMLCanvasElement.prototype.captureStream){alert('ضبط در این مرورگر پشتیبانی نمی‌شود.');return}recCanvas=document.createElement('canvas');recCanvas.width=1280;recCanvas.height=720;recCtx=recCanvas.getContext('2d');var mixed=recCanvas.captureStream(15);var AC=window.AudioContext||window.webkitAudioContext;if(AC){try{audioCtx=new AC();audioDest=audioCtx.createMediaStreamDestination();room.localParticipant.trackPublications.forEach(function(pub){var t=mediaTrack(pub);if(t&&t.kind==='audio')addAudioTrack(t)});room.remoteParticipants.forEach(function(p){p.trackPublications.forEach(function(pub){var t=mediaTrack(pub);if(t&&t.kind==='audio')addAudioTrack(t)})});audioDest.stream.getAudioTracks().forEach(function(t){mixed.addTrack(t)})}catch(e){}}var opts={};if(MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported('video/webm;codecs=vp9,opus'))opts.mimeType='video/webm;codecs=vp9,opus';else if(MediaRecorder.isTypeSupported&&MediaRecorder.isTypeSupported('video/webm'))opts.mimeType='video/webm';try{recorder=new MediaRecorder(mixed,opts)}catch(e){recorder=new MediaRecorder(mixed)}recordChunks=[];recorder.ondataavailable=function(e){if(e.data&&e.data.size)recordChunks.push(e.data)};recorder.onstop=function(){var blob=new Blob(recordChunks,{type:recorder.mimeType||'video/webm'}),a=document.createElement('a'),stamp=new Date().toISOString().replace(/[:.]/g,'-');a.href=URL.createObjectURL(blob);a.download='mana-session-'+stamp+'.webm';document.body.appendChild(a);a.click();setTimeout(function(){URL.revokeObjectURL(a.href);a.remove()},1000);recorder=null;status('فایل ضبط ذخیره شد.');setTimeout(function(){status('تماس برقرار است.')},2500)};recorder.start(1000);if(recordBtn){recordBtn.classList.add('recording');recordBtn.title='توقف ضبط'}function draw(){if(!recorder)return;recCtx.fillStyle='#07130f';recCtx.fillRect(0,0,1280,720);var v=remoteGrid.querySelector('video')||localBox.querySelector('video');if(v&&v.readyState>=2){try{recCtx.drawImage(v,0,0,1280,720)}catch(e){}}drawTimer=requestAnimationFrame(draw)}draw();status('در حال ضبط جلسه…')}
-async function connect(){if(busy||room||!window.LivekitClient)return;busy=true;controls(false);status('در حال اتصال…');try{var r=await fetch('/livekit-token',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-Token':csrf},body:JSON.stringify({room:key})}),d=await r.json();if(!r.ok||!d.ok)throw new Error(d.error||'خطای اتصال');room=new LivekitClient.Room({adaptiveStream:true,dynacast:true});room.on(LivekitClient.RoomEvent.TrackSubscribed,function(t,pub,p){attach(t,p,false)});room.on(LivekitClient.RoomEvent.TrackUnsubscribed,function(t){try{t.detach().forEach(function(el){el.remove()})}catch(e){}updateLayout()});room.on(LivekitClient.RoomEvent.LocalTrackPublished,localPub);room.on(LivekitClient.RoomEvent.ParticipantDisconnected,function(p){var x=document.getElementById(tid(p.identity));if(x)x.remove();updateLayout();if(everConnected&&room&&room.remoteParticipants.size===0)status('طرف مقابل از تماس خارج شد.')});room.on(LivekitClient.RoomEvent.Reconnecting,function(){status('در حال اتصال مجدد…')});room.on(LivekitClient.RoomEvent.Reconnected,function(){status('تماس برقرار است.')});room.on(LivekitClient.RoomEvent.Disconnected,function(){if(recorder)stopRecording(true);busy=false;room=null;controls(false);status('تماس پایان یافت. برای تماس مجدد دکمه سبز را بزنید.')});await room.connect(d.serverUrl,d.participantToken,{autoSubscribe:true});if(audioOnly)await room.localParticipant.setMicrophoneEnabled(true);else await room.localParticipant.enableCameraAndMicrophone();room.localParticipant.trackPublications.forEach(localPub);everConnected=true;busy=false;controls(true);status('تماس برقرار است.');unlock();showRecordHint()}catch(e){busy=false;if(room){try{room.disconnect()}catch(x){}room=null}controls(false);status(e&&e.message?e.message:'اتصال برقرار نشد. دوباره تلاش کنید.')}}
-function leave(){if(busy)return;if(recorder)stopRecording(true);if(room){try{room.disconnect()}catch(e){}room=null}remoteGrid.innerHTML='';localBox.querySelectorAll('video').forEach(function(v){v.remove()});localBox.classList.remove('has-video');updateLayout();controls(false);status('تماس قطع شد. برای تماس مجدد دکمه سبز را بزنید.')}
-connectBtn.addEventListener('click',function(){unlock();connect()});leaveBtn.addEventListener('click',leave);fullBtn.addEventListener('click',function(){var el=document.documentElement;if(document.fullscreenElement){document.exitFullscreen().catch(function(){})}else if(el.requestFullscreen){el.requestFullscreen().catch(function(){})}});closeBtn.addEventListener('click',function(){leave();parent.postMessage({type:'mana-livekit-leave'},location.origin)});if(recordBtn)recordBtn.addEventListener('click',function(){if(recorder)stopRecording(false);else startRecording()});document.addEventListener('visibilitychange',function(){if(!document.hidden)unlock()});window.addEventListener('pagehide',function(){if(recorder)stopRecording(true);if(room)room.disconnect()});setTimeout(connect,100);
+async function connect(){
+  if(busy||room||!window.ManaLiveKit||!window.LivekitClient)return;
+  busy=true;controls(false);showCamFix(false);status('در حال اتصال…');
+  try{
+    var res=await ManaLiveKit.connectRoom({
+      roomKey:key,csrf:csrf,audioOnly:audioOnly,onStatus:status,
+      hooks:{
+        getContainer:getContainer,
+        onTrack:function(t,pub,p){attach(t,p,false)},
+        onLocalPub:localPub,
+        onParticipantLeft:function(p){var x=document.getElementById(tid(p.identity));if(x)x.remove();updateLayout();if(everConnected&&room&&room.remoteParticipants.size===0)status('طرف مقابل از تماس خارج شد.')},
+        onDisconnected:function(){if(recorder)stopRecording(true);busy=false;room=null;localBox.classList.remove('has-video');controls(false);showCamFix(false);status('تماس پایان یافت. برای تماس مجدد دکمه سبز را بزنید.')},
+        onStatus:status
+      }
+    });
+    room=res.room;everConnected=true;busy=false;controls(true);unlock();
+    if(!audioOnly&&!(res.media&&res.media.cam)){showCamFix(true);status('صدا وصل شد؛ برای تصویر روی فعال‌سازی دوربین بزنید.');}
+    else status('تماس برقرار است.');
+    showRecordHint();
+  }catch(e){
+    busy=false;if(room){try{room.disconnect()}catch(x){}room=null}
+    controls(false);showCamFix(true);status(e&&e.message?e.message:'اتصال برقرار نشد. دوباره تلاش کنید.');
+  }
+}
+async function enableCam(){
+  unlock();
+  if(!room){await connect();return;}
+  try{
+    if(!room.localParticipant.isMicrophoneEnabled)await room.localParticipant.setMicrophoneEnabled(true);
+    if(!audioOnly)await room.localParticipant.setCameraEnabled(true);
+    room.localParticipant.trackPublications.forEach(localPub);
+    showCamFix(false);status('تماس برقرار است.');
+  }catch(e){status(e&&e.message?e.message:'دوربین فعال نشد.');showCamFix(true)}
+}
+function leave(){if(busy)return;if(recorder)stopRecording(true);if(room){try{room.disconnect()}catch(e){}room=null}remoteGrid.innerHTML='';localBox.querySelectorAll('video').forEach(function(v){v.remove()});localBox.classList.remove('has-video');updateLayout();controls(false);showCamFix(false);status('تماس قطع شد. برای تماس مجدد دکمه سبز را بزنید.')}
+connectBtn.addEventListener('click',function(){unlock();connect()});
+if(enableCamBtn)enableCamBtn.addEventListener('click',function(){enableCam()});
+leaveBtn.addEventListener('click',leave);
+fullBtn.addEventListener('click',function(){var el=document.documentElement;if(document.fullscreenElement){document.exitFullscreen().catch(function(){})}else if(el.requestFullscreen){el.requestFullscreen().catch(function(){})}});
+closeBtn.addEventListener('click',function(){leave();parent.postMessage({type:'mana-livekit-leave'},location.origin)});
+if(recordBtn)recordBtn.addEventListener('click',function(){if(recorder)stopRecording(false);else startRecording()});
+document.addEventListener('visibilitychange',function(){if(!document.hidden)unlock()});
+window.addEventListener('pagehide',function(){if(recorder)stopRecording(true);if(room)room.disconnect()});
+window.addEventListener('message',function(ev){if(ev.origin!==location.origin)return;if(ev.data&&ev.data.type==='mana-livekit-connect'){unlock();if(!room)connect()}});
+setTimeout(connect,120);
 })();
 </script>
 </body>

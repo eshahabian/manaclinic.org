@@ -9,7 +9,7 @@ RewriteRule \.(env|sql|log|bak|old)$ - [F]
 
 # Always revalidate call scripts while the LiveKit migration is active.
 <IfModule mod_headers.c>
-  <FilesMatch "^video-call-(lobby|livekit-bridge|livekit-bridge-v2|livekit-bridge-v3|watch)\.js$">
+  <FilesMatch "^(video-call-(lobby|livekit-bridge|livekit-bridge-v2|livekit-bridge-v3|watch)|mana-livekit-call)\.js$">
     Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
     Header set Pragma "no-cache"
     Header set Expires "0"
