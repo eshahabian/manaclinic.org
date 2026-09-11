@@ -9,7 +9,7 @@ RewriteRule \.(env|sql|log|bak|old)$ - [F]
 
 # Always revalidate call scripts while the LiveKit migration is active.
 <IfModule mod_headers.c>
-  <FilesMatch "^video-call-(lobby|livekit-bridge|livekit-bridge-v2|watch)\.js$">
+  <FilesMatch "^video-call-(lobby|livekit-bridge|livekit-bridge-v2|livekit-bridge-v3|watch)\.js$">
     Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
     Header set Pragma "no-cache"
     Header set Expires "0"
@@ -23,10 +23,10 @@ RewriteCond %{QUERY_STRING} (^|&)answer=1(&|$) [NC]
 RewriteCond %{QUERY_STRING} (^|&)room=[^&]+ [NC]
 RewriteRule ^video-call/?$ /video-call-live?%{QUERY_STRING} [R=302,L,NE]
 
-# Preserve the original lobby UI. The public lobby script is replaced by a tiny
-# launcher that redirects the media session to the standalone LiveKit page.
+# Preserve the original lobby UI. Therapist media opens inside the workspace;
+# patient answers still use the standalone LiveKit page.
 RewriteRule ^assets/js/video-call-lobby-legacy\.js$ assets/js/video-call-lobby.js [END]
-RewriteRule ^assets/js/video-call-lobby\.js$ assets/js/video-call-livekit-bridge-v2.js [END]
+RewriteRule ^assets/js/video-call-lobby\.js$ assets/js/video-call-livekit-bridge-v3.js [END]
 
 # LiveKit endpoints.
 RewriteRule ^video-call-v2/?$ livekit-v2.php [END]
