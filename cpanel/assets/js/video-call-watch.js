@@ -28,10 +28,12 @@
   function mediaOf(item) {
     return item && item.media === "audio" ? "audio" : "video";
   }
+  function usingLiveKitEmbed() {
+    return !!window.__MANA_LIVEKIT_EMBED__ || !!document.querySelector('[data-livekit-frame-wrap="1"]');
+  }
   function primeMedia(audioOnly) {
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      return Promise.resolve(null);
-    }
+    if (usingLiveKitEmbed()) return Promise.resolve(null);
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return Promise.resolve(null);
     var pre = null;
     try { pre = window.__VC_PRESTREAM__; } catch (e) {}
     if (pre && pre.getTracks) {
@@ -40,98 +42,56 @@
       if (hasAudio && (audioOnly || hasVideo)) return Promise.resolve(pre);
     }
     if (window.__VC_PRIMING__) return window.__VC_PRIMING__;
-    var req = audioOnly
-      ? { audio: true, video: false }
-      : { audio: true, video: { facingMode: "user" } };
+    var req = audioOnly ? { audio: true, video: false } : { audio: true, video: { facingMode: "user" } };
     window.__VC_PRIMING__ = navigator.mediaDevices.getUserMedia(req).then(function (stream) {
       window.__VC_PRESTREAM__ = stream;
       window.__VC_PRIMING__ = null;
       return stream;
     }).catch(function () {
-      if (audioOnly) {
-        window.__VC_PRIMING__ = null;
-        return null;
-      }
-      return navigator.mediaDevices.getUserMedia({ audio: true, video: true }).then(function (stream) {
-        window.__VC_PRESTREAM__ = stream;
-        window.__VC_PRIMING__ = null;
-        return stream;
-      }).catch(function () {
-        window.__VC_PRIMING__ = null;
-        return null;
-      });
+      window.__VC_PRIMING__ = null;
+      return null;
     });
     return window.__VC_PRIMING__;
   }
 
-  // Mobile patient safeguard: WebRTC can be live while the call tile remains visually blank.
-  // Keep only the patient-side active call container and stage explicitly visible; do not touch clinician UI.
   function fixPatientCallUi() {
+    if (usingLiveKitEmbed()) return;
     var root = document.querySelector("[data-video-call]");
     if (!root || root.getAttribute("data-can-start") === "1") return;
     var room = root.getAttribute("data-room") || "";
     if (!room || root.hidden) return;
-
     root.style.display = "block";
     root.style.visibility = "visible";
     root.style.opacity = "1";
-    root.style.minHeight = "min(62vh, 28rem)";
-
-    var main = root.closest(".vc-lobby-main");
-    if (main) {
-      main.style.display = "block";
-      main.style.visibility = "visible";
-      main.style.opacity = "1";
-      main.style.minHeight = "min(62vh, 28rem)";
-    }
-
     var stage = root.querySelector("[data-video-stage]");
     if (stage) {
       stage.style.display = "block";
       stage.style.visibility = "visible";
       stage.style.opacity = "1";
-      stage.style.position = "relative";
-      stage.style.width = "100%";
-      stage.style.minHeight = "min(62vh, 28rem)";
-      stage.style.height = "min(62vh, 28rem)";
-      stage.style.background = "#12241f";
     }
-
-    // Permission dialogs on mobile can briefly trigger visibilitychange. Restore the UI once visible again.
     if (!document.hidden) {
       root.classList.remove("is-black");
       var blackout = root.querySelector("[data-video-blackout]");
       if (blackout) blackout.hidden = true;
-      var local = root.querySelector("[data-video-local]");
-      if (local) {
-        local.style.visibility = "visible";
-        local.style.opacity = "1";
-        local.style.filter = "none";
-        if (local.srcObject) local.play().catch(function () {});
-      }
-      root.querySelectorAll("[data-video-remote]").forEach(function (vid) {
-        vid.style.visibility = "visible";
-        vid.style.opacity = "1";
-        vid.style.filter = "none";
-        if (vid.srcObject) vid.play().catch(function () {});
-      });
     }
   }
 
   function goToCall() {
     try { sessionStorage.setItem("mana-video-auto-answer", "1"); } catch (e) {}
     var media = mediaOf(current);
-    // دوربین را همان لحظهٔ لمس «پاسخ» باز کن تا موبایل فقط صدا نگیرد
-    primeMedia(media === "audio");
+    if (!window.__MANA_LIVEKIT_EMBED__) primeMedia(media === "audio");
     if (window.ManaVideoCall && window.ManaVideoCall.start && current && current.room && document.querySelector("[data-vc-idle]")) {
       post({ action: "open", room: current.room, media: media }).then(function (data) {
         if (data && data.ok) {
           data.answer = true;
           data.media = media;
+          data.autoStart = true;
           window.ManaVideoCall.start(data);
-          setTimeout(fixPatientCallUi, 0);
-          setTimeout(fixPatientCallUi, 250);
-          setTimeout(fixPatientCallUi, 1000);
+          if (!window.__MANA_LIVEKIT_EMBED__) {
+            setTimeout(fixPatientCallUi, 0);
+            setTimeout(fixPatientCallUi, 250);
+            setTimeout(fixPatientCallUi, 1000);
+          }
           stopAlert();
         }
       }).catch(function () {
@@ -149,14 +109,8 @@
   function stopAlert() {
     ringing = false;
     current = null;
-    if (ringAudio) {
-      ringAudio.pause();
-      try { ringAudio.currentTime = 0; } catch (e) {}
-    }
-    if (titleTimer) {
-      clearInterval(titleTimer);
-      titleTimer = null;
-    }
+    if (ringAudio) { ringAudio.pause(); try { ringAudio.currentTime = 0; } catch (e) {} }
+    if (titleTimer) { clearInterval(titleTimer); titleTimer = null; }
     document.title = origTitle;
     if (banner) banner.hidden = true;
   }
@@ -166,12 +120,7 @@
     banner = document.createElement("div");
     banner.className = "video-call-alert";
     banner.hidden = true;
-    banner.innerHTML =
-      '<p class="video-call-alert-text"></p>' +
-      '<div class="video-call-alert-actions">' +
-      '<button type="button" class="btn btn-primary btn-sm" data-vc-alert-open>پاسخ</button>' +
-      '<button type="button" class="btn btn-outline btn-sm" data-vc-alert-dismiss>بعداً</button>' +
-      "</div>";
+    banner.innerHTML = '<p class="video-call-alert-text"></p><div class="video-call-alert-actions"><button type="button" class="btn btn-primary btn-sm" data-vc-alert-open>پاسخ</button><button type="button" class="btn btn-outline btn-sm" data-vc-alert-dismiss>رد تماس</button></div>';
     document.body.appendChild(banner);
     banner.querySelector("[data-vc-alert-open]").addEventListener("click", goToCall);
     banner.querySelector("[data-vc-alert-dismiss]").addEventListener("click", stopAlert);
@@ -188,20 +137,12 @@
     if (text) text.textContent = "تماس ورودی از " + name;
     bar.hidden = false;
     if (cfg.ringUrl) {
-      if (!ringAudio) {
-        ringAudio = new Audio(cfg.ringUrl);
-        ringAudio.loop = true;
-        ringAudio.playsInline = true;
-      }
+      if (!ringAudio) { ringAudio = new Audio(cfg.ringUrl); ringAudio.loop = true; ringAudio.playsInline = true; }
       ringAudio.currentTime = 0;
-      var play = ringAudio.play();
-      if (play && play.catch) play.catch(function () {});
+      var play = ringAudio.play(); if (play && play.catch) play.catch(function () {});
     }
     var flip = false;
-    titleTimer = setInterval(function () {
-      flip = !flip;
-      document.title = flip ? "تماس ورودی…" : origTitle;
-    }, 900);
+    titleTimer = setInterval(function () { flip = !flip; document.title = flip ? "تماس ورودی…" : origTitle; }, 900);
     if ("Notification" in window && Notification.permission === "granted") {
       try {
         var note = new Notification("تماس مانا", { body: "تماس ورودی از " + name, tag: "mana-video-incoming", renotify: true });
@@ -216,13 +157,9 @@
     var onCall = document.querySelector("[data-video-call]");
     if (onCall && onCall.getAttribute("data-room")) return;
     post({ action: "inbox" }).then(function (data) {
-      if (document.hidden) return;
-      if (!data || !data.ok) return;
+      if (document.hidden || !data || !data.ok) return;
       var items = data.items || [];
-      if (!items.length) {
-        if (ringing) stopAlert();
-        return;
-      }
+      if (!items.length) { if (ringing) stopAlert(); return; }
       var item = items[0];
       if (seen[item.id]) return;
       seen[item.id] = true;
@@ -231,27 +168,13 @@
   }
 
   if ("Notification" in window && Notification.permission === "default") {
-    document.addEventListener("click", function () {
-      Notification.requestPermission().catch(function () {});
-    }, { once: true });
+    document.addEventListener("click", function () { Notification.requestPermission().catch(function () {}); }, { once: true });
   }
-  function schedule() {
-    setTimeout(function () {
-      tick();
-      schedule();
-    }, document.hidden ? 25000 : 8000);
-  }
-  tick();
-  schedule();
+  function schedule() { setTimeout(function () { tick(); schedule(); }, document.hidden ? 25000 : 8000); }
+  tick(); schedule();
   var uiTimer = setInterval(fixPatientCallUi, 600);
   document.addEventListener("visibilitychange", function () {
-    if (!document.hidden) {
-      fixPatientCallUi();
-      setTimeout(fixPatientCallUi, 250);
-      tick();
-    }
+    if (!document.hidden) { fixPatientCallUi(); setTimeout(fixPatientCallUi, 250); tick(); }
   });
-  window.addEventListener("pagehide", function () {
-    clearInterval(uiTimer);
-  }, { once: true });
+  window.addEventListener("pagehide", function () { clearInterval(uiTimer); }, { once: true });
 })();
