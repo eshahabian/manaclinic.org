@@ -6,6 +6,51 @@
   legacyScript.async = false;
   var frame = null;
 
+  function csrfToken() {
+    return (document.querySelector('meta[name="csrf-token"]') || {}).content || "";
+  }
+
+  function jsonPost(url, body) {
+    return fetch(url, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        "Accept": "application/json",
+        "X-CSRF-Token": csrfToken(),
+        "X-Requested-With": "XMLHttpRequest"
+      },
+      body: JSON.stringify(body || {})
+    }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok || (data && data.ok === false)) throw new Error((data && data.error) || "خطای ارتباط");
+        return data;
+      });
+    });
+  }
+
+  function sendRinging(info) {
+    if (!info || !info.canStart || !info.room) return Promise.resolve();
+    return jsonPost("/video-signal", { action: "poll", room: info.room }).then(function (data) {
+      var members = (data && data.members) || [];
+      return Promise.all(members.map(function (m) {
+        if (!m || !m.id) return Promise.resolve();
+        return jsonPost("/video-signal", {
+          action: "send",
+          room: info.room,
+          kind: "ringing",
+          target_id: m.id,
+          payload: {
+            name: info.title || "تماس مانا",
+            media: info.media === "audio" ? "audio" : "video",
+            group: !!info.group,
+            engine: "livekit"
+          }
+        }).catch(function () {});
+      }));
+    }).catch(function () {});
+  }
+
   function showTile(info) {
     var root = document.querySelector("[data-video-call]");
     if (!root || !info || !info.room) return null;
@@ -30,6 +75,7 @@
     stage.style.display = "block";
     stage.style.visibility = "visible";
     stage.style.opacity = "1";
+    stage.style.height = "100%";
     stage.style.minHeight = "22rem";
     stage.style.overflow = "hidden";
 
@@ -61,6 +107,7 @@
       var wrap = stage.querySelector('[data-livekit-frame-wrap="1"]');
       if (wrap) wrap.remove();
       Array.prototype.forEach.call(stage.children, function (el) { if (el && el.style) el.style.display = ""; });
+      stage.style.height = "";
     }
     root.hidden = true;
     root.removeAttribute("style");
@@ -76,6 +123,7 @@
     var ui = showTile(info);
     if (!ui) return;
     if (frame) frame.remove();
+    if (info.canStart) sendRinging(info);
 
     var q = new URLSearchParams();
     q.set("room", String(info.room));
