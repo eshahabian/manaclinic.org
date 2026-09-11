@@ -35,7 +35,13 @@ if (!mana_livekit_ready()) {
 }
 
 try {
-    $token = mana_livekit_token($user, $roomKey);
+    // LiveKit uses the immutable database room ID, not the visible room key.
+    // The room key/number may therefore change later without splitting a call.
+    $stableRoomId = trim((string) ($room['id'] ?? ''));
+    if ($stableRoomId === '') {
+        throw new RuntimeException('شناسه پایدار جلسه موجود نیست.');
+    }
+    $token = mana_livekit_token($user, $stableRoomId);
     video_call_json([
         'ok' => true,
         'serverUrl' => $token['serverUrl'],
