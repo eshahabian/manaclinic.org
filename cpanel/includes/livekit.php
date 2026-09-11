@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * LiveKit V2 bridge for Mana Clinic.
+ * LiveKit bridge for Mana Clinic.
  *
  * Credentials can be provided either as environment variables:
  *   LIVEKIT_URL=wss://<project>.livekit.cloud
@@ -50,11 +50,9 @@ function mana_livekit_b64url(string $data): string
     return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
 }
 
-function mana_livekit_room_name(string $roomKey): string
+function mana_livekit_room_name(string $roomRef): string
 {
-    // LiveKit advises against putting PII in room names. Existing room keys can
-    // contain user identifiers, so use a deterministic opaque room name instead.
-    return 'mana-' . substr(hash('sha256', 'mana-livekit-room|' . $roomKey), 0, 32);
+    return 'mana-' . substr(hash('sha256', 'mana-livekit-room|' . $roomRef), 0, 32);
 }
 
 function mana_livekit_identity(string $userId): string
@@ -62,7 +60,7 @@ function mana_livekit_identity(string $userId): string
     return 'u-' . substr(hash('sha256', 'mana-livekit-user|' . $userId), 0, 24);
 }
 
-function mana_livekit_token(array $user, string $roomKey, int $ttl = 7200): array
+function mana_livekit_token(array $user, string $roomRef, int $ttl = 7200): array
 {
     $cfg = mana_livekit_config();
     if ($cfg['url'] === '' || $cfg['key'] === '' || $cfg['secret'] === '') {
@@ -70,7 +68,7 @@ function mana_livekit_token(array $user, string $roomKey, int $ttl = 7200): arra
     }
 
     $userId = trim((string) ($user['id'] ?? ''));
-    if ($userId === '' || $roomKey === '') {
+    if ($userId === '' || $roomRef === '') {
         throw new RuntimeException('اطلاعات کاربر یا اتاق نامعتبر است.');
     }
 
@@ -85,13 +83,9 @@ function mana_livekit_token(array $user, string $roomKey, int $ttl = 7200): arra
         'nbf' => $now - 5,
         'iat' => $now,
         'exp' => $now + max(300, min($ttl, 21600)),
-        'metadata' => json_encode([
-            'role' => (string) ($user['role'] ?? ''),
-            'manaUserId' => $userId,
-        ], JSON_UNESCAPED_UNICODE),
         'video' => [
             'roomJoin' => true,
-            'room' => mana_livekit_room_name($roomKey),
+            'room' => mana_livekit_room_name($roomRef),
             'canPublish' => true,
             'canSubscribe' => true,
             'canPublishData' => true,
@@ -105,7 +99,7 @@ function mana_livekit_token(array $user, string $roomKey, int $ttl = 7200): arra
     return [
         'serverUrl' => $cfg['url'],
         'participantToken' => $h . '.' . $p . '.' . mana_livekit_b64url($sig),
-        'roomName' => mana_livekit_room_name($roomKey),
+        'roomName' => mana_livekit_room_name($roomRef),
         'identity' => mana_livekit_identity($userId),
         'expiresAt' => $payload['exp'],
     ];
