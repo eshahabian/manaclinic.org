@@ -7,35 +7,30 @@ RewriteRule ^storage(/|$) - [F]
 RewriteRule ^(config\.php|config\.sample\.php)$ - [F]
 RewriteRule \.(env|sql|log|bak|old)$ - [F]
 
-# Always revalidate call scripts while the call-engine selector is active.
+# Always revalidate call scripts while the LiveKit migration is active.
 <IfModule mod_headers.c>
-  <FilesMatch "^video-call-(lobby|lobby-selector|livekit-bridge|livekit-bridge-v2|livekit-bridge-v3|watch)\.js$">
+  <FilesMatch "^video-call-(lobby|livekit-bridge|livekit-bridge-v2|livekit-bridge-v3|watch)\.js$">
     Header set Cache-Control "no-store, no-cache, must-revalidate, max-age=0"
     Header set Pragma "no-cache"
     Header set Expires "0"
   </FilesMatch>
 </IfModule>
 
-# Patient answers normally go to the selected standalone engine. When the
-# legacy router marks the request with legacy=1, do not redirect it back again.
-RewriteCond %{QUERY_STRING} !(^|&)legacy=1(&|$) [NC]
+# A patient answer used to land on the legacy /video-call renderer first, which
+# caused the white mobile screen and required a second Answer click. Bypass that
+# renderer completely and preserve the room/media query in the standalone call.
 RewriteCond %{QUERY_STRING} (^|&)answer=1(&|$) [NC]
 RewriteCond %{QUERY_STRING} (^|&)room=[^&]+ [NC]
 RewriteRule ^video-call/?$ /video-call-live?%{QUERY_STRING} [R=302,L,NE]
 
-# Keep both proven engines untouched. This tiny selector chooses which existing
-# lobby controller is loaded for each new call.
+# Preserve the original lobby UI. Therapist media opens inside the workspace;
+# patient answers still use the standalone LiveKit page.
 RewriteRule ^assets/js/video-call-lobby-legacy\.js$ assets/js/video-call-lobby.js [END]
-RewriteRule ^assets/js/video-call-lobby\.js$ assets/js/video-call-lobby-selector.js [END]
+RewriteRule ^assets/js/video-call-lobby\.js$ assets/js/video-call-livekit-bridge-v3.js [END]
 
-# Admin-only call engine control and read-only selector endpoint.
-RewriteRule ^admin/video-call-engine/?$ admin-video-call-engine.php [END]
-RewriteRule ^video-call-engine-mode/?$ video-call-engine-mode.php [END]
-
-# Call endpoints. /video-call-v2 remains a direct LiveKit diagnostic route;
-# /video-call-live follows the admin-selected engine.
+# LiveKit endpoints.
 RewriteRule ^video-call-v2/?$ livekit-v2.php [END]
-RewriteRule ^video-call-live/?$ video-call-entry.php [END]
+RewriteRule ^video-call-live/?$ livekit-v2.php [END]
 RewriteRule ^video-call-embed/?$ livekit-embed.php [END]
 RewriteRule ^livekit-token/?$ livekit-token-v2.php [END]
 
