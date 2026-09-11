@@ -28,9 +28,46 @@
   function mediaOf(item) {
     return item && item.media === "audio" ? "audio" : "video";
   }
+  function primeMedia(audioOnly) {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      return Promise.resolve(null);
+    }
+    var pre = null;
+    try { pre = window.__VC_PRESTREAM__; } catch (e) {}
+    if (pre && pre.getTracks) {
+      var hasAudio = pre.getTracks().some(function (t) { return t.kind === "audio" && t.readyState === "live"; });
+      var hasVideo = pre.getTracks().some(function (t) { return t.kind === "video" && t.readyState === "live"; });
+      if (hasAudio && (audioOnly || hasVideo)) return Promise.resolve(pre);
+    }
+    if (window.__VC_PRIMING__) return window.__VC_PRIMING__;
+    var req = audioOnly
+      ? { audio: true, video: false }
+      : { audio: true, video: { facingMode: "user" } };
+    window.__VC_PRIMING__ = navigator.mediaDevices.getUserMedia(req).then(function (stream) {
+      window.__VC_PRESTREAM__ = stream;
+      window.__VC_PRIMING__ = null;
+      return stream;
+    }).catch(function () {
+      if (audioOnly) {
+        window.__VC_PRIMING__ = null;
+        return null;
+      }
+      return navigator.mediaDevices.getUserMedia({ audio: true, video: true }).then(function (stream) {
+        window.__VC_PRESTREAM__ = stream;
+        window.__VC_PRIMING__ = null;
+        return stream;
+      }).catch(function () {
+        window.__VC_PRIMING__ = null;
+        return null;
+      });
+    });
+    return window.__VC_PRIMING__;
+  }
   function goToCall() {
     try { sessionStorage.setItem("mana-video-auto-answer", "1"); } catch (e) {}
     var media = mediaOf(current);
+    // دوربین را همان لحظهٔ لمس «پاسخ» باز کن تا موبایل فقط صدا نگیرد
+    primeMedia(media === "audio");
     if (window.ManaVideoCall && window.ManaVideoCall.start && current && current.room && document.querySelector("[data-vc-idle]")) {
       post({ action: "open", room: current.room, media: media }).then(function (data) {
         if (data && data.ok) {

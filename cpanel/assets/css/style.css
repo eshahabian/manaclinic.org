@@ -988,6 +988,8 @@ body.home-workshop-locked { overflow: hidden; }
   object-fit: cover;
   display: block;
   background: #0d1a16;
+  transform: translateZ(0);
+  -webkit-transform: translateZ(0);
 }
 @media (max-width: 560px) {
   .video-call-logo { width: 2.85rem; height: 2.85rem; }

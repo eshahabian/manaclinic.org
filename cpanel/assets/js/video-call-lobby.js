@@ -21,9 +21,32 @@
   }
 
   var opening = false;
+  function primeMedia(audioOnly) {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return;
+    var pre = null;
+    try { pre = window.__VC_PRESTREAM__; } catch (e) {}
+    if (pre && pre.getTracks && pre.getTracks().some(function (t) { return t.readyState === "live"; })) {
+      if (audioOnly || (pre.getVideoTracks && pre.getVideoTracks().some(function (t) { return t.readyState === "live"; }))) {
+        return;
+      }
+    }
+    if (window.__VC_PRIMING__) return;
+    var req = audioOnly ? { audio: true, video: false } : { audio: true, video: { facingMode: "user" } };
+    window.__VC_PRIMING__ = navigator.mediaDevices.getUserMedia(req).then(function (stream) {
+      window.__VC_PRESTREAM__ = stream;
+      window.__VC_PRIMING__ = null;
+    }).catch(function () {
+      window.__VC_PRIMING__ = null;
+      if (audioOnly) return;
+      navigator.mediaDevices.getUserMedia({ audio: true, video: true }).then(function (stream) {
+        window.__VC_PRESTREAM__ = stream;
+      }).catch(function () {});
+    });
+  }
   function openInTile(opts) {
     if (opening) return;
     opening = true;
+    primeMedia((opts && opts.media) === "audio");
     post(Object.assign({ action: "open" }, opts)).then(function (data) {
       if (!data || !data.ok) {
         if (data && data.error) window.alert(data.error);

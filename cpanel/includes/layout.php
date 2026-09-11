@@ -51,7 +51,7 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
   <?= seo_render_head() ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260911f">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260911g">
   <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
   <script>
   (function(){
@@ -309,7 +309,7 @@ $videoWatch = function_exists('video_call_watch_config') ? video_call_watch_conf
 if ($videoWatch):
 ?>
 <script>window.__VIDEO_CALL_WATCH__ = <?= json_encode($videoWatch, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;</script>
-<script src="<?= e(url('/assets/js/video-call-watch.js')) ?>?v=20260911e"></script>
+<script src="<?= e(url('/assets/js/video-call-watch.js')) ?>?v=20260911g"></script>
 <?php endif; ?>
 <?php if ($user && ($user['role'] ?? '') === 'SECRETARY'): ?>
 <script src="<?= e(url('/assets/js/secretary-idle.js')) ?>?v=20260906y"></script>

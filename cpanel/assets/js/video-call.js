@@ -52,6 +52,8 @@
   var pollPrimed = false;
   var sessionLive = false;
   var closingUi = false;
+  var mediaPromise = null;
+  var acceptPromise = null;
   var ac = typeof AbortController !== "undefined" ? new AbortController() : null;
   var bindOpts = ac ? { signal: ac.signal } : false;
   try {
@@ -150,6 +152,7 @@
   function attachLocal(stream) {
     localStream = stream;
     ready = true;
+    try { window.__VC_PRESTREAM__ = stream; } catch (e) {}
     if (localEl) {
       localEl.srcObject = stream;
       localEl.muted = true;
@@ -162,24 +165,71 @@
     setPermit(false);
     root.classList.remove("is-black");
     if (blackoutEl) blackoutEl.hidden = true;
+    pushLocalToPeers();
+  }
+  function livePrestream() {
+    var pre = null;
+    try { pre = window.__VC_PRESTREAM__; } catch (e) {}
+    if (pre && pre.getTracks && pre.getTracks().some(function (t) { return t.readyState === "live"; })) {
+      return pre;
+    }
+    return null;
+  }
+  function streamHasLive(kind, stream) {
+    var s = stream || localStream;
+    if (!s || !s.getTracks) return false;
+    return s.getTracks().some(function (t) {
+      return t && t.readyState === "live" && (!kind || t.kind === kind);
+    });
+  }
+  function pushLocalToPeers() {
+    if (!localStream) return;
+    Object.keys(peers).forEach(function (id) {
+      var rec = peers[id];
+      if (!rec || !rec.pc) return;
+      addLocalTracks(rec.pc);
+    });
   }
   function requestMedia() {
+    if (audioOnly && streamHasLive("audio")) {
+      return Promise.resolve(localStream);
+    }
+    if (!audioOnly && streamHasLive("video")) {
+      return Promise.resolve(localStream);
+    }
+    if (mediaPromise) return mediaPromise;
     setStatus("منتظر اجازه دسترسی…");
-    return getUserMediaFallback(0).then(function (stream) {
+    mediaPromise = Promise.resolve().then(function () {
+      var priming = null;
+      try { priming = window.__VC_PRIMING__; } catch (e) {}
+      if (priming && typeof priming.then === "function") {
+        return priming.catch(function () { return null; }).then(function () {
+          var pre = livePrestream();
+          if (pre && (audioOnly || streamHasLive("video", pre))) return pre;
+          return getUserMediaFallback(0);
+        });
+      }
+      var pre = livePrestream();
+      if (pre) {
+        if (audioOnly || streamHasLive("video", pre)) return pre;
+        try { pre.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
+        try { window.__VC_PRESTREAM__ = null; } catch (e2) {}
+      }
+      return getUserMediaFallback(0);
+    }).then(function (stream) {
       attachLocal(stream);
       setStatus(canStart ? "آماده تماس." : "آماده پذیرش تماس.");
       return stream;
     }).catch(function (err) {
+      mediaPromise = null;
       ready = false;
       setPermit(true, mediaErrorText(err));
       setStatus(mediaErrorText(err));
       throw err;
     });
+    return mediaPromise;
   }
   function media() {
-    if (localStream && localStream.getTracks().some(function (t) { return t.readyState === "live"; })) {
-      return Promise.resolve(localStream);
-    }
     return requestMedia();
   }
   function remoteTile(id) {
@@ -204,12 +254,21 @@
     remotesEl.appendChild(wrap);
     return wrap;
   }
-  function bindRemoteStream(vid, stream) {
-    if (!vid || !stream) return;
-    // موبایل: وقتی ویدیو بعد از صدا به همان stream اضافه شود باید srcObject دوباره ست شود
+  function videoTrackCount(stream) {
+    return stream && stream.getVideoTracks ? stream.getVideoTracks().length : 0;
+  }
+  function bindRemoteStream(vid, stream, force) {
+    if (!vid || !stream) return false;
+    var prev = vid.srcObject;
+    var prevN = videoTrackCount(prev);
+    var nextN = videoTrackCount(stream);
+    // فقط وقتی stream عوض شده یا ترک ویدیو تازه اضافه شده remount کن (موبایل با remount زیاد سیاه می‌ماند)
+    if (!force && prev === stream && prevN === nextN) return false;
+    if (!force && prev === stream && nextN <= prevN && nextN > 0) return false;
     try { vid.pause(); } catch (e) {}
     vid.srcObject = null;
     vid.srcObject = stream;
+    return true;
   }
   function playRemote(vid, stream) {
     if (!vid) return;
@@ -220,18 +279,20 @@
     vid.autoplay = true;
     var wantSound = !audioOnly;
     var start = function () {
+      if (!vid.srcObject) return;
       vid.muted = true;
       var p = vid.play();
       if (!p || !p.then) return;
       p.then(function () {
         if (!wantSound) return;
         setTimeout(function () {
+          if (!vid.srcObject) return;
           vid.muted = false;
           vid.play().catch(function () {
             vid.muted = true;
             vid.play().catch(function () {});
           });
-        }, 250);
+        }, 300);
       }).catch(function () {
         vid.muted = true;
         vid.play().catch(function () {});
@@ -249,7 +310,10 @@
         t.enabled = true;
         if (t.kind === "video") {
           try { t.contentHint = "motion"; } catch (e) {}
-          t.onunmute = function () { bindRemoteStream(vid, ms); start(); };
+          t.onunmute = function () {
+            bindRemoteStream(vid, ms, true);
+            start();
+          };
         }
       });
     }
@@ -557,13 +621,14 @@
     });
   }
   function acceptIncoming() {
-    if (dialing || calling) {
+    if (calling) {
       flushPendingAnswers();
-      return;
+      return acceptPromise || Promise.resolve();
     }
+    if (acceptPromise) return acceptPromise;
     dialing = true;
     syncButtons();
-    media().then(function () {
+    acceptPromise = media().then(function () {
       if (incomingEl) incomingEl.hidden = true;
       stopRing();
       calling = true;
@@ -573,10 +638,13 @@
       syncButtons();
       sendTo("join", "", { name: peerName });
       flushPendingAnswers();
+      pushLocalToPeers();
     }).catch(function () {
       dialing = false;
+      acceptPromise = null;
       syncButtons();
     });
+    return acceptPromise;
   }
   function handle(sig) {
     if (!sig || seen[sig.id]) return;
@@ -591,7 +659,7 @@
         startRing();
         syncButtons();
         setStatus("تماس ورودی");
-        if (wantAutoAnswer) acceptIncoming();
+        if (wantAutoAnswer && !acceptPromise && !dialing) acceptIncoming();
       }
     } else if (kind === "join") {
       if (calling && from && shouldOffer(from)) {
@@ -602,6 +670,8 @@
       if (calling) {
         delete pendingOffers[from];
         media().then(function () { return answerFrom(from, payload); }).catch(function () {});
+      } else if (acceptPromise || dialing) {
+        // منتظر آماده‌شدن دوربین/میکروفون می‌مانیم؛ پاسخ زودهنگام ترک ویدیو را از دست می‌دهد
       } else if (incomingEl) {
         incomingEl.hidden = false;
         startRing();
@@ -727,7 +797,10 @@
     if (localEl) localEl.play().catch(function () {});
     root.querySelectorAll("[data-video-remote]").forEach(function (vid) {
       if (vid.srcObject) {
-        bindRemoteStream(vid, vid.srcObject);
+        // فقط اگر ویدیو گیر کرده، remount اجباری
+        if (vid.readyState < 2 || vid.videoWidth === 0) {
+          bindRemoteStream(vid, vid.srcObject, true);
+        }
       }
       vid.muted = false;
       vid.play().catch(function () {
@@ -758,10 +831,24 @@
     else startRecording();
   });
   if (guardCapture) {
+    var hideTimer = null;
     document.addEventListener("visibilitychange", function () {
-      var hidden = document.hidden;
-      root.classList.toggle("is-black", hidden);
-      if (blackoutEl) blackoutEl.hidden = !hidden;
+      if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+      if (!document.hidden) {
+        root.classList.remove("is-black");
+        if (blackoutEl) blackoutEl.hidden = true;
+        root.querySelectorAll("[data-video-remote]").forEach(function (vid) {
+          if (vid.srcObject) vid.play().catch(function () {});
+        });
+        return;
+      }
+      // تأخیر: دیالوگ اجازه دوربین موبایل نباید صفحه را سیاه کند
+      hideTimer = setTimeout(function () {
+        hideTimer = null;
+        if (!document.hidden) return;
+        root.classList.add("is-black");
+        if (blackoutEl) blackoutEl.hidden = false;
+      }, 1800);
     }, bindOpts || false);
   }
   window.addEventListener("pagehide", function () {
