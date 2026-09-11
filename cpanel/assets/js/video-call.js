@@ -1,5 +1,6 @@
 (function () {
   var liveDestroy = null;
+  var stopping = false;
   function attach(root) {
   if (!root) return function () {};
   var signalUrl = root.getAttribute("data-signal-url") || "/video-signal";
@@ -56,6 +57,8 @@
     sessionStorage.removeItem("mana-video-auto-answer");
   } catch (e) {}
   autoDial = root.getAttribute("data-auto-dial") === "1";
+  root.classList.toggle("is-audio", !!audioOnly);
+  if (stageEl) stageEl.classList.toggle("is-audio", !!audioOnly);
 
   function setStatus(text) {
     if (statusEl) statusEl.textContent = text;
@@ -77,10 +80,20 @@
     return audioCtx;
   }
   function iceServers() {
+    var extra = window.__VIDEO_ICE__;
+    if (extra && extra.length) return extra;
     return [
-      { urls: "stun:stun.l.google.com:19302" },
-      { urls: "stun:stun1.l.google.com:19302" },
-      { urls: "stun:stun.cloudflare.com:3478" }
+      { urls: ["stun:stun.l.google.com:19302", "stun:stun1.l.google.com:19302", "stun:stun.cloudflare.com:3478"] },
+      {
+        urls: [
+          "turn:openrelay.metered.ca:80",
+          "turn:openrelay.metered.ca:443",
+          "turn:openrelay.metered.ca:80?transport=tcp",
+          "turn:openrelay.metered.ca:443?transport=tcp"
+        ],
+        username: "openrelayproject",
+        credential: "openrelayproject"
+      }
     ];
   }
   function post(body) {
@@ -116,10 +129,11 @@
     return "مرورگر باید به " + (audioOnly ? "میکروفون" : "دوربین و میکروفون") + " دسترسی بدهد.";
   }
   function constraintSets() {
-    if (audioOnly) return [{ audio: true, video: false }];
+    var mic = { echoCancellation: true, noiseSuppression: true, autoGainControl: true };
+    if (audioOnly) return [{ audio: mic, video: false }];
     return [
-      { audio: true, video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } },
-      { audio: true, video: { facingMode: "user" } },
+      { audio: mic, video: { facingMode: "user", width: { ideal: 1280 }, height: { ideal: 720 } } },
+      { audio: mic, video: { facingMode: "user" } },
       { audio: true, video: true }
     ];
   }
@@ -171,7 +185,7 @@
     var el = remotesEl.querySelector('[data-peer="' + id + '"]');
     if (el) return el;
     var wrap = document.createElement("div");
-    wrap.className = "vc-remote-tile";
+    wrap.className = "vc-remote-tile" + (audioOnly ? " is-audio" : "");
     wrap.setAttribute("data-peer", id);
     var vid = document.createElement("video");
     vid.autoplay = true;
@@ -254,8 +268,13 @@
     var tile = remoteTile(userId);
     var vid = tile ? tile.querySelector("video") : null;
     var remoteStream = new MediaStream();
-    var pc = new RTCPeerConnection({ iceServers: iceServers() });
-    var rec = { pc: pc, pendingIce: [], makingOffer: false, remoteStream: remoteStream, vid: vid };
+    var pc = new RTCPeerConnection({
+      iceServers: iceServers(),
+      iceCandidatePoolSize: 4,
+      bundlePolicy: "max-bundle",
+      rtcpMuxPolicy: "require"
+    });
+    var rec = { pc: pc, pendingIce: [], makingOffer: false, remoteStream: remoteStream, vid: vid, iceTimer: null };
     pc.onicecandidate = function (ev) {
       if (ev.candidate) {
         sendTo("ice", userId, ev.candidate.toJSON ? ev.candidate.toJSON() : ev.candidate);
@@ -273,7 +292,10 @@
         }
         playRemote(vid, remoteStream);
       }
-      if (stageEl) stageEl.classList.add("is-live");
+      if (stageEl) {
+        stageEl.classList.add("is-live");
+        stageEl.classList.toggle("is-audio", !!audioOnly);
+      }
     };
     pc.onconnectionstatechange = function () {
       if (pc.connectionState === "connected") {
@@ -282,6 +304,20 @@
         setStatus("تماس برقرار شد.");
         stopRing();
       }
+    };
+    pc.oniceconnectionstatechange = function () {
+      if (rec.iceTimer) {
+        clearTimeout(rec.iceTimer);
+        rec.iceTimer = null;
+      }
+      var st = pc.iceConnectionState;
+      if (st !== "failed" && st !== "disconnected") return;
+      rec.iceTimer = setTimeout(function () {
+        rec.iceTimer = null;
+        if (!peers[userId] || pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") return;
+        try { if (pc.restartIce) pc.restartIce(); } catch (e) {}
+        offerTo(userId, true);
+      }, st === "failed" ? 500 : 2800);
     };
     peers[userId] = rec;
     if (iceHold[userId] && iceHold[userId].length) {
@@ -296,21 +332,28 @@
       rec.pc.addIceCandidate(new RTCIceCandidate(c)).catch(function () {});
     });
   }
-  function offerTo(userId) {
+  function hasKind(conn, kind) {
+    return (conn.getTransceivers ? conn.getTransceivers() : []).some(function (t) {
+      var k = (t.receiver && t.receiver.track && t.receiver.track.kind)
+        || (t.sender && t.sender.track && t.sender.track.kind);
+      return k === kind;
+    });
+  }
+  function offerTo(userId, iceRestart) {
     var rec = ensurePeer(userId);
     if (!rec || rec.makingOffer) return Promise.resolve();
     if (rec.pc.signalingState !== "stable") return Promise.resolve();
     rec.makingOffer = true;
     addLocalTracks(rec.pc);
-    if (!audioOnly && rec.pc.addTransceiver) {
-      var hasVideo = (rec.pc.getTransceivers() || []).some(function (t) {
-        var kind = (t.receiver && t.receiver.track && t.receiver.track.kind)
-          || (t.sender && t.sender.track && t.sender.track.kind);
-        return kind === "video";
-      });
-      if (!hasVideo) rec.pc.addTransceiver("video", { direction: "sendrecv" });
+    if (rec.pc.addTransceiver) {
+      if (!hasKind(rec.pc, "audio")) rec.pc.addTransceiver("audio", { direction: "sendrecv" });
+      if (!audioOnly && !hasKind(rec.pc, "video")) rec.pc.addTransceiver("video", { direction: "sendrecv" });
     }
-    return rec.pc.createOffer({ offerToReceiveAudio: true, offerToReceiveVideo: !audioOnly }).then(function (offer) {
+    return rec.pc.createOffer({
+      offerToReceiveAudio: true,
+      offerToReceiveVideo: !audioOnly,
+      iceRestart: !!iceRestart
+    }).then(function (offer) {
       return rec.pc.setLocalDescription(offer);
     }).then(function () {
       rec.makingOffer = false;
@@ -323,6 +366,27 @@
   function answerFrom(userId, offer) {
     var rec = ensurePeer(userId);
     if (!rec || !offer) return Promise.resolve();
+    var polite = String(meId) < String(userId);
+    var collide = rec.makingOffer || rec.pc.signalingState !== "stable";
+    if (collide) {
+      if (!polite) return Promise.resolve();
+      if (rec.pc.signalingState !== "stable") {
+        return rec.pc.setLocalDescription({ type: "rollback" }).then(function () {
+          rec.makingOffer = false;
+          return rec.pc.setRemoteDescription(new RTCSessionDescription(offer)).then(function () {
+            addLocalTracks(rec.pc);
+            flushIce(rec);
+            return rec.pc.createAnswer();
+          }).then(function (answer) {
+            return rec.pc.setLocalDescription(answer);
+          }).then(function () {
+            return sendTo("answer", userId, descPayload(rec.pc.localDescription));
+          });
+        }).catch(function (err) {
+          console.error(err);
+        });
+      }
+    }
     return rec.pc.setRemoteDescription(new RTCSessionDescription(offer)).then(function () {
       addLocalTracks(rec.pc);
       (rec.pc.getTransceivers ? rec.pc.getTransceivers() : []).forEach(function (t) {
@@ -343,10 +407,14 @@
   function closePeer(userId) {
     var rec = peers[userId];
     if (!rec) return;
+    if (rec.iceTimer) clearTimeout(rec.iceTimer);
     try { rec.pc.close(); } catch (e) {}
     delete peers[userId];
     var tile = remotesEl && remotesEl.querySelector('[data-peer="' + userId + '"]');
     if (tile) tile.remove();
+  }
+  function leaveUi() {
+    if (window.ManaVideoCall) window.ManaVideoCall.stop();
   }
   function endAll(playHang) {
     stopRing();
@@ -389,10 +457,15 @@
     if (hangBtn) hangBtn.hidden = !(calling || incoming || Object.keys(peers).length);
     if (recordBtn) recordBtn.hidden = !canRecord || !calling;
   }
+  function shouldOffer(otherId) {
+    if (!otherId || otherId === meId) return false;
+    if (canStart) return true;
+    return String(meId) < String(otherId);
+  }
   function ringMembers(members) {
     (members || []).forEach(function (m) {
       if (!m || m.id === meId) return;
-      sendTo("ringing", m.id, { name: peerName });
+      sendTo("ringing", m.id, { name: peerName, media: audioOnly ? "audio" : "video", group: !!isGroup });
     });
   }
   function flushPendingAnswers() {
@@ -417,7 +490,7 @@
       dialing = false;
       syncButtons();
       list.forEach(function (m) {
-        if (m && m.id && m.id !== meId) offerTo(m.id);
+        if (m && m.id && shouldOffer(m.id) && (!isGroup || m.online)) offerTo(m.id);
       });
     }).catch(function () {
       dialing = false;
@@ -461,7 +534,7 @@
         if (wantAutoAnswer) acceptIncoming();
       }
     } else if (kind === "join") {
-      if (calling && canStart && from && from !== meId) {
+      if (calling && from && shouldOffer(from)) {
         offerTo(from);
       }
     } else if (kind === "offer" && payload) {
@@ -494,6 +567,7 @@
       if (!isGroup || Object.keys(peers).length === 0) {
         endAll(true);
         setStatus("تماس قطع شد.");
+        setTimeout(leaveUi, 220);
       }
     }
   }
@@ -506,9 +580,9 @@
         var next = names.length ? ("آنلاین: " + names.join("، ")) : "مخاطب فعلاً آفلاین است.";
         if (next !== lastStatus) { lastStatus = next; setStatus(next); }
       }
-      if (calling && isGroup && canStart) {
+      if (calling && isGroup) {
         (data.members || []).forEach(function (m) {
-          if (m && m.id !== meId && !peers[m.id]) offerTo(m.id);
+          if (m && m.id && shouldOffer(m.id) && m.online && !peers[m.id]) offerTo(m.id);
         });
       }
     }).catch(function () {});
@@ -581,7 +655,8 @@
   });
   on(hangBtn, "click", function () {
     sendTo("hangup", "", null);
-    if (window.ManaVideoCall) window.ManaVideoCall.stop();
+    endAll(true);
+    setTimeout(leaveUi, 80);
   });
   fsBtns.forEach(function (btn) {
     on(btn, "click", function () {
@@ -632,9 +707,11 @@
 
   window.ManaVideoCall = {
     start: function (info) {
+      stopping = false;
       var root = document.querySelector("[data-video-call]");
       var idle = document.querySelector("[data-vc-idle]");
       if (!root || !info || !info.room) return;
+      if (info.iceServers && info.iceServers.length) window.__VIDEO_ICE__ = info.iceServers;
       if (liveDestroy) {
         liveDestroy();
         liveDestroy = null;
@@ -644,6 +721,7 @@
       root.setAttribute("data-media", info.media === "audio" ? "audio" : "video");
       root.setAttribute("data-group", info.group ? "1" : "0");
       root.setAttribute("data-can-start", info.canStart ? "1" : "0");
+      root.classList.toggle("is-audio", info.media === "audio");
       if (info.answer) {
         try { sessionStorage.setItem("mana-video-auto-answer", "1"); } catch (e) {}
         root.setAttribute("data-auto-dial", "0");
@@ -661,17 +739,27 @@
       var composer = document.querySelector("[data-vc-composer]");
       if (composer) composer.hidden = true;
       var stage = root.querySelector("[data-video-stage]");
-      if (stage) stage.classList.toggle("is-group", !!info.group);
+      if (stage) {
+        stage.classList.toggle("is-group", !!info.group);
+        stage.classList.toggle("is-audio", info.media === "audio");
+      }
       liveDestroy = attach(root);
     },
     stop: function (skipDestroy) {
-      if (!skipDestroy && liveDestroy) liveDestroy();
+      if (stopping) return;
+      stopping = true;
+      if (!skipDestroy && liveDestroy) {
+        var d = liveDestroy;
+        liveDestroy = null;
+        d();
+      }
       liveDestroy = null;
       var root = document.querySelector("[data-video-call]");
       var idle = document.querySelector("[data-vc-idle]");
       if (root) {
         root.hidden = true;
         root.setAttribute("data-room", "");
+        root.classList.remove("is-audio", "is-black");
       }
       var composer = document.querySelector("[data-vc-composer]");
       if (composer) composer.hidden = false;
@@ -680,6 +768,12 @@
       if (shareWrap) shareWrap.hidden = true;
       var mark = document.querySelector("[data-vc-watermark]");
       if (mark) mark.textContent = "";
+      try {
+        var u = new URL(location.href);
+        ["room", "answer", "peer", "media", "join", "workshop"].forEach(function (k) { u.searchParams.delete(k); });
+        if (u.href !== location.href) history.replaceState({}, "", u.pathname + u.search + u.hash);
+      } catch (e) {}
+      stopping = false;
     }
   };
 

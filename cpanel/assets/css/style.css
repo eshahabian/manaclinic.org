@@ -1311,7 +1311,8 @@ body.home-workshop-locked { overflow: hidden; }
   display: inline-flex;
   width: 1.7rem;
   height: 1.7rem;
-  flex-shrink: 0;
+  flex: 0 0 auto;
+  max-width: 2.4rem;
 }
 .vc-avatar-sm {
   width: 1.55rem;
@@ -1322,8 +1323,7 @@ body.home-workshop-locked { overflow: hidden; }
   height: 2.2rem;
 }
 .vc-avatar img,
-.vc-avatar-fallback,
-.vc-avatar-room {
+.vc-avatar-fallback {
   width: 100%;
   height: 100%;
   border-radius: 50%;
@@ -1592,6 +1592,95 @@ body.home-workshop-locked { overflow: hidden; }
   gap: .5rem;
   justify-content: flex-end;
   margin-top: 1rem;
+}
+
+.video-call-page.is-audio .video-call-self,
+.video-call-stage.is-audio .video-call-self {
+  opacity: .92;
+}
+.video-call-stage.is-audio.is-live .video-call-brand {
+  opacity: .9;
+  visibility: visible;
+}
+.vc-remote-tile.is-audio video {
+  object-fit: contain;
+  background: #0d1a16;
+}
+
+@media (max-width: 859px) {
+  .vc-lobby { gap: .7rem; }
+  .vc-lobby-side,
+  .vc-skype .vc-side {
+    min-height: 0;
+    padding: .7rem .65rem .85rem;
+  }
+  .vc-lobby-main {
+    min-height: 0;
+  }
+  .vc-idle {
+    padding: .85rem .8rem 1.1rem;
+    gap: .4rem;
+  }
+  .vc-lobby-hero {
+    width: 4.4rem;
+    height: 4.4rem;
+  }
+  .vc-idle h1 { font-size: 1.15rem; margin: .15rem 0 0; }
+  .vc-idle .muted { font-size: .82rem; }
+  .vc-person {
+    max-width: 100%;
+    overflow: hidden;
+  }
+  .vc-person-meta {
+    overflow: hidden;
+  }
+  .vc-person-meta strong,
+  .vc-person-meta .muted {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .vc-composer {
+    min-height: 14rem;
+    padding: .85rem .8rem 1rem;
+  }
+  .vc-drop { min-height: 7.5rem; }
+  .vc-in-tile .video-call-stage {
+    min-height: min(62vh, 28rem);
+  }
+  .video-call-self {
+    width: 4.6rem;
+    inset-inline-end: .5rem;
+    top: .5rem;
+  }
+  .video-call-local {
+    width: 4.6rem;
+    height: 3.45rem;
+  }
+  .video-call-tools { max-width: calc(100% - 5.6rem); }
+  .vc-remotes {
+    grid-template-columns: 1fr;
+    min-height: min(62vh, 28rem);
+  }
+  .vc-remote-tile,
+  .vc-remote-tile video { min-height: 12rem; }
+  .vc-overlay {
+    padding: 0;
+    align-items: end;
+  }
+  .vc-overlay-card {
+    width: 100%;
+    max-height: 92vh;
+    border-radius: 1.1rem 1.1rem 0 0;
+  }
+  .vc-lobby:has([data-video-call]:not([hidden])) > .vc-side,
+  .vc-lobby:has([data-video-call]:not([hidden])) > .vc-lobby-side {
+    display: none;
+  }
+  .panel-layout:has(.vc-lobby) {
+    padding: .85rem 0 1.2rem;
+    gap: .85rem;
+  }
 }
 
 .home-assistant-tile {

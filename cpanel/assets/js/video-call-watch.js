@@ -25,26 +25,29 @@
     }).then(function (r) { return r.json(); });
   }
 
+  function mediaOf(item) {
+    return item && item.media === "audio" ? "audio" : "video";
+  }
   function goToCall() {
     try { sessionStorage.setItem("mana-video-auto-answer", "1"); } catch (e) {}
+    var media = mediaOf(current);
     if (window.ManaVideoCall && window.ManaVideoCall.start && current && current.room && document.querySelector("[data-vc-idle]")) {
-      post({ action: "open", room: current.room }).then(function (data) {
+      post({ action: "open", room: current.room, media: media }).then(function (data) {
         if (data && data.ok) {
           data.answer = true;
+          data.media = media;
           window.ManaVideoCall.start(data);
           stopAlert();
         }
       }).catch(function () {
-        window.location.href = (cfg.callUrl || "/video-call") + "?room=" + encodeURIComponent(current.room) + "&answer=1";
+        window.location.href = (cfg.callUrl || "/video-call") + "?room=" + encodeURIComponent(current.room) + "&answer=1&media=" + encodeURIComponent(media);
       });
       return;
     }
     var url = cfg.callUrl || "/video-call";
-    if (current && current.room) {
-      url += (url.indexOf("?") >= 0 ? "&" : "?") + "room=" + encodeURIComponent(current.room) + "&answer=1";
-    } else {
-      url += (url.indexOf("?") >= 0 ? "&" : "?") + "answer=1";
-    }
+    var q = "answer=1&media=" + encodeURIComponent(media);
+    if (current && current.room) q = "room=" + encodeURIComponent(current.room) + "&" + q;
+    url += (url.indexOf("?") >= 0 ? "&" : "?") + q;
     window.location.href = url;
   }
 

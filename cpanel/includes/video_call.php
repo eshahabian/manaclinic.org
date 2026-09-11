@@ -164,6 +164,45 @@ function video_call_watch_config(?array $user): ?array
     ];
 }
 
+/** STUN + TURN برای NAT بین اپراتورها (موبایل ایران معمولاً بدون TURN وصل نمی‌شود) */
+function video_call_ice_servers(): array
+{
+    $turnUrl = trim((string) (getenv('MANA_TURN_URL') ?: ''));
+    $turnUser = trim((string) (getenv('MANA_TURN_USER') ?: ''));
+    $turnPass = (string) (getenv('MANA_TURN_CREDENTIAL') ?: '');
+    $servers = [
+        ['urls' => [
+            'stun:stun.l.google.com:19302',
+            'stun:stun1.l.google.com:19302',
+            'stun:stun.cloudflare.com:3478',
+            'stun:global.stun.twilio.com:3478',
+        ]],
+    ];
+    if ($turnUrl !== '' && $turnUser !== '') {
+        $urls = array_values(array_filter(array_map('trim', explode(',', $turnUrl))));
+        if ($urls !== []) {
+            $servers[] = [
+                'urls' => $urls,
+                'username' => $turnUser,
+                'credential' => $turnPass,
+            ];
+        }
+    } else {
+        $servers[] = [
+            'urls' => [
+                'turn:openrelay.metered.ca:80',
+                'turn:openrelay.metered.ca:443',
+                'turn:openrelay.metered.ca:80?transport=tcp',
+                'turn:openrelay.metered.ca:443?transport=tcp',
+            ],
+            'username' => 'openrelayproject',
+            'credential' => 'openrelayproject',
+        ];
+    }
+
+    return $servers;
+}
+
 function video_call_json(array $data, int $code = 200): void
 {
     http_response_code($code);
@@ -879,6 +918,7 @@ function video_call_session_payload(PDO $pdo, array $user, array $room, string $
         'media' => $media,
         'shareUrl' => $clinician ? video_call_share_url($room) : '',
         'canStart' => $clinician,
+        'iceServers' => video_call_ice_servers(),
     ];
 }
 

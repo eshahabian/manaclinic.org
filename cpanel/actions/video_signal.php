@@ -63,6 +63,8 @@ if ($action === 'ping' || $action === 'inbox' || $action === 'contacts') {
     $stmt->execute([$meId, $meId]);
     $items = [];
     foreach ($stmt->fetchAll() as $row) {
+        $payload = json_decode((string) ($row['payload'] ?? ''), true);
+        $media = is_array($payload) && (($payload['media'] ?? '') === 'audio') ? 'audio' : 'video';
         $items[] = [
             'id' => (string) $row['id'],
             'room' => (string) $row['room_id'],
@@ -71,6 +73,8 @@ if ($action === 'ping' || $action === 'inbox' || $action === 'contacts') {
             'kind' => (string) $row['kind'],
             'title' => (string) ($row['room_title'] ?: $row['sender_name']),
             'room_kind' => (string) ($row['room_kind'] ?? ''),
+            'media' => $media,
+            'group' => (string) ($row['room_kind'] ?? '') !== 'direct',
         ];
     }
     video_call_json(['ok' => true, 'items' => $items]);

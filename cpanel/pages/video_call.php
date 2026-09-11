@@ -127,7 +127,7 @@ $wmName = $peerName !== '' ? $peerName : 'جلسه';
         <?php foreach ($savedRooms as $sr): ?>
           <li>
             <a class="vc-person" href="<?= e(video_call_room_url($sr)) ?>" data-vc-room="<?= e((string) ($sr['room_key'] ?? '')) ?>">
-              <span class="vc-avatar vc-avatar-md vc-avatar-room">گ</span>
+              <span class="vc-avatar vc-avatar-md" aria-hidden="true"><span class="vc-avatar-fallback">گ</span></span>
               <span class="vc-person-meta">
                 <strong><?= e((string) $sr['title']) ?></strong>
                 <span class="muted"><?= (string) ($sr['kind'] ?? '') === 'workshop' ? 'کارگاه' : 'گروه' ?></span>
@@ -320,8 +320,11 @@ document.querySelector("[data-copy-share]")?.addEventListener("click", function(
 </script>
 <?php
 $inner = ob_get_clean();
-$GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260910p"></script>'
-    . '<script src="' . e(url('/assets/js/video-call-lobby.js')) . '?v=20260910q"></script>';
+$GLOBALS['pageScripts'] = '<script>window.__VIDEO_ICE__ = '
+    . json_encode(video_call_ice_servers(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+    . ';</script>'
+    . '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260911a"></script>'
+    . '<script src="' . e(url('/assets/js/video-call-lobby.js')) . '?v=20260911a"></script>';
 
 $role = (string) ($user['role'] ?? '');
 if ($role === 'DOCTOR') {
