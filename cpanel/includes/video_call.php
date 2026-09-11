@@ -916,6 +916,7 @@ function video_call_session_payload(PDO $pdo, array $user, array $room, string $
         'media' => $media,
         'shareUrl' => $clinician ? video_call_share_url($room) : '',
         'canStart' => $clinician,
+        'me' => $me,
         'iceServers' => video_call_ice_servers(),
     ];
 }

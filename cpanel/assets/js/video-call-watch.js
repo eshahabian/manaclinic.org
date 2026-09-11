@@ -10,6 +10,7 @@
   var origTitle = document.title;
   var banner = null;
   var current = null;
+  var activeRoom = "";
 
   function post(body) {
     return fetch(cfg.signalUrl, {
@@ -25,14 +26,30 @@
     }).then(function (r) { return r.json(); });
   }
 
+  function onLiveKitCallPage() {
+    var path = (location.pathname || "").replace(/\/+$/, "");
+    if (path.indexOf("/video-call-live") >= 0 || path.indexOf("/video-call-embed") >= 0) return true;
+    if (document.querySelector("[data-livekit-v2]")) return true;
+    if (window.__MANA_LIVEKIT_CALL_ACTIVE__) return true;
+    return false;
+  }
+
+  function ackRoom(room) {
+    var body = { action: "ack_ring" };
+    if (room) body.room = String(room);
+    return post(body).catch(function () {});
+  }
+
   function mediaOf(item) {
     return item && item.media === "audio" ? "audio" : "video";
   }
+
   function usingLiveKitEmbed() {
     return !!window.__MANA_LIVEKIT_EMBED__ || !!document.querySelector('[data-livekit-frame-wrap="1"]');
   }
+
   function primeMedia(audioOnly) {
-    if (usingLiveKitEmbed()) return Promise.resolve(null);
+    if (usingLiveKitEmbed() || window.__MANA_LIVEKIT_REDIRECT__) return Promise.resolve(null);
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) return Promise.resolve(null);
     var pre = null;
     try { pre = window.__VC_PRESTREAM__; } catch (e) {}
@@ -54,65 +71,42 @@
     return window.__VC_PRIMING__;
   }
 
-  function fixPatientCallUi() {
-    if (usingLiveKitEmbed()) return;
-    var root = document.querySelector("[data-video-call]");
-    if (!root || root.getAttribute("data-can-start") === "1") return;
-    var room = root.getAttribute("data-room") || "";
-    if (!room || root.hidden) return;
-    root.style.display = "block";
-    root.style.visibility = "visible";
-    root.style.opacity = "1";
-    var stage = root.querySelector("[data-video-stage]");
-    if (stage) {
-      stage.style.display = "block";
-      stage.style.visibility = "visible";
-      stage.style.opacity = "1";
-    }
-    if (!document.hidden) {
-      root.classList.remove("is-black");
-      var blackout = root.querySelector("[data-video-blackout]");
-      if (blackout) blackout.hidden = true;
-    }
+  function markAnswered(room) {
+    if (!room) return;
+    try { sessionStorage.setItem("mana-ack-room-" + room, String(Date.now())); } catch (e) {}
+  }
+
+  function recentlyAnswered(room) {
+    if (!room) return false;
+    try {
+      var t = parseInt(sessionStorage.getItem("mana-ack-room-" + room) || "0", 10);
+      return t && (Date.now() - t) < 120000;
+    } catch (e) { return false; }
   }
 
   function goToCall() {
-    try { sessionStorage.setItem("mana-video-auto-answer", "1"); } catch (e) {}
     var media = mediaOf(current);
-    if (!window.__MANA_LIVEKIT_EMBED__) primeMedia(media === "audio");
-    if (window.ManaVideoCall && window.ManaVideoCall.start && current && current.room && document.querySelector("[data-vc-idle]")) {
-      post({ action: "open", room: current.room, media: media }).then(function (data) {
-        if (data && data.ok) {
-          data.answer = true;
-          data.media = media;
-          data.autoStart = true;
-          window.ManaVideoCall.start(data);
-          if (!window.__MANA_LIVEKIT_EMBED__) {
-            setTimeout(fixPatientCallUi, 0);
-            setTimeout(fixPatientCallUi, 250);
-            setTimeout(fixPatientCallUi, 1000);
-          }
-          stopAlert();
-        }
-      }).catch(function () {
-        window.location.href = (cfg.callUrl || "/video-call") + "?room=" + encodeURIComponent(current.room) + "&answer=1&media=" + encodeURIComponent(media);
-      });
-      return;
-    }
-    var url = cfg.callUrl || "/video-call";
+    var room = current && current.room ? String(current.room) : "";
+    markAnswered(room);
+    ackRoom(room);
+    stopAlert(true);
+    // Always land both parties on the same standalone LiveKit page.
+    var url = "/video-call-live";
     var q = "answer=1&media=" + encodeURIComponent(media);
-    if (current && current.room) q = "room=" + encodeURIComponent(current.room) + "&" + q;
-    url += (url.indexOf("?") >= 0 ? "&" : "?") + q;
-    window.location.href = url;
+    if (room) q = "room=" + encodeURIComponent(room) + "&" + q;
+    window.location.href = url + "?" + q;
   }
 
-  function stopAlert() {
+  function stopAlert(keepSeen) {
     ringing = false;
+    var room = current && current.room ? String(current.room) : activeRoom;
     current = null;
+    activeRoom = "";
     if (ringAudio) { ringAudio.pause(); try { ringAudio.currentTime = 0; } catch (e) {} }
     if (titleTimer) { clearInterval(titleTimer); titleTimer = null; }
     document.title = origTitle;
     if (banner) banner.hidden = true;
+    if (!keepSeen && room) ackRoom(room);
   }
 
   function ensureBanner() {
@@ -123,14 +117,18 @@
     banner.innerHTML = '<p class="video-call-alert-text"></p><div class="video-call-alert-actions"><button type="button" class="btn btn-primary btn-sm" data-vc-alert-open>پاسخ</button><button type="button" class="btn btn-outline btn-sm" data-vc-alert-dismiss>رد تماس</button></div>';
     document.body.appendChild(banner);
     banner.querySelector("[data-vc-alert-open]").addEventListener("click", goToCall);
-    banner.querySelector("[data-vc-alert-dismiss]").addEventListener("click", stopAlert);
+    banner.querySelector("[data-vc-alert-dismiss]").addEventListener("click", function () {
+      stopAlert(false);
+    });
     return banner;
   }
 
   function startAlert(item) {
     if (ringing) return;
+    if (onLiveKitCallPage()) return;
     ringing = true;
     current = item;
+    activeRoom = item && item.room ? String(item.room) : "";
     var bar = ensureBanner();
     var text = bar.querySelector(".video-call-alert-text");
     var name = (item && (item.sender_name || item.title)) || "درمانگر";
@@ -145,7 +143,7 @@
     titleTimer = setInterval(function () { flip = !flip; document.title = flip ? "تماس ورودی…" : origTitle; }, 900);
     if ("Notification" in window && Notification.permission === "granted") {
       try {
-        var note = new Notification("تماس مانا", { body: "تماس ورودی از " + name, tag: "mana-video-incoming", renotify: true });
+        var note = new Notification("تماس مانا", { body: "تماس ورودی از " + name, tag: "mana-video-incoming", renotify: false });
         note.onclick = function () { window.focus(); goToCall(); };
       } catch (e) {}
     }
@@ -153,14 +151,21 @@
   }
 
   function tick() {
-    fixPatientCallUi();
-    var onCall = document.querySelector("[data-video-call]");
-    if (onCall && onCall.getAttribute("data-room")) return;
+    if (onLiveKitCallPage()) {
+      if (ringing) stopAlert(true);
+      return;
+    }
     post({ action: "inbox" }).then(function (data) {
       if (document.hidden || !data || !data.ok) return;
       var items = data.items || [];
-      if (!items.length) { if (ringing) stopAlert(); return; }
+      if (!items.length) { if (ringing) stopAlert(true); return; }
       var item = items[0];
+      if (!item) return;
+      if (recentlyAnswered(item.room)) {
+        ackRoom(item.room);
+        return;
+      }
+      if (ringing && activeRoom && String(item.room) === activeRoom) return;
       if (seen[item.id]) return;
       seen[item.id] = true;
       startAlert(item);
@@ -172,9 +177,7 @@
   }
   function schedule() { setTimeout(function () { tick(); schedule(); }, document.hidden ? 25000 : 8000); }
   tick(); schedule();
-  var uiTimer = setInterval(fixPatientCallUi, 600);
   document.addEventListener("visibilitychange", function () {
-    if (!document.hidden) { fixPatientCallUi(); setTimeout(fixPatientCallUi, 250); tick(); }
+    if (!document.hidden) tick();
   });
-  window.addEventListener("pagehide", function () { clearInterval(uiTimer); }, { once: true });
 })();

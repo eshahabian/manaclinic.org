@@ -31,6 +31,29 @@ if ($action === 'presence') {
     video_call_json(['ok' => true, 'items' => $items]);
 }
 
+if ($action === 'ack_ring' || $action === 'clear_ringing') {
+    if (is_array($body) && empty(csrf_request_token()) && !empty($body['_csrf'])) {
+        $_POST['_csrf'] = (string) $body['_csrf'];
+    }
+    csrf_verify();
+    $ackRoom = trim((string) ($body['room'] ?? ''));
+    if ($ackRoom !== '') {
+        $pdo->prepare("
+          DELETE FROM video_call_signals
+          WHERE target_id = ?
+            AND room_id = ?
+            AND kind IN ('ringing','offer')
+        ")->execute([$meId, $ackRoom]);
+    } else {
+        $pdo->prepare("
+          DELETE FROM video_call_signals
+          WHERE target_id = ?
+            AND kind IN ('ringing','offer')
+        ")->execute([$meId]);
+    }
+    video_call_json(['ok' => true]);
+}
+
 if ($action === 'ping' || $action === 'inbox' || $action === 'contacts') {
     if ($action === 'contacts') {
         if (!video_call_is_clinician($user)) {
@@ -47,6 +70,8 @@ if ($action === 'ping' || $action === 'inbox' || $action === 'contacts') {
         }
         video_call_json(['ok' => true, 'items' => $items]);
     }
+    // LiveKit uses ringing only. Legacy WebRTC "offer" rows used to keep
+    // re-triggering the inbox banner after the patient already answered.
     $stmt = $pdo->prepare("
       SELECT s.id, s.room_id, s.sender_id, s.kind, s.payload, s.created_at,
              u.name AS sender_name, r.title AS room_title, r.kind AS room_kind
@@ -55,7 +80,7 @@ if ($action === 'ping' || $action === 'inbox' || $action === 'contacts') {
       LEFT JOIN video_call_rooms r ON r.room_key = s.room_id
       WHERE s.target_id = ?
         AND s.sender_id <> ?
-        AND s.kind IN ('ringing','offer')
+        AND s.kind = 'ringing'
         AND s.created_at >= DATE_SUB(NOW(), INTERVAL 45 SECOND)
       ORDER BY s.created_at DESC
       LIMIT 20
@@ -207,6 +232,15 @@ if ($action === 'send') {
     $payload = $body['payload'] ?? null;
     if ($kind === 'ringing') {
         video_call_clear_ended_signals($pdo, $roomKey);
+        // One live ring per target — replace older ringing rows so watch
+        // does not treat every retry as a brand-new incoming call.
+        if ($targetId) {
+            $pdo->prepare("DELETE FROM video_call_signals WHERE room_id=? AND target_id=? AND kind='ringing'")
+                ->execute([$roomKey, $targetId]);
+        } else {
+            $pdo->prepare("DELETE FROM video_call_signals WHERE room_id=? AND kind='ringing'")
+                ->execute([$roomKey]);
+        }
     }
     if ($kind === 'hangup' && $targetId === null) {
         $pdo->prepare('DELETE FROM video_call_signals WHERE room_id=?')->execute([$roomKey]);

@@ -320,11 +320,13 @@ document.querySelector("[data-copy-share]")?.addEventListener("click", function(
 </script>
 <?php
 $inner = ob_get_clean();
-$GLOBALS['pageScripts'] = '<script>window.__VIDEO_ICE__ = '
+// LiveKit bridge only — do not load legacy WebRTC video-call.js here.
+// Loading both caused mobile therapist calls to ring on WebRTC while the
+// patient joined LiveKit, so each side only saw their own camera.
+$GLOBALS['pageScripts'] = '<script>window.__MANA_LIVEKIT_EMBED__=true;window.__MANA_LIVEKIT_REDIRECT__=true;window.__VIDEO_ICE__ = '
     . json_encode(video_call_ice_servers(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
     . ';</script>'
-    . '<script src="' . e(url('/assets/js/video-call.js')) . '?v=20260911g"></script>'
-    . '<script src="' . e(url('/assets/js/video-call-lobby.js')) . '?v=20260911g"></script>';
+    . '<script src="' . e(url('/assets/js/video-call-lobby.js')) . '?v=20260911r"></script>';
 
 $role = (string) ($user['role'] ?? '');
 if ($role === 'DOCTOR') {

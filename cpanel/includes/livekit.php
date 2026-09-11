@@ -89,6 +89,7 @@ function mana_livekit_token(array $user, string $roomRef, int $ttl = 7200): arra
             'canPublish' => true,
             'canSubscribe' => true,
             'canPublishData' => true,
+            'canPublishSources' => ['camera', 'microphone', 'screen_share'],
         ],
     ];
 
@@ -96,8 +97,15 @@ function mana_livekit_token(array $user, string $roomRef, int $ttl = 7200): arra
     $p = mana_livekit_b64url((string) json_encode($payload, JSON_UNESCAPED_SLASHES | JSON_UNESCAPED_UNICODE));
     $sig = hash_hmac('sha256', $h . '.' . $p, $cfg['secret'], true);
 
+    $serverUrl = (string) ($cfg['url'] ?? '');
+    if (stripos($serverUrl, 'https://') === 0) {
+        $serverUrl = 'wss://' . substr($serverUrl, 8);
+    } elseif (stripos($serverUrl, 'http://') === 0) {
+        $serverUrl = 'ws://' . substr($serverUrl, 7);
+    }
+
     return [
-        'serverUrl' => $cfg['url'],
+        'serverUrl' => $serverUrl,
         'participantToken' => $h . '.' . $p . '.' . mana_livekit_b64url($sig),
         'roomName' => mana_livekit_room_name($roomRef),
         'identity' => mana_livekit_identity($userId),
