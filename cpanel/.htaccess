@@ -16,9 +16,15 @@ RewriteRule \.(env|sql|log|bak|old)$ - [F]
   </FilesMatch>
 </IfModule>
 
+# A patient answer used to land on the legacy /video-call renderer first, which
+# caused the white mobile screen and required a second Answer click. Bypass that
+# renderer completely and preserve the room/media query in the standalone call.
+RewriteCond %{QUERY_STRING} (^|&)answer=1(&|$) [NC]
+RewriteCond %{QUERY_STRING} (^|&)room=[^&]+ [NC]
+RewriteRule ^video-call/?$ /video-call-live?%{QUERY_STRING} [R=302,L,NE]
+
 # Preserve the original lobby UI. The public lobby script is replaced by a tiny
-# launcher that redirects the media session to the standalone LiveKit page
-# immediately, before the slower legacy lobby controller finishes loading.
+# launcher that redirects the media session to the standalone LiveKit page.
 RewriteRule ^assets/js/video-call-lobby-legacy\.js$ assets/js/video-call-lobby.js [END]
 RewriteRule ^assets/js/video-call-lobby\.js$ assets/js/video-call-livekit-bridge-v2.js [END]
 
