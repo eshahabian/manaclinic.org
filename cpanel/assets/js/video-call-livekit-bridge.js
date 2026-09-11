@@ -5,6 +5,9 @@
   legacyScript.src = "/assets/js/video-call-lobby-legacy.js?v=20260911g";
   legacyScript.async = false;
   var frame = null;
+  var currentInfo = null;
+  var connectTimer = null;
+  var livekitConnected = false;
 
   function csrfToken() {
     return (document.querySelector('meta[name="csrf-token"]') || {}).content || "";
@@ -94,7 +97,7 @@
     return { root: root, stage: stage, wrap: wrap };
   }
 
-  function resetTile() {
+  function restoreLegacyStage() {
     var root = document.querySelector("[data-video-call]");
     if (!root) return;
     if (frame) {
@@ -109,6 +112,13 @@
       Array.prototype.forEach.call(stage.children, function (el) { if (el && el.style) el.style.display = ""; });
       stage.style.height = "";
     }
+  }
+
+  function resetTile() {
+    if (connectTimer) { clearTimeout(connectTimer); connectTimer = null; }
+    restoreLegacyStage();
+    var root = document.querySelector("[data-video-call]");
+    if (!root) return;
     root.hidden = true;
     root.removeAttribute("style");
     root.setAttribute("data-room", "");
@@ -116,10 +126,37 @@
     var idle = document.querySelector("[data-vc-idle]");
     if (composer) composer.hidden = false;
     if (idle) idle.hidden = !!composer;
+    currentInfo = null;
+    livekitConnected = false;
+  }
+
+  function fallbackToLegacy(reason) {
+    if (!currentInfo || !window.ManaVideoCall || typeof window.ManaVideoCall.legacyStart !== "function") return;
+    var info = currentInfo;
+    currentInfo = null;
+    if (connectTimer) { clearTimeout(connectTimer); connectTimer = null; }
+    restoreLegacyStage();
+    window.__MANA_LIVEKIT_EMBED__ = false;
+    info.autoStart = true;
+    try {
+      window.ManaVideoCall.legacyStart(info);
+      var root = document.querySelector("[data-video-call]");
+      var status = root && root.querySelector("[data-video-status]");
+      if (status) {
+        status.hidden = false;
+        status.textContent = "اتصال ابری در دسترس نبود؛ تماس مستقیم برقرار می‌شود.";
+        setTimeout(function () { if (status) status.hidden = true; }, 5000);
+      }
+    } catch (e) {
+      console.error("Mana legacy fallback failed", reason || e);
+    }
   }
 
   function liveKitStart(info) {
     if (!info || !info.room) return;
+    currentInfo = Object.assign({}, info);
+    livekitConnected = false;
+    window.__MANA_LIVEKIT_EMBED__ = true;
     var ui = showTile(info);
     if (!ui) return;
     if (frame) frame.remove();
@@ -136,6 +173,11 @@
     frame.setAttribute("allowfullscreen", "");
     frame.style.cssText = "width:100%;height:100%;min-height:22rem;border:0;display:block;background:#0d1a16";
     ui.wrap.appendChild(frame);
+
+    if (connectTimer) clearTimeout(connectTimer);
+    connectTimer = setTimeout(function () {
+      if (!livekitConnected) fallbackToLegacy("livekit timeout");
+    }, 15000);
   }
 
   function installBridge() {
@@ -144,10 +186,20 @@
     if (!window.ManaVideoCall.legacyStop && typeof window.ManaVideoCall.stop === "function") window.ManaVideoCall.legacyStop = window.ManaVideoCall.stop;
     window.ManaVideoCall.start = liveKitStart;
     window.ManaVideoCall.stop = resetTile;
+    window.__MANA_LIVEKIT_EMBED__ = true;
   }
 
   window.addEventListener("message", function (ev) {
     if (ev.origin !== location.origin || !ev.data) return;
+    if (ev.data.type === "mana-livekit-connected") {
+      livekitConnected = true;
+      if (connectTimer) { clearTimeout(connectTimer); connectTimer = null; }
+      return;
+    }
+    if (ev.data.type === "mana-livekit-error") {
+      fallbackToLegacy(ev.data.message || "livekit error");
+      return;
+    }
     if (ev.data.type === "mana-livekit-leave") resetTile();
   });
 
