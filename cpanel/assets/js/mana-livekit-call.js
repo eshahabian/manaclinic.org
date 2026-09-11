@@ -78,8 +78,46 @@
     if (!room || !room.localParticipant) return { mic: false, cam: false };
     var mic = false;
     var cam = false;
+    var LP = room.localParticipant;
+    var create = LivekitClient.createLocalTracks;
+
+    // مسیر پایدارتر از setCameraEnabled: اول ترک بساز، بعد publish کن
+    if (typeof create === "function") {
+      try {
+        var tracks = await create({
+          audio: true,
+          video: audioOnly
+            ? false
+            : {
+                facingMode: "user",
+                resolution:
+                  LivekitClient.VideoPresets && LivekitClient.VideoPresets.h540
+                    ? LivekitClient.VideoPresets.h540.resolution
+                    : { width: 640, height: 480, frameRate: 24 }
+              }
+        });
+        for (var i = 0; i < tracks.length; i++) {
+          var t = tracks[i];
+          try {
+            await LP.publishTrack(t);
+            if (t.kind === "audio" || (LivekitClient.Track && t.kind === LivekitClient.Track.Kind.Audio)) mic = true;
+            if (isVideoTrack(t)) cam = true;
+          } catch (pubErr) {
+            try { t.stop(); } catch (e2) {}
+          }
+        }
+        if (mic && (audioOnly || cam)) return { mic: mic, cam: cam };
+        if (mic && !audioOnly && !cam && onStatus) {
+          onStatus("صدا وصل شد؛ دوربین هنوز فعال نیست. روی «فعال‌سازی دوربین» بزنید.");
+        }
+        if (mic) return { mic: mic, cam: cam };
+      } catch (e) {
+        // ادامه با مسیر قبلی
+      }
+    }
+
     try {
-      await room.localParticipant.setMicrophoneEnabled(true);
+      await LP.setMicrophoneEnabled(true);
       mic = true;
     } catch (e) {
       if (onStatus) onStatus("اجازه میکروفون داده نشد.");
@@ -87,7 +125,7 @@
     }
     if (audioOnly) return { mic: mic, cam: false };
     try {
-      await room.localParticipant.setCameraEnabled(true);
+      await LP.setCameraEnabled(true);
       cam = true;
     } catch (e) {
       if (onStatus) onStatus("صدا وصل شد؛ دوربین در دسترس نیست. یک‌بار روی «فعال‌سازی دوربین» بزنید.");

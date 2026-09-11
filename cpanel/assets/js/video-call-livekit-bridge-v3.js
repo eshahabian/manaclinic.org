@@ -53,52 +53,28 @@
     } catch (e) {}
   }
 
-  function url(i, p) {
+  function callUrl(i, extra) {
     var q = new URLSearchParams();
     q.set("room", String(i.room));
     q.set("media", i.media === "audio" ? "audio" : "video");
-    return p + "?" + q.toString();
-  }
-
-  function openInline(i) {
-    var root = document.querySelector("[data-video-call]");
-    var stage = root && root.querySelector("[data-video-stage]");
-    var composer = document.querySelector("[data-vc-composer]");
-    var idle = document.querySelector("[data-vc-idle]");
-    if (!root || !stage) {
-      location.replace(url(i, "/video-call-live"));
-      return;
+    if (extra) {
+      Object.keys(extra).forEach(function (k) {
+        if (extra[k] != null && extra[k] !== "") q.set(k, String(extra[k]));
+      });
     }
-    stopMedia();
-    if (composer) composer.hidden = true;
-    if (idle) idle.hidden = true;
-    root.hidden = false;
-    stage.innerHTML = "";
-    stage.style.minHeight = "430px";
-    stage.style.padding = "0";
-    stage.style.overflow = "hidden";
-    var f = document.createElement("iframe");
-    f.src = url(i, "/video-call-embed");
-    f.title = "تماس مانا";
-    f.allow = "camera; microphone; autoplay; fullscreen; display-capture";
-    f.setAttribute("allowfullscreen", "");
-    f.setAttribute("data-livekit-frame", "1");
-    f.style.cssText = "display:block;width:100%;height:430px;border:0;border-radius:16px;background:#07130f";
-    f.addEventListener("load", function () {
-      try { f.contentWindow.postMessage({ type: "mana-livekit-connect" }, location.origin); } catch (e) {}
-    });
-    stage.appendChild(f);
-    root.setAttribute("data-livekit-frame-wrap", "1");
-    ring(i);
+    return "/video-call-live?" + q.toString();
   }
 
+  // iframe روی خیلی از موبایل‌ها دوربین را نمی‌دهد؛ هر دو طرف صفحهٔ کامل LiveKit
   function go(i) {
     if (!i || !i.room) return;
-    if (i.canStart) openInline(i);
-    else {
-      stopMedia();
-      location.replace(url(i, "/video-call-live"));
+    stopMedia();
+    if (i.canStart) {
+      var target = callUrl(i, { start: "1" });
+      ring(i).finally(function () { location.replace(target); });
+      return;
     }
+    location.replace(callUrl(i, i.answer ? { answer: "1" } : null));
   }
 
   function install() {
@@ -110,15 +86,8 @@
 
   install();
   var s = document.createElement("script");
-  s.src = "/assets/js/video-call-lobby-legacy.js?v=20260911n";
+  s.src = "/assets/js/video-call-lobby-legacy.js?v=20260911p";
   s.async = false;
   s.onload = install;
   (document.head || document.documentElement).appendChild(s);
-
-  window.addEventListener("message", function (ev) {
-    if (ev.origin !== location.origin) return;
-    if (ev.data && ev.data.type === "mana-livekit-leave") {
-      if (window.ManaVideoCall && window.ManaVideoCall.stop) window.ManaVideoCall.stop();
-    }
-  });
 })();

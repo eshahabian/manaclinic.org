@@ -113,7 +113,7 @@ ob_start();
 </div>
 <?php if ($roomKey && $ready): ?>
 <script src="https://cdn.jsdelivr.net/npm/livekit-client@2.22.3/dist/livekit-client.umd.min.js"></script>
-<script src="<?= e(url('/assets/js/mana-livekit-call.js')) ?>?v=20260911l"></script>
+<script src="<?= e(url('/assets/js/mana-livekit-call.js')) ?>?v=20260911p"></script>
 <script>
 (function () {
   var root = document.querySelector("[data-livekit-v2]");
@@ -252,8 +252,10 @@ ob_start();
   document.addEventListener("visibilitychange", function () { if (!document.hidden) unlock(); });
   window.addEventListener("pagehide", function () { if (room) room.disconnect(); });
 
-  // Auto only after a short delay; if camera is blocked, user can tap the main button.
-  if (auto) setTimeout(connect, 80);
+  // روی موبایل بدون لمس، دوربین اغلب باز نمی‌شود — کاربر باید دکمه را بزند
+  var needTap = /Android|iPhone|iPad|iPod/i.test(navigator.userAgent || "");
+  if (auto && !needTap) setTimeout(connect, 80);
+  else if (auto && needTap) status("برای شروع تصویر و صدا روی «ورود به تماس» بزنید");
 })();
 </script>
 <?php endif; ?>

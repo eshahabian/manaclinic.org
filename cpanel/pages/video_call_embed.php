@@ -67,7 +67,7 @@ $canRecord = (string) ($user['role'] ?? '') === 'DOCTOR';
   </div>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/livekit-client@2.22.3/dist/livekit-client.umd.min.js"></script>
-<script src="/assets/js/mana-livekit-call.js?v=20260911l"></script>
+<script src="/assets/js/mana-livekit-call.js?v=20260911p"></script>
 <script>
 (function(){
 var root=document.getElementById('call'),key=root.dataset.room||'',audioOnly=root.dataset.media==='audio',canRecord=root.dataset.canRecord==='1';
