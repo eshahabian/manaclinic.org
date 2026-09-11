@@ -7,6 +7,10 @@ RewriteRule ^storage(/|$) - [F]
 RewriteRule ^(config\.php|config\.sample\.php)$ - [F]
 RewriteRule \.(env|sql|log|bak|old)$ - [F]
 
+# مسیرهای آزمایشی موتور جدید تماس؛ مستقل از router اصلی
+RewriteRule ^video-call-v2/?$ livekit-v2.php [END]
+RewriteRule ^livekit-token/?$ livekit-token-v2.php [END]
+
 # فایل‌های PHP به‌جز index.php مستقیم اجرا نشوند
 RewriteCond %{REQUEST_FILENAME} -f
 RewriteCond %{REQUEST_URI} !/index\.php$ [NC]
