@@ -12,8 +12,9 @@ RewriteRule \.(env|sql|log|bak|old)$ - [F]
 RewriteRule ^assets/js/video-call-lobby-legacy\.js$ assets/js/video-call-lobby.js [END]
 RewriteRule ^assets/js/video-call-lobby\.js$ assets/js/video-call-livekit-bridge.js [END]
 
-# LiveKit test/token endpoints remain available independently.
+# LiveKit endpoints.
 RewriteRule ^video-call-v2/?$ livekit-v2.php [END]
+RewriteRule ^video-call-embed/?$ livekit-embed.php [END]
 RewriteRule ^livekit-token/?$ livekit-token-v2.php [END]
 
 # فایل‌های PHP به‌جز index.php مستقیم اجرا نشوند
