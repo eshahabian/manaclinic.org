@@ -4,20 +4,38 @@ declare(strict_types=1);
 /**
  * LiveKit V2 bridge for Mana Clinic.
  *
- * Required server environment variables:
+ * Credentials can be provided either as environment variables:
  *   LIVEKIT_URL=wss://<project>.livekit.cloud
  *   LIVEKIT_API_KEY=...
  *   LIVEKIT_API_SECRET=...
+ *
+ * or in the private cpanel/config.php file as:
+ *   'livekit_url' => 'wss://<project>.livekit.cloud',
+ *   'livekit_api_key' => '...',
+ *   'livekit_api_secret' => '...',
  *
  * Secrets are never sent to the browser. Only short-lived room access tokens are.
  */
 
 function mana_livekit_config(): array
 {
+    $private = [];
+    $configFile = __DIR__ . '/../config.php';
+    if (is_file($configFile)) {
+        $loaded = require $configFile;
+        if (is_array($loaded)) {
+            $private = $loaded;
+        }
+    }
+
+    $envUrl = trim((string) (getenv('LIVEKIT_URL') ?: ''));
+    $envKey = trim((string) (getenv('LIVEKIT_API_KEY') ?: ''));
+    $envSecret = (string) (getenv('LIVEKIT_API_SECRET') ?: '');
+
     return [
-        'url' => trim((string) (getenv('LIVEKIT_URL') ?: '')),
-        'key' => trim((string) (getenv('LIVEKIT_API_KEY') ?: '')),
-        'secret' => (string) (getenv('LIVEKIT_API_SECRET') ?: ''),
+        'url' => $envUrl !== '' ? $envUrl : trim((string) ($private['livekit_url'] ?? '')),
+        'key' => $envKey !== '' ? $envKey : trim((string) ($private['livekit_api_key'] ?? '')),
+        'secret' => $envSecret !== '' ? $envSecret : (string) ($private['livekit_api_secret'] ?? ''),
     ];
 }
 
