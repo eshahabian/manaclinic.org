@@ -1549,7 +1549,10 @@ body.home-workshop-locked { overflow: hidden; }
 .vc-call-video { background: #16a34a; }
 .vc-call-audio { background: #15803d; }
 .vc-call-btn:hover { filter: brightness(1.06); }
-.vc-call-btn:disabled { display: none; }
+.vc-call-btn:disabled {
+  visibility: hidden;
+  pointer-events: none;
+}
 .vc-plus-btn {
   appearance: none;
   width: 2.6rem;
@@ -1632,27 +1635,43 @@ body.home-workshop-locked { overflow: hidden; }
 }
 
 @media (max-width: 859px) {
-  .vc-lobby { gap: .7rem; }
+  .vc-lobby {
+    gap: 2.5vw;
+  }
+  .vc-shell.vc-skype .vc-lobby {
+    /* Two tiles share the viewport — relative, not rem/px */
+    min-height: calc(100dvh - 7.5rem);
+    display: grid;
+    grid-template-rows: minmax(0, 1.05fr) minmax(40vh, 1fr);
+    align-items: stretch;
+  }
   .vc-lobby-side,
   .vc-skype .vc-side {
     min-height: 0;
-    padding: .7rem .65rem .85rem;
+    height: 100%;
+    max-height: none;
+    overflow: auto;
+    padding: 2.5vw 2.2vw 3vw;
   }
   .vc-lobby-main {
-    min-height: 24rem;
     width: 100%;
     max-width: 100%;
+    min-height: 0;
+    height: 100%;
+    align-self: stretch;
   }
   .vc-idle {
-    padding: .85rem .8rem 1.1rem;
-    gap: .4rem;
+    padding: 3vw 2.5vw 4vw;
+    gap: 1.5vw;
   }
   .vc-lobby-hero {
-    width: 4.4rem;
-    height: 4.4rem;
+    width: 18vw;
+    height: 18vw;
+    max-width: 4.5rem;
+    max-height: 4.5rem;
   }
-  .vc-idle h1 { font-size: 1.15rem; margin: .15rem 0 0; }
-  .vc-idle .muted { font-size: .82rem; }
+  .vc-idle h1 { font-size: clamp(1rem, 4.2vw, 1.2rem); margin: .15rem 0 0; }
+  .vc-idle .muted { font-size: clamp(.75rem, 3.2vw, .85rem); }
   .vc-person {
     max-width: 100%;
     overflow: hidden;
@@ -1667,20 +1686,24 @@ body.home-workshop-locked { overflow: hidden; }
     white-space: nowrap;
   }
   .vc-composer {
-    min-height: 24rem;
     width: 100%;
-    padding: .85rem .8rem 1rem;
-    /* Middle row locked so enabling call buttons cannot shrink the drop */
-    grid-template-rows: auto 15rem auto;
+    height: 100%;
+    min-height: 100%;
+    padding: 3vw 2.8vw 3.2vw;
+    gap: 2.2vw;
+    /* Head / drop / actions — drop always keeps the middle share */
+    grid-template-rows: auto minmax(0, 1fr) auto;
   }
   .vc-drop {
     width: 100%;
-    height: 15rem;
-    min-height: 15rem;
-    max-height: 15rem;
+    min-height: 22vh;
+    height: 100%;
+    max-height: none;
     overflow-x: hidden;
     overflow-y: auto;
-    flex: none;
+    flex: 1 1 auto;
+    padding: 3vw;
+    border-radius: 3.5vw;
   }
   .vc-drop [data-vc-drop-hint] {
     min-height: 0;
@@ -1699,21 +1722,33 @@ body.home-workshop-locked { overflow: hidden; }
     max-width: 100%;
     box-sizing: border-box;
   }
-  /* Keep action row from collapsing layout when buttons appear */
   .vc-composer-actions {
-    min-height: 2.6rem;
+    min-height: max(2.6rem, 11vw);
+    width: 100%;
+  }
+  .vc-call-btn {
+    font-size: clamp(.8rem, 3.4vw, .95rem);
+    padding: 2.2vw 4vw;
+  }
+  .vc-plus-btn {
+    width: max(2.6rem, 11vw);
+    height: max(2.6rem, 11vw);
+    font-size: clamp(1.3rem, 5vw, 1.6rem);
   }
   .vc-in-tile .video-call-stage {
     min-height: min(62vh, 28rem);
   }
   .video-call-self {
-    width: 4.6rem;
-    inset-inline-end: .5rem;
-    top: .5rem;
+    width: 18vw;
+    max-width: 4.6rem;
+    inset-inline-end: 2vw;
+    top: 2vw;
   }
   .video-call-local {
-    width: 4.6rem;
-    height: 3.45rem;
+    width: 18vw;
+    max-width: 4.6rem;
+    height: auto;
+    aspect-ratio: 4 / 3;
   }
   .video-call-tools { max-width: calc(100% - 5.6rem); }
   .vc-remotes {
@@ -1735,9 +1770,13 @@ body.home-workshop-locked { overflow: hidden; }
   .vc-lobby:has([data-video-call]:not([hidden])) > .vc-lobby-side {
     display: none;
   }
+  .vc-shell.vc-skype .vc-lobby:has([data-video-call]:not([hidden])) {
+    grid-template-rows: 1fr;
+    min-height: calc(100dvh - 6rem);
+  }
   .panel-layout:has(.vc-lobby) {
-    padding: .85rem 0 1.2rem;
-    gap: .85rem;
+    padding: 2.5vw 0 4vw;
+    gap: 2.5vw;
   }
 }
 
@@ -4473,36 +4512,37 @@ body.workshop-overview-locked { overflow: hidden; }
 .site-chrome-top {
   transition: opacity .2s ease, transform .2s ease, visibility .2s ease;
 }
-/* Mobile-only clinic call — beside back-to-top, flush to screen edge */
 .site-chrome-call {
   display: none;
 }
 @media (max-width: 859px) {
   .site-chrome {
-    left: 0;
-    bottom: 0;
-    right: auto;
+    left: 0 !important;
+    bottom: 0 !important;
+    right: auto !important;
     flex-direction: row;
-    align-items: center;
-    gap: .4rem;
-    padding: 0;
-    padding-bottom: env(safe-area-inset-bottom, 0px);
+    align-items: flex-end;
+    gap: 2vw;
+    margin: 0 !important;
+    padding: 0 !important;
   }
   .site-chrome-call {
-    display: inline-flex;
+    display: inline-flex !important;
     width: auto;
-    height: 3rem;
-    min-width: 5.5rem;
-    padding: 0 1.05rem 0 1.15rem;
-    gap: .4rem;
-    border-radius: 0 1rem 0 0;
+    height: max(2.85rem, 12vw);
+    min-width: 28vw;
+    padding: 0 5.5vw 0 5vw;
+    gap: 2vw;
+    margin: 0 !important;
+    /* Flush to left+bottom screen edge; free corners stay curved */
+    border-radius: 0 999px 0 0;
     border: 0;
     background: var(--primary);
     color: #fff;
-    font-size: .88rem;
+    font-size: clamp(.82rem, 3.6vw, .95rem);
     font-weight: 700;
     line-height: 1;
-    box-shadow: 0 6px 20px rgba(27, 94, 75, .3);
+    box-shadow: 0 4px 18px rgba(27, 94, 75, .32);
   }
   .site-chrome-call:hover {
     background: var(--primary-dark);
@@ -4510,18 +4550,21 @@ body.workshop-overview-locked { overflow: hidden; }
   }
   .site-chrome-call svg {
     flex-shrink: 0;
+    width: 1.15em;
+    height: 1.15em;
   }
   .site-chrome-top {
-    width: 2.65rem;
-    height: 2.65rem;
-    margin-inline-end: .45rem;
+    width: max(2.55rem, 11vw);
+    height: max(2.55rem, 11vw);
+    margin: 0 3vw 3vw 0;
     flex-shrink: 0;
+    border-radius: 999px;
   }
   body {
-    padding-bottom: max(3.75rem, calc(env(safe-area-inset-bottom, 0px) + 3.25rem));
+    padding-bottom: max(4rem, 16vw);
   }
   body:has([data-video-call]:not([hidden])) .site-chrome-call {
-    display: none;
+    display: none !important;
   }
 }
 
