@@ -1493,6 +1493,7 @@ body.home-workshop-locked { overflow: hidden; }
 .vc-skype .vc-lobby-main { text-align: start; }
 .vc-composer {
   display: grid;
+  grid-template-rows: auto minmax(12rem, 1fr) auto;
   gap: .75rem;
   padding: 1rem 1.1rem 1.15rem;
   height: 100%;
@@ -1514,9 +1515,20 @@ body.home-workshop-locked { overflow: hidden; }
   border-radius: 1rem;
   padding: 1rem;
   background: var(--bg-soft);
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
 }
 .vc-drop p { margin: 0; color: var(--muted); font-size: .88rem; line-height: 1.7; }
-.vc-picked { list-style: none; margin: .35rem 0 0; padding: 0; display: grid; gap: .25rem; }
+.vc-picked {
+  list-style: none;
+  margin: .35rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: .25rem;
+  flex: 1;
+  align-content: start;
+}
 .vc-composer-actions {
   display: flex;
   flex-wrap: wrap;
@@ -1627,7 +1639,7 @@ body.home-workshop-locked { overflow: hidden; }
     padding: .7rem .65rem .85rem;
   }
   .vc-lobby-main {
-    min-height: 0;
+    min-height: 22rem;
   }
   .vc-idle {
     padding: .85rem .8rem 1.1rem;
@@ -1653,10 +1665,13 @@ body.home-workshop-locked { overflow: hidden; }
     white-space: nowrap;
   }
   .vc-composer {
-    min-height: 14rem;
+    min-height: 22rem;
     padding: .85rem .8rem 1rem;
+    grid-template-rows: auto minmax(12rem, 1fr) auto;
   }
-  .vc-drop { min-height: 7.5rem; }
+  .vc-drop {
+    min-height: 12rem;
+  }
   .vc-in-tile .video-call-stage {
     min-height: min(62vh, 28rem);
   }
@@ -4412,6 +4427,7 @@ body.workshop-overview-locked { overflow: hidden; }
   font-family: inherit;
   -webkit-appearance: none;
   appearance: none;
+  text-decoration: none;
 }
 .site-chrome-btn:hover {
   background: var(--bg-soft);
@@ -4425,6 +4441,41 @@ body.workshop-overview-locked { overflow: hidden; }
 }
 .site-chrome-top {
   transition: opacity .2s ease, transform .2s ease, visibility .2s ease;
+}
+/* Mobile-only clinic call FAB — all public pages */
+.site-chrome-call {
+  display: none;
+  width: auto;
+  min-width: 2.85rem;
+  height: 2.85rem;
+  padding: 0 .95rem;
+  gap: .4rem;
+  background: var(--primary);
+  color: #fff;
+  border-color: transparent;
+  font-size: .84rem;
+  font-weight: 700;
+  line-height: 1;
+  box-shadow: 0 8px 22px rgba(27, 94, 75, .28);
+}
+.site-chrome-call:hover {
+  background: var(--primary-dark);
+  color: #fff;
+}
+.site-chrome-call svg {
+  flex-shrink: 0;
+}
+@media (max-width: 859px) {
+  .site-chrome-call {
+    display: inline-flex;
+  }
+  body {
+    padding-bottom: max(4.25rem, calc(env(safe-area-inset-bottom, 0px) + 3.5rem));
+  }
+  /* Keep clear of in-call controls */
+  body:has([data-video-call]:not([hidden])) .site-chrome-call {
+    display: none;
+  }
 }
 
 .ehr-shell { display: grid; gap: 1rem; }

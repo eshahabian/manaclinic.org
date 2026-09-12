@@ -48,3 +48,14 @@ yarn-error.log*
 next-env.d.ts
 
 /src/generated/prisma
+
+# Android (Mana Clinic app under /android)
+/android/.gradle/
+/android/build/
+/android/app/build/
+/android/local.properties
+/android/.idea/
+/android/*.iml
+/android/app/*.iml
+/android/.cxx/
+/android/captures/

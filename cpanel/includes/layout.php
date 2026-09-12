@@ -51,7 +51,7 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
   <?= seo_render_head() ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260911g">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260912a">
   <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
   <script>
   (function(){
@@ -285,7 +285,18 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
     </div>
   </footer>
 </div>
-<div class="site-chrome" aria-label="بازگشت به بالا">
+<div class="site-chrome" aria-label="میانبرهای صفحه">
+  <a
+    class="site-chrome-btn site-chrome-call"
+    href="tel:09101387838"
+    title="تماس با مانا کلینیک"
+    aria-label="تماس مستقیم با موبایل کلینیک ۰۹۱۰۱۳۸۷۸۳۸"
+  >
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M22 16.9v2a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.7A2 2 0 0 1 4.1 2h2a2 2 0 0 1 2 1.7c.1.9.3 1.8.7 2.6a2 2 0 0 1-.5 2.1L7.1 9.9a16 16 0 0 0 6 6l1.5-1.2a2 2 0 0 1 2.1-.4c.8.3 1.7.5 2.6.7A2 2 0 0 1 22 16.9z"/>
+    </svg>
+    <span>تماس</span>
+  </a>
   <button type="button" class="site-chrome-btn site-chrome-top is-hidden" id="back-to-top" title="بازگشت به بالا" aria-label="بازگشت به بالا">
     <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
       <path d="M6 14l6-6 6 6"/>
