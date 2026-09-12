@@ -1639,7 +1639,9 @@ body.home-workshop-locked { overflow: hidden; }
     padding: .7rem .65rem .85rem;
   }
   .vc-lobby-main {
-    min-height: 22rem;
+    min-height: 24rem;
+    width: 100%;
+    max-width: 100%;
   }
   .vc-idle {
     padding: .85rem .8rem 1.1rem;
@@ -1665,12 +1667,41 @@ body.home-workshop-locked { overflow: hidden; }
     white-space: nowrap;
   }
   .vc-composer {
-    min-height: 22rem;
+    min-height: 24rem;
+    width: 100%;
     padding: .85rem .8rem 1rem;
-    grid-template-rows: auto minmax(12rem, 1fr) auto;
+    /* Middle row locked so enabling call buttons cannot shrink the drop */
+    grid-template-rows: auto 15rem auto;
   }
   .vc-drop {
-    min-height: 12rem;
+    width: 100%;
+    height: 15rem;
+    min-height: 15rem;
+    max-height: 15rem;
+    overflow-x: hidden;
+    overflow-y: auto;
+    flex: none;
+  }
+  .vc-drop [data-vc-drop-hint] {
+    min-height: 0;
+  }
+  .vc-drop [data-vc-drop-hint][hidden] {
+    display: none !important;
+  }
+  .vc-picked {
+    margin-top: 0;
+    width: 100%;
+    min-height: 100%;
+  }
+  .vc-picked > li,
+  .vc-picked .vc-person {
+    width: 100%;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+  /* Keep action row from collapsing layout when buttons appear */
+  .vc-composer-actions {
+    min-height: 2.6rem;
   }
   .vc-in-tile .video-call-stage {
     min-height: min(62vh, 28rem);
@@ -4442,37 +4473,53 @@ body.workshop-overview-locked { overflow: hidden; }
 .site-chrome-top {
   transition: opacity .2s ease, transform .2s ease, visibility .2s ease;
 }
-/* Mobile-only clinic call FAB — all public pages */
+/* Mobile-only clinic call — beside back-to-top, flush to screen edge */
 .site-chrome-call {
   display: none;
-  width: auto;
-  min-width: 2.85rem;
-  height: 2.85rem;
-  padding: 0 .95rem;
-  gap: .4rem;
-  background: var(--primary);
-  color: #fff;
-  border-color: transparent;
-  font-size: .84rem;
-  font-weight: 700;
-  line-height: 1;
-  box-shadow: 0 8px 22px rgba(27, 94, 75, .28);
-}
-.site-chrome-call:hover {
-  background: var(--primary-dark);
-  color: #fff;
-}
-.site-chrome-call svg {
-  flex-shrink: 0;
 }
 @media (max-width: 859px) {
+  .site-chrome {
+    left: 0;
+    bottom: 0;
+    right: auto;
+    flex-direction: row;
+    align-items: center;
+    gap: .4rem;
+    padding: 0;
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+  }
   .site-chrome-call {
     display: inline-flex;
+    width: auto;
+    height: 3rem;
+    min-width: 5.5rem;
+    padding: 0 1.05rem 0 1.15rem;
+    gap: .4rem;
+    border-radius: 0 1rem 0 0;
+    border: 0;
+    background: var(--primary);
+    color: #fff;
+    font-size: .88rem;
+    font-weight: 700;
+    line-height: 1;
+    box-shadow: 0 6px 20px rgba(27, 94, 75, .3);
+  }
+  .site-chrome-call:hover {
+    background: var(--primary-dark);
+    color: #fff;
+  }
+  .site-chrome-call svg {
+    flex-shrink: 0;
+  }
+  .site-chrome-top {
+    width: 2.65rem;
+    height: 2.65rem;
+    margin-inline-end: .45rem;
+    flex-shrink: 0;
   }
   body {
-    padding-bottom: max(4.25rem, calc(env(safe-area-inset-bottom, 0px) + 3.5rem));
+    padding-bottom: max(3.75rem, calc(env(safe-area-inset-bottom, 0px) + 3.25rem));
   }
-  /* Keep clear of in-call controls */
   body:has([data-video-call]:not([hidden])) .site-chrome-call {
     display: none;
   }
