@@ -76,6 +76,13 @@ if ($path !== '/') {
 }
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+// Crawlers often probe with HEAD; treat it like GET for public routes.
+$isHeadRequest = strtoupper((string) $method) === 'HEAD';
+if ($isHeadRequest) {
+    $method = 'GET';
+    // Keep response headers, drop body (valid HEAD).
+    ob_start(static fn (): string => '');
+}
 $isLightRequest = $path === '/video-signal' || $path === '/secretary/heartbeat';
 
 if (!$isLightRequest) {
@@ -110,6 +117,8 @@ $routes = [
     'GET /sitemap.xml' => 'pages/sitemap.php',
     'GET /tests' => 'pages/tests.php',
     'GET /about' => 'pages/about.php',
+    'GET /faq' => 'pages/faq.php',
+    'GET /rules' => 'pages/rules.php',
     'GET /contact' => 'pages/contact.php',
     'GET /assistant' => 'pages/assistant.php',
     'POST /assistant/chat' => 'actions/assistant_chat.php',

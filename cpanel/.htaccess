@@ -1,6 +1,15 @@
 Options -Indexes
 RewriteEngine On
 
+# Canonical host: https://manaclinic.org (no www)
+RewriteCond %{HTTP_HOST} ^www\.manaclinic\.org$ [NC]
+RewriteRule ^ https://manaclinic.org%{REQUEST_URI} [R=301,L]
+
+# Force HTTPS when the origin request was plain HTTP (respect reverse-proxy)
+RewriteCond %{HTTPS} !=on
+RewriteCond %{HTTP:X-Forwarded-Proto} !https [NC]
+RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+
 # فیش و فایل خصوصی مستقیم از وب باز نشود
 RewriteRule ^uploads/receipts(/|$) - [F]
 RewriteRule ^storage(/|$) - [F]

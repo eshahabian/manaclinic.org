@@ -51,7 +51,7 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
   <?= seo_render_head() ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260912f">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260912g">
   <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
   <script>
   (function(){
@@ -120,6 +120,8 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
           <a href="<?= e(url('/assistant')) ?>">دستیار هوشمند</a>
         <?php endif; ?>
         <a href="<?= e(url('/about')) ?>">درباره ما</a>
+        <a href="<?= e(url('/faq')) ?>">سوالات متداول</a>
+        <a href="<?= e(url('/rules')) ?>">قوانین</a>
         <a href="<?= e(url('/contact')) ?>">تماس با ما</a>
         <?php if ($panelHref): ?>
           <a href="<?= e(url($panelHref)) ?>">پنل من</a>
@@ -201,6 +203,18 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
           </span>
           <span>درباره ما</span>
         </a>
+        <a class="mobile-nav-tile" href="<?= e(url('/faq')) ?>">
+          <span class="mobile-nav-tile-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M9.5 9a2.5 2.5 0 1 1 3.9 2.1c-.7.4-1.4 1-1.4 2M12 17h.01"/></svg>
+          </span>
+          <span>سوالات متداول</span>
+        </a>
+        <a class="mobile-nav-tile" href="<?= e(url('/rules')) ?>">
+          <span class="mobile-nav-tile-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 4h10v16H7z"/><path d="M10 8h4M10 12h4M10 16h3"/></svg>
+          </span>
+          <span>قوانین</span>
+        </a>
         <a class="mobile-nav-tile" href="<?= e(url('/contact')) ?>">
           <span class="mobile-nav-tile-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 6h14v12H5z"/><path d="M5 8l7 5 7-5"/></svg>
@@ -275,6 +289,8 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
         <a href="<?= e(url('/articles')) ?>">مقالات</a>
         <a href="<?= e(url('/tests')) ?>">آزمون‌ها</a>
         <a href="<?= e(url('/about')) ?>">درباره ما</a>
+        <a href="<?= e(url('/faq')) ?>">سوالات متداول</a>
+        <a href="<?= e(url('/rules')) ?>">قوانین</a>
         <a href="<?= e(url('/contact')) ?>">تماس با ما</a>
         <a href="<?= e(url('/register')) ?>">ثبت‌نام</a>
       </div>

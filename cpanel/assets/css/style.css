@@ -4769,3 +4769,105 @@ html[data-theme="dark"] select.input,
 html[data-theme="dark"] select {
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23c5d5ce' d='M1.4.6 6 5.2 10.6.6 12 2 6 8 0 2z'/%3E%3C/svg%3E");
 }
+
+/* FAQ + rules (public legal pages) */
+.legal-page {
+  max-width: 48rem;
+}
+.legal-page > h1 {
+  margin: 0;
+}
+.legal-lead {
+  margin: .55rem 0 1.25rem;
+  line-height: 1.9;
+}
+.legal-lead a,
+.legal-foot a,
+.legal-section a {
+  color: var(--primary);
+  font-weight: 600;
+}
+.legal-toc {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem .65rem;
+  margin: 0 0 1.25rem;
+}
+.legal-toc a {
+  display: inline-flex;
+  align-items: center;
+  padding: .35rem .7rem;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--fg);
+  text-decoration: none;
+  font-size: .82rem;
+  font-weight: 600;
+}
+.legal-toc a:hover {
+  border-color: var(--primary);
+  color: var(--primary);
+}
+.legal-section {
+  margin-top: 1rem;
+}
+.legal-section h2 {
+  margin: 0;
+  font-size: 1.1rem;
+}
+.legal-section h3 {
+  margin: .85rem 0 .35rem;
+  font-size: 1rem;
+}
+.legal-section ul {
+  margin: 0;
+  padding-inline-start: 1.2rem;
+  line-height: 1.85;
+}
+.legal-section li {
+  margin: .28rem 0;
+}
+.legal-foot {
+  margin: 1.5rem 0 0;
+  line-height: 1.8;
+}
+.faq-list {
+  display: grid;
+  gap: .65rem;
+}
+.faq-item {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  padding: 0;
+  overflow: hidden;
+}
+.faq-item summary {
+  cursor: pointer;
+  list-style: none;
+  padding: .95rem 1.05rem;
+  font-weight: 700;
+  line-height: 1.55;
+}
+.faq-item summary::-webkit-details-marker {
+  display: none;
+}
+.faq-item summary::after {
+  content: "+";
+  float: left;
+  color: var(--primary);
+  font-weight: 700;
+}
+.faq-item[open] summary::after {
+  content: "−";
+}
+.faq-answer {
+  padding: 0 1.05rem 1rem;
+  border-top: 1px solid var(--line);
+}
+.faq-answer p {
+  margin: .75rem 0 0;
+  line-height: 1.9;
+  color: var(--muted);
+}
