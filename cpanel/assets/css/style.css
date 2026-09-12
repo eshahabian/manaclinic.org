@@ -4517,11 +4517,13 @@ body.workshop-overview-locked { overflow: hidden; }
 }
 @media (max-width: 859px) {
   .site-chrome {
-    left: max(.75rem, env(safe-area-inset-left, 0px)) !important;
-    bottom: max(1.1rem, env(safe-area-inset-bottom, 0px)) !important;
+    left: 50% !important;
     right: auto !important;
+    bottom: max(1.1rem, env(safe-area-inset-bottom, 0px)) !important;
+    transform: translateX(-50%);
     flex-direction: row;
     align-items: flex-end;
+    justify-content: center;
     gap: .55rem;
     margin: 0 !important;
     padding: 0 !important;
