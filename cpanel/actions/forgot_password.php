@@ -46,11 +46,14 @@ if ($user && mail_is_real_email((string) ($user['email'] ?? ''))) {
         $resetUrl = password_reset_create_token($pdo, (string) $user['id']);
         $sent = mail_send_password_reset($pdo, $user, $resetUrl);
         if (!$sent['ok']) {
-            // عمداً جزئیات را به کاربر عمومی نشان نمی‌دهیم؛ برای ادمین در لاگ تست قابل‌دیدن است
             error_log('ManaClinic password reset mail failed: ' . ($sent['error'] ?? ''));
+            flash_set('error', 'ساخت لینک انجام شد ولی ارسال ایمیل ناموفق بود. تنظیمات SMTP را در پنل ادمین بررسی کنید.');
+            redirect('/forgot-password');
         }
     } catch (Throwable $e) {
         error_log('ManaClinic password reset error: ' . $e->getMessage());
+        flash_set('error', 'ثبت لینک بازیابی ممکن نشد. کمی بعد دوباره تلاش کنید یا با پشتیبانی تماس بگیرید.');
+        redirect('/forgot-password');
     }
 }
 

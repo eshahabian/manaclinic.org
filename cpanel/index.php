@@ -260,7 +260,7 @@ if ($path === '/install' && empty($config['allow_install'])) {
 $key = $method . ' ' . $path;
 
 // مسیرهای پویا
-if (preg_match('#^/reset-password/([a-fA-F0-9]{64})$#', $path, $m) && $method === 'GET') {
+if (preg_match('#^/reset-password/([a-fA-F0-9]{32,64})$#', $path, $m) && $method === 'GET') {
     $_GET['token'] = strtolower($m[1]);
     require __DIR__ . '/pages/reset_password.php';
     exit;

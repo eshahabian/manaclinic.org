@@ -7,17 +7,22 @@ if (current_user()) {
     redirect(panel_href_for(current_user()) ?: '/');
 }
 
-$token = trim((string) ($_GET['token'] ?? ''));
+$token = password_reset_normalize_token((string) ($_GET['token'] ?? ''));
 if ($token === '') {
-    // سازگاری با لینک‌های قدیمی ?token=
-    $token = trim((string) ($_REQUEST['token'] ?? ''));
+    $token = password_reset_normalize_token((string) ($_REQUEST['token'] ?? ''));
 }
+
 ensure_mail_schema($pdo);
-try {
-    $row = password_reset_find_valid($pdo, $token);
-} catch (Throwable $e) {
-    error_log('ManaClinic reset_password page: ' . $e->getMessage());
-    $row = null;
+$row = null;
+$tokenLen = strlen($token);
+$tokenFormatOk = ($tokenLen === 32 || $tokenLen === 64);
+if ($tokenFormatOk) {
+    try {
+        $row = password_reset_find_valid($pdo, $token);
+    } catch (Throwable $e) {
+        error_log('ManaClinic reset_password page: ' . $e->getMessage());
+        $row = null;
+    }
 }
 
 $pageTitle = 'تعیین رمز جدید';
@@ -32,7 +37,15 @@ ob_start();
   <?php if (!$row): ?>
     <div class="panel auth-box form-stack" style="max-width:24rem;width:100%">
       <h1>لینک نامعتبر</h1>
-      <p class="muted" style="line-height:1.8">این لینک منقضی شده یا قبلاً استفاده شده است.</p>
+      <p class="muted" style="line-height:1.8">
+        <?php if ($token === ''): ?>
+          لینک ناقص است. از ایمیل، دکمهٔ «تعیین رمز جدید» را بزنید یا آخرین ایمیل بازیابی را باز کنید.
+        <?php elseif (!$tokenFormatOk): ?>
+          لینک خراب یا ناقص کپی شده. لطفاً دوباره از صفحهٔ فراموشی رمز، لینک جدید بگیرید.
+        <?php else: ?>
+          این لینک منقضی شده، قبلاً استفاده شده، یا با درخواست جدید جایگزین شده است. فقط آخرین ایمیل بازیابی معتبر است.
+        <?php endif; ?>
+      </p>
       <p class="auth-switch" style="margin:0">
         <a href="<?= e(url('/forgot-password')) ?>">درخواست لینک جدید</a>
         ·

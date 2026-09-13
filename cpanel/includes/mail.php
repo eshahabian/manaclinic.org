@@ -26,7 +26,7 @@ function ensure_mail_schema(PDO $pdo): void
             "CREATE TABLE IF NOT EXISTS password_reset_tokens (
                 id VARCHAR(32) PRIMARY KEY,
                 user_id VARCHAR(32) NOT NULL,
-                token_hash CHAR(64) NOT NULL,
+                token_hash VARCHAR(64) NOT NULL,
                 expires_at DATETIME NOT NULL,
                 used_at DATETIME NULL,
                 created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -35,6 +35,14 @@ function ensure_mail_schema(PDO $pdo): void
                 INDEX idx_prt_expires (expires_at)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
         );
+    } catch (Throwable $e) {
+        error_log('ManaClinic ensure_mail_schema tokens: ' . $e->getMessage());
+    }
+    try {
+        $col = $pdo->query("SHOW COLUMNS FROM password_reset_tokens LIKE 'token_hash'")->fetch(PDO::FETCH_ASSOC);
+        if ($col && isset($col['Type']) && stripos((string) $col['Type'], 'char(64)') === 0) {
+            $pdo->exec('ALTER TABLE password_reset_tokens MODIFY token_hash VARCHAR(64) NOT NULL');
+        }
     } catch (Throwable $ignored) {
     }
     $ready = true;
@@ -442,12 +450,13 @@ function mail_send_password_reset(PDO $pdo, array $user, string $resetUrl): arra
     $safeUrl = e($resetUrl);
     $html = mail_wrap_html('بازیابی رمز عبور',
         '<p>سلام ' . $name . '،</p>'
-        . '<p>برای تعیین رمز جدید روی دکمه زیر بزنید. این لینک حدود یک ساعت معتبر است.</p>'
+        . '<p>برای تعیین رمز جدید روی دکمه زیر بزنید. این لینک حدود دو ساعت معتبر است.</p>'
         . '<p><a href="' . $safeUrl . '" style="display:inline-block;padding:10px 18px;background:#c4783a;color:#fff;text-decoration:none;border-radius:8px">تعیین رمز جدید</a></p>'
         . '<p style="font-size:13px;color:#5a6f66">اگر این درخواست از طرف شما نبوده، این پیام را نادیده بگیرید.</p>'
-        . '<p style="font-size:12px;word-break:break-all;direction:ltr;text-align:left">' . $safeUrl . '</p>'
+        . '<p style="font-size:12px;direction:ltr;text-align:left;unicode-bidi:isolate;word-break:break-all">'
+        . '<a href="' . $safeUrl . '" style="color:#1b5e4b">' . $safeUrl . '</a></p>'
     );
-    $text = "سلام {$user['name']}\nبرای بازیابی رمز از این لینک استفاده کنید (حدود ۱ ساعت معتبر):\n{$resetUrl}\nاگر این درخواست از شما نبوده، نادیده بگیرید.";
+    $text = "سلام {$user['name']}\nبرای بازیابی رمز این آدرس را در مرورگر باز کنید (حدود ۲ ساعت معتبر):\n{$resetUrl}\nاگر این درخواست از شما نبوده، نادیده بگیرید.";
     return mail_send($pdo, $email, 'بازیابی رمز عبور مانا کلینیک', $html, $text);
 }
 
@@ -457,22 +466,47 @@ function mail_send_password_reset(PDO $pdo, array $user, string $resetUrl): arra
 function password_reset_create_token(PDO $pdo, string $userId): string
 {
     ensure_mail_schema($pdo);
-    $pdo->prepare('DELETE FROM password_reset_tokens WHERE user_id=? OR expires_at < NOW()')->execute([$userId]);
-    $raw = bin2hex(random_bytes(32));
+    if ($userId === '') {
+        throw new RuntimeException('user id empty for password reset');
+    }
+
+    // فقط توکن‌های همین کاربر + موارد منقضی
+    $pdo->prepare('DELETE FROM password_reset_tokens WHERE user_id=? OR expires_at < UTC_TIMESTAMP()')->execute([$userId]);
+
+    // ۳۲ کاراکتر: کمتر در ایمیل می‌شکند، همچنان امن است
+    $raw = bin2hex(random_bytes(16));
     $hash = hash('sha256', $raw);
     $id = cuid();
     $pdo->prepare(
-        'INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at) VALUES (?,?,?, DATE_ADD(NOW(), INTERVAL 1 HOUR))'
+        'INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at, used_at, created_at)
+         VALUES (?,?,?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL 2 HOUR), NULL, UTC_TIMESTAMP())'
     )->execute([$id, $userId, $hash]);
-    // مسیر URL (نه query string) تا فایروال/ModSecurity لینک ایمیل را بلاک نکند
+
+    $check = $pdo->prepare(
+        'SELECT id FROM password_reset_tokens
+         WHERE id=? AND token_hash=? AND used_at IS NULL AND expires_at > UTC_TIMESTAMP()
+         LIMIT 1'
+    );
+    $check->execute([$id, $hash]);
+    if (!$check->fetch()) {
+        throw new RuntimeException('password reset token was not saved');
+    }
+
     return seo_absolute_url('/reset-password/' . $raw);
+}
+
+function password_reset_normalize_token(string $rawToken): string
+{
+    return strtolower(preg_replace('/[^a-f0-9]/i', '', trim($rawToken)) ?? '');
 }
 
 function password_reset_find_valid(PDO $pdo, string $rawToken): ?array
 {
     ensure_mail_schema($pdo);
-    $rawToken = strtolower(trim($rawToken));
-    if ($rawToken === '' || !preg_match('/^[a-f0-9]{64}$/', $rawToken)) {
+    $rawToken = password_reset_normalize_token($rawToken);
+    // ۳۲ (جدید) یا ۶۴ (لینک‌های قبلی)
+    $len = strlen($rawToken);
+    if ($len !== 32 && $len !== 64) {
         return null;
     }
     $hash = hash('sha256', $rawToken);
@@ -482,7 +516,7 @@ function password_reset_find_valid(PDO $pdo, string $rawToken): ?array
                     u.username, u.name, u.email, u.role
              FROM password_reset_tokens t
              INNER JOIN users u ON u.id = t.user_id
-             WHERE t.token_hash=? AND t.used_at IS NULL AND t.expires_at > NOW()
+             WHERE t.token_hash=? AND t.used_at IS NULL AND t.expires_at > UTC_TIMESTAMP()
              LIMIT 1'
         );
         $st->execute([$hash]);
@@ -490,7 +524,6 @@ function password_reset_find_valid(PDO $pdo, string $rawToken): ?array
         if (!$row) {
             return null;
         }
-        // سازگاری با کد قبلی که از t.id استفاده می‌کرد
         $row['id'] = (string) ($row['reset_id'] ?? '');
         return $row;
     } catch (Throwable $e) {

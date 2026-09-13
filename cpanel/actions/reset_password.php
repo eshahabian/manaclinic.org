@@ -7,10 +7,15 @@ if (current_user()) {
     redirect(panel_href_for(current_user()) ?: '/');
 }
 
-$token = trim((string) ($_POST['token'] ?? ''));
+$token = password_reset_normalize_token((string) ($_POST['token'] ?? ''));
 $new = (string) ($_POST['new_password'] ?? '');
 $confirm = (string) ($_POST['new_password_confirm'] ?? '');
 $minPass = password_min_length();
+
+$back = static function (string $token): string {
+    $token = password_reset_normalize_token($token);
+    return $token !== '' ? ('/reset-password/' . $token) : '/forgot-password';
+};
 
 ensure_mail_schema($pdo);
 $row = password_reset_find_valid($pdo, $token);
@@ -21,15 +26,15 @@ if (!$row) {
 
 if (preg_match('/[^\x00-\x7F]/', $new) || preg_match('/[^\x00-\x7F]/', $confirm)) {
     flash_set('error', 'رمز عبور را با صفحه‌کلید انگلیسی وارد کنید.');
-    redirect('/reset-password?token=' . rawurlencode($token));
+    redirect($back($token));
 }
 if (strlen($new) < $minPass) {
     flash_set('error', 'رمز جدید حداقل ' . to_fa_digits((string) $minPass) . ' کاراکتر باشد.');
-    redirect('/reset-password?token=' . rawurlencode($token));
+    redirect($back($token));
 }
 if ($new !== $confirm) {
     flash_set('error', 'رمز جدید و تکرار آن یکسان نیست.');
-    redirect('/reset-password?token=' . rawurlencode($token));
+    redirect($back($token));
 }
 
 $hash = password_hash($new, PASSWORD_DEFAULT);
