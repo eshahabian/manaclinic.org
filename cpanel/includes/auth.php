@@ -33,7 +33,7 @@ function logout_user(string $reason = 'logout'): void
             staff_shift_end($pdo, (string) $user['id'], $reason);
         }
     }
-    unset($_SESSION['user'], $_SESSION['last_activity'], $_SESSION['staff_shift_id']);
+    unset($_SESSION['user'], $_SESSION['last_activity'], $_SESSION['staff_shift_id'], $_SESSION['staff_shift_mobile']);
 }
 
 function require_login(?array $roles = null): array

@@ -12,6 +12,79 @@ function staff_hours_person_word(array $block): string
     return (($block['kind'] ?? '') === 'doctor') ? 'درمانگر' : 'منشی';
 }
 
+function staff_hours_online_badge(array $openShift): string
+{
+    $started = (string) ($openShift['started_at'] ?? '');
+    $mobile = function_exists('staff_shift_is_mobile') && staff_shift_is_mobile($openShift);
+    $duration = function_exists('staff_format_duration')
+        ? staff_format_duration(staff_shift_seconds($openShift))
+        : '';
+    $device = $mobile ? 'موبایل' : 'رایانه';
+    $text = 'آنلاین با ' . $device . ' از ' . format_fa_datetime($started);
+    if ($duration !== '') {
+        $text .= ' · ' . $duration;
+    }
+    $class = $mobile ? 'badge staff-badge-mobile' : 'badge';
+
+    return '<span class="' . e($class) . '">' . e($text) . '</span>';
+}
+
+/** نوار وضعیت زنده ورود موبایل منشی‌ها برای دکتر/ادمین */
+function staff_hours_render_live_devices(array $people): string
+{
+    $secs = [];
+    foreach ($people as $block) {
+        if (!is_array($block) || ($block['kind'] ?? '') !== 'secretary') {
+            continue;
+        }
+        $secs[] = $block;
+    }
+    if ($secs === []) {
+        return '';
+    }
+
+    ob_start();
+    ?>
+<div class="panel staff-mobile-live" style="margin-top:1rem">
+  <div class="row-between" style="align-items:flex-start;gap:.75rem;flex-wrap:wrap">
+    <div>
+      <strong>وضعیت دستگاه منشی‌ها (الان)</strong>
+      <p class="muted" style="margin:.25rem 0 0;font-size:.85rem">اگر با موبایل وارد شده باشند اینجا و در سابقه هر نوبت مشخص است. مدت همان زمان آنلاین بودن با موبایل است.</p>
+    </div>
+  </div>
+  <ul class="staff-mobile-live-list">
+    <?php foreach ($secs as $block): ?>
+      <?php
+        $label = (string) ($block['label'] ?? staff_hours_person_word($block));
+        $open = is_array($block['open'] ?? null) ? $block['open'] : null;
+        $mobile = $open && function_exists('staff_shift_is_mobile') && staff_shift_is_mobile($open);
+      ?>
+      <li class="staff-mobile-live-item<?= $mobile ? ' is-mobile' : ($open ? ' is-desktop' : ' is-offline') ?>">
+        <span class="staff-mobile-live-name"><?= e($label) ?></span>
+        <?php if ($open && $mobile): ?>
+          <span class="staff-mobile-live-status">آنلاین با موبایل</span>
+          <span class="staff-mobile-live-meta">
+            از <?= e(format_fa_datetime((string) ($open['started_at'] ?? ''))) ?>
+            · <?= e(staff_format_duration(staff_shift_seconds($open))) ?>
+          </span>
+        <?php elseif ($open): ?>
+          <span class="staff-mobile-live-status">آنلاین با رایانه</span>
+          <span class="staff-mobile-live-meta">
+            از <?= e(format_fa_datetime((string) ($open['started_at'] ?? ''))) ?>
+            · <?= e(staff_format_duration(staff_shift_seconds($open))) ?>
+          </span>
+        <?php else: ?>
+          <span class="staff-mobile-live-status">آفلاین</span>
+          <span class="staff-mobile-live-meta muted">الان وارد نیست</span>
+        <?php endif; ?>
+      </li>
+    <?php endforeach; ?>
+  </ul>
+</div>
+    <?php
+    return (string) ob_get_clean();
+}
+
 function staff_hours_month_tab_label(array $month): string
 {
     $base = trim((string) ($month['range_tab_label'] ?? ''));
@@ -82,7 +155,9 @@ function staff_hours_render(array $slots, array $opts = []): string
     ob_start();
     ?>
 <h1>ساعت کاری منشی‌ها</h1>
-<p class="muted">ساعت عادی از ۹ صبح تا ۸ شب است؛ خارج از این بازه اضافه‌کار حساب می‌شود. تب هر منشی و هر درمانگر جداست. زمان حضور از اولین ورود تا آخرین خروج همان روز جمع می‌شود؛ جزئیات ورود و خروج پشت «بیشتر» است.</p>
+<p class="muted">ساعت عادی از ۹ صبح تا ۸ شب است؛ خارج از این بازه اضافه‌کار حساب می‌شود. تب هر منشی و هر درمانگر جداست. زمان حضور از اولین ورود تا آخرین خروج همان روز جمع می‌شود؛ جزئیات ورود و خروج پشت «بیشتر» است. ورود با موبایل هم در وضعیت زنده بالا و در جزئیات هر نوبت (و ساعت‌کاری‌های قبلی که با موبایل ثبت شده) دیده می‌شود.</p>
+
+<?= staff_hours_render_live_devices($people) ?>
 
 <div class="staff-hours-toolbar">
   <div class="staff-hours-export">
@@ -165,7 +240,7 @@ function staff_hours_render_self(array $block, array $opts = []): string
   <div class="row-between">
     <strong>حضور امروز</strong>
     <?php if ($open): ?>
-      <span class="badge">آنلاین از <?= e(format_fa_datetime((string) ($open['started_at'] ?? ''))) ?></span>
+      <?= staff_hours_online_badge($open) ?>
     <?php else: ?>
       <span class="badge">آفلاین</span>
     <?php endif; ?>
@@ -357,6 +432,7 @@ function staff_hours_render_shift_lines(array $rows, bool $isToday = false): str
           تا <?= !empty($row['ended_at']) ? e(format_fa_datetime((string) $row['ended_at'])) : ($isToday ? 'الان' : '— هنوز باز') ?>
           · <?= e(staff_format_duration(staff_shift_seconds($row))) ?>
           · <?= e(staff_format_split_line(staff_shift_seconds_split($row))) ?>
+          · <?= e(staff_device_label(staff_shift_is_mobile($row))) ?>
           · <?= e(staff_shift_reason_label(isset($row['end_reason']) && is_scalar($row['end_reason']) ? (string) $row['end_reason'] : null)) ?>
         </li>
       <?php endforeach; ?>
@@ -377,6 +453,7 @@ function staff_hours_render_day_presence(array $rows, array $opts = []): string
 
     $split = staff_day_presence_seconds_split($rows);
     $meta = staff_day_presence_meta($rows);
+    $mobileSeconds = function_exists('staff_rows_mobile_seconds') ? staff_rows_mobile_seconds($rows) : 0;
     $outClock = !empty($meta['open'])
         ? ($isToday ? 'الان' : '— هنوز باز')
         : staff_hours_format_clock($meta['last_out'] ?? null);
@@ -401,6 +478,12 @@ function staff_hours_render_day_presence(array $rows, array $opts = []): string
           <span class="staff-presence-label">زمان حضور</span>
           <span class="staff-presence-value"><?= e(staff_format_duration((int) ($split['total'] ?? 0))) ?></span>
         </div>
+        <?php if ($mobileSeconds > 0): ?>
+          <div class="staff-presence-stat staff-presence-stat-mobile">
+            <span class="staff-presence-label">با موبایل</span>
+            <span class="staff-presence-value"><?= e(staff_format_duration($mobileSeconds)) ?></span>
+          </div>
+        <?php endif; ?>
       </div>
       <p class="staff-presence-split muted"><?= e(staff_format_split_line($split, true)) ?></p>
       <details class="staff-presence-more">
@@ -453,7 +536,7 @@ function staff_hours_render_tile(array $block, string $dayDate, string $today): 
         </div>
       </div>
       <?php if ($isToday && $openShift): ?>
-        <span class="badge">آنلاین از <?= e(format_fa_datetime((string) ($openShift['started_at'] ?? ''))) ?></span>
+        <?= staff_hours_online_badge($openShift) ?>
       <?php elseif ($isToday): ?>
         <span class="badge">آفلاین</span>
       <?php endif; ?>
@@ -524,7 +607,7 @@ function staff_hours_render_month_tile(array $block, array $month, string $today
         </div>
       </div>
       <?php if ($monthHasToday && $openShift): ?>
-        <span class="badge">آنلاین از <?= e(format_fa_datetime((string) ($openShift['started_at'] ?? ''))) ?></span>
+        <?= staff_hours_online_badge($openShift) ?>
       <?php elseif ($monthHasToday): ?>
         <span class="badge">آفلاین</span>
       <?php endif; ?>
@@ -612,6 +695,7 @@ function staff_hours_send_export(PDO $pdo, int|string|null $who = null): void
         'مدت',
         'ساعت عادی',
         'اضافه‌کاری',
+        'دستگاه',
         'توضیح',
     ]);
     foreach ($rows as $row) {
@@ -626,6 +710,7 @@ function staff_hours_send_export(PDO $pdo, int|string|null $who = null): void
             (string) ($row['duration'] ?? ''),
             (string) ($row['regular'] ?? ''),
             (string) ($row['overtime'] ?? ''),
+            (string) ($row['device'] ?? ''),
             (string) ($row['reason'] ?? ''),
         ]);
     }

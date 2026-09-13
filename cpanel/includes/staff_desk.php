@@ -51,12 +51,14 @@ function ensure_staff_desk_schema(PDO $pdo): void
             ended_at DATETIME NULL,
             last_seen_at DATETIME NOT NULL,
             end_reason ENUM('logout','idle','login_replace') NULL,
+            is_mobile TINYINT(1) NOT NULL DEFAULT 0,
             INDEX idx_staff_shift_user (user_id, started_at),
             INDEX idx_staff_shift_open (user_id, ended_at)
           ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         ");
     } catch (Throwable $ignored) {
     }
+    $addColumn($pdo, 'staff_shifts', 'is_mobile', 'is_mobile TINYINT(1) NOT NULL DEFAULT 0 AFTER end_reason');
 
     try {
         $pdo->exec("
@@ -323,6 +325,43 @@ function staff_close_stale_shifts(PDO $pdo, ?string $userId = null): void
     }
 }
 
+function staff_request_is_mobile(?string $ua = null): bool
+{
+    $ua = $ua ?? (string) ($_SERVER['HTTP_USER_AGENT'] ?? '');
+    if ($ua === '') {
+        return false;
+    }
+
+    return (bool) preg_match(
+        '/Mobile|Android|iPhone|iPad|iPod|webOS|BlackBerry|IEMobile|Opera Mini|Windows Phone/i',
+        $ua
+    );
+}
+
+function staff_shift_is_mobile(array $shift): bool
+{
+    return !empty($shift['is_mobile']);
+}
+
+function staff_device_label(bool $isMobile): string
+{
+    return $isMobile ? 'موبایل' : 'رایانه';
+}
+
+/** مجموع ثانیه حضورهایی که با موبایل ثبت شده‌اند */
+function staff_rows_mobile_seconds(array $rows): int
+{
+    $total = 0;
+    foreach (staff_hours_shift_rows($rows) as $row) {
+        if (!is_array($row) || !staff_shift_is_mobile($row)) {
+            continue;
+        }
+        $total += staff_shift_seconds($row);
+    }
+
+    return $total;
+}
+
 function staff_shift_start(PDO $pdo, string $userId): void
 {
     staff_close_stale_shifts($pdo, $userId);
@@ -330,10 +369,12 @@ function staff_shift_start(PDO $pdo, string $userId): void
         $pdo->prepare("UPDATE staff_shifts SET ended_at=NOW(), end_reason='login_replace' WHERE user_id=? AND ended_at IS NULL")
             ->execute([$userId]);
         $id = cuid();
-        $pdo->prepare('INSERT INTO staff_shifts (id,user_id,started_at,last_seen_at) VALUES (?,?,NOW(),NOW())')
-            ->execute([$id, $userId]);
+        $isMobile = staff_request_is_mobile() ? 1 : 0;
+        $pdo->prepare('INSERT INTO staff_shifts (id,user_id,started_at,last_seen_at,is_mobile) VALUES (?,?,NOW(),NOW(),?)')
+            ->execute([$id, $userId, $isMobile]);
         $_SESSION['staff_shift_id'] = $id;
         $_SESSION['last_activity'] = time();
+        $_SESSION['staff_shift_mobile'] = $isMobile;
     } catch (Throwable $ignored) {
     }
 }
@@ -354,7 +395,7 @@ function staff_shift_end(PDO $pdo, string $userId, string $reason = 'logout'): v
         }
     } catch (Throwable $ignored) {
     }
-    unset($_SESSION['staff_shift_id']);
+    unset($_SESSION['staff_shift_id'], $_SESSION['staff_shift_mobile']);
 }
 
 function staff_touch_activity(PDO $pdo, string $userId): void
@@ -388,7 +429,7 @@ function staff_current_shift(PDO $pdo, string $userId): ?array
 function staff_idle_logout(PDO $pdo, array $user): never
 {
     staff_shift_end($pdo, (string) $user['id'], 'idle');
-    unset($_SESSION['user'], $_SESSION['last_activity'], $_SESSION['staff_shift_id']);
+    unset($_SESSION['user'], $_SESSION['last_activity'], $_SESSION['staff_shift_id'], $_SESSION['staff_shift_mobile']);
     flash_set('info', 'به‌خاطر ۱۰ دقیقه بی‌فعالیتی از حساب خارج شدید و ساعت کاری متوقف شد.');
     redirect('/login');
 }
@@ -991,6 +1032,7 @@ function staff_hours_export_rows(PDO $pdo, ?string $who = null): array
                     'overtime' => staff_format_duration((int) $part['overtime']),
                     'seconds' => $sec,
                     'reason' => staff_shift_reason_label($row['end_reason'] ?? null),
+                    'device' => staff_device_label(staff_shift_is_mobile($row)),
                     'day_total' => '',
                 ];
             }
@@ -1011,6 +1053,7 @@ function staff_hours_export_rows(PDO $pdo, ?string $who = null): array
                     'overtime' => staff_format_duration($dayOvertime),
                     'seconds' => $daySeconds,
                     'reason' => 'جمع روز',
+                    'device' => '',
                     'day_total' => staff_format_duration($daySeconds),
                 ];
             }
