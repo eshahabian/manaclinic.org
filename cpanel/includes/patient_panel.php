@@ -21,7 +21,6 @@ function patient_nav(): array
     $nav = [
         ['href' => '/dashboard', 'label' => 'خلاصه'],
         ['href' => '/dashboard/appointments', 'label' => 'نوبت‌های من'],
-        ['href' => '/doctors', 'label' => 'رزرو نوبت جدید'],
         [
             'href' => '/dashboard/workshops',
             'label' => 'کارگاه‌ها',
@@ -32,7 +31,6 @@ function patient_nav(): array
         ],
         ['href' => '/dashboard/wallet', 'label' => 'کیف پول'],
         ['href' => '/dashboard/profile', 'label' => 'پروفایل'],
-        ['href' => '/change-password', 'label' => 'تغییر رمز عبور'],
     ];
     $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link() : null;
     if ($videoLink) {

@@ -114,7 +114,7 @@
     finish.type = "button";
     finish.className = "btn btn-outline";
     finish.id = "assistant-finish-btn";
-    finish.textContent = "پیشنهاد درمانگر";
+    finish.textContent = "راهکار و پیشنهاد درمانگر";
     finish.disabled = !canComplete;
     finish.addEventListener("click", function () {
       if (busy || !sessionId) return;

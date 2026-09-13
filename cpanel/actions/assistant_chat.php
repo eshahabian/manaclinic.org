@@ -146,7 +146,7 @@ try {
             'mode' => 'ai',
             'botMessage' => $parsed['text'],
             'done' => false,
-            'canComplete' => $userTurns >= 2,
+            'canComplete' => $userTurns >= 3,
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
@@ -172,10 +172,10 @@ try {
         if ($userTurns < 1) {
             throw new RuntimeException('لطفاً کمی بیشتر درباره وضعیتتان بنویسید.');
         }
-        $messages[] = ['role' => 'user', 'content' => 'لطفاً جمع‌بندی کن و پیشنهاد درمانگر/کارگاه را آماده کن.'];
+        $messages[] = ['role' => 'user', 'content' => 'لطفاً اول چند راهکار عملی مرتبط با مشکلم بگو، بعد جمع‌بندی کن و پیشنهاد درمانگر/کارگاه را آماده کن.'];
         $apiMessages = assistant_openai_messages_for_api($messages);
-        $apiMessages[] = ['role' => 'system', 'content' => 'الان باید بلوک <<<READY>>> را با tags و summary برگردانی.'];
-        $rawReply = assistant_ai_chat($apiMessages, 500);
+        $apiMessages[] = ['role' => 'system', 'content' => 'اول ۲ تا ۴ راهکار ساده و امن مرتبط با مشکل کاربر بنویس، بعد جمع‌بندی همدلانه، و در انتهای همان پیام بلوک <<<READY>>> را با tags و summary برگردان.'];
+        $rawReply = assistant_ai_chat($apiMessages, 700);
         $parsed = assistant_ai_parse_reply($rawReply);
         $messages[] = ['role' => 'assistant', 'content' => $parsed['text']];
         $result = assistant_complete_from_ai($pdo, $sessionId, $messages, $parsed['tags'], $parsed['summary']);

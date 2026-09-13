@@ -782,6 +782,6 @@ function workshop_offline_protect_script(array $audioStreams = []): string
         $json = '{}';
     }
 
-    return '<script src="' . e(url('/assets/js/workshop-offline-protect.js')) . '?v=20260907k"></script>'
+    return '<script src="' . e(url('/assets/js/workshop-offline-protect.js')) . '?v=20260913a"></script>'
         . '<script>window.workshopOfflineAudioStreams=' . $json . ';if(window.workshopOfflineProtect){window.workshopOfflineProtect();}</script>';
 }

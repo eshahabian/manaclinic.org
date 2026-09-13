@@ -116,9 +116,6 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
         <a href="<?= e(url('/doctors')) ?>">متخصصان</a>
         <a href="<?= e(url('/articles')) ?>">مقالات</a>
         <a href="<?= e(url('/tests')) ?>">آزمون‌ها</a>
-        <?php if (function_exists('assistant_enabled') ? assistant_enabled() : false): ?>
-          <a href="<?= e(url('/assistant')) ?>">دستیار هوشمند</a>
-        <?php endif; ?>
         <a href="<?= e(url('/about')) ?>">درباره ما</a>
         <a href="<?= e(url('/faq')) ?>">سوالات متداول</a>
         <a href="<?= e(url('/rules')) ?>">قوانین</a>
@@ -156,7 +153,6 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
         $workshopsHref = ($user && ($user['role'] ?? '') === 'PATIENT')
           ? url('/dashboard/workshops')
           : url('/#home-workshop-banners');
-        $assistantOn = function_exists('assistant_enabled') ? assistant_enabled() : false;
       ?>
       <nav class="mobile-nav-grid" aria-label="منوی سایت">
         <a class="mobile-nav-tile" href="<?= e($workshopsHref) ?>">
@@ -189,14 +185,6 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
           </span>
           <span>آزمون‌ها</span>
         </a>
-        <?php if ($assistantOn): ?>
-          <a class="mobile-nav-tile" href="<?= e(url('/assistant')) ?>">
-            <span class="mobile-nav-tile-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="10" r="4"/><path d="M5 20c1.5-3 4-5 7-5s5.5 2 7 5"/></svg>
-            </span>
-            <span>دستیار هوشمند</span>
-          </a>
-        <?php endif; ?>
         <a class="mobile-nav-tile" href="<?= e(url('/about')) ?>">
           <span class="mobile-nav-tile-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 11v5M12 8h.01"/></svg>

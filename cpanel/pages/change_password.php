@@ -3,6 +3,12 @@ declare(strict_types=1);
 
 $user = require_login();
 $forced = !empty($user['must_change_password']);
+
+// مراجعه‌کننده تغییر رمز اختیاری را در پروفایل انجام می‌دهد
+if (!$forced && ($user['role'] ?? '') === 'PATIENT') {
+    redirect('/dashboard/profile#change-password');
+}
+
 $pageTitle = 'تغییر رمز عبور';
 $pageRobots = 'noindex,nofollow';
 ob_start();

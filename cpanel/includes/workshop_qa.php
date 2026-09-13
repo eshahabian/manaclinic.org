@@ -365,8 +365,8 @@ function workshop_qa_render(array $messages, array $opts = []): string
     .workshop-qa-chip:hover{background:#dce6f0}
     .workshop-qa-chip.is-on{background:#d3e2f3;color:#1b3d60;font-weight:700}
   </style>
-  <h2 class="workshop-qa-title">تالار گفتگو</h2>
-  <p class="muted workshop-qa-lead">چت همگانی دوره است؛ با نام خودتان بنویسید تا بقیه همان‌جا جواب بدهند. اگر خواستید فقط درمانگر ببیند، تب پیام خصوصی را باز کنید.</p>
+  <h2 class="workshop-qa-title">پرسش و پاسخ</h2>
+  <p class="muted workshop-qa-lead">اینجا می‌توانید درباره محتوای دوره سؤال بپرسید یا تجربه بگذارید؛ با نام خودتان دیده می‌شوید. برای حرف خصوصی با درمانگر، تب پیام خصوصی را باز کنید.</p>
   <div class="workshop-qa-tabs" role="tablist">
     <a class="workshop-qa-tab<?= !$isPrivateTab ? ' is-active' : '' ?>" href="<?= e($publicUrl !== '' ? $publicUrl : '#workshop-qa') ?>">همگانی</a>
     <a class="workshop-qa-tab<?= $isPrivateTab ? ' is-active' : '' ?>" href="<?= e($privateUrl !== '' ? $privateUrl : '#workshop-qa') ?>"><?= $isDoctor ? 'پیام‌های خصوصی' : 'پیام خصوصی با درمانگر' ?></a>
@@ -374,7 +374,7 @@ function workshop_qa_render(array $messages, array $opts = []): string
 
   <div class="workshop-qa-feed" id="workshop-qa-feed">
     <?php if ($messages === []): ?>
-      <p class="muted"><?= $isPrivateTab ? 'هنوز پیام خصوصی نیست.' : 'هنوز کسی در تالار ننوشته است. اولین پیام را شما بگذارید.' ?></p>
+      <p class="muted"><?= $isPrivateTab ? 'هنوز پیام خصوصی نیست.' : 'هنوز پرسشی ثبت نشده. اولین سؤال یا نظر را شما بگذارید.' ?></p>
     <?php else: ?>
       <?php foreach ($messages as $msg): ?>
         <?php if (!is_array($msg)) { continue; } ?>

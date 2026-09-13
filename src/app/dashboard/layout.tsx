@@ -18,7 +18,6 @@ export default async function DashboardLayout({
           { href: "/dashboard/courses", label: "دوره‌های من" },
           { href: "/dashboard/wallet", label: "کیف پول" },
           { href: "/dashboard/profile", label: "پروفایل" },
-          { href: "/doctors", label: "رزرو نوبت جدید" },
         ]}
       />
       <div>{children}</div>

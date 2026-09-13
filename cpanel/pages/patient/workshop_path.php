@@ -76,7 +76,7 @@ ob_start();
     <p class="muted" style="margin-top:.25rem">درمانگر: <?= e((string) $enrollment['doctor_name']) ?></p>
   <?php endif; ?>
   <?php if ($offline): ?>
-    <p class="muted" style="margin-top:.35rem;line-height:1.7">محتوای دوره همین‌جا پخش می‌شود — دانلود و ضبط صفحه مجاز نیست. پایین صفحه تالار گفتگوی همگانی است.</p>
+    <p class="muted" style="margin-top:.35rem;line-height:1.7">محتوای دوره همین‌جا در پنل پخش می‌شود — دانلود و ضبط صفحه مجاز نیست. پایین صفحه بخش پرسش و پاسخ است.</p>
   <?php else: ?>
     <p class="muted" style="margin-top:.35rem;line-height:1.7">هر جلسه یک قدم از مسیر است. بعد از برگزاری همان روز می‌توانید برای خودتان بنویسید. یادداشت درمانگر فقط برای شماست.</p>
   <?php endif; ?>

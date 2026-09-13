@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 $user = require_login(['PATIENT']);
+csrf_verify();
 $name = post('name');
 $phone = post('phone') ?: null;
 if ($name !== '') {
