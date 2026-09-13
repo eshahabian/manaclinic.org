@@ -81,7 +81,6 @@
       nameEn: nameEnEl,
       surname: surnameEl,
       username: userEl,
-      usernameHint: document.getElementById("username-hint"),
       transliterateUrl: cfg.transliterateUrl,
       nameDict: cfg.nameDict || {},
       usernameReadonly: true,

@@ -44,17 +44,17 @@
       if (!base) {
         if (force || usernameReadonly || !userEl.value.trim()) {
           if (!usernameTouched || usernameReadonly) userEl.value = "";
-          if (usernameHint) usernameHint.textContent = emptyHint;
+          userEl.placeholder = emptyHint;
+          if (usernameHint) usernameHint.textContent = "";
         }
         return;
       }
       var suggested = base.slice(0, 32);
       if (force || !usernameTouched || usernameReadonly) {
         userEl.value = suggested;
+        userEl.placeholder = "";
       }
-      if (usernameHint) {
-        usernameHint.textContent = "پیشنهاد: " + suggested;
-      }
+      if (usernameHint) usernameHint.textContent = "";
     }
 
     function lookupLocal(kind, persianText) {

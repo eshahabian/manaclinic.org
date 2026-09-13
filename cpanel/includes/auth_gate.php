@@ -85,14 +85,14 @@ $nameDict = isset($pdo) ? build_name_transliterations_client_map($pdo) : [];
           <label class="auth-line">
             <span>نام کاربری</span>
             <?php if ($role === 'DOCTOR'): ?>
-              <input name="username" id="username" required dir="ltr" autocomplete="username">
+              <input name="username" id="username" required dir="ltr" autocomplete="username" placeholder="نام کاربری با حروف انگلیسی، عدد یا نقطه.">
             <?php else: ?>
-              <input name="username" id="username" required dir="ltr" readonly tabindex="-1">
+              <input name="username" id="username" required dir="ltr" readonly tabindex="-1" placeholder="با وارد کردن نام، به‌صورت خودکار ساخته می‌شود.">
             <?php endif; ?>
           </label>
           <label class="auth-line">
             <span>ایمیل</span>
-            <input name="email" id="email" type="email" required dir="ltr" autocomplete="email" inputmode="email">
+            <input name="email" id="email" type="email" required dir="ltr" autocomplete="email" inputmode="email" placeholder="ایمیل واقعی برای خوش‌آمد و بازیابی رمز لازم است.">
           </label>
           <?php if ($role !== 'DOCTOR'): ?>
           <label class="auth-line">
@@ -101,8 +101,6 @@ $nameDict = isset($pdo) ? build_name_transliterations_client_map($pdo) : [];
           </label>
           <?php endif; ?>
         </div>
-        <p class="auth-hint">ایمیل واقعی برای خوش‌آمد و بازیابی رمز لازم است.</p>
-        <p class="auth-hint" id="username-hint"><?= $role === 'DOCTOR' ? 'نام کاربری با حروف انگلیسی، عدد یا نقطه.' : 'نام کاربری با وارد کردن نام ساخته می‌شود.' ?></p>
         <div class="auth-grid">
           <?= password_field_html('password', 'password', [
               'label' => 'رمز عبور',
@@ -162,5 +160,5 @@ window.ManaAuthGate = {
 $GLOBALS['pageHead'] = ($GLOBALS['pageHead'] ?? '') . '<link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,700&display=swap" rel="stylesheet">';
 $GLOBALS['pageBodyClass'] = trim(($GLOBALS['pageBodyClass'] ?? '') . ' is-auth');
 $GLOBALS['pageScripts'] = ($GLOBALS['pageScripts'] ?? '')
-    . '<script src="' . e(url('/assets/js/name-transliterate.js')) . '?v=20260906p"></script>'
-    . '<script src="' . e(url('/assets/js/auth-gate.js')) . '?v=20260910g"></script>';
+    . '<script src="' . e(url('/assets/js/name-transliterate.js')) . '?v=20260914a"></script>'
+    . '<script src="' . e(url('/assets/js/auth-gate.js')) . '?v=20260914a"></script>';
