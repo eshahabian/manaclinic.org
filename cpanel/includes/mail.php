@@ -17,8 +17,11 @@ function ensure_mail_schema(PDO $pdo): void
                 setting_key VARCHAR(64) PRIMARY KEY,
                 setting_value TEXT NULL,
                 updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
         );
+    } catch (Throwable $ignored) {
+    }
+    try {
         $pdo->exec(
             "CREATE TABLE IF NOT EXISTS password_reset_tokens (
                 id VARCHAR(32) PRIMARY KEY,
@@ -30,7 +33,7 @@ function ensure_mail_schema(PDO $pdo): void
                 INDEX idx_prt_token (token_hash),
                 INDEX idx_prt_user (user_id),
                 INDEX idx_prt_expires (expires_at)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4"
         );
     } catch (Throwable $ignored) {
     }
@@ -461,27 +464,39 @@ function password_reset_create_token(PDO $pdo, string $userId): string
     $pdo->prepare(
         'INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at) VALUES (?,?,?, DATE_ADD(NOW(), INTERVAL 1 HOUR))'
     )->execute([$id, $userId, $hash]);
-    return seo_absolute_url('/reset-password?token=' . rawurlencode($raw));
+    // مسیر URL (نه query string) تا فایروال/ModSecurity لینک ایمیل را بلاک نکند
+    return seo_absolute_url('/reset-password/' . $raw);
 }
 
 function password_reset_find_valid(PDO $pdo, string $rawToken): ?array
 {
     ensure_mail_schema($pdo);
-    $rawToken = trim($rawToken);
+    $rawToken = strtolower(trim($rawToken));
     if ($rawToken === '' || !preg_match('/^[a-f0-9]{64}$/', $rawToken)) {
         return null;
     }
     $hash = hash('sha256', $rawToken);
-    $st = $pdo->prepare(
-        'SELECT t.*, u.username, u.name, u.email, u.role
-         FROM password_reset_tokens t
-         INNER JOIN users u ON u.id = t.user_id
-         WHERE t.token_hash=? AND t.used_at IS NULL AND t.expires_at > NOW()
-         LIMIT 1'
-    );
-    $st->execute([$hash]);
-    $row = $st->fetch(PDO::FETCH_ASSOC);
-    return $row ?: null;
+    try {
+        $st = $pdo->prepare(
+            'SELECT t.id AS reset_id, t.user_id, t.expires_at, t.used_at,
+                    u.username, u.name, u.email, u.role
+             FROM password_reset_tokens t
+             INNER JOIN users u ON u.id = t.user_id
+             WHERE t.token_hash=? AND t.used_at IS NULL AND t.expires_at > NOW()
+             LIMIT 1'
+        );
+        $st->execute([$hash]);
+        $row = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$row) {
+            return null;
+        }
+        // سازگاری با کد قبلی که از t.id استفاده می‌کرد
+        $row['id'] = (string) ($row['reset_id'] ?? '');
+        return $row;
+    } catch (Throwable $e) {
+        error_log('ManaClinic password_reset_find_valid: ' . $e->getMessage());
+        return null;
+    }
 }
 
 function password_reset_mark_used(PDO $pdo, string $tokenId): void

@@ -8,8 +8,17 @@ if (current_user()) {
 }
 
 $token = trim((string) ($_GET['token'] ?? ''));
+if ($token === '') {
+    // سازگاری با لینک‌های قدیمی ?token=
+    $token = trim((string) ($_REQUEST['token'] ?? ''));
+}
 ensure_mail_schema($pdo);
-$row = password_reset_find_valid($pdo, $token);
+try {
+    $row = password_reset_find_valid($pdo, $token);
+} catch (Throwable $e) {
+    error_log('ManaClinic reset_password page: ' . $e->getMessage());
+    $row = null;
+}
 
 $pageTitle = 'تعیین رمز جدید';
 $pageRobots = 'noindex,nofollow';

@@ -260,6 +260,11 @@ if ($path === '/install' && empty($config['allow_install'])) {
 $key = $method . ' ' . $path;
 
 // مسیرهای پویا
+if (preg_match('#^/reset-password/([a-fA-F0-9]{64})$#', $path, $m) && $method === 'GET') {
+    $_GET['token'] = strtolower($m[1]);
+    require __DIR__ . '/pages/reset_password.php';
+    exit;
+}
 if (preg_match('#^/doctors/([a-zA-Z0-9_-]+)$#', $path, $m) && $method === 'GET') {
     $_GET['id'] = $m[1];
     require __DIR__ . '/pages/doctor_detail.php';
