@@ -26,6 +26,10 @@ $chart = get_or_create_patient_chart($pdo, $doctorId, $patientId);
 $historyExtraIds = extract_assistant_session_ids_from_history((string) ($chart['history_text'] ?? ''));
 $historyClean = doctor_chart_detach_assistant_history($pdo, $chart, $patientId);
 $historyHtml = history_html_for_editor($historyClean);
+[$defaultFirst, $defaultLast] = chart_split_patient_name((string) ($patient['name'] ?? ''));
+$chartFirst = trim((string) ($chart['first_name'] ?? '')) !== '' ? (string) $chart['first_name'] : $defaultFirst;
+$chartLast = trim((string) ($chart['last_name'] ?? '')) !== '' ? (string) $chart['last_name'] : $defaultLast;
+$chartTherapist = trim((string) ($chart['therapist_name'] ?? '')) !== '' ? (string) $chart['therapist_name'] : $doctorName;
 
 $notesStmt = $pdo->prepare('SELECT * FROM doctor_session_notes WHERE doctor_id=? AND patient_id=?');
 $notesStmt->execute([$doctorId, $patientId]);
@@ -58,15 +62,16 @@ $pathNotes = doctor_patient_path_notes_for_doctor($pdo, $doctorId, $patientId);
 $callStats = doctor_patient_call_stats($pdo, doctor_ctx_user_id($ctx), $patientId);
 $journalEntries = patient_journal_fetch_all($pdo, $patientId, 60);
 $journalMoods = patient_journal_moods();
+$careNotes = patient_care_notes_list($pdo, $patientId, 80);
 
 $noteCount = 0;
 foreach ($notesByApp as $n) {
-    if (trim((string) ($n['note_text'] ?? '')) !== '') {
+    if (session_note_has_content($n)) {
         $noteCount++;
     }
 }
 
-$tabs = ['overview', 'chart', 'sessions', 'intakes', 'workshops', 'messages', 'journal'];
+$tabs = ['overview', 'chart', 'sessions', 'intakes', 'workshops', 'messages', 'journal', 'care-notes'];
 $tabParam = trim((string) ($_GET['tab'] ?? 'overview'));
 if (!in_array($tabParam, $tabs, true)) {
     $tabParam = 'overview';
@@ -128,6 +133,7 @@ ob_start();
     <a class="<?= $tabParam === 'workshops' ? 'is-on' : '' ?>" href="<?= e($tabUrl('workshops')) ?>">کارگاه و مسیر <span><?= to_fa_digits((string) count($enrollments)) ?></span></a>
     <a class="<?= $tabParam === 'messages' ? 'is-on' : '' ?>" href="<?= e($tabUrl('messages')) ?>">پیام خصوصی <span><?= to_fa_digits((string) count($privateQa)) ?></span></a>
     <a class="<?= $tabParam === 'journal' ? 'is-on' : '' ?>" href="<?= e($tabUrl('journal')) ?>">دفتر یادداشت <span><?= to_fa_digits((string) count($journalEntries)) ?></span></a>
+    <a class="<?= $tabParam === 'care-notes' ? 'is-on' : '' ?>" href="<?= e($tabUrl('care-notes')) ?>">یادداشت مراجع <span><?= to_fa_digits((string) count($careNotes)) ?></span></a>
   </nav>
 
   <?php if ($tabParam === 'overview'): ?>
@@ -171,15 +177,32 @@ ob_start();
     <div class="ehr-split">
       <article class="ehr-card">
         <header class="ehr-card-head">
+          <h2>اطلاعات پایه</h2>
+          <a href="<?= e($tabUrl('chart')) ?>">ویرایش</a>
+        </header>
+        <dl class="ehr-basics-dl">
+          <div><dt>نام</dt><dd><?= e(trim($chartFirst . ' ' . $chartLast) !== '' ? trim($chartFirst . ' ' . $chartLast) : (string) $patient['name']) ?></dd></div>
+          <div><dt>درمانگر</dt><dd><?= e($chartTherapist) ?></dd></div>
+          <div><dt>تاریخ تولد</dt><dd><?= !empty($chart['birth_date']) ? e(to_jalali_label((string) $chart['birth_date'])) : '—' ?></dd></div>
+          <div><dt>وضعیت تأهل</dt><dd><?= e(chart_marital_label($chart['marital_status'] ?? null)) ?></dd></div>
+          <div><dt>محل سکونت</dt><dd><?= trim((string) ($chart['residence'] ?? '')) !== '' ? e((string) $chart['residence']) : '—' ?></dd></div>
+          <div class="ehr-basics-span"><dt>شکایت اصلی</dt><dd><?= trim((string) ($chart['chief_complaint'] ?? '')) !== '' ? nl2br(e((string) $chart['chief_complaint'])) : '—' ?></dd></div>
+          <div class="ehr-basics-span"><dt>تاریخچه خانوادگی</dt><dd><?= trim((string) ($chart['family_history'] ?? '')) !== '' ? nl2br(e((string) $chart['family_history'])) : '—' ?></dd></div>
+        </dl>
+      </article>
+      <article class="ehr-card">
+        <header class="ehr-card-head">
           <h2>شرح حال</h2>
           <a href="<?= e($tabUrl('chart')) ?>">ویرایش</a>
         </header>
         <?php if ($historySnippet !== ''): ?>
           <p class="ehr-preview"><?= e($historySnippet) ?></p>
         <?php else: ?>
-          <p class="muted">هنوز شرح حالی نوشته نشده. از تب شرح حال مثل چارت Jane / SimplePractice یادداشت بالینی را شروع کنید.</p>
+          <p class="muted">هنوز شرح حالی نوشته نشده. از تب شرح حال یادداشت بالینی را شروع کنید.</p>
         <?php endif; ?>
       </article>
+    </div>
+    <div class="ehr-split" style="margin-top:1rem">
       <article class="ehr-card">
         <header class="ehr-card-head">
           <h2>فعالیت اخیر</h2>
@@ -218,11 +241,57 @@ ob_start();
     <section class="ehr-card clinical-board">
       <header class="ehr-card-head">
         <div>
-          <h2>شرح حال بالینی</h2>
-          <p class="muted" style="margin:.3rem 0 0;font-size:.85rem">مثل psychotherapy note جدا از لیست جلسات است؛ فقط شما می‌بینید.</p>
+          <h2>اطلاعات پایه پرونده</h2>
+          <p class="muted" style="margin:.3rem 0 0;font-size:.85rem">این بخش معمولاً یک‌بار پر می‌شود: مشخصات، شکایت اصلی، محل سکونت و تاریخچه خانوادگی.</p>
         </div>
       </header>
-      <form method="post" action="<?= e(url('/doctor/patients/' . $patientId . '/history')) ?>" id="history-form">
+      <form method="post" action="<?= e(url('/doctor/patients/' . $patientId . '/history')) ?>" id="history-form" class="form-stack" style="gap:1rem">
+        <div class="ehr-basics-grid">
+          <div>
+            <label class="label" for="chart_first_name">نام</label>
+            <input class="input" id="chart_first_name" name="first_name" value="<?= e($chartFirst) ?>">
+          </div>
+          <div>
+            <label class="label" for="chart_last_name">نام خانوادگی</label>
+            <input class="input" id="chart_last_name" name="last_name" value="<?= e($chartLast) ?>">
+          </div>
+          <div>
+            <label class="label" for="chart_therapist_name">نام درمانگر</label>
+            <input class="input" id="chart_therapist_name" name="therapist_name" value="<?= e($chartTherapist) ?>">
+          </div>
+          <div>
+            <label class="label" for="chart_birth_date">تاریخ تولد</label>
+            <input class="input" id="chart_birth_date" type="date" name="birth_date" value="<?= e((string) ($chart['birth_date'] ?? '')) ?>" dir="ltr">
+          </div>
+          <div>
+            <label class="label" for="chart_marital">وضعیت تأهل</label>
+            <select class="input" id="chart_marital" name="marital_status">
+              <option value="">انتخاب کنید</option>
+              <option value="single"<?= ((string) ($chart['marital_status'] ?? '') === 'single') ? ' selected' : '' ?>>مجرد</option>
+              <option value="married"<?= ((string) ($chart['marital_status'] ?? '') === 'married') ? ' selected' : '' ?>>متاهل</option>
+              <option value="other"<?= ((string) ($chart['marital_status'] ?? '') === 'other') ? ' selected' : '' ?>>سایر</option>
+            </select>
+          </div>
+          <div>
+            <label class="label" for="chart_residence">محل سکونت</label>
+            <input class="input" id="chart_residence" name="residence" value="<?= e((string) ($chart['residence'] ?? '')) ?>">
+          </div>
+        </div>
+        <div>
+          <label class="label" for="chart_chief">شکایت اصلی</label>
+          <textarea class="input" id="chart_chief" name="chief_complaint" rows="3" placeholder="شکایت اصلی مراجع…"><?= e((string) ($chart['chief_complaint'] ?? '')) ?></textarea>
+        </div>
+        <div>
+          <label class="label" for="chart_family">تاریخچه خانوادگی</label>
+          <textarea class="input" id="chart_family" name="family_history" rows="4" placeholder="سابقه خانوادگی مرتبط…"><?= e((string) ($chart['family_history'] ?? '')) ?></textarea>
+        </div>
+
+        <header class="ehr-card-head" style="padding:0;border:0">
+          <div>
+            <h2 style="font-size:1.05rem;margin:0">شرح حال بالینی</h2>
+            <p class="muted" style="margin:.3rem 0 0;font-size:.85rem">یادداشت آزاد بالینی؛ فقط شما می‌بینید.</p>
+          </div>
+        </header>
         <div class="clinical-toolbar" id="clinical-toolbar">
           <button type="button" class="tool-btn bold" data-cmd="bold" title="ضخیم">B</button>
           <span class="tool-sep"></span>
@@ -241,7 +310,7 @@ ob_start();
         <div id="clinical-editor" class="clinical-editor" contenteditable="true" role="textbox" aria-label="شرح حال" data-placeholder="شرح حال مراجعه‌کننده را اینجا بنویسید..."><?= $historyHtml ?></div>
         <textarea name="history_text" id="history_text" hidden></textarea>
         <div style="margin-top:.85rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
-          <button class="btn btn-primary" type="submit">ذخیره شرح حال</button>
+          <button class="btn btn-primary" type="submit">ذخیره اطلاعات پایه و شرح حال</button>
           <?php if (!empty($chart['updated_at'])): ?>
             <span class="muted" style="font-size:.8rem">آخرین ویرایش: <?= e(format_fa_datetime($chart['updated_at'])) ?></span>
           <?php endif; ?>
@@ -254,8 +323,8 @@ ob_start();
     <section class="ehr-card">
       <header class="ehr-card-head">
         <div>
-          <h2>جلسات و progress note</h2>
-          <p class="muted" style="margin:.3rem 0 0;font-size:.85rem">هر نوبت یک یادداشت جلسه دارد؛ سال و ماه را مثل پرونده‌های کلینیکی فیلتر کنید.</p>
+          <h2>جلسات و یادداشت D / A / P</h2>
+          <p class="muted" style="margin:.3rem 0 0;font-size:.85rem">برای هر جلسه سه بخش D، A و P (بالینی و خصوصی) و یک نوت جدا برای مراجع که در پروفایلش می‌بیند.</p>
         </div>
       </header>
       <?php
@@ -276,7 +345,7 @@ ob_start();
                     continue;
                 }
                 $note = $notesByApp[$a['id']] ?? null;
-                $hasNote = $note && trim((string) ($note['note_text'] ?? '')) !== '';
+                $hasNote = session_note_has_content(is_array($note) ? $note : null);
                 $day = jalali_day_parts((string) $a['starts_at']);
                 ?>
                 <div class="session-note-box<?= $hasNote ? ' has-note' : '' ?>" data-box>
@@ -289,12 +358,28 @@ ob_start();
                     </span>
                   </button>
                   <div class="session-note-panel" data-panel>
-                    <form method="post" action="<?= e(url('/doctor/patients/' . $patientId . '/session-note')) ?>">
+                    <form method="post" action="<?= e(url('/doctor/patients/' . $patientId . '/session-note')) ?>" class="form-stack" style="gap:.75rem">
                       <input type="hidden" name="appointment_id" value="<?= e($a['id']) ?>">
-                      <label class="label">یادداشت این جلسه</label>
-                      <textarea class="input" name="note_text" rows="5" placeholder="مشاهدات، مداخلات، تکالیف..."><?= e((string) ($note['note_text'] ?? '')) ?></textarea>
+                      <div class="ehr-dap-grid">
+                        <div>
+                          <label class="label" for="d-<?= e($a['id']) ?>">D</label>
+                          <textarea class="input" id="d-<?= e($a['id']) ?>" name="d_text" rows="4" placeholder="Data / تشخیص و داده‌ها…"><?= e((string) ($note['d_text'] ?? '')) ?></textarea>
+                        </div>
+                        <div>
+                          <label class="label" for="a-<?= e($a['id']) ?>">A</label>
+                          <textarea class="input" id="a-<?= e($a['id']) ?>" name="a_text" rows="4" placeholder="Assessment / ارزیابی…"><?= e((string) ($note['a_text'] ?? '')) ?></textarea>
+                        </div>
+                        <div>
+                          <label class="label" for="p-<?= e($a['id']) ?>">P</label>
+                          <textarea class="input" id="p-<?= e($a['id']) ?>" name="p_text" rows="4" placeholder="Plan / برنامه…"><?= e((string) ($note['p_text'] ?? '')) ?></textarea>
+                        </div>
+                      </div>
+                      <div>
+                        <label class="label" for="pn-<?= e($a['id']) ?>">نوت برای مراجع (در پروفایلش می‌بیند)</label>
+                        <textarea class="input" id="pn-<?= e($a['id']) ?>" name="note_text" rows="3" placeholder="اگر لازم است برای مراجع بنویسید…"><?= e((string) ($note['note_text'] ?? '')) ?></textarea>
+                      </div>
                       <?= appointment_notes_html($a) ?>
-                      <div style="margin-top:.75rem;display:flex;gap:.5rem;flex-wrap:wrap">
+                      <div style="margin-top:.25rem;display:flex;gap:.5rem;flex-wrap:wrap">
                         <button class="btn btn-primary btn-sm" type="submit">ذخیره</button>
                         <button class="btn btn-outline btn-sm" type="button" data-close>بستن</button>
                         <?= appointment_cancel_form((string) $a['id'], (string) $a['status'], '/doctor/appointments', '/doctor/patients/' . $patientId . '?tab=sessions') ?>
@@ -470,6 +555,29 @@ ob_start();
               <?php if (!empty($je['photo_path'])): ?>
                 <img class="ehr-journal-photo" src="<?= e(url((string) $je['photo_path'])) ?>" alt="عکس یادداشت <?= e(to_jalali_label((string) $je['entry_date'])) ?>">
               <?php endif; ?>
+            </li>
+          <?php endforeach; ?>
+        </ul>
+      <?php endif; ?>
+    </section>
+  <?php endif; ?>
+
+  <?php if ($tabParam === 'care-notes'): ?>
+    <section class="ehr-card">
+      <header class="ehr-card-head">
+        <div>
+          <h2>یادداشت‌های مراجع</h2>
+          <p class="muted" style="margin:.3rem 0 0;font-size:.85rem">هر چیزی که مراجع درباره جلسات فردی، کارگاه یا دوره‌ها در پروفایلش نوشته؛ فقط مشاهده.</p>
+        </div>
+      </header>
+      <?php if (!$careNotes): ?>
+        <p class="muted" style="margin:0">هنوز یادداشتی از سمت مراجع ثبت نشده.</p>
+      <?php else: ?>
+        <ul class="ehr-feed">
+          <?php foreach ($careNotes as $cn): ?>
+            <li>
+              <p class="ehr-feed-meta"><?= e(format_fa_datetime((string) ($cn['created_at'] ?? ''))) ?></p>
+              <p style="margin:0;line-height:1.85;white-space:pre-wrap"><?= e((string) ($cn['body'] ?? '')) ?></p>
             </li>
           <?php endforeach; ?>
         </ul>

@@ -9,7 +9,10 @@ require_doctor_patient_access($pdo, $ctx, $patientId);
 
 $doctorId = $ctx['profile']['id'];
 $appointmentId = post('appointment_id');
-$noteText = (string) ($_POST['note_text'] ?? '');
+$noteText = trim((string) ($_POST['note_text'] ?? ''));
+$dText = trim((string) ($_POST['d_text'] ?? ''));
+$aText = trim((string) ($_POST['a_text'] ?? ''));
+$pText = trim((string) ($_POST['p_text'] ?? ''));
 
 if ($appointmentId === '') {
     flash_set('error', 'نوبت مشخص نیست.');
@@ -28,12 +31,12 @@ $existing->execute([$appointmentId, $doctorId]);
 $row = $existing->fetch();
 
 if ($row) {
-    $pdo->prepare('UPDATE doctor_session_notes SET note_text=? WHERE id=? AND doctor_id=?')
-        ->execute([$noteText, $row['id'], $doctorId]);
+    $pdo->prepare('UPDATE doctor_session_notes SET note_text=?, d_text=?, a_text=?, p_text=? WHERE id=? AND doctor_id=?')
+        ->execute([$noteText, $dText, $aText, $pText, $row['id'], $doctorId]);
 } else {
-    $pdo->prepare('INSERT INTO doctor_session_notes (id, doctor_id, patient_id, appointment_id, note_text) VALUES (?,?,?,?,?)')
-        ->execute([cuid(), $doctorId, $patientId, $appointmentId, $noteText]);
+    $pdo->prepare('INSERT INTO doctor_session_notes (id, doctor_id, patient_id, appointment_id, note_text, d_text, a_text, p_text) VALUES (?,?,?,?,?,?,?,?)')
+        ->execute([cuid(), $doctorId, $patientId, $appointmentId, $noteText, $dText, $aText, $pText]);
 }
 
-flash_set('success', 'یادداشت جلسه ذخیره شد.');
+flash_set('success', 'یادداشت جلسه (D/A/P و نوت مراجع) ذخیره شد.');
 redirect('/doctor/patients/' . $patientId . '?tab=sessions');

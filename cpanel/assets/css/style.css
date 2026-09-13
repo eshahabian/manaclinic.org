@@ -4647,6 +4647,54 @@ body.workshop-overview-locked { overflow: hidden; }
 }
 
 .ehr-shell { display: grid; gap: 1rem; }
+.ehr-basics-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+  gap: .75rem 1rem;
+}
+.ehr-basics-dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(11rem, 1fr));
+  gap: .7rem .9rem;
+  margin: 0;
+}
+.ehr-basics-dl > div {
+  background: var(--bg-soft);
+  border-radius: .7rem;
+  padding: .65rem .75rem;
+}
+.ehr-basics-dl dt {
+  font-size: .78rem;
+  color: var(--muted);
+  margin: 0 0 .2rem;
+}
+.ehr-basics-dl dd {
+  margin: 0;
+  line-height: 1.7;
+  font-size: .95rem;
+}
+.ehr-basics-span { grid-column: 1 / -1; }
+.ehr-dap-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .65rem;
+}
+@media (max-width: 900px) {
+  .ehr-dap-grid { grid-template-columns: 1fr; }
+}
+.patient-note-feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: .75rem;
+}
+.patient-note-feed li {
+  border: 1px solid var(--line);
+  border-radius: .75rem;
+  padding: .75rem .85rem;
+  background: var(--bg-soft);
+}
 .ehr-back { margin: 0; font-size: .88rem; }
 .ehr-back a { color: var(--muted); }
 .ehr-header {

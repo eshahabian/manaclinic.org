@@ -14,6 +14,14 @@ function ensure_doctor_clinical_tables(PDO $pdo): void
         doctor_id VARCHAR(32) NOT NULL,
         patient_id VARCHAR(32) NOT NULL,
         history_text MEDIUMTEXT NULL,
+        first_name VARCHAR(80) NULL,
+        last_name VARCHAR(80) NULL,
+        therapist_name VARCHAR(120) NULL,
+        birth_date DATE NULL,
+        marital_status VARCHAR(20) NULL,
+        chief_complaint TEXT NULL,
+        residence VARCHAR(255) NULL,
+        family_history TEXT NULL,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY uq_doctor_patient_chart (doctor_id, patient_id),
@@ -27,6 +35,9 @@ function ensure_doctor_clinical_tables(PDO $pdo): void
         patient_id VARCHAR(32) NOT NULL,
         appointment_id VARCHAR(32) NOT NULL,
         note_text MEDIUMTEXT NOT NULL,
+        d_text MEDIUMTEXT NULL,
+        a_text MEDIUMTEXT NULL,
+        p_text MEDIUMTEXT NULL,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         UNIQUE KEY uq_session_note_appointment (appointment_id),
@@ -45,7 +56,176 @@ function ensure_doctor_clinical_tables(PDO $pdo): void
         INDEX idx_hl_doctor_patient (doctor_id, patient_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
+    $pdo->exec("
+      CREATE TABLE IF NOT EXISTS patient_care_notes (
+        id VARCHAR(32) PRIMARY KEY,
+        patient_id VARCHAR(32) NOT NULL,
+        body MEDIUMTEXT NOT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_patient_care_notes (patient_id, created_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
+
+    $addColumn = static function (PDO $pdo, string $table, string $column, string $ddl): void {
+        try {
+            $has = $pdo->query("SHOW COLUMNS FROM {$table} LIKE " . $pdo->quote($column))->fetch();
+            if (!$has) {
+                $pdo->exec("ALTER TABLE {$table} ADD COLUMN {$ddl}");
+            }
+        } catch (Throwable $ignored) {
+        }
+    };
+    $addColumn($pdo, 'doctor_patient_charts', 'first_name', 'first_name VARCHAR(80) NULL AFTER history_text');
+    $addColumn($pdo, 'doctor_patient_charts', 'last_name', 'last_name VARCHAR(80) NULL AFTER first_name');
+    $addColumn($pdo, 'doctor_patient_charts', 'therapist_name', 'therapist_name VARCHAR(120) NULL AFTER last_name');
+    $addColumn($pdo, 'doctor_patient_charts', 'birth_date', 'birth_date DATE NULL AFTER therapist_name');
+    $addColumn($pdo, 'doctor_patient_charts', 'marital_status', 'marital_status VARCHAR(20) NULL AFTER birth_date');
+    $addColumn($pdo, 'doctor_patient_charts', 'chief_complaint', 'chief_complaint TEXT NULL AFTER marital_status');
+    $addColumn($pdo, 'doctor_patient_charts', 'residence', 'residence VARCHAR(255) NULL AFTER chief_complaint');
+    $addColumn($pdo, 'doctor_patient_charts', 'family_history', 'family_history TEXT NULL AFTER residence');
+    $addColumn($pdo, 'doctor_session_notes', 'd_text', 'd_text MEDIUMTEXT NULL AFTER note_text');
+    $addColumn($pdo, 'doctor_session_notes', 'a_text', 'a_text MEDIUMTEXT NULL AFTER d_text');
+    $addColumn($pdo, 'doctor_session_notes', 'p_text', 'p_text MEDIUMTEXT NULL AFTER a_text');
+
     $ready = true;
+}
+
+function chart_marital_label(?string $status): string
+{
+    return match ((string) $status) {
+        'single' => 'مجرد',
+        'married' => 'متاهل',
+        'other' => 'سایر',
+        default => '—',
+    };
+}
+
+function chart_split_patient_name(string $fullName): array
+{
+    $fullName = trim(preg_replace('/\s+/u', ' ', $fullName) ?? '');
+    if ($fullName === '') {
+        return ['', ''];
+    }
+    $parts = preg_split('/\s+/u', $fullName) ?: [];
+    if (count($parts) === 1) {
+        return [$parts[0], ''];
+    }
+    $last = array_pop($parts);
+
+    return [implode(' ', $parts), (string) $last];
+}
+
+/** یادداشت‌های درمانگر برای مراجع (قابل‌دیدن در پروفایل) — جلسات فردی + مسیر کارگاه */
+function patient_visible_therapist_notes(PDO $pdo, string $patientId): array
+{
+    ensure_doctor_clinical_tables($pdo);
+    $out = [];
+    try {
+        $stmt = $pdo->prepare("
+          SELECT n.note_text AS body, n.updated_at, n.created_at, a.starts_at,
+                 u.name AS doctor_name, 'session' AS source, NULL AS workshop_title
+          FROM doctor_session_notes n
+          LEFT JOIN appointments a ON a.id = n.appointment_id
+          LEFT JOIN doctor_profiles dp ON dp.id = n.doctor_id
+          LEFT JOIN users u ON u.id = dp.user_id
+          WHERE n.patient_id=? AND TRIM(IFNULL(n.note_text,'')) <> ''
+        ");
+        $stmt->execute([$patientId]);
+        foreach ($stmt->fetchAll() ?: [] as $row) {
+            if (is_array($row)) {
+                $out[] = $row;
+            }
+        }
+    } catch (Throwable $ignored) {
+    }
+
+    try {
+        if (function_exists('ensure_workshop_path_notes_schema')) {
+            ensure_workshop_path_notes_schema($pdo);
+        }
+        $ws = $pdo->prepare("
+          SELECT pn.body, pn.updated_at, pn.created_at, ws.session_date AS starts_at,
+                 u.name AS doctor_name, 'workshop' AS source, w.title AS workshop_title
+          FROM workshop_path_notes pn
+          INNER JOIN workshop_enrollments e ON e.id = pn.enrollment_id
+          INNER JOIN workshops w ON w.id = e.workshop_id
+          LEFT JOIN workshop_sessions ws ON ws.id = pn.session_id
+          LEFT JOIN users u ON u.id = pn.author_user_id
+          WHERE e.patient_id=? AND pn.kind='instructor' AND TRIM(IFNULL(pn.body,'')) <> ''
+        ");
+        $ws->execute([$patientId]);
+        foreach ($ws->fetchAll() ?: [] as $row) {
+            if (is_array($row)) {
+                $out[] = $row;
+            }
+        }
+    } catch (Throwable $ignored) {
+    }
+
+    usort($out, static function (array $a, array $b): int {
+        $ta = (string) (($a['starts_at'] ?? '') ?: (($a['updated_at'] ?? '') ?: ($a['created_at'] ?? '')));
+        $tb = (string) (($b['starts_at'] ?? '') ?: (($b['updated_at'] ?? '') ?: ($b['created_at'] ?? '')));
+        return strcmp($tb, $ta);
+    });
+
+    return array_slice($out, 0, 100);
+}
+
+function patient_care_notes_list(PDO $pdo, string $patientId, int $limit = 100): array
+{
+    ensure_doctor_clinical_tables($pdo);
+    $limit = max(1, min(200, $limit));
+    try {
+        $stmt = $pdo->prepare("
+          SELECT * FROM patient_care_notes
+          WHERE patient_id=?
+          ORDER BY created_at DESC
+          LIMIT {$limit}
+        ");
+        $stmt->execute([$patientId]);
+        $rows = $stmt->fetchAll();
+        return is_array($rows) ? $rows : [];
+    } catch (Throwable $ignored) {
+        return [];
+    }
+}
+
+function patient_care_note_create(PDO $pdo, string $patientId, string $body): ?string
+{
+    ensure_doctor_clinical_tables($pdo);
+    $body = trim($body);
+    if ($patientId === '' || $body === '') {
+        return null;
+    }
+    $id = cuid();
+    $pdo->prepare('INSERT INTO patient_care_notes (id, patient_id, body) VALUES (?,?,?)')
+        ->execute([$id, $patientId, $body]);
+
+    return $id;
+}
+
+function patient_care_note_delete(PDO $pdo, string $patientId, string $noteId): bool
+{
+    ensure_doctor_clinical_tables($pdo);
+    $stmt = $pdo->prepare('DELETE FROM patient_care_notes WHERE id=? AND patient_id=?');
+    $stmt->execute([$noteId, $patientId]);
+
+    return $stmt->rowCount() > 0;
+}
+
+function session_note_has_content(?array $note): bool
+{
+    if (!is_array($note)) {
+        return false;
+    }
+    foreach (['note_text', 'd_text', 'a_text', 'p_text'] as $key) {
+        if (trim((string) ($note[$key] ?? '')) !== '') {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 /**

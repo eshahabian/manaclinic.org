@@ -157,6 +157,7 @@ $routes = [
     'GET /dashboard/wallet' => 'pages/patient/wallet.php',
     'GET /dashboard/profile' => 'pages/patient/profile.php',
     'POST /dashboard/profile' => 'actions/patient_profile.php',
+    'POST /dashboard/care-notes' => 'actions/patient_care_note.php',
     'POST /dashboard/pay' => 'actions/pay_appointment.php',
     'POST /enroll-workshop' => 'actions/enroll_workshop.php',
     'POST /pay-workshop' => 'actions/pay_workshop.php',
