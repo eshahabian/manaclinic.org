@@ -212,6 +212,9 @@ function ensure_secretary_accounts(PDO $pdo): void
                     password_hash('123', PASSWORD_DEFAULT),
                     'SECRETARY',
                 ]);
+            if (function_exists('user_remember_password_plain')) {
+                user_remember_password_plain($pdo, 'secretary001mana', '123');
+            }
         }
 
         $has2 = $pdo->query("SELECT id FROM users WHERE username='secretary2' LIMIT 1")->fetch();
@@ -226,6 +229,9 @@ function ensure_secretary_accounts(PDO $pdo): void
                     password_hash('123', PASSWORD_DEFAULT),
                     'SECRETARY',
                 ]);
+            if (function_exists('user_remember_password_plain')) {
+                user_remember_password_plain($pdo, 'secretary002mana', '123');
+            }
         } else {
             $pdo->prepare("UPDATE users SET name='منشی ۲' WHERE username='secretary2' AND role='SECRETARY'")
                 ->execute();
@@ -345,21 +351,43 @@ function staff_shift_is_mobile(array $shift): bool
 
 function staff_device_label(bool $isMobile): string
 {
-    return $isMobile ? 'موبایل' : 'رایانه';
+    return $isMobile ? 'موبایل' : 'لپ‌تاپ';
 }
 
-/** مجموع ثانیه حضورهایی که با موبایل ثبت شده‌اند */
-function staff_rows_mobile_seconds(array $rows): int
+/** مجموع ثانیه حضور به تفکیک موبایل و لپ‌تاپ */
+function staff_rows_device_seconds(array $rows): array
 {
-    $total = 0;
+    $mobile = 0;
+    $desktop = 0;
     foreach (staff_hours_shift_rows($rows) as $row) {
-        if (!is_array($row) || !staff_shift_is_mobile($row)) {
+        if (!is_array($row)) {
             continue;
         }
-        $total += staff_shift_seconds($row);
+        $sec = staff_shift_seconds($row);
+        if (staff_shift_is_mobile($row)) {
+            $mobile += $sec;
+        } else {
+            $desktop += $sec;
+        }
     }
 
-    return $total;
+    return [
+        'mobile' => $mobile,
+        'desktop' => $desktop,
+        'total' => $mobile + $desktop,
+    ];
+}
+
+/** @deprecated استفاده از staff_rows_device_seconds */
+function staff_rows_mobile_seconds(array $rows): int
+{
+    return (int) (staff_rows_device_seconds($rows)['mobile'] ?? 0);
+}
+
+function staff_format_device_split_line(array $device): string
+{
+    return 'لپ‌تاپ: ' . staff_format_duration((int) ($device['desktop'] ?? 0))
+        . ' · موبایل: ' . staff_format_duration((int) ($device['mobile'] ?? 0));
 }
 
 function staff_shift_start(PDO $pdo, string $userId): void

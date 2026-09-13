@@ -6,6 +6,41 @@ function current_user(): ?array
     return $_SESSION['user'] ?? null;
 }
 
+/** ستون رمز قابل‌مشاهده فقط برای ادمین (رمزهای قدیمی قابل بازیابی نیستند) */
+function ensure_users_password_plain_schema(PDO $pdo): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    try {
+        $has = $pdo->query("SHOW COLUMNS FROM users LIKE 'password_plain'")->fetch();
+        if (!$has) {
+            $pdo->exec("ALTER TABLE users ADD COLUMN password_plain VARCHAR(255) NULL AFTER password_hash");
+        }
+    } catch (Throwable $ignored) {
+    }
+    $ready = true;
+}
+
+/** ذخیرهٔ نسخهٔ قابل‌مشاهدهٔ رمز فقط برای پنل ادمین */
+function user_remember_password_plain(PDO $pdo, string $userId, string $plain): void
+{
+    if ($userId === '' || $plain === '') {
+        return;
+    }
+    ensure_users_password_plain_schema($pdo);
+    try {
+        if (function_exists('mb_substr')) {
+            $plain = mb_substr($plain, 0, 255);
+        } else {
+            $plain = substr($plain, 0, 255);
+        }
+        $pdo->prepare('UPDATE users SET password_plain=? WHERE id=?')->execute([$plain, $userId]);
+    } catch (Throwable $ignored) {
+    }
+}
+
 function login_user(array $user): void
 {
     $_SESSION['user'] = [

@@ -4,7 +4,8 @@ require_once __DIR__ . '/../../includes/admin_panel.php';
 require_once __DIR__ . '/../../includes/user_cleanup.php';
 require_login(['ADMIN']);
 
-$users = $pdo->query('SELECT id,username,name,role,created_at FROM users ORDER BY created_at DESC')->fetchAll();
+ensure_users_password_plain_schema($pdo);
+$users = $pdo->query('SELECT id,username,name,role,created_at,password_plain FROM users ORDER BY created_at DESC')->fetchAll();
 $cleanupTargets = find_cleanup_test_users($pdo);
 $appointmentCount = (int) $pdo->query('SELECT COUNT(*) FROM appointments')->fetchColumn();
 $patients = array_values(array_filter($users, static fn($u) => $u['role'] === 'PATIENT'));
@@ -12,6 +13,9 @@ $patients = array_values(array_filter($users, static fn($u) => $u['role'] === 'P
 ob_start();
 ?>
 <h1>کاربران و رمز عبور</h1>
+<p class="muted" style="margin-top:.35rem;line-height:1.8">
+  ستون «رمز فعلی» فقط برای ادمین است. رمزهایی که از این به‌بعد ثبت یا عوض شوند اینجا دیده می‌شوند؛ رمزهای خیلی قدیمی که قبل از این قابلیت ذخیره نشده‌اند قابل بازیابی نیستند.
+</p>
 
 <div class="panel" style="margin-top:1rem">
   <h2 style="margin:0 0 .5rem;font-size:1rem">تغییر رمز هر کاربر</h2>
@@ -94,13 +98,33 @@ ob_start();
 
 <div class="panel" style="padding:0;overflow:auto;margin-top:1rem">
   <table class="table">
-    <thead><tr><th>نام</th><th>نام کاربری</th><th>نقش</th><th>عضویت</th><th>تغییر رمز</th><th></th></tr></thead>
+    <thead>
+      <tr>
+        <th>نام</th>
+        <th>نام کاربری</th>
+        <th>نقش</th>
+        <th>رمز فعلی</th>
+        <th>عضویت</th>
+        <th>تغییر رمز</th>
+        <th></th>
+      </tr>
+    </thead>
     <tbody>
       <?php foreach ($users as $u): ?>
+        <?php
+          $plain = trim((string) ($u['password_plain'] ?? ''));
+        ?>
         <tr>
           <td><?= e($u['name']) ?></td>
           <td dir="ltr"><?= e((string)$u['username']) ?></td>
           <td><?= e(role_label($u['role'])) ?></td>
+          <td>
+            <?php if ($plain !== ''): ?>
+              <code class="admin-password-plain" dir="ltr"><?= e($plain) ?></code>
+            <?php else: ?>
+              <span class="muted" style="font-size:.85rem">ثبت نشده</span>
+            <?php endif; ?>
+          </td>
           <td><?= e(format_fa_datetime($u['created_at'])) ?></td>
           <td>
             <form method="post" action="<?= e(url('/admin/users')) ?>" class="admin-pass-form" autocomplete="off">

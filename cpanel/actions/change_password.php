@@ -47,8 +47,9 @@ if (!$forced) {
 }
 
 $hash = password_hash($new, PASSWORD_DEFAULT);
-$pdo->prepare('UPDATE users SET password_hash=?, must_change_password=0 WHERE id=?')
-    ->execute([$hash, $user['id']]);
+    $pdo->prepare('UPDATE users SET password_hash=?, must_change_password=0 WHERE id=?')
+        ->execute([$hash, $user['id']]);
+    user_remember_password_plain($pdo, (string) $user['id'], $new);
 
 // اطمینان از ذخیره درست
 $check = $pdo->prepare('SELECT password_hash, must_change_password FROM users WHERE id=?');

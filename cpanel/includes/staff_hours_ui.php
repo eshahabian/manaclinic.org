@@ -19,7 +19,7 @@ function staff_hours_online_badge(array $openShift): string
     $duration = function_exists('staff_format_duration')
         ? staff_format_duration(staff_shift_seconds($openShift))
         : '';
-    $device = $mobile ? 'موبایل' : 'رایانه';
+    $device = $mobile ? 'موبایل' : 'لپ‌تاپ';
     $text = 'آنلاین با ' . $device . ' از ' . format_fa_datetime($started);
     if ($duration !== '') {
         $text .= ' · ' . $duration;
@@ -49,7 +49,7 @@ function staff_hours_render_live_devices(array $people): string
   <div class="row-between" style="align-items:flex-start;gap:.75rem;flex-wrap:wrap">
     <div>
       <strong>وضعیت دستگاه منشی‌ها (الان)</strong>
-      <p class="muted" style="margin:.25rem 0 0;font-size:.85rem">اگر با موبایل وارد شده باشند اینجا و در سابقه هر نوبت مشخص است. مدت همان زمان آنلاین بودن با موبایل است.</p>
+      <p class="muted" style="margin:.25rem 0 0;font-size:.85rem">زمان آنلاین هر منشی و اینکه با موبایل است یا لپ‌تاپ. در سابقه هر روز هم جمع لپ‌تاپ و موبایل جداست.</p>
     </div>
   </div>
   <ul class="staff-mobile-live-list">
@@ -68,7 +68,7 @@ function staff_hours_render_live_devices(array $people): string
             · <?= e(staff_format_duration(staff_shift_seconds($open))) ?>
           </span>
         <?php elseif ($open): ?>
-          <span class="staff-mobile-live-status">آنلاین با رایانه</span>
+          <span class="staff-mobile-live-status">آنلاین با لپ‌تاپ</span>
           <span class="staff-mobile-live-meta">
             از <?= e(format_fa_datetime((string) ($open['started_at'] ?? ''))) ?>
             · <?= e(staff_format_duration(staff_shift_seconds($open))) ?>
@@ -155,7 +155,7 @@ function staff_hours_render(array $slots, array $opts = []): string
     ob_start();
     ?>
 <h1>ساعت کاری منشی‌ها</h1>
-<p class="muted">ساعت عادی از ۹ صبح تا ۸ شب است؛ خارج از این بازه اضافه‌کار حساب می‌شود. تب هر منشی و هر درمانگر جداست. زمان حضور از اولین ورود تا آخرین خروج همان روز جمع می‌شود؛ جزئیات ورود و خروج پشت «بیشتر» است. ورود با موبایل هم در وضعیت زنده بالا و در جزئیات هر نوبت (و ساعت‌کاری‌های قبلی که با موبایل ثبت شده) دیده می‌شود.</p>
+<p class="muted">ساعت عادی از ۹ صبح تا ۸ شب است؛ خارج از این بازه اضافه‌کار حساب می‌شود. تب هر منشی و هر درمانگر جداست. زمان حضور از اولین ورود تا آخرین خروج همان روز جمع می‌شود؛ جزئیات ورود و خروج پشت «بیشتر» است و ورودهای موبایل از لپ‌تاپ جدا دیده می‌شوند. برای هر روز (امروز و روزهای قبل) جمع زمان لپ‌تاپ و موبایل جداگانه مشخص است.</p>
 
 <?= staff_hours_render_live_devices($people) ?>
 
@@ -421,24 +421,47 @@ function staff_hours_render_shift_lines(array $rows, bool $isToday = false): str
         return '';
     }
 
-    ob_start();
-    ?>
-    <ol class="staff-shift-lines">
-      <?php foreach ($rows as $i => $row): ?>
-        <?php if (!is_array($row)) { continue; } ?>
-        <li>
-          <strong>ورود <?= e(to_fa_digits((string) ((int) $i + 1))) ?></strong>
-          از <?= e(format_fa_datetime((string) ($row['started_at'] ?? ''))) ?>
-          تا <?= !empty($row['ended_at']) ? e(format_fa_datetime((string) $row['ended_at'])) : ($isToday ? 'الان' : '— هنوز باز') ?>
-          · <?= e(staff_format_duration(staff_shift_seconds($row))) ?>
-          · <?= e(staff_format_split_line(staff_shift_seconds_split($row))) ?>
-          · <?= e(staff_device_label(staff_shift_is_mobile($row))) ?>
-          · <?= e(staff_shift_reason_label(isset($row['end_reason']) && is_scalar($row['end_reason']) ? (string) $row['end_reason'] : null)) ?>
-        </li>
-      <?php endforeach; ?>
-    </ol>
-    <?php
-    return (string) ob_get_clean();
+    $mobileRows = [];
+    $desktopRows = [];
+    foreach ($rows as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        if (staff_shift_is_mobile($row)) {
+            $mobileRows[] = $row;
+        } else {
+            $desktopRows[] = $row;
+        }
+    }
+
+    $renderGroup = static function (string $title, array $group, bool $isToday, string $tone) : string {
+        if ($group === []) {
+            return '';
+        }
+        ob_start();
+        ?>
+    <div class="staff-shift-group staff-shift-group-<?= e($tone) ?>">
+      <h4 class="staff-shift-group-title"><?= e($title) ?> · <?= e(to_fa_digits((string) count($group))) ?> نوبت · <?= e(staff_format_duration((int) (staff_rows_device_seconds($group)[$tone === 'mobile' ? 'mobile' : 'desktop'] ?? 0))) ?></h4>
+      <ol class="staff-shift-lines">
+        <?php foreach ($group as $i => $row): ?>
+          <?php if (!is_array($row)) { continue; } ?>
+          <li>
+            <strong>ورود <?= e(to_fa_digits((string) ((int) $i + 1))) ?></strong>
+            از <?= e(format_fa_datetime((string) ($row['started_at'] ?? ''))) ?>
+            تا <?= !empty($row['ended_at']) ? e(format_fa_datetime((string) $row['ended_at'])) : ($isToday ? 'الان' : '— هنوز باز') ?>
+            · <?= e(staff_format_duration(staff_shift_seconds($row))) ?>
+            · <?= e(staff_format_split_line(staff_shift_seconds_split($row))) ?>
+            · <?= e(staff_shift_reason_label(isset($row['end_reason']) && is_scalar($row['end_reason']) ? (string) $row['end_reason'] : null)) ?>
+          </li>
+        <?php endforeach; ?>
+      </ol>
+    </div>
+        <?php
+        return (string) ob_get_clean();
+    };
+
+    return $renderGroup('ورودهای موبایل', $mobileRows, $isToday, 'mobile')
+        . $renderGroup('ورودهای لپ‌تاپ', $desktopRows, $isToday, 'desktop');
 }
 
 function staff_hours_render_day_presence(array $rows, array $opts = []): string
@@ -453,7 +476,9 @@ function staff_hours_render_day_presence(array $rows, array $opts = []): string
 
     $split = staff_day_presence_seconds_split($rows);
     $meta = staff_day_presence_meta($rows);
-    $mobileSeconds = function_exists('staff_rows_mobile_seconds') ? staff_rows_mobile_seconds($rows) : 0;
+    $device = function_exists('staff_rows_device_seconds')
+        ? staff_rows_device_seconds($rows)
+        : ['mobile' => 0, 'desktop' => 0, 'total' => 0];
     $outClock = !empty($meta['open'])
         ? ($isToday ? 'الان' : '— هنوز باز')
         : staff_hours_format_clock($meta['last_out'] ?? null);
@@ -478,14 +503,17 @@ function staff_hours_render_day_presence(array $rows, array $opts = []): string
           <span class="staff-presence-label">زمان حضور</span>
           <span class="staff-presence-value"><?= e(staff_format_duration((int) ($split['total'] ?? 0))) ?></span>
         </div>
-        <?php if ($mobileSeconds > 0): ?>
-          <div class="staff-presence-stat staff-presence-stat-mobile">
-            <span class="staff-presence-label">با موبایل</span>
-            <span class="staff-presence-value"><?= e(staff_format_duration($mobileSeconds)) ?></span>
-          </div>
-        <?php endif; ?>
+        <div class="staff-presence-stat">
+          <span class="staff-presence-label">با لپ‌تاپ</span>
+          <span class="staff-presence-value"><?= e(staff_format_duration((int) ($device['desktop'] ?? 0))) ?></span>
+        </div>
+        <div class="staff-presence-stat staff-presence-stat-mobile">
+          <span class="staff-presence-label">با موبایل</span>
+          <span class="staff-presence-value"><?= e(staff_format_duration((int) ($device['mobile'] ?? 0))) ?></span>
+        </div>
       </div>
       <p class="staff-presence-split muted"><?= e(staff_format_split_line($split, true)) ?></p>
+      <p class="staff-presence-split muted"><?= e(staff_format_device_split_line($device)) ?></p>
       <details class="staff-presence-more">
         <summary><?= e($moreLabel) ?></summary>
         <?= staff_hours_render_shift_lines($rows, $isToday) ?>
@@ -585,6 +613,9 @@ function staff_hours_render_month_tile(array $block, array $month, string $today
     usort($dayPacks, static fn(array $a, array $b): int => strcmp((string) $b['date'], (string) $a['date']));
 
     $split = staff_days_presence_seconds_split(array_column($dayPacks, 'rows'));
+    $device = function_exists('staff_rows_device_seconds')
+        ? staff_rows_device_seconds($allRows)
+        : ['mobile' => 0, 'desktop' => 0, 'total' => 0];
     $presentDays = 0;
     foreach ($dayPacks as $pack) {
         if (($pack['rows'] ?? []) !== [] || !empty($pack['report'])) {
@@ -630,8 +661,17 @@ function staff_hours_render_month_tile(array $block, array $month, string $today
             <span class="staff-presence-label">زمان حضور</span>
             <span class="staff-presence-value"><?= e(staff_format_duration((int) ($split['total'] ?? 0))) ?></span>
           </div>
+          <div class="staff-presence-stat">
+            <span class="staff-presence-label">با لپ‌تاپ</span>
+            <span class="staff-presence-value"><?= e(staff_format_duration((int) ($device['desktop'] ?? 0))) ?></span>
+          </div>
+          <div class="staff-presence-stat staff-presence-stat-mobile">
+            <span class="staff-presence-label">با موبایل</span>
+            <span class="staff-presence-value"><?= e(staff_format_duration((int) ($device['mobile'] ?? 0))) ?></span>
+          </div>
         </div>
         <p class="staff-presence-split muted"><?= e(staff_format_split_line($split, true)) ?> · <?= e(to_fa_digits((string) count($allRows))) ?> بار ورود</p>
+        <p class="staff-presence-split muted"><?= e(staff_format_device_split_line($device)) ?></p>
         <details class="staff-presence-more">
           <summary>بیشتر · <?= e(to_fa_digits((string) $presentDays)) ?> روز</summary>
           <div class="staff-month-days">

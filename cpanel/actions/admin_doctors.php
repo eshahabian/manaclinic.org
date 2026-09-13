@@ -53,6 +53,7 @@ if ($action === 'toggle') {
             $did = cuid();
             $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,must_change_password) VALUES (?,?,?,?,?,?,?,1)')
                 ->execute([$uid, $username, $name, $username . '@manaclinic.local', $phone, password_hash($password, PASSWORD_DEFAULT), 'DOCTOR']);
+            user_remember_password_plain($pdo, $uid, $password);
             $pdo->prepare('INSERT INTO doctor_profiles (id,user_id,specialty,bio,session_price,is_approved,is_active) VALUES (?,?,?,?,?,1,1)')
                 ->execute([$did, $uid, $specialty, $bio, $price]);
             flash_set('success', 'درمانگر ایجاد شد. رمز موقت باید در اولین ورود عوض شود.');

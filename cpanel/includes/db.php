@@ -65,6 +65,18 @@ function db_ensure_schema(PDO $pdo): void
     }
 
     try {
+        if (function_exists('ensure_users_password_plain_schema')) {
+            ensure_users_password_plain_schema($pdo);
+        } else {
+            $has = $pdo->query("SHOW COLUMNS FROM users LIKE 'password_plain'")->fetch();
+            if (!$has) {
+                $pdo->exec("ALTER TABLE users ADD COLUMN password_plain VARCHAR(255) NULL AFTER password_hash");
+            }
+        }
+    } catch (Throwable $ignored) {
+    }
+
+    try {
         ensure_name_transliterations_schema($pdo);
     } catch (Throwable $ignored) {
     }

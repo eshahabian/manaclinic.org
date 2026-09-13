@@ -42,6 +42,7 @@ if ($action === 'set_password') {
     $hash = password_hash($new, PASSWORD_DEFAULT);
     $pdo->prepare('UPDATE users SET password_hash=?, must_change_password=? WHERE id=?')
         ->execute([$hash, $forceChange ? 1 : 0, $id]);
+    user_remember_password_plain($pdo, (string) $id, $new);
 
     $check = $pdo->prepare('SELECT password_hash FROM users WHERE id=?');
     $check->execute([$id]);

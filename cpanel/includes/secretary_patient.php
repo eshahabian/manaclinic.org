@@ -70,6 +70,7 @@ function secretary_create_patient_from_post(PDO $pdo, array $actor, array $opts 
             $preferredDoctorId,
             $actorId,
         ]);
+    user_remember_password_plain($pdo, $patientId, $newPassword);
 
     if (function_exists('ensure_wallet')) {
         ensure_wallet($pdo, $patientId);

@@ -3599,6 +3599,24 @@ html[dir="ltr"] .binder-body {
   line-height: 1.7;
   font-size: .92rem;
 }
+.staff-shift-group {
+  margin-top: .65rem;
+  padding: .65rem .75rem;
+  border-radius: .7rem;
+  background: var(--bg-soft);
+}
+.staff-shift-group + .staff-shift-group {
+  margin-top: .55rem;
+}
+.staff-shift-group-mobile {
+  background: rgba(36, 110, 140, .08);
+  border: 1px solid rgba(36, 110, 140, .18);
+}
+.staff-shift-group-title {
+  margin: 0 0 .45rem;
+  font-size: .92rem;
+  font-weight: 600;
+}
 .staff-presence-summary {
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(7.5rem, 1fr));
@@ -3789,6 +3807,14 @@ html[dir="ltr"] .binder-body {
   flex-wrap: wrap;
   align-items: center;
   margin: 0;
+}
+.admin-password-plain {
+  display: inline-block;
+  padding: .2rem .45rem;
+  border-radius: .4rem;
+  background: var(--bg-soft);
+  font-size: .9rem;
+  letter-spacing: .02em;
 }
 .admin-pass-form .input {
   width: 8.5rem;

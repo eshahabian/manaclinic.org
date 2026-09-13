@@ -78,6 +78,7 @@ $email = $username . '@manaclinic.local';
 if ($role === 'DOCTOR') {
     $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,preferred_doctor_id,must_change_password) VALUES (?,?,?,?,?,?,?,?,0)')
         ->execute([$id, $username, $name, $email, $phone, password_hash($password, PASSWORD_DEFAULT), 'DOCTOR', null]);
+    user_remember_password_plain($pdo, $id, $password);
     $pdo->prepare('INSERT INTO doctor_profiles (id,user_id,specialty,bio,session_price,is_approved,is_active) VALUES (?,?,?,?,?,?,?)')
         ->execute([cuid(), $id, '', '', 3000000, 0, 0]);
     ensure_wallet($pdo, $id);
@@ -88,6 +89,7 @@ if ($role === 'DOCTOR') {
 
 $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,preferred_doctor_id,must_change_password) VALUES (?,?,?,?,?,?,?,?,0)')
     ->execute([$id, $username, $name, $email, $phone, password_hash($password, PASSWORD_DEFAULT), 'PATIENT', null]);
+user_remember_password_plain($pdo, $id, $password);
 
 ensure_wallet($pdo, $id);
 
