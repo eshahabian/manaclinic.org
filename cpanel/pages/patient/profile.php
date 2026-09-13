@@ -4,6 +4,7 @@ declare(strict_types=1);
 $user = require_login(['PATIENT']);
 require_once __DIR__ . '/../../includes/patient_panel.php';
 require_once __DIR__ . '/../../includes/doctor_clinical.php';
+require_once __DIR__ . '/../../includes/mail.php';
 
 $stmt = $pdo->prepare('SELECT * FROM users WHERE id=?');
 $stmt->execute([$user['id']]);
@@ -25,6 +26,11 @@ ob_start();
     <div>
       <label class="label">نام کاربری</label>
       <input class="input" value="<?= e((string)$profile['username']) ?>" disabled dir="ltr">
+    </div>
+    <div>
+      <label class="label">ایمیل</label>
+      <input class="input" name="email" type="email" value="<?= e(mail_is_real_email((string) ($profile['email'] ?? '')) ? (string) $profile['email'] : '') ?>" required dir="ltr" autocomplete="email" placeholder="you@example.com">
+      <p class="muted" style="font-size:.85rem;margin:.35rem 0 0;line-height:1.7">برای فراموشی رمز و پیام‌های سایت، ایمیل واقعی لازم است.</p>
     </div>
     <div>
       <label class="label">موبایل</label>

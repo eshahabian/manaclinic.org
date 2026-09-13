@@ -36,6 +36,9 @@ $nameDict = isset($pdo) ? build_name_transliterations_client_map($pdo) : [];
             </button>
           </span>
         </div>
+        <p class="auth-forgot">
+          <a href="<?= e(url('/forgot-password')) ?>">رمز را فراموش کرده‌اید؟</a>
+        </p>
         <button class="auth-submit" type="submit">ورود</button>
         <p class="auth-switch">حساب ندارید؟ <a href="<?= e($registerHref) ?>" data-auth-switch="register">ثبت‌نام</a></p>
       </form>
@@ -87,6 +90,10 @@ $nameDict = isset($pdo) ? build_name_transliterations_client_map($pdo) : [];
               <input name="username" id="username" required dir="ltr" readonly tabindex="-1">
             <?php endif; ?>
           </label>
+          <label class="auth-line">
+            <span>ایمیل</span>
+            <input name="email" id="email" type="email" required dir="ltr" autocomplete="email" inputmode="email">
+          </label>
           <?php if ($role !== 'DOCTOR'): ?>
           <label class="auth-line">
             <span>موبایل</span>
@@ -94,6 +101,7 @@ $nameDict = isset($pdo) ? build_name_transliterations_client_map($pdo) : [];
           </label>
           <?php endif; ?>
         </div>
+        <p class="auth-hint">ایمیل واقعی برای خوش‌آمد و بازیابی رمز لازم است.</p>
         <p class="auth-hint" id="username-hint"><?= $role === 'DOCTOR' ? 'نام کاربری با حروف انگلیسی، عدد یا نقطه.' : 'نام کاربری با وارد کردن نام ساخته می‌شود.' ?></p>
         <div class="auth-grid">
           <?= password_field_html('password', 'password', [

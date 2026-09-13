@@ -63,6 +63,7 @@ require_once __DIR__ . '/includes/seo.php';
 require_once __DIR__ . '/includes/doctor_profile_fields.php';
 require_once __DIR__ . '/includes/video_call.php';
 require_once __DIR__ . '/includes/patient_journal.php';
+require_once __DIR__ . '/includes/mail.php';
 
 $pdo = db_connect($config);
 
@@ -98,6 +99,7 @@ if (!$isLightRequest) {
     ensure_handover_schema($pdo);
     ensure_patient_journal_schema($pdo);
     ensure_notifications_table($pdo);
+    ensure_mail_schema($pdo);
     purge_dummy_clinic_bookings($pdo);
 }
 
@@ -132,6 +134,10 @@ $routes = [
     'GET /logout' => 'pages/logout.php',
     'POST /login' => 'actions/login.php',
     'POST /register' => 'actions/register.php',
+    'GET /forgot-password' => 'pages/forgot_password.php',
+    'POST /forgot-password' => 'actions/forgot_password.php',
+    'GET /reset-password' => 'pages/reset_password.php',
+    'POST /reset-password' => 'actions/reset_password.php',
     'GET /change-password' => 'pages/change_password.php',
     'POST /change-password' => 'actions/change_password.php',
     'GET /video-call' => 'pages/video_call.php',
@@ -233,6 +239,8 @@ $routes = [
     'GET /admin/staff-hours-export' => 'actions/admin_staff_hours_export.php',
     'GET /admin/staff-messages' => 'pages/admin/staff_messages.php',
     'POST /admin/staff-messages' => 'actions/admin_messages.php',
+    'GET /admin/mail' => 'pages/admin/mail.php',
+    'POST /admin/mail' => 'actions/admin_mail.php',
     'POST /secretary/handover' => 'actions/secretary_handover.php',
     'POST /secretary/handover/ack' => 'actions/secretary_handover_ack.php',
 

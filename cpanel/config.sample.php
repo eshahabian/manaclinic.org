@@ -22,6 +22,15 @@ return [
     'session_name' => 'mana_clinic_sess',
     'allow_install' => false, // فقط هنگام نصب اولیه true کنید؛ بعد حتماً false بماند
 
+    // ایمیل / SMTP — رمز را ترجیحاً از پنل ادمین → ایمیل و SMTP ذخیره کنید
+    'mail_from' => 'noreply@manaclinic.org',
+    'mail_from_name' => 'مانا کلینیک',
+    'smtp_host' => 'localhost', // روی سی‌پنل معمولاً localhost
+    'smtp_port' => 25,
+    'smtp_user' => 'noreply@manaclinic.org',
+    'smtp_pass' => '', // یا در پنل ادمین ذخیره شود
+    'smtp_encryption' => 'none', // none | tls | ssl
+
     // موتور جدید تماس مانا (LiveKit Cloud) — مقادیر واقعی فقط در config.php خصوصی سرور
     'livekit_url' => '', // نمونه: wss://your-project.livekit.cloud
     'livekit_api_key' => '',

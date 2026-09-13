@@ -27,10 +27,24 @@ if ($username === '' && $role !== 'DOCTOR') {
 $phone = $role === 'DOCTOR' ? '' : normalize_phone(post('phone'));
 $password = (string) ($_POST['password'] ?? '');
 $passwordConfirm = (string) ($_POST['password_confirm'] ?? '');
+$email = mb_strtolower(trim(post('email')));
 
 $minPass = password_min_length();
 if ($firstName === '' || $lastName === '' || $username === '' || strlen($password) < $minPass) {
     flash_set('error', 'نام، نام خانوادگی، نام کاربری و رمز عبور الزامی است. رمز حداقل ' . to_fa_digits((string) $minPass) . ' کاراکتر باشد.');
+    redirect('/register?role=' . $role);
+}
+if (!function_exists('mail_is_real_email')) {
+    require_once __DIR__ . '/../includes/mail.php';
+}
+if (!mail_is_real_email($email)) {
+    flash_set('error', 'یک ایمیل واقعی و معتبر وارد کنید.');
+    redirect('/register?role=' . $role);
+}
+$emailTaken = $pdo->prepare('SELECT id FROM users WHERE LOWER(email)=? LIMIT 1');
+$emailTaken->execute([$email]);
+if ($emailTaken->fetch()) {
+    flash_set('error', 'این ایمیل قبلاً ثبت شده است.');
     redirect('/register?role=' . $role);
 }
 if ($role !== 'DOCTOR' && ($nameEn === '' || $surname === '' || $phone === '')) {
@@ -73,7 +87,6 @@ if ($username === '') {
 require_once __DIR__ . '/../includes/wallet.php';
 
 $id = cuid();
-$email = $username . '@manaclinic.local';
 
 if ($role === 'DOCTOR') {
     $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,preferred_doctor_id,must_change_password) VALUES (?,?,?,?,?,?,?,?,0)')
@@ -83,7 +96,16 @@ if ($role === 'DOCTOR') {
         ->execute([cuid(), $id, '', '', 3000000, 0, 0]);
     ensure_wallet($pdo, $id);
     remember_registration_name_transliterations($pdo, $firstName, $lastName, $nameEn, $surname);
-    flash_set('success', 'درخواست ثبت‌نام شما ثبت شد. پس از تأیید مدیر سایت می‌توانید وارد شوید.');
+    $welcome = mail_send_welcome($pdo, [
+        'name' => $name,
+        'email' => $email,
+        'username' => $username,
+        'role' => 'DOCTOR',
+    ]);
+    if (!$welcome['ok']) {
+        error_log('ManaClinic welcome mail failed: ' . ($welcome['error'] ?? ''));
+    }
+    flash_set('success', 'درخواست ثبت‌نام شما ثبت شد. ایمیل خوش‌آمد ارسال شد و پس از تأیید مدیر سایت می‌توانید وارد شوید.');
     redirect('/login');
 }
 
@@ -104,6 +126,16 @@ notify_role(
     'appointment'
 );
 
+$welcome = mail_send_welcome($pdo, [
+    'name' => $name,
+    'email' => $email,
+    'username' => $username,
+    'role' => 'PATIENT',
+]);
+if (!$welcome['ok']) {
+    error_log('ManaClinic welcome mail failed: ' . ($welcome['error'] ?? ''));
+}
+
 login_user([
     'id' => $id,
     'name' => $name,
@@ -112,7 +144,7 @@ login_user([
     'role' => 'PATIENT',
     'must_change_password' => 0,
 ]);
-flash_set('success', 'ثبت‌نام با موفقیت انجام شد.');
+flash_set('success', 'ثبت‌نام با موفقیت انجام شد. ایمیل خوش‌آمد برایتان ارسال شد.');
 $next = safe_next_path(post('next'));
 if ($next) {
     redirect($next);
