@@ -2014,6 +2014,33 @@ body.is-auth {
   padding: .7rem 1rem;
   margin-top: .2rem;
 }
+.auth-form-register .auth-actions {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .55rem;
+  margin-top: .2rem;
+  width: 100%;
+}
+.auth-form-register .auth-actions .auth-submit {
+  margin-top: 0;
+  width: 100%;
+  text-align: center;
+  box-sizing: border-box;
+}
+.auth-form-register .auth-submit-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  text-decoration: none;
+  background: transparent;
+  color: var(--auth-ink, #1a2e28);
+  border: 1.5px solid color-mix(in srgb, var(--auth-ink, #1a2e28) 28%, transparent);
+  box-shadow: none;
+}
+.auth-form-register .auth-submit-secondary:hover {
+  filter: none;
+  background: color-mix(in srgb, var(--auth-ink, #1a2e28) 8%, transparent);
+}
 .auth-form-register .auth-hint { font-size: .65rem; line-height: 1.4; }
 .auth-form-title {
   margin: 0 0 .35rem;

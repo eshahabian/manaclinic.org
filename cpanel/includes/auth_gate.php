@@ -119,10 +119,12 @@ $nameDict = isset($pdo) ? build_name_transliterations_client_map($pdo) : [];
           ]) ?>
         </div>
         <p class="auth-hint">حداقل <?= e(to_fa_digits((string) password_min_length())) ?> کاراکتر، با حروف و اعداد انگلیسی.</p>
-        <button class="auth-submit" type="submit" name="submit_register" value="1">
-          <?= $role === 'DOCTOR' ? 'ارسال درخواست' : 'ایجاد حساب' ?>
-        </button>
-        <p class="auth-switch">قبلاً ثبت‌نام کرده‌اید؟ <a href="<?= e($loginHref) ?>" data-auth-switch="login">ورود</a></p>
+        <div class="auth-actions">
+          <button class="auth-submit" type="submit" name="submit_register" value="1">
+            <?= $role === 'DOCTOR' ? 'ارسال درخواست' : 'ایجاد حساب' ?>
+          </button>
+          <a class="auth-submit auth-submit-secondary" href="<?= e($loginHref) ?>" data-auth-switch="login">ورود</a>
+        </div>
       </form>
     </section>
 
