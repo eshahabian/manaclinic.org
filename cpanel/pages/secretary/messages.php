@@ -7,7 +7,7 @@ $user = require_login(['SECRETARY']);
 ensure_workshop_schema($pdo);
 
 $msgTab = trim((string) ($_GET['msg'] ?? 'appointment'));
-if (!in_array($msgTab, ['appointment', 'workshop', 'colleague'], true)) {
+if (!in_array($msgTab, ['appointment', 'workshop', 'colleague', 'patients'], true)) {
     $msgTab = 'appointment';
 }
 
@@ -20,12 +20,18 @@ $colleague = [
     'inbox' => handover_inbox_for($pdo, (string) $user['id'], 30),
     'sent' => handover_sent_grouped($pdo, (string) $user['id'], 20),
 ];
+$patients = $pdo->query("
+  SELECT id, name, username, phone
+  FROM users
+  WHERE role = 'PATIENT'
+  ORDER BY name ASC
+")->fetchAll();
 
 ob_start();
 ?>
 <h1>پیام‌ها</h1>
 <p class="muted" style="margin-top:.35rem;font-size:.9rem">
-  نوبت‌ها، کارگاه‌ها و پیام همکار جدا هستند.<?= $unreadCount ? ' · ' . $unreadCount . ' پیام خوانده‌نشده' : '' ?>
+  نوبت‌ها، کارگاه‌ها، پیام همکار و ارسال به مراجع.<?= $unreadCount ? ' · ' . $unreadCount . ' پیام خوانده‌نشده' : '' ?>
 </p>
 <?= render_secretary_messages_panel(
     $notifications,
@@ -34,12 +40,14 @@ ob_start();
     $recentEnrollments,
     $msgTab,
     '/secretary/messages',
-    $colleague
+    $colleague,
+    $patients
 ) ?>
 <?php
 $titles = [
     'workshop' => 'پیام‌های کارگاه',
     'colleague' => 'پیام همکار',
+    'patients' => 'ارسال به مراجع',
     'appointment' => 'پیام‌های نوبت',
 ];
 render_secretary_page($titles[$msgTab] ?? 'پیام‌ها', ob_get_clean());

@@ -21,6 +21,7 @@ function patient_nav(): array
     $nav = [
         ['href' => '/dashboard', 'label' => 'خلاصه'],
         ['href' => '/dashboard/appointments', 'label' => 'نوبت‌های من'],
+        ['href' => '/dashboard/courses-new', 'label' => 'دوره‌های جدید', 'badge' => 'available'],
         [
             'href' => '/dashboard/workshops',
             'label' => 'کارگاه‌ها',
@@ -29,6 +30,8 @@ function patient_nav(): array
                 ['href' => '/dashboard/workshops/mine', 'label' => 'دوره‌های من', 'badge' => 'mine'],
             ],
         ],
+        ['href' => '/dashboard/messages', 'label' => 'پیام‌ها', 'badge' => 'messages'],
+        ['href' => '/dashboard/journal', 'label' => 'دفتر یادداشت'],
         ['href' => '/dashboard/wallet', 'label' => 'کیف پول'],
         ['href' => '/dashboard/profile', 'label' => 'پروفایل'],
     ];
@@ -56,10 +59,13 @@ function render_patient_page(string $title, string $innerHtml): void
     global $pdo;
 
     $nav = patient_nav();
-    $counts = ['available' => 0, 'requested' => 0, 'mine' => 0];
+    $counts = ['available' => 0, 'requested' => 0, 'mine' => 0, 'messages' => 0];
     $user = current_user();
     if ($pdo && $user && ($user['role'] ?? '') === 'PATIENT') {
         $counts = patient_workshop_nav_counts($pdo, (string) $user['id']);
+        if (function_exists('count_unread_notifications')) {
+            $counts['messages'] = count_unread_notifications($pdo, (string) $user['id']);
+        }
     }
     $currentPath = patient_request_path();
 
@@ -84,6 +90,8 @@ function render_patient_page(string $title, string $innerHtml): void
                       }
                   }
               }
+              $itemBadgeKey = (string) ($item['badge'] ?? '');
+              $itemBadge = $itemBadgeKey !== '' ? (int) ($counts[$itemBadgeKey] ?? 0) : 0;
             ?>
             <a class="<?= $parentActive ? 'is-active' : '' ?>" href="<?= e(url($href)) ?>">
               <span class="side-nav-link-main">
@@ -92,8 +100,8 @@ function render_patient_page(string $title, string $innerHtml): void
                 <?php endif; ?>
                 <?= e((string) $item['label']) ?>
               </span>
-              <?php if ($href === '/dashboard/workshops' && $counts['available'] > 0): ?>
-                <span class="side-nav-badge"><?= (int) $counts['available'] ?></span>
+              <?php if ($itemBadge > 0): ?>
+                <span class="side-nav-badge"><?= $itemBadge ?></span>
               <?php endif; ?>
             </a>
             <?php if ($children): ?>

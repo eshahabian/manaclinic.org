@@ -62,6 +62,7 @@ require_once __DIR__ . '/includes/user_cleanup.php';
 require_once __DIR__ . '/includes/seo.php';
 require_once __DIR__ . '/includes/doctor_profile_fields.php';
 require_once __DIR__ . '/includes/video_call.php';
+require_once __DIR__ . '/includes/patient_journal.php';
 
 $pdo = db_connect($config);
 
@@ -95,6 +96,8 @@ if (!$isLightRequest) {
     ensure_assistant_schema($pdo);
     ensure_staff_desk_schema($pdo);
     ensure_handover_schema($pdo);
+    ensure_patient_journal_schema($pdo);
+    ensure_notifications_table($pdo);
     purge_dummy_clinic_bookings($pdo);
 }
 
@@ -144,8 +147,13 @@ $routes = [
     'POST /dashboard/workshops/path-note' => 'actions/patient_workshop_path_note.php',
     'POST /dashboard/workshops/qa' => 'actions/patient_workshop_qa.php',
     'GET /dashboard/courses' => 'pages/patient/courses.php',
+    'GET /dashboard/courses-new' => 'pages/patient/courses_new.php',
     'GET /dashboard/courses/media' => 'pages/patient/course_media.php',
     'GET /dashboard/courses/offline' => 'pages/patient/offline_course.php',
+    'GET /dashboard/messages' => 'pages/patient/messages.php',
+    'POST /dashboard/messages/read' => 'actions/patient_notifications.php',
+    'GET /dashboard/journal' => 'pages/patient/journal.php',
+    'POST /dashboard/journal' => 'actions/patient_journal.php',
     'GET /dashboard/wallet' => 'pages/patient/wallet.php',
     'GET /dashboard/profile' => 'pages/patient/profile.php',
     'POST /dashboard/profile' => 'actions/patient_profile.php',
@@ -167,6 +175,7 @@ $routes = [
     'GET /secretary/messages' => 'pages/secretary/messages.php',
     'GET /secretary/colleague' => 'pages/secretary/colleague.php',
     'POST /secretary/notifications/read' => 'actions/secretary_notifications.php',
+    'POST /secretary/patient-message' => 'actions/secretary_patient_message.php',
     'GET /secretary/workshops' => 'pages/secretary/workshops.php',
     'POST /secretary/workshops' => 'actions/secretary_workshops.php',
     'POST /secretary/workshop-media' => 'actions/secretary_workshop_media.php',

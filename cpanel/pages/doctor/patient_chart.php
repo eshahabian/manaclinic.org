@@ -7,6 +7,7 @@ require_once __DIR__ . '/../../includes/appointment_cancel.php';
 require_once __DIR__ . '/../../includes/workshops.php';
 require_once __DIR__ . '/../../includes/workshop_qa.php';
 require_once __DIR__ . '/../../includes/workshop_path.php';
+require_once __DIR__ . '/../../includes/patient_journal.php';
 
 $ctx = require_doctor_profile($pdo);
 $patientId = (string) ($_GET['id'] ?? '');
@@ -55,6 +56,8 @@ foreach ($enrollments as $en) {
 $privateQa = doctor_patient_private_qa_for_doctor($pdo, $doctorId, $patientId);
 $pathNotes = doctor_patient_path_notes_for_doctor($pdo, $doctorId, $patientId);
 $callStats = doctor_patient_call_stats($pdo, doctor_ctx_user_id($ctx), $patientId);
+$journalEntries = patient_journal_fetch_all($pdo, $patientId, 60);
+$journalMoods = patient_journal_moods();
 
 $noteCount = 0;
 foreach ($notesByApp as $n) {
@@ -63,7 +66,7 @@ foreach ($notesByApp as $n) {
     }
 }
 
-$tabs = ['overview', 'chart', 'sessions', 'intakes', 'workshops', 'messages'];
+$tabs = ['overview', 'chart', 'sessions', 'intakes', 'workshops', 'messages', 'journal'];
 $tabParam = trim((string) ($_GET['tab'] ?? 'overview'));
 if (!in_array($tabParam, $tabs, true)) {
     $tabParam = 'overview';
@@ -124,6 +127,7 @@ ob_start();
     <a class="<?= $tabParam === 'intakes' ? 'is-on' : '' ?>" href="<?= e($tabUrl('intakes')) ?>">دستیار هوشمند <span><?= to_fa_digits((string) count($intakes)) ?></span></a>
     <a class="<?= $tabParam === 'workshops' ? 'is-on' : '' ?>" href="<?= e($tabUrl('workshops')) ?>">کارگاه و مسیر <span><?= to_fa_digits((string) count($enrollments)) ?></span></a>
     <a class="<?= $tabParam === 'messages' ? 'is-on' : '' ?>" href="<?= e($tabUrl('messages')) ?>">پیام خصوصی <span><?= to_fa_digits((string) count($privateQa)) ?></span></a>
+    <a class="<?= $tabParam === 'journal' ? 'is-on' : '' ?>" href="<?= e($tabUrl('journal')) ?>">دفتر یادداشت <span><?= to_fa_digits((string) count($journalEntries)) ?></span></a>
   </nav>
 
   <?php if ($tabParam === 'overview'): ?>
@@ -157,6 +161,11 @@ ob_start();
         <span>تماس مانا</span>
         <strong><?= to_fa_digits((string) (int) ($callStats['call_count'] ?? 0)) ?></strong>
         <small><?= !empty($callStats['last_at']) ? 'آخرین: ' . e(format_fa_datetime((string) $callStats['last_at'])) : 'هنوز تماسی ثبت نشده' ?></small>
+      </article>
+      <article class="ehr-stat">
+        <span>دفتر یادداشت</span>
+        <strong><?= to_fa_digits((string) count($journalEntries)) ?></strong>
+        <small>ثبت‌های روزانه مراجع</small>
       </article>
     </section>
     <div class="ehr-split">
@@ -420,6 +429,47 @@ ob_start();
               </p>
               <p><?= nl2br(e((string) $qa['body'])) ?></p>
               <a href="<?= e(workshop_qa_url_doctor((string) $qa['workshop_id'])) ?>">باز کردن تالار کارگاه</a>
+            </li>
+          <?php endforeach; ?>
+        </ul>
+      <?php endif; ?>
+    </section>
+  <?php endif; ?>
+
+  <?php if ($tabParam === 'journal'): ?>
+    <section class="ehr-card">
+      <header class="ehr-card-head">
+        <div>
+          <h2>دفتر یادداشت مراجع</h2>
+          <p class="muted" style="margin:.3rem 0 0;font-size:.85rem">فقط مشاهده؛ خلق روزانه، متن و عکس‌هایی که مراجع ثبت کرده است.</p>
+        </div>
+      </header>
+      <?php if (!$journalEntries): ?>
+        <p class="muted" style="margin:0">هنوز یادداشتی در دفتر این فرد نیست.</p>
+      <?php else: ?>
+        <ul class="ehr-journal-feed">
+          <?php foreach ($journalEntries as $je): ?>
+            <?php
+              $jm = (int) ($je['mood'] ?? 0);
+              $jLabel = trim((string) ($je['mood_label'] ?? ''));
+              if ($jLabel === '' && $jm >= 1 && $jm <= 5) {
+                  $jLabel = (string) ($journalMoods[$jm]['label'] ?? '');
+              }
+            ?>
+            <li>
+              <p class="ehr-feed-meta"><?= e(to_jalali_label((string) $je['entry_date'])) ?></p>
+              <?php if ($jm >= 1 && $jm <= 5): ?>
+                <div class="ehr-journal-mood">
+                  <span aria-hidden="true"><?= e($journalMoods[$jm]['emoji'] ?? '') ?></span>
+                  <?= e($jLabel !== '' ? $jLabel : 'خلق ' . to_fa_digits((string) $jm)) ?>
+                </div>
+              <?php endif; ?>
+              <?php if (trim((string) ($je['body'] ?? '')) !== ''): ?>
+                <p style="margin:0;line-height:1.85;white-space:pre-wrap"><?= e((string) $je['body']) ?></p>
+              <?php endif; ?>
+              <?php if (!empty($je['photo_path'])): ?>
+                <img class="ehr-journal-photo" src="<?= e(url((string) $je['photo_path'])) ?>" alt="عکس یادداشت <?= e(to_jalali_label((string) $je['entry_date'])) ?>">
+              <?php endif; ?>
             </li>
           <?php endforeach; ?>
         </ul>

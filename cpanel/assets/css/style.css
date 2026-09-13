@@ -4871,3 +4871,374 @@ html[data-theme="dark"] select {
   line-height: 1.9;
   color: var(--muted);
 }
+
+/* —— Patient inbox —— */
+.patient-inbox-list { gap: .75rem; }
+.patient-inbox-item {
+  border: 1px solid var(--line);
+  border-radius: 1rem;
+  padding: .95rem 1.05rem;
+  background: var(--card);
+}
+.patient-inbox-item.is-unread {
+  background: color-mix(in srgb, var(--primary) 7%, var(--card));
+  border-color: color-mix(in srgb, var(--primary) 28%, var(--line));
+}
+.patient-inbox-item-head {
+  display: flex;
+  justify-content: space-between;
+  gap: .75rem;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  margin-bottom: .45rem;
+}
+.patient-inbox-item-head strong { margin-inline-end: .4rem; }
+.patient-inbox-broadcast {
+  background: color-mix(in srgb, var(--accent) 18%, var(--bg-soft));
+  color: var(--primary-dark);
+}
+.patient-inbox-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem;
+  margin-top: .65rem;
+}
+.patient-inbox-body {
+  font-size: .95rem;
+  line-height: 1.85;
+  white-space: pre-wrap;
+}
+
+/* —— Patient journal / tracker —— */
+.journal-shell {
+  --journal-ink: #16352c;
+  --journal-wash: color-mix(in srgb, var(--primary) 9%, #f3f7f4);
+  --journal-edge: color-mix(in srgb, var(--primary) 22%, var(--line));
+  display: grid;
+  gap: 1.15rem;
+}
+.journal-hero {
+  position: relative;
+  overflow: hidden;
+  border-radius: 1.25rem;
+  padding: 1.35rem 1.4rem 1.45rem;
+  background:
+    radial-gradient(120% 90% at 100% 0%, color-mix(in srgb, var(--accent) 28%, transparent), transparent 55%),
+    linear-gradient(145deg, #1b5e4b 0%, #246b56 42%, #1f4f42 100%);
+  color: #f4faf7;
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  flex-wrap: wrap;
+  align-items: flex-end;
+}
+.journal-hero::after {
+  content: "";
+  position: absolute;
+  inset: auto -10% -40% 40%;
+  height: 120%;
+  background: radial-gradient(circle, rgba(255,255,255,.08), transparent 60%);
+  pointer-events: none;
+}
+.journal-kicker {
+  margin: 0 0 .35rem;
+  font-size: .78rem;
+  letter-spacing: .04em;
+  opacity: .85;
+  font-weight: 600;
+}
+.journal-hero h1 {
+  margin: 0;
+  font-size: clamp(1.45rem, 3vw, 1.85rem);
+  color: #fff;
+}
+.journal-lead {
+  margin: .55rem 0 0;
+  max-width: 34rem;
+  line-height: 1.75;
+  font-size: .92rem;
+  opacity: .92;
+}
+.journal-streak {
+  position: relative;
+  z-index: 1;
+  min-width: 7.5rem;
+  text-align: center;
+  padding: .7rem .9rem;
+  border-radius: 1rem;
+  background: rgba(255,255,255,.12);
+  border: 1px solid rgba(255,255,255,.22);
+  backdrop-filter: blur(6px);
+}
+.journal-streak-num {
+  display: block;
+  font-size: 1.75rem;
+  font-weight: 800;
+  line-height: 1.1;
+}
+.journal-streak-label {
+  display: block;
+  margin-top: .2rem;
+  font-size: .78rem;
+  opacity: .9;
+}
+.journal-flash {
+  margin: 0;
+  padding: .7rem .9rem;
+  border-radius: .85rem;
+  font-size: .9rem;
+}
+.journal-flash-success {
+  background: color-mix(in srgb, var(--primary) 14%, #fff);
+  color: var(--primary-dark);
+  border: 1px solid color-mix(in srgb, var(--primary) 30%, var(--line));
+}
+.journal-flash-error {
+  background: #fff1f1;
+  color: #8b1e1e;
+  border: 1px solid #f0c4c4;
+}
+.journal-strip {
+  display: flex;
+  gap: .45rem;
+  overflow-x: auto;
+  padding: .15rem .1rem .35rem;
+  scroll-snap-type: x proximity;
+  -webkit-overflow-scrolling: touch;
+}
+.journal-day {
+  flex: 0 0 auto;
+  scroll-snap-align: start;
+  min-width: 3.4rem;
+  padding: .55rem .4rem;
+  text-align: center;
+  text-decoration: none;
+  color: var(--fg);
+  border-radius: .9rem;
+  border: 1px solid var(--line);
+  background: var(--card);
+  transition: border-color .15s ease, background .15s ease, transform .15s ease;
+}
+.journal-day:hover {
+  border-color: var(--primary);
+  transform: translateY(-1px);
+}
+.journal-day.is-on {
+  border-color: var(--primary);
+  background: var(--journal-wash);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--primary) 25%, transparent);
+}
+.journal-day.is-today .journal-day-label { font-weight: 700; color: var(--primary); }
+.journal-day-label {
+  display: block;
+  font-size: .72rem;
+  line-height: 1.3;
+  margin-bottom: .35rem;
+  white-space: nowrap;
+}
+.journal-day-dot {
+  display: inline-block;
+  width: .45rem;
+  height: .45rem;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--muted) 45%, transparent);
+}
+.journal-day.has-entry .journal-day-dot {
+  background: var(--primary);
+}
+.journal-day-mood { font-size: 1rem; line-height: 1; }
+.journal-card {
+  border: 1px solid var(--journal-edge);
+  border-radius: 1.2rem;
+  padding: 1.15rem 1.2rem 1.3rem;
+  background:
+    linear-gradient(180deg, color-mix(in srgb, var(--primary) 5%, #fff) 0%, var(--card) 38%);
+  box-shadow: 0 10px 28px rgba(22, 53, 44, .05);
+}
+.journal-card-head {
+  display: flex;
+  justify-content: space-between;
+  gap: .75rem;
+  align-items: baseline;
+  flex-wrap: wrap;
+  margin-bottom: 1rem;
+}
+.journal-card-head h2 {
+  margin: 0;
+  font-size: 1.15rem;
+  color: var(--journal-ink);
+}
+.journal-form { display: grid; gap: 1rem; }
+.journal-moods {
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.journal-moods legend {
+  font-weight: 700;
+  margin-bottom: .65rem;
+  color: var(--journal-ink);
+}
+.journal-mood-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: .45rem;
+}
+.journal-mood-option {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: .3rem;
+  padding: .7rem .35rem;
+  border-radius: .95rem;
+  border: 1px solid var(--line);
+  background: #fff;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, transform .15s ease;
+}
+.journal-mood-option input {
+  position: absolute;
+  opacity: 0;
+  pointer-events: none;
+}
+.journal-mood-option:hover { border-color: var(--primary); }
+.journal-mood-option:has(input:checked) {
+  border-color: var(--primary);
+  background: var(--journal-wash);
+  transform: translateY(-2px);
+  box-shadow: 0 6px 14px rgba(27, 94, 75, .1);
+}
+.journal-mood-face { font-size: 1.45rem; line-height: 1; }
+.journal-mood-name { font-size: .78rem; font-weight: 600; color: var(--journal-ink); }
+.journal-mood-option.mood-1:has(input:checked) { background: #fff1ec; border-color: #d48a6a; }
+.journal-mood-option.mood-2:has(input:checked) { background: #fff6e8; border-color: #d4a05c; }
+.journal-mood-option.mood-3:has(input:checked) { background: #f4f6f2; border-color: #9aa896; }
+.journal-mood-option.mood-4:has(input:checked) { background: #eaf6f1; border-color: #3f8f74; }
+.journal-mood-option.mood-5:has(input:checked) { background: #e7f7ef; border-color: #1b5e4b; }
+.journal-textarea { min-height: 8rem; resize: vertical; line-height: 1.8; }
+.journal-photo-preview {
+  margin-bottom: .65rem;
+  display: grid;
+  gap: .45rem;
+}
+.journal-photo-preview img {
+  max-width: min(100%, 280px);
+  border-radius: .9rem;
+  border: 1px solid var(--line);
+  display: block;
+}
+.journal-remove-photo {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  font-size: .85rem;
+  color: var(--muted);
+}
+.journal-save { justify-self: start; min-width: 9rem; }
+.journal-history h2 {
+  margin: 0 0 .65rem;
+  font-size: 1.05rem;
+}
+.journal-history-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: .5rem;
+}
+.journal-history-list a {
+  display: grid;
+  gap: .2rem;
+  text-decoration: none;
+  color: inherit;
+  padding: .75rem .9rem;
+  border-radius: .9rem;
+  border: 1px solid var(--line);
+  background: var(--card);
+}
+.journal-history-list a:hover { border-color: var(--primary); }
+.journal-history-date { font-weight: 700; font-size: .9rem; }
+.journal-history-mood { font-size: .85rem; color: var(--primary-dark); }
+.journal-history-snip { font-size: .85rem; color: var(--muted); line-height: 1.6; }
+
+/* Doctor read-only journal feed */
+.ehr-journal-feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: .85rem;
+}
+.ehr-journal-feed > li {
+  border: 1px solid var(--line);
+  border-radius: .95rem;
+  padding: .85rem 1rem;
+  background: var(--card);
+}
+.ehr-journal-mood {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  font-weight: 700;
+  color: var(--primary-dark);
+  margin-bottom: .35rem;
+}
+.ehr-journal-photo {
+  margin-top: .65rem;
+  max-width: min(100%, 320px);
+  border-radius: .75rem;
+  border: 1px solid var(--line);
+  display: block;
+}
+
+@media (max-width: 640px) {
+  .journal-mood-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: .3rem;
+  }
+  .journal-mood-option { padding: .55rem .2rem; }
+  .journal-mood-name { font-size: .68rem; }
+  .journal-hero { padding: 1.1rem 1rem 1.2rem; }
+}
+
+html[data-theme="dark"] .journal-shell {
+  --journal-ink: #e8f2ec;
+  --journal-wash: color-mix(in srgb, var(--primary) 18%, #1a2420);
+  --journal-edge: color-mix(in srgb, var(--primary) 28%, var(--line));
+}
+html[data-theme="dark"] .journal-hero {
+  background:
+    radial-gradient(ellipse 80% 70% at 100% 0%, color-mix(in srgb, var(--primary) 22%, transparent), transparent 55%),
+    linear-gradient(165deg, #1c2924 0%, #15201c 100%);
+}
+html[data-theme="dark"] .journal-card,
+html[data-theme="dark"] .journal-day,
+html[data-theme="dark"] .journal-history-list a,
+html[data-theme="dark"] .patient-inbox-item {
+  background: var(--panel);
+}
+html[data-theme="dark"] .ehr-journal-feed > li {
+  background: color-mix(in srgb, var(--panel) 92%, #000);
+}
+
+html[data-theme="dark"] .journal-shell {
+  --journal-ink: #e8f2ec;
+  --journal-wash: color-mix(in srgb, var(--primary) 18%, #1a2420);
+  --journal-edge: color-mix(in srgb, var(--primary) 28%, var(--line));
+}
+html[data-theme="dark"] .journal-hero {
+  background:
+    radial-gradient(ellipse 80% 70% at 100% 0%, color-mix(in srgb, var(--primary) 22%, transparent), transparent 55%),
+    linear-gradient(165deg, #1c2924 0%, #15201c 100%);
+}
+html[data-theme="dark"] .journal-card,
+html[data-theme="dark"] .journal-day,
+html[data-theme="dark"] .journal-history-list a,
+html[data-theme="dark"] .patient-inbox-item {
+  background: var(--panel);
+}
+html[data-theme="dark"] .ehr-journal-feed > li {
+  background: color-mix(in srgb, var(--panel) 92%, #000);
+}
+
