@@ -76,12 +76,26 @@ ob_start();
   </div>
   <div class="binder-body">
     <section class="binder-panel<?= $binderInitial === 'chart' ? ' is-active' : '' ?>" data-binder-panel="chart" role="tabpanel"<?= $binderInitial === 'chart' ? '' : ' hidden' ?>>
-      <div class="stack">
+      <div style="margin:0 0 1rem;max-width:22rem">
+        <label class="label" for="doctor-patient-filter">جستجو</label>
+        <input class="input" type="search" id="doctor-patient-filter" placeholder="نام، نام کاربری یا موبایل" autocomplete="off">
+      </div>
+      <div class="stack" id="doctor-patient-list">
         <?php foreach ($patients as $p): ?>
-          <a class="panel row-between" href="<?= e(url('/doctor/patients/' . $p['id'])) ?>" style="color:inherit">
+          <?php
+            $phone = trim((string) ($p['phone'] ?? ''));
+            $phoneDigits = preg_replace('/\D+/', '', $phone) ?? '';
+            $search = mb_strtolower(trim(
+                (string) $p['name'] . ' ' .
+                (string) $p['username'] . ' ' .
+                $phone . ' ' .
+                $phoneDigits
+            ));
+          ?>
+          <a class="panel row-between doctor-patient-row" href="<?= e(url('/doctor/patients/' . $p['id'])) ?>" style="color:inherit" data-search="<?= e($search) ?>">
             <div>
               <strong><?= e($p['name']) ?></strong>
-              <div class="muted" style="font-size:.85rem" dir="ltr"><?= e((string)$p['username']) ?><?= $p['phone'] ? ' · ' . e((string)$p['phone']) : '' ?></div>
+              <div class="muted" style="font-size:.85rem" dir="ltr"><?= e((string)$p['username']) ?><?= $phone !== '' ? ' · ' . e($phone) : '' ?></div>
               <div style="font-size:.85rem;margin-top:.35rem">
                 <?= (int)$p['visit_count'] ?> نوبت
                 <?php if ($p['last_visit']): ?>
@@ -98,6 +112,7 @@ ob_start();
         <?php if (!$patients): ?>
           <p class="muted" style="margin:0">هنوز مراجعه‌کننده اختصاص‌یافته یا نوبت‌داری برای شما ثبت نشده است.</p>
         <?php endif; ?>
+        <p class="muted" id="doctor-patient-filter-empty" hidden>موردی با این جستجو نیست.</p>
       </div>
     </section>
     <section class="binder-panel<?= $binderInitial === 'intakes' ? ' is-active' : '' ?>" data-binder-panel="intakes" role="tabpanel"<?= $binderInitial === 'intakes' ? '' : ' hidden' ?>>
@@ -120,6 +135,29 @@ $pageScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260
 <script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910r"></script>
 <script>
 (function(){
+  function faToEn(str){
+    return String(str || "").replace(/[۰-۹]/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹".indexOf(d); })
+      .replace(/[٠-٩]/g, function(d){ return "٠١٢٣٤٥٦٧٨٩".indexOf(d); });
+  }
+  var input = document.getElementById("doctor-patient-filter");
+  var rows = document.querySelectorAll(".doctor-patient-row");
+  var empty = document.getElementById("doctor-patient-filter-empty");
+  if (input) {
+    input.addEventListener("input", function(){
+      var raw = faToEn(input.value || "").trim().toLowerCase();
+      var q = raw;
+      var qDigits = raw.replace(/\\D+/g, "");
+      var shown = 0;
+      rows.forEach(function(row){
+        var hay = faToEn(row.getAttribute("data-search") || "").toLowerCase();
+        var on = !q || hay.indexOf(q) !== -1 || (qDigits.length >= 3 && hay.indexOf(qDigits) !== -1);
+        row.hidden = !on;
+        if (on) shown++;
+      });
+      if (empty) empty.hidden = shown > 0 || rows.length === 0;
+    });
+  }
+
   document.addEventListener("click", function(e){
     var closeBtn = e.target.closest("[data-close]");
     var toggle = e.target.closest("[data-toggle]");
