@@ -2036,6 +2036,10 @@ body.is-auth {
   color: var(--auth-ink, #1a2e28);
   border: 1.5px solid color-mix(in srgb, var(--auth-ink, #1a2e28) 28%, transparent);
   box-shadow: none;
+  font-size: .82rem;
+  font-weight: 700;
+  line-height: 1.25;
+  padding-inline: .55rem;
 }
 .auth-form-register .auth-submit-secondary:hover {
   filter: none;

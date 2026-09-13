@@ -123,7 +123,7 @@ $nameDict = isset($pdo) ? build_name_transliterations_client_map($pdo) : [];
           <button class="auth-submit" type="submit" name="submit_register" value="1">
             <?= $role === 'DOCTOR' ? 'ارسال درخواست' : 'ایجاد حساب' ?>
           </button>
-          <a class="auth-submit auth-submit-secondary" href="<?= e($loginHref) ?>" data-auth-switch="login">ورود</a>
+          <a class="auth-submit auth-submit-secondary" href="<?= e($loginHref) ?>" data-auth-switch="login">قبلاً ثبت‌نام کرده‌اید؟</a>
         </div>
       </form>
     </section>
