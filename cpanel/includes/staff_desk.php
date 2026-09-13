@@ -386,8 +386,14 @@ function staff_rows_mobile_seconds(array $rows): int
 
 function staff_format_device_split_line(array $device): string
 {
-    return 'لپ‌تاپ: ' . staff_format_duration((int) ($device['desktop'] ?? 0))
-        . ' · موبایل: ' . staff_format_duration((int) ($device['mobile'] ?? 0));
+    $line = 'آنلاین با لپ‌تاپ: ' . staff_format_duration((int) ($device['desktop'] ?? 0))
+        . ' · آنلاین با موبایل: ' . staff_format_duration((int) ($device['mobile'] ?? 0));
+    $gap = (int) ($device['gap'] ?? -1);
+    if ($gap >= 0) {
+        $line .= ' · قطع بین ورودها: ' . staff_format_duration($gap);
+    }
+
+    return $line;
 }
 
 function staff_shift_start(PDO $pdo, string $userId): void
@@ -579,13 +585,48 @@ function staff_rows_seconds_split(array $rows): array
     return $out;
 }
 
-/** زمان حضور روز: جمع مدت واقعی هر نوبت لاگین (نه فاصلهٔ اولین تا آخرین) */
+/** زمان حضور روز: از اولین ورود تا آخرین خروج (اگر هنوز آنلاین باشد تا الان) */
 function staff_day_presence_seconds_split(array $rows): array
 {
-    return staff_rows_seconds_split($rows);
+    $meta = staff_day_presence_meta($rows);
+    $firstIn = trim((string) ($meta['first_in'] ?? ''));
+    $start = $firstIn !== '' ? strtotime($firstIn) : false;
+    if (!$start) {
+        return ['total' => 0, 'regular' => 0, 'overtime' => 0];
+    }
+    if (!empty($meta['open'])) {
+        $end = time();
+    } else {
+        $lastOut = trim((string) ($meta['last_out'] ?? ''));
+        $end = $lastOut !== '' ? (strtotime($lastOut) ?: $start) : $start;
+    }
+
+    return staff_interval_seconds_split((int) $start, (int) $end);
 }
 
-/** جمع زمان حضور چند روز؛ هر روز جمع مدت نوبت‌های همان روز */
+/**
+ * تفکیک روز: حضور (اول→آخر)، آنلاین لپ‌تاپ/موبایل، و قطع بین ورودها.
+ * @return array{presence:int,mobile:int,desktop:int,online:int,gap:int,regular:int,overtime:int}
+ */
+function staff_day_presence_device_breakdown(array $rows): array
+{
+    $presenceSplit = staff_day_presence_seconds_split($rows);
+    $device = staff_rows_device_seconds($rows);
+    $online = (int) ($device['total'] ?? 0);
+    $presence = (int) ($presenceSplit['total'] ?? 0);
+
+    return [
+        'presence' => $presence,
+        'mobile' => (int) ($device['mobile'] ?? 0),
+        'desktop' => (int) ($device['desktop'] ?? 0),
+        'online' => $online,
+        'gap' => max(0, $presence - $online),
+        'regular' => (int) ($presenceSplit['regular'] ?? 0),
+        'overtime' => (int) ($presenceSplit['overtime'] ?? 0),
+    ];
+}
+
+/** جمع زمان حضور چند روز؛ هر روز جدا از ورود اول تا خروج آخر */
 function staff_days_presence_seconds_split(array $dayRowsList): array
 {
     $out = ['total' => 0, 'regular' => 0, 'overtime' => 0];
@@ -594,6 +635,27 @@ function staff_days_presence_seconds_split(array $dayRowsList): array
         $out['total'] += $part['total'];
         $out['regular'] += $part['regular'];
         $out['overtime'] += $part['overtime'];
+    }
+
+    return $out;
+}
+
+function staff_days_presence_device_breakdown(array $dayRowsList): array
+{
+    $out = [
+        'presence' => 0,
+        'mobile' => 0,
+        'desktop' => 0,
+        'online' => 0,
+        'gap' => 0,
+        'regular' => 0,
+        'overtime' => 0,
+    ];
+    foreach ($dayRowsList as $rows) {
+        $part = staff_day_presence_device_breakdown(is_array($rows) ? $rows : []);
+        foreach ($out as $key => $_) {
+            $out[$key] += (int) ($part[$key] ?? 0);
+        }
     }
 
     return $out;

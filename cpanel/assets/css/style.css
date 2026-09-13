@@ -3632,6 +3632,9 @@ html[dir="ltr"] .binder-body {
 .staff-presence-stat-mobile {
   background: rgba(36, 110, 140, .1);
 }
+.staff-presence-stat-gap {
+  background: rgba(180, 120, 20, .1);
+}
 .staff-presence-label {
   display: block;
   font-size: .78rem;
