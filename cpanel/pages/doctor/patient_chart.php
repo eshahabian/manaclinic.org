@@ -260,8 +260,18 @@ ob_start();
             <input class="input" id="chart_therapist_name" name="therapist_name" value="<?= e($chartTherapist) ?>">
           </div>
           <div>
-            <label class="label" for="chart_birth_date">تاریخ تولد</label>
-            <input class="input" id="chart_birth_date" type="date" name="birth_date" value="<?= e((string) ($chart['birth_date'] ?? '')) ?>" dir="ltr">
+            <label class="label" for="chart_birth_date_view">تاریخ تولد (شمسی)</label>
+            <?php
+              $birthYmd = trim((string) ($chart['birth_date'] ?? ''));
+              $birthJalali = '';
+              if ($birthYmd !== '' && preg_match('/^\d{4}-\d{2}-\d{2}$/', $birthYmd)) {
+                  [$by, $bm, $bd] = array_map('intval', explode('-', $birthYmd));
+                  [$jy, $jm, $jd] = gregorian_to_jalali($by, $bm, $bd);
+                  $birthJalali = $jy . '/' . $jm . '/' . $jd;
+              }
+            ?>
+            <input class="input" type="text" id="chart_birth_date_view" data-jdp data-jdp-only-date autocomplete="off" readonly placeholder="کلیک کنید تا تقویم شمسی باز شود" style="cursor:pointer" value="<?= e($birthJalali) ?>">
+            <input type="hidden" name="birth_date" id="chart_birth_date" value="<?= e($birthYmd) ?>">
           </div>
           <div>
             <label class="label" for="chart_marital">وضعیت تأهل</label>
@@ -588,9 +598,12 @@ ob_start();
 <?php
 $inner = ob_get_clean();
 
+$pageHead = '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">';
 $pageScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260905c"></script>
 <script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910r"></script>
 <script src="' . e(url('/assets/js/rich-editor.js')) . '"></script>
+<script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
 <script>
 if (document.querySelector("#clinical-editor")) {
   initRichEditor({
@@ -600,6 +613,40 @@ if (document.querySelector("#clinical-editor")) {
     hidden: "#history_text"
   });
 }
+(function(){
+  function faToEn(str){ return String(str).replace(/[۰-۹]/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹".indexOf(d); }); }
+  function pad(n){ return (n < 10 ? "0" : "") + n; }
+  function syncBirthJalali(){
+    var view = document.getElementById("chart_birth_date_view");
+    var hidden = document.getElementById("chart_birth_date");
+    if (!view || !hidden || typeof jalaali === "undefined") return;
+    var t = faToEn(view.value).replace(/-/g, "/").trim();
+    if (t === "") { hidden.value = ""; return; }
+    var p = t.split("/");
+    if (p.length !== 3) { hidden.value = ""; return; }
+    var g = jalaali.toGregorian(parseInt(p[0],10), parseInt(p[1],10), parseInt(p[2],10));
+    hidden.value = g.gy + "-" + pad(g.gm) + "-" + pad(g.gd);
+  }
+  if (typeof jalaliDatepicker !== "undefined") {
+    jalaliDatepicker.startWatch({
+      selector: "#chart_birth_date_view",
+      time: false,
+      hideAfterChange: true,
+      showTodayBtn: false,
+      showEmptyBtn: true
+    });
+  }
+  var birthView = document.getElementById("chart_birth_date_view");
+  if (birthView) {
+    birthView.addEventListener("jdp:change", syncBirthJalali);
+    birthView.addEventListener("change", syncBirthJalali);
+    syncBirthJalali();
+  }
+  var historyForm = document.getElementById("history-form");
+  if (historyForm) {
+    historyForm.addEventListener("submit", function(){ syncBirthJalali(); });
+  }
+})();
 (function(){
   document.addEventListener("click", function(e){
     var closeBtn = e.target.closest("[data-close]");
