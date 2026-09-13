@@ -412,7 +412,7 @@ function mail_send_welcome(PDO $pdo, array $user): array
     }
     $name = e((string) ($user['name'] ?? 'کاربر'));
     $username = e((string) ($user['username'] ?? ''));
-    $loginUrl = e(url('/login'));
+    $loginUrl = e(seo_absolute_url('/login'));
     $role = (string) ($user['role'] ?? 'PATIENT');
     $extra = $role === 'DOCTOR'
         ? '<p>درخواست درمانگری شما ثبت شد. پس از تأیید مدیر سایت می‌توانید وارد شوید.</p>'
@@ -425,7 +425,7 @@ function mail_send_welcome(PDO $pdo, array $user): array
         . $extra
         . '<p><a href="' . $loginUrl . '" style="display:inline-block;padding:10px 18px;background:#1b5e4b;color:#fff;text-decoration:none;border-radius:8px">ورود به سایت</a></p>'
     );
-    $text = "سلام {$user['name']}\nثبت‌نام شما در مانا کلینیک انجام شد.\nنام کاربری: {$user['username']}\nورود: " . url('/login');
+    $text = "سلام {$user['name']}\nثبت‌نام شما در مانا کلینیک انجام شد.\nنام کاربری: {$user['username']}\nورود: " . seo_absolute_url('/login');
     return mail_send($pdo, $email, 'خوش آمدید به مانا کلینیک', $html, $text);
 }
 
@@ -461,7 +461,7 @@ function password_reset_create_token(PDO $pdo, string $userId): string
     $pdo->prepare(
         'INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at) VALUES (?,?,?, DATE_ADD(NOW(), INTERVAL 1 HOUR))'
     )->execute([$id, $userId, $hash]);
-    return url('/reset-password?token=' . urlencode($raw));
+    return seo_absolute_url('/reset-password?token=' . rawurlencode($raw));
 }
 
 function password_reset_find_valid(PDO $pdo, string $rawToken): ?array

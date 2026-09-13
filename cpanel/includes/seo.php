@@ -17,15 +17,17 @@ function seo_default_keywords(): string
     return 'مانا کلینیک, روانشناسی, روان‌درمانی, مشاوره روانشناسی, زوج‌درمانی, اضطراب, افسردگی, سعادت آباد, رزرو نوبت روانشناس, دکتر عطیه گارسچی';
 }
 
-/** آدرس مطلق برای SEO (canonical / Open Graph) */
+/** آدرس مطلق برای SEO (canonical / Open Graph) و لینک‌های ایمیل */
 function seo_absolute_url(string $path = '/'): string
 {
     global $config;
     $base = rtrim((string) ($config['app_url'] ?? ''), '/');
-    if ($base === '') {
-        $scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-        $host = (string) ($_SERVER['HTTP_HOST'] ?? 'manaclinic.org');
-        $base = $scheme . '://' . $host;
+    if ($base === '' || !preg_match('#^https?://.+#i', $base)) {
+        $host = trim((string) ($_SERVER['HTTP_HOST'] ?? ''));
+        if ($host === '' || str_contains($host, '/') || str_contains($host, ' ')) {
+            $host = 'manaclinic.org';
+        }
+        $base = 'https://' . $host;
     }
     if ($path === '/' || $path === '') {
         return $base . '/';
