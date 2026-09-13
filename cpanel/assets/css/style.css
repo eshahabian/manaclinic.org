@@ -2774,6 +2774,12 @@ jdp-container, .jdp-container, .jdp-overlay {
 .whitespace-pre { white-space: pre-wrap; }
 .stack { display: grid; gap: .75rem; }
 .row-between { display: flex; flex-wrap: wrap; justify-content: space-between; gap: .75rem; align-items: start; }
+a.doctor-patient-row.is-search-hidden,
+a.secretary-patient-row.is-search-hidden,
+.doctor-patient-row[hidden],
+.secretary-patient-row[hidden] {
+  display: none !important;
+}
 .appt-card {
   display: flex;
   flex-direction: column;

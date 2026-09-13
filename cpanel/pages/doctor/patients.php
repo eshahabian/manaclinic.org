@@ -131,32 +131,40 @@ ob_start();
   </div>
 </div>
 <?php
+$inner = ob_get_clean();
 $pageScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260905c"></script>
 <script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910r"></script>
 <script>
 (function(){
   function faToEn(str){
-    return String(str || "").replace(/[۰-۹]/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹".indexOf(d); })
-      .replace(/[٠-٩]/g, function(d){ return "٠١٢٣٤٥٦٧٨٩".indexOf(d); });
+    return String(str || "").replace(/[۰-۹]/g, function(d){ return String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)); })
+      .replace(/[٠-٩]/g, function(d){ return String("٠١٢٣٤٥٦٧٨٩".indexOf(d)); });
+  }
+  function norm(str){
+    return faToEn(str).trim().toLowerCase().replace(/ي/g, "ی").replace(/ك/g, "ک");
   }
   var input = document.getElementById("doctor-patient-filter");
-  var rows = document.querySelectorAll(".doctor-patient-row");
+  var list = document.getElementById("doctor-patient-list");
+  var rows = list ? list.querySelectorAll(".doctor-patient-row") : [];
   var empty = document.getElementById("doctor-patient-filter-empty");
-  if (input) {
-    input.addEventListener("input", function(){
-      var raw = faToEn(input.value || "").trim().toLowerCase();
-      var q = raw;
-      var qDigits = raw.replace(/\\D+/g, "");
-      var shown = 0;
-      rows.forEach(function(row){
-        var hay = faToEn(row.getAttribute("data-search") || "").toLowerCase();
-        var on = !q || hay.indexOf(q) !== -1 || (qDigits.length >= 3 && hay.indexOf(qDigits) !== -1);
-        row.hidden = !on;
-        if (on) shown++;
-      });
-      if (empty) empty.hidden = shown > 0 || rows.length === 0;
+  if (!input) return;
+  function applyFilter(){
+    var raw = norm(input.value || "");
+    var q = raw;
+    var qDigits = raw.replace(/\D+/g, "");
+    var shown = 0;
+    rows.forEach(function(row){
+      var hay = norm(row.getAttribute("data-search") || "");
+      var on = !q || hay.indexOf(q) !== -1 || (qDigits.length >= 3 && hay.indexOf(qDigits) !== -1);
+      row.classList.toggle("is-search-hidden", !on);
+      row.hidden = !on;
+      if (on) shown++;
     });
+    if (empty) empty.hidden = shown > 0 || rows.length === 0;
   }
+  input.addEventListener("input", applyFilter);
+  input.addEventListener("search", applyFilter);
+  applyFilter();
 
   document.addEventListener("click", function(e){
     var closeBtn = e.target.closest("[data-close]");
@@ -183,4 +191,5 @@ $pageScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260
   });
 })();
 </script>';
-render_doctor_page('پرونده مراجعه‌کنندگان', ob_get_clean());
+$GLOBALS['pageScripts'] = $pageScripts;
+render_doctor_page('پرونده مراجعه‌کنندگان', $inner);

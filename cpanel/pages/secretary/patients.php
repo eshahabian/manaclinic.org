@@ -133,6 +133,7 @@ $pageScripts = '
     rows.forEach(function(row){
       var hay = (row.getAttribute("data-search") || "");
       var on = !q || hay.indexOf(q) !== -1;
+      row.classList.toggle("is-search-hidden", !on);
       row.hidden = !on;
       if (on) shown++;
     });
