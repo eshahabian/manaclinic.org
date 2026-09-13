@@ -579,26 +579,13 @@ function staff_rows_seconds_split(array $rows): array
     return $out;
 }
 
-/** زمان حضور روز: از اولین ورود تا آخرین خروج (اگر هنوز آنلاین باشد تا الان) */
+/** زمان حضور روز: جمع مدت واقعی هر نوبت لاگین (نه فاصلهٔ اولین تا آخرین) */
 function staff_day_presence_seconds_split(array $rows): array
 {
-    $meta = staff_day_presence_meta($rows);
-    $firstIn = trim((string) ($meta['first_in'] ?? ''));
-    $start = $firstIn !== '' ? strtotime($firstIn) : false;
-    if (!$start) {
-        return ['total' => 0, 'regular' => 0, 'overtime' => 0];
-    }
-    if (!empty($meta['open'])) {
-        $end = time();
-    } else {
-        $lastOut = trim((string) ($meta['last_out'] ?? ''));
-        $end = $lastOut !== '' ? (strtotime($lastOut) ?: $start) : $start;
-    }
-
-    return staff_interval_seconds_split((int) $start, (int) $end);
+    return staff_rows_seconds_split($rows);
 }
 
-/** جمع زمان حضور چند روز؛ هر روز جدا از ورود اول تا خروج آخر */
+/** جمع زمان حضور چند روز؛ هر روز جمع مدت نوبت‌های همان روز */
 function staff_days_presence_seconds_split(array $dayRowsList): array
 {
     $out = ['total' => 0, 'regular' => 0, 'overtime' => 0];
