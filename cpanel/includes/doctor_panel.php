@@ -19,6 +19,7 @@ function doctor_ctx_user_name(array $ctx): string
     return (string) ($ctx['user']['name'] ?? '');
 }
 
+/** فقط ادمین و دکتر شیوا گرانمایه‌پور — نه بقیه درمانگرها */
 function doctor_can_view_staff_hours(?array $user = null): bool
 {
     $user = $user ?? current_user();

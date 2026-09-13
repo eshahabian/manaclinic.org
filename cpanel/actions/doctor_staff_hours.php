@@ -5,7 +5,8 @@ require_once __DIR__ . '/../includes/doctor_panel.php';
 
 $ctx = require_doctor_profile($pdo);
 if (!doctor_can_view_staff_hours($ctx['user'] ?? null)) {
-    redirect('/doctor');
+    flash_set('error', 'مشاهده ساعت کاری منشی‌ها فقط برای دکتر شیوا گرانمایه‌پور و مدیر مجاز است.');
+    redirect('/doctor/notifications');
 }
 if (($ctx['user']['role'] ?? '') !== 'DOCTOR' && empty($ctx['admin_mode'])) {
     flash_set('error', 'فقط دکتر یا مدیر می‌تواند نام منشی‌ها را عوض کند.');

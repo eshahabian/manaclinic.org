@@ -197,11 +197,16 @@ function doctor_is_shiva(?array $user): bool
         return false;
     }
     $username = strtolower(trim((string) ($user['username'] ?? '')));
-    if (in_array($username, ['shgeranmaye', 'doctor'], true)) {
+    $name = (string) ($user['name'] ?? '');
+    if ($username === 'shgeranmaye') {
+        return true;
+    }
+    // حساب قدیمی doctor فقط اگر همان دکتر شیوا باشد
+    if ($username === 'doctor' && str_contains($name, 'گرانمایه')) {
         return true;
     }
 
-    return str_contains((string) ($user['name'] ?? ''), 'گرانمایه');
+    return str_contains($name, 'گرانمایه');
 }
 
 function doctor_skips_profile_gate(?array $user): bool

@@ -38,7 +38,6 @@ function admin_nav(): array {
         ['href' => '/doctor/workshops', 'label' => 'کارگاه‌ها'],
         ['href' => '/doctor/articles', 'label' => 'مقالات درمانگر'],
         ['href' => '/doctor/profile', 'label' => 'پروفایل حرفه‌ای'],
-        ['href' => '/doctor/staff-hours', 'label' => 'ساعت کاری منشی‌ها (درمانگر)'],
         ['href' => '/doctor/staff-messages', 'label' => 'پیام‌های درمانگر'],
         ['href' => '/change-password', 'label' => 'تغییر رمز عبور'],
     ];
