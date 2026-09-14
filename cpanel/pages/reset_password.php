@@ -9,7 +9,10 @@ if (current_user()) {
 
 $token = password_reset_normalize_token((string) ($_GET['token'] ?? ''));
 if ($token === '') {
-    $token = password_reset_normalize_token((string) ($_REQUEST['token'] ?? ''));
+    $token = password_reset_normalize_token((string) ($_GET['c'] ?? ''));
+}
+if ($token === '') {
+    $token = password_reset_normalize_token((string) ($_REQUEST['token'] ?? $_REQUEST['c'] ?? ''));
 }
 
 ensure_mail_schema($pdo);

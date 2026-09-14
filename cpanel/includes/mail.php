@@ -39,10 +39,7 @@ function ensure_mail_schema(PDO $pdo): void
         error_log('ManaClinic ensure_mail_schema tokens: ' . $e->getMessage());
     }
     try {
-        $col = $pdo->query("SHOW COLUMNS FROM password_reset_tokens LIKE 'token_hash'")->fetch(PDO::FETCH_ASSOC);
-        if ($col && isset($col['Type']) && stripos((string) $col['Type'], 'char(64)') === 0) {
-            $pdo->exec('ALTER TABLE password_reset_tokens MODIFY token_hash VARCHAR(64) NOT NULL');
-        }
+        $pdo->exec('ALTER TABLE password_reset_tokens MODIFY token_hash VARCHAR(64) NOT NULL');
     } catch (Throwable $ignored) {
     }
     $ready = true;
@@ -462,6 +459,7 @@ function mail_send_password_reset(PDO $pdo, array $user, string $resetUrl): arra
 
 /**
  * ساخت توکن ریست و برگرداندن لینک یک‌بارمصرف
+ * توکن خام در دیتابیس ذخیره می‌شود (۱۲۸ بیت آنتروپی) تا مشکل هش/کدپیج پیش نیاید.
  */
 function password_reset_create_token(PDO $pdo, string $userId): string
 {
@@ -470,29 +468,28 @@ function password_reset_create_token(PDO $pdo, string $userId): string
         throw new RuntimeException('user id empty for password reset');
     }
 
-    // فقط توکن‌های همین کاربر + موارد منقضی
-    $pdo->prepare('DELETE FROM password_reset_tokens WHERE user_id=? OR expires_at < UTC_TIMESTAMP()')->execute([$userId]);
+    $now = gmdate('Y-m-d H:i:s');
+    $expiresAt = gmdate('Y-m-d H:i:s', time() + 2 * 3600);
 
-    // ۳۲ کاراکتر: کمتر در ایمیل می‌شکند، همچنان امن است
-    $raw = bin2hex(random_bytes(16));
-    $hash = hash('sha256', $raw);
+    $pdo->prepare('DELETE FROM password_reset_tokens WHERE user_id=? OR expires_at < ?')->execute([$userId, $now]);
+
+    $raw = bin2hex(random_bytes(16)); // 32 hex
     $id = cuid();
     $pdo->prepare(
         'INSERT INTO password_reset_tokens (id, user_id, token_hash, expires_at, used_at, created_at)
-         VALUES (?,?,?, DATE_ADD(UTC_TIMESTAMP(), INTERVAL 2 HOUR), NULL, UTC_TIMESTAMP())'
-    )->execute([$id, $userId, $hash]);
+         VALUES (?,?,?,?,NULL,?)'
+    )->execute([$id, $userId, $raw, $expiresAt, $now]);
 
     $check = $pdo->prepare(
-        'SELECT id FROM password_reset_tokens
-         WHERE id=? AND token_hash=? AND used_at IS NULL AND expires_at > UTC_TIMESTAMP()
-         LIMIT 1'
+        'SELECT id FROM password_reset_tokens WHERE id=? AND token_hash=? AND used_at IS NULL AND expires_at > ? LIMIT 1'
     );
-    $check->execute([$id, $hash]);
+    $check->execute([$id, $raw, $now]);
     if (!$check->fetch()) {
         throw new RuntimeException('password reset token was not saved');
     }
 
-    return seo_absolute_url('/reset-password/' . $raw);
+    // هم در مسیر و هم در query تا اگر یکی خراب شد، دیگری کار کند
+    return seo_absolute_url('/reset-password/' . $raw . '?c=' . $raw);
 }
 
 function password_reset_normalize_token(string $rawToken): string
@@ -504,28 +501,52 @@ function password_reset_find_valid(PDO $pdo, string $rawToken): ?array
 {
     ensure_mail_schema($pdo);
     $rawToken = password_reset_normalize_token($rawToken);
-    // ۳۲ (جدید) یا ۶۴ (لینک‌های قبلی)
     $len = strlen($rawToken);
     if ($len !== 32 && $len !== 64) {
         return null;
     }
-    $hash = hash('sha256', $rawToken);
+
+    $now = gmdate('Y-m-d H:i:s');
+    // سازگاری: توکن خام جدید، یا هش SHA-256 لینک‌های قبلی
+    $candidates = array_values(array_unique([$rawToken, hash('sha256', $rawToken)]));
+
     try {
+        $placeholders = implode(',', array_fill(0, count($candidates), '?'));
+        $params = $candidates;
+        $params[] = $now;
         $st = $pdo->prepare(
-            'SELECT t.id AS reset_id, t.user_id, t.expires_at, t.used_at,
-                    u.username, u.name, u.email, u.role
-             FROM password_reset_tokens t
-             INNER JOIN users u ON u.id = t.user_id
-             WHERE t.token_hash=? AND t.used_at IS NULL AND t.expires_at > UTC_TIMESTAMP()
-             LIMIT 1'
+            "SELECT id, user_id, expires_at, used_at
+             FROM password_reset_tokens
+             WHERE token_hash IN ($placeholders) AND used_at IS NULL AND expires_at > ?
+             ORDER BY created_at DESC
+             LIMIT 1"
         );
-        $st->execute([$hash]);
-        $row = $st->fetch(PDO::FETCH_ASSOC);
-        if (!$row) {
+        $st->execute($params);
+        $tokenRow = $st->fetch(PDO::FETCH_ASSOC);
+        if (!$tokenRow) {
+            error_log('ManaClinic reset token miss len=' . $len . ' prefix=' . substr($rawToken, 0, 6));
             return null;
         }
-        $row['id'] = (string) ($row['reset_id'] ?? '');
-        return $row;
+
+        $userSt = $pdo->prepare('SELECT id, username, name, email, role FROM users WHERE id=? LIMIT 1');
+        $userSt->execute([(string) $tokenRow['user_id']]);
+        $user = $userSt->fetch(PDO::FETCH_ASSOC);
+        if (!$user) {
+            error_log('ManaClinic reset token user missing: ' . (string) $tokenRow['user_id']);
+            return null;
+        }
+
+        return [
+            'id' => (string) $tokenRow['id'],
+            'reset_id' => (string) $tokenRow['id'],
+            'user_id' => (string) $tokenRow['user_id'],
+            'expires_at' => (string) $tokenRow['expires_at'],
+            'used_at' => $tokenRow['used_at'],
+            'username' => (string) ($user['username'] ?? ''),
+            'name' => (string) ($user['name'] ?? ''),
+            'email' => (string) ($user['email'] ?? ''),
+            'role' => (string) ($user['role'] ?? ''),
+        ];
     } catch (Throwable $e) {
         error_log('ManaClinic password_reset_find_valid: ' . $e->getMessage());
         return null;
