@@ -3,6 +3,8 @@ declare(strict_types=1);
 
 /** @var array $enrollmentList */
 $enrollmentList = $enrollmentList ?? [];
+$enrollmentDeskAction = $enrollmentDeskAction ?? url('/secretary/workshops');
+$enrollmentReceiptKind = $enrollmentReceiptKind ?? 'workshop';
 ?>
 <?php if (!$enrollmentList): ?>
   <p class="muted" style="margin:.75rem 0 0;font-size:.85rem">هنوز کسی در این کارگاه ثبت‌نام نکرده است.</p>
@@ -12,6 +14,7 @@ $enrollmentList = $enrollmentList ?? [];
     <?php foreach ($enrollmentList as $enr): ?>
       <?php
         $paid = (string) ($enr['pay_status'] ?? '') === 'PAID';
+        $pendingMembership = (string) ($enr['status'] ?? '') === 'PENDING_PAYMENT';
         $phone = trim((string) ($enr['patient_phone'] ?? ''));
         $paymentId = (string) ($enr['payment_id'] ?? '');
       ?>
@@ -36,14 +39,17 @@ $enrollmentList = $enrollmentList ?? [];
         </div>
         <div class="workshop-enroll-desk-actions">
           <span class="badge"><?= e(enrollment_status_label((string) $enr['status'])) ?></span>
+          <?php if ($paid): ?>
+            <span class="badge" style="background:var(--bg-soft)">پرداخت شده</span>
+          <?php endif; ?>
           <?php if (isset($enr['amount'])): ?>
             <span class="muted" style="font-size:.8rem"><?= e(format_price((int) $enr['amount'])) ?></span>
           <?php endif; ?>
           <?php if ($paid && $paymentId !== '' && !empty($enr['receipt_path'])): ?>
-            <a class="btn btn-outline btn-sm" href="<?= e(url('/staff/receipt?id=' . $paymentId . '&kind=workshop')) ?>" target="_blank" rel="noopener">مشاهده فیش</a>
+            <a class="btn btn-outline btn-sm" href="<?= e(url('/staff/receipt?id=' . $paymentId . '&kind=' . $enrollmentReceiptKind)) ?>" target="_blank" rel="noopener">مشاهده فیش</a>
           <?php endif; ?>
           <?php if ($paid && $paymentId !== '' && empty($enr['receipt_path'])): ?>
-            <form class="staff-receipt-form" method="post" action="<?= e(url('/secretary/workshops')) ?>" enctype="multipart/form-data">
+            <form class="staff-receipt-form" method="post" action="<?= e($enrollmentDeskAction) ?>" enctype="multipart/form-data">
               <input type="hidden" name="action" value="mark_paid">
               <input type="hidden" name="enrollment_id" value="<?= e((string) $enr['id']) ?>">
               <label class="btn btn-outline btn-sm staff-receipt-pick">
@@ -52,18 +58,18 @@ $enrollmentList = $enrollmentList ?? [];
               </label>
             </form>
           <?php endif; ?>
-          <?php if (!$paid || (string) ($enr['status'] ?? '') === 'PENDING_PAYMENT'): ?>
-            <form method="post" action="<?= e(url('/secretary/workshops')) ?>" style="margin:0">
+          <?php if ($pendingMembership): ?>
+            <form method="post" action="<?= e($enrollmentDeskAction) ?>" style="margin:0">
               <input type="hidden" name="action" value="approve_enrollment">
               <input type="hidden" name="enrollment_id" value="<?= e((string) $enr['id']) ?>">
               <button class="btn btn-primary btn-sm" type="submit">تأیید عضویت</button>
             </form>
           <?php endif; ?>
           <?php if (!$paid): ?>
-            <form class="staff-receipt-form workshop-pay-form" method="post" action="<?= e(url('/secretary/workshops')) ?>" enctype="multipart/form-data">
+            <form class="staff-receipt-form workshop-pay-form" method="post" action="<?= e($enrollmentDeskAction) ?>" enctype="multipart/form-data">
               <input type="hidden" name="action" value="mark_paid">
               <input type="hidden" name="enrollment_id" value="<?= e((string) $enr['id']) ?>">
-              <label class="btn btn-primary btn-sm staff-receipt-pick">
+              <label class="btn btn-outline btn-sm staff-receipt-pick">
                 پرداخت شده — بارگذاری فیش
                 <input type="file" name="receipt" accept="image/jpeg,image/png,image/webp,application/pdf" required onchange="this.form.submit()">
               </label>

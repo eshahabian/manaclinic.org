@@ -57,11 +57,26 @@ $emptyEnrollments = $emptyEnrollments ?? 'هنوز در کارگاهی از ای
             <div class="enrollment-address" style="margin-top:.5rem"><span class="enrollment-label">محل:</span> <?= e((string) $e['location']) ?></div>
           <?php endif; ?>
           <?php if ($e['status'] === 'PENDING_PAYMENT' && $e['type'] === 'OFFLINE'): ?>
-            <p class="muted" style="font-size:.8rem;margin-top:.35rem">پس از پرداخت، محتوای آفلاین فعال می‌شود.</p>
+            <p class="muted" style="font-size:.8rem;margin-top:.35rem">پس از تأیید عضویت، محتوای آفلاین فعال می‌شود.</p>
           <?php endif; ?>
         </div>
         <div class="enrollment-card-actions">
+          <?php
+            $payStatus = (string) ($e['pay_status'] ?? '');
+            $needsPay = $e['status'] === 'PENDING_PAYMENT'
+              && (int) ($e['amount'] ?? 0) > 0
+              && $payStatus !== 'PAID';
+          ?>
           <?php if ($e['status'] === 'PENDING_PAYMENT'): ?>
+            <p class="muted" style="font-size:.8rem;margin:0 0 .35rem;line-height:1.55">
+              <?php if ($payStatus === 'PAID'): ?>
+                پرداخت ثبت شد — منتظر تأیید عضویت منشی، درمانگر یا مدیر هستید.
+              <?php else: ?>
+                درخواست ثبت شده و منتظر تأیید عضویت است<?= $needsPay ? '؛ در صورت نیاز می‌توانید همین‌جا پرداخت کنید' : '' ?>.
+              <?php endif; ?>
+            </p>
+          <?php endif; ?>
+          <?php if ($needsPay): ?>
             <label class="enrollment-wallet-label">
               <input type="checkbox" class="use-wallet" data-id="<?= e((string) $e['id']) ?>" <?= (int) $wallet['balance'] > 0 ? '' : 'disabled' ?>>
               استفاده از کیف پول (<?= e(format_price((int) $wallet['balance'])) ?>)

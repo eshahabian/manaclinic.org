@@ -80,7 +80,10 @@
             location.href = res.j.paymentUrl;
             return;
           }
-          location.reload();
+          if (res.j.message) showMsg(res.j.message, true);
+          setTimeout(function () {
+            location.href = res.j.redirect || location.href;
+          }, res.j.message ? 900 : 0);
         })
         .catch(function () {
           btn.disabled = false;

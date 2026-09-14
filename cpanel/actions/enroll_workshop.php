@@ -83,9 +83,32 @@ try {
     exit;
 }
 
+$patientName = (string) ($user['name'] ?? 'مراجعه‌کننده');
+$title = (string) ($workshop['title'] ?? 'کارگاه');
+$when = format_fa_datetime((string) ($workshop['starts_at'] ?? ''));
+$doctorId = (string) ($workshop['doctor_id'] ?? '');
+notify_role(
+    $pdo,
+    'SECRETARY',
+    'درخواست عضویت کارگاه',
+    "«{$patientName}» برای کارگاه «{$title}» ({$when}) درخواست داد. در انتظار تأیید عضویت است.",
+    '/secretary/workshops',
+    'workshop'
+);
+if ($doctorId !== '') {
+    notify_doctor_profile(
+        $pdo,
+        $doctorId,
+        'درخواست عضویت کارگاه',
+        "«{$patientName}» برای کارگاه «{$title}» ({$when}) درخواست داد. در انتظار تأیید عضویت است.",
+        '/doctor/workshops',
+        'workshop'
+    );
+}
+
 echo json_encode([
     'enrollmentId' => $enrollmentId,
-    'message' => 'ثبت‌نام انجام شد و به «دوره‌های درخواست داده‌شده» رفت. بعد از تأیید، در «دوره‌های من» دیده می‌شود.',
+    'message' => 'درخواست ثبت شد و به «دوره‌های درخواست داده‌شده» رفت. بعد از تأیید منشی، درمانگر یا مدیر در «دوره‌های من» دیده می‌شود.',
     'needsPayment' => $needsPayment,
     'redirect' => url('/dashboard/workshops/requested'),
 ], JSON_UNESCAPED_UNICODE);

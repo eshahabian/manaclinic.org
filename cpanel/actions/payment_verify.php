@@ -33,7 +33,7 @@ if ($kind === 'workshop') {
 
     if ($status !== 'OK') {
         $pdo->prepare("UPDATE workshop_payments SET status='FAILED' WHERE id=? AND status='PENDING'")->execute([$payment['id']]);
-        $pdo->prepare("UPDATE workshop_enrollments SET status='CANCELLED' WHERE id=? AND status='PENDING'")->execute([$payment['enrollment_id']]);
+        $pdo->prepare("UPDATE workshop_enrollments SET status='CANCELLED' WHERE id=? AND status='PENDING_PAYMENT'")->execute([$payment['enrollment_id']]);
         flash_set('error', 'پرداخت لغو شد.');
         redirect('/dashboard/workshops/requested');
     }
@@ -42,7 +42,7 @@ if ($kind === 'workshop') {
     $verified = zarinpal_verify($config, $authority, $onlineAmount);
     if (empty($verified['ok'])) {
         $pdo->prepare("UPDATE workshop_payments SET status='FAILED' WHERE id=? AND status='PENDING'")->execute([$payment['id']]);
-        $pdo->prepare("UPDATE workshop_enrollments SET status='CANCELLED' WHERE id=? AND status='PENDING'")->execute([$payment['enrollment_id']]);
+        $pdo->prepare("UPDATE workshop_enrollments SET status='CANCELLED' WHERE id=? AND status='PENDING_PAYMENT'")->execute([$payment['enrollment_id']]);
         flash_set('error', 'پرداخت ناموفق بود.');
         redirect('/dashboard/workshops/requested');
     }
@@ -52,8 +52,8 @@ if ($kind === 'workshop') {
         $payment['ref_id'] = $verified['refId'] ?? null;
         confirm_workshop_payment($pdo, $payment);
         $pdo->commit();
-        flash_set('success', 'پرداخت کارگاه با موفقیت انجام شد.');
-        redirect('/dashboard/workshops/mine');
+        flash_set('success', 'پرداخت ثبت شد. تا تأیید عضویت توسط منشی، درمانگر یا مدیر در «دوره‌های درخواست داده‌شده» می‌ماند.');
+        redirect('/dashboard/workshops/requested');
     } catch (Throwable $e) {
         $pdo->rollBack();
         flash_set('error', 'ثبت پرداخت کارگاه ناموفق بود. اگر مبلغ کم شده با کلینیک تماس بگیرید.');

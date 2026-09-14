@@ -198,7 +198,7 @@ if ($action === 'mark_paid') {
             $_FILES['receipt'] ?? []
         );
         staff_log_action($pdo, (string) $user['id'], 'workshop_mark_paid', 'enrollment', $enrollmentId);
-        flash_set('success', 'پرداخت با فیش ثبت شد و برای منشی‌های دیگر هم دیده می‌شود.');
+        flash_set('success', 'پرداخت با فیش ثبت شد. برای ورود به «دوره‌های من»، عضویت را جداگانه تأیید کنید.');
     } catch (RuntimeException $e) {
         flash_set('error', $e->getMessage());
     }
@@ -212,7 +212,7 @@ if ($action === 'mark_paid') {
 if ($action === 'approve_enrollment') {
     try {
         workshop_approve_enrollment_by_staff($pdo, post('enrollment_id'), (string) $user['id'], staff_actor_label($user));
-        flash_set('success', 'عضویت تأیید شد و فایل جلسات برای مراجعه‌کننده باز شد.');
+        flash_set('success', 'عضویت تأیید شد و کارگاه به «دوره‌های من» مراجعه‌کننده منتقل شد.');
     } catch (RuntimeException $e) {
         flash_set('error', $e->getMessage());
     }

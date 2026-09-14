@@ -9,6 +9,50 @@ $ctx = require_doctor_profile($pdo);
 ensure_workshop_schema($pdo);
 ensure_workshop_media_schema($pdo);
 $action = post('action');
+$base = '/doctor/workshops';
+$actorUser = $ctx['user'] ?? current_user();
+$staffUserId = (string) ($actorUser['id'] ?? doctor_ctx_user_id($ctx));
+$staffLabel = function_exists('staff_actor_label') ? staff_actor_label($actorUser) : doctor_ctx_user_name($ctx);
+
+if ($action === 'approve_enrollment') {
+    $enrollmentId = post('enrollment_id');
+    try {
+        if (!workshop_enrollment_belongs_to_doctor($pdo, $enrollmentId, (string) $ctx['profile']['id'])) {
+            throw new RuntimeException('این ثبت‌نام مربوط به کارگاه شما نیست.');
+        }
+        workshop_approve_enrollment_by_staff($pdo, $enrollmentId, $staffUserId, $staffLabel);
+        if (function_exists('staff_log_action')) {
+            staff_log_action($pdo, $staffUserId, 'workshop_approve_enrollment', 'enrollment', $enrollmentId);
+        }
+        flash_set('success', 'عضویت تأیید شد و کارگاه به «دوره‌های من» مراجعه‌کننده منتقل شد.');
+    } catch (RuntimeException $e) {
+        flash_set('error', $e->getMessage());
+    }
+    redirect($base);
+}
+
+if ($action === 'mark_paid') {
+    $enrollmentId = post('enrollment_id');
+    try {
+        if (!workshop_enrollment_belongs_to_doctor($pdo, $enrollmentId, (string) $ctx['profile']['id'])) {
+            throw new RuntimeException('این ثبت‌نام مربوط به کارگاه شما نیست.');
+        }
+        workshop_mark_paid_by_staff(
+            $pdo,
+            $enrollmentId,
+            $staffUserId,
+            $staffLabel,
+            $_FILES['receipt'] ?? []
+        );
+        if (function_exists('staff_log_action')) {
+            staff_log_action($pdo, $staffUserId, 'workshop_mark_paid', 'enrollment', $enrollmentId);
+        }
+        flash_set('success', 'پرداخت با فیش ثبت شد. برای ورود به «دوره‌های من»، عضویت را تأیید کنید.');
+    } catch (RuntimeException $e) {
+        flash_set('error', $e->getMessage());
+    }
+    redirect($base);
+}
 
 if ($action === 'create') {
     try {

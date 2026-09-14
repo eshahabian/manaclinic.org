@@ -34,22 +34,8 @@ if (!$row || $row['status'] !== 'PENDING_PAYMENT' || $row['pay_status'] !== 'PEN
 
 $amount = (int) $row['amount'];
 if ($amount <= 0) {
-    $pdo->beginTransaction();
-    try {
-        confirm_workshop_payment($pdo, [
-            'id' => $row['payment_id'],
-            'enrollment_id' => $enrollmentId,
-            'amount' => 0,
-            'wallet_amount' => 0,
-            'ref_id' => null,
-        ]);
-        $pdo->commit();
-        echo json_encode(['success' => true, 'message' => 'ثبت‌نام تأیید شد.'], JSON_UNESCAPED_UNICODE);
-    } catch (Throwable $e) {
-        $pdo->rollBack();
-        http_response_code(500);
-        echo json_encode(['error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
-    }
+    http_response_code(400);
+    echo json_encode(['error' => 'این کارگاه نیاز به پرداخت ندارد؛ منتظر تأیید عضویت بمانید.'], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
@@ -97,7 +83,11 @@ try {
             'ref_id' => null,
         ]);
         $pdo->commit();
-        echo json_encode(['success' => true, 'message' => 'پرداخت از کیف پول انجام شد.'], JSON_UNESCAPED_UNICODE);
+        echo json_encode([
+            'success' => true,
+            'message' => 'پرداخت از کیف پول ثبت شد. تا تأیید عضویت در «دوره‌های درخواست داده‌شده» می‌ماند.',
+            'redirect' => url('/dashboard/workshops/requested'),
+        ], JSON_UNESCAPED_UNICODE);
         exit;
     }
 

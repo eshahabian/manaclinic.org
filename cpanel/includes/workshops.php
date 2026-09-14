@@ -408,10 +408,10 @@ function workshop_notify_doctors(
     $typeLabel = workshop_type_label($type);
     $ownerHint = $ownerDoctorName ? " — درمانگر: «{$ownerDoctorName}»" : '';
     if (workshop_is_offline($type)) {
-        $body = "«{$creatorName}» دوره آفلاین «{$title}» منتشر کرد{$ownerHint}. مراجعه‌کنندگان در «دوره‌های من» می‌بینند.";
+        $body = "«{$creatorName}» دوره آفلاین «{$title}» منتشر کرد{$ownerHint}. مراجعه‌کنندگان در «دوره‌های جدید» می‌بینند.";
     } else {
         $when = format_fa_datetime($startsAt);
-        $body = "«{$creatorName}» کارگاه {$typeLabel} «{$title}» ({$when}) منتشر کرد{$ownerHint}. مراجعه‌کنندگان در «دوره‌های من» می‌بینند.";
+        $body = "«{$creatorName}» کارگاه {$typeLabel} «{$title}» ({$when}) منتشر کرد{$ownerHint}. مراجعه‌کنندگان در «دوره‌های جدید» می‌بینند.";
     }
     foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $userId) {
         notify_user(
@@ -793,17 +793,18 @@ function workshop_datetime_parts(string $datetime): array
     return ['date' => $ymd, 'time' => $time, 'jalali' => $jalali];
 }
 
+/**
+ * ثبت پرداخت کارگاه — عضویت را تأیید نمی‌کند؛ تا تأیید منشی/درمانگر/مدیر در «درخواست‌ها» می‌ماند.
+ */
 function confirm_workshop_payment(PDO $pdo, array $paymentRow): void
 {
     require_once __DIR__ . '/notifications.php';
 
     $pdo->prepare("UPDATE workshop_payments SET status='PAID', ref_id=? WHERE id=?")
         ->execute([$paymentRow['ref_id'] ?? null, $paymentRow['id']]);
-    $pdo->prepare("UPDATE workshop_enrollments SET status='CONFIRMED' WHERE id=?")
-        ->execute([$paymentRow['enrollment_id']]);
 
     $info = $pdo->prepare("
-      SELECT w.title, w.starts_at, w.doctor_id, dp.user_id AS doctor_user_id, u.name AS patient_name
+      SELECT e.status AS enrollment_status, w.title, w.starts_at, w.doctor_id, dp.user_id AS doctor_user_id, u.name AS patient_name
       FROM workshop_enrollments e
       JOIN workshops w ON w.id = e.workshop_id
       JOIN doctor_profiles dp ON dp.id = w.doctor_id
@@ -845,19 +846,23 @@ function confirm_workshop_payment(PDO $pdo, array $paymentRow): void
 
     $when = format_fa_datetime((string) $row['starts_at']);
     $patientName = (string) $row['patient_name'];
+    $awaiting = (string) ($row['enrollment_status'] ?? '') === 'PENDING_PAYMENT';
+    $payNote = $awaiting
+        ? "پرداخت کرد و منتظر تأیید عضویت است."
+        : "پرداخت کرد.";
     notify_role(
         $pdo,
         'SECRETARY',
-        'ثبت‌نام کارگاه',
-        "«{$patientName}» در کارگاه «{$row['title']}» ({$when}) ثبت‌نام و پرداخت کرد.",
-        '/secretary/workshops?tab=enroll',
+        'پرداخت کارگاه',
+        "«{$patientName}» برای کارگاه «{$row['title']}» ({$when}) {$payNote}",
+        '/secretary/workshops',
         'workshop'
     );
     notify_doctor_profile(
         $pdo,
         (string) $row['doctor_id'],
-        'ثبت‌نام کارگاه',
-        "«{$patientName}» در کارگاه «{$row['title']}» ({$when}) ثبت‌نام کرد.",
+        'پرداخت کارگاه',
+        "«{$patientName}» برای کارگاه «{$row['title']}» ({$when}) {$payNote}",
         '/doctor/workshops',
         'workshop'
     );
@@ -1004,27 +1009,34 @@ function workshop_approve_enrollment_by_staff(PDO $pdo, string $enrollmentId, st
     if (in_array((string) $row['status'], ['CANCELLED', 'REFUNDED'], true)) {
         throw new RuntimeException('این ثبت‌نام لغو شده است.');
     }
-    $paymentId = (string) ($row['payment_id'] ?? '');
-    if ($paymentId === '') {
-        $paymentId = cuid();
-        $pdo->prepare('INSERT INTO workshop_payments (id, enrollment_id, amount, status, ref_id, recorded_by_user_id) VALUES (?,?,?,?,?,?)')
-            ->execute([$paymentId, $enrollmentId, (int) ($row['price'] ?? 0), 'PAID', 'STAFF_APPROVE', $staffUserId]);
-    } else {
-        $pdo->prepare("UPDATE workshop_payments SET status='PAID', ref_id=COALESCE(NULLIF(ref_id,''),'STAFF_APPROVE'), recorded_by_user_id=? WHERE id=?")
-            ->execute([$staffUserId, $paymentId]);
-    }
+
     $pdo->prepare("UPDATE workshop_enrollments SET status='CONFIRMED' WHERE id=?")->execute([$enrollmentId]);
+
+    // کارگاه رایگان: پرداخت را هم ببند تا در صف پرداخت نماند
+    $amount = (int) ($row['amount'] ?? $row['price'] ?? 0);
+    $paymentId = (string) ($row['payment_id'] ?? '');
+    if ($amount <= 0) {
+        if ($paymentId === '') {
+            $paymentId = cuid();
+            $pdo->prepare('INSERT INTO workshop_payments (id, enrollment_id, amount, status, ref_id, recorded_by_user_id) VALUES (?,?,?,?,?,?)')
+                ->execute([$paymentId, $enrollmentId, 0, 'PAID', 'STAFF_APPROVE', $staffUserId]);
+        } elseif ((string) ($row['pay_status'] ?? '') !== 'PAID') {
+            $pdo->prepare("UPDATE workshop_payments SET status='PAID', ref_id=COALESCE(NULLIF(ref_id,''),'STAFF_APPROVE'), recorded_by_user_id=? WHERE id=?")
+                ->execute([$staffUserId, $paymentId]);
+        }
+    }
+
     notify_user(
         $pdo,
         (string) $row['patient_id'],
         'عضویت کارگاه تأیید شد',
-        "عضویت شما در «{$row['title']}» تأیید شد. فایل جلسات برای شما باز است.",
+        "عضویت شما در «{$row['title']}» تأیید شد و در «دوره‌های من» قرار گرفت.",
         '/dashboard/workshops/mine',
         'workshop'
     );
 }
 
-/** ثبت پرداخت نقدی/فیش کارگاه توسط منشی */
+/** ثبت پرداخت نقدی/فیش کارگاه توسط کارکنان — عضویت را جداگانه باید تأیید کرد */
 function workshop_mark_paid_by_staff(PDO $pdo, string $enrollmentId, string $staffUserId, string $staffLabel, array $file): void
 {
     ensure_workshop_schema($pdo);
@@ -1057,18 +1069,16 @@ function workshop_mark_paid_by_staff(PDO $pdo, string $enrollmentId, string $sta
     }
 
     $paymentId = (string) ($row['payment_id'] ?? '');
-    $wasPending = ((string) ($row['pay_status'] ?? '') !== 'PAID')
-        || in_array((string) $row['status'], ['PENDING_PAYMENT'], true);
+    $wasUnpaid = (string) ($row['pay_status'] ?? '') !== 'PAID';
 
     if ($paymentId === '') {
         $paymentId = cuid();
         $pdo->prepare('INSERT INTO workshop_payments (id, enrollment_id, amount, status, ref_id, receipt_path, recorded_by_user_id) VALUES (?,?,?,?,?,?,?)')
-            ->execute([$paymentId, $enrollmentId, 0, 'PAID', 'SECRETARY', $relative, $staffUserId]);
-        $pdo->prepare("UPDATE workshop_enrollments SET status='CONFIRMED' WHERE id=?")->execute([$enrollmentId]);
+            ->execute([$paymentId, $enrollmentId, (int) ($row['amount'] ?? 0), 'PAID', 'SECRETARY', $relative, $staffUserId]);
     } else {
         $pdo->prepare('UPDATE workshop_payments SET receipt_path=?, recorded_by_user_id=? WHERE id=?')
             ->execute([$relative, $staffUserId, $paymentId]);
-        if ($wasPending) {
+        if ($wasUnpaid) {
             confirm_workshop_payment($pdo, [
                 'id' => $paymentId,
                 'enrollment_id' => $enrollmentId,
@@ -1081,17 +1091,32 @@ function workshop_mark_paid_by_staff(PDO $pdo, string $enrollmentId, string $sta
         }
     }
 
-    if ($wasPending) {
+    if ($wasUnpaid) {
         $when = format_fa_datetime((string) $row['starts_at']);
+        require_once __DIR__ . '/notifications.php';
         notify_role(
             $pdo,
             'SECRETARY',
-            'پرداخت کارگاه توسط منشی',
-            "پرداخت «{$row['patient_name']}» برای کارگاه «{$row['title']}» ({$when}) توسط {$staffLabel} با فیش ثبت شد.",
+            'پرداخت کارگاه توسط کارکنان',
+            "پرداخت «{$row['patient_name']}» برای کارگاه «{$row['title']}» ({$when}) توسط {$staffLabel} با فیش ثبت شد. عضویت هنوز نیاز به تأیید دارد.",
             '/secretary/workshops',
             'workshop'
         );
     }
+}
+
+/** آیا این ثبت‌نام متعلق به کارگاه همین درمانگر است؟ */
+function workshop_enrollment_belongs_to_doctor(PDO $pdo, string $enrollmentId, string $doctorProfileId): bool
+{
+    $stmt = $pdo->prepare('
+      SELECT 1
+      FROM workshop_enrollments e
+      JOIN workshops w ON w.id = e.workshop_id
+      WHERE e.id = ? AND w.doctor_id = ?
+      LIMIT 1
+    ');
+    $stmt->execute([$enrollmentId, $doctorProfileId]);
+    return (bool) $stmt->fetchColumn();
 }
 
 function cancel_workshop_enrollment(PDO $pdo, string $enrollmentId, bool $forceNoRefund = false): array
@@ -1115,9 +1140,10 @@ function cancel_workshop_enrollment(PDO $pdo, string $enrollmentId, bool $forceN
     }
 
     $refundable = !$forceNoRefund
-        && $row['status'] === 'CONFIRMED'
-        && ($row['pay_status'] ?? '') === 'PAID'
-        && workshop_refund_allowed((string) $row['starts_at']);
+        && (
+            ($row['status'] === 'CONFIRMED' && ($row['pay_status'] ?? '') === 'PAID' && workshop_refund_allowed((string) $row['starts_at']))
+            || ($row['status'] === 'PENDING_PAYMENT' && ($row['pay_status'] ?? '') === 'PAID')
+        );
 
     if ($refundable) {
         $paidAmount = (int) $row['amount'];

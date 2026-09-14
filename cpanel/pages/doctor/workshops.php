@@ -318,7 +318,7 @@ ob_start();
     <?php if ($editWorkshop): ?>
       <span class="muted">وضعیت انتشار: <strong><?= $editWorkshop['is_published'] ? 'منتشر شده' : 'پیش‌نویس' ?></strong> — برای تغییر از دکمه «انتشار / لغو انتشار» در لیست بالا استفاده کنید.</span>
     <?php else: ?>
-      <span class="muted">کارگاه جدید بلافاصله برای مراجعه‌کنندگان در «دوره‌های من» منتشر می‌شود.</span>
+      <span class="muted">کارگاه جدید برای مراجعه‌کنندگان در «دوره‌های جدید» دیده می‌شود؛ بعد از درخواست و تأیید، به «دوره‌های من» می‌رود.</span>
     <?php endif; ?>
   </label>
   <button class="btn btn-primary" type="submit"><?= e($formSubmit) ?></button>
