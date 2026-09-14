@@ -44,7 +44,7 @@ export default async function HomePage() {
 
       <section className="container-page mt-16">
         <div className="home-specialists-block">
-          <div className="mb-8">
+          <div className="mb-8 text-center">
             <h2 className="text-2xl font-bold">متخصصان ما</h2>
             <p className="mt-2 text-muted">
               متخصصان با تجربه برای همراهی در مسیر درمان
@@ -68,7 +68,7 @@ export default async function HomePage() {
                 </Link>
                 <Link
                   href="/doctors"
-                  className="px-1 text-base font-semibold text-primary hover:underline"
+                  className="px-1 text-center text-base font-semibold text-primary hover:underline"
                 >
                   مشاهده همه
                 </Link>
@@ -97,7 +97,7 @@ export default async function HomePage() {
         </div>
 
         <div className="home-articles-block mt-16">
-          <div className="mb-8">
+          <div className="mb-8 text-center">
             <h2 className="text-2xl font-bold">آخرین مقالات</h2>
             <p className="mt-2 text-muted">دانش کاربردی برای سلامت روان</p>
           </div>

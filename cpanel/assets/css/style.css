@@ -549,7 +549,12 @@ select option {
 }
 .articles-footer-link {
   margin-top: 1rem;
-  text-align: left;
+  text-align: center;
+}
+.home-specialists-block .section-head,
+.home-articles-block .section-head {
+  justify-content: center;
+  text-align: center;
 }
 .articles-all-link {
   display: inline-block;
