@@ -104,7 +104,7 @@ function require_login(?array $roles = null): array
                 $adminAllowed = ['/secretary/admin-message/ack', '/logout', '/secretary/heartbeat', '/staff/admin-message-image'];
                 if ($method === 'POST' && !in_array($path ?? '', $adminAllowed, true)) {
                     flash_set('error', 'ابتدا پیام مدیر را بخوانید، تیک بزنید و «خواندم» را بزنید.');
-                    redirect('/secretary/messages?msg=admin');
+                    redirect('/secretary/profile#admin-site-messages');
                 }
             }
         }

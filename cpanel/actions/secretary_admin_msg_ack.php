@@ -9,7 +9,7 @@ csrf_verify();
 $recipientId = post('recipient_id');
 if ($recipientId === '') {
     flash_set('error', 'پیام یافت نشد.');
-    redirect('/secretary/messages?msg=admin');
+    redirect('/secretary/profile#admin-site-messages');
 }
 
 admin_staff_msg_ack($pdo, (string) $user['id'], $recipientId);
@@ -18,6 +18,6 @@ flash_set('success', 'پیام مدیر تأیید شد.');
 
 $pending = admin_staff_msg_pending_for($pdo, (string) $user['id']);
 if ($pending) {
-    redirect('/secretary/messages?msg=admin');
+    redirect('/secretary/profile#admin-site-messages');
 }
-redirect('/secretary/messages?msg=admin');
+redirect('/secretary/profile#admin-site-messages');

@@ -12,4 +12,4 @@ try {
     flash_set('error', $e->getMessage());
 }
 
-redirect('/secretary/messages?msg=colleague');
+redirect('/secretary/colleague-messages');

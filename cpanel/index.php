@@ -59,6 +59,7 @@ require_once __DIR__ . '/includes/seed_articles.php';
 require_once __DIR__ . '/includes/articles.php';
 require_once __DIR__ . '/includes/handover.php';
 require_once __DIR__ . '/includes/admin_staff_messages.php';
+require_once __DIR__ . '/includes/secretary_to_admin.php';
 require_once __DIR__ . '/includes/staff_board.php';
 require_once __DIR__ . '/includes/user_cleanup.php';
 require_once __DIR__ . '/includes/seo.php';
@@ -99,6 +100,7 @@ if (!$isLightRequest) {
     ensure_assistant_schema($pdo);
     ensure_staff_desk_schema($pdo);
     ensure_handover_schema($pdo);
+    ensure_secretary_to_admin_schema($pdo);
     ensure_patient_journal_schema($pdo);
     ensure_notifications_table($pdo);
     ensure_mail_schema($pdo);
@@ -182,6 +184,7 @@ $routes = [
     'GET /secretary/patients' => 'pages/secretary/patients.php',
     'POST /secretary/patients' => 'actions/secretary_create_patient.php',
     'GET /secretary/messages' => 'pages/secretary/messages.php',
+    'GET /secretary/colleague-messages' => 'pages/secretary/colleague_messages.php',
     'GET /secretary/board' => 'pages/secretary/board.php',
     'GET /secretary/colleague' => 'pages/secretary/colleague.php',
     'POST /secretary/notifications/read' => 'actions/secretary_notifications.php',
@@ -252,6 +255,7 @@ $routes = [
     'POST /secretary/handover' => 'actions/secretary_handover.php',
     'POST /secretary/handover/ack' => 'actions/secretary_handover_ack.php',
     'POST /secretary/admin-message/ack' => 'actions/secretary_admin_msg_ack.php',
+    'POST /secretary/to-admin' => 'actions/secretary_to_admin.php',
     'GET /staff/admin-message-image' => 'actions/admin_staff_message_image.php',
 
     'GET /api/slots' => 'actions/slots.php',

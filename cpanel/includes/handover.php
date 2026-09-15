@@ -63,7 +63,7 @@ function handover_send(PDO $pdo, string $fromUserId, string $fromLabel, string $
     $insert = $pdo->prepare('INSERT INTO staff_handover_notes (id, group_id, from_user_id, to_user_id, body) VALUES (?,?,?,?,?)');
     foreach ($peers as $target) {
         $insert->execute([cuid(), $groupId, $fromUserId, (string) $target['id'], $body]);
-        notify_user($pdo, (string) $target['id'], $title, mb_substr($plain, 0, 180), '/secretary/messages?msg=colleague', 'handover');
+        notify_user($pdo, (string) $target['id'], $title, mb_substr($plain, 0, 180), '/secretary/colleague-messages', 'handover');
     }
 
     $peerNames = [];

@@ -3,23 +3,78 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../includes/admin_panel.php';
 require_once __DIR__ . '/../../includes/admin_staff_messages.php';
+require_once __DIR__ . '/../../includes/secretary_to_admin.php';
 
 $user = require_login(['ADMIN']);
 $secretaries = admin_staff_msg_secretaries($pdo);
 $sent = admin_staff_msg_sent_list($pdo, 50);
+$fromSecretaries = secretary_to_admin_inbox($pdo, 60);
+$fromUnread = secretary_to_admin_unread_count($pdo);
 
 ob_start();
 ?>
-<h1>پیام به منشی‌ها</h1>
+<h1>پیام منشی‌ها</h1>
 <p class="muted" style="margin-top:.35rem;line-height:1.8;max-width:42rem">
-  می‌توانید برای <strong>یک منشی</strong> یا چند نفر جداگانه پیام بفرستید (با یا بدون عکس).
-  هر پیام در پروفایل همان منشی به‌عنوان «پیام‌های مدیر سایت» برای همیشه ثبت می‌شود و منشی نمی‌تواند پاکش کند.
-  تا تیک و «خواندم» نزند، کار پنل برایش قفل است.
+  ارسال پیام به منشی‌ها و دریافت پیام‌هایی که منشی‌ها برای مدیر می‌فرستند.
+  پیام‌های ارسالی شما در بخش «پیام مدیر» منشی بایگانی می‌ماند و تا تیک و «خواندم» نزند کار پنل برایش قفل است.
 </p>
+
+<section class="panel stack" id="from-secretaries" style="margin-top:1rem;max-width:42rem">
+  <div class="row-between" style="align-items:center;gap:.75rem;flex-wrap:wrap">
+    <div>
+      <h2 style="margin:0;font-size:1.05rem">پیام‌های دریافتی از منشی‌ها</h2>
+      <p class="muted" style="margin:.3rem 0 0;font-size:.85rem">
+        <?= $fromUnread ? to_fa_digits((string) $fromUnread) . ' خوانده‌نشده' : 'همه خوانده شده‌اند' ?>
+      </p>
+    </div>
+    <?php if ($fromUnread > 0): ?>
+      <form method="post" action="<?= e(url('/admin/secretary-messages')) ?>" style="margin:0">
+        <?= csrf_field() ?>
+        <input type="hidden" name="action" value="ack_all_from_secretaries">
+        <button type="submit" class="btn btn-outline btn-sm">خواندن همه</button>
+      </form>
+    <?php endif; ?>
+  </div>
+  <?php if (!$fromSecretaries): ?>
+    <p class="muted" style="margin:0">هنوز پیامی از منشی‌ها نیامده است.</p>
+  <?php else: ?>
+    <div class="stack">
+      <?php foreach ($fromSecretaries as $row): ?>
+        <?php $read = !empty($row['read_at']); ?>
+        <article class="admin-site-msg-card<?= $read ? '' : ' is-unread' ?>">
+          <header class="admin-site-msg-head">
+            <strong><?= e(staff_actor_label(['name' => $row['from_name'] ?? '', 'username' => $row['from_username'] ?? ''])) ?></strong>
+            <span class="muted" style="font-size:.8rem"><?= e(format_fa_datetime((string) ($row['created_at'] ?? ''))) ?></span>
+          </header>
+          <div class="admin-site-msg-body rich-msg-body"><?= rich_html_for_display((string) ($row['body'] ?? '')) ?></div>
+          <footer class="muted" style="font-size:.8rem;margin-top:.45rem;display:flex;flex-wrap:wrap;gap:.45rem;align-items:center">
+            <?= function_exists('render_delivery_ticks') ? render_delivery_ticks(true, $read) : '' ?>
+            <span><?= $read ? 'خوانده شد' : 'جدید' ?></span>
+            <?php if (!$read): ?>
+              <form method="post" action="<?= e(url('/admin/secretary-messages')) ?>" style="margin:0">
+                <?= csrf_field() ?>
+                <input type="hidden" name="action" value="ack_from_secretary">
+                <input type="hidden" name="message_id" value="<?= e((string) ($row['id'] ?? '')) ?>">
+                <button type="submit" class="btn btn-primary btn-sm">خواندم</button>
+              </form>
+            <?php endif; ?>
+            <form method="post" action="<?= e(url('/admin/secretary-messages')) ?>" style="margin:0" onsubmit="return confirm('این پیام حذف شود؟');">
+              <?= csrf_field() ?>
+              <input type="hidden" name="action" value="delete_from_secretary">
+              <input type="hidden" name="message_id" value="<?= e((string) ($row['id'] ?? '')) ?>">
+              <button type="submit" class="btn btn-danger btn-sm">حذف</button>
+            </form>
+          </footer>
+        </article>
+      <?php endforeach; ?>
+    </div>
+  <?php endif; ?>
+</section>
 
 <form class="panel form-stack" method="post" action="<?= e(url('/admin/secretary-messages')) ?>" enctype="multipart/form-data" style="margin-top:1rem;max-width:42rem" id="admin-msg-form" data-rich-note>
   <?= csrf_field() ?>
   <input type="hidden" name="action" value="send">
+  <h2 style="margin:0;font-size:1.05rem">ارسال پیام به منشی</h2>
   <div>
     <label class="label" for="admin-msg-editor">متن پیام</label>
     <?= rich_editor_toolbar_html(['id' => 'admin-msg-toolbar', 'data_rich_toolbar' => true]) ?>
@@ -87,8 +142,8 @@ ob_start();
   <button type="submit" class="btn btn-primary"<?= $secretaries ? '' : ' disabled' ?>>ارسال پیام</button>
 </form>
 
-<h2 style="margin:1.5rem 0 .65rem;font-size:1.05rem">پیام‌های ارسال‌شده</h2>
-<p class="muted" style="margin:0 0 .75rem;font-size:.85rem">این پیام‌ها در پروفایل منشی‌ها بایگانی می‌مانند و منشی نمی‌تواند حذفشان کند.</p>
+<h2 style="margin:1.5rem 0 .65rem;font-size:1.05rem">پیام‌های ارسال‌شده به منشی‌ها</h2>
+<p class="muted" style="margin:0 0 .75rem;font-size:.85rem">منشی نمی‌تواند این پیام‌ها را پاک کند؛ فقط شما می‌توانید حذف کنید.</p>
 <div class="stack">
   <?php if (!$sent): ?>
     <p class="muted">هنوز پیامی نفرستاده‌اید.</p>
@@ -104,8 +159,14 @@ ob_start();
         }
       ?>
       <div class="panel" style="display:grid;gap:.65rem">
-        <div class="muted" style="font-size:.8rem">
-          برای: <?= e($recipNames ? implode('، ', $recipNames) : '—') ?>
+        <div class="muted" style="font-size:.8rem;display:flex;flex-wrap:wrap;gap:.5rem;align-items:center;justify-content:space-between">
+          <span>برای: <?= e($recipNames ? implode('، ', $recipNames) : '—') ?></span>
+          <form method="post" action="<?= e(url('/admin/secretary-messages')) ?>" style="margin:0" onsubmit="return confirm('این پیام از بایگانی منشی‌ها هم حذف می‌شود. ادامه؟');">
+            <?= csrf_field() ?>
+            <input type="hidden" name="action" value="delete_to_secretary">
+            <input type="hidden" name="message_id" value="<?= e((string) ($m['id'] ?? '')) ?>">
+            <button type="submit" class="btn btn-danger btn-sm">حذف</button>
+          </form>
         </div>
         <div style="font-size:.95rem;line-height:1.8" class="rich-msg-body"><?= rich_html_for_display((string) $m['body']) ?></div>
         <?php if ($hasImage): ?>
@@ -177,4 +238,4 @@ $pageScripts = '<script src="' . e(url('/assets/js/rich-editor.js')) . '?v=20260
 })();
 </script>';
 $GLOBALS['pageScripts'] = $pageScripts;
-render_admin_page('پیام به منشی‌ها', $inner);
+render_admin_page('پیام منشی‌ها', $inner);

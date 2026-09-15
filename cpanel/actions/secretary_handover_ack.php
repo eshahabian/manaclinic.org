@@ -6,10 +6,10 @@ csrf_verify();
 $noteId = post('note_id');
 if ($noteId === '') {
     flash_set('error', 'پیام مشخص نیست.');
-    redirect('/secretary/messages?msg=colleague');
+    redirect('/secretary/colleague-messages');
 }
 
 handover_ack($pdo, (string) $user['id'], $noteId);
 unset($GLOBALS['handoverBlock']);
 flash_set('success', 'پیام همکار خوانده شد.');
-redirect('/secretary/messages?msg=colleague');
+redirect('/secretary/colleague-messages');

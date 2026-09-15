@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/admin_staff_messages.php';
+require_once __DIR__ . '/../includes/secretary_to_admin.php';
 
 $user = require_login(['ADMIN']);
 csrf_verify();
@@ -10,6 +11,42 @@ $action = post('action');
 $next = '/admin/secretary-messages';
 
 try {
+    if ($action === 'ack_from_secretary') {
+        $mid = trim((string) ($_POST['message_id'] ?? ''));
+        if ($mid === '') {
+            throw new RuntimeException('پیام مشخص نیست.');
+        }
+        secretary_to_admin_ack($pdo, $mid);
+        flash_set('success', 'پیام منشی خوانده شد.');
+        redirect($next . '#from-secretaries');
+    }
+
+    if ($action === 'ack_all_from_secretaries') {
+        $n = secretary_to_admin_ack_all($pdo);
+        flash_set('success', $n > 0 ? (to_fa_digits((string) $n) . ' پیام خوانده شد.') : 'پیام خوانده‌نشده‌ای نبود.');
+        redirect($next . '#from-secretaries');
+    }
+
+    if ($action === 'delete_from_secretary') {
+        $mid = trim((string) ($_POST['message_id'] ?? ''));
+        if ($mid === '') {
+            throw new RuntimeException('پیام مشخص نیست.');
+        }
+        secretary_to_admin_delete($pdo, $mid);
+        flash_set('success', 'پیام منشی حذف شد.');
+        redirect($next . '#from-secretaries');
+    }
+
+    if ($action === 'delete_to_secretary') {
+        $mid = trim((string) ($_POST['message_id'] ?? ''));
+        if ($mid === '') {
+            throw new RuntimeException('پیام مشخص نیست.');
+        }
+        admin_staff_msg_delete($pdo, $mid);
+        flash_set('success', 'پیام ارسال‌شده به منشی حذف شد.');
+        redirect($next);
+    }
+
     if ($action !== 'send') {
         throw new RuntimeException('عملیات نامعتبر است.');
     }
@@ -65,8 +102,8 @@ try {
     }
 
     $label = $sentCount === 1
-        ? 'پیام برای ۱ منشی ارسال و در پروفایلش ثبت شد.'
-        : ('پیام جداگانه برای ' . to_fa_digits((string) $sentCount) . ' منشی ارسال و در پروفایل‌شان ثبت شد.');
+        ? 'پیام برای ۱ منشی ارسال و در بخش پیام مدیر ثبت شد.'
+        : ('پیام جداگانه برای ' . to_fa_digits((string) $sentCount) . ' منشی ارسال و ثبت شد.');
     flash_set('success', $label . ' تا «خواندم» نزنند کار نمی‌کنند.');
 } catch (Throwable $e) {
     flash_set('error', $e->getMessage() !== '' ? $e->getMessage() : 'خطا در ارسال پیام.');

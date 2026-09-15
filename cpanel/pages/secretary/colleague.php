@@ -1,4 +1,4 @@
 <?php
 declare(strict_types=1);
 require_login(['SECRETARY']);
-redirect('/secretary/messages?msg=colleague');
+redirect('/secretary/colleague-messages');

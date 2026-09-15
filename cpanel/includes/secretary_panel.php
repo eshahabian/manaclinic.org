@@ -5,13 +5,14 @@ function secretary_nav(): array
 {
     $nav = [
         ['href' => '/secretary/messages', 'label' => 'پیام‌ها'],
-        ['href' => '/secretary/board', 'label' => 'یادداشت مشترک'],
         ['href' => '/secretary/patients', 'label' => 'مراجعه‌کنندگان'],
         ['href' => '/secretary/appointments', 'label' => 'نوبت‌ها'],
         ['href' => '/secretary/workshops', 'label' => 'کارگاه‌ها'],
         ['href' => '/secretary/articles', 'label' => 'مقالات'],
         ['href' => '/secretary/hours', 'label' => 'ساعت کاری'],
-        ['href' => '/secretary/profile', 'label' => 'پروفایل · پیام مدیر'],
+        ['href' => '/secretary/board', 'label' => 'یادداشت مشترک'],
+        ['href' => '/secretary/colleague-messages', 'label' => 'پیام همکار'],
+        ['href' => '/secretary/profile', 'label' => 'پیام مدیر'],
         ['href' => '/change-password', 'label' => 'تغییر رمز عبور'],
     ];
     $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link() : null;

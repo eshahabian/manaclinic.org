@@ -53,6 +53,14 @@ function delete_user_cascade(PDO $pdo, string $userId): void
     } catch (Throwable $ignored) {
     }
 
+    try {
+        if (function_exists('ensure_secretary_to_admin_schema')) {
+            ensure_secretary_to_admin_schema($pdo);
+        }
+        $pdo->prepare('DELETE FROM secretary_to_admin_messages WHERE from_user_id = ?')->execute([$userId]);
+    } catch (Throwable $ignored) {
+    }
+
     // پرداخت‌های نوبت‌های این مراجعه‌کننده
     try {
         $pdo->prepare("
