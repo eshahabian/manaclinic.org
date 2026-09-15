@@ -47,6 +47,17 @@ try {
         redirect($next);
     }
 
+    if ($action === 'edit_to_secretary') {
+        $mid = trim((string) ($_POST['message_id'] ?? ''));
+        if ($mid === '') {
+            throw new RuntimeException('پیام مشخص نیست.');
+        }
+        $body = (string) ($_POST['body'] ?? '');
+        admin_staff_msg_update($pdo, $mid, $body);
+        flash_set('success', 'متن پیام به‌روزرسانی شد.');
+        redirect($next . '#sent-' . rawurlencode($mid));
+    }
+
     if ($action !== 'send') {
         throw new RuntimeException('عملیات نامعتبر است.');
     }

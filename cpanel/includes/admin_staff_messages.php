@@ -369,6 +369,24 @@ function admin_staff_msg_user_can_view_image(PDO $pdo, array $user, string $mess
     return false;
 }
 
+function admin_staff_msg_update(PDO $pdo, string $messageId, string $body): void
+{
+    ensure_admin_staff_messages_schema($pdo);
+    $msg = admin_staff_msg_get($pdo, $messageId);
+    if (!$msg) {
+        throw new RuntimeException('پیام پیدا نشد.');
+    }
+    $body = function_exists('sanitize_rich_html') ? sanitize_rich_html($body) : trim(str_replace(["\r\n", "\r"], "\n", $body));
+    $plain = trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($body), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?? '');
+    if ($plain === '') {
+        throw new RuntimeException('متن پیام را بنویسید.');
+    }
+    if (mb_strlen($plain) > 8000) {
+        throw new RuntimeException('متن پیام خیلی طولانی است.');
+    }
+    $pdo->prepare('UPDATE admin_staff_messages SET body=? WHERE id=?')->execute([$body, $messageId]);
+}
+
 function admin_staff_msg_delete(PDO $pdo, string $messageId): void
 {
     ensure_admin_staff_messages_schema($pdo);
