@@ -84,7 +84,7 @@ function require_login(?array $roles = null): array
         $user = current_user() ?? $user;
     }
     if (!empty($user['must_change_password'])) {
-        $allowed = ['/change-password', '/logout', '/secretary/heartbeat', '/secretary/handover/ack'];
+        $allowed = ['/change-password', '/logout', '/secretary/heartbeat', '/secretary/handover/ack', '/secretary/admin-message/ack'];
         if (!in_array($path ?? '', $allowed, true)) {
             redirect('/change-password');
         }
@@ -95,15 +95,28 @@ function require_login(?array $roles = null): array
             redirect('/doctor/profile');
         }
     }
-    if (($user['role'] ?? '') === 'SECRETARY' && $pdo instanceof PDO && function_exists('handover_pending_for')) {
-        $pending = handover_pending_for($pdo, (string) $user['id']);
-        if ($pending) {
-            $GLOBALS['handoverBlock'] = $pending;
-            $handoverAllowed = ['/secretary/handover/ack', '/logout', '/secretary/heartbeat'];
-            $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
-            if ($method === 'POST' && !in_array($path ?? '', $handoverAllowed, true)) {
-                flash_set('error', 'ابتدا پیام تحویل شیفت را بخوانید و «خواندم» را بزنید.');
-                redirect('/secretary/messages');
+    if (($user['role'] ?? '') === 'SECRETARY' && $pdo instanceof PDO) {
+        $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
+        if (function_exists('admin_staff_msg_pending_for')) {
+            $adminPending = admin_staff_msg_pending_for($pdo, (string) $user['id']);
+            if ($adminPending) {
+                $GLOBALS['adminStaffMsgBlock'] = $adminPending;
+                $adminAllowed = ['/secretary/admin-message/ack', '/logout', '/secretary/heartbeat', '/staff/admin-message-image'];
+                if ($method === 'POST' && !in_array($path ?? '', $adminAllowed, true)) {
+                    flash_set('error', 'ابتدا پیام مدیر را بخوانید، تیک بزنید و «خواندم» را بزنید.');
+                    redirect('/secretary/messages?msg=admin');
+                }
+            }
+        }
+        if (function_exists('handover_pending_for') && empty($GLOBALS['adminStaffMsgBlock'])) {
+            $pending = handover_pending_for($pdo, (string) $user['id']);
+            if ($pending) {
+                $GLOBALS['handoverBlock'] = $pending;
+                $handoverAllowed = ['/secretary/handover/ack', '/logout', '/secretary/heartbeat', '/secretary/admin-message/ack'];
+                if ($method === 'POST' && !in_array($path ?? '', $handoverAllowed, true)) {
+                    flash_set('error', 'ابتدا پیام تحویل شیفت را بخوانید و «خواندم» را بزنید.');
+                    redirect('/secretary/messages');
+                }
             }
         }
     }

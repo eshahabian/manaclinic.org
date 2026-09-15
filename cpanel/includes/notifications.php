@@ -130,7 +130,7 @@ function notify_patient_personal(
 function notification_normalize_kind(string $kind): string
 {
     $kind = strtolower(trim($kind));
-    return in_array($kind, ['appointment', 'workshop', 'assistant', 'article', 'handover', 'handover_copy', 'clinic', 'broadcast', 'other'], true)
+    return in_array($kind, ['appointment', 'workshop', 'assistant', 'article', 'handover', 'handover_copy', 'admin_directive', 'clinic', 'broadcast', 'other'], true)
         ? $kind
         : 'other';
 }
@@ -214,6 +214,12 @@ function notification_kind(array $n): string
         || (mb_stripos($link, '/staff-messages') !== false)
     ) {
         return 'handover_copy';
+    }
+    if ((mb_stripos($blob, 'پیام مدیر') !== false)
+        || (mb_stripos($link, 'msg=admin') !== false)
+        || ($stored === 'admin_directive')
+    ) {
+        return 'admin_directive';
     }
     if ((mb_stripos($blob, 'همکار') !== false)
         || (mb_stripos($blob, 'تحویل شیفت') !== false)
@@ -490,12 +496,13 @@ function render_secretary_messages_panel(
     string $activeTab = 'appointment',
     string $pagePath = '/secretary/messages',
     array $colleague = [],
-    array $patients = []
+    array $patients = [],
+    array $adminMessages = []
 ): string {
     $split = secretary_split_notifications($items);
     $appointmentNotifs = $split['appointment'];
     $workshopNotifs = $split['workshop'];
-    $activeTab = in_array($activeTab, ['workshop', 'colleague', 'patients'], true) ? $activeTab : 'appointment';
+    $activeTab = in_array($activeTab, ['workshop', 'colleague', 'patients', 'admin'], true) ? $activeTab : 'appointment';
     $base = str_starts_with($pagePath, '/secretary') ? $pagePath : '/secretary/messages';
     $unread = secretary_unread_desk_count($items);
     $peers = $colleague['peers'] ?? [];
@@ -505,6 +512,12 @@ function render_secretary_messages_panel(
     foreach ($inbox as $note) {
         if (empty($note['read_at'])) {
             $colleagueUnread++;
+        }
+    }
+    $adminUnread = 0;
+    foreach ($adminMessages as $am) {
+        if (empty($am['read_at'])) {
+            $adminUnread++;
         }
     }
 
@@ -522,6 +535,10 @@ function render_secretary_messages_panel(
             کارگاه‌ها
             <span class="panel-subtab-count"><?= count($workshopNotifs) + count($recentEnrollments) ?></span>
           </a>
+          <a class="panel-subtab<?= $activeTab === 'admin' ? ' is-active' : '' ?>" href="<?= e(url($base . '?msg=admin')) ?>#secretary-messages">
+            پیام مدیر
+            <span class="panel-subtab-count"><?= to_fa_digits((string) count($adminMessages)) ?><?= $adminUnread ? ' · ' . to_fa_digits((string) $adminUnread) : '' ?></span>
+          </a>
           <a class="panel-subtab<?= $activeTab === 'colleague' ? ' is-active' : '' ?>" href="<?= e(url($base . '?msg=colleague')) ?>#secretary-messages">
             پیام همکار
             <span class="panel-subtab-count"><?= count($inbox) + count($sent) ?></span>
@@ -531,7 +548,7 @@ function render_secretary_messages_panel(
             <span class="panel-subtab-count"><?= count($patients) ?></span>
           </a>
         </nav>
-        <?php if ($activeTab !== 'colleague' && $activeTab !== 'patients'): ?>
+        <?php if ($activeTab !== 'colleague' && $activeTab !== 'patients' && $activeTab !== 'admin'): ?>
         <form method="post" action="<?= e($markReadUrl) ?>" class="panel-subtabs-action" style="margin:0">
           <?= csrf_field() ?>
           <input type="hidden" name="mark_all" value="1">
@@ -540,7 +557,7 @@ function render_secretary_messages_panel(
         </form>
         <?php endif; ?>
       </div>
-      <?php if ($activeTab !== 'colleague' && $activeTab !== 'patients'): ?>
+      <?php if ($activeTab !== 'colleague' && $activeTab !== 'patients' && $activeTab !== 'admin'): ?>
       <p class="muted" style="margin:0;font-size:.85rem;line-height:1.7">
         هر نوبت یا ثبت‌نام کارگاه را همه منشی‌ها می‌بینند تا وقت تکراری ثبت نشود.
         ✓ رسید · ✓✓ خوانده شد
@@ -595,6 +612,61 @@ function render_secretary_messages_panel(
               <span class="badge"><?= e(function_exists('enrollment_status_label') ? enrollment_status_label((string) $row['status']) : $row['status']) ?></span>
             </div>
           <?php endforeach; ?>
+        <?php endif; ?>
+      <?php elseif ($activeTab === 'admin'): ?>
+        <p class="muted" style="margin:0;font-size:.85rem;line-height:1.8">
+          پیام‌های مدیر. اگر پیام خوانده‌نشده باشد، تا تیک نزنید و «خواندم» را نزنید نمی‌توانید در پنل کار کنید.
+          <?= $adminUnread ? ' · ' . to_fa_digits((string) $adminUnread) . ' خوانده‌نشده' : '' ?>
+        </p>
+        <?php if (!$adminMessages): ?>
+          <p class="muted" style="margin:0">هنوز پیام مدیری نیست.</p>
+        <?php else: ?>
+          <?php foreach ($adminMessages as $am): ?>
+            <?php
+              $amRead = !empty($am['read_at']);
+              $amHasImg = trim((string) ($am['image_path'] ?? '')) !== '';
+              $amMsgId = (string) ($am['message_id'] ?? '');
+            ?>
+            <div class="row-between" style="border:1px solid var(--line);border-radius:.75rem;padding:.75rem;background:<?= $amRead ? '#fff' : 'var(--bg-soft)' ?>;align-items:flex-start;gap:1rem">
+              <div style="flex:1;min-width:0">
+                <strong>از <?= e((string) ($am['from_name'] ?? 'مدیر')) ?></strong>
+                <div style="font-size:.95rem;line-height:1.8;margin-top:.4rem;white-space:pre-wrap"><?= e((string) ($am['body'] ?? '')) ?></div>
+                <?php if ($amHasImg && $amMsgId !== ''): ?>
+                  <a href="<?= e(url('/staff/admin-message-image?id=' . rawurlencode($amMsgId))) ?>" target="_blank" rel="noopener">
+                    <img class="admin-staff-msg-thumb" src="<?= e(url('/staff/admin-message-image?id=' . rawurlencode($amMsgId))) ?>" alt="عکس پیام">
+                  </a>
+                <?php endif; ?>
+                <div class="muted" style="font-size:.75rem;margin-top:.4rem;display:flex;flex-wrap:wrap;gap:.45rem;align-items:center">
+                  <span><?= e(format_fa_datetime((string) ($am['created_at'] ?? ''))) ?></span>
+                  <?= render_delivery_ticks(true, $amRead) ?>
+                  <span><?= $amRead ? 'خوانده شد' : 'منتظر تأیید شما' ?></span>
+                </div>
+              </div>
+              <?php if (!$amRead): ?>
+                <form method="post" action="<?= e(url('/secretary/admin-message/ack')) ?>" class="admin-msg-list-ack" style="margin:0;display:grid;gap:.45rem;justify-items:stretch;min-width:9rem">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="recipient_id" value="<?= e((string) ($am['recipient_id'] ?? '')) ?>">
+                  <label class="admin-msg-ack-check" style="font-size:.8rem">
+                    <input type="checkbox" class="admin-msg-list-box" required>
+                    <span>خواندم</span>
+                  </label>
+                  <button type="submit" class="btn btn-primary btn-sm admin-msg-list-btn" disabled>خواندم</button>
+                </form>
+              <?php endif; ?>
+            </div>
+          <?php endforeach; ?>
+          <script>
+          (function(){
+            document.querySelectorAll('.admin-msg-list-ack').forEach(function(form){
+              var box = form.querySelector('.admin-msg-list-box');
+              var btn = form.querySelector('.admin-msg-list-btn');
+              if (!box || !btn) return;
+              function sync(){ btn.disabled = !box.checked; }
+              box.addEventListener('change', sync);
+              sync();
+            });
+          })();
+          </script>
         <?php endif; ?>
       <?php elseif ($activeTab === 'patients'): ?>
         <p class="muted" style="margin:0;font-size:.85rem;line-height:1.8">

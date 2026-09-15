@@ -5650,3 +5650,35 @@ html[data-theme="dark"] .staff-board-action.is-hl[aria-pressed="true"] {
   background: color-mix(in srgb, #c9a227 30%, var(--card));
   color: #f0d78a;
 }
+
+/* پیام مدیر به منشی */
+.admin-staff-msg-thumb {
+  display: block;
+  margin-top: .65rem;
+  max-width: min(100%, 360px);
+  max-height: 280px;
+  object-fit: contain;
+  border-radius: .65rem;
+  border: 1px solid var(--line);
+  background: var(--bg-soft);
+}
+.admin-msg-ack-check {
+  display: flex;
+  gap: .5rem;
+  align-items: flex-start;
+  width: 100%;
+  font-size: .92rem;
+  line-height: 1.55;
+  cursor: pointer;
+  text-align: right;
+}
+.admin-msg-ack-check input {
+  width: 1.1rem;
+  height: 1.1rem;
+  margin-top: .15rem;
+  accent-color: var(--primary);
+  flex-shrink: 0;
+}
+.handover-actions .admin-msg-ack-check {
+  margin-bottom: .15rem;
+}

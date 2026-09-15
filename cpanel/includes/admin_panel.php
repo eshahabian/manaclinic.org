@@ -29,6 +29,7 @@ function admin_nav(): array {
         ['href' => '/admin/articles', 'label' => 'مقالات'],
         ['href' => '/admin/mail', 'label' => 'ایمیل و SMTP'],
         ['href' => '/admin/staff-hours', 'label' => 'ساعت کاری منشی‌ها'],
+        ['href' => '/admin/secretary-messages', 'label' => 'پیام به منشی‌ها'],
         ['href' => '/admin/staff-board', 'label' => 'یادداشت مشترک منشی‌ها'],
         ['href' => '/admin/staff-messages', 'label' => 'پیام‌ها'],
         ['href' => '/secretary/messages', 'label' => 'پنل منشی'],

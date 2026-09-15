@@ -2,12 +2,13 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../../includes/secretary_panel.php';
+require_once __DIR__ . '/../../includes/admin_staff_messages.php';
 
 $user = require_login(['SECRETARY']);
 ensure_workshop_schema($pdo);
 
 $msgTab = trim((string) ($_GET['msg'] ?? 'appointment'));
-if (!in_array($msgTab, ['appointment', 'workshop', 'colleague', 'patients'], true)) {
+if (!in_array($msgTab, ['appointment', 'workshop', 'colleague', 'patients', 'admin'], true)) {
     $msgTab = 'appointment';
 }
 
@@ -26,12 +27,13 @@ $patients = $pdo->query("
   WHERE role = 'PATIENT'
   ORDER BY name ASC
 ")->fetchAll();
+$adminMessages = admin_staff_msg_inbox_for($pdo, (string) $user['id'], 40);
 
 ob_start();
 ?>
 <h1>پیام‌ها</h1>
 <p class="muted" style="margin-top:.35rem;font-size:.9rem">
-  نوبت‌ها، کارگاه‌ها، پیام همکار و ارسال به مراجع.<?= $unreadCount ? ' · ' . $unreadCount . ' پیام خوانده‌نشده' : '' ?>
+  نوبت‌ها، کارگاه‌ها، پیام مدیر، پیام همکار و ارسال به مراجع.<?= $unreadCount ? ' · ' . $unreadCount . ' پیام خوانده‌نشده' : '' ?>
 </p>
 <?= render_secretary_messages_panel(
     $notifications,
@@ -41,13 +43,15 @@ ob_start();
     $msgTab,
     '/secretary/messages',
     $colleague,
-    $patients
+    $patients,
+    $adminMessages
 ) ?>
 <?php
 $titles = [
     'workshop' => 'پیام‌های کارگاه',
     'colleague' => 'پیام همکار',
     'patients' => 'ارسال به مراجع',
+    'admin' => 'پیام مدیر',
     'appointment' => 'پیام‌های نوبت',
 ];
 render_secretary_page($titles[$msgTab] ?? 'پیام‌ها', ob_get_clean());

@@ -27,6 +27,32 @@ function delete_user_cascade(PDO $pdo, string $userId): void
     } catch (Throwable $ignored) {
     }
 
+    try {
+        if (function_exists('ensure_admin_staff_messages_schema')) {
+            ensure_admin_staff_messages_schema($pdo);
+        }
+        $pdo->prepare('DELETE FROM admin_staff_message_recipients WHERE to_user_id = ?')->execute([$userId]);
+        // پیام‌های ادمین فرستاده توسط این کاربر (اگر ادمین حذف شود)
+        $sent = $pdo->prepare('SELECT id, image_path FROM admin_staff_messages WHERE from_user_id = ?');
+        $sent->execute([$userId]);
+        foreach ($sent->fetchAll() as $row) {
+            $mid = (string) ($row['id'] ?? '');
+            if ($mid === '') {
+                continue;
+            }
+            $pdo->prepare('DELETE FROM admin_staff_message_recipients WHERE message_id = ?')->execute([$mid]);
+            $pdo->prepare('DELETE FROM admin_staff_messages WHERE id = ?')->execute([$mid]);
+            $img = trim((string) ($row['image_path'] ?? ''));
+            if ($img !== '' && function_exists('admin_staff_msg_abs')) {
+                $abs = admin_staff_msg_abs($img);
+                if (is_file($abs)) {
+                    @unlink($abs);
+                }
+            }
+        }
+    } catch (Throwable $ignored) {
+    }
+
     // پرداخت‌های نوبت‌های این مراجعه‌کننده
     try {
         $pdo->prepare("

@@ -58,6 +58,7 @@ require_once __DIR__ . '/includes/assistant.php';
 require_once __DIR__ . '/includes/seed_articles.php';
 require_once __DIR__ . '/includes/articles.php';
 require_once __DIR__ . '/includes/handover.php';
+require_once __DIR__ . '/includes/admin_staff_messages.php';
 require_once __DIR__ . '/includes/staff_board.php';
 require_once __DIR__ . '/includes/user_cleanup.php';
 require_once __DIR__ . '/includes/seo.php';
@@ -242,11 +243,15 @@ $routes = [
     'GET /admin/staff-hours-export' => 'actions/admin_staff_hours_export.php',
     'GET /admin/staff-messages' => 'pages/admin/staff_messages.php',
     'POST /admin/staff-messages' => 'actions/admin_messages.php',
+    'GET /admin/secretary-messages' => 'pages/admin/secretary_messages.php',
+    'POST /admin/secretary-messages' => 'actions/admin_secretary_messages.php',
     'GET /admin/staff-board' => 'pages/admin/staff_board.php',
     'GET /admin/mail' => 'pages/admin/mail.php',
     'POST /admin/mail' => 'actions/admin_mail.php',
     'POST /secretary/handover' => 'actions/secretary_handover.php',
     'POST /secretary/handover/ack' => 'actions/secretary_handover_ack.php',
+    'POST /secretary/admin-message/ack' => 'actions/secretary_admin_msg_ack.php',
+    'GET /staff/admin-message-image' => 'actions/admin_staff_message_image.php',
 
     'GET /api/slots' => 'actions/slots.php',
     'GET /api/availability-days' => 'actions/availability_days.php',
