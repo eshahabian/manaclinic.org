@@ -60,7 +60,7 @@ ob_start();
                 · <?= e(format_fa_datetime((string) (($tn['updated_at'] ?? '') ?: ($tn['created_at'] ?? '')))) ?>
               <?php endif; ?>
             </p>
-            <p style="margin:0;line-height:1.85;white-space:pre-wrap"><?= e((string) (($tn['body'] ?? '') ?: ($tn['note_text'] ?? ''))) ?></p>
+            <div class="rich-html" style="margin:0"><?= rich_html_for_display((string) (($tn['body'] ?? '') ?: ($tn['note_text'] ?? ''))) ?></div>
           </li>
         <?php endforeach; ?>
       </ul>
@@ -72,11 +72,21 @@ ob_start();
       <h2 style="font-size:1.1rem;margin:0">یادداشت‌های من برای درمانگر</h2>
       <p class="muted" style="margin:.35rem 0 0;font-size:.9rem">هر چیزی درباره جلسات فردی، کارگاه یا دوره‌ها که می‌خواهید درمانگر در پرونده‌تان ببیند.</p>
     </div>
-    <form method="post" action="<?= e(url('/dashboard/care-notes')) ?>" class="form-stack">
+    <form method="post" action="<?= e(url('/dashboard/care-notes')) ?>" class="form-stack" id="care-note-form" data-rich-note>
       <?= csrf_field() ?>
       <input type="hidden" name="action" value="create">
-      <label class="label" for="care_note_body">یادداشت جدید</label>
-      <textarea class="input" id="care_note_body" name="body" rows="4" required placeholder="مثلاً تکلیف کارگاه، حس بعد از جلسه، سوال برای درمانگر…"></textarea>
+      <label class="label">یادداشت جدید</label>
+      <?= rich_editor_toolbar_html(['id' => 'care-note-toolbar', 'data_rich_toolbar' => true]) ?>
+      <div
+        id="care-note-editor"
+        class="clinical-editor clinical-editor-sm"
+        contenteditable="true"
+        role="textbox"
+        data-rich-editor
+        aria-label="یادداشت برای درمانگر"
+        data-placeholder="مثلاً تکلیف کارگاه، حس بعد از جلسه، سوال برای درمانگر…"
+      ></div>
+      <textarea name="body" id="care_note_body" data-rich-hidden hidden></textarea>
       <button class="btn btn-primary" type="submit">ثبت یادداشت</button>
     </form>
     <?php if (!$careNotes): ?>
@@ -94,7 +104,7 @@ ob_start();
                 <button type="submit" class="btn btn-outline btn-sm" style="color:var(--danger)">حذف</button>
               </form>
             </div>
-            <p style="margin:.4rem 0 0;line-height:1.85;white-space:pre-wrap"><?= e((string) ($cn['body'] ?? '')) ?></p>
+            <div class="rich-html" style="margin:.4rem 0 0"><?= rich_html_for_display((string) ($cn['body'] ?? '')) ?></div>
           </li>
         <?php endforeach; ?>
       </ul>
@@ -128,4 +138,7 @@ ob_start();
   </form>
 </div>
 <?php
+$pageScripts = '<script src="' . e(url('/assets/js/rich-editor.js')) . '?v=20260916b"></script>
+<script>if (window.initRichEditors) { window.initRichEditors(document); }</script>';
+$GLOBALS['pageScripts'] = $pageScripts;
 render_patient_page('پروفایل', ob_get_clean());

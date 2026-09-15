@@ -56,7 +56,7 @@ function patient_nav_is_active(string $href, string $currentPath, bool $exact = 
 
 function render_patient_page(string $title, string $innerHtml): void
 {
-    global $pdo;
+    global $pdo, $pageScripts, $pageHead;
 
     $nav = patient_nav();
     $counts = ['available' => 0, 'requested' => 0, 'mine' => 0, 'messages' => 0];

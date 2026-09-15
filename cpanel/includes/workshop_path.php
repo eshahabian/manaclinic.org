@@ -149,20 +149,11 @@ function workshop_doctor_path_board(PDO $pdo, array $workshop, array $enrollment
 
 function workshop_path_rich_toolbar_html(string $toolbarId): string
 {
-    ob_start();
-    ?>
-          <div class="clinical-toolbar workshop-path-toolbar" id="<?= e($toolbarId) ?>" data-rich-toolbar>
-            <button type="button" class="tool-btn bold" data-cmd="bold" title="ضخیم">B</button>
-            <span class="tool-sep"></span>
-            <span class="muted" style="font-size:.8rem;margin-inline-end:.25rem">هایلایت</span>
-            <button type="button" class="swatch yellow" data-hl="#ffe566" title="زرد"></button>
-            <button type="button" class="swatch green" data-hl="#8fd6a8" title="سبز"></button>
-            <button type="button" class="swatch pink" data-hl="#f5a3c0" title="صورتی"></button>
-            <button type="button" class="swatch blue" data-hl="#8eb7e8" title="آبی"></button>
-            <button type="button" class="tool-btn" data-cmd="removeFormat" title="پاک کردن فرمت">پاک‌کردن رنگ</button>
-          </div>
-    <?php
-    return (string) ob_get_clean();
+    return rich_editor_toolbar_html([
+        'id' => $toolbarId,
+        'class' => 'workshop-path-toolbar',
+        'data_rich_toolbar' => true,
+    ]);
 }
 
 function workshop_doctor_path_render(array $board): string
@@ -544,8 +535,9 @@ function workshop_path_save_note(
     if (!in_array($kind, ['patient', 'instructor'], true)) {
         throw new RuntimeException('نوع یادداشت نامعتبر است.');
     }
-    $body = trim($body);
-    $len = function_exists('mb_strlen') ? mb_strlen($body) : strlen($body);
+    $body = function_exists('sanitize_rich_html') ? sanitize_rich_html($body) : trim($body);
+    $plain = trim(html_entity_decode(strip_tags($body), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    $len = function_exists('mb_strlen') ? mb_strlen($plain) : strlen($plain);
     if ($len > 4000) {
         throw new RuntimeException('یادداشت خیلی طولانی است.');
     }
@@ -565,7 +557,7 @@ function workshop_path_save_note(
     $found->execute([$enrollmentId, $sessionId, $kind]);
     $noteId = (string) ($found->fetchColumn() ?: '');
 
-    if ($body === '') {
+    if ($body === '' && $plain === '') {
         if ($noteId !== '') {
             $pdo->prepare('DELETE FROM workshop_path_notes WHERE id=?')->execute([$noteId]);
         }
@@ -641,16 +633,25 @@ function workshop_path_render(array $ctx, string $mode): string
               <?php if ((string) ($step['instructor_note'] ?? '') !== ''): ?>
                 <div class="workshop-path-teacher">
                   <span class="workshop-path-note-label">یادداشت درمانگر برای شما</span>
-                  <p><?= nl2br(e((string) $step['instructor_note'])) ?></p>
+                  <div class="rich-html"><?= rich_html_for_display((string) $step['instructor_note']) ?></div>
                 </div>
               <?php endif; ?>
               <?php if (!empty($step['can_write_patient'])): ?>
-                <form class="workshop-path-form" method="post" action="<?= e($postUrl) ?>">
+                <?php $sid = (string) ($step['id'] ?? ''); ?>
+                <form class="workshop-path-form" method="post" action="<?= e($postUrl) ?>" data-rich-note>
                   <?= csrf_field() ?>
                   <input type="hidden" name="enrollment_id" value="<?= e($enrollmentId) ?>">
-                  <input type="hidden" name="session_id" value="<?= e((string) ($step['id'] ?? '')) ?>">
-                  <label class="workshop-path-note-label" for="patient-note-<?= e((string) ($step['id'] ?? '')) ?>">یادداشت من از این جلسه</label>
-                  <textarea class="input" id="patient-note-<?= e((string) ($step['id'] ?? '')) ?>" name="body" rows="3" maxlength="4000" placeholder="اگر دوست دارید از این جلسه چیزی برای خودتان بنویسید…"><?= e((string) ($step['patient_note'] ?? '')) ?></textarea>
+                  <input type="hidden" name="session_id" value="<?= e($sid) ?>">
+                  <span class="workshop-path-note-label">یادداشت من از این جلسه</span>
+                  <?= rich_editor_toolbar_html(['id' => 'patient-note-toolbar-' . $sid, 'data_rich_toolbar' => true, 'compact' => true]) ?>
+                  <div
+                    class="clinical-editor clinical-editor-sm"
+                    contenteditable="true"
+                    role="textbox"
+                    data-rich-editor
+                    data-placeholder="اگر دوست دارید از این جلسه چیزی برای خودتان بنویسید…"
+                  ><?= rich_html_for_display((string) ($step['patient_note'] ?? '')) ?></div>
+                  <textarea name="body" hidden data-rich-hidden></textarea>
                   <button class="btn btn-primary btn-sm" type="submit">ذخیره یادداشت</button>
                 </form>
               <?php else: ?>
@@ -660,17 +661,26 @@ function workshop_path_render(array $ctx, string $mode): string
               <div class="workshop-path-teacher">
                 <span class="workshop-path-note-label">یادداشت مراجع</span>
                 <?php if ((string) ($step['patient_note'] ?? '') !== ''): ?>
-                  <p><?= nl2br(e((string) $step['patient_note'])) ?></p>
+                  <div class="rich-html"><?= rich_html_for_display((string) $step['patient_note']) ?></div>
                 <?php else: ?>
                   <p class="muted" style="margin:0">هنوز چیزی ننوشته است.</p>
                 <?php endif; ?>
               </div>
-              <form class="workshop-path-form" method="post" action="<?= e($postUrl) ?>">
+              <?php $sid = (string) ($step['id'] ?? ''); ?>
+              <form class="workshop-path-form" method="post" action="<?= e($postUrl) ?>" data-rich-note>
                 <?= csrf_field() ?>
                 <input type="hidden" name="enrollment_id" value="<?= e($enrollmentId) ?>">
-                <input type="hidden" name="session_id" value="<?= e((string) ($step['id'] ?? '')) ?>">
-                <label class="workshop-path-note-label" for="instructor-note-<?= e((string) ($step['id'] ?? '')) ?>">یادداشت خصوصی برای این نفر</label>
-                <textarea class="input" id="instructor-note-<?= e((string) ($step['id'] ?? '')) ?>" name="body" rows="3" maxlength="4000" placeholder="فقط همین مراجع این یادداشت را می‌بیند…"><?= e((string) ($step['instructor_note'] ?? '')) ?></textarea>
+                <input type="hidden" name="session_id" value="<?= e($sid) ?>">
+                <span class="workshop-path-note-label">یادداشت خصوصی برای این نفر</span>
+                <?= rich_editor_toolbar_html(['id' => 'instructor-note-toolbar-' . $sid, 'data_rich_toolbar' => true, 'compact' => true]) ?>
+                <div
+                  class="clinical-editor clinical-editor-sm"
+                  contenteditable="true"
+                  role="textbox"
+                  data-rich-editor
+                  data-placeholder="فقط همین مراجع این یادداشت را می‌بیند…"
+                ><?= rich_html_for_display((string) ($step['instructor_note'] ?? '')) ?></div>
+                <textarea name="body" hidden data-rich-hidden></textarea>
                 <button class="btn btn-primary btn-sm" type="submit">ذخیره یادداشت</button>
               </form>
             <?php endif; ?>

@@ -72,7 +72,7 @@ ob_start();
       <p class="muted"><?= e(to_jalali_label($selected)) ?></p>
     </header>
 
-    <form method="post" action="<?= e(url('/dashboard/journal')) ?>" enctype="multipart/form-data" class="journal-form">
+    <form method="post" action="<?= e(url('/dashboard/journal')) ?>" enctype="multipart/form-data" class="journal-form" id="journal-form" data-rich-note>
       <?= csrf_field() ?>
       <input type="hidden" name="entry_date" value="<?= e($selected) ?>">
 
@@ -91,8 +91,18 @@ ob_start();
       </fieldset>
 
       <div>
-        <label class="label" for="journal_body">یادداشت آزاد</label>
-        <textarea class="input journal-textarea" id="journal_body" name="body" rows="5" placeholder="چه چیزی امروز برایتان مهم بود؟"><?= e((string) ($entry['body'] ?? '')) ?></textarea>
+        <label class="label">یادداشت آزاد</label>
+        <?= rich_editor_toolbar_html(['id' => 'journal-toolbar', 'data_rich_toolbar' => true]) ?>
+        <div
+          id="journal-editor"
+          class="clinical-editor clinical-editor-sm"
+          contenteditable="true"
+          role="textbox"
+          data-rich-editor
+          aria-label="یادداشت آزاد"
+          data-placeholder="چه چیزی امروز برایتان مهم بود؟"
+        ><?= rich_html_for_display((string) ($entry['body'] ?? '')) ?></div>
+        <textarea name="body" id="journal_body" data-rich-hidden hidden></textarea>
       </div>
 
       <div class="journal-photo-field">
@@ -129,8 +139,11 @@ ob_start();
               <?php if ($m >= 1 && $m <= 5): ?>
                 <span class="journal-history-mood"><?= e($moods[$m]['emoji'] . ' ' . $moods[$m]['label']) ?></span>
               <?php endif; ?>
-              <?php if (trim((string) ($row['body'] ?? '')) !== ''): ?>
-                <span class="journal-history-snip"><?= e(mb_substr(trim((string) $row['body']), 0, 80)) ?><?= mb_strlen(trim((string) $row['body'])) > 80 ? '…' : '' ?></span>
+              <?php
+                $snip = trim(preg_replace('/\s+/u', ' ', strip_tags((string) ($row['body'] ?? ''))) ?? '');
+              ?>
+              <?php if ($snip !== ''): ?>
+                <span class="journal-history-snip"><?= e(mb_substr($snip, 0, 80)) ?><?= mb_strlen($snip) > 80 ? '…' : '' ?></span>
               <?php endif; ?>
             </a>
           </li>
@@ -140,4 +153,7 @@ ob_start();
   <?php endif; ?>
 </div>
 <?php
+$pageScripts = '<script src="' . e(url('/assets/js/rich-editor.js')) . '?v=20260916b"></script>
+<script>if (window.initRichEditors) { window.initRichEditors(document); }</script>';
+$GLOBALS['pageScripts'] = $pageScripts;
 render_patient_page('دفتر یادداشت', ob_get_clean());

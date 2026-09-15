@@ -6,7 +6,7 @@ $user = require_login(['PATIENT']);
 csrf_verify();
 
 $action = post('action');
-$body = trim((string) ($_POST['body'] ?? ''));
+$body = sanitize_rich_html((string) ($_POST['body'] ?? ''));
 $noteId = trim((string) ($_POST['note_id'] ?? ''));
 $patientId = (string) $user['id'];
 
@@ -19,11 +19,12 @@ if ($action === 'delete') {
     redirect('/dashboard/profile#my-notes');
 }
 
-if ($body === '') {
+$plain = trim(html_entity_decode(strip_tags($body), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+if ($plain === '' && $body === '') {
     flash_set('error', 'متن یادداشت را وارد کنید.');
     redirect('/dashboard/profile#my-notes');
 }
-if (function_exists('mb_strlen') ? mb_strlen($body) > 8000 : strlen($body) > 8000) {
+if (function_exists('mb_strlen') ? mb_strlen($plain) > 8000 : strlen($plain) > 8000) {
     flash_set('error', 'یادداشت خیلی طولانی است.');
     redirect('/dashboard/profile#my-notes');
 }

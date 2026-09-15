@@ -22,7 +22,7 @@ if ($mood !== null && ($mood < 1 || $mood > 5)) {
     redirect('/dashboard/journal?day=' . rawurlencode($entryDate));
 }
 
-$body = trim((string) ($_POST['body'] ?? ''));
+$body = sanitize_rich_html((string) ($_POST['body'] ?? ''));
 $removePhoto = !empty($_POST['remove_photo']);
 
 try {
@@ -36,7 +36,8 @@ try {
         $keepPhoto = false;
     }
 
-    if ($mood === null && $body === '' && $photoPath === null && $keepPhoto) {
+    $plain = trim(html_entity_decode(strip_tags($body), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    if ($mood === null && $plain === '' && $body === '' && $photoPath === null && $keepPhoto) {
         $existing = patient_journal_for_date($pdo, $patientId, $entryDate);
         if (!$existing) {
             flash_set('error', 'حداقل خلق، متن یا عکس را وارد کنید.');
@@ -44,7 +45,7 @@ try {
         }
     }
 
-    patient_journal_upsert($pdo, $patientId, $entryDate, $mood, $body !== '' ? $body : null, $photoPath, $keepPhoto);
+    patient_journal_upsert($pdo, $patientId, $entryDate, $mood, ($plain !== '' || $body !== '') ? $body : null, $photoPath, $keepPhoto);
     flash_set('success', 'یادداشت ذخیره شد.');
 } catch (Throwable $e) {
     flash_set('error', $e->getMessage() !== '' ? $e->getMessage() : 'ذخیره یادداشت ناموفق بود.');

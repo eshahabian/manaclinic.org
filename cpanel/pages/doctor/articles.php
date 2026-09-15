@@ -64,26 +64,12 @@ ob_start();
 <form class="panel form-stack" method="post" action="<?= e(url('/doctor/articles')) ?>" id="article-form" style="margin-top:1rem">
   <input type="hidden" name="action" value="create">
   <h2 style="margin:0;font-size:1.05rem">مقاله جدید</h2>
-  <p class="muted" style="margin:0;font-size:.85rem">متن را انتخاب کنید، بعد Bold / سایز / هایلایت بزنید.</p>
+  <p class="muted" style="margin:0;font-size:.85rem">متن را انتخاب کنید، بعد Bold / زیرخط / سایز / رنگ / جدول بزنید.</p>
   <div><label class="label">عنوان</label><input class="input" name="title" required></div>
   <div><label class="label">خلاصه</label><input class="input" name="excerpt"></div>
   <div>
     <label class="label">متن مقاله</label>
-    <div class="clinical-toolbar" id="article-toolbar">
-      <button type="button" class="tool-btn bold" data-cmd="bold" title="ضخیم">B</button>
-      <span class="tool-sep"></span>
-      <button type="button" class="tool-btn" data-fontsize="14">۱۴</button>
-      <button type="button" class="tool-btn" data-fontsize="16">۱۶</button>
-      <button type="button" class="tool-btn" data-fontsize="18">۱۸</button>
-      <button type="button" class="tool-btn" data-fontsize="22">۲۲</button>
-      <span class="tool-sep"></span>
-      <span class="muted" style="font-size:.8rem;margin-inline-end:.25rem">هایلایت</span>
-      <button type="button" class="swatch yellow" data-hl="#ffe566" title="زرد"></button>
-      <button type="button" class="swatch green" data-hl="#8fd6a8" title="سبز"></button>
-      <button type="button" class="swatch pink" data-hl="#f5a3c0" title="صورتی"></button>
-      <button type="button" class="swatch blue" data-hl="#8eb7e8" title="آبی"></button>
-      <button type="button" class="tool-btn" data-cmd="removeFormat" title="پاک کردن فرمت">پاک‌کردن رنگ</button>
-    </div>
+    <?= rich_editor_toolbar_html(['id' => 'article-toolbar']) ?>
     <div
       id="article-editor"
       class="clinical-editor"
@@ -121,7 +107,7 @@ ob_start();
 <?php
 $inner = ob_get_clean();
 $pageScripts = '
-<script src="' . e(url('/assets/js/rich-editor.js')) . '"></script>
+<script src="' . e(url('/assets/js/rich-editor.js')) . '?v=20260916b"></script>
 <script>
 initRichEditor({
   editor: "#article-editor",

@@ -366,7 +366,75 @@ function is_valid_phone(string $phone): bool
     return (bool) preg_match('/^[0-9]{8,15}$/', $phone);
 }
 
-/** HTML امن برای ادیتور غنی (bold / سایز / هایلایت) */
+/** پالت رنگ ادیتور غنی */
+function rich_editor_highlight_colors(): array
+{
+    return [
+        'yellow' => '#ffe566',
+        'green' => '#8fd6a8',
+        'pink' => '#f5a3c0',
+        'blue' => '#8eb7e8',
+        'red' => '#ff8a80',
+    ];
+}
+
+function rich_editor_text_colors(): array
+{
+    return [
+        'ink' => '#1a2e28',
+        'red' => '#c0392b',
+        'blue' => '#1a5fb4',
+        'green' => '#1b5e4b',
+        'orange' => '#c4783a',
+    ];
+}
+
+/**
+ * نوار ابزار مشترک ادیتور (مثل شرح حال درمانگر).
+ * opts: id, class, data_rich_toolbar (bool), compact (bool — بدون سایز فونت)
+ */
+function rich_editor_toolbar_html(array $opts = []): string
+{
+    $id = trim((string) ($opts['id'] ?? ''));
+    $extraClass = trim((string) ($opts['class'] ?? ''));
+    $withData = !empty($opts['data_rich_toolbar']);
+    $compact = !empty($opts['compact']);
+    $class = trim('clinical-toolbar ' . $extraClass);
+    $idAttr = $id !== '' ? ' id="' . e($id) . '"' : '';
+    $dataAttr = $withData ? ' data-rich-toolbar' : '';
+    $hl = rich_editor_highlight_colors();
+    $colors = rich_editor_text_colors();
+    ob_start();
+    ?>
+    <div class="<?= e($class) ?>"<?= $idAttr ?><?= $dataAttr ?>>
+      <button type="button" class="tool-btn bold" data-cmd="bold" title="ضخیم (Bold)">B</button>
+      <button type="button" class="tool-btn" data-cmd="underline" title="زیرخط">U</button>
+      <span class="tool-sep"></span>
+      <?php if (!$compact): ?>
+        <button type="button" class="tool-btn" data-fontsize="14">۱۴</button>
+        <button type="button" class="tool-btn" data-fontsize="16">۱۶</button>
+        <button type="button" class="tool-btn" data-fontsize="18">۱۸</button>
+        <button type="button" class="tool-btn" data-fontsize="22">۲۲</button>
+        <span class="tool-sep"></span>
+      <?php endif; ?>
+      <span class="muted tool-label">هایلایت</span>
+      <?php foreach ($hl as $name => $hex): ?>
+        <button type="button" class="swatch <?= e($name) ?>" data-hl="<?= e($hex) ?>" title="هایلایت <?= e($name) ?>"></button>
+      <?php endforeach; ?>
+      <span class="tool-sep"></span>
+      <span class="muted tool-label">رنگ متن</span>
+      <?php foreach ($colors as $name => $hex): ?>
+        <button type="button" class="swatch text-swatch <?= e($name) ?>" data-color="<?= e($hex) ?>" title="رنگ <?= e($name) ?>" style="color:<?= e($hex) ?>">A</button>
+      <?php endforeach; ?>
+      <span class="tool-sep"></span>
+      <button type="button" class="tool-btn" data-cmd="insertTable" title="درج جدول">جدول</button>
+      <button type="button" class="tool-btn" data-cmd="removeFormat" title="پاک کردن فرمت">پاک‌کردن رنگ</button>
+    </div>
+    <?php
+    return (string) ob_get_clean();
+}
+
+/** HTML امن برای ادیتور غنی (bold / زیرخط / سایز / هایلایت / رنگ متن / جدول) */
 function sanitize_rich_html(string $html): string
 {
     $html = trim($html);
@@ -376,7 +444,7 @@ function sanitize_rich_html(string $html): string
 
     $html = preg_replace('#<(script|style|iframe|object|embed|link|meta)[^>]*>.*?</\1>#is', '', $html) ?? $html;
     $html = preg_replace('#<(script|style|iframe|object|embed|link|meta)[^>]*/?>#is', '', $html) ?? $html;
-    $html = strip_tags($html, '<p><br><div><span><b><strong><i><em><u><mark>');
+    $html = strip_tags($html, '<p><br><div><span><b><strong><i><em><u><mark><table><thead><tbody><tr><th><td>');
 
     $html = preg_replace_callback('/<([a-z0-9]+)(\s[^>]*)?>/i', static function (array $m): string {
         $tag = strtolower($m[1]);
@@ -395,8 +463,8 @@ function sanitize_rich_html(string $html): string
                 [$prop, $val] = array_map('trim', explode(':', $part, 2));
                 $propL = strtolower($prop);
                 $valCompact = preg_replace('/\s+/', '', $val) ?? '';
-                if ($propL === 'background-color' && preg_match('/^#([0-9a-f]{3}|[0-9a-f]{6})$/i', $valCompact)) {
-                    $styles[] = 'background-color:' . $valCompact;
+                if (in_array($propL, ['background-color', 'color'], true) && preg_match('/^#([0-9a-f]{3}|[0-9a-f]{6})$/i', $valCompact)) {
+                    $styles[] = $propL . ':' . $valCompact;
                 } elseif ($propL === 'font-size' && preg_match('/^(\d+(\.\d+)?)(px|rem|em)$/i', $valCompact, $fm)) {
                     $size = (float) $fm[1];
                     if ($size >= 10 && $size <= 36) {
@@ -404,6 +472,21 @@ function sanitize_rich_html(string $html): string
                     }
                 } elseif ($propL === 'font-weight' && in_array(strtolower($valCompact), ['bold', '700', '600'], true)) {
                     $styles[] = 'font-weight:700';
+                } elseif ($propL === 'text-decoration' && preg_match('/underline/i', $valCompact)) {
+                    $styles[] = 'text-decoration:underline';
+                } elseif (in_array($tag, ['table', 'td', 'th'], true)) {
+                    if ($propL === 'border-collapse' && strtolower($valCompact) === 'collapse') {
+                        $styles[] = 'border-collapse:collapse';
+                    } elseif ($propL === 'border' && preg_match('/^(\d+pxsolid#?[0-9a-f]{3,6}|1pxsolid#ccc)$/i', $valCompact)) {
+                        $styles[] = 'border:1px solid #ccc';
+                    } elseif ($propL === 'padding' && preg_match('/^\d+(\.\d+)?px$/i', $valCompact)) {
+                        $pad = (float) $valCompact;
+                        if ($pad >= 0 && $pad <= 24) {
+                            $styles[] = 'padding:' . $valCompact;
+                        }
+                    } elseif ($propL === 'width' && preg_match('/^\d+(\.\d+)?%$/i', $valCompact)) {
+                        $styles[] = 'width:' . $valCompact;
+                    }
                 }
             }
             if ($styles) {
@@ -412,6 +495,12 @@ function sanitize_rich_html(string $html): string
         }
         if ($tag === 'span' && preg_match('/data-hl\s*=\s*(["\'])([a-z]+)\1/i', $attrs, $hm)) {
             $safe .= ' data-hl="' . $hm[2] . '"';
+        }
+        if (in_array($tag, ['td', 'th'], true) && preg_match('/colspan\s*=\s*(["\']?)(\d+)\1/i', $attrs, $cm)) {
+            $n = (int) $cm[2];
+            if ($n >= 1 && $n <= 8) {
+                $safe .= ' colspan="' . $n . '"';
+            }
         }
         return '<' . $tag . $safe . '>';
     }, $html) ?? $html;

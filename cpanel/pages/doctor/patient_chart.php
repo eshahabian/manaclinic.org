@@ -302,21 +302,7 @@ ob_start();
             <p class="muted" style="margin:.3rem 0 0;font-size:.85rem">یادداشت آزاد بالینی؛ فقط شما می‌بینید.</p>
           </div>
         </header>
-        <div class="clinical-toolbar" id="clinical-toolbar">
-          <button type="button" class="tool-btn bold" data-cmd="bold" title="ضخیم">B</button>
-          <span class="tool-sep"></span>
-          <button type="button" class="tool-btn" data-fontsize="14">۱۴</button>
-          <button type="button" class="tool-btn" data-fontsize="16">۱۶</button>
-          <button type="button" class="tool-btn" data-fontsize="18">۱۸</button>
-          <button type="button" class="tool-btn" data-fontsize="22">۲۲</button>
-          <span class="tool-sep"></span>
-          <span class="muted" style="font-size:.8rem;margin-inline-end:.25rem">هایلایت</span>
-          <button type="button" class="swatch yellow" data-hl="#ffe566" title="زرد"></button>
-          <button type="button" class="swatch green" data-hl="#8fd6a8" title="سبز"></button>
-          <button type="button" class="swatch pink" data-hl="#f5a3c0" title="صورتی"></button>
-          <button type="button" class="swatch blue" data-hl="#8eb7e8" title="آبی"></button>
-          <button type="button" class="tool-btn" data-cmd="removeFormat" title="پاک کردن فرمت">پاک‌کردن رنگ</button>
-        </div>
+        <?= rich_editor_toolbar_html(['id' => 'clinical-toolbar']) ?>
         <div id="clinical-editor" class="clinical-editor" contenteditable="true" role="textbox" aria-label="شرح حال" data-placeholder="شرح حال مراجعه‌کننده را اینجا بنویسید..."><?= $historyHtml ?></div>
         <textarea name="history_text" id="history_text" hidden></textarea>
         <div style="margin-top:.85rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
@@ -560,7 +546,7 @@ ob_start();
                 </div>
               <?php endif; ?>
               <?php if (trim((string) ($je['body'] ?? '')) !== ''): ?>
-                <p style="margin:0;line-height:1.85;white-space:pre-wrap"><?= e((string) $je['body']) ?></p>
+                <div class="rich-html" style="margin:0"><?= rich_html_for_display((string) $je['body']) ?></div>
               <?php endif; ?>
               <?php if (!empty($je['photo_path'])): ?>
                 <img class="ehr-journal-photo" src="<?= e(url((string) $je['photo_path'])) ?>" alt="عکس یادداشت <?= e(to_jalali_label((string) $je['entry_date'])) ?>">
@@ -587,7 +573,9 @@ ob_start();
           <?php foreach ($careNotes as $cn): ?>
             <li>
               <p class="ehr-feed-meta"><?= e(format_fa_datetime((string) ($cn['created_at'] ?? ''))) ?></p>
-              <p style="margin:0;line-height:1.85;white-space:pre-wrap"><?= e((string) ($cn['body'] ?? '')) ?></p>
+              <?php if (trim((string) ($cn['body'] ?? '')) !== ''): ?>
+                <div class="rich-html" style="margin:0"><?= rich_html_for_display((string) ($cn['body'] ?? '')) ?></div>
+              <?php endif; ?>
             </li>
           <?php endforeach; ?>
         </ul>
@@ -601,7 +589,7 @@ $inner = ob_get_clean();
 $pageHead = '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">';
 $pageScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260905c"></script>
 <script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910r"></script>
-<script src="' . e(url('/assets/js/rich-editor.js')) . '"></script>
+<script src="' . e(url('/assets/js/rich-editor.js')) . '?v=20260916b"></script>
 <script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
 <script>

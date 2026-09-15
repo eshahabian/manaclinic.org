@@ -85,7 +85,11 @@ ob_start();
 </div>
 <?php
 $inner = ob_get_clean();
+$richScript = '<script src="' . e(url('/assets/js/rich-editor.js')) . '?v=20260916b"></script>
+<script>if (window.initRichEditors) { window.initRichEditors(document); }</script>';
 if ($offline) {
-    $GLOBALS['pageScripts'] = workshop_offline_protect_script($audioStreams);
+    $GLOBALS['pageScripts'] = $richScript . workshop_offline_protect_script($audioStreams);
+} else {
+    $GLOBALS['pageScripts'] = $richScript;
 }
 render_patient_page(($offline ? 'دوره — ' : 'مسیر دوره — ') . $title, $inner);

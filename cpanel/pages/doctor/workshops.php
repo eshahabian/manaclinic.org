@@ -701,7 +701,7 @@ ob_start();
 })();
 </script>
 <script src="<?= e(url('/assets/js/workshop-session-media.js')) ?>?v=20260906u"></script>
-<script src="<?= e(url('/assets/js/rich-editor.js')) ?>?v=20260909a"></script>
+<script src="<?= e(url('/assets/js/rich-editor.js')) ?>?v=20260916b"></script>
 <script>
 if (window.initRichEditors) { window.initRichEditors(document); }
 (function(){

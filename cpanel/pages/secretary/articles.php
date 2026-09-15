@@ -39,21 +39,7 @@ ob_start();
   <div><label class="label">خلاصه</label><input class="input" name="excerpt" maxlength="220" placeholder="حدود ۱۴۰ تا ۱۸۰ حرف برای نمایش در فهرست مقالات"></div>
   <div>
     <label class="label">متن مقاله</label>
-    <div class="clinical-toolbar" id="article-toolbar">
-      <button type="button" class="tool-btn bold" data-cmd="bold" title="ضخیم">B</button>
-      <span class="tool-sep"></span>
-      <button type="button" class="tool-btn" data-fontsize="14">۱۴</button>
-      <button type="button" class="tool-btn" data-fontsize="16">۱۶</button>
-      <button type="button" class="tool-btn" data-fontsize="18">۱۸</button>
-      <button type="button" class="tool-btn" data-fontsize="22">۲۲</button>
-      <span class="tool-sep"></span>
-      <span class="muted" style="font-size:.8rem;margin-inline-end:.25rem">هایلایت</span>
-      <button type="button" class="swatch yellow" data-hl="#ffe566" title="زرد"></button>
-      <button type="button" class="swatch green" data-hl="#8fd6a8" title="سبز"></button>
-      <button type="button" class="swatch pink" data-hl="#f5a3c0" title="صورتی"></button>
-      <button type="button" class="swatch blue" data-hl="#8eb7e8" title="آبی"></button>
-      <button type="button" class="tool-btn" data-cmd="removeFormat" title="پاک کردن فرمت">پاک‌کردن رنگ</button>
-    </div>
+    <?= rich_editor_toolbar_html(['id' => 'article-toolbar']) ?>
     <div
       id="article-editor"
       class="clinical-editor"
@@ -102,7 +88,7 @@ ob_start();
 $inner = ob_get_clean();
 $pageScripts = '
 <script src="' . e(url('/assets/js/search-select.js')) . '?v=20260905a"></script>
-<script src="' . e(url('/assets/js/rich-editor.js')) . '"></script>
+<script src="' . e(url('/assets/js/rich-editor.js')) . '?v=20260916b"></script>
 <script>
 if (window.enhanceSearchSelect) {
   enhanceSearchSelect(document.getElementById("author_id"), { placeholder: "جستجو یا انتخاب دکتر" });

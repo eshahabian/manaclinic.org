@@ -2,8 +2,8 @@
 declare(strict_types=1);
 
 /**
- * تخته یادداشت مشترک منشی‌ها (سبک Notion / Reminders):
- * چک‌لیست مشترک، Enter برای ثبت، بولد و هایلایت.
+ * تخته یادداشت مشترک منشی‌ها:
+ * چک‌لیست مشترک با ادیتور غنی (مثل شرح حال درمانگر).
  * دسترسی: منشی‌ها + ادمین + دکتر شیوا گرانمایه‌پور.
  */
 
@@ -94,23 +94,32 @@ function staff_board_api_url(): string
 
 function staff_board_normalize_body(string $body): string
 {
-    $body = trim(str_replace(["\r\n", "\r"], "\n", $body));
-    $body = preg_replace("/\n{3,}/u", "\n\n", $body) ?? $body;
-    if (mb_strlen($body) > 4000) {
+    $body = function_exists('sanitize_rich_html') ? sanitize_rich_html($body) : trim($body);
+    $plain = trim(html_entity_decode(strip_tags($body), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+    if ($body === '' && $plain === '') {
+        throw new RuntimeException('متن یادداشت را بنویسید.');
+    }
+    if (mb_strlen($plain) > 4000) {
         throw new RuntimeException('متن یادداشت خیلی طولانی است (حداکثر ۴۰۰۰ کاراکتر).');
     }
 
     return $body;
 }
 
+function staff_board_body_html(string $raw): string
+{
+    return function_exists('rich_html_for_display') ? rich_html_for_display($raw) : e($raw);
+}
+
 function staff_board_row_public(array $row): array
 {
+    $body = (string) ($row['body'] ?? '');
+
     return [
         'id' => (string) ($row['id'] ?? ''),
-        'body' => (string) ($row['body'] ?? ''),
+        'body' => $body,
+        'body_html' => staff_board_body_html($body),
         'is_done' => !empty($row['is_done']),
-        'is_bold' => !empty($row['is_bold']),
-        'is_highlight' => !empty($row['is_highlight']),
         'sort_order' => (int) ($row['sort_order'] ?? 0),
         'created_by' => (string) ($row['created_by'] ?? ''),
         'created_name' => (string) ($row['created_name'] ?? $row['created_username'] ?? 'منشی'),
@@ -186,13 +195,11 @@ function staff_board_create(PDO $pdo, string $userId, string $body, bool $bold =
     $stmt = $pdo->prepare('
       INSERT INTO staff_shared_notes
         (id, body, is_done, is_bold, is_highlight, sort_order, created_by, updated_by)
-      VALUES (?,?,0,?,?,?,?,?)
+      VALUES (?,?,0,0,0,?,?,?)
     ');
     $stmt->execute([
         $id,
         $body,
-        $bold ? 1 : 0,
-        $highlight ? 1 : 0,
         $sort,
         $userId,
         $userId,
@@ -251,32 +258,6 @@ function staff_board_toggle_done(PDO $pdo, string $id, string $userId, ?bool $fo
     return $row;
 }
 
-function staff_board_set_format(PDO $pdo, string $id, string $userId, ?bool $bold = null, ?bool $highlight = null): array
-{
-    ensure_staff_board_schema($pdo);
-    $sets = ['updated_by=?'];
-    $params = [$userId];
-    if ($bold !== null) {
-        $sets[] = 'is_bold=?';
-        $params[] = $bold ? 1 : 0;
-    }
-    if ($highlight !== null) {
-        $sets[] = 'is_highlight=?';
-        $params[] = $highlight ? 1 : 0;
-    }
-    if (count($sets) === 1) {
-        throw new RuntimeException('فرمت مشخص نشده است.');
-    }
-    $params[] = $id;
-    $pdo->prepare('UPDATE staff_shared_notes SET ' . implode(', ', $sets) . ' WHERE id=?')->execute($params);
-    $row = staff_board_get($pdo, $id);
-    if (!$row) {
-        throw new RuntimeException('یادداشت پیدا نشد.');
-    }
-
-    return $row;
-}
-
 function staff_board_delete(PDO $pdo, string $id): void
 {
     ensure_staff_board_schema($pdo);
@@ -318,8 +299,8 @@ function staff_board_render(PDO $pdo, array $user, array $opts = []): string
           <p class="staff-board-kicker">همکاری منشی‌ها</p>
           <h1>یادداشت مشترک</h1>
           <p class="muted staff-board-lead">
-            مثل تخته Notion یا Reminders: نکته‌ها را بنویسید تا همکار هم ببیند —
-            مثلاً «تا آخر ماه آینده وقت نمی‌خواهد». Enter ذخیره می‌کند؛ تیک بزنید وقتی انجام شد یا دیده شد.
+            نکته‌های کاری را اینجا بنویسید تا همکار هم ببیند — مثلاً «تا آخر ماه آینده وقت نمی‌خواهد».
+            متن را انتخاب کنید و Bold / زیرخط / رنگ / جدول بزنید؛ تیک یعنی انجام شد یا دیده شد.
           </p>
         </div>
         <div class="staff-board-stats" aria-live="polite">
@@ -347,19 +328,23 @@ function staff_board_render(PDO $pdo, array $user, array $opts = []): string
       </div>
 
       <?php if ($canEdit): ?>
-        <form class="staff-board-composer panel" id="staff-board-composer" autocomplete="off">
-          <div class="staff-board-composer-tools" role="group" aria-label="قالب متن">
-            <button type="button" class="staff-board-tool" id="sb-tool-bold" aria-pressed="false" title="پررنگ">ب</button>
-            <button type="button" class="staff-board-tool staff-board-tool-hl" id="sb-tool-hl" aria-pressed="false" title="هایلایت">هایلایت</button>
-          </div>
-          <label class="sr-only" for="staff-board-input">یادداشت جدید</label>
-          <textarea class="input staff-board-input" id="staff-board-input" rows="2" maxlength="4000"
-                    placeholder="نکته کاری را بنویسید و Enter بزنید… (Shift+Enter خط جدید)"></textarea>
+        <div class="staff-board-composer panel" id="staff-board-composer">
+          <p class="muted" style="margin:0;font-size:.85rem">یادداشت آزاد کاری؛ هر دو منشی، مدیر و دکتر شیوا می‌بینند.</p>
+          <?= rich_editor_toolbar_html(['id' => 'staff-board-toolbar']) ?>
+          <div
+            id="staff-board-editor"
+            class="clinical-editor clinical-editor-sm"
+            contenteditable="true"
+            role="textbox"
+            data-rich-editor
+            aria-label="یادداشت جدید"
+            data-placeholder="نکته کاری را اینجا بنویسید…"
+          ></div>
           <div class="staff-board-composer-foot">
-            <span class="muted" id="staff-board-status">Enter = ذخیره · Shift+Enter = خط جدید</span>
-            <button type="submit" class="btn btn-primary btn-sm">افزودن</button>
+            <span class="muted" id="staff-board-status">Ctrl+Enter یا دکمه افزودن = ذخیره</span>
+            <button type="button" class="btn btn-primary btn-sm" id="staff-board-add">افزودن</button>
           </div>
-        </form>
+        </div>
       <?php else: ?>
         <p class="muted">فقط مشاهده — ویرایش برای منشی‌ها و مدیر است.</p>
       <?php endif; ?>
@@ -381,33 +366,22 @@ function staff_board_render(PDO $pdo, array $user, array $opts = []): string
 function staff_board_item_html(array $item, bool $canEdit): string
 {
     $id = e((string) ($item['id'] ?? ''));
-    $body = e((string) ($item['body'] ?? ''));
+    $html = (string) ($item['body_html'] ?? staff_board_body_html((string) ($item['body'] ?? '')));
     $done = !empty($item['is_done']);
-    $bold = !empty($item['is_bold']);
-    $hl = !empty($item['is_highlight']);
     $name = e((string) ($item['created_name'] ?? ''));
     $when = e((string) ($item['created_label'] ?? ''));
-    $cls = 'staff-board-item';
-    if ($done) {
-        $cls .= ' is-done';
-    }
-    if ($bold) {
-        $cls .= ' is-bold';
-    }
-    if ($hl) {
-        $cls .= ' is-highlight';
-    }
+    $cls = 'staff-board-item' . ($done ? ' is-done' : '');
     ob_start();
     ?>
-    <li class="<?= e($cls) ?>" data-id="<?= $id ?>" data-done="<?= $done ? '1' : '0' ?>" data-bold="<?= $bold ? '1' : '0' ?>" data-highlight="<?= $hl ? '1' : '0' ?>">
+    <li class="<?= e($cls) ?>" data-id="<?= $id ?>" data-done="<?= $done ? '1' : '0' ?>">
       <label class="staff-board-check">
         <input type="checkbox" <?= $done ? 'checked' : '' ?> <?= $canEdit ? '' : 'disabled' ?> aria-label="انجام شد">
       </label>
       <div class="staff-board-body">
         <?php if ($canEdit && !$done): ?>
-          <div class="staff-board-text" contenteditable="true" role="textbox" aria-label="متن یادداشت" spellcheck="true"><?= $body ?></div>
+          <div class="staff-board-text clinical-editor clinical-editor-sm" contenteditable="true" role="textbox" data-rich-editor spellcheck="true"><?= $html ?></div>
         <?php else: ?>
-          <div class="staff-board-text"><?= nl2br($body) ?></div>
+          <div class="staff-board-text rich-html"><?= $html ?></div>
         <?php endif; ?>
         <div class="staff-board-meta">
           <span><?= $name ?></span>
@@ -417,8 +391,6 @@ function staff_board_item_html(array $item, bool $canEdit): string
       </div>
       <?php if ($canEdit): ?>
         <div class="staff-board-actions">
-          <button type="button" class="staff-board-action" data-act="bold" title="پررنگ" aria-pressed="<?= $bold ? 'true' : 'false' ?>">ب</button>
-          <button type="button" class="staff-board-action is-hl" data-act="highlight" title="هایلایت" aria-pressed="<?= $hl ? 'true' : 'false' ?>">هـ</button>
           <button type="button" class="staff-board-action is-danger" data-act="delete" title="حذف">×</button>
         </div>
       <?php endif; ?>
@@ -429,7 +401,9 @@ function staff_board_item_html(array $item, bool $canEdit): string
 
 function staff_board_scripts(): string
 {
-    $js = <<<'JS'
+    $richSrc = e(url('/assets/js/rich-editor.js')) . '?v=20260916b';
+    $js = <<<JS
+<script src="{$richSrc}"></script>
 <script>
 (function () {
   var root = document.getElementById('staff-board');
@@ -439,18 +413,22 @@ function staff_board_scripts(): string
   var filter = root.getAttribute('data-filter') || 'open';
   var pollMs = parseInt(root.getAttribute('data-poll-ms') || '12000', 10) || 12000;
   var list = document.getElementById('staff-board-list');
-  var composer = document.getElementById('staff-board-composer');
-  var input = document.getElementById('staff-board-input');
+  var editor = document.getElementById('staff-board-editor');
   var statusEl = document.getElementById('staff-board-status');
-  var toolBold = document.getElementById('sb-tool-bold');
-  var toolHl = document.getElementById('sb-tool-hl');
-  var draftBold = false;
-  var draftHl = false;
+  var addBtn = document.getElementById('staff-board-add');
   var saving = false;
   var dirtyIds = {};
 
+  if (canEdit && window.initSharedRichToolbar) {
+    window.initSharedRichToolbar({
+      root: root,
+      toolbar: '#staff-board-toolbar',
+      editorSelector: '[data-rich-editor]'
+    });
+  }
+
   function toFa(n) {
-    return String(n).replace(/\d/g, function (d) {
+    return String(n).replace(/\\d/g, function (d) {
       return '۰۱۲۳۴۵۶۷۸۹'[d];
     });
   }
@@ -481,40 +459,26 @@ function staff_board_scripts(): string
     }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, json: j }; }); });
   }
 
-  function esc(s) {
-    return String(s || '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
-  }
-
-  function nl2br(s) {
-    return esc(s).replace(/\n/g, '<br>');
+  function plainOf(html) {
+    var d = document.createElement('div');
+    d.innerHTML = html || '';
+    return (d.textContent || '').replace(/\\u00a0/g, ' ').trim();
   }
 
   function itemHtml(item) {
-    var cls = 'staff-board-item';
-    if (item.is_done) cls += ' is-done';
-    if (item.is_bold) cls += ' is-bold';
-    if (item.is_highlight) cls += ' is-highlight';
+    var cls = 'staff-board-item' + (item.is_done ? ' is-done' : '');
+    var body = item.body_html || item.body || '';
     var textInner = (canEdit && !item.is_done)
-      ? '<div class="staff-board-text" contenteditable="true" role="textbox" spellcheck="true">' + esc(item.body) + '</div>'
-      : '<div class="staff-board-text">' + nl2br(item.body) + '</div>';
-    var actions = '';
-    if (canEdit) {
-      actions =
-        '<div class="staff-board-actions">' +
-          '<button type="button" class="staff-board-action" data-act="bold" title="پررنگ" aria-pressed="' + (item.is_bold ? 'true' : 'false') + '">ب</button>' +
-          '<button type="button" class="staff-board-action is-hl" data-act="highlight" title="هایلایت" aria-pressed="' + (item.is_highlight ? 'true' : 'false') + '">هـ</button>' +
-          '<button type="button" class="staff-board-action is-danger" data-act="delete" title="حذف">×</button>' +
-        '</div>';
-    }
+      ? '<div class="staff-board-text clinical-editor clinical-editor-sm" contenteditable="true" role="textbox" data-rich-editor spellcheck="true">' + body + '</div>'
+      : '<div class="staff-board-text rich-html">' + body + '</div>';
+    var actions = canEdit
+      ? '<div class="staff-board-actions"><button type="button" class="staff-board-action is-danger" data-act="delete" title="حذف">×</button></div>'
+      : '';
     return (
-      '<li class="' + cls + '" data-id="' + esc(item.id) + '" data-done="' + (item.is_done ? '1' : '0') + '" data-bold="' + (item.is_bold ? '1' : '0') + '" data-highlight="' + (item.is_highlight ? '1' : '0') + '">' +
+      '<li class="' + cls + '" data-id="' + String(item.id).replace(/"/g, '') + '" data-done="' + (item.is_done ? '1' : '0') + '">' +
         '<label class="staff-board-check"><input type="checkbox" ' + (item.is_done ? 'checked' : '') + (canEdit ? '' : ' disabled') + ' aria-label="انجام شد"></label>' +
         '<div class="staff-board-body">' + textInner +
-          '<div class="staff-board-meta"><span>' + esc(item.created_name) + '</span><span>·</span><time>' + esc(item.created_label) + '</time></div>' +
+          '<div class="staff-board-meta"><span>' + String(item.created_name || '').replace(/</g,'&lt;') + '</span><span>·</span><time>' + String(item.created_label || '').replace(/</g,'&lt;') + '</time></div>' +
         '</div>' + actions +
       '</li>'
     );
@@ -553,11 +517,8 @@ function staff_board_scripts(): string
     } else {
       var empty = document.getElementById('staff-board-empty');
       if (empty) empty.remove();
-      if (prepend) {
-        list.insertAdjacentHTML('afterbegin', html);
-      } else {
-        list.insertAdjacentHTML('beforeend', html);
-      }
+      if (prepend) list.insertAdjacentHTML('afterbegin', html);
+      else list.insertAdjacentHTML('beforeend', html);
     }
   }
 
@@ -590,47 +551,27 @@ function staff_board_scripts(): string
       .catch(function () {});
   }
 
-  if (toolBold) {
-    toolBold.addEventListener('click', function () {
-      draftBold = !draftBold;
-      toolBold.setAttribute('aria-pressed', draftBold ? 'true' : 'false');
-      toolBold.classList.toggle('is-on', draftBold);
-    });
-  }
-  if (toolHl) {
-    toolHl.addEventListener('click', function () {
-      draftHl = !draftHl;
-      toolHl.setAttribute('aria-pressed', draftHl ? 'true' : 'false');
-      toolHl.classList.toggle('is-on', draftHl);
-    });
-  }
-
-  function submitComposer(e) {
-    if (e) e.preventDefault();
-    if (!canEdit || !input || saving) return;
-    var body = (input.value || '').trim();
-    if (!body) {
+  function submitComposer() {
+    if (!canEdit || !editor || saving) return;
+    var html = editor.innerHTML || '';
+    if (!plainOf(html)) {
       setStatus('متن را بنویسید.', true);
       return;
     }
     saving = true;
     setStatus('در حال ذخیره…');
-    post('create', { body: body, is_bold: draftBold, is_highlight: draftHl })
+    post('create', { body: html })
       .then(function (res) {
         saving = false;
         if (!res.json || !res.json.ok) {
           setStatus((res.json && res.json.error) || 'ذخیره ناموفق بود.', true);
           return;
         }
-        input.value = '';
-        draftBold = false;
-        draftHl = false;
-        if (toolBold) { toolBold.setAttribute('aria-pressed', 'false'); toolBold.classList.remove('is-on'); }
-        if (toolHl) { toolHl.setAttribute('aria-pressed', 'false'); toolHl.classList.remove('is-on'); }
+        editor.innerHTML = '';
         setStatus('ذخیره شد.');
         updateCounts(res.json.counts);
         upsertItem(res.json.item, true);
-        input.focus();
+        editor.focus();
       })
       .catch(function () {
         saving = false;
@@ -638,10 +579,10 @@ function staff_board_scripts(): string
       });
   }
 
-  if (composer) composer.addEventListener('submit', submitComposer);
-  if (input) {
-    input.addEventListener('keydown', function (e) {
-      if (e.key === 'Enter' && !e.shiftKey) {
+  if (addBtn) addBtn.addEventListener('click', submitComposer);
+  if (editor) {
+    editor.addEventListener('keydown', function (e) {
+      if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) {
         e.preventDefault();
         submitComposer();
       }
@@ -673,40 +614,23 @@ function staff_board_scripts(): string
     });
 
     list.addEventListener('click', function (e) {
-      var btn = e.target.closest('[data-act]');
+      var btn = e.target.closest('[data-act="delete"]');
       if (!btn || !canEdit) return;
       var li = btn.closest('.staff-board-item');
       if (!li) return;
+      if (!confirm('این یادداشت حذف شود؟')) return;
       var id = li.getAttribute('data-id');
-      var act = btn.getAttribute('data-act');
-      if (act === 'delete') {
-        if (!confirm('این یادداشت حذف شود؟')) return;
-        post('delete', { id: id })
-          .then(function (res) {
-            if (!res.json || !res.json.ok) {
-              setStatus((res.json && res.json.error) || 'حذف ناموفق.', true);
-              return;
-            }
-            li.remove();
-            updateCounts(res.json.counts);
-            ensureEmpty();
-            setStatus('حذف شد.');
-          });
-        return;
-      }
-      if (act === 'bold' || act === 'highlight') {
-        var payload = { id: id };
-        if (act === 'bold') payload.is_bold = li.getAttribute('data-bold') !== '1';
-        if (act === 'highlight') payload.is_highlight = li.getAttribute('data-highlight') !== '1';
-        post('format', payload)
-          .then(function (res) {
-            if (!res.json || !res.json.ok) {
-              setStatus((res.json && res.json.error) || 'فرمت ذخیره نشد.', true);
-              return;
-            }
-            upsertItem(res.json.item, false);
-          });
-      }
+      post('delete', { id: id })
+        .then(function (res) {
+          if (!res.json || !res.json.ok) {
+            setStatus((res.json && res.json.error) || 'حذف ناموفق.', true);
+            return;
+          }
+          li.remove();
+          updateCounts(res.json.counts);
+          ensureEmpty();
+          setStatus('حذف شد.');
+        });
     });
 
     var saveTimers = {};
@@ -719,12 +643,12 @@ function staff_board_scripts(): string
       dirtyIds[id] = true;
       clearTimeout(saveTimers[id]);
       saveTimers[id] = setTimeout(function () {
-        var body = (el.innerText || '').replace(/\u00a0/g, ' ').trim();
-        if (!body) {
+        var html = el.innerHTML || '';
+        if (!plainOf(html)) {
           setStatus('متن خالی نشود.', true);
           return;
         }
-        post('update', { id: id, body: body })
+        post('update', { id: id, body: html })
           .then(function (res) {
             delete dirtyIds[id];
             if (!res.json || !res.json.ok) {
@@ -736,16 +660,7 @@ function staff_board_scripts(): string
           .catch(function () {
             setStatus('ارتباط قطع شد.', true);
           });
-      }, 600);
-    });
-
-    list.addEventListener('keydown', function (e) {
-      var el = e.target;
-      if (!el || !el.classList.contains('staff-board-text') || !el.isContentEditable) return;
-      if (e.key === 'Enter' && !e.shiftKey) {
-        e.preventDefault();
-        el.blur();
-      }
+      }, 700);
     });
   }
 
@@ -759,5 +674,6 @@ function staff_board_scripts(): string
 })();
 </script>
 JS;
+
     return $js;
 }

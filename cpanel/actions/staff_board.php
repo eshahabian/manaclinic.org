@@ -45,9 +45,7 @@ try {
         $item = staff_board_create(
             $pdo,
             $userId,
-            post('body'),
-            post('is_bold') === '1',
-            post('is_highlight') === '1'
+            (string) ($_POST['body'] ?? '')
         );
         echo json_encode([
             'ok' => true,
@@ -58,7 +56,7 @@ try {
     }
 
     if ($action === 'update') {
-        $item = staff_board_update_body($pdo, post('id'), $userId, post('body'));
+        $item = staff_board_update_body($pdo, post('id'), $userId, (string) ($_POST['body'] ?? ''));
         echo json_encode([
             'ok' => true,
             'item' => $item,
@@ -71,24 +69,6 @@ try {
         $force = post('is_done');
         $forceBool = $force === '' ? null : ($force === '1');
         $item = staff_board_toggle_done($pdo, post('id'), $userId, $forceBool);
-        echo json_encode([
-            'ok' => true,
-            'item' => $item,
-            'counts' => staff_board_counts($pdo),
-        ], JSON_UNESCAPED_UNICODE);
-        exit;
-    }
-
-    if ($action === 'format') {
-        $bold = post('is_bold');
-        $hl = post('is_highlight');
-        $item = staff_board_set_format(
-            $pdo,
-            post('id'),
-            $userId,
-            $bold === '' ? null : ($bold === '1'),
-            $hl === '' ? null : ($hl === '1')
-        );
         echo json_encode([
             'ok' => true,
             'item' => $item,
