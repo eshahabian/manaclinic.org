@@ -39,13 +39,31 @@ ob_start();
 <form class="panel form-stack" method="post" action="<?= e(url('/secretary/book')) ?>" id="secretary-book-form" style="margin-top:0;max-width:44rem" enctype="multipart/form-data">
   <?= csrf_field() ?>
   <div>
-    <label class="label">مراجعه‌کننده</label>
+    <label class="label" for="patient_id">مراجعه‌کننده</label>
     <select class="input" name="patient_id" id="patient_id">
       <option value="">— انتخاب مراجعه‌کننده —</option>
       <?php foreach ($patients as $p): ?>
-        <option value="<?= e($p['id']) ?>"><?= e($p['name']) ?> (<?= e((string)$p['username']) ?>)<?= !empty($p['doctor_name']) ? ' — ' . e($p['doctor_name']) : '' ?></option>
+        <?php
+          $phone = trim((string) ($p['phone'] ?? ''));
+          $uname = trim((string) ($p['username'] ?? ''));
+          $pname = trim((string) ($p['name'] ?? ''));
+          $doc = trim((string) ($p['doctor_name'] ?? ''));
+          $label = $pname;
+          if ($uname !== '') {
+              $label .= ' (' . $uname . ')';
+          }
+          if ($phone !== '') {
+              $label .= ' · ' . $phone;
+          }
+          if ($doc !== '') {
+              $label .= ' — ' . $doc;
+          }
+          $searchBits = trim($pname . ' ' . $uname . ' ' . $phone . ' ' . $doc);
+        ?>
+        <option value="<?= e($p['id']) ?>" data-search="<?= e($searchBits) ?>"><?= e($label) ?></option>
       <?php endforeach; ?>
     </select>
+    <p class="muted" style="margin:.35rem 0 0;font-size:.8rem">در باکس بالا نام، نام کاربری یا شماره موبایل را تایپ کنید.</p>
   </div>
 
   <div class="panel" style="background:var(--bg-soft);border-style:dashed">
@@ -101,7 +119,7 @@ ob_start();
 $secretaryBookFormHtml = ob_get_clean();
 
 $secretaryBookScripts = '
-<script src="' . e(url('/assets/js/search-select.js')) . '?v=20260906p"></script>
+<script src="' . e(url('/assets/js/search-select.js')) . '?v=20260916c"></script>
 <script src="' . e(url('/assets/js/name-transliterate.js')) . '?v=20260906p"></script>
 <script src="' . e(url('/assets/js/form-draft.js')) . '?v=20260906p"></script>
 <script src="' . e(url('/assets/js/secretary-patient-form.js')) . '?v=20260906p"></script>
@@ -127,7 +145,7 @@ $secretaryBookScripts = '
   var usernameHint = document.getElementById("username-hint");
 
   if (window.enhanceSearchSelect) {
-    enhanceSearchSelect(patientEl, { placeholder: "جستجو یا انتخاب مراجعه‌کننده" });
+    enhanceSearchSelect(patientEl, { placeholder: "جستجو با نام، یوزر یا موبایل…" });
     enhanceSearchSelect(doctorEl, { placeholder: "جستجو یا انتخاب دکتر" });
   }
 

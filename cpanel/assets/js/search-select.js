@@ -3,6 +3,26 @@
     return opt ? String(opt.textContent || "").trim() : "";
   }
 
+  function optionSearchText(opt) {
+    if (!opt) return "";
+    var custom = opt.getAttribute("data-search");
+    if (custom) return String(custom).trim();
+    return optionText(opt);
+  }
+
+  /** نرمال‌سازی برای جستجو: ارقام فارسی/عربی → انگلیسی، فاصله و خط تیره حذف */
+  function normalizeSearch(s) {
+    return String(s || "")
+      .toLowerCase()
+      .replace(/[۰-۹]/g, function (d) {
+        return String("۰۱۲۳۴۵۶۷۸۹".indexOf(d));
+      })
+      .replace(/[٠-٩]/g, function (d) {
+        return String("٠١٢٣٤٥٦٧٨٩".indexOf(d));
+      })
+      .replace(/[\s\-_٫،,]/g, "");
+  }
+
   function selectedText(select) {
     var opt = select.options[select.selectedIndex];
     return opt && opt.value ? optionText(opt) : "";
@@ -22,7 +42,7 @@
     select.setAttribute("aria-hidden", "true");
 
     var input = document.createElement("input");
-    input.type = "text";
+    input.type = "search";
     input.className = "input search-select-input";
     input.setAttribute("autocomplete", "off");
     input.setAttribute("autocapitalize", "off");
@@ -46,7 +66,11 @@
 
     function allItems() {
       return Array.prototype.map.call(select.options, function (opt) {
-        return { value: opt.value, text: optionText(opt) };
+        return {
+          value: opt.value,
+          text: optionText(opt),
+          search: optionSearchText(opt),
+        };
       });
     }
 
@@ -92,14 +116,24 @@
       opts[activeIndex].scrollIntoView({ block: "nearest" });
     }
 
+    function matchesQuery(item, qRaw, qNorm) {
+      if (!qRaw) return true;
+      if (!item.value) return false;
+      var hay = String(item.search || item.text || "");
+      if (hay.toLowerCase().indexOf(qRaw) !== -1) return true;
+      if (qNorm && normalizeSearch(hay).indexOf(qNorm) !== -1) return true;
+      return false;
+    }
+
     function render(query) {
-      var q = String(query || "").trim().toLowerCase();
+      var qRaw = String(query || "").trim().toLowerCase();
+      var qNorm = normalizeSearch(query);
       var current = select.value;
       list.innerHTML = "";
       activeIndex = -1;
       var shown = 0;
       allItems().forEach(function (item) {
-        if (q && item.value && item.text.toLowerCase().indexOf(q) === -1) return;
+        if (qRaw && !matchesQuery(item, qRaw, qNorm)) return;
         var li = document.createElement("li");
         li.className = "search-select-option" + (item.value === current ? " is-selected" : "");
         li.setAttribute("role", "option");
@@ -169,8 +203,12 @@
     input.addEventListener("blur", function () {
       window.setTimeout(function () {
         var q = input.value.trim().toLowerCase();
+        var qNorm = normalizeSearch(input.value);
         var exact = allItems().filter(function (item) {
-          return item.value && item.text.toLowerCase() === q;
+          if (!item.value) return false;
+          var t = item.text.toLowerCase();
+          if (t === q) return true;
+          return qNorm && normalizeSearch(item.search || item.text) === qNorm;
         });
         if (exact.length === 1) {
           setValue(exact[0].value, true);
