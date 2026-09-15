@@ -116,3 +116,122 @@ function secretary_active_doctors(PDO $pdo): array
       ORDER BY u.name ASC
     ")->fetchAll();
 }
+
+/**
+ * برای کاربران قدیمی که created_by خالی است، از لاگ منشی و اولین نوبت/ثبت‌نام پر می‌کند.
+ */
+function users_backfill_created_by(PDO $pdo): int
+{
+    static $done = false;
+    if ($done) {
+        return 0;
+    }
+    $done = true;
+    if (function_exists('ensure_staff_desk_schema')) {
+        ensure_staff_desk_schema($pdo);
+    }
+    $updated = 0;
+    try {
+        $stmt = $pdo->prepare("
+          UPDATE users u
+          INNER JOIN (
+            SELECT sal.target_id AS patient_id, sal.user_id AS creator_id
+            FROM secretary_action_log sal
+            INNER JOIN (
+              SELECT target_id, MIN(created_at) AS first_at
+              FROM secretary_action_log
+              WHERE action = 'create_patient'
+                AND target_type = 'user'
+                AND target_id IS NOT NULL
+                AND target_id <> ''
+              GROUP BY target_id
+            ) first_log ON first_log.target_id = sal.target_id AND first_log.first_at = sal.created_at
+            WHERE sal.action = 'create_patient' AND sal.target_type = 'user'
+          ) src ON src.patient_id = u.id
+          SET u.created_by_user_id = src.creator_id
+          WHERE u.created_by_user_id IS NULL
+            AND u.role = 'PATIENT'
+            AND src.creator_id IS NOT NULL
+            AND src.creator_id <> ''
+        ");
+        $stmt->execute();
+        $updated += (int) $stmt->rowCount();
+    } catch (Throwable $ignored) {
+    }
+
+    try {
+        $stmt = $pdo->prepare("
+          UPDATE users u
+          INNER JOIN (
+            SELECT a.patient_id, a.created_by_user_id AS creator_id
+            FROM appointments a
+            INNER JOIN (
+              SELECT patient_id, MIN(starts_at) AS first_at
+              FROM appointments
+              WHERE created_by_user_id IS NOT NULL AND created_by_user_id <> ''
+              GROUP BY patient_id
+            ) fa ON fa.patient_id = a.patient_id AND fa.first_at = a.starts_at
+            INNER JOIN users cu ON cu.id = a.created_by_user_id AND cu.role IN ('SECRETARY','ADMIN')
+            WHERE a.created_by_user_id IS NOT NULL
+          ) src ON src.patient_id = u.id
+          SET u.created_by_user_id = src.creator_id
+          WHERE u.created_by_user_id IS NULL
+            AND u.role = 'PATIENT'
+        ");
+        $stmt->execute();
+        $updated += (int) $stmt->rowCount();
+    } catch (Throwable $ignored) {
+    }
+
+    try {
+        $stmt = $pdo->prepare("
+          UPDATE users u
+          INNER JOIN (
+            SELECT e.patient_id, e.created_by_user_id AS creator_id
+            FROM workshop_enrollments e
+            INNER JOIN (
+              SELECT patient_id, MIN(enrolled_at) AS first_at
+              FROM workshop_enrollments
+              WHERE created_by_user_id IS NOT NULL AND created_by_user_id <> ''
+              GROUP BY patient_id
+            ) fe ON fe.patient_id = e.patient_id AND fe.first_at = e.enrolled_at
+            INNER JOIN users cu ON cu.id = e.created_by_user_id AND cu.role IN ('SECRETARY','ADMIN')
+            WHERE e.created_by_user_id IS NOT NULL
+          ) src ON src.patient_id = u.id
+          SET u.created_by_user_id = src.creator_id
+          WHERE u.created_by_user_id IS NULL
+            AND u.role = 'PATIENT'
+        ");
+        $stmt->execute();
+        $updated += (int) $stmt->rowCount();
+    } catch (Throwable $ignored) {
+    }
+
+    return $updated;
+}
+
+/** برچسب فارسی «ثبت توسط …» برای نمایش در لیست‌ها */
+function user_created_by_label(?array $creatorRow, ?string $fallback = 'نامشخص'): string
+{
+    if (!$creatorRow) {
+        return (string) ($fallback ?? 'نامشخص');
+    }
+    $name = trim((string) ($creatorRow['name'] ?? ''));
+    $username = trim((string) ($creatorRow['username'] ?? ''));
+    if ($name === '' && $username === '') {
+        return (string) ($fallback ?? 'نامشخص');
+    }
+    $role = strtoupper((string) ($creatorRow['role'] ?? ''));
+    $label = staff_actor_label($creatorRow);
+    if ($role === 'SECRETARY') {
+        return 'منشی: ' . $label;
+    }
+    if ($role === 'ADMIN') {
+        return 'مدیر: ' . $label;
+    }
+    if ($role === 'DOCTOR') {
+        return 'درمانگر: ' . $label;
+    }
+
+    return $label;
+}

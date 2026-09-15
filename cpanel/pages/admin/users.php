@@ -2,10 +2,22 @@
 declare(strict_types=1);
 require_once __DIR__ . '/../../includes/admin_panel.php';
 require_once __DIR__ . '/../../includes/user_cleanup.php';
+require_once __DIR__ . '/../../includes/secretary_patient.php';
 require_login(['ADMIN']);
 
 ensure_users_password_plain_schema($pdo);
-$users = $pdo->query('SELECT id,username,name,role,created_at,password_plain FROM users ORDER BY created_at DESC')->fetchAll();
+if (function_exists('users_backfill_created_by')) {
+    users_backfill_created_by($pdo);
+} elseif (function_exists('ensure_staff_desk_schema')) {
+    ensure_staff_desk_schema($pdo);
+}
+$users = $pdo->query("
+  SELECT u.id, u.username, u.name, u.role, u.created_at, u.password_plain,
+         cu.name AS created_by_name, cu.username AS created_by_username, cu.role AS created_by_role
+  FROM users u
+  LEFT JOIN users cu ON cu.id = u.created_by_user_id
+  ORDER BY u.created_at DESC
+")->fetchAll();
 $cleanupTargets = find_cleanup_test_users($pdo);
 $appointmentCount = (int) $pdo->query('SELECT COUNT(*) FROM appointments')->fetchColumn();
 $patients = array_values(array_filter($users, static fn($u) => $u['role'] === 'PATIENT'));
@@ -84,10 +96,17 @@ ob_start();
     <input type="hidden" name="action" value="delete_selected">
     <div class="stack" style="margin-bottom:1rem">
       <?php foreach ($patients as $p): ?>
-        <label style="display:flex;gap:.6rem;align-items:center;padding:.45rem 0;border-bottom:1px solid var(--line);font-size:.95rem">
+        <label style="display:flex;gap:.6rem;align-items:center;padding:.45rem 0;border-bottom:1px solid var(--line);font-size:.95rem;flex-wrap:wrap">
           <input type="checkbox" name="user_ids[]" value="<?= e($p['id']) ?>">
           <span><?= e($p['name']) ?></span>
           <span class="muted" dir="ltr" style="font-size:.8rem"><?= e((string)$p['username']) ?></span>
+          <span class="muted" style="font-size:.8rem;margin-inline-start:auto">
+            <?= e(user_created_by_label([
+                'name' => $p['created_by_name'] ?? '',
+                'username' => $p['created_by_username'] ?? '',
+                'role' => $p['created_by_role'] ?? '',
+            ], 'ثبت‌کننده نامشخص')) ?>
+          </span>
         </label>
       <?php endforeach; ?>
     </div>
@@ -103,6 +122,7 @@ ob_start();
         <th>نام</th>
         <th>نام کاربری</th>
         <th>نقش</th>
+        <th>ثبت توسط</th>
         <th>رمز فعلی</th>
         <th>عضویت</th>
         <th>تغییر رمز</th>
@@ -113,11 +133,17 @@ ob_start();
       <?php foreach ($users as $u): ?>
         <?php
           $plain = trim((string) ($u['password_plain'] ?? ''));
+          $creator = user_created_by_label([
+              'name' => $u['created_by_name'] ?? '',
+              'username' => $u['created_by_username'] ?? '',
+              'role' => $u['created_by_role'] ?? '',
+          ], '—');
         ?>
         <tr>
           <td><?= e($u['name']) ?></td>
           <td dir="ltr"><?= e((string)$u['username']) ?></td>
           <td><?= e(role_label($u['role'])) ?></td>
+          <td style="font-size:.85rem"><?= e($creator) ?></td>
           <td>
             <?php if ($plain !== ''): ?>
               <code class="admin-password-plain" dir="ltr"><?= e($plain) ?></code>

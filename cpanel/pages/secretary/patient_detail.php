@@ -7,7 +7,16 @@ require_once __DIR__ . '/../../includes/appointment_cancel.php';
 $user = require_login(['SECRETARY']);
 $id = trim((string) ($_GET['id'] ?? ''));
 
-$stmt = $pdo->prepare("SELECT id, name, username, phone FROM users WHERE id=? AND role='PATIENT' LIMIT 1");
+users_backfill_created_by($pdo);
+
+$stmt = $pdo->prepare("
+  SELECT u.id, u.name, u.username, u.phone,
+         cu.name AS created_by_name, cu.username AS created_by_username, cu.role AS created_by_role
+  FROM users u
+  LEFT JOIN users cu ON cu.id = u.created_by_user_id
+  WHERE u.id=? AND u.role='PATIENT'
+  LIMIT 1
+");
 $stmt->execute([$id]);
 $patient = $stmt->fetch();
 if (!$patient) {
@@ -78,6 +87,14 @@ ob_start();
     <?php else: ?>
       <div>شماره ثبت نشده</div>
     <?php endif; ?>
+  </div>
+  <div>
+    <div class="muted" style="font-size:.8rem">ثبت‌کننده</div>
+    <div><?= e(user_created_by_label([
+        'name' => $patient['created_by_name'] ?? '',
+        'username' => $patient['created_by_username'] ?? '',
+        'role' => $patient['created_by_role'] ?? '',
+    ], 'نامشخص (قبل از ثبت این قابلیت یا ثبت‌نام شخصی)')) ?></div>
   </div>
   <div class="muted" style="font-size:.85rem">نام کاربری: <span dir="ltr"><?= e((string) $patient['username']) ?></span></div>
 </div>

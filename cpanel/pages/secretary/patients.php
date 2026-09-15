@@ -5,15 +5,19 @@ require_once __DIR__ . '/../../includes/secretary_panel.php';
 
 $user = require_login(['SECRETARY']);
 
+users_backfill_created_by($pdo);
+
 $patients = $pdo->query("
   SELECT u.id, u.name, u.username, u.phone,
+         cu.name AS created_by_name, cu.username AS created_by_username, cu.role AS created_by_role,
          COUNT(a.id) AS visit_count,
          MAX(a.starts_at) AS last_visit
   FROM users u
+  LEFT JOIN users cu ON cu.id = u.created_by_user_id
   LEFT JOIN appointments a ON a.patient_id = u.id
     AND a.status IN ('PENDING_PAYMENT','CONFIRMED','COMPLETED')
   WHERE u.role = 'PATIENT'
-  GROUP BY u.id, u.name, u.username, u.phone
+  GROUP BY u.id, u.name, u.username, u.phone, cu.name, cu.username, cu.role
   ORDER BY u.name ASC
 ")->fetchAll();
 $doctors = secretary_active_doctors($pdo);
@@ -51,7 +55,12 @@ ob_start();
   <?php foreach ($patients as $p): ?>
     <?php
       $phone = trim((string) ($p['phone'] ?? ''));
-      $search = mb_strtolower(trim((string) $p['name'] . ' ' . (string) $p['username'] . ' ' . $phone));
+      $creatorLabel = user_created_by_label([
+          'name' => $p['created_by_name'] ?? '',
+          'username' => $p['created_by_username'] ?? '',
+          'role' => $p['created_by_role'] ?? '',
+      ], 'ثبت‌کننده نامشخص');
+      $search = mb_strtolower(trim((string) $p['name'] . ' ' . (string) $p['username'] . ' ' . $phone . ' ' . $creatorLabel));
     ?>
     <a class="panel row-between secretary-patient-row" href="<?= e(url('/secretary/patients/' . $p['id'])) ?>" style="color:inherit" data-search="<?= e($search) ?>">
       <div>
@@ -63,6 +72,7 @@ ob_start();
             شماره ثبت نشده
           <?php endif; ?>
         </div>
+        <div class="muted" style="font-size:.8rem;margin-top:.35rem">ثبت توسط <?= e($creatorLabel) ?></div>
       </div>
       <div style="text-align:left">
         <span class="badge"><?= (int) $p['visit_count'] ?> نوبت</span>

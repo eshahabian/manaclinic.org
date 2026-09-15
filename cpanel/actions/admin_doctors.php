@@ -51,8 +51,10 @@ if ($action === 'toggle') {
         } else {
             $uid = cuid();
             $did = cuid();
-            $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,must_change_password) VALUES (?,?,?,?,?,?,?,1)')
-                ->execute([$uid, $username, $name, $username . '@manaclinic.local', $phone, password_hash($password, PASSWORD_DEFAULT), 'DOCTOR']);
+            $adminId = (string) (current_user()['id'] ?? '');
+            ensure_staff_desk_schema($pdo);
+            $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,created_by_user_id,must_change_password) VALUES (?,?,?,?,?,?,?,?,1)')
+                ->execute([$uid, $username, $name, $username . '@manaclinic.local', $phone, password_hash($password, PASSWORD_DEFAULT), 'DOCTOR', $adminId !== '' ? $adminId : null]);
             user_remember_password_plain($pdo, $uid, $password);
             $pdo->prepare('INSERT INTO doctor_profiles (id,user_id,specialty,bio,session_price,is_approved,is_active) VALUES (?,?,?,?,?,1,1)')
                 ->execute([$did, $uid, $specialty, $bio, $price]);
