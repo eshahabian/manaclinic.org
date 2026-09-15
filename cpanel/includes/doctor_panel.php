@@ -73,6 +73,9 @@ function doctor_nav(): array
     if (doctor_can_view_staff_hours()) {
         $nav[] = ['type' => 'link', 'href' => '/doctor/staff-hours', 'label' => 'ساعت کاری منشی‌ها'];
     }
+    if (function_exists('staff_board_can_access') && staff_board_can_access(current_user())) {
+        $nav[] = ['type' => 'link', 'href' => '/doctor/staff-board', 'label' => 'یادداشت مشترک منشی‌ها'];
+    }
     $nav[] = ['type' => 'link', 'href' => '/doctor/staff-messages', 'label' => 'پیام‌ها'];
     $nav[] = ['type' => 'link', 'href' => '/change-password', 'label' => 'تغییر رمز عبور'];
 

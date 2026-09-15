@@ -21,6 +21,12 @@ function delete_user_cascade(PDO $pdo, string $userId): void
     } catch (Throwable $ignored) {
     }
 
+    try {
+        $pdo->prepare('UPDATE staff_shared_notes SET updated_by = NULL WHERE updated_by = ?')->execute([$userId]);
+        $pdo->prepare('UPDATE staff_shared_notes SET done_by = NULL WHERE done_by = ?')->execute([$userId]);
+    } catch (Throwable $ignored) {
+    }
+
     // پرداخت‌های نوبت‌های این مراجعه‌کننده
     try {
         $pdo->prepare("

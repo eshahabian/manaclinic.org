@@ -58,6 +58,7 @@ require_once __DIR__ . '/includes/assistant.php';
 require_once __DIR__ . '/includes/seed_articles.php';
 require_once __DIR__ . '/includes/articles.php';
 require_once __DIR__ . '/includes/handover.php';
+require_once __DIR__ . '/includes/staff_board.php';
 require_once __DIR__ . '/includes/user_cleanup.php';
 require_once __DIR__ . '/includes/seo.php';
 require_once __DIR__ . '/includes/doctor_profile_fields.php';
@@ -180,6 +181,7 @@ $routes = [
     'GET /secretary/patients' => 'pages/secretary/patients.php',
     'POST /secretary/patients' => 'actions/secretary_create_patient.php',
     'GET /secretary/messages' => 'pages/secretary/messages.php',
+    'GET /secretary/board' => 'pages/secretary/board.php',
     'GET /secretary/colleague' => 'pages/secretary/colleague.php',
     'POST /secretary/notifications/read' => 'actions/secretary_notifications.php',
     'POST /secretary/patient-message' => 'actions/secretary_patient_message.php',
@@ -223,6 +225,7 @@ $routes = [
     'POST /doctor/staff-hours' => 'actions/doctor_staff_hours.php',
     'GET /doctor/staff-hours-export' => 'actions/doctor_staff_hours_export.php',
     'GET /doctor/staff-messages' => 'pages/doctor/staff_messages.php',
+    'GET /doctor/staff-board' => 'pages/doctor/staff_board.php',
 
     'GET /admin' => 'pages/admin/dashboard.php',
     'GET /admin/doctors' => 'pages/admin/doctors.php',
@@ -239,6 +242,7 @@ $routes = [
     'GET /admin/staff-hours-export' => 'actions/admin_staff_hours_export.php',
     'GET /admin/staff-messages' => 'pages/admin/staff_messages.php',
     'POST /admin/staff-messages' => 'actions/admin_messages.php',
+    'GET /admin/staff-board' => 'pages/admin/staff_board.php',
     'GET /admin/mail' => 'pages/admin/mail.php',
     'POST /admin/mail' => 'actions/admin_mail.php',
     'POST /secretary/handover' => 'actions/secretary_handover.php',
@@ -247,6 +251,8 @@ $routes = [
     'GET /api/slots' => 'actions/slots.php',
     'GET /api/availability-days' => 'actions/availability_days.php',
     'GET /api/transliterate-name' => 'actions/transliterate_name.php',
+    'GET /api/staff-board' => 'actions/staff_board.php',
+    'POST /api/staff-board' => 'actions/staff_board.php',
     'GET /payments/verify' => 'actions/payment_verify.php',
     'GET /install' => 'install.php',
 ];

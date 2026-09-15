@@ -5,6 +5,7 @@ function secretary_nav(): array
 {
     $nav = [
         ['href' => '/secretary/messages', 'label' => 'پیام‌ها'],
+        ['href' => '/secretary/board', 'label' => 'یادداشت مشترک'],
         ['href' => '/secretary/patients', 'label' => 'مراجعه‌کنندگان'],
         ['href' => '/secretary/appointments', 'label' => 'نوبت‌ها'],
         ['href' => '/secretary/workshops', 'label' => 'کارگاه‌ها'],
