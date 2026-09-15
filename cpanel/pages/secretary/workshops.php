@@ -352,7 +352,7 @@ ob_start();
   </div>
   <div>
     <label class="label">یادداشت</label>
-    <textarea class="input" name="notes" rows="2"><?= e((string) ($formData['notes'] ?? '')) ?></textarea>
+    <textarea class="input" name="notes" rows="2" data-emoji-field><?= e((string) ($formData['notes'] ?? '')) ?></textarea>
   </div>
   <button class="btn btn-primary" type="submit"><?= e($formSubmit) ?></button>
 </form>

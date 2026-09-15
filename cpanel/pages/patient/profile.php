@@ -138,7 +138,7 @@ ob_start();
   </form>
 </div>
 <?php
-$pageScripts = '<script src="' . e(url('/assets/js/rich-editor.js')) . '?v=20260916b"></script>
+$pageScripts = '<script src="' . e(url('/assets/js/rich-editor.js')) . '?v=20260916e"></script>
 <script>if (window.initRichEditors) { window.initRichEditors(document); }</script>';
 $GLOBALS['pageScripts'] = $pageScripts;
 render_patient_page('پروفایل', ob_get_clean());

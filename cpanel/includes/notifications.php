@@ -217,6 +217,7 @@ function notification_kind(array $n): string
     }
     if ((mb_stripos($blob, 'پیام مدیر') !== false)
         || (mb_stripos($link, 'msg=admin') !== false)
+        || (mb_stripos($link, '/secretary/profile') !== false)
         || ($stored === 'admin_directive')
     ) {
         return 'admin_directive';
@@ -615,7 +616,9 @@ function render_secretary_messages_panel(
         <?php endif; ?>
       <?php elseif ($activeTab === 'admin'): ?>
         <p class="muted" style="margin:0;font-size:.85rem;line-height:1.8">
-          پیام‌های مدیر. اگر پیام خوانده‌نشده باشد، تا تیک نزنید و «خواندم» را نزنید نمی‌توانید در پنل کار کنید.
+          پیام‌های مدیر سایت. آرشیو دائمی در
+          <a href="<?= e(url('/secretary/profile#admin-site-messages')) ?>">پروفایل · پیام‌های مدیر سایت</a>
+          هم هست و قابل حذف نیست.
           <?= $adminUnread ? ' · ' . to_fa_digits((string) $adminUnread) . ' خوانده‌نشده' : '' ?>
         </p>
         <?php if (!$adminMessages): ?>
@@ -630,7 +633,7 @@ function render_secretary_messages_panel(
             <div class="row-between" style="border:1px solid var(--line);border-radius:.75rem;padding:.75rem;background:<?= $amRead ? '#fff' : 'var(--bg-soft)' ?>;align-items:flex-start;gap:1rem">
               <div style="flex:1;min-width:0">
                 <strong>از <?= e((string) ($am['from_name'] ?? 'مدیر')) ?></strong>
-                <div style="font-size:.95rem;line-height:1.8;margin-top:.4rem;white-space:pre-wrap"><?= e((string) ($am['body'] ?? '')) ?></div>
+                <div style="font-size:.95rem;line-height:1.8;margin-top:.4rem" class="rich-msg-body"><?= rich_html_for_display((string) ($am['body'] ?? '')) ?></div>
                 <?php if ($amHasImg && $amMsgId !== ''): ?>
                   <a href="<?= e(url('/staff/admin-message-image?id=' . rawurlencode($amMsgId))) ?>" target="_blank" rel="noopener">
                     <img class="admin-staff-msg-thumb" src="<?= e(url('/staff/admin-message-image?id=' . rawurlencode($amMsgId))) ?>" alt="عکس پیام">
@@ -710,7 +713,7 @@ function render_secretary_messages_panel(
           </div>
           <div>
             <label class="label" for="patient_msg_body">متن پیام</label>
-            <textarea class="input" name="body" id="patient_msg_body" rows="5" required placeholder="متن پیام برای مراجع…"></textarea>
+            <textarea class="input" name="body" id="patient_msg_body" rows="5" required placeholder="متن پیام برای مراجع…" data-emoji-field></textarea>
           </div>
           <button type="submit" class="btn btn-primary">ارسال پیام</button>
         </form>
@@ -740,11 +743,21 @@ function render_secretary_messages_panel(
         <?php if (!$peers): ?>
           <p class="muted" style="margin:0">منشی دیگری برای ارسال نیست.</p>
         <?php else: ?>
-          <form method="post" action="<?= e(url('/secretary/handover')) ?>" class="form-stack">
+          <form method="post" action="<?= e(url('/secretary/handover')) ?>" class="form-stack" id="secretary-handover-form" data-rich-note>
             <?= csrf_field() ?>
             <div>
-              <label class="label">متن پیام</label>
-              <textarea class="input" name="body" rows="5" required placeholder="مثلاً وضعیت نوبت‌ها، کار باقی‌مانده، یا نکته شیفت…"></textarea>
+              <label class="label" for="handover-editor">متن پیام</label>
+              <?= rich_editor_toolbar_html(['id' => 'handover-toolbar', 'data_rich_toolbar' => true]) ?>
+              <div
+                id="handover-editor"
+                class="clinical-editor clinical-editor-sm"
+                contenteditable="true"
+                role="textbox"
+                data-rich-editor
+                aria-label="متن پیام همکار"
+                data-placeholder="مثلاً وضعیت نوبت‌ها، کار باقی‌مانده، یا نکته شیفت…"
+              ></div>
+              <textarea name="body" id="handover-body" data-rich-hidden hidden></textarea>
             </div>
             <button type="submit" class="btn btn-primary">ارسال پیام به همکاران</button>
           </form>
@@ -759,7 +772,7 @@ function render_secretary_messages_panel(
             <div class="row-between" style="border:1px solid var(--line);border-radius:.75rem;padding:.75rem;background:<?= $noteRead ? '#fff' : 'var(--bg-soft)' ?>">
               <div style="flex:1;min-width:0">
                 <strong>از <?= e((string) ($note['from_name'] ?? 'منشی')) ?></strong>
-                <div style="font-size:.95rem;line-height:1.8;margin-top:.4rem;white-space:pre-wrap"><?= e((string) $note['body']) ?></div>
+                <div style="font-size:.95rem;line-height:1.8;margin-top:.4rem" class="rich-msg-body"><?= rich_html_for_display((string) $note['body']) ?></div>
                 <div class="muted" style="font-size:.75rem;margin-top:.4rem;display:flex;flex-wrap:wrap;gap:.45rem;align-items:center">
                   <span><?= e(format_fa_datetime((string) $note['created_at'])) ?></span>
                   <?= render_delivery_ticks(true, $noteRead) ?>
@@ -787,7 +800,7 @@ function render_secretary_messages_panel(
               $allRead = $recips && (int) ($note['unread_count'] ?? 0) === 0;
             ?>
             <div style="border:1px solid var(--line);border-radius:.75rem;padding:.75rem .85rem">
-              <div style="font-size:.95rem;line-height:1.8;white-space:pre-wrap"><?= e((string) $note['body']) ?></div>
+              <div style="font-size:.95rem;line-height:1.8" class="rich-msg-body"><?= rich_html_for_display((string) $note['body']) ?></div>
               <div class="muted" style="font-size:.75rem;margin-top:.45rem;display:flex;flex-wrap:wrap;gap:.45rem;align-items:center">
                 <span><?= e(format_fa_datetime((string) $note['created_at'])) ?></span>
                 <?= render_delivery_ticks(true, $allRead) ?>

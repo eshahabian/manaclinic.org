@@ -11,6 +11,7 @@ function secretary_nav(): array
         ['href' => '/secretary/workshops', 'label' => 'کارگاه‌ها'],
         ['href' => '/secretary/articles', 'label' => 'مقالات'],
         ['href' => '/secretary/hours', 'label' => 'ساعت کاری'],
+        ['href' => '/secretary/profile', 'label' => 'پروفایل · پیام مدیر'],
         ['href' => '/change-password', 'label' => 'تغییر رمز عبور'],
     ];
     $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link() : null;

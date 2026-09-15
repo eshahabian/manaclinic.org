@@ -107,7 +107,7 @@ ob_start();
 <?php
 $inner = ob_get_clean();
 $pageScripts = '
-<script src="' . e(url('/assets/js/rich-editor.js')) . '?v=20260916b"></script>
+<script src="' . e(url('/assets/js/rich-editor.js')) . '?v=20260916e"></script>
 <script>
 initRichEditor({
   editor: "#article-editor",

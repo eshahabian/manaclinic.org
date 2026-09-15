@@ -103,7 +103,7 @@ ob_start();
 
   <div>
     <label class="label">یادداشت (اختیاری)</label>
-    <textarea class="input" name="notes" id="notes" rows="3"></textarea>
+    <textarea class="input" name="notes" id="notes" rows="3" data-emoji-field></textarea>
   </div>
 
   <div>

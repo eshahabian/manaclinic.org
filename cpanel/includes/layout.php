@@ -51,7 +51,7 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
   <?= seo_render_head() ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260912g">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260916f">
   <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
   <script>
   (function(){
@@ -319,6 +319,7 @@ $overviewJs = __DIR__ . '/../assets/js/workshop-overview.js';
 <script src="<?= e(url('/assets/js/password-field.js')) ?>?v=20260908a"></script>
 <script src="<?= e(url('/assets/js/mobile-nav.js')) ?>?v=20260909b"></script>
 <script src="<?= e(url('/assets/js/site-chrome.js')) ?>?v=20260909b"></script>
+<script src="<?= e(url('/assets/js/emoji-picker.js')) ?>?v=20260916e"></script>
 <?php
 $videoWatch = function_exists('video_call_watch_config') ? video_call_watch_config($user) : null;
 if ($videoWatch):
@@ -343,7 +344,7 @@ if ($adminStaffMsgBlock && $user && ($user['role'] ?? '') === 'SECRETARY'):
     <p class="muted" style="margin:.35rem 0 0;font-size:.85rem">
       <?= e(format_fa_datetime((string) ($adminStaffMsgBlock['created_at'] ?? ''))) ?>
     </p>
-    <div class="handover-body"><?= nl2br(e((string) ($adminStaffMsgBlock['body'] ?? ''))) ?></div>
+    <div class="handover-body rich-msg-body"><?= rich_html_for_display((string) ($adminStaffMsgBlock['body'] ?? '')) ?></div>
     <?php if ($adminImg && $adminMsgId !== ''): ?>
       <a href="<?= e(url('/staff/admin-message-image?id=' . rawurlencode($adminMsgId))) ?>" target="_blank" rel="noopener">
         <img class="admin-staff-msg-thumb" src="<?= e(url('/staff/admin-message-image?id=' . rawurlencode($adminMsgId))) ?>" alt="عکس پیام مدیر">
@@ -383,7 +384,7 @@ if ($adminStaffMsgBlock && $user && ($user['role'] ?? '') === 'SECRETARY'):
         · <span dir="ltr"><?= e((string) $handoverBlock['from_username']) ?></span>
       <?php endif; ?>
     </p>
-    <div class="handover-body"><?= nl2br(e((string) ($handoverBlock['body'] ?? ''))) ?></div>
+    <div class="handover-body rich-msg-body"><?= rich_html_for_display((string) ($handoverBlock['body'] ?? '')) ?></div>
     <form method="post" action="<?= e(url('/secretary/handover/ack')) ?>" class="handover-actions">
       <input type="hidden" name="note_id" value="<?= e((string) ($handoverBlock['id'] ?? '')) ?>">
       <?= csrf_field() ?>

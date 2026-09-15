@@ -48,8 +48,9 @@ function handover_pending_for(PDO $pdo, string $userId): ?array
 function handover_send(PDO $pdo, string $fromUserId, string $fromLabel, string $body): int
 {
     ensure_handover_schema($pdo);
-    $body = trim($body);
-    if ($body === '') {
+    $body = function_exists('sanitize_rich_html') ? sanitize_rich_html($body) : trim($body);
+    $plain = trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($body), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?? '');
+    if ($plain === '') {
         throw new RuntimeException('متن پیام را بنویسید.');
     }
     $peers = handover_other_secretaries($pdo, $fromUserId);
@@ -62,7 +63,7 @@ function handover_send(PDO $pdo, string $fromUserId, string $fromLabel, string $
     $insert = $pdo->prepare('INSERT INTO staff_handover_notes (id, group_id, from_user_id, to_user_id, body) VALUES (?,?,?,?,?)');
     foreach ($peers as $target) {
         $insert->execute([cuid(), $groupId, $fromUserId, (string) $target['id'], $body]);
-        notify_user($pdo, (string) $target['id'], $title, $body, '/secretary/messages?msg=colleague', 'handover');
+        notify_user($pdo, (string) $target['id'], $title, mb_substr($plain, 0, 180), '/secretary/messages?msg=colleague', 'handover');
     }
 
     $peerNames = [];
@@ -70,7 +71,7 @@ function handover_send(PDO $pdo, string $fromUserId, string $fromLabel, string $
         $peerNames[] = staff_actor_label($target);
     }
     $copyTitle = 'کپی پیام منشی‌ها از ' . $fromLabel;
-    $copyBody = 'از ' . $fromLabel . ' برای ' . implode('، ', $peerNames) . ":\n\n" . $body;
+    $copyBody = 'از ' . $fromLabel . ' برای ' . implode('، ', $peerNames) . ":\n\n" . $plain;
     foreach (handover_copy_watchers($pdo) as $watcher) {
         $role = strtoupper((string) ($watcher['role'] ?? ''));
         $link = $role === 'ADMIN' ? '/admin/staff-messages' : '/doctor/staff-messages';

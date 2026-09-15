@@ -27,7 +27,7 @@ function staff_handover_copies_render(array $rows, string $actionHref, bool $can
         <span class="badge">جدید</span>
       <?php endif; ?>
       <strong><?= e((string) $n['title']) ?></strong>
-      <div style="font-size:.9rem;line-height:1.7;margin-top:.35rem;white-space:pre-wrap"><?= e((string) $n['body']) ?></div>
+      <div style="font-size:.9rem;line-height:1.7;margin-top:.35rem" class="rich-msg-body"><?= rich_html_for_display((string) $n['body']) ?></div>
       <div class="muted" style="font-size:.8rem;margin-top:.45rem">
         <?php if (!empty($n['recipient_name'])): ?>
           برای <?= e((string) $n['recipient_name']) ?>

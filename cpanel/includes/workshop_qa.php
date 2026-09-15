@@ -435,7 +435,7 @@ function workshop_qa_render(array $messages, array $opts = []): string
       <?php if ($isPrivateTab && $isDoctor): ?>
         <p class="muted" style="font-size:.82rem;margin:.2rem 0 .45rem">برای جواب خصوصی، اول پاسخ همان پیام مراجع را بزنید.</p>
       <?php endif; ?>
-      <textarea class="input" id="qa-ask-body" name="body" rows="3" maxlength="4000" required placeholder="<?= $isPrivateTab ? 'فقط شما و درمانگر این را می‌بینید…' : 'با نام خودتان برای همه بنویسید…' ?>"></textarea>
+      <textarea class="input" id="qa-ask-body" name="body" rows="3" maxlength="4000" required placeholder="<?= $isPrivateTab ? 'فقط شما و درمانگر این را می‌بینید…' : 'با نام خودتان برای همه بنویسید…' ?>" data-emoji-field></textarea>
       <div class="workshop-qa-compose-row">
         <button class="btn btn-primary btn-sm" type="submit">ارسال</button>
         <button class="btn btn-outline btn-sm" type="button" id="qa-reply-cancel" hidden>لغو پاسخ</button>

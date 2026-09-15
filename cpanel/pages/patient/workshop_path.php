@@ -85,7 +85,7 @@ ob_start();
 </div>
 <?php
 $inner = ob_get_clean();
-$richScript = '<script src="' . e(url('/assets/js/rich-editor.js')) . '?v=20260916b"></script>
+$richScript = '<script src="' . e(url('/assets/js/rich-editor.js')) . '?v=20260916e"></script>
 <script>if (window.initRichEditors) { window.initRichEditors(document); }</script>';
 if ($offline) {
     $GLOBALS['pageScripts'] = $richScript . workshop_offline_protect_script($audioStreams);

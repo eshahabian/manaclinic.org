@@ -142,14 +142,15 @@ function admin_staff_msg_ack(PDO $pdo, string $userId, string $recipientId): voi
 /**
  * @param list<string> $toUserIds
  */
-function admin_staff_msg_send(PDO $pdo, string $fromUserId, string $body, array $toUserIds, ?array $imageFile = null): int
+function admin_staff_msg_send(PDO $pdo, string $fromUserId, string $body, array $toUserIds, ?array $imageFile = null): array
 {
     ensure_admin_staff_messages_schema($pdo);
-    $body = trim(str_replace(["\r\n", "\r"], "\n", $body));
-    if ($body === '') {
+    $body = function_exists('sanitize_rich_html') ? sanitize_rich_html($body) : trim(str_replace(["\r\n", "\r"], "\n", $body));
+    $plain = trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($body), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?? '');
+    if ($plain === '') {
         throw new RuntimeException('متن پیام را بنویسید.');
     }
-    if (mb_strlen($body) > 8000) {
+    if (mb_strlen($plain) > 8000) {
         throw new RuntimeException('متن پیام خیلی طولانی است.');
     }
 
@@ -177,23 +178,93 @@ function admin_staff_msg_send(PDO $pdo, string $fromUserId, string $body, array 
         $imagePath = admin_staff_msg_save_image($imageFile, $messageId);
     }
 
+    $count = admin_staff_msg_insert($pdo, $messageId, $fromUserId, $body, $imagePath, array_keys($targets));
+
+    return [
+        'count' => $count,
+        'message_id' => $messageId,
+        'image_path' => $imagePath,
+    ];
+}
+
+/**
+ * ارسال پیام با مسیر عکس از قبل ذخیره‌شده (برای ارسال جدا به چند منشی بدون آپلود مجدد).
+ *
+ * @param list<string> $toUserIds
+ * @return array{count:int,message_id:string,image_path:?string}
+ */
+function admin_staff_msg_send_copy(PDO $pdo, string $fromUserId, string $body, array $toUserIds, ?string $existingImagePath = null): array
+{
+    ensure_admin_staff_messages_schema($pdo);
+    $body = function_exists('sanitize_rich_html') ? sanitize_rich_html($body) : trim(str_replace(["\r\n", "\r"], "\n", $body));
+    $plain = trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($body), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?? '');
+    if ($plain === '') {
+        throw new RuntimeException('متن پیام را بنویسید.');
+    }
+    $secretaries = admin_staff_msg_secretaries($pdo);
+    $byId = [];
+    foreach ($secretaries as $s) {
+        $byId[(string) $s['id']] = $s;
+    }
+    $targets = [];
+    foreach ($toUserIds as $id) {
+        $id = trim((string) $id);
+        if ($id !== '' && isset($byId[$id])) {
+            $targets[$id] = $byId[$id];
+        }
+    }
+    if (!$targets) {
+        throw new RuntimeException('حداقل یک منشی را انتخاب کنید.');
+    }
+
+    $messageId = cuid();
+    $imagePath = null;
+    $existingImagePath = $existingImagePath !== null ? trim($existingImagePath) : '';
+    if ($existingImagePath !== '') {
+        $src = admin_staff_msg_abs($existingImagePath);
+        if (is_file($src)) {
+            $ext = pathinfo($src, PATHINFO_EXTENSION) ?: 'jpg';
+            $safeId = preg_replace('/[^a-zA-Z0-9_-]/', '', $messageId) ?: cuid();
+            $relative = $safeId . '-' . bin2hex(random_bytes(4)) . '.' . $ext;
+            $dest = admin_staff_msg_root() . '/' . $relative;
+            if (@copy($src, $dest)) {
+                $imagePath = $relative;
+            }
+        }
+    }
+
+    $count = admin_staff_msg_insert($pdo, $messageId, $fromUserId, $body, $imagePath, array_keys($targets));
+
+    return [
+        'count' => $count,
+        'message_id' => $messageId,
+        'image_path' => $imagePath,
+    ];
+}
+
+/**
+ * @param list<string> $targetIds
+ */
+function admin_staff_msg_insert(PDO $pdo, string $messageId, string $fromUserId, string $body, ?string $imagePath, array $targetIds): int
+{
     $pdo->prepare('INSERT INTO admin_staff_messages (id, from_user_id, body, image_path) VALUES (?,?,?,?)')
         ->execute([$messageId, $fromUserId, $body, $imagePath]);
 
     $ins = $pdo->prepare('INSERT INTO admin_staff_message_recipients (id, message_id, to_user_id) VALUES (?,?,?)');
-    foreach ($targets as $tid => $row) {
+    $snippet = trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($body), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?? '');
+    foreach ($targetIds as $tid) {
         $ins->execute([cuid(), $messageId, $tid]);
         notify_user(
             $pdo,
             $tid,
-            'پیام مدیر',
-            mb_substr($body, 0, 180),
-            '/secretary/messages?msg=admin',
+            'پیام مدیر سایت',
+            mb_substr($snippet, 0, 180),
+            '/secretary/profile#admin-site-messages',
             'admin_directive'
         );
     }
 
-    return count($targets);
+    return count($targetIds);
 }
 
 function admin_staff_msg_sent_list(PDO $pdo, int $limit = 40): array

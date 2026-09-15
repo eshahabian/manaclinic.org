@@ -78,7 +78,7 @@ ob_start();
     <input type="hidden" name="report_date" value="<?= e($todayDate) ?>">
     <div>
       <label class="label" for="day-report-body">گزارش امروز</label>
-      <textarea class="input" id="day-report-body" name="body" rows="8" required placeholder="مثلاً: ثبت نوبت برای …، دریافت فیش کارگاه …، هماهنگی با دکتر …"><?= e($reportBody) ?></textarea>
+      <textarea class="input" id="day-report-body" name="body" rows="8" required placeholder="مثلاً: ثبت نوبت برای …، دریافت فیش کارگاه …، هماهنگی با دکتر …" data-emoji-field><?= e($reportBody) ?></textarea>
     </div>
     <button class="btn btn-primary" type="submit"><?= $report ? 'به‌روزرسانی گزارش' : 'ثبت گزارش پایان روز' ?></button>
   </form>

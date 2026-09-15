@@ -54,4 +54,24 @@ $titles = [
     'admin' => 'پیام مدیر',
     'appointment' => 'پیام‌های نوبت',
 ];
+$pageScripts = '<script src="' . e(url('/assets/js/rich-editor.js')) . '?v=20260916e"></script>
+<script>
+(function(){
+  if (window.initRichEditors) { window.initRichEditors(document); }
+  var form = document.getElementById("secretary-handover-form");
+  if (!form) return;
+  var editor = document.getElementById("handover-editor");
+  var hidden = document.getElementById("handover-body");
+  form.addEventListener("submit", function(e){
+    if (editor && hidden) { hidden.value = editor.innerHTML; }
+    var plain = (hidden && hidden.value ? hidden.value.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").trim() : "");
+    if (!plain) {
+      e.preventDefault();
+      alert("متن پیام را بنویسید.");
+      if (editor) editor.focus();
+    }
+  });
+})();
+</script>';
+$GLOBALS['pageScripts'] = $pageScripts;
 render_secretary_page($titles[$msgTab] ?? 'پیام‌ها', ob_get_clean());

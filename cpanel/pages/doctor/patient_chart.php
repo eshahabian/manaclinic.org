@@ -289,11 +289,11 @@ ob_start();
         </div>
         <div>
           <label class="label" for="chart_chief">شکایت اصلی</label>
-          <textarea class="input" id="chart_chief" name="chief_complaint" rows="3" placeholder="شکایت اصلی مراجع…"><?= e((string) ($chart['chief_complaint'] ?? '')) ?></textarea>
+          <textarea class="input" id="chart_chief" name="chief_complaint" rows="3" placeholder="شکایت اصلی مراجع…" data-emoji-field><?= e((string) ($chart['chief_complaint'] ?? '')) ?></textarea>
         </div>
         <div>
           <label class="label" for="chart_family">تاریخچه خانوادگی</label>
-          <textarea class="input" id="chart_family" name="family_history" rows="4" placeholder="سابقه خانوادگی مرتبط…"><?= e((string) ($chart['family_history'] ?? '')) ?></textarea>
+          <textarea class="input" id="chart_family" name="family_history" rows="4" placeholder="سابقه خانوادگی مرتبط…" data-emoji-field><?= e((string) ($chart['family_history'] ?? '')) ?></textarea>
         </div>
 
         <header class="ehr-card-head" style="padding:0;border:0">
@@ -359,20 +359,20 @@ ob_start();
                       <div class="ehr-dap-grid">
                         <div>
                           <label class="label" for="d-<?= e($a['id']) ?>">D</label>
-                          <textarea class="input" id="d-<?= e($a['id']) ?>" name="d_text" rows="4" placeholder="Data / تشخیص و داده‌ها…"><?= e((string) ($note['d_text'] ?? '')) ?></textarea>
+                          <textarea class="input" id="d-<?= e($a['id']) ?>" name="d_text" rows="4" placeholder="Data / تشخیص و داده‌ها…" data-emoji-field><?= e((string) ($note['d_text'] ?? '')) ?></textarea>
                         </div>
                         <div>
                           <label class="label" for="a-<?= e($a['id']) ?>">A</label>
-                          <textarea class="input" id="a-<?= e($a['id']) ?>" name="a_text" rows="4" placeholder="Assessment / ارزیابی…"><?= e((string) ($note['a_text'] ?? '')) ?></textarea>
+                          <textarea class="input" id="a-<?= e($a['id']) ?>" name="a_text" rows="4" placeholder="Assessment / ارزیابی…" data-emoji-field><?= e((string) ($note['a_text'] ?? '')) ?></textarea>
                         </div>
                         <div>
                           <label class="label" for="p-<?= e($a['id']) ?>">P</label>
-                          <textarea class="input" id="p-<?= e($a['id']) ?>" name="p_text" rows="4" placeholder="Plan / برنامه…"><?= e((string) ($note['p_text'] ?? '')) ?></textarea>
+                          <textarea class="input" id="p-<?= e($a['id']) ?>" name="p_text" rows="4" placeholder="Plan / برنامه…" data-emoji-field><?= e((string) ($note['p_text'] ?? '')) ?></textarea>
                         </div>
                       </div>
                       <div>
                         <label class="label" for="pn-<?= e($a['id']) ?>">نوت برای مراجع (در پروفایلش می‌بیند)</label>
-                        <textarea class="input" id="pn-<?= e($a['id']) ?>" name="note_text" rows="3" placeholder="اگر لازم است برای مراجع بنویسید…"><?= e((string) ($note['note_text'] ?? '')) ?></textarea>
+                        <textarea class="input" id="pn-<?= e($a['id']) ?>" name="note_text" rows="3" placeholder="اگر لازم است برای مراجع بنویسید…" data-emoji-field><?= e((string) ($note['note_text'] ?? '')) ?></textarea>
                       </div>
                       <?= appointment_notes_html($a) ?>
                       <div style="margin-top:.25rem;display:flex;gap:.5rem;flex-wrap:wrap">
@@ -589,7 +589,7 @@ $inner = ob_get_clean();
 $pageHead = '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">';
 $pageScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260905c"></script>
 <script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910r"></script>
-<script src="' . e(url('/assets/js/rich-editor.js')) . '?v=20260916b"></script>
+<script src="' . e(url('/assets/js/rich-editor.js')) . '?v=20260916e"></script>
 <script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
 <script>

@@ -89,6 +89,13 @@
       insertTable(editor);
       return;
     }
+    if (btn.dataset.cmd === "emoji") {
+      focusNode(editor);
+      if (typeof global.openEmojiPicker === "function") {
+        global.openEmojiPicker(btn, editor);
+      }
+      return;
+    }
     if (btn.dataset.cmd === "removeFormat") {
       document.execCommand("removeFormat", false, null);
       var sel = global.getSelection();

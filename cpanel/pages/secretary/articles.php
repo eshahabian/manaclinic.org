@@ -88,7 +88,7 @@ ob_start();
 $inner = ob_get_clean();
 $pageScripts = '
 <script src="' . e(url('/assets/js/search-select.js')) . '?v=20260905a"></script>
-<script src="' . e(url('/assets/js/rich-editor.js')) . '?v=20260916b"></script>
+<script src="' . e(url('/assets/js/rich-editor.js')) . '?v=20260916e"></script>
 <script>
 if (window.enhanceSearchSelect) {
   enhanceSearchSelect(document.getElementById("author_id"), { placeholder: "جستجو یا انتخاب دکتر" });

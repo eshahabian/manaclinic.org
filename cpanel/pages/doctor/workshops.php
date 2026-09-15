@@ -312,7 +312,7 @@ ob_start();
   </div>
   <div>
     <label class="label">یادداشت</label>
-    <textarea class="input" name="notes" rows="3" placeholder="یادداشت داخلی یا توضیحات تکمیلی"><?= e((string) ($formData['notes'] ?? '')) ?></textarea>
+    <textarea class="input" name="notes" rows="3" placeholder="یادداشت داخلی یا توضیحات تکمیلی" data-emoji-field><?= e((string) ($formData['notes'] ?? '')) ?></textarea>
   </div>
   <label style="display:flex;gap:.5rem;align-items:center;font-size:.9rem">
     <?php if ($editWorkshop): ?>
@@ -403,7 +403,7 @@ ob_start();
       <?php endif; ?>
       <div>
         <label class="label">یادداشت</label>
-        <textarea class="input" name="note_text" rows="4" required placeholder="شرح جلسه، نکات مهم، وضعیت گروه..."></textarea>
+        <textarea class="input" name="note_text" rows="4" required placeholder="شرح جلسه، نکات مهم، وضعیت گروه..." data-emoji-field></textarea>
       </div>
       <div style="display:flex;flex-wrap:wrap;gap:.5rem;align-items:center">
         <button type="submit" class="btn btn-primary btn-sm"<?= $workshopSessions ? '' : ' disabled' ?>>ثبت یادداشت جلسه</button>
@@ -701,7 +701,7 @@ ob_start();
 })();
 </script>
 <script src="<?= e(url('/assets/js/workshop-session-media.js')) ?>?v=20260906u"></script>
-<script src="<?= e(url('/assets/js/rich-editor.js')) ?>?v=20260916b"></script>
+<script src="<?= e(url('/assets/js/rich-editor.js')) ?>?v=20260916e"></script>
 <script>
 if (window.initRichEditors) { window.initRichEditors(document); }
 (function(){

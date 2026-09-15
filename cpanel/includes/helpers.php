@@ -428,6 +428,7 @@ function rich_editor_toolbar_html(array $opts = []): string
       <?php endforeach; ?>
       <span class="tool-sep"></span>
       <button type="button" class="tool-btn" data-cmd="insertTable" title="درج جدول">جدول</button>
+      <button type="button" class="tool-btn" data-cmd="emoji" title="ایموجی">😊</button>
       <button type="button" class="tool-btn" data-cmd="removeFormat" title="پاک کردن فرمت">پاک‌کردن رنگ</button>
     </div>
     <?php

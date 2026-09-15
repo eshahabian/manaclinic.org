@@ -401,7 +401,7 @@ function staff_board_item_html(array $item, bool $canEdit): string
 
 function staff_board_scripts(): string
 {
-    $richSrc = e(url('/assets/js/rich-editor.js')) . '?v=20260916b';
+    $richSrc = e(url('/assets/js/rich-editor.js')) . '?v=20260916e';
     $js = <<<JS
 <script src="{$richSrc}"></script>
 <script>

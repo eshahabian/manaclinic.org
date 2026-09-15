@@ -37,6 +37,6 @@ ob_start();
   <?= workshop_path_render($pathCtx, 'doctor') ?>
 </div>
 <?php
-$pageScripts = '<script src="' . e(url('/assets/js/rich-editor.js')) . '?v=20260916b"></script>
+$pageScripts = '<script src="' . e(url('/assets/js/rich-editor.js')) . '?v=20260916e"></script>
 <script>if (window.initRichEditors) { window.initRichEditors(document); }</script>';
 render_doctor_page('مسیر ' . $patientName, ob_get_clean());

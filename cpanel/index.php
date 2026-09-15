@@ -194,6 +194,7 @@ $routes = [
     'GET /secretary/intakes' => 'pages/secretary/intakes.php',
     'GET /secretary/hours' => 'pages/secretary/hours.php',
     'POST /secretary/hours' => 'actions/secretary_day_report.php',
+    'GET /secretary/profile' => 'pages/secretary/profile.php',
     'POST /secretary/heartbeat' => 'actions/secretary_heartbeat.php',
     'POST /secretary/receipt' => 'actions/secretary_receipt.php',
     'GET /staff/receipt' => 'actions/staff_receipt_file.php',
