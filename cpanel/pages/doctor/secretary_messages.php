@@ -12,13 +12,14 @@ $sent = admin_staff_msg_sent_list($pdo, 50, $userId);
 
 ob_start();
 ?>
+<div class="doctor-secretary-msgs">
 <h1>پیام به منشی‌ها</h1>
-<p class="muted" style="margin-top:.35rem;line-height:1.8;max-width:42rem">
+<p class="muted" style="margin-top:.35rem;line-height:1.8">
   برای یک منشی، چند منشی، یا همه پیام بفرستید.
   تا «خواندم» نزنند، کار پنل برایشان قفل می‌ماند. با <strong style="color:#0d7a6a">@</strong> می‌توانید کسی را منشن کنید.
 </p>
 
-<form class="panel form-stack" method="post" action="<?= e(url('/doctor/secretary-messages')) ?>" enctype="multipart/form-data" style="margin-top:1rem;max-width:42rem" id="doctor-msg-form" data-rich-note>
+<form class="panel form-stack" method="post" action="<?= e(url('/doctor/secretary-messages')) ?>" enctype="multipart/form-data" style="margin-top:1rem" id="doctor-msg-form" data-rich-note>
   <?= csrf_field() ?>
   <input type="hidden" name="action" value="send">
   <h2 style="margin:0;font-size:1.05rem">ارسال پیام</h2>
@@ -130,6 +131,7 @@ ob_start();
       </div>
     <?php endforeach; ?>
   <?php endif; ?>
+</div>
 </div>
 <?php
 $inner = ob_get_clean();

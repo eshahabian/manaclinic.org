@@ -4578,6 +4578,18 @@ body.workshop-overview-locked { overflow: hidden; }
 .doctor-public-license { margin: 0; font-size: 1.05rem; letter-spacing: .02em; }
 
 .doc-profile-page { max-width: 46rem; }
+.admin-secretary-msgs,
+.doctor-secretary-msgs {
+  max-width: 42rem;
+  width: 100%;
+}
+.admin-secretary-msgs > .panel,
+.admin-secretary-msgs > .stack,
+.doctor-secretary-msgs > .panel,
+.doctor-secretary-msgs > .stack {
+  max-width: none;
+  width: 100%;
+}
 .doc-onboard-banner {
   margin: .7rem 0 1.1rem;
   padding: .85rem 1rem;

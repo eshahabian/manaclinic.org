@@ -13,13 +13,14 @@ $fromUnread = secretary_to_admin_unread_count($pdo);
 
 ob_start();
 ?>
+<div class="admin-secretary-msgs">
 <h1>پیام منشی‌ها</h1>
-<p class="muted" style="margin-top:.35rem;line-height:1.8;max-width:42rem">
+<p class="muted" style="margin-top:.35rem;line-height:1.8">
   ارسال پیام به منشی‌ها و دریافت پیام‌هایی که منشی‌ها برای مدیر می‌فرستند.
   پیام‌های ارسالی شما در بخش «پیام مدیر» منشی بایگانی می‌ماند و تا تیک و «خواندم» نزند کار پنل برایش قفل است.
 </p>
 
-<section class="panel stack" id="from-secretaries" style="margin-top:1rem;max-width:42rem">
+<section class="panel stack" id="from-secretaries" style="margin-top:1rem">
   <div class="row-between" style="align-items:center;gap:.75rem;flex-wrap:wrap">
     <div>
       <h2 style="margin:0;font-size:1.05rem">پیام‌های دریافتی از منشی‌ها</h2>
@@ -71,7 +72,7 @@ ob_start();
   <?php endif; ?>
 </section>
 
-<form class="panel form-stack" method="post" action="<?= e(url('/admin/secretary-messages')) ?>" enctype="multipart/form-data" style="margin-top:1rem;max-width:42rem" id="admin-msg-form" data-rich-note>
+<form class="panel form-stack" method="post" action="<?= e(url('/admin/secretary-messages')) ?>" enctype="multipart/form-data" style="margin-top:1rem" id="admin-msg-form" data-rich-note>
   <?= csrf_field() ?>
   <input type="hidden" name="action" value="send">
   <h2 style="margin:0;font-size:1.05rem">ارسال پیام به منشی</h2>
@@ -231,6 +232,7 @@ ob_start();
       </div>
     <?php endforeach; ?>
   <?php endif; ?>
+</div>
 </div>
 <?php
 $inner = ob_get_clean();
