@@ -320,6 +320,16 @@ $overviewJs = __DIR__ . '/../assets/js/workshop-overview.js';
 <script src="<?= e(url('/assets/js/mobile-nav.js')) ?>?v=20260909b"></script>
 <script src="<?= e(url('/assets/js/site-chrome.js')) ?>?v=20260909b"></script>
 <script src="<?= e(url('/assets/js/emoji-picker.js')) ?>?v=20260916e"></script>
+<?php if ($user): ?>
+<script>
+window.APP_BASE = <?= json_encode((static function (): string {
+    $u = url('/');
+    return ($u === '/' || $u === '') ? '' : rtrim($u, '/');
+})(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+window.__MENTIONS_SUGGEST__ = <?= json_encode(url('/api/mentions/suggest'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+</script>
+<script src="<?= e(url('/assets/js/mentions.js')) ?>?v=20260916m"></script>
+<?php endif; ?>
 <?php
 $videoWatch = function_exists('video_call_watch_config') ? video_call_watch_config($user) : null;
 if ($videoWatch):
@@ -339,8 +349,8 @@ if ($adminStaffMsgBlock && $user && ($user['role'] ?? '') === 'SECRETARY'):
 ?>
 <div class="handover-overlay" role="dialog" aria-modal="true" aria-labelledby="admin-msg-title">
   <div class="handover-card">
-    <p class="handover-kicker">پیام مدیر</p>
-    <h1 id="admin-msg-title">پیام از <?= e((string) ($adminStaffMsgBlock['from_name'] ?? 'مدیر')) ?></h1>
+    <p class="handover-kicker">پیام فوری</p>
+    <h1 id="admin-msg-title">پیام از <?= e((string) ($adminStaffMsgBlock['from_name'] ?? 'مدیر/درمانگر')) ?></h1>
     <p class="muted" style="margin:.35rem 0 0;font-size:.85rem">
       <?= e(format_fa_datetime((string) ($adminStaffMsgBlock['created_at'] ?? ''))) ?>
     </p>

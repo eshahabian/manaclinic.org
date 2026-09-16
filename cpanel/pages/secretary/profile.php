@@ -14,7 +14,7 @@ ob_start();
 <div class="stack" style="max-width:44rem">
   <h1>پیام مدیر</h1>
   <p class="muted" style="margin-top:.35rem;line-height:1.8">
-    پیام‌های مدیر سایت را اینجا می‌بینید و می‌توانید برای مدیر پیام بفرستید.
+    پیام‌های مدیر و درمانگر را اینجا می‌بینید و می‌توانید برای مدیر پیام بفرستید.
     <?= e(staff_actor_label($user)) ?>
   </p>
 
@@ -47,9 +47,9 @@ ob_start();
 
   <section class="panel stack" id="admin-site-messages">
     <div>
-      <h2 style="margin:0;font-size:1.1rem">پیام‌های دریافتی از مدیر</h2>
+      <h2 style="margin:0;font-size:1.1rem">پیام‌های دریافتی</h2>
       <p class="muted" style="margin:.35rem 0 0;font-size:.9rem;line-height:1.7">
-        آرشیو دائمی. این بخش قابل حذف نیست.
+        آرشیو دائمی از پیام‌های مدیر و درمانگر. این بخش قابل حذف نیست.
       </p>
     </div>
 
@@ -64,7 +64,7 @@ ob_start();
         ?>
         <article class="admin-site-msg-card<?= $amRead ? '' : ' is-unread' ?>">
           <header class="admin-site-msg-head">
-            <strong>پیام مدیر سایت</strong>
+            <strong><?= e((string) (($am['from_name'] ?? '') !== '' ? $am['from_name'] : 'فرستنده')) ?></strong>
             <span class="muted" style="font-size:.8rem"><?= e(format_fa_datetime((string) ($am['created_at'] ?? ''))) ?></span>
           </header>
           <div class="admin-site-msg-body rich-msg-body"><?= rich_html_for_display((string) ($am['body'] ?? '')) ?></div>

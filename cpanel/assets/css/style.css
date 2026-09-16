@@ -2312,13 +2312,13 @@ body.is-auth {
 }
 .side-nav-title { font-weight: 700; color: var(--primary); margin: 0 0 1rem; font-size: 1.1rem; }
 .side-nav nav { display: grid; gap: .35rem; }
-.side-nav a { padding: .55rem .75rem; border-radius: .65rem; color: var(--muted); font-size: .9rem; display: flex; align-items: center; justify-content: space-between; gap: .5rem; white-space: normal; line-height: 1.45; }
+.side-nav a { padding: .55rem .75rem; border-radius: .65rem; color: var(--muted); font-size: .72rem; display: flex; align-items: center; justify-content: space-between; gap: .5rem; white-space: normal; line-height: 1.45; }
 .side-nav a:hover { background: var(--bg-soft); color: var(--primary); }
 .side-nav a.is-active { background: var(--bg-soft); color: var(--primary); font-weight: 700; }
 .side-nav-group {
   margin: .85rem 0 .25rem;
   padding: 0 .75rem;
-  font-size: .72rem;
+  font-size: .9rem;
   font-weight: 700;
   letter-spacing: .02em;
   color: var(--muted);
@@ -2345,6 +2345,51 @@ body.is-auth {
   background: var(--danger);
   color: #fff;
 }
+
+.mention,
+.rich-msg-body .mention,
+.rich-html .mention,
+.clinical-editor .mention {
+  color: #0d7a6a !important;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.mention-menu {
+  position: absolute;
+  z-index: 1200;
+  min-width: 14rem;
+  max-width: 20rem;
+  max-height: 14rem;
+  overflow: auto;
+  background: #fff;
+  border: 1px solid var(--line, #e5e7eb);
+  border-radius: .75rem;
+  box-shadow: 0 10px 28px rgba(16, 40, 32, .12);
+  padding: .35rem;
+}
+.mention-menu-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem;
+  width: 100%;
+  border: 0;
+  background: transparent;
+  text-align: right;
+  padding: .55rem .65rem;
+  border-radius: .55rem;
+  cursor: pointer;
+  color: var(--text, #1a2e28);
+  font: inherit;
+}
+.mention-menu-item:hover,
+.mention-menu-item.is-active {
+  background: var(--bg-soft, #f3f7f5);
+  color: var(--primary, #0d7a6a);
+}
+.mention-menu-name { font-weight: 600; font-size: .9rem; }
+.mention-menu-role { font-size: .75rem; color: var(--muted); }
 
 .panel-back {
   display: flex;

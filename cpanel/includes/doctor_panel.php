@@ -52,18 +52,24 @@ function doctor_nav(): array
         $nav[] = ['type' => 'group', 'label' => 'اصلی'];
         $nav[] = $videoLink;
     }
+    if (function_exists('mentions_nav_item')) {
+        $mentionNav = mentions_nav_item($pdo instanceof PDO ? $pdo : null, current_user());
+        if ($mentionNav) {
+            if (!$videoLink) {
+                $nav[] = ['type' => 'group', 'label' => 'اصلی'];
+            }
+            $mentionNav['type'] = 'link';
+            $nav[] = $mentionNav;
+        }
+    }
 
     $staffItems = [];
-    if (function_exists('staff_board_can_access') && staff_board_can_access(current_user())) {
-        $staffItems[] = ['type' => 'link', 'href' => '/doctor/staff-board', 'label' => 'یادداشت مشترک منشی‌ها'];
-    }
+    $staffItems[] = ['type' => 'link', 'href' => '/doctor/secretary-messages', 'label' => 'پیام به منشی‌ها'];
     if (doctor_can_view_staff_hours()) {
         $staffItems[] = ['type' => 'link', 'href' => '/doctor/staff-hours', 'label' => 'ساعت کاری منشی‌ها'];
     }
-    if ($staffItems) {
-        $nav[] = ['type' => 'group', 'label' => 'منشی‌ها'];
-        $nav = array_merge($nav, $staffItems);
-    }
+    $nav[] = ['type' => 'group', 'label' => 'منشی‌ها'];
+    $nav = array_merge($nav, $staffItems);
 
     $nav = array_merge($nav, [
         ['type' => 'group', 'label' => 'درمانگرها'],

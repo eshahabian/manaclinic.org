@@ -67,6 +67,7 @@ require_once __DIR__ . '/includes/doctor_profile_fields.php';
 require_once __DIR__ . '/includes/video_call.php';
 require_once __DIR__ . '/includes/patient_journal.php';
 require_once __DIR__ . '/includes/mail.php';
+require_once __DIR__ . '/includes/mentions.php';
 
 $pdo = db_connect($config);
 
@@ -104,6 +105,7 @@ if (!$isLightRequest) {
     ensure_patient_journal_schema($pdo);
     ensure_notifications_table($pdo);
     ensure_mail_schema($pdo);
+    ensure_mentions_schema($pdo);
     purge_dummy_clinic_bookings($pdo);
 }
 
@@ -162,6 +164,8 @@ $routes = [
     'GET /dashboard/courses/offline' => 'pages/patient/offline_course.php',
     'GET /dashboard/messages' => 'pages/patient/messages.php',
     'POST /dashboard/messages/read' => 'actions/patient_notifications.php',
+    'GET /dashboard/mentions' => 'pages/mentions.php',
+    'POST /dashboard/mentions' => 'pages/mentions.php',
     'GET /dashboard/journal' => 'pages/patient/journal.php',
     'POST /dashboard/journal' => 'actions/patient_journal.php',
     'GET /dashboard/wallet' => 'pages/patient/wallet.php',
@@ -186,6 +190,8 @@ $routes = [
     'GET /secretary/messages' => 'pages/secretary/messages.php',
     'GET /secretary/colleague-messages' => 'pages/secretary/colleague_messages.php',
     'GET /secretary/board' => 'pages/secretary/board.php',
+    'GET /secretary/mentions' => 'pages/mentions.php',
+    'POST /secretary/mentions' => 'pages/mentions.php',
     'GET /secretary/colleague' => 'pages/secretary/colleague.php',
     'POST /secretary/notifications/read' => 'actions/secretary_notifications.php',
     'POST /secretary/patient-message' => 'actions/secretary_patient_message.php',
@@ -231,6 +237,10 @@ $routes = [
     'GET /doctor/staff-hours-export' => 'actions/doctor_staff_hours_export.php',
     'GET /doctor/staff-messages' => 'pages/doctor/staff_messages.php',
     'GET /doctor/staff-board' => 'pages/doctor/staff_board.php',
+    'GET /doctor/secretary-messages' => 'pages/doctor/secretary_messages.php',
+    'POST /doctor/secretary-messages' => 'actions/doctor_secretary_messages.php',
+    'GET /doctor/mentions' => 'pages/mentions.php',
+    'POST /doctor/mentions' => 'pages/mentions.php',
 
     'GET /admin' => 'pages/admin/dashboard.php',
     'GET /admin/doctors' => 'pages/admin/doctors.php',
@@ -250,6 +260,8 @@ $routes = [
     'GET /admin/secretary-messages' => 'pages/admin/secretary_messages.php',
     'POST /admin/secretary-messages' => 'actions/admin_secretary_messages.php',
     'GET /admin/staff-board' => 'pages/admin/staff_board.php',
+    'GET /admin/mentions' => 'pages/mentions.php',
+    'POST /admin/mentions' => 'pages/mentions.php',
     'GET /admin/mail' => 'pages/admin/mail.php',
     'POST /admin/mail' => 'actions/admin_mail.php',
     'POST /secretary/handover' => 'actions/secretary_handover.php',
@@ -263,6 +275,7 @@ $routes = [
     'GET /api/transliterate-name' => 'actions/transliterate_name.php',
     'GET /api/staff-board' => 'actions/staff_board.php',
     'POST /api/staff-board' => 'actions/staff_board.php',
+    'GET /api/mentions/suggest' => 'actions/mentions_suggest.php',
     'GET /payments/verify' => 'actions/payment_verify.php',
     'GET /install' => 'install.php',
 ];

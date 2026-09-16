@@ -435,7 +435,7 @@ function rich_editor_toolbar_html(array $opts = []): string
     return (string) ob_get_clean();
 }
 
-/** HTML امن برای ادیتور غنی (bold / زیرخط / سایز / هایلایت / رنگ متن / جدول) */
+/** HTML امن برای ادیتور غنی (bold / زیرخط / سایز / هایلایت / رنگ متن / جدول / منشن) */
 function sanitize_rich_html(string $html): string
 {
     $html = trim($html);
@@ -445,6 +445,47 @@ function sanitize_rich_html(string $html): string
 
     $html = preg_replace('#<(script|style|iframe|object|embed|link|meta)[^>]*>.*?</\1>#is', '', $html) ?? $html;
     $html = preg_replace('#<(script|style|iframe|object|embed|link|meta)[^>]*/?>#is', '', $html) ?? $html;
+
+    // حفظ منشن‌ها قبل از strip_tags (که attributeها را حذف می‌کند)
+    $mentionSlots = [];
+    $html = preg_replace_callback(
+        '/<span\b([^>]*)>(.*?)<\/span>/is',
+        static function (array $m) use (&$mentionSlots): string {
+            $attrs = $m[1];
+            $inner = $m[2];
+            if (!preg_match('/\bclass\s*=\s*(["\'])([^"\']*)\1/i', $attrs, $cm)) {
+                return $m[0];
+            }
+            $classes = preg_split('/\s+/', trim($cm[2])) ?: [];
+            if (!in_array('mention', $classes, true)) {
+                return $m[0];
+            }
+            $id = '';
+            if (preg_match('/data-mention-id\s*=\s*(["\'])([a-zA-Z0-9_-]+)\1/i', $attrs, $dm)) {
+                $id = $dm[2];
+            }
+            if ($id === '') {
+                return $m[0];
+            }
+            $label = trim(html_entity_decode(strip_tags($inner), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+            $label = preg_replace('/\s+/u', ' ', $label) ?? $label;
+            if ($label === '') {
+                $label = '@user';
+            }
+            if (!str_starts_with($label, '@')) {
+                $label = '@' . $label;
+            }
+            $token = '%%MENTION' . count($mentionSlots) . '%%';
+            $mentionSlots[$token] = [
+                'id' => $id,
+                'label' => $label,
+            ];
+
+            return $token;
+        },
+        $html
+    ) ?? $html;
+
     $html = strip_tags($html, '<p><br><div><span><b><strong><i><em><u><mark><table><thead><tbody><tr><th><td>');
 
     $html = preg_replace_callback('/<([a-z0-9]+)(\s[^>]*)?>/i', static function (array $m): string {
@@ -472,7 +513,7 @@ function sanitize_rich_html(string $html): string
                         $styles[] = 'font-size:' . $valCompact;
                     }
                 } elseif ($propL === 'font-weight' && in_array(strtolower($valCompact), ['bold', '700', '600'], true)) {
-                    $styles[] = 'font-weight:700';
+                    $styles[] = 'font-weight:' . (strtolower($valCompact) === '600' ? '600' : '700');
                 } elseif ($propL === 'text-decoration' && preg_match('/underline/i', $valCompact)) {
                     $styles[] = 'text-decoration:underline';
                 } elseif (in_array($tag, ['table', 'td', 'th'], true)) {
@@ -505,6 +546,18 @@ function sanitize_rich_html(string $html): string
         }
         return '<' . $tag . $safe . '>';
     }, $html) ?? $html;
+
+    if ($mentionSlots) {
+        $mentionColor = defined('MENTION_TEXT_COLOR') ? MENTION_TEXT_COLOR : '#0d7a6a';
+        foreach ($mentionSlots as $token => $info) {
+            $safeMention = '<span class="mention" contenteditable="false" data-mention-id="'
+                . htmlspecialchars((string) $info['id'], ENT_QUOTES | ENT_HTML5, 'UTF-8')
+                . '" style="color:' . $mentionColor . ';font-weight:600">'
+                . htmlspecialchars((string) $info['label'], ENT_QUOTES | ENT_HTML5, 'UTF-8')
+                . '</span>';
+            $html = str_replace($token, $safeMention, $html);
+        }
+    }
 
     return trim($html);
 }

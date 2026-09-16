@@ -130,7 +130,7 @@ function notify_patient_personal(
 function notification_normalize_kind(string $kind): string
 {
     $kind = strtolower(trim($kind));
-    return in_array($kind, ['appointment', 'workshop', 'assistant', 'article', 'handover', 'handover_copy', 'admin_directive', 'clinic', 'broadcast', 'other'], true)
+    return in_array($kind, ['appointment', 'workshop', 'assistant', 'article', 'handover', 'handover_copy', 'admin_directive', 'clinic', 'broadcast', 'mention', 'other'], true)
         ? $kind
         : 'other';
 }

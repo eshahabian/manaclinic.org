@@ -15,10 +15,23 @@ function secretary_nav(): array
         ['href' => '/secretary/workshops', 'label' => 'کارگاه‌ها'],
         ['href' => '/change-password', 'label' => 'تغییر رمز عبور'],
     ];
+    if (function_exists('mentions_nav_item')) {
+        $mentionNav = mentions_nav_item();
+        if ($mentionNav) {
+            array_splice($nav, 1, 0, [$mentionNav]);
+        }
+    }
     $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link() : null;
     if ($videoLink) {
-        // بعد از «پیام‌ها» مطابق ترتیب اصلی ادمین
-        array_splice($nav, 1, 0, [$videoLink]);
+        // بعد از «پیام‌ها» (و منشن در صورت وجود)
+        $idx = 1;
+        foreach ($nav as $i => $item) {
+            if (($item['label'] ?? '') === 'منشن‌ها') {
+                $idx = $i + 1;
+                break;
+            }
+        }
+        array_splice($nav, $idx, 0, [$videoLink]);
     }
 
     return $nav;
@@ -38,8 +51,23 @@ function render_secretary_page(string $title, string $innerHtml): void
       <aside class="panel side-nav">
         <p class="side-nav-title">پنل منشی</p>
         <nav>
-          <?php foreach ($nav as $item): ?>
-            <a href="<?= e(url($item['href'])) ?>"><?= e($item['label']) ?></a>
+          <?php
+            $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+            foreach ($nav as $item):
+              $href = (string) ($item['href'] ?? '');
+              $active = $href !== '' && str_contains($currentPath, $href);
+          ?>
+            <a class="<?= $active ? 'is-active' : '' ?>" href="<?= e(url($href)) ?>">
+              <span class="side-nav-link-main">
+                <?php if (!empty($item['icon'])): ?>
+                  <img class="side-nav-call-logo" src="<?= e((string) $item['icon']) ?>" alt="" width="22" height="22">
+                <?php endif; ?>
+                <?= e((string) ($item['label'] ?? '')) ?>
+              </span>
+              <?php if ((int) ($item['badge'] ?? 0) > 0): ?>
+                <span class="side-nav-badge<?= (($item['badge_tone'] ?? '') === 'new') ? ' side-nav-badge-new' : '' ?>"><?= e(to_fa_digits((string) (int) $item['badge'])) ?></span>
+              <?php endif; ?>
+            </a>
           <?php endforeach; ?>
         </nav>
         <?php if ($shift): ?>

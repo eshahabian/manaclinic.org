@@ -209,6 +209,9 @@ function staff_board_create(PDO $pdo, string $userId, string $body, bool $bold =
     if (!$row) {
         throw new RuntimeException('ذخیره یادداشت ناموفق بود.');
     }
+    if (function_exists('mentions_capture')) {
+        mentions_capture($pdo, $userId, $body, 'staff_board', $id, '/secretary/board');
+    }
 
     return $row;
 }
@@ -228,6 +231,9 @@ function staff_board_update_body(PDO $pdo, string $id, string $userId, string $b
     $row = staff_board_get($pdo, $id);
     if (!$row) {
         throw new RuntimeException('یادداشت پیدا نشد.');
+    }
+    if (function_exists('mentions_capture')) {
+        mentions_capture($pdo, $userId, $body, 'staff_board', $id, '/secretary/board');
     }
 
     return $row;
@@ -426,6 +432,7 @@ function staff_board_scripts(): string
       editorSelector: '[data-rich-editor]'
     });
   }
+  if (window.initMentions) { window.initMentions(root); }
 
   function toFa(n) {
     return String(n).replace(/\\d/g, function (d) {
@@ -520,6 +527,7 @@ function staff_board_scripts(): string
       if (prepend) list.insertAdjacentHTML('afterbegin', html);
       else list.insertAdjacentHTML('beforeend', html);
     }
+    if (window.initMentions) { window.initMentions(list); }
   }
 
   function ensureEmpty() {

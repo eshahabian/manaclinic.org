@@ -28,6 +28,14 @@ function admin_nav(): array {
         ['href' => '/admin/doctors', 'label' => 'درمانگرها', 'badge' => admin_pending_doctor_count()],
         ['href' => '/admin/appointments', 'label' => 'نوبت‌ها'],
         ['href' => '/admin/staff-messages', 'label' => 'پیام‌ها'],
+    ];
+    if (function_exists('mentions_nav_item')) {
+        $mentionNav = mentions_nav_item($pdo, $user);
+        if ($mentionNav) {
+            $nav[] = $mentionNav;
+        }
+    }
+    $nav = array_merge($nav, [
         ['type' => 'group', 'label' => 'منشی‌ها'],
         ['href' => '/secretary/messages', 'label' => 'پنل منشی'],
         ['href' => '/admin/secretary-messages', 'label' => 'پیام منشی‌ها', 'badge' => function_exists('secretary_to_admin_unread_count') && $pdo instanceof PDO ? secretary_to_admin_unread_count($pdo) : 0],
@@ -47,7 +55,7 @@ function admin_nav(): array {
         ['type' => 'group', 'label' => 'تنظیمات'],
         ['href' => '/admin/mail', 'label' => 'ایمیل و SMTP'],
         ['href' => '/change-password', 'label' => 'تغییر رمز عبور'],
-    ];
+    ]);
     $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link() : null;
     if ($videoLink) {
         // بعد از «خلاصه» داخل گروه اصلی

@@ -66,6 +66,10 @@ function handover_send(PDO $pdo, string $fromUserId, string $fromLabel, string $
         notify_user($pdo, (string) $target['id'], $title, mb_substr($plain, 0, 180), '/secretary/colleague-messages', 'handover');
     }
 
+    if (function_exists('mentions_capture')) {
+        mentions_capture($pdo, $fromUserId, $body, 'handover', $groupId, '/secretary/colleague-messages');
+    }
+
     $peerNames = [];
     foreach ($peers as $target) {
         $peerNames[] = staff_actor_label($target);

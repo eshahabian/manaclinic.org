@@ -35,6 +35,17 @@ function patient_nav(): array
         ['href' => '/dashboard/wallet', 'label' => 'کیف پول'],
         ['href' => '/dashboard/profile', 'label' => 'پروفایل'],
     ];
+    if (function_exists('mentions_nav_item')) {
+        $mentionNav = mentions_nav_item();
+        if ($mentionNav) {
+            // بعد از پیام‌ها
+            array_splice($nav, 3, 0, [[
+                'href' => $mentionNav['href'],
+                'label' => $mentionNav['label'],
+                'badge' => 'mentions',
+            ]]);
+        }
+    }
     $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link() : null;
     if ($videoLink) {
         // بعد از «خلاصه» مطابق ترتیب اصلی ادمین
@@ -60,12 +71,16 @@ function render_patient_page(string $title, string $innerHtml): void
     global $pdo, $pageScripts, $pageHead;
 
     $nav = patient_nav();
-    $counts = ['available' => 0, 'requested' => 0, 'mine' => 0, 'messages' => 0];
+    $counts = ['available' => 0, 'requested' => 0, 'mine' => 0, 'messages' => 0, 'mentions' => 0];
     $user = current_user();
     if ($pdo && $user && ($user['role'] ?? '') === 'PATIENT') {
         $counts = patient_workshop_nav_counts($pdo, (string) $user['id']);
+        $counts['mentions'] = 0;
         if (function_exists('count_unread_notifications')) {
             $counts['messages'] = count_unread_notifications($pdo, (string) $user['id']);
+        }
+        if (function_exists('mentions_unread_count')) {
+            $counts['mentions'] = mentions_unread_count($pdo, (string) $user['id']);
         }
     }
     $currentPath = patient_request_path();

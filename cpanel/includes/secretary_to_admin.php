@@ -65,6 +65,10 @@ function secretary_to_admin_send(PDO $pdo, string $fromUserId, string $fromLabel
         );
     }
 
+    if (function_exists('mentions_capture')) {
+        mentions_capture($pdo, $fromUserId, $body, 'secretary_to_admin', $id, '/admin/secretary-messages#from-secretaries');
+    }
+
     return $id;
 }
 

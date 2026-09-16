@@ -250,6 +250,13 @@ function admin_staff_msg_insert(PDO $pdo, string $messageId, string $fromUserId,
     $pdo->prepare('INSERT INTO admin_staff_messages (id, from_user_id, body, image_path) VALUES (?,?,?,?)')
         ->execute([$messageId, $fromUserId, $body, $imagePath]);
 
+    $fromStmt = $pdo->prepare('SELECT name, username, role FROM users WHERE id=? LIMIT 1');
+    $fromStmt->execute([$fromUserId]);
+    $from = $fromStmt->fetch() ?: [];
+    $fromRole = strtoupper((string) ($from['role'] ?? ''));
+    $fromLabel = function_exists('staff_actor_label') ? staff_actor_label($from) : (string) ($from['name'] ?? 'کاربر');
+    $title = $fromRole === 'DOCTOR' ? ('پیام درمانگر · ' . $fromLabel) : 'پیام مدیر سایت';
+
     $ins = $pdo->prepare('INSERT INTO admin_staff_message_recipients (id, message_id, to_user_id) VALUES (?,?,?)');
     $snippet = trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags($body), ENT_QUOTES | ENT_HTML5, 'UTF-8')) ?? '');
     foreach ($targetIds as $tid) {
@@ -257,27 +264,45 @@ function admin_staff_msg_insert(PDO $pdo, string $messageId, string $fromUserId,
         notify_user(
             $pdo,
             $tid,
-            'پیام مدیر سایت',
+            $title,
             mb_substr($snippet, 0, 180),
             '/secretary/profile#admin-site-messages',
-            'admin_directive'
+            'admin_directive',
+            $fromUserId
         );
+    }
+
+    if (function_exists('mentions_capture')) {
+        mentions_capture($pdo, $fromUserId, $body, 'staff_message', $messageId, '/secretary/profile#admin-site-messages');
     }
 
     return count($targetIds);
 }
 
-function admin_staff_msg_sent_list(PDO $pdo, int $limit = 40): array
+function admin_staff_msg_sent_list(PDO $pdo, int $limit = 40, ?string $fromUserId = null): array
 {
     ensure_admin_staff_messages_schema($pdo);
     $limit = max(1, min(80, $limit));
-    $msgs = $pdo->query("
-      SELECT m.*, fu.name AS from_name, fu.username AS from_username
-      FROM admin_staff_messages m
-      JOIN users fu ON fu.id = m.from_user_id
-      ORDER BY m.created_at DESC
-      LIMIT {$limit}
-    ")->fetchAll() ?: [];
+    if ($fromUserId) {
+        $stmt = $pdo->prepare("
+          SELECT m.*, fu.name AS from_name, fu.username AS from_username, fu.role AS from_role
+          FROM admin_staff_messages m
+          JOIN users fu ON fu.id = m.from_user_id
+          WHERE m.from_user_id = ?
+          ORDER BY m.created_at DESC
+          LIMIT {$limit}
+        ");
+        $stmt->execute([$fromUserId]);
+        $msgs = $stmt->fetchAll() ?: [];
+    } else {
+        $msgs = $pdo->query("
+          SELECT m.*, fu.name AS from_name, fu.username AS from_username, fu.role AS from_role
+          FROM admin_staff_messages m
+          JOIN users fu ON fu.id = m.from_user_id
+          ORDER BY m.created_at DESC
+          LIMIT {$limit}
+        ")->fetchAll() ?: [];
+    }
     if (!$msgs) {
         return [];
     }
@@ -364,6 +389,10 @@ function admin_staff_msg_user_can_view_image(PDO $pdo, array $user, string $mess
     }
     if ($role === 'SECRETARY') {
         return admin_staff_msg_get_for_user($pdo, $messageId, (string) ($user['id'] ?? '')) !== null;
+    }
+    if ($role === 'DOCTOR') {
+        $msg = admin_staff_msg_get($pdo, $messageId);
+        return $msg && (string) ($msg['from_user_id'] ?? '') === (string) ($user['id'] ?? '');
     }
 
     return false;
