@@ -1,7 +1,9 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/../../includes/admin_panel.php';
+require_once __DIR__ . '/../../includes/doctor_panel.php';
 require_login(['ADMIN']);
+$boundDoctor = admin_bind_doctor_profile($pdo);
 $doctors = $pdo->query("
   SELECT dp.*, u.name, u.username, u.phone FROM doctor_profiles dp
   JOIN users u ON u.id=dp.user_id ORDER BY dp.created_at DESC
@@ -11,6 +13,10 @@ $approved = array_values(array_filter($doctors, fn($d) => (int) $d['is_approved'
 ob_start();
 ?>
 <h1>مدیریت درمانگرها</h1>
+<?= admin_doctor_switcher_html($pdo, is_array($boundDoctor) ? $boundDoctor : []) ?>
+<p class="muted" style="margin:.35rem 0 0;line-height:1.7;font-size:.9rem">
+  درمانگر را اینجا انتخاب کنید؛ بعد با «ورود به پنل» یا دکمهٔ هر ردیف، پنل همان نفر را ویرایش کنید.
+</p>
 
 <?php if ($pending): ?>
 <section class="stack" style="margin-top:1rem">
@@ -73,13 +79,16 @@ ob_start();
         <div style="color:var(--danger);font-size:.8rem;margin-top:.25rem">غیرفعال</div>
       <?php endif; ?>
     </div>
-    <form method="post" action="<?= e(url('/admin/doctors')) ?>">
-      <input type="hidden" name="action" value="toggle">
-      <input type="hidden" name="id" value="<?= e($d['id']) ?>">
-      <button class="btn btn-sm <?= $d['is_active'] ? 'btn-danger' : 'btn-primary' ?>" type="submit">
-        <?= $d['is_active'] ? 'غیرفعال کردن' : 'فعال کردن' ?>
-      </button>
-    </form>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+      <a class="btn btn-sm btn-outline" href="<?= e(url('/doctor/profile')) ?>?as_doctor=<?= e((string) $d['id']) ?>">ویرایش پنل</a>
+      <form method="post" action="<?= e(url('/admin/doctors')) ?>">
+        <input type="hidden" name="action" value="toggle">
+        <input type="hidden" name="id" value="<?= e($d['id']) ?>">
+        <button class="btn btn-sm <?= $d['is_active'] ? 'btn-danger' : 'btn-primary' ?>" type="submit">
+          <?= $d['is_active'] ? 'غیرفعال کردن' : 'فعال کردن' ?>
+        </button>
+      </form>
+    </div>
   </div>
 <?php endforeach; ?>
 </div>

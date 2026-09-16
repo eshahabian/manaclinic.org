@@ -203,11 +203,13 @@ function admin_bind_doctor_profile(PDO $pdo): ?array
     return $row ?: null;
 }
 
-function admin_doctor_switcher_html(PDO $pdo, array $profile): string
+function admin_doctor_switcher_html(PDO $pdo, array $profile, string $action = '/admin/doctors'): string
 {
     $choices = admin_doctor_choices($pdo);
+    if (!$choices) {
+        return '';
+    }
     $current = (string) ($profile['id'] ?? '');
-    $action = parse_url($_SERVER['REQUEST_URI'] ?? '/doctor', PHP_URL_PATH) ?: '/doctor';
     ob_start();
     ?>
     <form class="doc-admin-switcher" method="get" action="<?= e(url($action)) ?>">
@@ -217,10 +219,9 @@ function admin_doctor_switcher_html(PDO $pdo, array $profile): string
           <option value="<?= e((string) $d['id']) ?>" <?= $current === (string) $d['id'] ? 'selected' : '' ?>><?= e((string) $d['name']) ?></option>
         <?php endforeach; ?>
       </select>
-      <?php foreach ($_GET as $key => $value): ?>
-        <?php if ($key === 'as_doctor' || !is_string($value)) { continue; } ?>
-        <input type="hidden" name="<?= e((string) $key) ?>" value="<?= e($value) ?>">
-      <?php endforeach; ?>
+      <?php if ($current !== ''): ?>
+        <a class="btn btn-sm btn-primary" href="<?= e(url('/doctor/profile')) ?>?as_doctor=<?= e($current) ?>">ورود به پنل</a>
+      <?php endif; ?>
     </form>
     <?php
     return ob_get_clean();
@@ -264,9 +265,6 @@ function render_doctor_page(string $title, string $innerHtml): void
     $user = current_user();
     $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
     $prefix = '';
-    if (!empty($ctx['admin_mode']) && $pdo instanceof PDO && is_array($ctx['profile'] ?? null)) {
-        $prefix .= admin_doctor_switcher_html($pdo, $ctx['profile']);
-    }
     if (
         $currentPath !== '/doctor/profile'
         && is_array($ctx['user'] ?? null)
