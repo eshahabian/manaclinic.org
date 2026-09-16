@@ -5,19 +5,20 @@ function secretary_nav(): array
 {
     $nav = [
         ['href' => '/secretary/messages', 'label' => 'پیام‌ها'],
-        ['href' => '/secretary/patients', 'label' => 'مراجعه‌کنندگان'],
         ['href' => '/secretary/appointments', 'label' => 'نوبت‌ها'],
-        ['href' => '/secretary/workshops', 'label' => 'کارگاه‌ها'],
-        ['href' => '/secretary/articles', 'label' => 'مقالات'],
-        ['href' => '/secretary/hours', 'label' => 'ساعت کاری'],
-        ['href' => '/secretary/board', 'label' => 'یادداشت مشترک'],
-        ['href' => '/secretary/colleague-messages', 'label' => 'پیام همکار'],
+        ['href' => '/secretary/patients', 'label' => 'مراجعه‌کنندگان'],
         ['href' => '/secretary/profile', 'label' => 'پیام مدیر'],
+        ['href' => '/secretary/board', 'label' => 'یادداشت مشترک'],
+        ['href' => '/secretary/hours', 'label' => 'ساعت کاری'],
+        ['href' => '/secretary/colleague-messages', 'label' => 'پیام همکار'],
+        ['href' => '/secretary/articles', 'label' => 'مقالات'],
+        ['href' => '/secretary/workshops', 'label' => 'کارگاه‌ها'],
         ['href' => '/change-password', 'label' => 'تغییر رمز عبور'],
     ];
     $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link() : null;
     if ($videoLink) {
-        array_splice($nav, -1, 0, [$videoLink]);
+        // بعد از «پیام‌ها» مطابق ترتیب اصلی ادمین
+        array_splice($nav, 1, 0, [$videoLink]);
     }
 
     return $nav;

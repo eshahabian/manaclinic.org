@@ -22,31 +22,36 @@ function admin_nav(): array {
         $unread = count_unread_notifications($pdo, (string) ($user['id'] ?? ''));
     }
     $nav = [
+        ['type' => 'group', 'label' => 'اصلی'],
         ['href' => '/admin', 'label' => 'خلاصه'],
         ['href' => '/admin/users', 'label' => 'کاربران'],
-        ['href' => '/admin/appointments', 'label' => 'نوبت‌ها'],
         ['href' => '/admin/doctors', 'label' => 'درمانگرها', 'badge' => admin_pending_doctor_count()],
-        ['href' => '/admin/articles', 'label' => 'مقالات'],
-        ['href' => '/admin/mail', 'label' => 'ایمیل و SMTP'],
-        ['href' => '/admin/staff-hours', 'label' => 'ساعت کاری منشی‌ها'],
+        ['href' => '/admin/appointments', 'label' => 'نوبت‌ها'],
+        ['href' => '/admin/staff-messages', 'label' => 'پیام‌ها'],
+        ['type' => 'group', 'label' => 'منشی‌ها'],
+        ['href' => '/secretary/messages', 'label' => 'پنل منشی'],
         ['href' => '/admin/secretary-messages', 'label' => 'پیام منشی‌ها', 'badge' => function_exists('secretary_to_admin_unread_count') && $pdo instanceof PDO ? secretary_to_admin_unread_count($pdo) : 0],
         ['href' => '/admin/staff-board', 'label' => 'یادداشت مشترک منشی‌ها'],
-        ['href' => '/admin/staff-messages', 'label' => 'پیام‌ها'],
-        ['href' => '/secretary/messages', 'label' => 'پنل منشی'],
-        ['type' => 'group', 'label' => 'کار درمانگرها'],
+        ['href' => '/admin/staff-hours', 'label' => 'ساعت کاری منشی‌ها'],
+        ['type' => 'group', 'label' => 'درمانگرها'],
         ['href' => '/doctor/notifications', 'label' => 'اعلان‌ها', 'badge' => $unread, 'badge_tone' => 'new'],
         ['href' => '/doctor/appointments', 'label' => 'نوبت‌های درمانگر'],
         ['href' => '/doctor/availability', 'label' => 'روزهای خالی'],
         ['href' => '/doctor/patients', 'label' => 'پرونده مراجعه‌کنندگان'],
-        ['href' => '/doctor/workshops', 'label' => 'کارگاه‌ها'],
-        ['href' => '/doctor/articles', 'label' => 'مقالات درمانگر'],
-        ['href' => '/doctor/profile', 'label' => 'پروفایل حرفه‌ای'],
         ['href' => '/doctor/staff-messages', 'label' => 'پیام‌های درمانگر'],
+        ['href' => '/doctor/profile', 'label' => 'پروفایل حرفه‌ای'],
+        ['type' => 'group', 'label' => 'محتوا'],
+        ['href' => '/admin/articles', 'label' => 'مقالات'],
+        ['href' => '/doctor/articles', 'label' => 'مقالات درمانگر'],
+        ['href' => '/doctor/workshops', 'label' => 'کارگاه‌ها'],
+        ['type' => 'group', 'label' => 'تنظیمات'],
+        ['href' => '/admin/mail', 'label' => 'ایمیل و SMTP'],
         ['href' => '/change-password', 'label' => 'تغییر رمز عبور'],
     ];
     $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link() : null;
     if ($videoLink) {
-        array_splice($nav, 1, 0, [$videoLink]);
+        // بعد از «خلاصه» داخل گروه اصلی
+        array_splice($nav, 2, 0, [$videoLink]);
     }
 
     return $nav;

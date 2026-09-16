@@ -46,7 +46,27 @@ function doctor_nav(): array
         $unread = count_unread_notifications($pdo, $userId);
     }
 
-    $nav = [
+    $nav = [];
+    $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link(true) : null;
+    if ($videoLink) {
+        $nav[] = ['type' => 'group', 'label' => 'اصلی'];
+        $nav[] = $videoLink;
+    }
+
+    $staffItems = [];
+    if (function_exists('staff_board_can_access') && staff_board_can_access(current_user())) {
+        $staffItems[] = ['type' => 'link', 'href' => '/doctor/staff-board', 'label' => 'یادداشت مشترک منشی‌ها'];
+    }
+    if (doctor_can_view_staff_hours()) {
+        $staffItems[] = ['type' => 'link', 'href' => '/doctor/staff-hours', 'label' => 'ساعت کاری منشی‌ها'];
+    }
+    if ($staffItems) {
+        $nav[] = ['type' => 'group', 'label' => 'منشی‌ها'];
+        $nav = array_merge($nav, $staffItems);
+    }
+
+    $nav = array_merge($nav, [
+        ['type' => 'group', 'label' => 'درمانگرها'],
         [
             'type' => 'link',
             'href' => '/doctor/notifications',
@@ -54,30 +74,17 @@ function doctor_nav(): array
             'badge' => $unread,
             'badge_tone' => 'new',
         ],
-    ];
-    $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link(true) : null;
-    if ($videoLink) {
-        $nav[] = $videoLink;
-    }
-    $nav = array_merge($nav, [
-        ['type' => 'group', 'label' => 'نوبت و پرونده'],
         ['type' => 'link', 'href' => '/doctor/appointments', 'label' => 'نوبت‌ها'],
         ['type' => 'link', 'href' => '/doctor/availability', 'label' => 'روزهای خالی'],
         ['type' => 'link', 'href' => '/doctor/patients', 'label' => 'پرونده مراجعه‌کنندگان'],
-        ['type' => 'link', 'href' => '/doctor/workshops', 'label' => 'کارگاه‌ها'],
-        ['type' => 'group', 'label' => 'پروفایل من'],
-        ['type' => 'link', 'href' => '/doctor/articles', 'label' => 'مقالات'],
+        ['type' => 'link', 'href' => '/doctor/staff-messages', 'label' => 'پیام‌ها'],
         ['type' => 'link', 'href' => '/doctor/profile', 'label' => 'پروفایل حرفه‌ای'],
-        ['type' => 'group', 'label' => 'حساب'],
+        ['type' => 'group', 'label' => 'محتوا'],
+        ['type' => 'link', 'href' => '/doctor/articles', 'label' => 'مقالات'],
+        ['type' => 'link', 'href' => '/doctor/workshops', 'label' => 'کارگاه‌ها'],
+        ['type' => 'group', 'label' => 'تنظیمات'],
+        ['type' => 'link', 'href' => '/change-password', 'label' => 'تغییر رمز عبور'],
     ]);
-    if (doctor_can_view_staff_hours()) {
-        $nav[] = ['type' => 'link', 'href' => '/doctor/staff-hours', 'label' => 'ساعت کاری منشی‌ها'];
-    }
-    if (function_exists('staff_board_can_access') && staff_board_can_access(current_user())) {
-        $nav[] = ['type' => 'link', 'href' => '/doctor/staff-board', 'label' => 'یادداشت مشترک منشی‌ها'];
-    }
-    $nav[] = ['type' => 'link', 'href' => '/doctor/staff-messages', 'label' => 'پیام‌ها'];
-    $nav[] = ['type' => 'link', 'href' => '/change-password', 'label' => 'تغییر رمز عبور'];
 
     return $nav;
 }

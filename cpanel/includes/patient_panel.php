@@ -21,6 +21,7 @@ function patient_nav(): array
     $nav = [
         ['href' => '/dashboard', 'label' => 'خلاصه'],
         ['href' => '/dashboard/appointments', 'label' => 'نوبت‌های من'],
+        ['href' => '/dashboard/messages', 'label' => 'پیام‌ها', 'badge' => 'messages'],
         ['href' => '/dashboard/courses-new', 'label' => 'دوره‌های جدید', 'badge' => 'available'],
         [
             'href' => '/dashboard/workshops',
@@ -30,13 +31,13 @@ function patient_nav(): array
                 ['href' => '/dashboard/workshops/mine', 'label' => 'دوره‌های من', 'badge' => 'mine'],
             ],
         ],
-        ['href' => '/dashboard/messages', 'label' => 'پیام‌ها', 'badge' => 'messages'],
         ['href' => '/dashboard/journal', 'label' => 'دفتر یادداشت'],
         ['href' => '/dashboard/wallet', 'label' => 'کیف پول'],
         ['href' => '/dashboard/profile', 'label' => 'پروفایل'],
     ];
     $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link() : null;
     if ($videoLink) {
+        // بعد از «خلاصه» مطابق ترتیب اصلی ادمین
         array_splice($nav, 1, 0, [$videoLink]);
     }
 
