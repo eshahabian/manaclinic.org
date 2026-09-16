@@ -17,7 +17,7 @@ foreach ($inbox as $note) {
 
 ob_start();
 ?>
-<div class="stack" style="max-width:44rem">
+<div class="stack">
   <h1>پیام همکار</h1>
   <p class="muted" style="margin-top:.35rem;line-height:1.8">
     متن برای همه منشی‌های دیگر می‌رود. با ورود بعدی، کل صفحه را می‌بینند و تا «خواندم» نزنند وارد پورتال نمی‌شوند.

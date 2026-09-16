@@ -79,7 +79,7 @@ ob_start();
   <a class="btn btn-outline btn-sm" href="<?= e(url('/secretary/patients')) ?>">بازگشت به فهرست</a>
 </p>
 <h1><?= e((string) $patient['name']) ?></h1>
-<div class="panel stack" style="margin-top:1rem;max-width:36rem">
+<div class="panel stack" style="margin-top:1rem">
   <div>
     <div class="muted" style="font-size:.8rem">شماره تماس</div>
     <?php if ($phone !== ''): ?>

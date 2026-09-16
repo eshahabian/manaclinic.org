@@ -36,7 +36,7 @@ ob_start();
 ?>
 <h1>روزهای خالی</h1>
 <p class="muted">یک روز را از تقویم بزنید، یا «کل ماه» را انتخاب کنید تا ساعت‌ها روی همهٔ روزهای باقی‌مانده همان ماه اعمال شود. پایین صفحه سال، ماه و روز را از منوی کرکره‌ای انتخاب کنید؛ روی ساعت هر روز بزنید تا خالی بودن یا نام رزروکننده مشخص شود.</p>
-<form class="panel form-stack" method="post" action="<?= e(url('/doctor/availability')) ?>" id="avail-save-form" style="margin-top:1rem;max-width:40rem">
+<form class="panel form-stack" method="post" action="<?= e(url('/doctor/availability')) ?>" id="avail-save-form" style="margin-top:1rem">
   <input type="hidden" name="action" id="avail-action" value="save">
   <div class="binder-tile binder-tile--nested" data-binder-tabs data-binder-hash="0" data-binder-initial="avail-day" data-binder-tone="in-person">
     <div class="binder-tabs" role="tablist" aria-label="بازه افزودن">

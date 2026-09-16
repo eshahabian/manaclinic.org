@@ -2729,10 +2729,11 @@ a.doctor-dash-stat:hover {
   display: grid;
   grid-template-columns: repeat(3, minmax(5.2rem, 1fr));
   gap: .45rem;
-  max-width: 32rem;
+  max-width: none;
+  width: 100%;
 }
 @media (min-width: 480px) {
-  .hour-picker { grid-template-columns: repeat(6, minmax(5.2rem, 1fr)); max-width: 48rem; }
+  .hour-picker { grid-template-columns: repeat(6, minmax(5.2rem, 1fr)); max-width: none; }
 }
 .hour-chip {
   display: inline-flex; flex-direction: column; align-items: center; justify-content: center;
@@ -4472,7 +4473,7 @@ body.workshop-overview-locked { overflow: hidden; }
   gap: 1rem;
   flex-wrap: wrap;
 }
-.secretary-add-patient { margin-top: 1rem; max-width: 44rem; }
+.secretary-add-patient { margin-top: 1rem; max-width: none; width: 100%; }
 .form-draft-hint { color: var(--primary-dark); }
 
 .password-field { display: grid; gap: .35rem; }
@@ -4577,7 +4578,7 @@ body.workshop-overview-locked { overflow: hidden; }
 .doctor-public-courses { margin: 0; padding-right: 1.1rem; line-height: 1.85; }
 .doctor-public-license { margin: 0; font-size: 1.05rem; letter-spacing: .02em; }
 
-.doc-profile-page { max-width: 46rem; }
+.doc-profile-page { max-width: none; width: 100%; }
 .admin-secretary-msgs,
 .doctor-secretary-msgs {
   width: 100%;
@@ -4589,6 +4590,24 @@ body.workshop-overview-locked { overflow: hidden; }
 .doctor-secretary-msgs > form.panel {
   width: 100%;
   max-width: none;
+  box-sizing: border-box;
+}
+/* کاشی‌های پنل: تمام‌عرض مثل پیام منشی‌ها */
+.panel-layout .panel-main > .panel,
+.panel-layout .panel-main > form.panel,
+.panel-layout .panel-main > section.panel,
+.panel-layout .panel-main > .stack,
+.panel-layout .panel-main > .admin-secretary-msgs,
+.panel-layout .panel-main > .doctor-secretary-msgs,
+.panel-layout .panel-main > .doc-profile-page,
+.panel-layout .panel-main > .doc-admin-switcher,
+.panel-layout .panel-main > .secretary-add-patient,
+.panel-layout .panel-main > .workshop-path-page,
+.panel-layout .panel-main > .workshop-path-wrap,
+.panel-layout .panel-main .panel,
+.panel-layout .panel-main .stack {
+  max-width: none;
+  width: 100%;
   box-sizing: border-box;
 }
 .doc-onboard-banner {
@@ -4610,7 +4629,7 @@ body.workshop-overview-locked { overflow: hidden; }
   border-radius: .8rem;
   background: #fff8ef;
   border: 1px solid #ead9c4;
-  max-width: 46rem;
+  max-width: none;
   width: 100%;
   box-sizing: border-box;
 }
@@ -5579,7 +5598,7 @@ html[data-theme="dark"] .ehr-journal-feed > li {
 }
 .staff-board-lead {
   margin: .45rem 0 0;
-  max-width: 42rem;
+  max-width: none;
   line-height: 1.7;
 }
 .staff-board-stats {

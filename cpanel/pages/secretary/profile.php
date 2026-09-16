@@ -11,7 +11,7 @@ $sentToAdmin = secretary_to_admin_sent_for($pdo, (string) $user['id'], 50);
 
 ob_start();
 ?>
-<div class="stack" style="max-width:44rem">
+<div class="stack">
   <h1>پیام مدیر</h1>
   <p class="muted" style="margin-top:.35rem;line-height:1.8">
     پیام‌های مدیر و درمانگر را اینجا می‌بینید و می‌توانید برای مدیر پیام بفرستید.

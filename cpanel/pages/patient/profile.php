@@ -15,7 +15,7 @@ $careNotes = patient_care_notes_list($pdo, (string) $user['id'], 80);
 
 ob_start();
 ?>
-<div class="stack" style="max-width:40rem">
+<div class="stack">
   <h1>پروفایل</h1>
   <form class="panel form-stack" method="post" action="<?= e(url('/dashboard/profile')) ?>">
     <?= csrf_field() ?>

@@ -36,7 +36,7 @@ ob_start();
   ارسال می‌شوند. روی سی‌پنل معمولاً میزبان <span dir="ltr">localhost</span> کافی است.
 </p>
 
-<div class="panel form-stack" style="margin-top:1rem;max-width:36rem">
+<div class="panel form-stack" style="margin-top:1rem">
   <form method="post" action="<?= e(url('/admin/mail')) ?>" class="form-stack">
     <?= csrf_field() ?>
     <input type="hidden" name="action" value="save_host">
@@ -56,7 +56,7 @@ ob_start();
   </form>
 </div>
 
-<div class="panel form-stack" style="margin-top:1rem;max-width:36rem">
+<div class="panel form-stack" style="margin-top:1rem">
   <h2 style="margin:0;font-size:1.05rem">رمز SMTP</h2>
   <p class="muted" style="margin:0;font-size:.9rem;line-height:1.8">
     رمز حساب <span dir="ltr"><?= e($mc['user']) ?></span> را وارد کنید؛ بعد از ذخیره، «تشخیص مستقیم SMTP» را بزنید.
@@ -77,7 +77,7 @@ ob_start();
   </form>
 </div>
 
-<div class="panel form-stack" style="margin-top:1rem;max-width:36rem">
+<div class="panel form-stack" style="margin-top:1rem">
   <h2 style="margin:0;font-size:1.05rem">تشخیص مستقیم SMTP</h2>
   <p class="muted" style="margin:0;font-size:.9rem;line-height:1.8">
     بدون کتابخانهٔ بیرونی به سرور وصل می‌شود و کدهای واقعی پاسخ (مثل خطای ۵۳۵) را نشان می‌دهد.
@@ -92,7 +92,7 @@ ob_start();
   <?php endif; ?>
 </div>
 
-<div class="panel form-stack" style="margin-top:1rem;max-width:36rem">
+<div class="panel form-stack" style="margin-top:1rem">
   <h2 style="margin:0;font-size:1.05rem">ارسال تست</h2>
   <form method="post" action="<?= e(url('/admin/mail')) ?>" class="form-stack">
     <?= csrf_field() ?>
@@ -103,7 +103,7 @@ ob_start();
   </form>
 </div>
 
-<div class="panel form-stack" style="margin-top:1rem;max-width:36rem">
+<div class="panel form-stack" style="margin-top:1rem">
   <h2 style="margin:0;font-size:1.05rem">محدودیت درخواست (rate limit)</h2>
   <p class="muted" style="margin:0;font-size:.9rem;line-height:1.8">
     اگر خطای «درخواست زیاد» برای فراموشی رمز دیدید، محدودیت IP فعلی را ریست کنید.

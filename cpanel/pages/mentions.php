@@ -27,7 +27,7 @@ $unread = mentions_unread_count($pdo, $userId);
 
 ob_start();
 ?>
-<div class="stack" style="max-width:42rem">
+<div class="stack">
   <h1>منشن‌ها</h1>
   <p class="muted" style="margin-top:.35rem;line-height:1.8">
     وقتی کسی در پیام یا یادداشت با <strong style="color:<?= e(MENTION_TEXT_COLOR) ?>">@نام شما</strong> اشاره‌تان کند، اینجا می‌بینید.
