@@ -3,6 +3,13 @@ declare(strict_types=1);
 
 function ensure_wallet_schema(PDO $pdo): void
 {
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    if ($pdo->inTransaction()) {
+        return;
+    }
     $pdo->exec("
       CREATE TABLE IF NOT EXISTS wallets (
         id VARCHAR(32) PRIMARY KEY,
@@ -29,6 +36,7 @@ function ensure_wallet_schema(PDO $pdo): void
         CONSTRAINT fk_wtx_wallet FOREIGN KEY (wallet_id) REFERENCES wallets(id) ON DELETE CASCADE
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
     ");
+    $ready = true;
 }
 
 function ensure_wallet(PDO $pdo, string $userId): array

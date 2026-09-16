@@ -3,36 +3,40 @@ declare(strict_types=1);
 
 /**
  * حذف امن کاربر و همه وابستگی‌ها (بدون اتکا به FK CASCADE).
+ * مهم: اینجا CREATE/ALTER نزن — DDL تراکنش MySQL را می‌بندد و commit بعدی خطای کاذب می‌دهد.
  */
 function delete_user_cascade(PDO $pdo, string $userId): void
 {
-    // اعلان‌ها
-    try {
-        if (function_exists('ensure_notifications_table')) {
-            ensure_notifications_table($pdo);
+    $try = static function (callable $fn): void {
+        try {
+            $fn();
+        } catch (Throwable $ignored) {
         }
-        $pdo->prepare('DELETE FROM notifications WHERE recipient_user_id = ?')->execute([$userId]);
-    } catch (Throwable $ignored) {
-    }
+    };
 
-    try {
+    // اعلان‌ها و منشن‌ها
+    $try(static function () use ($pdo, $userId): void {
+        $pdo->prepare('DELETE FROM notifications WHERE recipient_user_id = ? OR sender_user_id = ?')
+            ->execute([$userId, $userId]);
+    });
+    $try(static function () use ($pdo, $userId): void {
+        $pdo->prepare('DELETE FROM user_mentions WHERE from_user_id = ? OR to_user_id = ?')
+            ->execute([$userId, $userId]);
+    });
+
+    $try(static function () use ($pdo, $userId): void {
         $pdo->prepare('DELETE FROM staff_handover_notes WHERE from_user_id = ? OR to_user_id = ?')
             ->execute([$userId, $userId]);
-    } catch (Throwable $ignored) {
-    }
+    });
 
-    try {
+    $try(static function () use ($pdo, $userId): void {
         $pdo->prepare('UPDATE staff_shared_notes SET updated_by = NULL WHERE updated_by = ?')->execute([$userId]);
         $pdo->prepare('UPDATE staff_shared_notes SET done_by = NULL WHERE done_by = ?')->execute([$userId]);
-    } catch (Throwable $ignored) {
-    }
+        $pdo->prepare('UPDATE staff_shared_notes SET created_by = NULL WHERE created_by = ?')->execute([$userId]);
+    });
 
-    try {
-        if (function_exists('ensure_admin_staff_messages_schema')) {
-            ensure_admin_staff_messages_schema($pdo);
-        }
+    $try(static function () use ($pdo, $userId): void {
         $pdo->prepare('DELETE FROM admin_staff_message_recipients WHERE to_user_id = ?')->execute([$userId]);
-        // پیام‌های ادمین فرستاده توسط این کاربر (اگر ادمین حذف شود)
         $sent = $pdo->prepare('SELECT id, image_path FROM admin_staff_messages WHERE from_user_id = ?');
         $sent->execute([$userId]);
         foreach ($sent->fetchAll() as $row) {
@@ -50,58 +54,105 @@ function delete_user_cascade(PDO $pdo, string $userId): void
                 }
             }
         }
-    } catch (Throwable $ignored) {
-    }
+    });
 
-    try {
-        if (function_exists('ensure_secretary_to_admin_schema')) {
-            ensure_secretary_to_admin_schema($pdo);
-        }
+    $try(static function () use ($pdo, $userId): void {
         $pdo->prepare('DELETE FROM secretary_to_admin_messages WHERE from_user_id = ?')->execute([$userId]);
-    } catch (Throwable $ignored) {
+    });
+
+    // کیف پول
+    $try(static function () use ($pdo, $userId): void {
+        $pdo->prepare('DELETE FROM wallet_transactions WHERE user_id = ?')->execute([$userId]);
+        $pdo->prepare('DELETE FROM wallets WHERE user_id = ?')->execute([$userId]);
+    });
+
+    // ژورنال / مراقبت
+    foreach (['patient_journal_entries', 'patient_care_notes'] as $table) {
+        $try(static function () use ($pdo, $userId, $table): void {
+            $pdo->prepare("DELETE FROM {$table} WHERE user_id = ?")->execute([$userId]);
+        });
+        $try(static function () use ($pdo, $userId, $table): void {
+            $pdo->prepare("DELETE FROM {$table} WHERE patient_id = ?")->execute([$userId]);
+        });
     }
 
     // پرداخت‌های نوبت‌های این مراجعه‌کننده
-    try {
+    $try(static function () use ($pdo, $userId): void {
         $pdo->prepare("
           DELETE FROM payments WHERE appointment_id IN (
             SELECT id FROM appointments WHERE patient_id = ?
           )
         ")->execute([$userId]);
-    } catch (Throwable $ignored) {
-        // بعضی MySQLها subquery delete را محدود می‌کنند
-        try {
-            $ids = $pdo->prepare('SELECT id FROM appointments WHERE patient_id = ?');
-            $ids->execute([$userId]);
-            foreach ($ids->fetchAll(PDO::FETCH_COLUMN) as $aid) {
-                $pdo->prepare('DELETE FROM payments WHERE appointment_id = ?')->execute([$aid]);
-            }
-        } catch (Throwable $ignored2) {
+    });
+    $try(static function () use ($pdo, $userId): void {
+        $ids = $pdo->prepare('SELECT id FROM appointments WHERE patient_id = ?');
+        $ids->execute([$userId]);
+        foreach ($ids->fetchAll(PDO::FETCH_COLUMN) as $aid) {
+            $pdo->prepare('DELETE FROM payments WHERE appointment_id = ?')->execute([$aid]);
         }
-    }
+    });
 
     // یادداشت / هایلایت / پرونده
     foreach (['doctor_session_notes', 'doctor_highlights', 'doctor_patient_charts'] as $table) {
-        try {
+        $try(static function () use ($pdo, $userId, $table): void {
             $pdo->prepare("DELETE FROM {$table} WHERE patient_id = ?")->execute([$userId]);
-        } catch (Throwable $ignored) {
-        }
+        });
     }
+
+    // مسیر کارگاه و ثبت‌نام
+    $try(static function () use ($pdo, $userId): void {
+        $enr = $pdo->prepare('SELECT id FROM workshop_enrollments WHERE patient_id = ?');
+        $enr->execute([$userId]);
+        foreach ($enr->fetchAll(PDO::FETCH_COLUMN) as $eid) {
+            $eid = (string) $eid;
+            $pdo->prepare('DELETE FROM workshop_path_notes WHERE enrollment_id = ?')->execute([$eid]);
+            $pdo->prepare('DELETE FROM workshop_payments WHERE enrollment_id = ?')->execute([$eid]);
+            $pdo->prepare('DELETE FROM workshop_enrollments WHERE id = ?')->execute([$eid]);
+        }
+    });
+
+    $try(static function () use ($pdo, $userId): void {
+        $pdo->prepare('DELETE FROM workshop_qa_likes WHERE user_id = ?')->execute([$userId]);
+        $pdo->prepare('DELETE FROM workshop_qa_posts WHERE author_user_id = ? OR audience_user_id = ?')
+            ->execute([$userId, $userId]);
+    });
 
     // نوبت‌ها
-    try {
+    $try(static function () use ($pdo, $userId): void {
         $pdo->prepare('DELETE FROM appointments WHERE patient_id = ?')->execute([$userId]);
-    } catch (Throwable $ignored) {
+    });
+
+    // شیفت / گزارش منشی
+    foreach ([
+        'staff_shifts' => 'user_id',
+        'secretary_action_log' => 'user_id',
+        'secretary_day_reports' => 'user_id',
+    ] as $table => $col) {
+        $try(static function () use ($pdo, $userId, $table, $col): void {
+            $pdo->prepare("DELETE FROM {$table} WHERE {$col} = ?")->execute([$userId]);
+        });
     }
 
+    // تماس ویدیو
+    $try(static function () use ($pdo, $userId): void {
+        $pdo->prepare('DELETE FROM video_call_room_members WHERE user_id = ?')->execute([$userId]);
+        $pdo->prepare('DELETE FROM video_call_presence WHERE user_id = ?')->execute([$userId]);
+        $pdo->prepare('DELETE FROM video_call_contact_stats WHERE user_id = ? OR peer_user_id = ?')
+            ->execute([$userId, $userId]);
+    });
+
+    // دستیار
+    $try(static function () use ($pdo, $userId): void {
+        $pdo->prepare('DELETE FROM assistant_sessions WHERE user_id = ?')->execute([$userId]);
+    });
+
     // اگر درمانگر بود
-    try {
+    $try(static function () use ($pdo, $userId): void {
         $dp = $pdo->prepare('SELECT id FROM doctor_profiles WHERE user_id = ?');
         $dp->execute([$userId]);
         $doctorProfileId = $dp->fetchColumn();
         if ($doctorProfileId) {
             foreach (['availabilities', 'appointments', 'doctor_session_notes', 'doctor_highlights', 'doctor_patient_charts'] as $table) {
-                $col = $table === 'appointments' || $table === 'availabilities' ? 'doctor_id' : 'doctor_id';
                 try {
                     if ($table === 'appointments') {
                         $aids = $pdo->prepare('SELECT id FROM appointments WHERE doctor_id = ?');
@@ -116,18 +167,15 @@ function delete_user_cascade(PDO $pdo, string $userId): void
             }
             $pdo->prepare('DELETE FROM doctor_profiles WHERE id = ?')->execute([$doctorProfileId]);
         }
-    } catch (Throwable $ignored) {
-    }
+    });
 
     // ارجاع preferred_doctor از دیگران را قطع کن (اگر ستون باشد)
-    try {
+    $try(static function () use ($pdo, $userId): void {
         $pdo->prepare('UPDATE users SET preferred_doctor_id = NULL WHERE preferred_doctor_id IN (SELECT id FROM doctor_profiles WHERE user_id = ?)')->execute([$userId]);
-    } catch (Throwable $ignored) {
-        try {
-            $pdo->prepare('UPDATE users SET preferred_doctor_id = NULL WHERE id = ?')->execute([$userId]);
-        } catch (Throwable $ignored2) {
-        }
-    }
+    });
+    $try(static function () use ($pdo, $userId): void {
+        $pdo->prepare('UPDATE users SET preferred_doctor_id = NULL WHERE id = ?')->execute([$userId]);
+    });
 
     $pdo->prepare('DELETE FROM users WHERE id = ?')->execute([$userId]);
 }

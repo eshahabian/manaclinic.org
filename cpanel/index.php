@@ -106,6 +106,12 @@ if (!$isLightRequest) {
     ensure_notifications_table($pdo);
     ensure_mail_schema($pdo);
     ensure_mentions_schema($pdo);
+    if (function_exists('ensure_wallet_schema')) {
+        ensure_wallet_schema($pdo);
+    }
+    if (function_exists('ensure_admin_staff_messages_schema')) {
+        ensure_admin_staff_messages_schema($pdo);
+    }
     purge_dummy_clinic_bookings($pdo);
 }
 

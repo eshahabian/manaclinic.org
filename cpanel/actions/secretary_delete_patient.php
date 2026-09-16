@@ -18,16 +18,20 @@ if ($action === 'delete_patient') {
     try {
         $pdo->beginTransaction();
         delete_user_cascade($pdo, $id);
-        $pdo->commit();
+        db_commit($pdo);
         if (($actor['role'] ?? '') === 'SECRETARY') {
             staff_log_action($pdo, (string) $actor['id'], 'delete_patient', 'user', $id, (string) $user['name']);
         }
         flash_set('success', 'مراجعه‌کننده «' . $user['name'] . '» از لیست حذف شد.');
     } catch (Throwable $e) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
+        db_rollback($pdo);
+        $still = $pdo->prepare('SELECT 1 FROM users WHERE id=? LIMIT 1');
+        $still->execute([$id]);
+        if (!$still->fetchColumn()) {
+            flash_set('success', 'مراجعه‌کننده «' . $user['name'] . '» از لیست حذف شد.');
+        } else {
+            flash_set('error', 'حذف ناموفق: ' . $e->getMessage());
         }
-        flash_set('error', 'حذف ناموفق: ' . $e->getMessage());
     }
     redirect('/secretary/appointments?tab=new');
 }

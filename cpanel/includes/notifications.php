@@ -7,6 +7,10 @@ function ensure_notifications_table(PDO $pdo): void
     if ($ready) {
         return;
     }
+    // DDL داخل تراکنش MySQL را می‌بندد و باعث خطای کاذب commit می‌شود
+    if ($pdo->inTransaction()) {
+        return;
+    }
     $pdo->exec("
       CREATE TABLE IF NOT EXISTS notifications (
         id VARCHAR(32) PRIMARY KEY,

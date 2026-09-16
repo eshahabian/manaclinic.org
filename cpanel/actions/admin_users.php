@@ -80,13 +80,18 @@ if ($action === 'delete_user') {
     try {
         $pdo->beginTransaction();
         delete_user_cascade($pdo, $id);
-        $pdo->commit();
+        db_commit($pdo);
         flash_set('success', 'کاربر «' . $user['name'] . '» و نوبت‌های مرتبط حذف شد.');
     } catch (Throwable $e) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
+        db_rollback($pdo);
+        // اگر به‌خاطر DDL تراکنش زودتر بسته شده و کاربر واقعاً پاک شده، پیام موفقیت بده
+        $still = $pdo->prepare('SELECT 1 FROM users WHERE id=? LIMIT 1');
+        $still->execute([$id]);
+        if (!$still->fetchColumn()) {
+            flash_set('success', 'کاربر «' . $user['name'] . '» و نوبت‌های مرتبط حذف شد.');
+        } else {
+            flash_set('error', 'حذف ناموفق بود. دوباره تلاش کنید.');
         }
-        flash_set('error', 'حذف ناموفق بود. دوباره تلاش کنید.');
     }
     redirect('/admin/users');
 }
@@ -98,6 +103,7 @@ if ($action === 'delete_selected') {
         redirect('/admin/users');
     }
     $deleted = 0;
+    $targetIds = [];
     try {
         $pdo->beginTransaction();
         foreach ($ids as $id) {
@@ -111,16 +117,27 @@ if ($action === 'delete_selected') {
             if (!$user || $user['role'] === 'ADMIN') {
                 continue;
             }
+            $targetIds[] = $id;
             delete_user_cascade($pdo, $id);
             $deleted++;
         }
-        $pdo->commit();
-        flash_set('success', "{$deleted} کاربر انتخاب‌شده حذف شد.");
+        db_commit($pdo);
+        flash_set('success', to_fa_digits((string) $deleted) . ' کاربر انتخاب‌شده حذف شد.');
     } catch (Throwable $e) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
+        db_rollback($pdo);
+        $gone = 0;
+        foreach ($targetIds as $tid) {
+            $still = $pdo->prepare('SELECT 1 FROM users WHERE id=? LIMIT 1');
+            $still->execute([$tid]);
+            if (!$still->fetchColumn()) {
+                $gone++;
+            }
         }
-        flash_set('error', 'حذف ناموفق بود. دوباره تلاش کنید.');
+        if ($gone > 0) {
+            flash_set('success', to_fa_digits((string) $gone) . ' کاربر انتخاب‌شده حذف شد.');
+        } else {
+            flash_set('error', 'حذف ناموفق بود. دوباره تلاش کنید.');
+        }
     }
     redirect('/admin/users');
 }
@@ -139,15 +156,13 @@ if ($action === 'cleanup_named_and_appointments') {
 
         $deletedAppointments = delete_all_appointments($pdo);
 
-        $pdo->commit();
+        db_commit($pdo);
         flash_set(
             'success',
-            "پاک‌سازی انجام شد: {$deletedUsers} کاربر حذف شد و {$deletedAppointments} نوبت پاک شد."
+            'پاک‌سازی انجام شد: ' . to_fa_digits((string) $deletedUsers) . ' کاربر حذف شد و ' . to_fa_digits((string) $deletedAppointments) . ' نوبت پاک شد.'
         );
     } catch (Throwable $e) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
+        db_rollback($pdo);
         flash_set('error', 'پاک‌سازی ناموفق بود. دوباره تلاش کنید.');
     }
     redirect('/admin/users');

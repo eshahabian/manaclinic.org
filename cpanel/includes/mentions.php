@@ -9,6 +9,9 @@ function ensure_mentions_schema(PDO $pdo): void
     if ($ready) {
         return;
     }
+    if ($pdo->inTransaction()) {
+        return;
+    }
     $pdo->exec("
       CREATE TABLE IF NOT EXISTS user_mentions (
         id VARCHAR(32) PRIMARY KEY,

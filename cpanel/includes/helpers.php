@@ -231,6 +231,22 @@ function flash_get(): ?array
     return $f;
 }
 
+/** فقط اگر تراکنش فعال باشد commit می‌کند (جلوگیری از خطای کاذب بعد از DDL). */
+function db_commit(PDO $pdo): void
+{
+    if ($pdo->inTransaction()) {
+        $pdo->commit();
+    }
+}
+
+/** فقط اگر تراکنش فعال باشد rollback می‌کند. */
+function db_rollback(PDO $pdo): void
+{
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+}
+
 function post(string $key, string $default = ''): string
 {
     return trim((string) ($_POST[$key] ?? $default));

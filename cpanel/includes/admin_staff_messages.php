@@ -9,6 +9,9 @@ function ensure_admin_staff_messages_schema(PDO $pdo): void
     if ($ready) {
         return;
     }
+    if ($pdo->inTransaction()) {
+        return;
+    }
     $pdo->exec("
       CREATE TABLE IF NOT EXISTS admin_staff_messages (
         id VARCHAR(32) PRIMARY KEY,
