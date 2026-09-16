@@ -73,6 +73,17 @@ try {
         post('note_id') !== '' ? post('note_id') : null,
         $sessionId
     );
+    if (function_exists('mentions_capture')) {
+        mentions_capture(
+            $pdo,
+            doctor_ctx_user_id($ctx),
+            $noteHtml,
+            'workshop_session_note',
+            $sessionId,
+            workshop_doctor_board_url($workshop, $sessionId),
+            $workshopId
+        );
+    }
 
     $savedFiles = workshop_media_process_path_session_files(
         $pdo,

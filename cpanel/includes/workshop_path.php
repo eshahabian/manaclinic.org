@@ -171,7 +171,7 @@ function workshop_doctor_path_render(array $board): string
 
     ob_start();
     ?>
-<div class="workshop-path-wrap workshop-doctor-board" id="workshop-<?= e($workshopId) ?>-doctor-path">
+<div class="workshop-path-wrap workshop-doctor-board" id="workshop-<?= e($workshopId) ?>-doctor-path" data-mention-scope="workshop" data-mention-scope-id="<?= e($workshopId) ?>">
   <div class="workshop-path-motivate" role="status">
     <strong>مسیر و یادداشت‌های درمانگر</strong>
     <?php if ((int) ($progress['total'] ?? 0) > 0): ?>
@@ -226,6 +226,8 @@ function workshop_doctor_path_render(array $board): string
                 contenteditable="true"
                 role="textbox"
                 data-rich-editor
+                data-mention-scope="workshop"
+                data-mention-scope-id="<?= e($workshopId) ?>"
                 data-placeholder="نکات جلسه را بنویسید؛ کلمه را انتخاب کنید و Bold یا هایلایت بزنید…"
               ><?= $noteHtml ?></div>
               <textarea name="note_html" hidden data-rich-hidden><?= e((string) ($step['doctor_note'] ?? '')) ?></textarea>
@@ -567,13 +569,26 @@ function workshop_path_save_note(
     if ($noteId !== '') {
         $pdo->prepare('UPDATE workshop_path_notes SET body=?, author_user_id=? WHERE id=?')
             ->execute([$body, $authorUserId, $noteId]);
+        if (function_exists('mentions_capture')) {
+            $link = $kind === 'patient'
+                ? workshop_path_url($enrollmentId)
+                : workshop_path_doctor_url($enrollmentId);
+            mentions_capture($pdo, $authorUserId, $body, 'workshop_path', $noteId, $link, $workshopId);
+        }
         return;
     }
 
+    $newId = cuid();
     $pdo->prepare('
       INSERT INTO workshop_path_notes (id, enrollment_id, session_id, kind, body, author_user_id)
       VALUES (?,?,?,?,?,?)
-    ')->execute([cuid(), $enrollmentId, $sessionId, $kind, $body, $authorUserId]);
+    ')->execute([$newId, $enrollmentId, $sessionId, $kind, $body, $authorUserId]);
+    if (function_exists('mentions_capture')) {
+        $link = $kind === 'patient'
+            ? workshop_path_url($enrollmentId)
+            : workshop_path_doctor_url($enrollmentId);
+        mentions_capture($pdo, $authorUserId, $body, 'workshop_path', $newId, $link, $workshopId);
+    }
 }
 
 function workshop_path_render(array $ctx, string $mode): string
@@ -584,11 +599,12 @@ function workshop_path_render(array $ctx, string $mode): string
     $progress = is_array($ctx['progress'] ?? null) ? $ctx['progress'] : [];
     $postUrl = (string) ($ctx['post_url'] ?? '');
     $enrollmentId = (string) ($enrollment['id'] ?? '');
+    $workshopId = (string) ($enrollment['workshop_id'] ?? '');
     $current = (int) ($progress['current'] ?? 0);
 
     ob_start();
     ?>
-<div class="workshop-path-wrap">
+<div class="workshop-path-wrap"<?= $workshopId !== '' ? ' data-mention-scope="workshop" data-mention-scope-id="' . e($workshopId) . '"' : '' ?>>
   <div class="workshop-path-motivate" role="status">
     <strong><?= $mode === 'doctor' ? 'مسیر این مراجع' : 'مسیر تو در این دوره' ?></strong>
     <?php if ((int) ($progress['total'] ?? 0) > 0): ?>
@@ -649,6 +665,8 @@ function workshop_path_render(array $ctx, string $mode): string
                     contenteditable="true"
                     role="textbox"
                     data-rich-editor
+                    data-mention-scope="workshop"
+                    data-mention-scope-id="<?= e($workshopId) ?>"
                     data-placeholder="اگر دوست دارید از این جلسه چیزی برای خودتان بنویسید…"
                   ><?= rich_html_for_display((string) ($step['patient_note'] ?? '')) ?></div>
                   <textarea name="body" hidden data-rich-hidden></textarea>
@@ -678,6 +696,8 @@ function workshop_path_render(array $ctx, string $mode): string
                   contenteditable="true"
                   role="textbox"
                   data-rich-editor
+                  data-mention-scope="workshop"
+                  data-mention-scope-id="<?= e($workshopId) ?>"
                   data-placeholder="فقط همین مراجع این یادداشت را می‌بیند…"
                 ><?= rich_html_for_display((string) ($step['instructor_note'] ?? '')) ?></div>
                 <textarea name="body" hidden data-rich-hidden></textarea>

@@ -25,7 +25,14 @@
     activeEditor = null;
   }
 
-  function getCaretRect() {
+  function isPlainField(editor) {
+    return !!(editor && (editor.tagName === "TEXTAREA" || editor.tagName === "INPUT"));
+  }
+
+  function getCaretRect(editor) {
+    if (isPlainField(editor)) {
+      return editor.getBoundingClientRect();
+    }
     var sel = global.getSelection();
     if (!sel || !sel.rangeCount) return null;
     var range = sel.getRangeAt(0).cloneRange();
@@ -40,9 +47,9 @@
     return rect;
   }
 
-  function positionMenu() {
+  function positionMenu(editor) {
     var menu = ensureMenu();
-    var rect = getCaretRect();
+    var rect = getCaretRect(editor || activeEditor);
     if (!rect) return;
     var top = rect.bottom + global.scrollY + 6;
     var left = rect.left + global.scrollX;
@@ -50,7 +57,47 @@
     menu.style.left = Math.max(8, left) + "px";
   }
 
+  function rememberPlainMention(editor, item) {
+    var ids = [];
+    try {
+      ids = JSON.parse(editor.getAttribute("data-mention-ids") || "[]");
+    } catch (e) {
+      ids = [];
+    }
+    if (!Array.isArray(ids)) ids = [];
+    if (ids.indexOf(item.id) < 0) ids.push(item.id);
+    editor.setAttribute("data-mention-ids", JSON.stringify(ids));
+    var form = editor.closest("form");
+    if (form) {
+      var hidden = form.querySelector('input[name="mention_ids"]');
+      if (!hidden) {
+        hidden = document.createElement("input");
+        hidden.type = "hidden";
+        hidden.name = "mention_ids";
+        form.appendChild(hidden);
+      }
+      hidden.value = ids.join(",");
+    }
+  }
+
   function insertMention(editor, item) {
+    var label = "@" + (item.label || item.name || "user");
+    if (isPlainField(editor)) {
+      var val = editor.value || "";
+      var pos = editor.selectionStart || 0;
+      var before = val.slice(0, pos);
+      var after = val.slice(editor.selectionEnd || pos);
+      var at = before.lastIndexOf("@");
+      if (at < 0) return;
+      editor.value = before.slice(0, at) + label + "\u00a0" + after;
+      var next = at + label.length + 1;
+      editor.setSelectionRange(next, next);
+      rememberPlainMention(editor, item);
+      hideMenu();
+      editor.dispatchEvent(new Event("input", { bubbles: true }));
+      return;
+    }
+
     var sel = global.getSelection();
     if (!sel || !sel.rangeCount || !editor.contains(sel.anchorNode)) return;
 
@@ -64,8 +111,7 @@
     var at = before.lastIndexOf("@");
     if (at < 0) return;
 
-    var deleteFrom = at;
-    range.setStart(node, deleteFrom);
+    range.setStart(node, at);
     range.setEnd(node, offset);
     range.deleteContents();
 
@@ -75,7 +121,7 @@
     span.setAttribute("contenteditable", "false");
     span.style.color = COLOR;
     span.style.fontWeight = "600";
-    span.textContent = "@" + (item.label || item.name || "user");
+    span.textContent = label;
 
     range.insertNode(span);
     var space = document.createTextNode("\u00a0");
@@ -120,7 +166,7 @@
     });
     activeEditor = editor;
     menu.hidden = false;
-    positionMenu();
+    positionMenu(editor);
   }
 
   function escapeHtml(s) {
@@ -132,6 +178,14 @@
   }
 
   function queryAtToken(editor) {
+    if (isPlainField(editor)) {
+      var val = editor.value || "";
+      var pos = editor.selectionStart || 0;
+      if (editor.selectionEnd !== editor.selectionStart) return null;
+      var before = val.slice(0, pos);
+      var match = before.match(/@([^\s@]{0,40})$/);
+      return match ? match[1] || "" : null;
+    }
     var sel = global.getSelection();
     if (!sel || !sel.rangeCount || !sel.isCollapsed) return null;
     if (!editor.contains(sel.anchorNode)) return null;
@@ -147,8 +201,25 @@
     return match[1] || "";
   }
 
+  function editorScope(editor) {
+    if (!editor) return { scope: "", scopeId: "" };
+    var scope = (editor.getAttribute("data-mention-scope") || "").trim();
+    var scopeId = (editor.getAttribute("data-mention-scope-id") || "").trim();
+    if ((!scope || !scopeId) && editor.closest) {
+      var host = editor.closest("[data-mention-scope][data-mention-scope-id]");
+      if (host) {
+        scope = scope || (host.getAttribute("data-mention-scope") || "").trim();
+        scopeId = scopeId || (host.getAttribute("data-mention-scope-id") || "").trim();
+      }
+    }
+    return { scope: scope, scopeId: scopeId };
+  }
+
   function fetchSuggest(q, editor) {
+    var scoped = editorScope(editor);
     var url = suggestUrl + (suggestUrl.indexOf("?") >= 0 ? "&" : "?") + "q=" + encodeURIComponent(q);
+    if (scoped.scope) url += "&scope=" + encodeURIComponent(scoped.scope);
+    if (scoped.scopeId) url += "&scope_id=" + encodeURIComponent(scoped.scopeId);
     fetch(url, { credentials: "same-origin", headers: { Accept: "application/json" } })
       .then(function (r) {
         return r.json();
@@ -229,7 +300,7 @@
   });
 
   document.addEventListener("scroll", function () {
-    if (menuEl && !menuEl.hidden) positionMenu();
+    if (menuEl && !menuEl.hidden) positionMenu(activeEditor);
   }, true);
 
   global.initMentions = initMentions;

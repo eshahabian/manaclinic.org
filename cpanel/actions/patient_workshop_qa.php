@@ -35,6 +35,20 @@ try {
         $isPrivate,
         $isPrivate ? workshop_qa_doctor_user_id($pdo, $workshopId) : null
     );
+    if (function_exists('mentions_capture_ids')) {
+        $rawIds = preg_split('/\s*,\s*/', trim((string) ($_POST['mention_ids'] ?? ''))) ?: [];
+        $snippet = mb_substr(trim((string) ($_POST['body'] ?? '')), 0, 180);
+        mentions_capture_ids(
+            $pdo,
+            (string) ($user['id'] ?? ''),
+            $rawIds,
+            $snippet,
+            'workshop_qa',
+            $workshopId,
+            '/dashboard/workshops/path?enrollment=' . rawurlencode($enrollmentId) . '#workshop-qa',
+            $workshopId
+        );
+    }
     flash_set('success', $isPrivate ? 'پیام خصوصی ارسال شد.' : 'پیام در تالار نشست.');
 } catch (RuntimeException $e) {
     flash_set('error', $e->getMessage());

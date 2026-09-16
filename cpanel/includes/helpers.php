@@ -424,7 +424,7 @@ function rich_editor_toolbar_html(array $opts = []): string
       <span class="tool-sep"></span>
       <span class="muted tool-label">رنگ متن</span>
       <?php foreach ($colors as $name => $hex): ?>
-        <button type="button" class="swatch text-swatch <?= e($name) ?>" data-color="<?= e($hex) ?>" title="رنگ <?= e($name) ?>" style="color:<?= e($hex) ?>">A</button>
+        <button type="button" class="swatch text-swatch <?= e($name) ?>" data-color="<?= e($hex) ?>" title="رنگ متن <?= e($name) ?>" style="background:<?= e($hex) ?>" aria-label="رنگ متن <?= e($name) ?>"></button>
       <?php endforeach; ?>
       <span class="tool-sep"></span>
       <button type="button" class="tool-btn" data-cmd="insertTable" title="درج جدول">جدول</button>

@@ -65,11 +65,24 @@ function mentions_role_label(string $role): string
 
 /**
  * پیشنهاد یوزر برای @ — فقط نقش‌های مجاز، بدون خود کاربر.
+ * scope=workshop + scopeId → فقط اعضای همان کارگاه (ثبت‌نام‌شده‌ها + درمانگر).
  *
  * @return list<array{id:string,name:string,username:string,role:string,label:string}>
  */
-function mentions_suggest(PDO $pdo, array $user, string $query, int $limit = 12): array
-{
+function mentions_suggest(
+    PDO $pdo,
+    array $user,
+    string $query,
+    int $limit = 12,
+    string $scope = '',
+    string $scopeId = ''
+): array {
+    $scope = strtolower(trim($scope));
+    $scopeId = trim($scopeId);
+    if ($scope === 'workshop' && $scopeId !== '') {
+        return mentions_suggest_workshop($pdo, $user, $scopeId, $query, $limit);
+    }
+
     $roles = mentions_suggestable_roles((string) ($user['role'] ?? ''));
     if (!$roles) {
         return [];
@@ -98,8 +111,120 @@ function mentions_suggest(PDO $pdo, array $user, string $query, int $limit = 12)
     $sql .= ' ORDER BY name ASC, username ASC LIMIT ' . $limit;
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
+
+    return mentions_map_suggest_rows($stmt->fetchAll() ?: []);
+}
+
+/** آیا کاربر به این کارگاه دسترسی منشن دارد؟ */
+function mentions_can_access_workshop(PDO $pdo, array $user, string $workshopId): bool
+{
+    $workshopId = trim($workshopId);
+    $userId = (string) ($user['id'] ?? '');
+    $role = strtoupper((string) ($user['role'] ?? ''));
+    if ($workshopId === '' || $userId === '') {
+        return false;
+    }
+    if (in_array($role, ['ADMIN', 'SECRETARY'], true)) {
+        $stmt = $pdo->prepare('SELECT 1 FROM workshops WHERE id=? LIMIT 1');
+        $stmt->execute([$workshopId]);
+
+        return (bool) $stmt->fetchColumn();
+    }
+    if ($role === 'DOCTOR') {
+        $stmt = $pdo->prepare('
+          SELECT 1
+          FROM workshops w
+          JOIN doctor_profiles dp ON dp.id = w.doctor_id
+          WHERE w.id=? AND dp.user_id=?
+          LIMIT 1
+        ');
+        $stmt->execute([$workshopId, $userId]);
+
+        return (bool) $stmt->fetchColumn();
+    }
+    if ($role === 'PATIENT') {
+        $statuses = function_exists('workshop_path_member_statuses')
+            ? workshop_path_member_statuses()
+            : ['CONFIRMED', 'COMPLETED'];
+        $place = implode(',', array_fill(0, count($statuses), '?'));
+        $stmt = $pdo->prepare("
+          SELECT 1 FROM workshop_enrollments
+          WHERE workshop_id=? AND patient_id=? AND status IN ({$place})
+          LIMIT 1
+        ");
+        $stmt->execute([$workshopId, $userId, ...$statuses]);
+
+        return (bool) $stmt->fetchColumn();
+    }
+
+    return false;
+}
+
+/**
+ * اعضای قابل‌منشن کارگاه: شرکت‌کننده‌های ثبت‌نام‌شده + درمانگر کارگاه.
+ * لیست زنده است؛ عضو جدید بعد از تأیید خودکار ظاهر می‌شود.
+ *
+ * @return list<array{id:string,name:string,username:string,role:string,label:string}>
+ */
+function mentions_suggest_workshop(
+    PDO $pdo,
+    array $user,
+    string $workshopId,
+    string $query,
+    int $limit = 12
+): array {
+    if (!mentions_can_access_workshop($pdo, $user, $workshopId)) {
+        return [];
+    }
+    $limit = max(1, min(30, $limit));
+    $selfId = (string) ($user['id'] ?? '');
+    $q = trim($query);
+    $statuses = function_exists('workshop_path_member_statuses')
+        ? workshop_path_member_statuses()
+        : ['CONFIRMED', 'COMPLETED'];
+    $statusPlace = implode(',', array_fill(0, count($statuses), '?'));
+
+    $params = [$workshopId, ...$statuses, $workshopId];
+    $sql = "
+      SELECT DISTINCT u.id, u.name, u.username, u.role
+      FROM users u
+      WHERE u.id IN (
+        SELECT e.patient_id
+        FROM workshop_enrollments e
+        WHERE e.workshop_id = ? AND e.status IN ({$statusPlace})
+        UNION
+        SELECT dp.user_id
+        FROM workshops w
+        JOIN doctor_profiles dp ON dp.id = w.doctor_id
+        WHERE w.id = ?
+      )
+    ";
+    if ($selfId !== '') {
+        $sql .= ' AND u.id <> ?';
+        $params[] = $selfId;
+    }
+    if ($q !== '') {
+        $sql .= ' AND (u.name LIKE ? OR u.username LIKE ? OR u.email LIKE ?)';
+        $like = '%' . $q . '%';
+        $params[] = $like;
+        $params[] = $like;
+        $params[] = $like;
+    }
+    $sql .= ' ORDER BY u.role ASC, u.name ASC, u.username ASC LIMIT ' . $limit;
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+
+    return mentions_map_suggest_rows($stmt->fetchAll() ?: []);
+}
+
+/**
+ * @param list<array> $rows
+ * @return list<array{id:string,name:string,username:string,role:string,label:string}>
+ */
+function mentions_map_suggest_rows(array $rows): array
+{
     $out = [];
-    foreach ($stmt->fetchAll() ?: [] as $row) {
+    foreach ($rows as $row) {
         $label = function_exists('staff_actor_label')
             ? staff_actor_label($row)
             : trim((string) (($row['name'] ?? '') ?: ($row['username'] ?? '')));
@@ -156,12 +281,46 @@ function mentions_capture(
     string $html,
     string $context = 'general',
     ?string $contextId = null,
-    ?string $link = null
+    ?string $link = null,
+    ?string $workshopId = null
+): int {
+    $ids = mentions_extract_ids_from_html($html);
+    $snippet = mentions_snippet_from_html($html);
+
+    return mentions_capture_ids($pdo, $fromUserId, $ids, $snippet, $context, $contextId, $link, $workshopId);
+}
+
+/**
+ * @param list<string> $ids
+ */
+function mentions_capture_ids(
+    PDO $pdo,
+    string $fromUserId,
+    array $ids,
+    string $snippet,
+    string $context = 'general',
+    ?string $contextId = null,
+    ?string $link = null,
+    ?string $workshopId = null
 ): int {
     ensure_mentions_schema($pdo);
-    $ids = mentions_extract_ids_from_html($html);
+    $clean = [];
+    foreach ($ids as $id) {
+        $id = trim((string) $id);
+        if ($id !== '' && $id !== $fromUserId) {
+            $clean[$id] = true;
+        }
+    }
+    $ids = array_keys($clean);
     if (!$ids || $fromUserId === '') {
         return 0;
+    }
+
+    if ($workshopId) {
+        $ids = mentions_filter_ids_for_workshop($pdo, $workshopId, $ids);
+        if (!$ids) {
+            return 0;
+        }
     }
 
     $fromStmt = $pdo->prepare('SELECT id, name, username, role FROM users WHERE id=? LIMIT 1');
@@ -187,9 +346,8 @@ function mentions_capture(
         return 0;
     }
 
-    $snippet = mentions_snippet_from_html($html);
-    $panelLink = mentions_panel_path_for_user($pdo, array_key_first($valid) ?: $fromUserId);
-    $link = $link ?: $panelLink;
+    $snippet = trim($snippet) !== '' ? $snippet : 'شما را منشن کرد';
+    $link = $link ?: mentions_panel_path_for_user($pdo, array_key_first($valid) ?: $fromUserId);
     $fromName = trim((string) (($from['name'] ?? '') ?: ($from['username'] ?? 'کاربر')));
     $ins = $pdo->prepare('
       INSERT INTO user_mentions (id, from_user_id, to_user_id, context, context_id, body_snippet, link, is_read)
@@ -197,13 +355,13 @@ function mentions_capture(
     ');
     $count = 0;
     foreach (array_keys($valid) as $toId) {
-        $ins->execute([cuid(), $fromUserId, $toId, $context, $contextId, $snippet, $link]);
+        $ins->execute([cuid(), $fromUserId, $toId, $context, $contextId, mb_substr($snippet, 0, 255), $link]);
         if (function_exists('notify_user')) {
             notify_user(
                 $pdo,
                 $toId,
                 'منشن از ' . $fromName,
-                $snippet,
+                mb_substr($snippet, 0, 180),
                 mentions_panel_path_for_user($pdo, $toId),
                 'mention',
                 $fromUserId
@@ -213,6 +371,39 @@ function mentions_capture(
     }
 
     return $count;
+}
+
+/** @param list<string> $ids @return list<string> */
+function mentions_filter_ids_for_workshop(PDO $pdo, string $workshopId, array $ids): array
+{
+    if ($workshopId === '' || !$ids) {
+        return [];
+    }
+    $statuses = function_exists('workshop_path_member_statuses')
+        ? workshop_path_member_statuses()
+        : ['CONFIRMED', 'COMPLETED'];
+    $idPlace = implode(',', array_fill(0, count($ids), '?'));
+    $statusPlace = implode(',', array_fill(0, count($statuses), '?'));
+    $stmt = $pdo->prepare("
+      SELECT u.id
+      FROM users u
+      WHERE u.id IN ({$idPlace})
+        AND u.id IN (
+          SELECT e.patient_id FROM workshop_enrollments e
+          WHERE e.workshop_id = ? AND e.status IN ({$statusPlace})
+          UNION
+          SELECT dp.user_id FROM workshops w
+          JOIN doctor_profiles dp ON dp.id = w.doctor_id
+          WHERE w.id = ?
+        )
+    ");
+    $stmt->execute([...$ids, $workshopId, ...$statuses, $workshopId]);
+    $out = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) ?: [] as $id) {
+        $out[] = (string) $id;
+    }
+
+    return $out;
 }
 
 function mentions_panel_path_for_user(PDO $pdo, string $userId): string

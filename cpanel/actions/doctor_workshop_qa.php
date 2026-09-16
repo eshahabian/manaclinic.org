@@ -45,6 +45,20 @@ try {
         $isPrivate,
         $audience
     );
+    if (function_exists('mentions_capture_ids')) {
+        $rawIds = preg_split('/\s*,\s*/', trim((string) ($_POST['mention_ids'] ?? ''))) ?: [];
+        $snippet = mb_substr(trim((string) ($_POST['body'] ?? '')), 0, 180);
+        mentions_capture_ids(
+            $pdo,
+            doctor_ctx_user_id($ctx),
+            $rawIds,
+            $snippet,
+            'workshop_qa',
+            $workshopId,
+            workshop_qa_url_doctor($workshopId),
+            $workshopId
+        );
+    }
     flash_set('success', $isPrivate ? 'پاسخ خصوصی ارسال شد.' : 'پیام در تالار نشست.');
 } catch (RuntimeException $e) {
     flash_set('error', $e->getMessage());

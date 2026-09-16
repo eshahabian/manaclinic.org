@@ -51,7 +51,7 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
   <?= seo_render_head() ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260916f">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260916g">
   <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
   <script>
   (function(){
@@ -328,7 +328,7 @@ window.APP_BASE = <?= json_encode((static function (): string {
 })(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 window.__MENTIONS_SUGGEST__ = <?= json_encode(url('/api/mentions/suggest'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
 </script>
-<script src="<?= e(url('/assets/js/mentions.js')) ?>?v=20260916m"></script>
+<script src="<?= e(url('/assets/js/mentions.js')) ?>?v=20260916n"></script>
 <?php endif; ?>
 <?php
 $videoWatch = function_exists('video_call_watch_config') ? video_call_watch_config($user) : null;
