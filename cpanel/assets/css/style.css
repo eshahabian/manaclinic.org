@@ -4580,15 +4580,16 @@ body.workshop-overview-locked { overflow: hidden; }
 .doc-profile-page { max-width: 46rem; }
 .admin-secretary-msgs,
 .doctor-secretary-msgs {
-  max-width: 42rem;
   width: 100%;
+  max-width: none;
 }
 .admin-secretary-msgs > .panel,
-.admin-secretary-msgs > .stack,
+.admin-secretary-msgs > form.panel,
 .doctor-secretary-msgs > .panel,
-.doctor-secretary-msgs > .stack {
-  max-width: none;
+.doctor-secretary-msgs > form.panel {
   width: 100%;
+  max-width: none;
+  box-sizing: border-box;
 }
 .doc-onboard-banner {
   margin: .7rem 0 1.1rem;
