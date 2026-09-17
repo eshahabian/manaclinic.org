@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/booking_terms.php';
+require_once __DIR__ . '/../includes/availability.php';
 
 $id = (string) ($_GET['id'] ?? '');
 $stmt = $pdo->prepare("
@@ -20,9 +21,21 @@ if (!$doctor) {
     exit;
 }
 
-$av = $pdo->prepare('SELECT date FROM availabilities WHERE doctor_id = ? AND date >= CURDATE() ORDER BY date ASC');
+$av = $pdo->prepare('SELECT date, available_hours FROM availabilities WHERE doctor_id = ? AND date >= CURDATE() ORDER BY date ASC');
 $av->execute([$doctor['id']]);
-$dates = array_column($av->fetchAll(), 'date');
+$dates = [];
+foreach ($av->fetchAll() as $avRow) {
+    if (!is_array($avRow)) {
+        continue;
+    }
+    if (appointment_hours_decode((string) ($avRow['available_hours'] ?? '')) === []) {
+        continue;
+    }
+    $d = substr((string) ($avRow['date'] ?? ''), 0, 10);
+    if ($d !== '') {
+        $dates[] = $d;
+    }
+}
 
 $articles = $pdo->prepare('SELECT title, slug FROM articles WHERE author_id = ? AND published = 1 ORDER BY published_at DESC LIMIT 3');
 $articles->execute([$doctor['user_id']]);

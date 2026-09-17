@@ -18,22 +18,39 @@ function ensure_availability_schema(PDO $pdo): void
     }
 
     $span = appointment_hours_span();
-    $defaultHours = appointment_hours_encode(appointment_booking_hours());
-    $pdo->prepare("
-      UPDATE availabilities
-      SET start_time = ?,
-          end_time = ?,
-          slot_minutes = 60,
-          available_hours = ?
-      WHERE available_hours IS NULL
-         OR TRIM(available_hours) = ''
-    ")->execute([$span['start'], $span['end'], $defaultHours]);
-
     $pdo->prepare("
       UPDATE availabilities
       SET start_time = ?, end_time = ?
       WHERE start_time IN ('10:00', '12:00')
     ")->execute([$span['start'], $span['end']]);
+
+    // ردیف بدون ساعت واقعی قابل رزرو نیست
+    try {
+        $pdo->exec("
+          DELETE FROM availabilities
+          WHERE available_hours IS NULL OR TRIM(available_hours) = ''
+        ");
+    } catch (Throwable $ignored) {
+    }
+
+    // یک‌بار: روزهایی که به‌اشتباه با همهٔ ۲۴ ساعت پر شده بودند
+    try {
+        $pdo->exec("
+          CREATE TABLE IF NOT EXISTS app_meta (
+            k VARCHAR(64) PRIMARY KEY,
+            v VARCHAR(255) NOT NULL,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+        $flag = $pdo->query("SELECT v FROM app_meta WHERE k='avail_full_day_purged' LIMIT 1")->fetchColumn();
+        if (!$flag) {
+            $full = appointment_hours_encode(appointment_booking_hours());
+            $pdo->prepare('DELETE FROM availabilities WHERE available_hours = ?')->execute([$full]);
+            $pdo->prepare("INSERT INTO app_meta (k, v) VALUES ('avail_full_day_purged', '1') ON DUPLICATE KEY UPDATE v='1'")
+                ->execute();
+        }
+    } catch (Throwable $ignored) {
+    }
 
     $ready = true;
 }
@@ -149,12 +166,8 @@ function appointment_hours_decode(?string $raw): array
 
 function appointment_availability_hours(array $availability): array
 {
-    $hours = appointment_hours_decode($availability['available_hours'] ?? null);
-    if ($hours) {
-        return $hours;
-    }
-
-    return appointment_booking_hours();
+    // فقط ساعت‌هایی که درمانگر واقعاً اعلام کرده — بدون fallback به کل شبانه‌روز
+    return appointment_hours_decode($availability['available_hours'] ?? null);
 }
 
 function appointment_slots_from_availability(array $availability): array
@@ -576,6 +589,70 @@ function doctor_availability_apply_weekday(PDO $pdo, string $doctorId, int $week
             $pdo->rollBack();
         }
         throw $e;
+    }
+
+    return $n;
+}
+
+
+
+/**
+ * یک‌بار بعد از پاکسازی: همه قالب‌های هفتگی را روی روزهای آینده بازمی‌سازد.
+ */
+function doctor_availability_resync_all_weekly(PDO $pdo): void
+{
+    static $ran = false;
+    if ($ran) {
+        return;
+    }
+    $ran = true;
+    try {
+        ensure_doctor_weekly_hours_schema($pdo);
+        $pdo->exec("
+          CREATE TABLE IF NOT EXISTS app_meta (
+            k VARCHAR(64) PRIMARY KEY,
+            v VARCHAR(255) NOT NULL,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+        $flag = $pdo->query("SELECT v FROM app_meta WHERE k='avail_weekly_resync_v1' LIMIT 1")->fetchColumn();
+        if ($flag) {
+            return;
+        }
+        $ids = $pdo->query("SELECT DISTINCT doctor_id FROM doctor_weekly_hours")->fetchAll(PDO::FETCH_COLUMN);
+        foreach ($ids as $id) {
+            $id = (string) $id;
+            if ($id !== "") {
+                doctor_availability_resync_weekly($pdo, $id, 12);
+            }
+        }
+        $pdo->prepare("INSERT INTO app_meta (k, v) VALUES ('avail_weekly_resync_v1', '1') ON DUPLICATE KEY UPDATE v='1'")
+            ->execute();
+    } catch (Throwable $ignored) {
+    }
+}
+
+/**
+ * اگر قالب هفتگی ذخیره شده ولی روزهای آینده خالی/حذف شده‌اند، دوباره می‌سازد.
+ */
+function doctor_availability_resync_weekly(PDO $pdo, string $doctorId, int $weeks = 12): int
+{
+    ensure_availability_schema($pdo);
+    ensure_doctor_weekly_hours_schema($pdo);
+    if ($doctorId === '') {
+        return 0;
+    }
+    $weeks = max(1, min(26, $weeks));
+    $map = doctor_weekly_hours_map($pdo, $doctorId);
+    if ($map === []) {
+        return 0;
+    }
+    $n = 0;
+    foreach ($map as $weekday => $hours) {
+        if (!is_array($hours) || $hours === []) {
+            continue;
+        }
+        $n += doctor_availability_apply_weekday($pdo, $doctorId, (int) $weekday, $hours, $weeks);
     }
 
     return $n;

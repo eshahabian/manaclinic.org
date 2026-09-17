@@ -100,6 +100,9 @@ if (!$isLightRequest) {
     ensure_articles_schema($pdo);
     require_once __DIR__ . '/includes/availability.php';
     ensure_availability_schema($pdo);
+    if (function_exists('doctor_availability_resync_all_weekly')) {
+        doctor_availability_resync_all_weekly($pdo);
+    }
     ensure_assistant_schema($pdo);
     ensure_staff_desk_schema($pdo);
     if (function_exists('ensure_appointment_session_schema')) {

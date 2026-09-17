@@ -7,6 +7,10 @@ require_once __DIR__ . '/../../includes/availability.php';
 $ctx = require_doctor_profile($pdo);
 ensure_availability_schema($pdo);
 ensure_doctor_weekly_hours_schema($pdo);
+// اگر قالب هفتگی هست ولی روزهای آینده پاک/خالی شده‌اند، دوباره بساز
+if (function_exists('doctor_availability_resync_weekly')) {
+    doctor_availability_resync_weekly($pdo, (string) ($ctx['profile']['id'] ?? ''), 12);
+}
 $bookingHours = appointment_booking_hours();
 $weeklyMap = doctor_weekly_hours_map($pdo, (string) $ctx['profile']['id']);
 $weekdays = doctor_weekdays_sat_first();
