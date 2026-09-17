@@ -11,9 +11,9 @@ if (!assistant_enabled()) {
 ensure_assistant_schema($pdo);
 
 $pageTitle = 'با من حرف بزن';
-$pageDescription = 'دستیار هوشمند مانا کلینیک برای پیدا کردن درمانگر یا کارگاه مناسب. تشخیص پزشکی نیست؛ در بحران با اورژانس ۱۱۵ تماس بگیرید.';
+$pageDescription = 'دستیار هوشمند مانا کلینیک: انتخاب حوزه درمان، سوال‌های تخصصی و معرفی درمانگر مناسب. تشخیص پزشکی نیست؛ در بحران با اورژانس ۱۱۵ تماس بگیرید.';
 $pageCanonical = url('/assistant');
-$pageKeywords = 'دستیار هوشمند روانشناسی, چت روانشناس, مانا کلینیک';
+$pageKeywords = 'دستیار هوشمند روانشناسی, چت روانشناس, معرفی درمانگر, مانا کلینیک';
 $user = current_user();
 $isPatient = $user && ($user['role'] ?? '') === 'PATIENT';
 $resumeSession = trim((string) ($_GET['session'] ?? ''));
@@ -35,9 +35,7 @@ ob_start();
   <div class="assistant-head">
     <h1>با من حرف بزن</h1>
     <p class="muted">
-      <?= assistant_ai_available()
-        ? 'گفتگوی واقعی با دستیار هوشمند برای پیدا کردن درمانگر یا کارگاه مناسب'
-        : 'توجه: کلید API روی سرور تنظیم نشده — فعلاً حالت سوال‌های ثابت فعال است. برای هوش مصنوعی واقعی، openai_api_key را در config.php سرور بگذارید.' ?>
+      حوزه مورد نظرتان را انتخاب کنید، سوال‌های تخصصی را ببینید، بعد بیشتر حرف بزنید یا درمانگر مرتبط از مانا کلینیک را بشناسید.
     </p>
   </div>
 
@@ -54,6 +52,6 @@ ob_start();
 $content = ob_get_clean();
 
 $pageScripts = '<script>window.__ASSISTANT__ = ' . json_encode($assistantConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . ';</script>'
-    . '<script src="' . e(url('/assets/js/assistant.js')) . '?v=20260913a"></script>';
+    . '<script src="' . e(url('/assets/js/assistant.js')) . '?v=20260317b"></script>';
 
 require __DIR__ . '/../includes/layout.php';

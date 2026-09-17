@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/workshops.php';
 require_once __DIR__ . '/doctor_clinical.php';
 require_once __DIR__ . '/notifications.php';
+require_once __DIR__ . '/assistant_topics.php';
 
 function assistant_enabled(): bool
 {
@@ -273,10 +274,17 @@ function assistant_messages_save(PDO $pdo, string $sessionId, array $messages): 
         ->execute([json_encode($messages, JSON_UNESCAPED_UNICODE), $sessionId]);
 }
 
-function assistant_ai_system_prompt(): string
+function assistant_ai_system_prompt(?string $topicLabel = null, array $topicTags = []): string
 {
-    return <<<'PROMPT'
+    $topicLine = $topicLabel
+        ? "موضوع انتخابی کاربر در این گفتگو: «{$topicLabel}». تا وقتی خودش موضوع را عوض نکرده، در همین حوزه بمان و عمیق‌تر کمک کن."
+        : 'اگر موضوع مشخص شد، در همان حوزه بمان.';
+    $tagHint = $topicTags !== [] ? (string) $topicTags[0] : 'anxiety';
+
+    return <<<PROMPT
 تو دستیار گفت‌وگوی اولیه «مانا کلینیک» هستی. فقط به فارسی، با لحن گرم، کوتاه و محترمانه صحبت کن.
+
+{$topicLine}
 
 ======= محدوده پاسخ (اجباری) =======
 فقط درباره این موضوعات حرف بزن و کمک کن:
@@ -301,22 +309,22 @@ function assistant_ai_system_prompt(): string
 - هر پیام حداکثر ۱ یا ۲ جمله سوال داشته باشد
 - سوال تکراری نپرس
 - موضوعات مفید: موضوع اصلی، شدت، مدت، فردی/زوجی/کارگاه، حضوری/آنلاین/آفلاین، خواب/حمایت، هدف مراجعه
-- وقتی موضوع اصلی مشخص شد (مثلاً استرس، بی‌خوابی، بی‌حوصلگی، افسردگی، خشم، اضطراب)، در همان پیام یا پیام بعدی ۲ تا ۴ راهکار ساده و امن و قابل‌اجرا پیشنهاد بده (مثل بهداشت خواب، تنفس کوتاه، پیاده‌روی کوتاه، نوشتن نگرانی‌ها، تنظیم نور/کافئین، تکنیک زمین‌گیر شدن). بگو این‌ها جایگزین درمان نیستند.
-- بعد از پیشنهاد راهکار، یک سوال کوتاه بپرس (مثلاً مدت مشکل یا چه چیزی بیشتر اذیت می‌کند) تا گفتگو ادامه پیدا کند.
+- وقتی موضوع اصلی مشخص شد، در همان پیام یا پیام بعدی ۲ تا ۴ راهکار ساده و امن و قابل‌اجرا پیشنهاد بده. بگو این‌ها جایگزین درمان نیستند.
+- بعد از پیشنهاد راهکار، یک سوال کوتاه بپرس تا گفتگو ادامه پیدا کند.
 - تا وقتی حداقل یک مجموعه راهکار مرتبط ندادی، درباره معرفی درمانگر حرف نزن و بلوک READY نگذار.
 
 ======= پایان گفتگو =======
 فقط وقتی این‌ها را انجام دادی آماده‌ی معرفی درمانگر شو:
 1) موضوع اصلی و شدت/نیاز را فهمیده‌ای
 2) حداقل یک‌بار راهکارهای عملی مرتبط پیشنهاد داده‌ای
-3) ترجیح جلسه (فردی/زوجی یا حضوری/آنلاین/آفلاین) را تا حد ممکن فهمیده‌ای یا کاربر خواسته درمانگر ببیند
+3) ترجیح جلسه را تا حد ممکن فهمیده‌ای یا کاربر خواسته درمانگر ببیند
 
 آن‌وقت جمع‌بندی همدلانه بنویس، بگو الان درمانگر مناسب پیشنهاد می‌شود، و دقیقاً در انتهای پیام این بلوک را بگذار:
 
 <<<READY>>>
-{"tags":["anxiety","moderate","therapy","ONLINE"],"summary":"خلاصه کوتاه فارسی از وضعیت و نیاز مراجعه‌کننده"}
+{"tags":["{$tagHint}","moderate","therapy"],"summary":"خلاصه کوتاه فارسی از وضعیت و نیاز مراجعه‌کننده"}
 
-تگ‌های مجاز: anxiety, depression, stress, burnout, anger, mood, sleep, couple, relationship, family, parenting, growth, self, mild, moderate, high, urgent, recent, months, chronic, individual, therapy, workshop, group, unsure, IN_PERSON, ONLINE, OFFLINE, support.
+تگ‌های مجاز: anxiety, depression, stress, burnout, anger, mood, sleep, couple, relationship, family, parenting, growth, self, mild, moderate, high, urgent, recent, months, chronic, individual, therapy, workshop, group, unsure, IN_PERSON, ONLINE, OFFLINE, support, ocd, trauma, grief, panic.
 PROMPT;
 }
 
@@ -456,9 +464,19 @@ function assistant_answers_from_ai_tags(array $tags, string $summary): array
     return $answers;
 }
 
-function assistant_openai_messages_for_api(array $stored): array
+function assistant_openai_messages_for_api(array $stored, ?array $flowMeta = null): array
 {
-    $out = [['role' => 'system', 'content' => assistant_ai_system_prompt()]];
+    $topicLabel = null;
+    $topicTags = [];
+    if (is_array($flowMeta)) {
+        $topicLabel = trim((string) ($flowMeta['topic_label'] ?? '')) ?: null;
+        $topicId = (string) ($flowMeta['topic'] ?? '');
+        if ($topicId !== '') {
+            $topic = assistant_topic_by_id($topicId);
+            $topicTags = $topic['tags'] ?? [];
+        }
+    }
+    $out = [['role' => 'system', 'content' => assistant_ai_system_prompt($topicLabel, $topicTags)]];
     // فقط آخرین پیام‌ها را بفرست تا تایم‌اوت/HTML وسط گفتگو کمتر شود
     $dialog = [];
     foreach ($stored as $m) {
@@ -506,6 +524,15 @@ function assistant_complete_from_ai(PDO $pdo, string $sessionId, array $messages
     }
 
     $answers = assistant_answers_from_ai_tags($tags, $summary);
+    $session = assistant_session_get($pdo, $sessionId);
+    if ($session) {
+        $existing = assistant_answers_decode($session['answers_json'] ?? null);
+        $flow = assistant_flow_meta($existing);
+        if ($flow !== []) {
+            $answers = assistant_flow_meta_set($answers, $flow);
+            $answers = assistant_answers_for_matching($answers);
+        }
+    }
     if ($summary !== '' && $answers === []) {
         $answers[] = ['question_id' => 'free_note', 'text' => $summary];
     }
@@ -559,6 +586,10 @@ function assistant_keyword_map(): array
         'sleep' => ['خواب', 'بی‌خوابی'],
         'therapy' => ['درمان', 'مشاوره', 'روان‌درمانی'],
         'workshop' => ['کارگاه', 'دوره', 'گروه'],
+        'ocd' => ['وسواس', 'اجبار', 'ocd'],
+        'trauma' => ['تروما', 'ضربه', 'PTSD'],
+        'grief' => ['سوگ', 'فقدان', 'عزا'],
+        'panic' => ['پانیک', 'حمله'],
         'IN_PERSON' => ['حضوری'],
         'ONLINE' => ['آنلاین'],
         'OFFLINE' => ['آفلاین', 'ویدیو'],
@@ -583,9 +614,28 @@ function assistant_score_text(string $haystack, array $tags): int
 
 function assistant_match_doctors(PDO $pdo, array $answers, int $limit = 5): array
 {
+    ensure_doctor_profile_schema($pdo);
     $tags = assistant_collect_tags($answers);
+    $meta = assistant_flow_meta($answers);
+    // اگر answers از matching wrapper آمده، _flow ممکن است نباشد — از tags_override استفاده کن
+    foreach ($answers as $ans) {
+        if (!empty($ans['tags_override']) && is_array($ans['tags_override'])) {
+            foreach ($ans['tags_override'] as $t) {
+                $tags[(string) $t] = ($tags[(string) $t] ?? 0) + 2;
+            }
+        }
+    }
+    $topicId = (string) ($meta['topic'] ?? '');
+    if ($topicId === '') {
+        foreach ($answers as $ans) {
+            if (($ans['question_id'] ?? '') === 'main_concern' && !empty($ans['option_id'])) {
+                // already via collect_tags
+            }
+        }
+    }
+
     $stmt = $pdo->query("
-      SELECT dp.id, dp.specialty, dp.bio, dp.session_price, dp.avatar_url, u.name
+      SELECT dp.id, dp.specialty, dp.bio, dp.session_price, dp.avatar_url, dp.focus_json, dp.domains_json, u.name
       FROM doctor_profiles dp
       JOIN users u ON u.id = dp.user_id
       WHERE dp.is_active = 1 AND dp.is_approved = 1
@@ -596,8 +646,34 @@ function assistant_match_doctors(PDO $pdo, array $answers, int $limit = 5): arra
     foreach ($rows as $row) {
         $blob = ((string) $row['specialty']) . ' ' . ((string) ($row['bio'] ?? '')) . ' ' . ((string) $row['name']);
         $score = assistant_score_text($blob, $tags);
+        $focusKeys = doctor_profile_json_list($row['focus_json'] ?? '');
+        $domainKeys = doctor_profile_json_list($row['domains_json'] ?? '');
+        if ($topicId !== '' && $topicId !== 'other') {
+            if (in_array($topicId, $focusKeys, true) || in_array($topicId, $domainKeys, true)) {
+                $score += 8;
+            }
+        }
+        foreach (array_keys($tags) as $tag) {
+            $focusMap = [
+                'anxiety' => 'anxiety',
+                'depression' => 'depression',
+                'ocd' => 'ocd',
+                'trauma' => 'trauma',
+                'grief' => 'grief',
+                'panic' => 'panic',
+                'couple' => 'relationships',
+                'relationship' => 'relationships',
+                'family' => 'family',
+                'parenting' => 'child',
+                'growth' => 'growth',
+            ];
+            $want = $focusMap[$tag] ?? '';
+            if ($want !== '' && (in_array($want, $focusKeys, true) || in_array($want, $domainKeys, true))) {
+                $score += 3;
+            }
+        }
         if (isset($tags['couple']) || isset($tags['relationship'])) {
-            if (mb_stripos($blob, 'زوج') !== false) {
+            if (mb_stripos($blob, 'زوج') !== false || in_array('couples', $domainKeys, true)) {
                 $score += 4;
             }
         }

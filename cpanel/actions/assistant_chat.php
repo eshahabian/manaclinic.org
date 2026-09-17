@@ -41,7 +41,8 @@ function assistant_chat_done_payload(string $sessionId, array $result, $user, st
     return array_merge([
         'sessionId' => $sessionId,
         'done' => true,
-        'mode' => 'ai',
+        'mode' => 'guided_ai',
+        'phase' => 'done',
         'status' => $result['status'] ?? 'SENT',
         'delivered' => (bool) ($result['delivered'] ?? true),
         'botMessage' => $botMessage !== '' ? $botMessage : "ممنون که با من حرف زدید.\nبر اساس گفتگو، چند درمانگر و کارگاه مرتبط پیشنهاد می‌کنم.\nنسخه‌ای از این گفتگو برای درمانگران کلینیک ارسال شد.",
@@ -52,51 +53,303 @@ function assistant_chat_done_payload(string $sessionId, array $result, $user, st
     ], assistant_chat_auth_urls($sessionId));
 }
 
+function assistant_chat_require_session(PDO $pdo, string $sessionId, $user): array
+{
+    $session = assistant_session_get($pdo, $sessionId);
+    if (!$session || !assistant_session_accessible($session, $user) || in_array($session['status'], ['SENT'], true)) {
+        throw new RuntimeException('جلسه گفتگو یافت نشد.');
+    }
+
+    return $session;
+}
+
+function assistant_chat_topics_payload(PDO $pdo, string $sessionId, string $botMessage): array
+{
+    $topics = [];
+    foreach (assistant_topic_options($pdo) as $t) {
+        $topics[] = ['id' => $t['id'], 'label' => $t['label']];
+    }
+
+    return [
+        'sessionId' => $sessionId,
+        'mode' => 'guided_ai',
+        'phase' => 'topic',
+        'botMessage' => $botMessage,
+        'topics' => $topics,
+        'done' => false,
+        'canComplete' => false,
+    ];
+}
+
+function assistant_chat_explore_payload(string $sessionId, string $topicId, string $topicLabel, string $botMessage, bool $includeQuestions = true): array
+{
+    $questions = [];
+    if ($includeQuestions) {
+        foreach (assistant_topic_questions($topicId) as $q) {
+            $questions[] = ['id' => $q['id'], 'text' => $q['text']];
+        }
+    }
+
+    return [
+        'sessionId' => $sessionId,
+        'mode' => 'guided_ai',
+        'phase' => 'explore',
+        'botMessage' => $botMessage,
+        'topic' => ['id' => $topicId, 'label' => $topicLabel],
+        'questions' => $questions,
+        'done' => false,
+        'canComplete' => false,
+    ];
+}
+
+function assistant_chat_choice_payload(string $sessionId, string $botMessage): array
+{
+    return [
+        'sessionId' => $sessionId,
+        'mode' => 'guided_ai',
+        'phase' => 'choice',
+        'botMessage' => $botMessage,
+        'choices' => [
+            ['id' => 'talk', 'label' => 'می‌خواهم بیشتر در این مورد حرف بزنم'],
+            ['id' => 'therapist', 'label' => 'درمانگر مناسب معرفی کن'],
+        ],
+        'done' => false,
+        'canComplete' => false,
+    ];
+}
+
 try {
     if ($action === 'start') {
         throttle_guard_json('assistant_start', 12, 3600, 'درخواست گفتگو زیاد بود. کمی بعد دوباره تلاش کنید.');
         throttle_hit('assistant_start', 3600);
         $session = assistant_session_create($pdo, ($user && ($user['role'] ?? '') === 'PATIENT') ? (string) $user['id'] : null);
         $sessionId = (string) $session['id'];
+        $greeting = "سلام، خوش آمدید.\nمن دستیار مانا کلینیک هستم. اول بگویید دوست دارید درباره کدام حوزه حرف بزنیم؟";
+        $answers = assistant_flow_meta_set([], [
+            'phase' => 'topic',
+            'topic' => '',
+            'topic_label' => '',
+            'explored' => [],
+            'custom_note' => '',
+        ]);
+        assistant_save_progress($pdo, $sessionId, 0, $answers);
+        $messages = [['role' => 'assistant', 'content' => $greeting]];
+        assistant_messages_save($pdo, $sessionId, $messages);
+        echo json_encode(assistant_chat_topics_payload($pdo, $sessionId, $greeting), JSON_UNESCAPED_UNICODE);
+        exit;
+    }
 
-        if ($aiMode) {
-            $greeting = "سلام، خوش اومدید.\nمن دستیار مانا کلینیک هستم. با من حرف بزنید — هر چی الان روی دلتان است را بگویید تا کمک کنم درمانگر یا کارگاه مناسب پیدا کنیم.";
-            try {
-                $aiText = assistant_ai_chat([
-                    ['role' => 'system', 'content' => assistant_ai_system_prompt()],
-                    ['role' => 'user', 'content' => 'گفتگو را با یک سلام کوتاه و دعوت به حرف زدن شروع کن. هنوز سوال تخصصی نپرس؛ فقط خوش‌آمد بگو.'],
-                ], 180);
-                $parsed = assistant_ai_parse_reply($aiText);
-                if ($parsed['text'] !== '') {
-                    $greeting = $parsed['text'];
+    if ($action === 'select_topic') {
+        throttle_guard_json('assistant_msg', 40, 600, 'پیام‌های پشت‌سرهم زیاد بود. کمی صبر کنید.');
+        throttle_hit('assistant_msg', 600);
+        $sessionId = trim(post('sessionId'));
+        $topicId = trim(post('topicId'));
+        $session = assistant_chat_require_session($pdo, $sessionId, $user);
+        if ($session['status'] === 'COMPLETED') {
+            throw new RuntimeException('گفتگو تمام شده است.');
+        }
+        $topic = assistant_topic_by_id($topicId);
+        if (!$topic) {
+            throw new RuntimeException('موضوع نامعتبر است.');
+        }
+        $answers = assistant_answers_decode($session['answers_json'] ?? null);
+        $meta = assistant_flow_meta($answers);
+        $meta['phase'] = 'explore';
+        $meta['topic'] = $topicId;
+        $meta['topic_label'] = (string) $topic['label'];
+        $meta['explored'] = [];
+        $answers = assistant_flow_meta_set($answers, $meta);
+        assistant_save_progress($pdo, $sessionId, 1, $answers);
+
+        $bot = "موضوع «{$topic['label']}» را انتخاب کردید.\nچند سوال تخصصی و به‌روز در این حوزه می‌بینید — هر کدام را بزنید تا توضیح کوتاه بگیرم. اگر مورد دیگری مدنظرتان است پایین بنویسید، بعد ادامه دهید.";
+        $messages = assistant_messages_decode($session['messages_json'] ?? null);
+        $messages[] = ['role' => 'user', 'content' => (string) $topic['label']];
+        $messages[] = ['role' => 'assistant', 'content' => $bot];
+        assistant_messages_save($pdo, $sessionId, $messages);
+
+        echo json_encode(assistant_chat_explore_payload($sessionId, $topicId, (string) $topic['label'], $bot), JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    if ($action === 'faq') {
+        throttle_guard_json('assistant_msg', 40, 600, 'پیام‌های پشت‌سرهم زیاد بود. کمی صبر کنید.');
+        throttle_hit('assistant_msg', 600);
+        $sessionId = trim(post('sessionId'));
+        $questionId = trim(post('questionId'));
+        $session = assistant_chat_require_session($pdo, $sessionId, $user);
+        $answers = assistant_answers_decode($session['answers_json'] ?? null);
+        $meta = assistant_flow_meta($answers);
+        $topicId = (string) ($meta['topic'] ?? '');
+        if ($topicId === '' || ($meta['phase'] ?? '') !== 'explore') {
+            throw new RuntimeException('اول یک موضوع انتخاب کنید.');
+        }
+        $q = assistant_topic_question($topicId, $questionId);
+        if (!$q) {
+            throw new RuntimeException('سوال نامعتبر است.');
+        }
+        $explored = is_array($meta['explored'] ?? null) ? $meta['explored'] : [];
+        if (!in_array($questionId, $explored, true)) {
+            $explored[] = $questionId;
+        }
+        $meta['explored'] = $explored;
+        $answers = assistant_flow_meta_set($answers, $meta);
+        assistant_save_progress($pdo, $sessionId, 1, $answers);
+
+        $tip = (string) ($q['tip'] ?? '');
+        $messages = assistant_messages_decode($session['messages_json'] ?? null);
+        $messages[] = ['role' => 'user', 'content' => (string) $q['text']];
+        $messages[] = ['role' => 'assistant', 'content' => $tip];
+        assistant_messages_save($pdo, $sessionId, $messages);
+
+        echo json_encode([
+            'sessionId' => $sessionId,
+            'mode' => 'guided_ai',
+            'phase' => 'explore',
+            'botMessage' => $tip,
+            'userMessage' => (string) $q['text'],
+            'topic' => ['id' => $topicId, 'label' => (string) ($meta['topic_label'] ?? '')],
+            'questions' => [], // فرانت لیست را نگه می‌دارد
+            'explored' => $explored,
+            'done' => false,
+            'canComplete' => false,
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    if ($action === 'add_note') {
+        throttle_guard_json('assistant_msg', 40, 600, 'پیام‌های پشت‌سرهم زیاد بود. کمی صبر کنید.');
+        throttle_hit('assistant_msg', 600);
+        $sessionId = trim(post('sessionId'));
+        $note = trim(post('text'));
+        $session = assistant_chat_require_session($pdo, $sessionId, $user);
+        if ($note === '') {
+            throw new RuntimeException('لطفاً نکته‌تان را بنویسید.');
+        }
+        if (mb_strlen($note) > 2000) {
+            throw new RuntimeException('متن خیلی طولانی است.');
+        }
+        $answers = assistant_answers_decode($session['answers_json'] ?? null);
+        $meta = assistant_flow_meta($answers);
+        if (($meta['phase'] ?? '') !== 'explore') {
+            throw new RuntimeException('در این مرحله نمی‌توان یادداشت افزود.');
+        }
+        $meta['custom_note'] = $note;
+        $answers = assistant_flow_meta_set($answers, $meta);
+        assistant_save_progress($pdo, $sessionId, 1, $answers);
+
+        $ack = 'یادداشت شما ثبت شد. می‌توانید سوال دیگری ببینید یا ادامه دهید.';
+        $messages = assistant_messages_decode($session['messages_json'] ?? null);
+        $messages[] = ['role' => 'user', 'content' => $note];
+        $messages[] = ['role' => 'assistant', 'content' => $ack];
+        assistant_messages_save($pdo, $sessionId, $messages);
+
+        echo json_encode([
+            'sessionId' => $sessionId,
+            'mode' => 'guided_ai',
+            'phase' => 'explore',
+            'botMessage' => $ack,
+            'done' => false,
+            'canComplete' => false,
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    if ($action === 'next_step') {
+        throttle_guard_json('assistant_msg', 40, 600, 'پیام‌های پشت‌سرهم زیاد بود. کمی صبر کنید.');
+        throttle_hit('assistant_msg', 600);
+        $sessionId = trim(post('sessionId'));
+        $session = assistant_chat_require_session($pdo, $sessionId, $user);
+        $answers = assistant_answers_decode($session['answers_json'] ?? null);
+        $meta = assistant_flow_meta($answers);
+        if (($meta['phase'] ?? '') !== 'explore' || trim((string) ($meta['topic'] ?? '')) === '') {
+            throw new RuntimeException('اول موضوع و سوال‌ها را ببینید.');
+        }
+        $meta['phase'] = 'choice';
+        $answers = assistant_flow_meta_set($answers, $meta);
+        assistant_save_progress($pdo, $sessionId, 2, $answers);
+
+        $label = (string) ($meta['topic_label'] ?? 'این موضوع');
+        $bot = "اگر بخواهید، می‌توانیم بیشتر درباره «{$label}» حرف بزنیم؛ یا همین الان درمانگر مرتبط از کلینیک را معرفی کنم. کدام را ترجیح می‌دهید؟";
+        $messages = assistant_messages_decode($session['messages_json'] ?? null);
+        $messages[] = ['role' => 'assistant', 'content' => $bot];
+        assistant_messages_save($pdo, $sessionId, $messages);
+
+        echo json_encode(assistant_chat_choice_payload($sessionId, $bot), JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    if ($action === 'choose_path') {
+        throttle_guard_json('assistant_msg', 40, 600, 'پیام‌های پشت‌سرهم زیاد بود. کمی صبر کنید.');
+        throttle_hit('assistant_msg', 600);
+        $sessionId = trim(post('sessionId'));
+        $path = trim(post('path'));
+        $session = assistant_chat_require_session($pdo, $sessionId, $user);
+        $answers = assistant_answers_decode($session['answers_json'] ?? null);
+        $meta = assistant_flow_meta($answers);
+        if (($meta['phase'] ?? '') !== 'choice') {
+            throw new RuntimeException('الان زمان انتخاب مسیر نیست.');
+        }
+        $topicLabel = (string) ($meta['topic_label'] ?? 'موضوع انتخابی');
+
+        if ($path === 'talk') {
+            $meta['phase'] = 'chat';
+            $answers = assistant_flow_meta_set($answers, $meta);
+            assistant_save_progress($pdo, $sessionId, 3, $answers);
+            $bot = "باشه — درباره «{$topicLabel}» بیشتر بگویید چه چیزی الان بیشتر اذیتتان می‌کند یا دوست دارید روی چه بخشی کار کنیم؟";
+            if ($aiMode) {
+                try {
+                    $topicRow = assistant_topic_by_id((string) ($meta['topic'] ?? 'other'));
+                    $aiText = assistant_ai_chat([
+                        ['role' => 'system', 'content' => assistant_ai_system_prompt($topicLabel, $topicRow['tags'] ?? [])],
+                        ['role' => 'user', 'content' => "کاربر می‌خواهد درباره «{$topicLabel}» بیشتر حرف بزند. با یک دعوت کوتاه و یک سوال مشخص شروع کن. بلوک READY نگذار."],
+                    ], 220);
+                    $parsed = assistant_ai_parse_reply($aiText);
+                    if ($parsed['text'] !== '') {
+                        $bot = $parsed['text'];
+                    }
+                } catch (Throwable $e) {
+                    // پیام ثابت
                 }
-            } catch (Throwable $e) {
-                // همان پیام ثابت
             }
-            $messages = [['role' => 'assistant', 'content' => $greeting]];
+            $messages = assistant_messages_decode($session['messages_json'] ?? null);
+            $messages[] = ['role' => 'user', 'content' => 'می‌خواهم بیشتر حرف بزنم'];
+            $messages[] = ['role' => 'assistant', 'content' => $bot];
             assistant_messages_save($pdo, $sessionId, $messages);
+
             echo json_encode([
                 'sessionId' => $sessionId,
-                'mode' => 'ai',
-                'botMessage' => $greeting,
+                'mode' => 'guided_ai',
+                'phase' => 'chat',
+                'aiChat' => $aiMode,
+                'botMessage' => $bot,
                 'done' => false,
-                'canComplete' => false,
+                'canComplete' => true,
             ], JSON_UNESCAPED_UNICODE);
             exit;
         }
 
-        $questions = assistant_questions();
-        $first = $questions[0];
-        echo json_encode([
-            'sessionId' => $sessionId,
-            'mode' => 'guided',
-            'step' => 0,
-            'total' => count($questions),
-            'botMessage' => "سلام، خوش اومدید.\nمن دستیار اولیه مانا کلینیک هستم. با من حرف بزنید تا بهتر بفهمم چه کمکی می‌توانم بکنم.",
-            'question' => $first,
-            'done' => false,
-        ], JSON_UNESCAPED_UNICODE);
-        exit;
+        if ($path === 'therapist') {
+            $meta['phase'] = 'done';
+            $answers = assistant_flow_meta_set($answers, $meta);
+            $matchAnswers = assistant_answers_for_matching($answers);
+            $messages = assistant_messages_decode($session['messages_json'] ?? null);
+            $messages[] = ['role' => 'user', 'content' => 'درمانگر معرفی کن'];
+            $summary = 'موضوع: ' . $topicLabel;
+            if (!empty($meta['custom_note'])) {
+                $summary .= ' — نکته کاربر: ' . $meta['custom_note'];
+            }
+            if (!empty($meta['explored']) && is_array($meta['explored'])) {
+                $summary .= ' — سوال‌های دیده‌شده: ' . count($meta['explored']);
+            }
+            $bot = "بر اساس موضوع «{$topicLabel}»، درمانگر و کارگاه مرتبط از مانا کلینیک را پیشنهاد می‌کنم.";
+            $messages[] = ['role' => 'assistant', 'content' => $bot];
+            $result = assistant_complete_matching($pdo, $sessionId, $matchAnswers, $messages, $summary);
+            assistant_messages_save($pdo, $sessionId, $messages);
+            echo json_encode(assistant_chat_done_payload($sessionId, $result, $user, $bot), JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+
+        throw new RuntimeException('مسیر نامعتبر است.');
     }
 
     if ($action === 'message' && $aiMode) {
@@ -104,10 +357,7 @@ try {
         throttle_hit('assistant_msg', 600);
         $sessionId = trim(post('sessionId'));
         $text = trim(post('text'));
-        $session = assistant_session_get($pdo, $sessionId);
-        if (!$session || !assistant_session_accessible($session, $user) || in_array($session['status'], ['SENT'], true)) {
-            throw new RuntimeException('جلسه گفتگو یافت نشد.');
-        }
+        $session = assistant_chat_require_session($pdo, $sessionId, $user);
         if ($session['status'] === 'COMPLETED') {
             $doctors = json_decode((string) ($session['matched_doctors_json'] ?? '[]'), true) ?: [];
             $workshops = json_decode((string) ($session['matched_workshops_json'] ?? '[]'), true) ?: [];
@@ -118,6 +368,11 @@ try {
             ], $user, 'گفتگو تمام شده. پیشنهادها را ببینید.'), JSON_UNESCAPED_UNICODE);
             exit;
         }
+        $answers = assistant_answers_decode($session['answers_json'] ?? null);
+        $meta = assistant_flow_meta($answers);
+        if (($meta['phase'] ?? '') !== 'chat') {
+            throw new RuntimeException('الان در مرحله گفتگوی آزاد نیستید.');
+        }
         if ($text === '') {
             throw new RuntimeException('لطفاً پیامتان را بنویسید.');
         }
@@ -127,7 +382,7 @@ try {
 
         $messages = assistant_messages_decode($session['messages_json'] ?? null);
         $messages[] = ['role' => 'user', 'content' => $text];
-        $apiMessages = assistant_openai_messages_for_api($messages);
+        $apiMessages = assistant_openai_messages_for_api($messages, $meta);
         $rawReply = assistant_ai_chat($apiMessages);
         $parsed = assistant_ai_parse_reply($rawReply);
         $messages[] = ['role' => 'assistant', 'content' => $parsed['text']];
@@ -136,29 +391,68 @@ try {
         $userTurns = count(array_filter($messages, static fn ($m) => ($m['role'] ?? '') === 'user'));
 
         if ($parsed['ready']) {
+            $matchAnswers = assistant_answers_for_matching($answers);
             $result = assistant_complete_from_ai($pdo, $sessionId, $messages, $parsed['tags'], $parsed['summary']);
+            // تکمیل با تگ‌های موضوع اگر AI تگ نداد
+            if (($result['doctors'] ?? []) === [] && $matchAnswers !== []) {
+                $result = assistant_complete_matching($pdo, $sessionId, $matchAnswers, $messages, $parsed['summary']);
+            }
             echo json_encode(assistant_chat_done_payload($sessionId, $result, $user, $parsed['text']), JSON_UNESCAPED_UNICODE);
             exit;
         }
 
         echo json_encode([
             'sessionId' => $sessionId,
-            'mode' => 'ai',
+            'mode' => 'guided_ai',
+            'phase' => 'chat',
+            'aiChat' => true,
             'botMessage' => $parsed['text'],
             'done' => false,
-            'canComplete' => $userTurns >= 3,
+            'canComplete' => $userTurns >= 2,
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }
 
-    if ($action === 'complete' && $aiMode) {
+    if ($action === 'message' && !$aiMode) {
+        // بدون API: یادداشت را ذخیره و به معرفی درمانگر نزدیک شو
         throttle_guard_json('assistant_msg', 40, 600, 'پیام‌های پشت‌سرهم زیاد بود. کمی صبر کنید.');
         throttle_hit('assistant_msg', 600);
         $sessionId = trim(post('sessionId'));
-        $session = assistant_session_get($pdo, $sessionId);
-        if (!$session || !assistant_session_accessible($session, $user) || $session['status'] === 'SENT') {
-            throw new RuntimeException('جلسه گفتگو یافت نشد.');
+        $text = trim(post('text'));
+        $session = assistant_chat_require_session($pdo, $sessionId, $user);
+        $answers = assistant_answers_decode($session['answers_json'] ?? null);
+        $meta = assistant_flow_meta($answers);
+        if (($meta['phase'] ?? '') !== 'chat') {
+            throw new RuntimeException('الان در مرحله گفتگوی آزاد نیستید.');
         }
+        if ($text === '') {
+            throw new RuntimeException('لطفاً پیامتان را بنویسید.');
+        }
+        $meta['custom_note'] = trim(($meta['custom_note'] ?? '') . "\n" . $text);
+        $answers = assistant_flow_meta_set($answers, $meta);
+        assistant_save_progress($pdo, $sessionId, 3, $answers);
+        $bot = "متوجه شدم. می‌توانید بیشتر بنویسید یا با دکمه «پیشنهاد درمانگر» ادامه دهید.";
+        $messages = assistant_messages_decode($session['messages_json'] ?? null);
+        $messages[] = ['role' => 'user', 'content' => $text];
+        $messages[] = ['role' => 'assistant', 'content' => $bot];
+        assistant_messages_save($pdo, $sessionId, $messages);
+        echo json_encode([
+            'sessionId' => $sessionId,
+            'mode' => 'guided_ai',
+            'phase' => 'chat',
+            'aiChat' => false,
+            'botMessage' => $bot,
+            'done' => false,
+            'canComplete' => true,
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    if ($action === 'complete') {
+        throttle_guard_json('assistant_msg', 40, 600, 'پیام‌های پشت‌سرهم زیاد بود. کمی صبر کنید.');
+        throttle_hit('assistant_msg', 600);
+        $sessionId = trim(post('sessionId'));
+        $session = assistant_chat_require_session($pdo, $sessionId, $user);
         if ($session['status'] === 'COMPLETED') {
             echo json_encode(assistant_chat_done_payload($sessionId, [
                 'doctors' => json_decode((string) ($session['matched_doctors_json'] ?? '[]'), true) ?: [],
@@ -167,116 +461,43 @@ try {
             ], $user), JSON_UNESCAPED_UNICODE);
             exit;
         }
+        $answers = assistant_answers_decode($session['answers_json'] ?? null);
+        $meta = assistant_flow_meta($answers);
         $messages = assistant_messages_decode($session['messages_json'] ?? null);
-        $userTurns = count(array_filter($messages, static fn ($m) => ($m['role'] ?? '') === 'user'));
-        if ($userTurns < 1) {
-            throw new RuntimeException('لطفاً کمی بیشتر درباره وضعیتتان بنویسید.');
+        $matchAnswers = assistant_answers_for_matching($answers);
+        $topicLabel = (string) ($meta['topic_label'] ?? 'نیاز مشاوره');
+
+        if ($aiMode && ($meta['phase'] ?? '') === 'chat' && count(array_filter($messages, static fn ($m) => ($m['role'] ?? '') === 'user')) >= 1) {
+            $messages[] = ['role' => 'user', 'content' => 'لطفاً اول چند راهکار عملی مرتبط با مشکلم بگو، بعد جمع‌بندی کن و پیشنهاد درمانگر/کارگاه را آماده کن.'];
+            $apiMessages = assistant_openai_messages_for_api($messages, $meta);
+            $apiMessages[] = ['role' => 'system', 'content' => 'اول ۲ تا ۴ راهکار ساده و امن مرتبط بنویس، بعد جمع‌بندی همدلانه، و در انتهای همان پیام بلوک <<<READY>>> را با tags و summary برگردان.'];
+            try {
+                $rawReply = assistant_ai_chat($apiMessages, 700);
+                $parsed = assistant_ai_parse_reply($rawReply);
+                $messages[] = ['role' => 'assistant', 'content' => $parsed['text']];
+                $result = assistant_complete_from_ai($pdo, $sessionId, $messages, $parsed['tags'], $parsed['summary'] !== '' ? $parsed['summary'] : $topicLabel);
+                echo json_encode(assistant_chat_done_payload($sessionId, $result, $user, $parsed['text']), JSON_UNESCAPED_UNICODE);
+                exit;
+            } catch (Throwable $e) {
+                // fallback matching
+            }
         }
-        $messages[] = ['role' => 'user', 'content' => 'لطفاً اول چند راهکار عملی مرتبط با مشکلم بگو، بعد جمع‌بندی کن و پیشنهاد درمانگر/کارگاه را آماده کن.'];
-        $apiMessages = assistant_openai_messages_for_api($messages);
-        $apiMessages[] = ['role' => 'system', 'content' => 'اول ۲ تا ۴ راهکار ساده و امن مرتبط با مشکل کاربر بنویس، بعد جمع‌بندی همدلانه، و در انتهای همان پیام بلوک <<<READY>>> را با tags و summary برگردان.'];
-        $rawReply = assistant_ai_chat($apiMessages, 700);
-        $parsed = assistant_ai_parse_reply($rawReply);
-        $messages[] = ['role' => 'assistant', 'content' => $parsed['text']];
-        $result = assistant_complete_from_ai($pdo, $sessionId, $messages, $parsed['tags'], $parsed['summary']);
-        echo json_encode(assistant_chat_done_payload($sessionId, $result, $user, $parsed['text']), JSON_UNESCAPED_UNICODE);
+
+        $summary = 'موضوع: ' . $topicLabel;
+        if (!empty($meta['custom_note'])) {
+            $summary .= ' — ' . $meta['custom_note'];
+        }
+        $bot = "بر اساس موضوع «{$topicLabel}»، پیشنهاد درمانگر و کارگاه آماده است.";
+        $messages[] = ['role' => 'assistant', 'content' => $bot];
+        $result = assistant_complete_matching($pdo, $sessionId, $matchAnswers, $messages, $summary);
+        assistant_messages_save($pdo, $sessionId, $messages);
+        echo json_encode(assistant_chat_done_payload($sessionId, $result, $user, $bot), JSON_UNESCAPED_UNICODE);
         exit;
     }
 
+    // حالت قدیمی guided (اگر هنوز فراخوانی شد)
     if ($action === 'answer') {
-        if ($aiMode) {
-            throw new RuntimeException('در حالت هوش مصنوعی از ارسال پیام متنی استفاده کنید.');
-        }
-        $sessionId = trim(post('sessionId'));
-        $session = assistant_session_get($pdo, $sessionId);
-        if (!$session || !assistant_session_accessible($session, $user) || in_array($session['status'], ['SENT'], true)) {
-            throw new RuntimeException('جلسه گفتگو یافت نشد.');
-        }
-
-        $questions = assistant_questions();
-        $step = (int) $session['current_step'];
-        $answers = assistant_answers_decode($session['answers_json'] ?? null);
-
-        if ($step >= count($questions)) {
-            $doctors = json_decode((string) ($session['matched_doctors_json'] ?? '[]'), true) ?: [];
-            $workshops = json_decode((string) ($session['matched_workshops_json'] ?? '[]'), true) ?: [];
-            echo json_encode([
-                'sessionId' => $sessionId,
-                'done' => true,
-                'mode' => 'guided',
-                'botMessage' => 'گفتگو تمام شده. پیشنهادها را ببینید.',
-                'doctors' => $doctors,
-                'workshops' => $workshops,
-                'intakePreview' => $session['intake_text'] ?? '',
-                'loggedIn' => (bool) ($user && ($user['role'] ?? '') === 'PATIENT'),
-            ], JSON_UNESCAPED_UNICODE);
-            exit;
-        }
-
-        $q = $questions[$step];
-        $isText = ($q['type'] ?? '') === 'text';
-        $optionId = trim(post('optionId'));
-        $text = trim(post('text'));
-
-        if ($isText) {
-            if ($text === '' && empty($q['optional'])) {
-                throw new RuntimeException('لطفاً پاسخ را بنویسید.');
-            }
-            $answers[] = [
-                'question_id' => $q['id'],
-                'text' => $text,
-            ];
-        } else {
-            $valid = false;
-            foreach ($q['options'] ?? [] as $opt) {
-                if ($opt['id'] === $optionId) {
-                    $valid = true;
-                    break;
-                }
-            }
-            if (!$valid) {
-                throw new RuntimeException('گزینه نامعتبر است.');
-            }
-            $answers[] = [
-                'question_id' => $q['id'],
-                'option_id' => $optionId,
-            ];
-        }
-
-        $nextStep = $step + 1;
-        if ($nextStep >= count($questions)) {
-            $result = assistant_complete_matching($pdo, $sessionId, $answers);
-            echo json_encode(array_merge([
-                'sessionId' => $sessionId,
-                'done' => true,
-                'mode' => 'guided',
-                'status' => $result['status'] ?? 'SENT',
-                'delivered' => (bool) ($result['delivered'] ?? true),
-                'botMessage' => "ممنون که با من حرف زدید.\nبر اساس پاسخ‌هایتان، چند درمانگر و کارگاه مرتبط پیشنهاد می‌کنم.\nنسخه‌ای از این گفتگو برای درمانگران کلینیک ارسال شد.",
-                'doctors' => $result['doctors'],
-                'workshops' => $result['workshops'],
-                'intakePreview' => $result['intake_text'],
-                'loggedIn' => (bool) ($user && ($user['role'] ?? '') === 'PATIENT'),
-            ], assistant_chat_auth_urls($sessionId)), JSON_UNESCAPED_UNICODE);
-            exit;
-        }
-
-        assistant_save_progress($pdo, $sessionId, $nextStep, $answers);
-        $nextQ = $questions[$nextStep];
-        $ack = $isText
-            ? (trim($text) !== '' ? 'یادداشت شما ثبت شد.' : 'باشه، رد شدیم.')
-            : 'متوجه شدم.';
-
-        echo json_encode([
-            'sessionId' => $sessionId,
-            'mode' => 'guided',
-            'step' => $nextStep,
-            'total' => count($questions),
-            'botMessage' => $ack,
-            'question' => $nextQ,
-            'done' => false,
-        ], JSON_UNESCAPED_UNICODE);
-        exit;
+        throw new RuntimeException('لطفاً صفحه را تازه کنید و از گزینه‌های جدید استفاده کنید.');
     }
 
     if ($action === 'status') {
@@ -285,12 +506,14 @@ try {
         if (!$session || !assistant_session_accessible($session, $user)) {
             throw new RuntimeException('جلسه یافت نشد.');
         }
-        echo json_encode([
+        $answers = assistant_answers_decode($session['answers_json'] ?? null);
+        $meta = assistant_flow_meta($answers);
+        $phase = (string) ($meta['phase'] ?? 'topic');
+        $payload = [
             'sessionId' => $sessionId,
             'status' => $session['status'],
-            'mode' => $aiMode ? 'ai' : 'guided',
-            'step' => (int) $session['current_step'],
-            'total' => count(assistant_questions()),
+            'mode' => 'guided_ai',
+            'phase' => $phase,
             'messages' => assistant_messages_decode($session['messages_json'] ?? null),
             'doctors' => json_decode((string) ($session['matched_doctors_json'] ?? '[]'), true) ?: [],
             'workshops' => json_decode((string) ($session['matched_workshops_json'] ?? '[]'), true) ?: [],
@@ -298,7 +521,23 @@ try {
             'selectedDoctorId' => $session['selected_doctor_id'] ?? null,
             'loggedIn' => (bool) ($user && ($user['role'] ?? '') === 'PATIENT'),
             'done' => in_array($session['status'], ['COMPLETED', 'SENT'], true),
-        ], JSON_UNESCAPED_UNICODE);
+            'canComplete' => $phase === 'chat',
+            'aiChat' => $aiMode && $phase === 'chat',
+        ];
+        if ($phase === 'topic') {
+            $payload['topics'] = array_map(static fn ($t) => ['id' => $t['id'], 'label' => $t['label']], assistant_topic_options($pdo));
+        } elseif ($phase === 'explore') {
+            $topicId = (string) ($meta['topic'] ?? 'other');
+            $payload['topic'] = ['id' => $topicId, 'label' => (string) ($meta['topic_label'] ?? '')];
+            $payload['questions'] = array_map(static fn ($q) => ['id' => $q['id'], 'text' => $q['text']], assistant_topic_questions($topicId));
+            $payload['explored'] = $meta['explored'] ?? [];
+        } elseif ($phase === 'choice') {
+            $payload['choices'] = [
+                ['id' => 'talk', 'label' => 'می‌خواهم بیشتر در این مورد حرف بزنم'],
+                ['id' => 'therapist', 'label' => 'درمانگر مناسب معرفی کن'],
+            ];
+        }
+        echo json_encode($payload, JSON_UNESCAPED_UNICODE);
         exit;
     }
 
