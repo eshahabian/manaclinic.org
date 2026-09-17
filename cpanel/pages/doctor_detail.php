@@ -331,7 +331,7 @@ $pageScripts = '
     fd.append("doctorId", doctorId);
     fd.append("date", dateEl.value);
     fd.append("time", timeEl.value);
-    var modeEl = document.querySelector('input[name="session_mode"]:checked');
+    var modeEl = document.querySelector("input[name=\"session_mode\"]:checked");
     fd.append("session_mode", modeEl ? modeEl.value : "IN_PERSON");
     fd.append("accept_terms", "1");
     fetch(bookUrl, { method: "POST", body: fd })
