@@ -2853,6 +2853,17 @@ a.doctor-dash-stat:hover {
   background: #fef2f2;
   color: #b91c1c;
 }
+a.avail-hour-pill {
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform .12s ease, box-shadow .12s ease;
+}
+a.avail-hour-pill.is-booked:hover,
+a.avail-hour-pill.is-booked:focus-visible {
+  transform: translateY(-1px);
+  box-shadow: 0 0 0 2px rgba(185, 28, 28, .25);
+  outline: none;
+}
 .hour-chip-who {
   font-size: .65rem;
   font-weight: 600;

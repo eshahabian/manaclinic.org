@@ -126,7 +126,10 @@ ob_start();
       $bookedMap = [];
       if (is_array($row)) {
           foreach ($row['booked'] ?? [] as $b) {
-              $bookedMap[(int) ($b['hour'] ?? -1)] = trim((string) ($b['patient'] ?? ''));
+              $bookedMap[(int) ($b['hour'] ?? -1)] = [
+                  'patient' => trim((string) ($b['patient'] ?? '')),
+                  'patient_id' => trim((string) ($b['patient_id'] ?? '')),
+              ];
           }
       }
     ?>
@@ -138,19 +141,29 @@ ob_start();
           <?php foreach ($hours as $hour): ?>
             <?php
               $hour = (int) $hour;
-              $isBooked = array_key_exists($hour, $bookedMap);
-              $who = $isBooked ? ($bookedMap[$hour] ?? '') : '';
+              $bookedInfo = $bookedMap[$hour] ?? null;
+              $isBooked = is_array($bookedInfo);
+              $who = $isBooked ? (string) ($bookedInfo['patient'] ?? '') : '';
+              $patientId = $isBooked ? (string) ($bookedInfo['patient_id'] ?? '') : '';
               $title = $isBooked
-                  ? ('رزرو شده' . ($who !== '' ? ' — ' . $who : ''))
+                  ? ('رزرو شده' . ($who !== '' ? ' — ' . $who : '') . ' — برای باز کردن پرونده کلیک کنید')
                   : 'خالی';
             ?>
-            <span class="avail-hour-pill<?= $isBooked ? ' is-booked' : '' ?>" title="<?= e($title) ?>">
-              <?= e(appointment_hour_chip_label($hour)) ?>
-            </span>
+            <?php if ($isBooked && $patientId !== ''): ?>
+              <a class="avail-hour-pill is-booked"
+                 href="<?= e(url('/doctor/patients/' . $patientId)) ?>"
+                 title="<?= e($title) ?>">
+                <?= e(appointment_hour_chip_label($hour)) ?>
+              </a>
+            <?php else: ?>
+              <span class="avail-hour-pill<?= $isBooked ? ' is-booked' : '' ?>" title="<?= e($title) ?>">
+                <?= e(appointment_hour_chip_label($hour)) ?>
+              </span>
+            <?php endif; ?>
           <?php endforeach; ?>
         </div>
         <?php if (!empty($row['next_label'])): ?>
-          <p class="muted" style="margin:.55rem 0 0;font-size:.8rem">نزدیک‌ترین <?= e($label) ?>: <?= e((string) $row['next_label']) ?> — ساعت قرمز یعنی توسط منشی یا مراجعه‌کننده رزرو شده.</p>
+          <p class="muted" style="margin:.55rem 0 0;font-size:.8rem">نزدیک‌ترین <?= e($label) ?>: <?= e((string) $row['next_label']) ?> — ساعت قرمز رزرو شده است؛ با کلیک پرونده همان مراجع باز می‌شود.</p>
         <?php endif; ?>
       <?php endif; ?>
     </div>

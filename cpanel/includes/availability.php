@@ -478,7 +478,7 @@ function doctor_weekly_hours_clear(PDO $pdo, string $doctorId, int $weekdaySat0)
  *   next_date:?string,
  *   next_label:string,
  *   free:list<int>,
- *   booked:list<array{hour:int,patient:string}>
+ *   booked:list<array{hour:int,patient:string,patient_id:string}>
  * }>
  */
 function doctor_weekday_presence_summary(PDO $pdo, string $doctorId): array
@@ -535,6 +535,7 @@ function doctor_weekday_presence_summary(PDO $pdo, string $doctorId): array
                     $booked[] = [
                         'hour' => $hour,
                         'patient' => trim((string) ($row['patient_name'] ?? '')),
+                        'patient_id' => trim((string) ($row['patient_id'] ?? '')),
                     ];
                 } else {
                     $free[] = $hour;
