@@ -353,82 +353,40 @@ ob_start();
         </div>
       </form>
     </section>
+
+    <section class="ehr-card" style="margin-top:1rem">
+      <header class="ehr-card-head">
+        <div>
+          <h2>شرح حال هر جلسه</h2>
+          <p class="muted" style="margin:.3rem 0 0;font-size:.85rem">
+            هر نوبت با تاریخ و ساعت جدا می‌آید. روی جلسه بزنید تا SOAP همان جلسه را ببینید یا پر کنید.
+          </p>
+        </div>
+      </header>
+      <?php
+        $sessionList = $appointments;
+        usort($sessionList, static fn (array $a, array $b): int => strcmp((string) ($b['starts_at'] ?? ''), (string) ($a['starts_at'] ?? '')));
+        $sessionListNextTab = 'chart';
+        $sessionListEmpty = 'هنوز نوبتی برای این مراجع ثبت نشده. وقتی نوبت رزرو شود، اینجا با تاریخ و ساعت ظاهر می‌شود.';
+        require __DIR__ . '/../../includes/doctor_chart_session_list.php';
+      ?>
+    </section>
   <?php endif; ?>
 
   <?php if ($tabParam === 'sessions'): ?>
     <section class="ehr-card">
       <header class="ehr-card-head">
         <div>
-          <h2>جلسات و یادداشت D / A / P</h2>
-          <p class="muted" style="margin:.3rem 0 0;font-size:.85rem">برای هر جلسه سه بخش D، A و P (بالینی و خصوصی) و یک نوت جدا برای مراجع که در پروفایلش می‌بیند.</p>
+          <h2>جلسات و شرح حال SOAP</h2>
+          <p class="muted" style="margin:.3rem 0 0;font-size:.85rem">هر جلسه با تاریخ و ساعت جداست؛ Subject · Object · Assessment · Plan برای همان نوبت.</p>
         </div>
       </header>
       <?php
-        $ymdPack = $sessionYmd;
-        $ymdEmpty = 'هنوز جلسه‌ای ثبت نشده.';
-        $ymdNoun = 'جلسه';
-        $ymdAllPrefix = 'جلسات';
-        $ymdShowPeople = false;
-        $ymdClass = 'session-ymd';
-        $ymdRenderItems = function (array $list) use ($notesByApp, $patientId): void {
-            if (!$list) {
-                echo '<p class="muted" style="margin:0">در این بازه مراجعه‌ای ثبت نشده.</p>';
-                return;
-            }
-            echo '<div class="clinical-session-grid" data-session-note-grid>';
-            foreach ($list as $a) {
-                if (!is_array($a)) {
-                    continue;
-                }
-                $note = $notesByApp[$a['id']] ?? null;
-                $hasNote = session_note_has_content(is_array($note) ? $note : null);
-                $day = jalali_day_parts((string) $a['starts_at']);
-                ?>
-                <div class="session-note-box<?= $hasNote ? ' has-note' : '' ?>" data-box>
-                  <button type="button" class="session-note-toggle" data-toggle>
-                    <span class="sn-date"><?= e($day['label'] ?? format_fa_datetime((string) $a['starts_at'])) ?></span>
-                    <span class="sn-meta">
-                      <?= $day ? 'ساعت ' . e($day['time_fa']) . ' · ' : '' ?>
-                      <?= e(appointment_row_status_label($a)) ?>
-                      · <?= $hasNote ? 'دارای یادداشت' : 'بدون یادداشت' ?>
-                    </span>
-                  </button>
-                  <div class="session-note-panel" data-panel>
-                    <form method="post" action="<?= e(url('/doctor/patients/' . $patientId . '/session-note')) ?>" class="form-stack" style="gap:.75rem">
-                      <input type="hidden" name="appointment_id" value="<?= e($a['id']) ?>">
-                      <div class="ehr-dap-grid">
-                        <div>
-                          <label class="label" for="d-<?= e($a['id']) ?>">D</label>
-                          <textarea class="input" id="d-<?= e($a['id']) ?>" name="d_text" rows="4" placeholder="Data / تشخیص و داده‌ها…" data-emoji-field><?= e((string) ($note['d_text'] ?? '')) ?></textarea>
-                        </div>
-                        <div>
-                          <label class="label" for="a-<?= e($a['id']) ?>">A</label>
-                          <textarea class="input" id="a-<?= e($a['id']) ?>" name="a_text" rows="4" placeholder="Assessment / ارزیابی…" data-emoji-field><?= e((string) ($note['a_text'] ?? '')) ?></textarea>
-                        </div>
-                        <div>
-                          <label class="label" for="p-<?= e($a['id']) ?>">P</label>
-                          <textarea class="input" id="p-<?= e($a['id']) ?>" name="p_text" rows="4" placeholder="Plan / برنامه…" data-emoji-field><?= e((string) ($note['p_text'] ?? '')) ?></textarea>
-                        </div>
-                      </div>
-                      <div>
-                        <label class="label" for="pn-<?= e($a['id']) ?>">نوت برای مراجع (در پروفایلش می‌بیند)</label>
-                        <textarea class="input" id="pn-<?= e($a['id']) ?>" name="note_text" rows="3" placeholder="اگر لازم است برای مراجع بنویسید…" data-emoji-field><?= e((string) ($note['note_text'] ?? '')) ?></textarea>
-                      </div>
-                      <?= appointment_notes_html($a) ?>
-                      <div style="margin-top:.25rem;display:flex;gap:.5rem;flex-wrap:wrap">
-                        <button class="btn btn-primary btn-sm" type="submit">ذخیره</button>
-                        <button class="btn btn-outline btn-sm" type="button" data-close>بستن</button>
-                        <?= appointment_cancel_form((string) $a['id'], (string) $a['status'], '/doctor/appointments', '/doctor/patients/' . $patientId . '?tab=sessions') ?>
-                        <?= function_exists('admin_appointment_delete_form') ? admin_appointment_delete_form((string) $a['id'], '/doctor/patients/' . $patientId . '?tab=sessions') : '' ?>
-                      </div>
-                    </form>
-                  </div>
-                </div>
-                <?php
-            }
-            echo '</div>';
-        };
-        require __DIR__ . '/../../includes/appointment_ymd_binder.php';
+        $sessionList = $appointments;
+        usort($sessionList, static fn (array $a, array $b): int => strcmp((string) ($b['starts_at'] ?? ''), (string) ($a['starts_at'] ?? '')));
+        $sessionListNextTab = 'sessions';
+        $sessionListEmpty = 'هنوز جلسه‌ای ثبت نشده.';
+        require __DIR__ . '/../../includes/doctor_chart_session_list.php';
       ?>
     </section>
   <?php endif; ?>
@@ -691,6 +649,18 @@ $pageScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260
       });
     }
   });
+  // بعد از ذخیره / لینک مستقیم، همان جلسه باز شود
+  var hash = (location.hash || "").replace(/^#/, "");
+  if (hash) {
+    var target = document.getElementById(hash);
+    if (target && target.hasAttribute("data-box")) {
+      target.classList.add("open");
+      target.scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  } else {
+    var todayCard = document.querySelector(".chart-session-card.is-today");
+    if (todayCard) todayCard.classList.add("open");
+  }
 })();
 </script>
 ';

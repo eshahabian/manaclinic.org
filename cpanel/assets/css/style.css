@@ -5047,6 +5047,63 @@ body.workshop-overview-locked { overflow: hidden; }
   line-height: 1.75;
   white-space: normal;
 }
+.chart-session-list {
+  display: grid;
+  gap: .65rem;
+}
+.chart-session-card {
+  border: 1px solid var(--line);
+  border-radius: .85rem;
+  background: #fff;
+  overflow: hidden;
+}
+.chart-session-card.has-note {
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--line));
+}
+.chart-session-card.is-today {
+  box-shadow: inset 3px 0 0 var(--primary);
+}
+.chart-session-toggle {
+  width: 100%;
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: space-between;
+  gap: .35rem 1rem;
+  align-items: baseline;
+  text-align: right;
+  font-family: inherit;
+  background: #f8faf9;
+  border: 0;
+  padding: .85rem 1rem;
+  cursor: pointer;
+}
+.chart-session-card.open .chart-session-toggle {
+  background: #eef7f2;
+}
+.chart-session-when {
+  font-size: .95rem;
+}
+.chart-session-today {
+  display: inline-block;
+  margin-inline-start: .4rem;
+  padding: .1rem .45rem;
+  border-radius: .4rem;
+  background: #fee2e2;
+  color: #b91c1c;
+  font-size: .72rem;
+  font-weight: 700;
+}
+.chart-session-meta {
+  font-size: .8rem;
+}
+.chart-session-panel {
+  display: none;
+  padding: .85rem 1rem 1rem;
+  border-top: 1px solid var(--line);
+}
+.chart-session-card.open .chart-session-panel {
+  display: block;
+}
 @media (max-width: 640px) {
   .soap-table,
   .soap-table tbody,

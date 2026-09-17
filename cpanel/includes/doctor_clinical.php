@@ -91,6 +91,7 @@ function ensure_doctor_clinical_tables(PDO $pdo): void
     $addColumn($pdo, 'doctor_session_notes', 'd_text', 'd_text MEDIUMTEXT NULL AFTER note_text');
     $addColumn($pdo, 'doctor_session_notes', 'a_text', 'a_text MEDIUMTEXT NULL AFTER d_text');
     $addColumn($pdo, 'doctor_session_notes', 'p_text', 'p_text MEDIUMTEXT NULL AFTER a_text');
+    $addColumn($pdo, 'doctor_session_notes', 's_text', 's_text MEDIUMTEXT NULL AFTER note_text');
 
     $ready = true;
 }
@@ -265,13 +266,44 @@ function session_note_has_content(?array $note): bool
     if (!is_array($note)) {
         return false;
     }
-    foreach (['note_text', 'd_text', 'a_text', 'p_text'] as $key) {
+    foreach (['note_text', 's_text', 'd_text', 'a_text', 'p_text'] as $key) {
         if (trim((string) ($note[$key] ?? '')) !== '') {
             return true;
         }
     }
 
     return false;
+}
+
+/** فیلدهای SOAP هر جلسه (همان منطق شرح حال پرونده) */
+function session_soap_fields(): array
+{
+    return [
+        's_text' => [
+            'key' => 'S',
+            'en' => 'Subject',
+            'fa' => 'ذهنی / گزارش مراجع',
+            'placeholder' => 'آنچه مراجع در این جلسه گفت…',
+        ],
+        'd_text' => [
+            'key' => 'O',
+            'en' => 'Object',
+            'fa' => 'عینی / مشاهدات',
+            'placeholder' => 'مشاهدات و یافته‌های عینی این جلسه…',
+        ],
+        'a_text' => [
+            'key' => 'A',
+            'en' => 'Assessment',
+            'fa' => 'ارزیابی',
+            'placeholder' => 'ارزیابی و جمع‌بندی این جلسه…',
+        ],
+        'p_text' => [
+            'key' => 'P',
+            'en' => 'Plan',
+            'fa' => 'برنامه',
+            'placeholder' => 'برنامه و تکالیف تا جلسه بعد…',
+        ],
+    ];
 }
 
 /**
