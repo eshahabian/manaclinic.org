@@ -2758,6 +2758,10 @@ a.doctor-dash-stat:hover {
 .hour-picker-readonly .hour-chip.is-selected {
   box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--primary);
 }
+.avail-hour-detail[hidden],
+.avail-hour-detail-link[hidden] {
+  display: none !important;
+}
 .avail-week-panel { padding: 1.1rem 1.15rem 1.25rem; }
 .avail-week-title { margin: 0 0 .85rem; font-size: 1.05rem; }
 .avail-weekday-row {

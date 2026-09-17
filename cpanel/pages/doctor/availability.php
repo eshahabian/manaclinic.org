@@ -235,27 +235,26 @@ $pageScripts = '
       var link = detail && detail.querySelector(".avail-hour-detail-link");
       if (!detail || !title || !body || !link) return;
       document.querySelectorAll("[data-avail-hour].is-selected").forEach(function(el){ el.classList.remove("is-selected"); });
-      document.querySelectorAll(".avail-hour-detail").forEach(function(el){
-        if (el !== detail) el.hidden = true;
-      });
-      btn.classList.add("is-selected");
+      document.querySelectorAll(".avail-hour-detail").forEach(function(el){ el.hidden = true; });
+      link.hidden = true;
+      link.removeAttribute("href");
       var state = btn.getAttribute("data-state") || "";
+      // فقط برای نوبت رزروشده جزئیات نشان بده — ساعت خالی بدون باکس پایین
+      if (state !== "booked") {
+        return;
+      }
+      btn.classList.add("is-selected");
       var label = btn.getAttribute("data-label") || "";
       var dateLabel = btn.getAttribute("data-date-label") || "";
+      var name = btn.getAttribute("data-patient") || "مراجعه‌کننده";
+      var phone = btn.getAttribute("data-phone") || "";
+      var status = btn.getAttribute("data-status") || "";
+      var href = btn.getAttribute("data-href") || "";
       title.textContent = label + (dateLabel ? " · " + dateLabel : "");
-      if (state === "booked") {
-        var name = btn.getAttribute("data-patient") || "مراجعه‌کننده";
-        var phone = btn.getAttribute("data-phone") || "";
-        var status = btn.getAttribute("data-status") || "";
-        var href = btn.getAttribute("data-href") || "";
-        body.textContent = "رزرو شده برای «" + name + "»" + (status ? " — " + status : "") + (phone ? " · " + phone : "");
-        if (href) { link.href = href; link.hidden = false; } else { link.hidden = true; }
-      } else if (state === "free") {
-        body.textContent = "این ساعت اعلام شده و هنوز کسی رزرو نکرده است.";
-        link.hidden = true;
-      } else {
-        body.textContent = "این ساعت برای این روز اعلام نشده است.";
-        link.hidden = true;
+      body.textContent = "رزرو شده برای «" + name + "»" + (status ? " — " + status : "") + (phone ? " · " + phone : "");
+      if (href) {
+        link.href = href;
+        link.hidden = false;
       }
       detail.hidden = false;
     });

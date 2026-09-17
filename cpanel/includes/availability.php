@@ -558,7 +558,7 @@ function doctor_availability_render_day_card(
                   <div>
                     <strong><?= e(to_jalali_label($dayDate)) ?></strong>
                     <div class="muted" style="font-size:.85rem;margin-top:.35rem">
-                      <?= $hasItem ? 'روی ساعت بزنید تا وضعیت رزرو را ببینید.' : 'این روز هنوز اعلام نشده.' ?>
+                      <?= $hasItem ? 'ساعت‌های خالی برای رزرو آماده‌اند. روی نوبت رزروشده بزنید تا جزئیات مراجع را ببینید.' : 'این روز هنوز اعلام نشده.' ?>
                     </div>
                   </div>
                   <?php if ($hasItem): ?>
