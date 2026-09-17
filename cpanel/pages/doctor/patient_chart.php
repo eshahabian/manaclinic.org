@@ -187,8 +187,14 @@ ob_start();
           <div><dt>تاریخ تولد</dt><dd><?= !empty($chart['birth_date']) ? e(to_jalali_label((string) $chart['birth_date'])) : '—' ?></dd></div>
           <div><dt>وضعیت تأهل</dt><dd><?= e(chart_marital_label($chart['marital_status'] ?? null)) ?></dd></div>
           <div><dt>محل سکونت</dt><dd><?= trim((string) ($chart['residence'] ?? '')) !== '' ? e((string) $chart['residence']) : '—' ?></dd></div>
-          <div class="ehr-basics-span"><dt>شکایت اصلی</dt><dd><?= trim((string) ($chart['chief_complaint'] ?? '')) !== '' ? nl2br(e((string) $chart['chief_complaint'])) : '—' ?></dd></div>
-          <div class="ehr-basics-span"><dt>تاریخچه خانوادگی</dt><dd><?= trim((string) ($chart['family_history'] ?? '')) !== '' ? nl2br(e((string) $chart['family_history'])) : '—' ?></dd></div>
+          <div class="ehr-basics-span"><dt>شکایت اصلی</dt><dd><?php
+            $chiefRaw = trim((string) ($chart['chief_complaint'] ?? ''));
+            echo $chiefRaw !== '' ? '<div class="rich-html">' . rich_html_for_display($chiefRaw) . '</div>' : '—';
+          ?></dd></div>
+          <div class="ehr-basics-span"><dt>تاریخچه خانوادگی</dt><dd><?php
+            $familyRaw = trim((string) ($chart['family_history'] ?? ''));
+            echo $familyRaw !== '' ? '<div class="rich-html">' . rich_html_for_display($familyRaw) . '</div>' : '—';
+          ?></dd></div>
         </dl>
       </article>
       <article class="ehr-card">
@@ -291,12 +297,30 @@ ob_start();
           </div>
         </div>
         <div>
-          <label class="label" for="chart_chief">شکایت اصلی</label>
-          <textarea class="input" id="chart_chief" name="chief_complaint" rows="3" placeholder="شکایت اصلی مراجع…" data-emoji-field><?= e((string) ($chart['chief_complaint'] ?? '')) ?></textarea>
+          <label class="label" for="chart-chief-editor">شکایت اصلی</label>
+          <?= rich_editor_toolbar_html(['id' => 'chart-chief-toolbar', 'data_rich_toolbar' => true]) ?>
+          <div
+            id="chart-chief-editor"
+            class="clinical-editor clinical-editor-sm"
+            contenteditable="true"
+            role="textbox"
+            data-rich-editor
+            data-placeholder="شکایت اصلی مراجع…"
+          ><?= rich_html_for_display((string) ($chart['chief_complaint'] ?? '')) ?></div>
+          <textarea name="chief_complaint" id="chart_chief" data-rich-hidden hidden><?= e((string) ($chart['chief_complaint'] ?? '')) ?></textarea>
         </div>
         <div>
-          <label class="label" for="chart_family">تاریخچه خانوادگی</label>
-          <textarea class="input" id="chart_family" name="family_history" rows="4" placeholder="سابقه خانوادگی مرتبط…" data-emoji-field><?= e((string) ($chart['family_history'] ?? '')) ?></textarea>
+          <label class="label" for="chart-family-editor">تاریخچه خانوادگی</label>
+          <?= rich_editor_toolbar_html(['id' => 'chart-family-toolbar', 'data_rich_toolbar' => true]) ?>
+          <div
+            id="chart-family-editor"
+            class="clinical-editor clinical-editor-sm"
+            contenteditable="true"
+            role="textbox"
+            data-rich-editor
+            data-placeholder="سابقه خانوادگی مرتبط…"
+          ><?= rich_html_for_display((string) ($chart['family_history'] ?? '')) ?></div>
+          <textarea name="family_history" id="chart_family" data-rich-hidden hidden><?= e((string) ($chart['family_history'] ?? '')) ?></textarea>
         </div>
 
         <header class="ehr-card-head" style="padding:0;border:0">
@@ -554,6 +578,20 @@ $pageScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260
 <script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
 <script>
 if (window.initSoapRichEditors) { window.initSoapRichEditors(document); }
+if (window.initRichEditor) {
+  window.initRichEditor({
+    form: document.getElementById("history-form"),
+    editor: document.getElementById("chart-chief-editor"),
+    toolbar: document.getElementById("chart-chief-toolbar"),
+    hidden: document.getElementById("chart_chief")
+  });
+  window.initRichEditor({
+    form: document.getElementById("history-form"),
+    editor: document.getElementById("chart-family-editor"),
+    toolbar: document.getElementById("chart-family-toolbar"),
+    hidden: document.getElementById("chart_family")
+  });
+}
 (function(){
   function faToEn(str){ return String(str).replace(/[۰-۹]/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹".indexOf(d); }); }
   function pad(n){ return (n < 10 ? "0" : "") + n; }
