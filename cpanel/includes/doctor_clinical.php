@@ -440,13 +440,25 @@ function require_doctor_patient_access(PDO $pdo, array $ctx, string $patientId):
         $hasWorkshop = false;
     }
     $isAdmin = is_admin_user($ctx['user'] ?? null) || !empty($ctx['admin_mode']);
-    if (!$hasAppointment && !$isPreferred && !$hasWorkshop && !$isAdmin) {
+    $isShiva = function_exists('doctor_is_shiva') && (
+        doctor_is_shiva($ctx['user'] ?? null)
+        || doctor_is_shiva([
+            'name' => (string) ($ctx['profile']['name'] ?? ''),
+            'username' => (string) ($ctx['user']['username'] ?? ''),
+        ])
+    );
+    if (!$hasAppointment && !$isPreferred && !$hasWorkshop && !$isAdmin && !$isShiva) {
         flash_set('error', 'دسترسی به پرونده این مراجعه‌کننده برای شما مجاز نیست.');
         redirect('/doctor/patients');
     }
 
-    $apps = $pdo->prepare('SELECT * FROM appointments WHERE doctor_id=? AND patient_id=? ORDER BY starts_at DESC');
-    $apps->execute([$doctorId, $patientId]);
+    if ($isShiva || $isAdmin) {
+        $apps = $pdo->prepare('SELECT * FROM appointments WHERE patient_id=? ORDER BY starts_at DESC');
+        $apps->execute([$patientId]);
+    } else {
+        $apps = $pdo->prepare('SELECT * FROM appointments WHERE doctor_id=? AND patient_id=? ORDER BY starts_at DESC');
+        $apps->execute([$doctorId, $patientId]);
+    }
 
     return [
         'patient' => $patient,

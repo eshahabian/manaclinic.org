@@ -3,20 +3,61 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../includes/doctor_panel.php';
 require_once __DIR__ . '/../../includes/user_cleanup.php';
 require_once __DIR__ . '/../../includes/appointment_cancel.php';
+require_once __DIR__ . '/../../includes/doctor_profile_fields.php';
+
 $ctx = require_doctor_profile($pdo);
-$stmt = $pdo->prepare("
+$doctorId = (string) ($ctx['profile']['id'] ?? '');
+
+/** دکتر شیوا گرانمایه‌پور (و پنل ادمین روی همان حساب): همه نوبت‌ها؛ بقیه فقط نوبت‌های خودشان */
+$seeAllAppointments = doctor_is_shiva([
+    'name' => (string) ($ctx['profile']['name'] ?? ($ctx['user']['name'] ?? '')),
+    'username' => (string) ($ctx['user']['username'] ?? ''),
+]) || doctor_is_shiva($ctx['user'] ?? null);
+
+$searchQ = trim((string) ($_GET['q'] ?? ''));
+$searchDay = trim((string) ($_GET['day'] ?? ''));
+if ($searchDay !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $searchDay)) {
+    $searchDay = '';
+}
+$searchJalali = '';
+if ($searchDay !== '') {
+    [$gy, $gm, $gd] = array_map('intval', explode('-', $searchDay));
+    if ($gy > 0 && $gm > 0 && $gd > 0) {
+        [$jy, $jm, $jd] = gregorian_to_jalali($gy, $gm, $gd);
+        $searchJalali = $jy . '/' . $jm . '/' . $jd;
+    }
+}
+
+$sql = "
   SELECT a.*, u.name AS patient_name, u.phone, u.email,
+         du.name AS doctor_name,
          p.id AS payment_id, p.amount, p.status AS pay_status, p.receipt_path,
          cu.name AS actor_name, cu.username AS actor_username, cu.role AS actor_role
   FROM appointments a
-  JOIN users u ON u.id=a.patient_id
-  LEFT JOIN payments p ON p.appointment_id=a.id
+  JOIN users u ON u.id = a.patient_id
+  JOIN doctor_profiles dp ON dp.id = a.doctor_id
+  JOIN users du ON du.id = dp.user_id
+  LEFT JOIN payments p ON p.appointment_id = a.id
   LEFT JOIN users cu ON cu.id = a.created_by_user_id
-  WHERE a.doctor_id=?
-  ORDER BY a.starts_at ASC
-");
-$stmt->execute([$ctx['profile']['id']]);
+";
+$params = [];
+if (!$seeAllAppointments) {
+    $sql .= ' WHERE a.doctor_id = ?';
+    $params[] = $doctorId;
+}
+$sql .= ' ORDER BY a.starts_at ASC';
+$stmt = $pdo->prepare($sql);
+$stmt->execute($params);
 $rows = $stmt->fetchAll();
+
+$normName = static function (string $s): string {
+    $s = mb_strtolower(trim($s), 'UTF-8');
+    $s = str_replace(['ي', 'ك', '‌', 'ـ'], ['ی', 'ک', '', ''], $s);
+    $s = preg_replace('/\s+/u', ' ', $s) ?? $s;
+
+    return $s;
+};
+$qNorm = $searchQ !== '' ? $normName($searchQ) : '';
 
 $upcoming = [];
 $done = [];
@@ -31,25 +72,59 @@ foreach ($rows as $row) {
         $done[] = $row;
     }
 }
-usort($upcoming, static fn(array $a, array $b): int => strcmp((string) $a['starts_at'], (string) $b['starts_at']));
+
+$upcomingFiltered = $upcoming;
+if ($qNorm !== '' || $searchDay !== '') {
+    $upcomingFiltered = array_values(array_filter($upcoming, static function (array $row) use ($qNorm, $searchDay, $normName): bool {
+        if ($searchDay !== '') {
+            $ymd = substr(str_replace('T', ' ', (string) ($row['starts_at'] ?? '')), 0, 10);
+            if ($ymd !== $searchDay) {
+                return false;
+            }
+        }
+        if ($qNorm !== '') {
+            $hay = $normName((string) ($row['patient_name'] ?? ''));
+            if ($hay === '' || !str_contains($hay, $qNorm)) {
+                return false;
+            }
+        }
+
+        return true;
+    }));
+}
+
+usort($upcomingFiltered, static fn(array $a, array $b): int => strcmp((string) $a['starts_at'], (string) $b['starts_at']));
 usort($done, static fn(array $a, array $b): int => strcmp((string) $b['starts_at'], (string) $a['starts_at']));
 
-$upcomingYmd = group_appointments_by_jalali_ymd($upcoming, 'doc-up', 'current');
+$upcomingYmd = group_appointments_by_jalali_ymd($upcomingFiltered, 'doc-up', 'current');
 $doneYmd = group_appointments_by_jalali_ymd($done, 'doc-dn', 'latest');
 
 $tabParam = trim((string) ($_GET['tab'] ?? ''));
 $binderInitial = in_array($tabParam, ['upcoming', 'done'], true) ? $tabParam : 'upcoming';
+if ($searchQ !== '' || $searchDay !== '') {
+    $binderInitial = 'upcoming';
+}
 
-$ymdRenderDoctor = static function (array $list): void {
+$showDoctorOnCards = $seeAllAppointments;
+$ymdRenderDoctor = static function (array $list) use ($showDoctorOnCards): void {
     $appointmentList = $list;
     $appointmentEmpty = 'نوبتی در این بازه نیست.';
+    $appointmentShowDoctor = $showDoctorOnCards;
     require __DIR__ . '/../../includes/doctor_appointment_cards.php';
 };
+
+$filterActive = $searchQ !== '' || $searchDay !== '';
 
 ob_start();
 ?>
 <h1>نوبت‌های مراجعه‌کنندگان</h1>
-<p class="muted" style="margin-top:.35rem">نوبت منشی و رزرو آنلاین اینجاست. سال، ماه و روز را بزنید تا همه افراد همان بازه را ببینید.</p>
+<p class="muted" style="margin-top:.35rem">
+  <?php if ($seeAllAppointments): ?>
+    شما می‌توانید نوبت همه درمانگرها را ببینید. با نام یا تاریخ جستجو کنید.
+  <?php else: ?>
+    فقط نوبت‌های مراجعه‌کنندگان خودتان. با نام یا تاریخ جستجو کنید.
+  <?php endif; ?>
+</p>
 
 <div class="binder-tile" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($binderInitial) ?>" data-binder-tone="<?= e($binderInitial === 'done' ? 'archive' : 'appts') ?>" style="margin-top:1.25rem">
   <div class="binder-tabs" role="tablist" aria-label="دسته‌بندی نوبت‌ها">
@@ -60,7 +135,7 @@ ob_start();
       data-binder-tone="appts"
       aria-selected="<?= $binderInitial === 'upcoming' ? 'true' : 'false' ?>">
       نوبت‌های پیش‌رو
-      <span class="binder-tab-count"><?= count($upcoming) ?></span>
+      <span class="binder-tab-count"><?= count($upcomingFiltered) ?></span>
     </button>
     <button type="button"
       class="binder-tab binder-tab-archive<?= $binderInitial === 'done' ? ' is-active' : '' ?>"
@@ -74,9 +149,55 @@ ob_start();
   </div>
   <div class="binder-body">
     <section class="binder-panel<?= $binderInitial === 'upcoming' ? ' is-active' : '' ?>" data-binder-panel="upcoming" role="tabpanel"<?= $binderInitial === 'upcoming' ? '' : ' hidden' ?>>
+      <form class="appt-search-bar" method="get" action="<?= e(url('/doctor/appointments')) ?>" id="appt-upcoming-search">
+        <input type="hidden" name="tab" value="upcoming">
+        <div class="appt-search-field">
+          <label class="label" for="appt_search_q">جستجو با نام</label>
+          <input
+            class="input"
+            type="search"
+            id="appt_search_q"
+            name="q"
+            value="<?= e($searchQ) ?>"
+            placeholder="<?= $seeAllAppointments ? 'نام مراجعه‌کننده…' : 'نام مراجعه‌کننده خودتان…' ?>"
+            autocomplete="off"
+          >
+        </div>
+        <div class="appt-search-field">
+          <label class="label" for="appt_search_day_view">جستجو با تاریخ</label>
+          <input
+            class="input"
+            type="text"
+            id="appt_search_day_view"
+            data-jdp
+            data-jdp-only-date
+            autocomplete="off"
+            readonly
+            placeholder="کلیک کنید تا تقویم باز شود"
+            style="cursor:pointer"
+            value="<?= e($searchJalali) ?>"
+          >
+          <input type="hidden" name="day" id="appt_search_day" value="<?= e($searchDay) ?>">
+        </div>
+        <div class="appt-search-actions">
+          <button class="btn btn-primary" type="submit">جستجو</button>
+          <?php if ($filterActive): ?>
+            <a class="btn btn-outline" href="<?= e(url('/doctor/appointments?tab=upcoming')) ?>">پاک کردن</a>
+          <?php endif; ?>
+        </div>
+      </form>
+      <?php if ($filterActive): ?>
+        <p class="muted" style="margin:0 0 .85rem;font-size:.85rem">
+          نتیجه:
+          <?php if ($searchQ !== ''): ?>نام «<?= e($searchQ) ?>»<?php endif; ?>
+          <?php if ($searchQ !== '' && $searchDay !== ''): ?> · <?php endif; ?>
+          <?php if ($searchDay !== ''): ?>تاریخ <?= e(to_jalali_label($searchDay)) ?><?php endif; ?>
+          — <?= to_fa_digits((string) count($upcomingFiltered)) ?> نوبت
+        </p>
+      <?php endif; ?>
       <?php
         $ymdPack = $upcomingYmd;
-        $ymdEmpty = 'نوبت پیش‌رویی نیست.';
+        $ymdEmpty = $filterActive ? 'با این جستجو نوبت پیش‌رویی پیدا نشد.' : 'نوبت پیش‌رویی نیست.';
         $ymdRenderItems = $ymdRenderDoctor;
         require __DIR__ . '/../../includes/appointment_ymd_binder.php';
       ?>
@@ -93,7 +214,45 @@ ob_start();
   </div>
 </div>
 <?php
+$pageHead = '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">';
 $pageScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260910p"></script>'
-    . '<script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910r"></script>';
+    . '<script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910r"></script>'
+    . '<script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>'
+    . '<script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>'
+    . '<script>
+(function(){
+  function faToEn(str){ return String(str).replace(/[۰-۹]/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹".indexOf(d); }); }
+  function pad(n){ return (n < 10 ? "0" : "") + n; }
+  function syncDay(){
+    var view = document.getElementById("appt_search_day_view");
+    var hidden = document.getElementById("appt_search_day");
+    if (!view || !hidden || typeof jalaali === "undefined") return;
+    var t = faToEn(view.value).replace(/-/g, "/").trim();
+    if (t === "") { hidden.value = ""; return; }
+    var p = t.split("/");
+    if (p.length !== 3) { hidden.value = ""; return; }
+    var g = jalaali.toGregorian(parseInt(p[0],10), parseInt(p[1],10), parseInt(p[2],10));
+    hidden.value = g.gy + "-" + pad(g.gm) + "-" + pad(g.gd);
+  }
+  if (typeof jalaliDatepicker !== "undefined") {
+    jalaliDatepicker.startWatch({
+      selector: "#appt_search_day_view",
+      time: false,
+      hideAfterChange: true,
+      showTodayBtn: true,
+      showEmptyBtn: true
+    });
+  }
+  var dayView = document.getElementById("appt_search_day_view");
+  if (dayView) {
+    dayView.addEventListener("jdp:change", syncDay);
+    dayView.addEventListener("change", syncDay);
+    syncDay();
+  }
+  var form = document.getElementById("appt-upcoming-search");
+  if (form) form.addEventListener("submit", function(){ syncDay(); });
+})();
+</script>';
+$GLOBALS['pageHead'] = $pageHead;
 $GLOBALS['pageScripts'] = $pageScripts;
 render_doctor_page('نوبت‌ها', ob_get_clean());

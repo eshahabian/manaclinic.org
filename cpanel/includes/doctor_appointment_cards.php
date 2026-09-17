@@ -6,9 +6,11 @@ require_once __DIR__ . '/appointment_cancel.php';
 
 /** @var array $appointmentList */
 /** @var string $appointmentEmpty */
+/** @var bool $appointmentShowDoctor */
 
 $appointmentList = $appointmentList ?? [];
 $appointmentEmpty = $appointmentEmpty ?? 'نوبتی نیست.';
+$appointmentShowDoctor = !empty($appointmentShowDoctor);
 
 if (!$appointmentList) {
     echo '<p class="muted binder-empty">' . e($appointmentEmpty) . '</p>';
@@ -22,6 +24,9 @@ if (!$appointmentList) {
       <div class="appt-card-top">
         <div>
           <strong><?= e((string) ($a['patient_name'] ?? '')) ?></strong>
+          <?php if ($appointmentShowDoctor && trim((string) ($a['doctor_name'] ?? '')) !== ''): ?>
+            <div class="muted" style="font-size:.85rem">درمانگر: <?= e((string) $a['doctor_name']) ?></div>
+          <?php endif; ?>
           <?php
             $contact = '';
             if (can_view_patient_phone() && trim((string) ($a['phone'] ?? '')) !== '') {
