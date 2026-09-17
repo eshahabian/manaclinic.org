@@ -17,10 +17,10 @@ $marital = trim((string) ($_POST['marital_status'] ?? ''));
 $chief = trim((string) ($_POST['chief_complaint'] ?? ''));
 $residence = trim((string) ($_POST['residence'] ?? ''));
 $familyHistory = trim((string) ($_POST['family_history'] ?? ''));
-$soapSubject = trim((string) ($_POST['soap_subject'] ?? ''));
-$soapObject = trim((string) ($_POST['soap_object'] ?? ''));
-$soapAssessment = trim((string) ($_POST['soap_assessment'] ?? ''));
-$soapPlan = trim((string) ($_POST['soap_plan'] ?? ''));
+$soapSubject = sanitize_clinical_html((string) ($_POST['soap_subject'] ?? ''));
+$soapObject = sanitize_clinical_html((string) ($_POST['soap_object'] ?? ''));
+$soapAssessment = sanitize_clinical_html((string) ($_POST['soap_assessment'] ?? ''));
+$soapPlan = sanitize_clinical_html((string) ($_POST['soap_plan'] ?? ''));
 
 if ($firstName === '' && $lastName === '') {
     [$firstName, $lastName] = chart_split_patient_name((string) ($patient['name'] ?? ''));

@@ -130,12 +130,111 @@ function chart_soap_fields(): array
 function chart_soap_has_content(array $chart): bool
 {
     foreach (array_keys(chart_soap_fields()) as $col) {
-        if (trim((string) ($chart[$col] ?? '')) !== '') {
+        if (trim(strip_tags((string) ($chart[$col] ?? ''))) !== '') {
             return true;
         }
     }
 
     return false;
+}
+
+/**
+ * ادیتور SOAP: یک باکس clinical-editor + نوار ابزار + تب‌های Subject/Object/Assessment/Plan
+ *
+ * @param array<string, string> $values مقادیر HTML هر فیلد
+ * @param array{id_prefix?:string,fields?:array,name_map?:array<string,string>} $opts
+ */
+function chart_soap_rich_editor_html(array $values, array $opts = []): string
+{
+    $fields = $opts['fields'] ?? chart_soap_fields();
+    $idPrefix = preg_replace('/[^a-zA-Z0-9_-]/', '', (string) ($opts['id_prefix'] ?? 'soap')) ?: 'soap';
+    /** @var array<string, string> $nameMap کلید فیلد → name اینپوت */
+    $nameMap = $opts['name_map'] ?? [];
+    $firstKey = (string) (array_key_first($fields) ?? '');
+
+    ob_start();
+    ?>
+    <div class="soap-rich" data-soap-rich id="<?= e($idPrefix) ?>-rich">
+      <?= rich_editor_toolbar_html(['id' => $idPrefix . '-toolbar', 'data_rich_toolbar' => true]) ?>
+      <div class="soap-rich-panes">
+        <?php foreach ($fields as $col => $meta): ?>
+          <?php
+            $html = rich_html_for_display((string) ($values[$col] ?? ''));
+            $inputName = $nameMap[$col] ?? $col;
+            $isFirst = $col === $firstKey;
+          ?>
+          <div
+            class="clinical-editor soap-rich-pane<?= $isFirst ? ' is-active' : '' ?>"
+            id="<?= e($idPrefix . '-' . $col) ?>"
+            contenteditable="true"
+            role="textbox"
+            data-rich-editor
+            data-soap-pane="<?= e($col) ?>"
+            data-placeholder="<?= e((string) ($meta['placeholder'] ?? '')) ?>"
+            <?= $isFirst ? '' : ' hidden' ?>
+          ><?= $html ?></div>
+          <textarea name="<?= e($inputName) ?>" id="<?= e($idPrefix . '-' . $col) ?>-hidden" data-soap-hidden="<?= e($col) ?>" hidden><?= e((string) ($values[$col] ?? '')) ?></textarea>
+        <?php endforeach; ?>
+      </div>
+      <div class="soap-tabs" role="tablist" aria-label="بخش‌های SOAP">
+        <?php foreach ($fields as $col => $meta): ?>
+          <button
+            type="button"
+            class="soap-tab<?= $col === $firstKey ? ' is-active' : '' ?>"
+            role="tab"
+            data-soap-tab="<?= e($col) ?>"
+            aria-selected="<?= $col === $firstKey ? 'true' : 'false' ?>"
+          >
+            <span class="soap-tab-key"><?= e((string) $meta['key']) ?></span>
+            <span class="soap-tab-en"><?= e((string) $meta['en']) ?></span>
+          </button>
+        <?php endforeach; ?>
+      </div>
+    </div>
+    <?php
+
+    return (string) ob_get_clean();
+}
+
+/**
+ * نمایش فقط‌خواندنی SOAP با تب
+ *
+ * @param array<string, mixed> $row
+ */
+function chart_soap_readonly_html(array $row, ?array $fields = null): string
+{
+    $fields = $fields ?? chart_soap_fields();
+    $firstKey = (string) (array_key_first($fields) ?? '');
+    ob_start();
+    ?>
+    <div class="soap-rich soap-rich--readonly" data-soap-rich>
+      <div class="soap-rich-panes">
+        <?php foreach ($fields as $col => $meta): ?>
+          <?php
+            $raw = trim((string) ($row[$col] ?? ''));
+            $isFirst = $col === $firstKey;
+          ?>
+          <div class="clinical-editor soap-rich-pane<?= $isFirst ? ' is-active' : '' ?>" data-soap-pane="<?= e($col) ?>"<?= $isFirst ? '' : ' hidden' ?>>
+            <?php if ($raw !== ''): ?>
+              <?= rich_html_for_display($raw) ?>
+            <?php else: ?>
+              <span class="muted">—</span>
+            <?php endif; ?>
+          </div>
+        <?php endforeach; ?>
+      </div>
+      <div class="soap-tabs" role="tablist">
+        <?php foreach ($fields as $col => $meta): ?>
+          <button type="button" class="soap-tab<?= $col === $firstKey ? ' is-active' : '' ?>" data-soap-tab="<?= e($col) ?>">
+            <span class="soap-tab-key"><?= e((string) $meta['key']) ?></span>
+            <span class="soap-tab-en"><?= e((string) $meta['en']) ?></span>
+          </button>
+        <?php endforeach; ?>
+      </div>
+    </div>
+    <?php
+
+    return (string) ob_get_clean();
 }
 
 function chart_marital_label(?string $status): string
@@ -267,7 +366,7 @@ function session_note_has_content(?array $note): bool
         return false;
     }
     foreach (['note_text', 's_text', 'd_text', 'a_text', 'p_text'] as $key) {
-        if (trim((string) ($note[$key] ?? '')) !== '') {
+        if (trim(strip_tags((string) ($note[$key] ?? ''))) !== '') {
             return true;
         }
     }

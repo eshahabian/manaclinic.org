@@ -64,31 +64,13 @@ $today = date('Y-m-d');
         <form method="post" action="<?= e(url('/doctor/patients/' . $patientId . '/session-note')) ?>" class="form-stack" style="gap:.75rem">
           <input type="hidden" name="appointment_id" value="<?= e($appId) ?>">
           <input type="hidden" name="next_tab" value="<?= e($sessionListNextTab) ?>">
-          <table class="soap-table">
-            <tbody>
-              <?php foreach (session_soap_fields() as $col => $meta): ?>
-                <tr>
-                  <th scope="row">
-                    <label for="<?= e($col . '-' . $appId) ?>">
-                      <span class="soap-key"><?= e($meta['key']) ?></span>
-                      <span class="soap-en"><?= e($meta['en']) ?></span>
-                      <span class="soap-fa muted"><?= e($meta['fa']) ?></span>
-                    </label>
-                  </th>
-                  <td>
-                    <textarea
-                      class="input soap-cell"
-                      id="<?= e($col . '-' . $appId) ?>"
-                      name="<?= e($col) ?>"
-                      rows="3"
-                      placeholder="<?= e($meta['placeholder']) ?>"
-                      data-emoji-field
-                    ><?= e((string) ($note[$col] ?? '')) ?></textarea>
-                  </td>
-                </tr>
-              <?php endforeach; ?>
-            </tbody>
-          </table>
+          <?= chart_soap_rich_editor_html(
+              is_array($note) ? $note : [],
+              [
+                  'id_prefix' => 'session-soap-' . $appId,
+                  'fields' => session_soap_fields(),
+              ]
+          ) ?>
           <div>
             <label class="label" for="pn-<?= e($appId) ?>">نوت کوتاه برای مراجع (در پروفایلش می‌بیند)</label>
             <textarea class="input" id="pn-<?= e($appId) ?>" name="note_text" rows="2" placeholder="اختیاری…" data-emoji-field><?= e((string) ($note['note_text'] ?? '')) ?></textarea>

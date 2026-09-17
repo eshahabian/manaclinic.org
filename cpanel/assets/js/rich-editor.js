@@ -195,4 +195,70 @@
       });
     });
   };
+
+  /** SOAP: یک نوار ابزار + چند پن با تب Subject/Object/… */
+  global.initSoapRichEditors = function (root) {
+    var scope = root || document;
+
+    function syncSoap(block) {
+      block.querySelectorAll("[data-soap-pane]").forEach(function (pane) {
+        var key = pane.getAttribute("data-soap-pane");
+        if (!key) return;
+        var hidden = block.querySelector('[data-soap-hidden="' + key + '"]');
+        if (hidden) hidden.value = pane.innerHTML;
+      });
+    }
+
+    function activateTab(block, key) {
+      block.querySelectorAll("[data-soap-pane]").forEach(function (pane) {
+        var on = pane.getAttribute("data-soap-pane") === key;
+        pane.classList.toggle("is-active", on);
+        if (on) {
+          pane.removeAttribute("hidden");
+        } else {
+          pane.setAttribute("hidden", "");
+        }
+      });
+      block.querySelectorAll("[data-soap-tab]").forEach(function (tab) {
+        var on = tab.getAttribute("data-soap-tab") === key;
+        tab.classList.toggle("is-active", on);
+        tab.setAttribute("aria-selected", on ? "true" : "false");
+      });
+      var activePane = block.querySelector('[data-soap-pane="' + key + '"]');
+      if (activePane && !block.classList.contains("soap-rich--readonly")) {
+        try {
+          activePane.focus();
+        } catch (err) {}
+      }
+    }
+
+    scope.querySelectorAll("[data-soap-rich]").forEach(function (block) {
+      if (block.dataset.soapInited === "1") return;
+      block.dataset.soapInited = "1";
+
+      block.addEventListener("click", function (e) {
+        var tab = e.target.closest("[data-soap-tab]");
+        if (!tab || !block.contains(tab)) return;
+        e.preventDefault();
+        activateTab(block, tab.getAttribute("data-soap-tab"));
+      });
+
+      if (block.classList.contains("soap-rich--readonly")) return;
+
+      if (typeof global.initSharedRichToolbar === "function") {
+        global.initSharedRichToolbar({
+          root: block,
+          toolbar: block.querySelector("[data-rich-toolbar]"),
+          editorSelector: "[data-rich-editor]",
+        });
+      }
+
+      var form = block.closest("form");
+      if (form) {
+        form.addEventListener("submit", function () {
+          syncSoap(block);
+        });
+      }
+    });
+  };
 })(window);

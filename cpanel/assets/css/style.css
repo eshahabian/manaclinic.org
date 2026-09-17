@@ -4988,6 +4988,79 @@ body.workshop-overview-locked { overflow: hidden; }
 @media (max-width: 900px) {
   .ehr-dap-grid { grid-template-columns: 1fr; }
 }
+.soap-rich {
+  display: flex;
+  flex-direction: column;
+  gap: .55rem;
+  margin-top: .35rem;
+}
+.soap-rich .clinical-toolbar {
+  margin: 0;
+}
+.soap-rich-panes {
+  position: relative;
+}
+.soap-rich .soap-rich-pane.clinical-editor {
+  min-height: 200px;
+  max-height: 420px;
+  border-radius: .75rem;
+}
+.soap-rich--readonly .soap-rich-pane.clinical-editor {
+  background: #fafcfb;
+  cursor: default;
+}
+.soap-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem;
+  padding-top: .15rem;
+}
+.soap-tab {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: #fff;
+  color: var(--text);
+  border-radius: .55rem;
+  padding: .45rem .7rem;
+  font: inherit;
+  font-size: .82rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+.soap-tab:hover {
+  border-color: rgba(27, 94, 75, .35);
+}
+.soap-tab.is-active {
+  border-color: var(--primary);
+  background: rgba(27, 94, 75, .08);
+  color: var(--primary);
+  font-weight: 600;
+}
+.soap-tab-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.35rem;
+  height: 1.35rem;
+  border-radius: .35rem;
+  background: var(--primary);
+  color: #fff;
+  font-size: .75rem;
+  font-weight: 700;
+}
+.soap-tab.is-active .soap-tab-key {
+  box-shadow: 0 0 0 2px rgba(27, 94, 75, .18);
+}
+.soap-tab-en {
+  letter-spacing: .01em;
+}
+html[data-theme="dark"] .soap-rich--readonly .soap-rich-pane.clinical-editor,
+html[data-theme="dark"] .soap-tab {
+  background: var(--card, #1a2220);
+}
 .soap-table {
   width: 100%;
   border-collapse: collapse;

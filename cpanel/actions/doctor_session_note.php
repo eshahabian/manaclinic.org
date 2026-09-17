@@ -9,11 +9,11 @@ require_doctor_patient_access($pdo, $ctx, $patientId);
 
 $doctorId = $ctx['profile']['id'];
 $appointmentId = post('appointment_id');
-$noteText = trim((string) ($_POST['note_text'] ?? ''));
-$sText = trim((string) ($_POST['s_text'] ?? ''));
-$dText = trim((string) ($_POST['d_text'] ?? ''));
-$aText = trim((string) ($_POST['a_text'] ?? ''));
-$pText = trim((string) ($_POST['p_text'] ?? ''));
+$noteText = sanitize_clinical_html((string) ($_POST['note_text'] ?? ''));
+$sText = sanitize_clinical_html((string) ($_POST['s_text'] ?? ''));
+$dText = sanitize_clinical_html((string) ($_POST['d_text'] ?? ''));
+$aText = sanitize_clinical_html((string) ($_POST['a_text'] ?? ''));
+$pText = sanitize_clinical_html((string) ($_POST['p_text'] ?? ''));
 $nextTab = trim((string) ($_POST['next_tab'] ?? 'sessions'));
 if (!in_array($nextTab, ['sessions', 'chart'], true)) {
     $nextTab = 'sessions';
