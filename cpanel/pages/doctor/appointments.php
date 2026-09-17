@@ -52,12 +52,20 @@ $rows = $stmt->fetchAll();
 
 $normName = static function (string $s): string {
     $s = mb_strtolower(trim($s), 'UTF-8');
-    $s = str_replace(['ي', 'ك', '‌', 'ـ'], ['ی', 'ک', '', ''], $s);
+    $s = str_replace(['ي', 'ك', 'ة', 'ۀ', '‌', 'ـ', 'أ', 'إ', 'آ', 'ؤ', 'ئ'], ['ی', 'ک', 'ه', 'ه', '', '', 'ا', 'ا', 'ا', 'و', 'ی'], $s);
     $s = preg_replace('/\s+/u', ' ', $s) ?? $s;
 
     return $s;
 };
+$normDigits = static function (string $s): string {
+    $map = ['۰'=>'0','۱'=>'1','۲'=>'2','۳'=>'3','۴'=>'4','۵'=>'5','۶'=>'6','۷'=>'7','۸'=>'8','۹'=>'9',
+            '٠'=>'0','١'=>'1','٢'=>'2','٣'=>'3','٤'=>'4','٥'=>'5','٦'=>'6','٧'=>'7','٨'=>'8','٩'=>'9'];
+    $s = strtr($s, $map);
+    return preg_replace('/\D+/', '', $s) ?? '';
+};
 $qNorm = $searchQ !== '' ? $normName($searchQ) : '';
+$qTokens = $qNorm !== '' ? array_values(array_filter(explode(' ', $qNorm), static fn(string $t): bool => $t !== '')) : [];
+$qDigits = $searchQ !== '' ? $normDigits($searchQ) : '';
 
 $upcoming = [];
 $done = [];
@@ -74,19 +82,35 @@ foreach ($rows as $row) {
 }
 
 $upcomingFiltered = $upcoming;
-if ($qNorm !== '' || $searchDay !== '') {
-    $upcomingFiltered = array_values(array_filter($upcoming, static function (array $row) use ($qNorm, $searchDay, $normName): bool {
+if ($qNorm !== '' || $qDigits !== '' || $searchDay !== '') {
+    $upcomingFiltered = array_values(array_filter($upcoming, static function (array $row) use ($qNorm, $qTokens, $qDigits, $searchDay, $normName, $normDigits): bool {
         if ($searchDay !== '') {
             $ymd = substr(str_replace('T', ' ', (string) ($row['starts_at'] ?? '')), 0, 10);
             if ($ymd !== $searchDay) {
                 return false;
             }
         }
-        if ($qNorm !== '') {
-            $hay = $normName((string) ($row['patient_name'] ?? ''));
-            if ($hay === '' || !str_contains($hay, $qNorm)) {
-                return false;
+        if ($qNorm === '' && $qDigits === '') {
+            return true;
+        }
+        $hay = $normName((string) ($row['patient_name'] ?? ''));
+        $phone = $normDigits((string) ($row['phone'] ?? ''));
+        $email = $normName((string) ($row['email'] ?? ''));
+        $okName = false;
+        if ($qTokens !== []) {
+            $okName = true;
+            foreach ($qTokens as $tok) {
+                if ($tok === '' || (!str_contains($hay, $tok) && !str_contains($email, $tok))) {
+                    $okName = false;
+                    break;
+                }
             }
+        } elseif ($qNorm !== '') {
+            $okName = $hay !== '' && str_contains($hay, $qNorm);
+        }
+        $okPhone = $qDigits !== '' && $phone !== '' && str_contains($phone, $qDigits);
+        if (!$okName && !$okPhone) {
+            return false;
         }
 
         return true;
@@ -194,13 +218,20 @@ ob_start();
           <?php if ($searchDay !== ''): ?>تاریخ <?= e(to_jalali_label($searchDay)) ?><?php endif; ?>
           — <?= to_fa_digits((string) count($upcomingFiltered)) ?> نوبت
         </p>
+        <?php
+          $appointmentList = $upcomingFiltered;
+          $appointmentEmpty = 'با این جستجو نوبت پیش‌رویی پیدا نشد.';
+          $appointmentShowDoctor = $showDoctorOnCards;
+          require __DIR__ . '/../../includes/doctor_appointment_cards.php';
+        ?>
+      <?php else: ?>
+        <?php
+          $ymdPack = $upcomingYmd;
+          $ymdEmpty = 'نوبت پیش‌رویی نیست.';
+          $ymdRenderItems = $ymdRenderDoctor;
+          require __DIR__ . '/../../includes/appointment_ymd_binder.php';
+        ?>
       <?php endif; ?>
-      <?php
-        $ymdPack = $upcomingYmd;
-        $ymdEmpty = $filterActive ? 'با این جستجو نوبت پیش‌رویی پیدا نشد.' : 'نوبت پیش‌رویی نیست.';
-        $ymdRenderItems = $ymdRenderDoctor;
-        require __DIR__ . '/../../includes/appointment_ymd_binder.php';
-      ?>
     </section>
     <section class="binder-panel<?= $binderInitial === 'done' ? ' is-active' : '' ?>" data-binder-panel="done" role="tabpanel"<?= $binderInitial === 'done' ? '' : ' hidden' ?>>
       <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">نوبت‌های برگزارشده، گذشته یا لغو شده. از تب ماه می‌توانید ببینید ماه پیش با چه کسانی وقت داشته‌اید.</p>
