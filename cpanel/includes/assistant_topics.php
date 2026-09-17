@@ -4,76 +4,20 @@ declare(strict_types=1);
 require_once __DIR__ . '/doctor_profile_fields.php';
 
 /**
- * موضوعات گفتگو از همان گزینه‌های پنل درمانگر (زمینه تخصصی + حوزه درمان مرتبط).
- * اگر درمانگر فعالی آن موضوع را انتخاب کرده باشد، اولویت نمایش دارد؛ وگرنه همه گزینه‌ها.
+ * موضوعات گفتگو = فقط «حوزه درمان» پنل درمانگر
+ * (مشاوره فردی، زوج درمانی، پیش از ازدواج، خانواده، کودک و نوجوان، سازمانی)
  */
-function assistant_topic_options(PDO $pdo): array
+function assistant_topic_options(?PDO $pdo = null): array
 {
-    ensure_doctor_profile_schema($pdo);
-    $focus = doctor_focus_options();
-    $domains = doctor_domain_options();
-
-    // موضوعات گفتگو: زمینه‌های تخصصی (اصلی) + چند حوزه پرتقاضا
-    $catalog = [];
-    foreach ($focus as $key => $label) {
-        $catalog[$key] = [
+    $out = [];
+    foreach (doctor_domain_options() as $key => $label) {
+        $out[] = [
             'id' => $key,
             'label' => $label,
-            'kind' => 'focus',
+            'kind' => 'domain',
             'tags' => assistant_topic_tags($key),
         ];
     }
-    foreach ([
-        'couples' => ['couple', 'relationship'],
-        'premarital' => ['couple', 'relationship'],
-        'family' => ['family', 'parenting'],
-        'child' => ['family', 'parenting'],
-        'organizational' => ['stress', 'burnout', 'growth'],
-    ] as $domainKey => $tags) {
-        if (!isset($catalog[$domainKey])) {
-            $catalog[$domainKey] = [
-                'id' => $domainKey,
-                'label' => $domains[$domainKey] ?? $domainKey,
-                'kind' => 'domain',
-                'tags' => $tags,
-            ];
-        }
-    }
-
-    $used = [];
-    try {
-        $rows = $pdo->query("
-          SELECT focus_json, domains_json
-          FROM doctor_profiles
-          WHERE is_active = 1 AND is_approved = 1
-        ")->fetchAll();
-        foreach ($rows as $row) {
-            foreach (doctor_profile_json_list($row['focus_json'] ?? '') as $k) {
-                $used[$k] = true;
-            }
-            foreach (doctor_profile_json_list($row['domains_json'] ?? '') as $k) {
-                $used[$k] = true;
-            }
-        }
-    } catch (Throwable $e) {
-        // همه گزینه‌ها
-    }
-
-    $out = [];
-    foreach ($catalog as $key => $item) {
-        if ($used !== [] && empty($used[$key]) && ($item['kind'] ?? '') === 'focus') {
-            // اگر هیچ درمانگری این زمینه را نزده، باز هم نشان بده تا کاتالوگ کامل بماند
-        }
-        $out[] = $item;
-    }
-
-    // گزینه آزاد
-    $out[] = [
-        'id' => 'other',
-        'label' => 'موضوع دیگری دارم',
-        'kind' => 'other',
-        'tags' => ['therapy'],
-    ];
 
     return $out;
 }
@@ -83,30 +27,14 @@ function assistant_topic_by_id(string $id): ?array
     static $map = null;
     if ($map === null) {
         $map = [];
-        foreach (doctor_focus_options() as $key => $label) {
+        foreach (doctor_domain_options() as $key => $label) {
             $map[$key] = [
                 'id' => $key,
                 'label' => $label,
-                'kind' => 'focus',
+                'kind' => 'domain',
                 'tags' => assistant_topic_tags($key),
             ];
         }
-        foreach (doctor_domain_options() as $key => $label) {
-            if (!isset($map[$key])) {
-                $map[$key] = [
-                    'id' => $key,
-                    'label' => $label,
-                    'kind' => 'domain',
-                    'tags' => assistant_topic_tags($key),
-                ];
-            }
-        }
-        $map['other'] = [
-            'id' => 'other',
-            'label' => 'موضوع دیگر',
-            'kind' => 'other',
-            'tags' => ['therapy'],
-        ];
     }
 
     return $map[$id] ?? null;
@@ -146,6 +74,18 @@ function assistant_topic_tags(string $key): array
 function assistant_topic_questions(string $topicId): array
 {
     $bank = [
+        'individual' => [
+            ['id' => 'i1', 'text' => 'مشاوره فردی معمولاً از کجا شروع می‌شود؟', 'tip' => 'از شنیدن دغدغه شما، روشن‌کردن هدف، و توافق روی مسیر کار — نه تشخیص عجولانه در جلسه اول.'],
+            ['id' => 'i2', 'text' => 'چه موضوعاتی برای جلسه فردی مناسب‌ترند؟', 'tip' => 'اضطراب، خلق، استرس، خودشناسی، الگوهای تکراری، و هر رنجی که بیشتر درون خودتان جریان دارد.'],
+            ['id' => 'i3', 'text' => 'فرق جلسه فردی با حرف زدن با دوست چیست؟', 'tip' => 'درمانگر آموزش‌دیده، چارچوب امن، رازداری حرفه‌ای و روش‌های ساخت‌یافته دارد؛ رابطه دوستانه جایگزین درمان نیست.'],
+            ['id' => 'i4', 'text' => 'چند جلسه لازم است تا اثر ببینم؟', 'tip' => 'فردی است؛ بعضی زودتر سبک می‌شوند، تغییرات عمیق‌تر معمولاً به نظم و زمان نیاز دارد.'],
+            ['id' => 'i5', 'text' => 'اگر ندانم دقیقاً مشکلم چیست چه؟', 'tip' => 'طبیعی است. خیلی‌ها با حس مبهم می‌آیند؛ جلسه اول برای روشن‌تر شدن همان ابهام است.'],
+            ['id' => 'i6', 'text' => 'حضوری بهتر است یا آنلاین؟', 'tip' => 'هر دو می‌توانند مؤثر باشند؛ راحتی، دسترسی و احساس امنیت شما معیار اصلی است.'],
+            ['id' => 'i7', 'text' => 'آیا باید آمادگی خاصی برای جلسه اول داشته باشم؟', 'tip' => 'لازم نیست کامل باشید. چند خط درباره آنچه اذیتتان می‌کند کافی است؛ بقیه در گفتگو شکل می‌گیرد.'],
+            ['id' => 'i8', 'text' => 'رازداری جلسات فردی چطور است؟', 'tip' => 'تعهد حرفه‌ای درمانگر است؛ استثنا وقتی خطر جدی برای جان خود یا دیگران مطرح باشد.'],
+            ['id' => 'i9', 'text' => 'کی باید به‌جای فردی، زوجی یا خانوادگی بروم؟', 'tip' => 'اگر مشکل عمدتاً بین شما و شریک/خانواده است و همه آماده‌اند، فرمت مشترک مفیدتر است؛ وگرنه فردی نقطه شروع خوبی است.'],
+            ['id' => 'i10', 'text' => 'در بحران حاد چه کنم؟', 'tip' => 'این چت جایگزین اورژانس نیست. اگر خطر فوری هست با ۱۱۵ تماس بگیرید؛ بعد برای ادامه مسیر می‌توانید درمانگر فردی بگیرید.'],
+        ],
         'anxiety' => [
             ['id' => 'a1', 'text' => 'فرق اضطراب طبیعی با اختلال اضطراب چیست؟', 'tip' => 'اضطراب گاه‌به‌گاه در موقعیت‌های واقعی طبیعی است؛ وقتی مداوم، شدید و روی کار/خواب/روابط اثر بگذارد، وقت بررسی تخصصی است. این تشخیص قطعی نیست.'],
             ['id' => 'a2', 'text' => 'حمله پانیک با اضطراب روزمره چه تفاوتی دارد؟', 'tip' => 'پانیک معمولاً ناگهانی، با علائم بدنی شدید (تپش، تنگی نفس، ترس از مرگ) و کوتاه‌مدت است. اضطراب عمومی بیشتر نگرانی مداوم است. هر دو قابل کار درمانی‌اند.'],
@@ -351,7 +291,7 @@ function assistant_topic_questions(string $topicId): array
         return $bank[$topicId];
     }
 
-    return $bank['other'];
+    return $bank['individual'];
 }
 
 function assistant_topic_question(string $topicId, string $questionId): ?array
@@ -410,12 +350,14 @@ function assistant_answers_for_matching(array $answers): array
         $tags = $topic['tags'] ?? ['therapy'];
         if (in_array($topicId, ['depression'], true)) {
             $optionId = 'depression';
-        } elseif (in_array($topicId, ['relationships', 'couples', 'premarital', 'sexual'], true)) {
+        } elseif (in_array($topicId, ['couples', 'premarital'], true)) {
             $optionId = 'relationship';
         } elseif (in_array($topicId, ['family', 'child'], true)) {
             $optionId = 'family';
-        } elseif (in_array($topicId, ['growth', 'organizational'], true)) {
+        } elseif (in_array($topicId, ['organizational'], true)) {
             $optionId = 'self';
+        } elseif ($topicId === 'individual') {
+            $optionId = 'anxiety';
         } else {
             $optionId = 'anxiety';
         }

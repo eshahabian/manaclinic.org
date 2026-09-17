@@ -35,7 +35,7 @@ ob_start();
   <div class="assistant-head">
     <h1>با من حرف بزن</h1>
     <p class="muted">
-      حوزه مورد نظرتان را انتخاب کنید، سوال‌های تخصصی را ببینید، بعد بیشتر حرف بزنید یا درمانگر مرتبط از مانا کلینیک را بشناسید.
+      حوزه درمان را انتخاب کنید، سوال‌های تخصصی را ببینید، بعد بیشتر حرف بزنید یا درمانگر مرتبط را بشناسید.
     </p>
   </div>
 
@@ -52,6 +52,6 @@ ob_start();
 $content = ob_get_clean();
 
 $pageScripts = '<script>window.__ASSISTANT__ = ' . json_encode($assistantConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . ';</script>'
-    . '<script src="' . e(url('/assets/js/assistant.js')) . '?v=20260317b"></script>';
+    . '<script src="' . e(url('/assets/js/assistant.js')) . '?v=20260317c"></script>';
 
 require __DIR__ . '/../includes/layout.php';

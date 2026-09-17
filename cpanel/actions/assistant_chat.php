@@ -1,14 +1,41 @@
 <?php
 declare(strict_types=1);
 
+// پاک‌سازی بافر تا noticeها پاسخ JSON را خراب نکنند
+while (ob_get_level() > 0) {
+    ob_end_clean();
+}
+ob_start();
+
+@ini_set('display_errors', '0');
+@ini_set('html_errors', '0');
+@set_time_limit(90);
+
+register_shutdown_function(static function (): void {
+    $err = error_get_last();
+    if (!$err) {
+        return;
+    }
+    $type = (int) ($err['type'] ?? 0);
+    if (!in_array($type, [E_ERROR, E_PARSE, E_CORE_ERROR, E_COMPILE_ERROR, E_USER_ERROR], true)) {
+        return;
+    }
+    if (!headers_sent()) {
+        http_response_code(500);
+        header('Content-Type: application/json; charset=utf-8');
+    }
+    while (ob_get_level() > 0) {
+        ob_end_clean();
+    }
+    echo json_encode([
+        'error' => 'خطای داخلی سرور در دستیار. لطفاً دوباره تلاش کنید.',
+    ], JSON_UNESCAPED_UNICODE);
+});
+
 require_once __DIR__ . '/../includes/assistant.php';
 
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
-
-// جلوگیری از نشت HTML به‌خاطر notice/warning
-@ini_set('display_errors', '0');
-@set_time_limit(90);
 
 if (!assistant_enabled()) {
     http_response_code(403);
@@ -63,10 +90,10 @@ function assistant_chat_require_session(PDO $pdo, string $sessionId, $user): arr
     return $session;
 }
 
-function assistant_chat_topics_payload(PDO $pdo, string $sessionId, string $botMessage): array
+function assistant_chat_topics_payload(string $sessionId, string $botMessage): array
 {
     $topics = [];
-    foreach (assistant_topic_options($pdo) as $t) {
+    foreach (assistant_topic_options() as $t) {
         $topics[] = ['id' => $t['id'], 'label' => $t['label']];
     }
 
@@ -124,7 +151,7 @@ try {
         throttle_hit('assistant_start', 3600);
         $session = assistant_session_create($pdo, ($user && ($user['role'] ?? '') === 'PATIENT') ? (string) $user['id'] : null);
         $sessionId = (string) $session['id'];
-        $greeting = "سلام، خوش آمدید.\nمن دستیار مانا کلینیک هستم. اول بگویید دوست دارید درباره کدام حوزه حرف بزنیم؟";
+        $greeting = "سلام، خوش آمدید.\nمن دستیار مانا کلینیک هستم. لطفاً حوزه درمان مورد نظرتان را انتخاب کنید.";
         $answers = assistant_flow_meta_set([], [
             'phase' => 'topic',
             'topic' => '',
@@ -135,7 +162,7 @@ try {
         assistant_save_progress($pdo, $sessionId, 0, $answers);
         $messages = [['role' => 'assistant', 'content' => $greeting]];
         assistant_messages_save($pdo, $sessionId, $messages);
-        echo json_encode(assistant_chat_topics_payload($pdo, $sessionId, $greeting), JSON_UNESCAPED_UNICODE);
+        echo json_encode(assistant_chat_topics_payload($sessionId, $greeting), JSON_UNESCAPED_UNICODE);
         exit;
     }
 
@@ -525,9 +552,9 @@ try {
             'aiChat' => $aiMode && $phase === 'chat',
         ];
         if ($phase === 'topic') {
-            $payload['topics'] = array_map(static fn ($t) => ['id' => $t['id'], 'label' => $t['label']], assistant_topic_options($pdo));
+            $payload['topics'] = array_map(static fn ($t) => ['id' => $t['id'], 'label' => $t['label']], assistant_topic_options());
         } elseif ($phase === 'explore') {
-            $topicId = (string) ($meta['topic'] ?? 'other');
+            $topicId = (string) ($meta['topic'] ?? 'individual');
             $payload['topic'] = ['id' => $topicId, 'label' => (string) ($meta['topic_label'] ?? '')];
             $payload['questions'] = array_map(static fn ($q) => ['id' => $q['id'], 'text' => $q['text']], assistant_topic_questions($topicId));
             $payload['explored'] = $meta['explored'] ?? [];

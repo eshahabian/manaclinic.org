@@ -67,7 +67,7 @@
           } catch (e) {
             if (trimmed.charAt(0) === "<") {
               throw new Error(
-                "سرور به‌جای پاسخ چت، صفحه HTML برگرداند. معمولاً تایم‌اوت یا خطای PHP است — دوباره پیام کوتاه‌تر بفرستید."
+                "پاسخ سرور به‌جای JSON، صفحه HTML بود. صفحه را یک‌بار تازه کنید؛ اگر تکرار شد فایل‌های دستیار روی سرور را دوباره آپلود کنید."
               );
             }
             throw new Error("پاسخ نامعتبر از سرور");
@@ -90,7 +90,7 @@
     controlsEl.innerHTML = "";
     var hint = document.createElement("p");
     hint.className = "assistant-step muted";
-    hint.textContent = "یک حوزه را انتخاب کنید";
+    hint.textContent = "حوزه درمان را انتخاب کنید";
     controlsEl.appendChild(hint);
     var grid = document.createElement("div");
     grid.className = "assistant-options assistant-options--topics";

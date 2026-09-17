@@ -80,6 +80,7 @@ $path = '/' . trim($path, '/');
 if ($path !== '/') {
     $path = rtrim($path, '/');
 }
+$GLOBALS['path'] = $path;
 
 $method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
 // Crawlers often probe with HEAD; treat it like GET for public routes.
