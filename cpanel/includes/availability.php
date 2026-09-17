@@ -456,6 +456,94 @@ function doctor_weekly_hours_clear(PDO $pdo, string $doctorId, int $weekdaySat0)
 }
 
 /**
+ * خلاصه حضور هفتگی: ساعت‌های اعلام‌شده + خالی/پر برای نزدیک‌ترین روز هر weekday.
+ *
+ * @return list<array{
+ *   weekday:int,
+ *   label:string,
+ *   hours:list<int>,
+ *   next_date:?string,
+ *   next_label:string,
+ *   free:list<int>,
+ *   booked:list<array{hour:int,patient:string}>
+ * }>
+ */
+function doctor_weekday_presence_summary(PDO $pdo, string $doctorId): array
+{
+    ensure_availability_schema($pdo);
+    $weekly = doctor_weekly_hours_map($pdo, $doctorId);
+    $bookedMap = doctor_availability_booked_map($pdo, $doctorId);
+    $weekdays = doctor_weekdays_sat_first();
+    $today = date('Y-m-d');
+
+    // ساعت‌های ذخیره‌شده روی تاریخ‌های آینده (در صورت نبود قالب هفتگی)
+    $hoursByDate = [];
+    $stmt = $pdo->prepare('SELECT date, available_hours FROM availabilities WHERE doctor_id=? AND date>=? ORDER BY date ASC');
+    $stmt->execute([$doctorId, $today]);
+    foreach ($stmt->fetchAll() as $row) {
+        $date = substr((string) ($row['date'] ?? ''), 0, 10);
+        if ($date === '') {
+            continue;
+        }
+        $hoursByDate[$date] = appointment_hours_decode((string) ($row['available_hours'] ?? ''));
+    }
+
+    $todayDt = new DateTimeImmutable('today');
+    $out = [];
+    foreach ($weekdays as $w => $label) {
+        $phpW = doctor_weekday_to_php_w((int) $w);
+        $nextDate = null;
+        for ($i = 0; $i < 21; $i++) {
+            $d = $todayDt->modify('+' . $i . ' days');
+            if ((int) $d->format('w') === $phpW) {
+                $nextDate = $d->format('Y-m-d');
+                break;
+            }
+        }
+
+        $hours = $weekly[$w] ?? [];
+        if ($hours === [] && $nextDate !== null && !empty($hoursByDate[$nextDate])) {
+            $hours = $hoursByDate[$nextDate];
+        }
+        // اگر برای نزدیک‌ترین روز ردیف availability هست، همان را مبنا بگیر
+        if ($nextDate !== null && isset($hoursByDate[$nextDate]) && $hoursByDate[$nextDate] !== []) {
+            $hours = $hoursByDate[$nextDate];
+        }
+
+        $free = [];
+        $booked = [];
+        if ($nextDate !== null && $hours !== []) {
+            foreach ($hours as $hour) {
+                $hour = (int) $hour;
+                $startsAt = appointment_slot_starts_at($nextDate, $hour);
+                $slotKey = substr(str_replace('T', ' ', $startsAt), 0, 16);
+                $row = $bookedMap[$slotKey] ?? null;
+                if (is_array($row)) {
+                    $booked[] = [
+                        'hour' => $hour,
+                        'patient' => trim((string) ($row['patient_name'] ?? '')),
+                    ];
+                } else {
+                    $free[] = $hour;
+                }
+            }
+        }
+
+        $out[] = [
+            'weekday' => (int) $w,
+            'label' => (string) $label,
+            'hours' => array_values(array_map('intval', $hours)),
+            'next_date' => $nextDate,
+            'next_label' => $nextDate ? to_jalali_label($nextDate) : '',
+            'free' => $free,
+            'booked' => $booked,
+        ];
+    }
+
+    return $out;
+}
+
+/**
  * اعمال ساعت‌های یک روز هفته روی N هفته آینده + ذخیره قالب هفتگی.
  */
 function doctor_availability_apply_weekday(PDO $pdo, string $doctorId, int $weekdaySat0, array $hours, int $weeks = 12): int

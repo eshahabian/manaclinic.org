@@ -2825,6 +2825,38 @@ a.doctor-dash-stat:hover {
 @media (max-width: 640px) {
   .avail-weekday-fields { grid-template-columns: 1fr; }
 }
+.avail-summary-panel { padding: 1.1rem 1.15rem 1.25rem; }
+.avail-summary-list {
+  display: grid;
+  gap: .75rem;
+}
+.avail-summary-card {
+  border: 1px solid var(--line);
+  border-radius: .85rem;
+  padding: .85rem 1rem;
+  background: #fff;
+}
+.avail-summary-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem .85rem;
+  align-items: baseline;
+  margin-bottom: .55rem;
+}
+.avail-summary-line {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem .5rem;
+  font-size: .9rem;
+  line-height: 1.7;
+  margin-top: .2rem;
+}
+.avail-summary-k {
+  font-weight: 600;
+  min-width: 3.5rem;
+}
+.avail-summary-free .avail-summary-k { color: #1d4ed8; }
+.avail-summary-booked .avail-summary-k { color: #92400e; }
 .hour-chip-who {
   font-size: .65rem;
   font-weight: 600;

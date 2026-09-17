@@ -10,6 +10,14 @@ ensure_doctor_weekly_hours_schema($pdo);
 $bookingHours = appointment_booking_hours();
 $weeklyMap = doctor_weekly_hours_map($pdo, (string) $ctx['profile']['id']);
 $weekdays = doctor_weekdays_sat_first();
+$weekdaySummary = doctor_weekday_presence_summary($pdo, (string) $ctx['profile']['id']);
+$hasAnyPresence = false;
+foreach ($weekdaySummary as $row) {
+    if (!empty($row['hours'])) {
+        $hasAnyPresence = true;
+        break;
+    }
+}
 
 ob_start();
 ?>
@@ -106,6 +114,68 @@ ob_start();
       <?php endif; ?>
     </div>
   <?php endforeach; ?>
+</section>
+
+<section class="panel avail-summary-panel" style="margin-top:1.25rem">
+  <h2 class="avail-week-title">خلاصه حضور</h2>
+  <p class="muted" style="margin:0 0 1rem;font-size:.88rem;line-height:1.65">
+    برای هر روز هفته، ساعت‌های اعلام‌شده و وضعیت نزدیک‌ترین تاریخ (خالی یا پر) را می‌بینید.
+  </p>
+  <?php if (!$hasAnyPresence): ?>
+    <p class="muted" style="margin:0">هنوز ساعت حضوری ثبت نشده است. از بالا یک روز هفته را انتخاب کنید.</p>
+  <?php else: ?>
+    <div class="avail-summary-list">
+      <?php foreach ($weekdaySummary as $row): ?>
+        <?php if (empty($row['hours'])) {
+            continue;
+        } ?>
+        <article class="avail-summary-card">
+          <div class="avail-summary-head">
+            <strong><?= e((string) $row['label']) ?></strong>
+            <?php if (!empty($row['next_label'])): ?>
+              <span class="muted" style="font-size:.82rem">نزدیک‌ترین: <?= e((string) $row['next_label']) ?></span>
+            <?php endif; ?>
+          </div>
+          <div class="avail-summary-line">
+            <span class="avail-summary-k">حضور:</span>
+            <span><?= e(implode(' · ', array_map(
+                static fn (int $h): string => appointment_hour_chip_label($h),
+                $row['hours']
+            ))) ?></span>
+          </div>
+          <div class="avail-summary-line avail-summary-free">
+            <span class="avail-summary-k">خالی:</span>
+            <?php if (empty($row['free'])): ?>
+              <span class="muted">—</span>
+            <?php else: ?>
+              <span><?= e(implode(' · ', array_map(
+                  static fn (int $h): string => appointment_hour_chip_label($h),
+                  $row['free']
+              ))) ?></span>
+            <?php endif; ?>
+          </div>
+          <div class="avail-summary-line avail-summary-booked">
+            <span class="avail-summary-k">پر شده:</span>
+            <?php if (empty($row['booked'])): ?>
+              <span class="muted">هنوز کسی رزرو نکرده</span>
+            <?php else: ?>
+              <span>
+                <?php
+                  $bits = [];
+                  foreach ($row['booked'] as $b) {
+                      $hLabel = appointment_hour_chip_label((int) ($b['hour'] ?? 0));
+                      $who = trim((string) ($b['patient'] ?? ''));
+                      $bits[] = $who !== '' ? ($hLabel . ' (' . $who . ')') : $hLabel;
+                  }
+                  echo e(implode(' · ', $bits));
+                ?>
+              </span>
+            <?php endif; ?>
+          </div>
+        </article>
+      <?php endforeach; ?>
+    </div>
+  <?php endif; ?>
 </section>
 <?php
 $inner = ob_get_clean();
