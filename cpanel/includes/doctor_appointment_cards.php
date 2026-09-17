@@ -3,6 +3,12 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/user_cleanup.php';
 require_once __DIR__ . '/appointment_cancel.php';
+if (!function_exists('appointment_session_mode_badge_html') && is_file(__DIR__ . '/appointment_session.php')) {
+    require_once __DIR__ . '/appointment_session.php';
+}
+if (!function_exists('video_call_direct_url') && is_file(__DIR__ . '/video_call.php')) {
+    require_once __DIR__ . '/video_call.php';
+}
 
 /** @var array $appointmentList */
 /** @var string $appointmentEmpty */
@@ -19,7 +25,19 @@ if (!$appointmentList) {
 ?>
 <div class="stack">
   <?php foreach ($appointmentList as $a): ?>
-    <?php $time = jalali_day_parts((string) ($a['starts_at'] ?? '')); ?>
+    <?php
+      $time = jalali_day_parts((string) ($a['starts_at'] ?? ''));
+      $patientId = (string) ($a['patient_id'] ?? '');
+      $appId = (string) ($a['id'] ?? '');
+      $upcoming = function_exists('appointment_is_upcoming') && appointment_is_upcoming($a);
+      $showManaStart = $upcoming;
+      $chartSessionsUrl = $patientId !== ''
+          ? url('/doctor/patients/' . rawurlencode($patientId) . '?tab=sessions#session-' . rawurlencode($appId))
+          : '';
+      $sharedNoteUrl = $appId !== ''
+          ? url('/doctor/session-note?appointment=' . rawurlencode($appId))
+          : '';
+    ?>
     <div class="panel appt-card">
       <div class="appt-card-top">
         <div>
@@ -38,11 +56,12 @@ if (!$appointmentList) {
           <?php if ($contact !== ''): ?>
             <div class="muted" style="font-size:.85rem"><?= e($contact) ?></div>
           <?php endif; ?>
-          <div style="margin-top:.35rem;font-size:.9rem">
+          <div style="margin-top:.35rem;font-size:.9rem;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center">
             <?= e(format_fa_datetime((string) ($a['starts_at'] ?? ''))) ?>
             <?php if (!empty($time['time_fa'])): ?>
               · ساعت <?= e((string) $time['time_fa']) ?>
             <?php endif; ?>
+            <?= function_exists('appointment_session_mode_badge_html') ? appointment_session_mode_badge_html((string) ($a['session_mode'] ?? 'IN_PERSON')) : '' ?>
           </div>
           <?= appointment_booked_by_html($a) ?>
         </div>
@@ -56,8 +75,17 @@ if (!$appointmentList) {
       <?= appointment_notes_html($a) ?>
       <div class="appt-card-actions">
         <?= staff_receipt_view_html($a['payment_id'] ?? null, $a['receipt_path'] ?? null, false) ?>
-        <?php if (!empty($a['patient_id'])): ?>
-          <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/patients/' . $a['patient_id'])) ?>">پرونده مراجعه‌کننده</a>
+        <?php if ($patientId !== ''): ?>
+          <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/patients/' . $patientId)) ?>">پرونده مراجعه‌کننده</a>
+        <?php endif; ?>
+        <?php if ($chartSessionsUrl !== ''): ?>
+          <a class="btn btn-outline btn-sm" href="<?= e($chartSessionsUrl) ?>">یادداشت بالینی جلسه</a>
+        <?php endif; ?>
+        <?php if ($sharedNoteUrl !== ''): ?>
+          <a class="btn btn-outline btn-sm" href="<?= e($sharedNoteUrl) ?>">یادداشت مشترک</a>
+        <?php endif; ?>
+        <?php if ($showManaStart && $patientId !== '' && function_exists('video_call_direct_url')): ?>
+          <a class="btn btn-primary btn-sm" href="<?= e(video_call_direct_url($patientId, 'video')) ?>">شروع تماس مانا</a>
         <?php endif; ?>
         <?= appointment_cancel_form((string) ($a['id'] ?? ''), (string) ($a['status'] ?? ''), '/doctor/appointments', '/doctor/appointments') ?>
         <?= admin_appointment_delete_form((string) ($a['id'] ?? ''), '/doctor/appointments') ?>

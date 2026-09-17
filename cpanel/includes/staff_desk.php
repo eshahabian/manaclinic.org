@@ -30,7 +30,8 @@ function ensure_staff_desk_schema(PDO $pdo): void
         }
     };
 
-    $addColumn($pdo, 'appointments', 'created_by_user_id', 'created_by_user_id VARCHAR(32) NULL AFTER notes');
+    $addColumn($pdo, 'appointments', 'session_mode', "session_mode ENUM('IN_PERSON','ONLINE') NOT NULL DEFAULT 'IN_PERSON' AFTER notes");
+    $addColumn($pdo, 'appointments', 'created_by_user_id', 'created_by_user_id VARCHAR(32) NULL AFTER session_mode');
     $addColumn($pdo, 'appointments', 'cancel_reason', 'cancel_reason VARCHAR(32) NULL AFTER created_by_user_id');
     $addColumn($pdo, 'appointments', 'cancellation_note', 'cancellation_note TEXT NULL AFTER cancel_reason');
     $addColumn($pdo, 'appointments', 'cancelled_by_user_id', 'cancelled_by_user_id VARCHAR(32) NULL AFTER cancellation_note');

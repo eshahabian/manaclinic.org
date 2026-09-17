@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/../includes/appointment_session.php';
 $user = require_login(['SECRETARY']);
 csrf_verify();
 $actorId = (string) $user['id'];
@@ -10,6 +11,9 @@ $doctorId = post('doctor_id');
 $date = post('date');
 $time = post('time');
 $notes = post('notes') ?: null;
+$sessionMode = function_exists('appointment_normalize_session_mode')
+    ? appointment_normalize_session_mode(post('session_mode'))
+    : 'IN_PERSON';
 
 if ($doctorId === '' || $date === '' || $time === '') {
     flash_set('error', 'اطلاعات نوبت ناقص است.');
@@ -68,8 +72,9 @@ try {
     if (!empty($_FILES['receipt']['name'])) {
         $receiptPath = staff_save_receipt($_FILES['receipt'], $paymentId);
     }
-    $pdo->prepare('INSERT INTO appointments (id,doctor_id,patient_id,starts_at,ends_at,status,notes,created_by_user_id) VALUES (?,?,?,?,?,?,?,?)')
-        ->execute([$appointmentId, $doctorId, $patientId, $startsAt, $endsAt, 'CONFIRMED', $notes, $actorId]);
+    ensure_appointment_session_schema($pdo);
+    $pdo->prepare('INSERT INTO appointments (id,doctor_id,patient_id,starts_at,ends_at,status,notes,session_mode,created_by_user_id) VALUES (?,?,?,?,?,?,?,?,?)')
+        ->execute([$appointmentId, $doctorId, $patientId, $startsAt, $endsAt, 'CONFIRMED', $notes, $sessionMode, $actorId]);
     $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,status,ref_id,recorded_by_user_id,receipt_path) VALUES (?,?,?,?,?,?,?)')
         ->execute([$paymentId, $appointmentId, (int)$doctor['session_price'], 'PAID', 'SECRETARY', $actorId, $receiptPath]);
     $pdo->commit();

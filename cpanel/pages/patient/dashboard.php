@@ -59,6 +59,17 @@ ob_start();
           </div>
         </div>
         <?= booking_terms_acceptance_html('terms-accept-dash') ?>
+        <?php
+          if (!function_exists('appointment_session_mode_pick_html') && is_file(__DIR__ . '/../../includes/appointment_session.php')) {
+              require_once __DIR__ . '/../../includes/appointment_session.php';
+          }
+          if (function_exists('ensure_appointment_session_schema')) {
+              ensure_appointment_session_schema($pdo);
+          }
+          echo function_exists('appointment_session_mode_pick_html')
+              ? '<div style="margin:.5rem 0 0.85rem">' . appointment_session_mode_pick_html('session_mode', 'IN_PERSON', 'home-sm') . '</div>'
+              : '';
+        ?>
         <div data-patient-book data-book-url="<?= e(url('/book')) ?>" data-after-url="<?= e(url('/dashboard/appointments?booked=1')) ?>" data-terms-id="terms-accept-dash">
         <?php
           $appointmentItemMode = 'simple';
@@ -95,6 +106,6 @@ $GLOBALS['pageScripts'] = '
 <script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260904u"></script>
 <script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910s"></script>
 <script src="' . e(url('/assets/js/patient-courses.js')) . '?v=20260906w"></script>
-<script src="' . e(url('/assets/js/patient-book-slots.js')) . '?v=20260904y"></script>'
+<script src="' . e(url('/assets/js/patient-book-slots.js')) . '?v=20260917a"></script>'
   . booking_terms_script('terms-accept-dash', '.dash-book-btn');
 render_patient_page('پنل مراجعه‌کننده', $dashContent);

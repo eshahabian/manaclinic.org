@@ -47,6 +47,17 @@ ob_start();
   <p id="cancel-msg" style="font-size:.9rem;display:none"></p>
   <p id="dash-book-msg" class="course-flash" style="display:none" role="status"></p>
   <?= booking_terms_acceptance_html('terms-accept-dash') ?>
+  <?php
+    if (!function_exists('appointment_session_mode_pick_html') && is_file(__DIR__ . '/../../includes/appointment_session.php')) {
+        require_once __DIR__ . '/../../includes/appointment_session.php';
+    }
+    if (function_exists('ensure_appointment_session_schema')) {
+        ensure_appointment_session_schema($pdo);
+    }
+    echo function_exists('appointment_session_mode_pick_html')
+        ? '<div class="panel" style="padding:.85rem 1rem">' . appointment_session_mode_pick_html('session_mode', 'IN_PERSON', 'dash-sm') . '</div>'
+        : '';
+  ?>
   <div data-patient-book data-book-url="<?= e(url('/book')) ?>" data-after-url="<?= e(url('/dashboard/appointments?booked=1')) ?>" data-terms-id="terms-accept-dash">
   <?php
     $appointmentItemMode = 'manage';
@@ -58,7 +69,7 @@ ob_start();
 <?= booking_terms_styles() ?>
 <script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260904u"></script>
 <script src="<?= e(url('/assets/js/ymd-cascade.js')) ?>?v=20260910r"></script>
-<script src="<?= e(url('/assets/js/patient-book-slots.js')) ?>?v=20260904y"></script>
+<script src="<?= e(url('/assets/js/patient-book-slots.js')) ?>?v=20260917a"></script>
 <script>
 (function(){
   var payUrl = <?= json_encode($payUrl, JSON_UNESCAPED_UNICODE) ?>;

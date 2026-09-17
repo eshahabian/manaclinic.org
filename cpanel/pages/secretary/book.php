@@ -101,6 +101,15 @@ ob_start();
     <input type="hidden" name="time" id="sec-time" required>
   </div>
 
+  <?php
+    if (!function_exists('appointment_session_mode_pick_html') && is_file(__DIR__ . '/../../includes/appointment_session.php')) {
+        require_once __DIR__ . '/../../includes/appointment_session.php';
+    }
+    echo function_exists('appointment_session_mode_pick_html')
+        ? appointment_session_mode_pick_html('session_mode', 'IN_PERSON', 'sec-sm')
+        : '';
+  ?>
+
   <div>
     <label class="label">یادداشت (اختیاری)</label>
     <textarea class="input" name="notes" id="notes" rows="3" data-emoji-field></textarea>

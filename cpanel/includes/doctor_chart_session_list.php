@@ -77,6 +77,7 @@ $today = date('Y-m-d');
           </div>
           <div style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
             <button class="btn btn-primary btn-sm" type="submit">ذخیره شرح حال این جلسه</button>
+            <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/session-note?appointment=' . rawurlencode($appId))) ?>">یادداشت مشترک با مراجع</a>
             <button class="btn btn-outline btn-sm" type="button" data-close>بستن</button>
           </div>
         </form>

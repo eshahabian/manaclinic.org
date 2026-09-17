@@ -6,12 +6,23 @@ declare(strict_types=1);
 
 $appointmentList = $appointmentList ?? [];
 $appointmentItemMode = $appointmentItemMode ?? 'simple';
+if (!function_exists('appointment_session_mode_badge_html') && is_file(__DIR__ . '/appointment_session.php')) {
+    require_once __DIR__ . '/appointment_session.php';
+}
 ?>
 <?php if (!$appointmentList): ?>
   <p class="muted binder-empty">در این بازه نوبت رزروشده‌ای ندارید.</p>
 <?php else: ?>
   <div class="stack">
     <?php foreach ($appointmentList as $a): ?>
+      <?php
+        $upcoming = function_exists('appointment_is_upcoming') && appointment_is_upcoming($a);
+        $showManaCall = $upcoming; // نوبت پیش‌رو — لابی انتظار؛ شروع فقط با درمانگر
+        $modeBadge = function_exists('appointment_session_mode_badge_html')
+            ? appointment_session_mode_badge_html((string) ($a['session_mode'] ?? 'IN_PERSON'))
+            : '';
+        $noteUrl = url('/dashboard/session-note?appointment=' . rawurlencode((string) ($a['id'] ?? '')));
+      ?>
       <?php if ($appointmentItemMode === 'manage'): ?>
         <div class="patient-appt-row patient-appt-row--manage">
           <div>
@@ -19,7 +30,10 @@ $appointmentItemMode = $appointmentItemMode ?? 'simple';
             <?php if (!empty($a['specialty'])): ?>
               <div class="muted" style="font-size:.85rem"><?= e((string) $a['specialty']) ?></div>
             <?php endif; ?>
-            <div style="margin-top:.45rem;font-size:.9rem"><?= e(format_workshop_datetime_fa((string) $a['starts_at'])) ?></div>
+            <div style="margin-top:.45rem;font-size:.9rem;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center">
+              <?= e(format_workshop_datetime_fa((string) $a['starts_at'])) ?>
+              <?= $modeBadge ?>
+            </div>
           </div>
           <div class="patient-appt-row-actions">
             <span class="badge"><?= e(appointment_status_label((string) $a['status'])) ?></span>
@@ -29,6 +43,11 @@ $appointmentItemMode = $appointmentItemMode ?? 'simple';
                 <?= !empty($a['ref_id']) ? ' (پیگیری: ' . e((string) $a['ref_id']) . ')' : '' ?>
               </div>
             <?php endif; ?>
+            <?php if ($showManaCall): ?>
+              <a class="btn btn-primary btn-sm" style="margin-top:.75rem" href="<?= e(url('/video-call')) ?>">تماس مانا</a>
+              <p class="muted" style="font-size:.75rem;margin:.35rem 0 0;max-width:14rem">شروع تماس فقط از سمت درمانگر است؛ اینجا منتظر تماس بمانید.</p>
+            <?php endif; ?>
+            <a class="btn btn-outline btn-sm" style="margin-top:.5rem" href="<?= e($noteUrl) ?>">یادداشت جلسه</a>
             <?php if (($a['status'] ?? '') === 'PENDING_PAYMENT' && ($a['pay_status'] ?? '') === 'PENDING'): ?>
               <button
                 type="button"
@@ -55,7 +74,16 @@ $appointmentItemMode = $appointmentItemMode ?? 'simple';
         <div class="patient-appt-row">
           <div>
             <strong><?= e((string) $a['doctor_name']) ?></strong>
-            <div class="muted" style="font-size:.85rem;margin-top:.25rem"><?= e(format_workshop_datetime_fa((string) $a['starts_at'])) ?></div>
+            <div class="muted" style="font-size:.85rem;margin-top:.25rem;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center">
+              <?= e(format_workshop_datetime_fa((string) $a['starts_at'])) ?>
+              <?= $modeBadge ?>
+            </div>
+            <div style="margin-top:.5rem;display:flex;flex-wrap:wrap;gap:.4rem">
+              <?php if ($showManaCall): ?>
+                <a class="btn btn-primary btn-sm" href="<?= e(url('/video-call')) ?>">تماس مانا</a>
+              <?php endif; ?>
+              <a class="btn btn-outline btn-sm" href="<?= e($noteUrl) ?>">یادداشت جلسه</a>
+            </div>
           </div>
           <span class="badge"><?= e(appointment_status_label((string) $a['status'])) ?></span>
         </div>

@@ -3003,6 +3003,72 @@ a.secretary-patient-row.is-search-hidden,
   background: #fbeaea;
   color: var(--danger);
 }
+
+.appt-mode-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: .15rem .55rem;
+  border-radius: 999px;
+  font-size: .75rem;
+  font-weight: 600;
+  line-height: 1.4;
+  white-space: nowrap;
+}
+.appt-mode-badge--in-person {
+  background: rgba(27, 94, 75, .12);
+  color: #1b5e4b;
+}
+.appt-mode-badge--online {
+  background: rgba(36, 110, 140, .14);
+  color: #1f5f7a;
+}
+.session-mode-pick-opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+}
+.session-mode-opt {
+  display: inline-flex;
+  align-items: center;
+  gap: .4rem;
+  padding: .45rem .75rem;
+  border: 1px solid var(--line);
+  border-radius: .65rem;
+  background: var(--bg-soft);
+  cursor: pointer;
+  font-size: .9rem;
+}
+.session-mode-opt:has(input:checked) {
+  border-color: var(--primary);
+  background: color-mix(in srgb, var(--primary) 10%, white);
+}
+.shared-note-feed {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: .75rem;
+}
+.shared-note-item {
+  padding: .7rem .85rem;
+  border-radius: .65rem;
+  border: 1px solid var(--line);
+  background: var(--bg-soft);
+}
+.shared-note-item.is-mine {
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--line));
+  background: color-mix(in srgb, var(--primary) 8%, white);
+}
+.shared-note-meta {
+  font-size: .8rem;
+  margin-bottom: .35rem;
+}
+.shared-note-body {
+  font-size: .95rem;
+  line-height: 1.75;
+  white-space: pre-wrap;
+}
+
 .staff-overtime-line {
   font-size: .9rem;
   color: var(--primary-dark);

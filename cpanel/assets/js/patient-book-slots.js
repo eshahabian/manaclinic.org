@@ -46,6 +46,9 @@
       fd.append("doctorId", doctorId);
       fd.append("date", date);
       fd.append("time", time);
+      var modeEl = document.querySelector('[data-session-mode-pick] input[name="session_mode"]:checked')
+        || document.querySelector('input[name="session_mode"]:checked');
+      fd.append("session_mode", modeEl ? modeEl.value : "IN_PERSON");
       fd.append("accept_terms", "1");
       fetch(bookUrl, { method: "POST", body: fd, credentials: "same-origin" })
         .then(readJson)

@@ -5,6 +5,7 @@ header('Content-Type: application/json; charset=utf-8');
 
 require_once __DIR__ . '/../includes/booking_terms.php';
 require_once __DIR__ . '/../includes/availability.php';
+require_once __DIR__ . '/../includes/appointment_session.php';
 
 $user = current_user();
 if (!$user || $user['role'] !== 'PATIENT') {
@@ -16,6 +17,7 @@ if (!$user || $user['role'] !== 'PATIENT') {
 $doctorId = post('doctorId');
 $date = post('date');
 $time = post('time');
+$sessionMode = appointment_normalize_session_mode(post('session_mode') ?: post('sessionMode'));
 if (!booking_terms_accepted()) {
     booking_terms_not_accepted_error();
 }
@@ -75,8 +77,9 @@ $amount = (int) $doctor['session_price'];
 
 $pdo->beginTransaction();
 try {
-    $pdo->prepare('INSERT INTO appointments (id,doctor_id,patient_id,starts_at,ends_at,status,created_by_user_id) VALUES (?,?,?,?,?,?,?)')
-        ->execute([$appointmentId, $doctorId, $user['id'], $startsAt, $endsAt, 'PENDING_PAYMENT', (string) $user['id']]);
+    ensure_appointment_session_schema($pdo);
+    $pdo->prepare('INSERT INTO appointments (id,doctor_id,patient_id,starts_at,ends_at,status,notes,session_mode,created_by_user_id) VALUES (?,?,?,?,?,?,?,?,?)')
+        ->execute([$appointmentId, $doctorId, $user['id'], $startsAt, $endsAt, 'PENDING_PAYMENT', null, $sessionMode, (string) $user['id']]);
     $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,status) VALUES (?,?,?,?)')
         ->execute([$paymentId, $appointmentId, $amount, 'PENDING']);
     $pdo->commit();

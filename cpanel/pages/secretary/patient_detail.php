@@ -126,7 +126,11 @@ ob_start();
                 $time = jalali_day_parts((string) ($a['starts_at'] ?? ''));
                 echo '<div class="panel stack"><div class="row-between"><div>';
                 echo '<strong>ساعت ' . e((string) ($time['time_fa'] ?? format_fa_datetime((string) ($a['starts_at'] ?? '')))) . '</strong>';
-                echo '<div class="muted" style="font-size:.85rem;margin-top:.3rem">دکتر: ' . e((string) ($a['doctor_name'] ?? '')) . '</div>';
+                echo '<div class="muted" style="font-size:.85rem;margin-top:.3rem;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center">دکتر: ' . e((string) ($a['doctor_name'] ?? ''));
+                if (function_exists('appointment_session_mode_badge_html')) {
+                    echo ' ' . appointment_session_mode_badge_html((string) ($a['session_mode'] ?? 'IN_PERSON'));
+                }
+                echo '</div>';
                 echo appointment_booked_by_html($a, 'نوبت ثبت‌شده توسط');
                 if (!empty($a['recorder_name']) || !empty($a['recorder_username'])) {
                     echo staff_sign_html(['name' => $a['recorder_name'] ?? '', 'username' => $a['recorder_username'] ?? ''], 'فیش بارگذاری‌شده توسط');

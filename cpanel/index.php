@@ -43,6 +43,7 @@ if (str_starts_with((string) ($config['app_url'] ?? ''), 'https://')
 
 require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/helpers.php';
+require_once __DIR__ . '/includes/appointment_session.php';
 require_once __DIR__ . '/includes/name_transliterations.php';
 require_once __DIR__ . '/includes/auth.php';
 require_once __DIR__ . '/includes/staff_desk.php';
@@ -101,6 +102,9 @@ if (!$isLightRequest) {
     ensure_availability_schema($pdo);
     ensure_assistant_schema($pdo);
     ensure_staff_desk_schema($pdo);
+    if (function_exists('ensure_appointment_session_schema')) {
+        ensure_appointment_session_schema($pdo);
+    }
     ensure_handover_schema($pdo);
     ensure_secretary_to_admin_schema($pdo);
     ensure_patient_journal_schema($pdo);
@@ -179,6 +183,8 @@ $routes = [
     'GET /dashboard/profile' => 'pages/patient/profile.php',
     'POST /dashboard/profile' => 'actions/patient_profile.php',
     'POST /dashboard/care-notes' => 'actions/patient_care_note.php',
+    'GET /dashboard/session-note' => 'pages/patient/session_shared_note.php',
+    'POST /dashboard/session-note' => 'actions/appointment_shared_note.php',
     'POST /dashboard/pay' => 'actions/pay_appointment.php',
     'POST /enroll-workshop' => 'actions/enroll_workshop.php',
     'POST /pay-workshop' => 'actions/pay_workshop.php',
@@ -224,6 +230,8 @@ $routes = [
     'POST /doctor/availability' => 'actions/doctor_availability.php',
     'GET /doctor/appointment-history' => 'pages/doctor/appointment_history.php',
     'GET /doctor/appointments' => 'pages/doctor/appointments.php',
+    'GET /doctor/session-note' => 'pages/doctor/session_shared_note.php',
+    'POST /doctor/session-note' => 'actions/appointment_shared_note.php',
     'POST /doctor/appointments' => 'actions/doctor_appointments.php',
     'GET /doctor/workshops' => 'pages/doctor/workshops.php',
     'GET /doctor/workshops/path' => 'pages/doctor/workshop_path.php',

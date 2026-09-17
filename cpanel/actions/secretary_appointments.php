@@ -2,12 +2,36 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/appointment_cancel.php';
+require_once __DIR__ . '/../includes/appointment_session.php';
 
 $user = require_login(['SECRETARY']);
 csrf_verify();
 
 $action = post('action');
 $next = safe_next_path(post('next')) ?? '/secretary/appointments';
+
+if ($action === 'set_session_mode') {
+    $appointmentId = trim((string) post('appointment_id'));
+    $mode = appointment_normalize_session_mode(post('session_mode'));
+    ensure_appointment_session_schema($pdo);
+    if ($appointmentId === '') {
+        flash_set('error', 'نوبت مشخص نیست.');
+        redirect($next);
+    }
+    $stmt = $pdo->prepare('UPDATE appointments SET session_mode=? WHERE id=?');
+    $stmt->execute([$mode, $appointmentId]);
+    if ($stmt->rowCount() < 1) {
+        // ممکن است مقدار قبلی همان باشد
+        $check = $pdo->prepare('SELECT id FROM appointments WHERE id=? LIMIT 1');
+        $check->execute([$appointmentId]);
+        if (!$check->fetch()) {
+            flash_set('error', 'نوبت یافت نشد.');
+            redirect($next);
+        }
+    }
+    flash_set('success', 'نوع جلسه به «' . appointment_session_mode_label($mode) . '» به‌روز شد.');
+    redirect($next);
+}
 
 if ($action === 'cancel_patient') {
     $appointmentId = post('appointment_id');

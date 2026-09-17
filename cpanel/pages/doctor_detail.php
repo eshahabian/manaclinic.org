@@ -191,6 +191,14 @@ ob_start();
         <div class="slots" id="book-slots"><span class="muted">ابتدا تاریخ را انتخاب کنید</span></div>
       </div>
       <input type="hidden" id="book-time" value="">
+      <?php
+        if (!function_exists('appointment_session_mode_pick_html') && is_file(__DIR__ . '/../includes/appointment_session.php')) {
+            require_once __DIR__ . '/../includes/appointment_session.php';
+        }
+        echo function_exists('appointment_session_mode_pick_html')
+            ? appointment_session_mode_pick_html('session_mode', 'IN_PERSON', 'pub-sm')
+            : '';
+      ?>
       <p id="book-error" style="color:var(--danger);font-size:.9rem;display:none"></p>
       <?= booking_terms_acceptance_html('terms-accept') ?>
       <button type="button" class="btn btn-primary" id="book-submit" disabled>رزرو نوبت</button>
@@ -323,6 +331,8 @@ $pageScripts = '
     fd.append("doctorId", doctorId);
     fd.append("date", dateEl.value);
     fd.append("time", timeEl.value);
+    var modeEl = document.querySelector('input[name="session_mode"]:checked');
+    fd.append("session_mode", modeEl ? modeEl.value : "IN_PERSON");
     fd.append("accept_terms", "1");
     fetch(bookUrl, { method: "POST", body: fd })
       .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
