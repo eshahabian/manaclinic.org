@@ -190,18 +190,29 @@ ob_start();
           class="input"
           id="book-date-view"
           type="text"
-          placeholder="تاریخ را انتخاب کنید"
+          placeholder="<?= $dates === [] ? 'درمانگر هنوز روز خالی اعلام نکرده' : 'تاریخ را انتخاب کنید' ?>"
           data-jdp
           data-jdp-only-date
           autocomplete="off"
           readonly
+          <?= $dates === [] ? 'disabled' : '' ?>
         >
         <input type="hidden" id="book-date" value="">
-        <p class="muted" style="font-size:.8rem;margin:.4rem 0 0">فقط روزهای خالی دکتر قابل انتخاب هستند.</p>
+        <?php if ($dates === []): ?>
+          <p class="muted" style="font-size:.85rem;margin:.4rem 0 0;color:var(--danger)">این درمانگر هنوز هیچ روز خالی‌ای اعلام نکرده است.</p>
+        <?php else: ?>
+          <p class="muted" style="font-size:.8rem;margin:.4rem 0 0">فقط روزهایی که درمانگر وقت خالی گذاشته قابل انتخاب هستند.</p>
+        <?php endif; ?>
       </div>
       <div>
         <label class="label">ساعت‌های خالی</label>
-        <div class="slots" id="book-slots"><span class="muted">ابتدا تاریخ را انتخاب کنید</span></div>
+        <div class="slots" id="book-slots">
+          <?php if ($dates === []): ?>
+            <span class="muted">در این تاریخ درمانگر وقت خالی ندارد</span>
+          <?php else: ?>
+            <span class="muted">ابتدا تاریخ را انتخاب کنید</span>
+          <?php endif; ?>
+        </div>
       </div>
       <input type="hidden" id="book-time" value="">
       <?php
@@ -263,6 +274,10 @@ $pageScripts = '
     return j.jy + "/" + pad(j.jm) + "/" + pad(j.jd);
   }
 
+  function emptySlotsMessage(msg){
+    return "<span class=\\"muted\\">" + (msg || "در این تاریخ درمانگر وقت خالی ندارد") + "</span>";
+  }
+
   function loadSlots(){
     timeEl.value = "";
     slotsEl.innerHTML = "در حال بارگذاری...";
@@ -274,7 +289,10 @@ $pageScripts = '
       .then(function(r){ return r.json(); })
       .then(function(data){
         var slots = data.slots || [];
-        if (!slots.length) { slotsEl.innerHTML = "<span class=\\"muted\\">ساعت خالی نیست</span>"; return; }
+        if (!slots.length) {
+          slotsEl.innerHTML = emptySlotsMessage(data.message || "در این تاریخ درمانگر وقت خالی ندارد");
+          return;
+        }
         slotsEl.innerHTML = "";
         slots.forEach(function(s){
           var value = typeof s === "string" ? s : (s.value || "");
@@ -301,37 +319,52 @@ $pageScripts = '
           };
           slotsEl.appendChild(b);
         });
+      })
+      .catch(function(){
+        slotsEl.innerHTML = emptySlotsMessage("خطا در دریافت ساعت‌ها — دوباره تلاش کنید");
       });
   }
 
   function onDatePicked(){
     var g = jalaliTextToGregorian(dateView.value);
     errEl.style.display = "none";
-    if (!g || !availableSet[g]) {
+    if (!g) {
       dateEl.value = "";
-      dateView.value = "";
-      errEl.textContent = "این تاریخ در روزهای خالی دکتر نیست.";
-      errEl.style.display = "block";
       slotsEl.innerHTML = "<span class=\\"muted\\">ابتدا تاریخ را انتخاب کنید</span>";
+      return;
+    }
+    if (!availableSet[g]) {
+      dateEl.value = "";
+      errEl.textContent = "در این تاریخ درمانگر وقت خالی ندارد.";
+      errEl.style.display = "block";
+      slotsEl.innerHTML = emptySlotsMessage("در این تاریخ درمانگر وقت خالی ندارد");
       return;
     }
     dateEl.value = g;
     loadSlots();
   }
 
-  jalaliDatepicker.startWatch({
-    selector: "#book-date-view",
-    time: false,
-    hideAfterChange: true,
-    showTodayBtn: false,
-    showEmptyBtn: true,
-    autoReadOnlyInput: true,
-    zIndex: 100000,
-    container: "body"
-  });
+  if (available.length) {
+    jalaliDatepicker.startWatch({
+      selector: "#book-date-view",
+      time: false,
+      hideAfterChange: true,
+      showTodayBtn: false,
+      showEmptyBtn: true,
+      autoReadOnlyInput: true,
+      zIndex: 100000,
+      container: "body",
+      minDate: "today",
+      dayRendering: function(dayOptions){
+        var g = jalaali.toGregorian(dayOptions.year, dayOptions.month, dayOptions.day);
+        var key = g.gy + "-" + pad(g.gm) + "-" + pad(g.gd);
+        return { isValid: !!availableSet[key] };
+      }
+    });
 
-  dateView.addEventListener("jdp:change", onDatePicked);
-  dateView.addEventListener("change", onDatePicked);
+    dateView.addEventListener("jdp:change", onDatePicked);
+    dateView.addEventListener("change", onDatePicked);
+  }
 
   document.getElementById("book-submit").onclick = function(){
     errEl.style.display = "none";

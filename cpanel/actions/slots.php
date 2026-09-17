@@ -10,7 +10,11 @@ ensure_availability_schema($pdo);
 $doctorId = (string) ($_GET['doctorId'] ?? '');
 $date = (string) ($_GET['date'] ?? '');
 if ($doctorId === '' || $date === '') {
-    echo json_encode(['error' => 'پارامتر ناقص', 'slots' => []]);
+    echo json_encode([
+        'error' => 'پارامتر ناقص',
+        'slots' => [],
+        'message' => 'پارامتر ناقص',
+    ], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
@@ -23,11 +27,24 @@ $stmt = $pdo->prepare('SELECT * FROM availabilities WHERE doctor_id=? AND date=?
 $stmt->execute([$doctorId, $date]);
 $availability = $stmt->fetch();
 if (!$availability) {
-    echo json_encode(['slots' => []]);
+    echo json_encode([
+        'slots' => [],
+        'reason' => 'no_availability',
+        'message' => 'در این تاریخ درمانگر وقت خالی ندارد',
+    ], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
 $hours = appointment_availability_hours($availability);
+if ($hours === []) {
+    echo json_encode([
+        'slots' => [],
+        'reason' => 'no_hours',
+        'message' => 'در این تاریخ درمانگر وقت خالی ندارد',
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 $nextDate = date('Y-m-d', strtotime($date . ' +1 day') ?: time());
 
 $takenStmt = $pdo->prepare("
@@ -60,6 +77,15 @@ foreach ($hours as $hour) {
             'date_label' => appointment_short_jalali_date(substr($startsAt, 0, 10)),
         ];
     }
+}
+
+if ($free === []) {
+    echo json_encode([
+        'slots' => [],
+        'reason' => 'all_taken',
+        'message' => 'ساعت خالی در این تاریخ باقی نمانده است',
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
 echo json_encode(['slots' => $free], JSON_UNESCAPED_UNICODE);

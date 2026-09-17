@@ -17,16 +17,22 @@ $patients = $pdo->query("
 $doctors = secretary_active_doctors($pdo);
 $nameDict = build_name_transliterations_client_map($pdo);
 
+require_once __DIR__ . '/../../includes/availability.php';
+ensure_availability_schema($pdo);
+
 $availByDoctor = [];
 $stmt = $pdo->query("
-  SELECT doctor_id, DATE_FORMAT(`date`, '%Y-%m-%d') AS d
+  SELECT doctor_id, DATE_FORMAT(`date`, '%Y-%m-%d') AS d, available_hours
   FROM availabilities
   WHERE `date` >= CURDATE()
   ORDER BY `date` ASC
 ");
 foreach ($stmt->fetchAll() as $row) {
-    $d = (string) $row['d'];
+    $d = (string) ($row['d'] ?? '');
     if ($d === '') {
+        continue;
+    }
+    if (appointment_hours_decode((string) ($row['available_hours'] ?? '')) === []) {
         continue;
     }
     $availByDoctor[(string) $row['doctor_id']][] = $d;
@@ -265,12 +271,12 @@ $secretaryBookScripts = '
     return set;
   }
 
-  function renderSlotButtons(slots, keepTime){
+  function renderSlotButtons(slots, keepTime, emptyMsg){
     var prev = keepTime ? (timeEl.value || selectedTime) : "";
     timeEl.value = "";
     slotsEl.innerHTML = "";
     if (!slots.length) {
-      slotsEl.innerHTML = "<span class=\\"muted\\">ساعت خالی نیست</span>";
+      slotsEl.innerHTML = "<span class=\\"muted\\">" + escHtml(emptyMsg || "در این تاریخ درمانگر وقت خالی ندارد") + "</span>";
       return;
     }
     slots.forEach(function(s){
@@ -318,7 +324,7 @@ $secretaryBookScripts = '
     fetch(slotsUrl + "?doctorId=" + encodeURIComponent(doctorEl.value) + "&date=" + encodeURIComponent(dateEl.value) + "&include_past=1")
       .then(function(r){ return r.json(); })
       .then(function(data){
-        renderSlotButtons(data.slots || [], !!opts.keepTime);
+        renderSlotButtons(data.slots || [], !!opts.keepTime, data.message || "");
       })
       .catch(function(){
         if (!opts.silent) slotsEl.innerHTML = "<span class=\\"muted\\">خطا در دریافت ساعت‌ها</span>";

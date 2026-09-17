@@ -29,8 +29,12 @@ foreach ($stmt->fetchAll() as $row) {
     if ($d === '') {
         continue;
     }
+    $hours = appointment_hours_decode($row['available_hours'] ?? null);
+    if ($hours === []) {
+        continue;
+    }
     $days[] = $d;
-    $hoursByDate[$d] = appointment_hours_decode($row['available_hours'] ?? null);
+    $hoursByDate[$d] = $hours;
 }
 
 echo json_encode([
