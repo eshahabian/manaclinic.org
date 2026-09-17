@@ -11,12 +11,9 @@ $bookingHours = appointment_booking_hours();
 $weeklyMap = doctor_weekly_hours_map($pdo, (string) $ctx['profile']['id']);
 $weekdays = doctor_weekdays_sat_first();
 $weekdaySummary = doctor_weekday_presence_summary($pdo, (string) $ctx['profile']['id']);
-$hasAnyPresence = false;
+$summaryByWeekday = [];
 foreach ($weekdaySummary as $row) {
-    if (!empty($row['hours'])) {
-        $hasAnyPresence = true;
-        break;
-    }
+    $summaryByWeekday[(int) ($row['weekday'] ?? -1)] = $row;
 }
 
 ob_start();
@@ -116,66 +113,44 @@ ob_start();
   <?php endforeach; ?>
 </section>
 
-<section class="panel avail-summary-panel" style="margin-top:1.25rem">
+<section class="panel avail-summary-panel" style="margin-top:1.25rem" id="avail-summary-panel" hidden>
   <h2 class="avail-week-title">خلاصه حضور</h2>
-  <p class="muted" style="margin:0 0 1rem;font-size:.88rem;line-height:1.65">
-    برای هر روز هفته، ساعت‌های اعلام‌شده و وضعیت نزدیک‌ترین تاریخ (خالی یا پر) را می‌بینید.
-  </p>
-  <?php if (!$hasAnyPresence): ?>
-    <p class="muted" style="margin:0">هنوز ساعت حضوری ثبت نشده است. از بالا یک روز هفته را انتخاب کنید.</p>
-  <?php else: ?>
-    <div class="avail-summary-list">
-      <?php foreach ($weekdaySummary as $row): ?>
-        <?php if (empty($row['hours'])) {
-            continue;
-        } ?>
-        <article class="avail-summary-card">
-          <div class="avail-summary-head">
-            <strong><?= e((string) $row['label']) ?></strong>
-            <?php if (!empty($row['next_label'])): ?>
-              <span class="muted" style="font-size:.82rem">نزدیک‌ترین: <?= e((string) $row['next_label']) ?></span>
-            <?php endif; ?>
-          </div>
-          <div class="avail-summary-line">
-            <span class="avail-summary-k">حضور:</span>
-            <span><?= e(implode(' · ', array_map(
-                static fn (int $h): string => appointment_hour_chip_label($h),
-                $row['hours']
-            ))) ?></span>
-          </div>
-          <div class="avail-summary-line avail-summary-free">
-            <span class="avail-summary-k">خالی:</span>
-            <?php if (empty($row['free'])): ?>
-              <span class="muted">—</span>
-            <?php else: ?>
-              <span><?= e(implode(' · ', array_map(
-                  static fn (int $h): string => appointment_hour_chip_label($h),
-                  $row['free']
-              ))) ?></span>
-            <?php endif; ?>
-          </div>
-          <div class="avail-summary-line avail-summary-booked">
-            <span class="avail-summary-k">پر شده:</span>
-            <?php if (empty($row['booked'])): ?>
-              <span class="muted">هنوز کسی رزرو نکرده</span>
-            <?php else: ?>
-              <span>
-                <?php
-                  $bits = [];
-                  foreach ($row['booked'] as $b) {
-                      $hLabel = appointment_hour_chip_label((int) ($b['hour'] ?? 0));
-                      $who = trim((string) ($b['patient'] ?? ''));
-                      $bits[] = $who !== '' ? ($hLabel . ' (' . $who . ')') : $hLabel;
-                  }
-                  echo e(implode(' · ', $bits));
-                ?>
-              </span>
-            <?php endif; ?>
-          </div>
-        </article>
-      <?php endforeach; ?>
+  <?php foreach ($weekdays as $w => $label): ?>
+    <?php
+      $row = $summaryByWeekday[(int) $w] ?? null;
+      $hours = is_array($row) ? ($row['hours'] ?? []) : [];
+      $bookedMap = [];
+      if (is_array($row)) {
+          foreach ($row['booked'] ?? [] as $b) {
+              $bookedMap[(int) ($b['hour'] ?? -1)] = trim((string) ($b['patient'] ?? ''));
+          }
+      }
+    ?>
+    <div class="avail-summary-one" data-summary-weekday="<?= (int) $w ?>" hidden>
+      <?php if ($hours === []): ?>
+        <p class="muted avail-summary-empty" style="margin:0">برای «<?= e($label) ?>» هنوز ساعت حضوری ثبت نشده است.</p>
+      <?php else: ?>
+        <div class="avail-summary-hours" aria-label="ساعت‌های <?= e($label) ?>">
+          <?php foreach ($hours as $hour): ?>
+            <?php
+              $hour = (int) $hour;
+              $isBooked = array_key_exists($hour, $bookedMap);
+              $who = $isBooked ? ($bookedMap[$hour] ?? '') : '';
+              $title = $isBooked
+                  ? ('رزرو شده' . ($who !== '' ? ' — ' . $who : ''))
+                  : 'خالی';
+            ?>
+            <span class="avail-hour-pill<?= $isBooked ? ' is-booked' : '' ?>" title="<?= e($title) ?>">
+              <?= e(appointment_hour_chip_label($hour)) ?>
+            </span>
+          <?php endforeach; ?>
+        </div>
+        <?php if (!empty($row['next_label'])): ?>
+          <p class="muted" style="margin:.55rem 0 0;font-size:.8rem">نزدیک‌ترین <?= e($label) ?>: <?= e((string) $row['next_label']) ?> — ساعت قرمز یعنی توسط منشی یا مراجعه‌کننده رزرو شده.</p>
+        <?php endif; ?>
+      <?php endif; ?>
     </div>
-  <?php endif; ?>
+  <?php endforeach; ?>
 </section>
 <?php
 $inner = ob_get_clean();
@@ -184,14 +159,19 @@ $pageScripts = '
 (function(){
   var buttons = document.querySelectorAll("[data-weekday-open]");
   var panels = document.querySelectorAll("[data-weekday-panel]");
+  var summaries = document.querySelectorAll("[data-summary-weekday]");
+  var summaryPanel = document.getElementById("avail-summary-panel");
   function openWeekday(id){
     panels.forEach(function(p){
-      var on = String(p.getAttribute("data-weekday-panel")) === String(id);
-      p.hidden = !on;
+      p.hidden = String(p.getAttribute("data-weekday-panel")) !== String(id);
     });
     buttons.forEach(function(b){
       b.classList.toggle("is-active", String(b.getAttribute("data-weekday-open")) === String(id));
     });
+    summaries.forEach(function(s){
+      s.hidden = String(s.getAttribute("data-summary-weekday")) !== String(id);
+    });
+    if (summaryPanel) summaryPanel.hidden = false;
   }
   buttons.forEach(function(btn){
     btn.addEventListener("click", function(){

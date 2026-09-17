@@ -2826,37 +2826,33 @@ a.doctor-dash-stat:hover {
   .avail-weekday-fields { grid-template-columns: 1fr; }
 }
 .avail-summary-panel { padding: 1.1rem 1.15rem 1.25rem; }
-.avail-summary-list {
-  display: grid;
-  gap: .75rem;
-}
-.avail-summary-card {
-  border: 1px solid var(--line);
-  border-radius: .85rem;
-  padding: .85rem 1rem;
-  background: #fff;
-}
-.avail-summary-head {
+.avail-summary-panel[hidden] { display: none !important; }
+.avail-summary-one[hidden] { display: none !important; }
+.avail-summary-hours {
   display: flex;
   flex-wrap: wrap;
-  gap: .35rem .85rem;
-  align-items: baseline;
-  margin-bottom: .55rem;
+  gap: .45rem;
+  margin-top: .35rem;
 }
-.avail-summary-line {
-  display: flex;
-  flex-wrap: wrap;
-  gap: .35rem .5rem;
-  font-size: .9rem;
-  line-height: 1.7;
-  margin-top: .2rem;
-}
-.avail-summary-k {
+.avail-hour-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3.4rem;
+  padding: .4rem .65rem;
+  border-radius: .65rem;
+  border: 1px solid #93c5fd;
+  background: #eff6ff;
+  color: #1d4ed8;
+  font-size: .85rem;
   font-weight: 600;
-  min-width: 3.5rem;
+  line-height: 1.3;
 }
-.avail-summary-free .avail-summary-k { color: #1d4ed8; }
-.avail-summary-booked .avail-summary-k { color: #92400e; }
+.avail-hour-pill.is-booked {
+  border-color: #dc2626;
+  background: #fef2f2;
+  color: #b91c1c;
+}
 .hour-chip-who {
   font-size: .65rem;
   font-weight: 600;
