@@ -1,9 +1,14 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/../includes/doctor_panel.php';
 require_once __DIR__ . '/../includes/admin_staff_messages.php';
 
 $user = require_login(['DOCTOR']);
+if (!doctor_can_message_secretaries($user)) {
+    flash_set('error', 'پیام به منشی‌ها فقط برای دکتر شیوا گرانمایه‌پور و مدیر سایت مجاز است.');
+    redirect('/doctor/notifications');
+}
 csrf_verify();
 
 $action = post('action');

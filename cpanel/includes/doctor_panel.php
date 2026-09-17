@@ -19,7 +19,7 @@ function doctor_ctx_user_name(array $ctx): string
     return (string) ($ctx['user']['name'] ?? '');
 }
 
-/** فقط ادمین و دکتر شیوا گرانمایه‌پور — نه بقیه درمانگرها */
+/** فقط ادمین و دکتر شیوا گرانمایه‌پور — ساعت کاری و پیام منشی‌ها (نه بقیه درمانگرها) */
 function doctor_can_view_staff_hours(?array $user = null): bool
 {
     $user = $user ?? current_user();
@@ -34,6 +34,12 @@ function doctor_can_view_staff_hours(?array $user = null): bool
     }
 
     return function_exists('doctor_is_shiva') && doctor_is_shiva($user);
+}
+
+/** همان دسترسی ساعت کاری: پیام به منشی‌ها فقط برای شیوا و ادمین */
+function doctor_can_message_secretaries(?array $user = null): bool
+{
+    return doctor_can_view_staff_hours($user);
 }
 
 function doctor_nav(): array
@@ -63,13 +69,11 @@ function doctor_nav(): array
         }
     }
 
-    $staffItems = [];
-    $staffItems[] = ['type' => 'link', 'href' => '/doctor/secretary-messages', 'label' => 'پیام به منشی‌ها'];
     if (doctor_can_view_staff_hours()) {
-        $staffItems[] = ['type' => 'link', 'href' => '/doctor/staff-hours', 'label' => 'ساعت کاری منشی‌ها'];
+        $nav[] = ['type' => 'group', 'label' => 'منشی‌ها'];
+        $nav[] = ['type' => 'link', 'href' => '/doctor/secretary-messages', 'label' => 'پیام به منشی‌ها'];
+        $nav[] = ['type' => 'link', 'href' => '/doctor/staff-hours', 'label' => 'ساعت کاری منشی‌ها'];
     }
-    $nav[] = ['type' => 'group', 'label' => 'منشی‌ها'];
-    $nav = array_merge($nav, $staffItems);
 
     $nav = array_merge($nav, [
         ['type' => 'group', 'label' => 'درمانگرها'],
