@@ -39,7 +39,7 @@ if (!$appointmentList) {
               · ساعت <?= e((string) $time['time_fa']) ?>
             <?php endif; ?>
           </div>
-          <?= staff_sign_html(['name' => $a['actor_name'] ?? '', 'username' => $a['actor_username'] ?? ''], 'ثبت نوبت') ?>
+          <?= appointment_booked_by_html($a) ?>
         </div>
         <div class="appt-card-meta">
           <span class="badge"><?= e(appointment_row_status_label($a)) ?></span>

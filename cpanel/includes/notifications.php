@@ -398,10 +398,10 @@ function secretary_recent_shared_appointments(PDO $pdo, int $limit = 30): array
 {
     $limit = max(1, min(80, $limit));
     $stmt = $pdo->query("
-      SELECT a.id, a.starts_at, a.status,
+      SELECT a.id, a.starts_at, a.status, a.patient_id, a.created_by_user_id,
              pu.name AS patient_name,
              du.name AS doctor_name,
-             cu.name AS actor_name, cu.username AS actor_username
+             cu.name AS actor_name, cu.username AS actor_username, cu.role AS actor_role
       FROM appointments a
       JOIN users pu ON pu.id = a.patient_id
       JOIN doctor_profiles dp ON dp.id = a.doctor_id
@@ -577,11 +577,7 @@ function render_secretary_messages_panel(
                 <strong><?= e((string) $row['patient_name']) ?></strong>
                 <div class="muted" style="font-size:.85rem">دکتر: <?= e((string) $row['doctor_name']) ?></div>
                 <div style="font-size:.85rem;margin-top:.25rem"><?= e(format_fa_datetime((string) $row['starts_at'])) ?></div>
-                <?php if (!empty($row['actor_name']) || !empty($row['actor_username'])): ?>
-                  <?= staff_sign_html(['name' => $row['actor_name'] ?? '', 'username' => $row['actor_username'] ?? ''], 'ثبت توسط') ?>
-                <?php else: ?>
-                  <span class="staff-sign">ثبت آنلاین توسط مراجعه‌کننده</span>
-                <?php endif; ?>
+                <?= appointment_booked_by_html($row, 'ثبت توسط') ?>
               </div>
               <span class="badge"><?= e(appointment_status_label((string) $row['status'])) ?></span>
             </div>

@@ -272,6 +272,40 @@ function staff_sign_html(?array $row, string $prefix = 'امضا'): string
     return '<span class="staff-sign">' . e($prefix . ': ' . staff_actor_label($row)) . '</span>';
 }
 
+/**
+ * برچسب واضح ثبت‌کننده نوبت: مراجعه‌کننده / منشی / درمانگر
+ *
+ * انتظار فیلدها: created_by_user_id, patient_id, actor_name, actor_username, actor_role
+ */
+function appointment_booked_by_label(array $a): string
+{
+    $actorId = trim((string) ($a['created_by_user_id'] ?? ''));
+    $patientId = trim((string) ($a['patient_id'] ?? ''));
+    $role = strtoupper(trim((string) ($a['actor_role'] ?? '')));
+    $name = trim((string) ($a['actor_name'] ?? ''));
+
+    // رزرو قدیمی بدون created_by یا ثبت توسط خود بیمار
+    if ($actorId === '' || ($patientId !== '' && $actorId === $patientId) || $role === 'PATIENT') {
+        return 'مراجعه‌کننده (خود کاربر)';
+    }
+    if ($role === 'DOCTOR') {
+        return $name !== '' ? ('درمانگر · ' . $name) : 'درمانگر';
+    }
+    if ($role === 'SECRETARY' || $role === 'ADMIN') {
+        return $name !== '' ? ('منشی · ' . $name) : 'منشی';
+    }
+    if ($name !== '') {
+        return $name;
+    }
+
+    return 'نامشخص';
+}
+
+function appointment_booked_by_html(array $a, string $prefix = 'ثبت نوبت'): string
+{
+    return '<span class="staff-sign">' . e($prefix . ': ' . appointment_booked_by_label($a)) . '</span>';
+}
+
 function staff_sign_for_id(PDO $pdo, ?string $userId, string $prefix = 'امضا'): string
 {
     if (!$userId) {

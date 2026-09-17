@@ -7,7 +7,7 @@ $ctx = require_doctor_profile($pdo);
 $stmt = $pdo->prepare("
   SELECT a.*, u.name AS patient_name, u.phone, u.email,
          p.id AS payment_id, p.amount, p.status AS pay_status, p.receipt_path,
-         cu.name AS actor_name, cu.username AS actor_username
+         cu.name AS actor_name, cu.username AS actor_username, cu.role AS actor_role
   FROM appointments a
   JOIN users u ON u.id=a.patient_id
   LEFT JOIN payments p ON p.appointment_id=a.id

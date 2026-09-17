@@ -19,7 +19,7 @@ $appointmentEmpty = $appointmentEmpty ?? 'نوبتی نیست.';
           <div>
             <strong><?= e($a['patient_name']) ?> → <?= e($a['doctor_name']) ?></strong>
             <div class="muted" style="font-size:.85rem;margin-top:.35rem"><?= e(format_fa_datetime($a['starts_at'])) ?></div>
-            <?= staff_sign_html(['name' => $a['actor_name'] ?? '', 'username' => $a['actor_username'] ?? '']) ?>
+            <?= appointment_booked_by_html($a) ?>
           </div>
           <div class="appt-card-meta">
             <span class="badge"><?= e(appointment_row_status_label($a)) ?></span>

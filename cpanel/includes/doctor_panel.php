@@ -82,6 +82,7 @@ function doctor_nav(): array
         ],
         ['type' => 'link', 'href' => '/doctor/appointments', 'label' => 'نوبت‌ها'],
         ['type' => 'link', 'href' => '/doctor/availability', 'label' => 'روزهای خالی'],
+        ['type' => 'link', 'href' => '/doctor/appointment-history', 'label' => 'تاریخچه نوبت‌ها'],
         ['type' => 'link', 'href' => '/doctor/patients', 'label' => 'پرونده مراجعه‌کنندگان'],
         ['type' => 'link', 'href' => '/doctor/staff-messages', 'label' => 'پیام‌ها'],
         ['type' => 'link', 'href' => '/doctor/profile', 'label' => 'پروفایل حرفه‌ای'],

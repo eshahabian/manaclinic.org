@@ -222,6 +222,7 @@ $routes = [
     'POST /doctor/profile' => 'actions/doctor_profile.php',
     'GET /doctor/availability' => 'pages/doctor/availability.php',
     'POST /doctor/availability' => 'actions/doctor_availability.php',
+    'GET /doctor/appointment-history' => 'pages/doctor/appointment_history.php',
     'GET /doctor/appointments' => 'pages/doctor/appointments.php',
     'POST /doctor/appointments' => 'actions/doctor_appointments.php',
     'GET /doctor/workshops' => 'pages/doctor/workshops.php',

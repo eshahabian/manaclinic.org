@@ -5,7 +5,7 @@ declare(strict_types=1);
 $rows = $pdo->query("
   SELECT a.*, pu.name AS patient_name, du.name AS doctor_name,
          p.id AS payment_id, p.status AS pay_status, p.amount, p.receipt_path,
-         cu.name AS actor_name, cu.username AS actor_username
+         cu.name AS actor_name, cu.username AS actor_username, cu.role AS actor_role
   FROM appointments a
   JOIN users pu ON pu.id = a.patient_id
   JOIN doctor_profiles dp ON dp.id = a.doctor_id

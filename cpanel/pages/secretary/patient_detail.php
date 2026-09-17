@@ -25,10 +25,10 @@ if (!$patient) {
 }
 
 $apps = $pdo->prepare("
-  SELECT a.id, a.starts_at, a.ends_at, a.status, a.notes,
+  SELECT a.id, a.starts_at, a.ends_at, a.status, a.notes, a.patient_id, a.created_by_user_id,
          a.cancel_reason, a.cancellation_note,
          du.name AS doctor_name,
-         cu.name AS actor_name, cu.username AS actor_username,
+         cu.name AS actor_name, cu.username AS actor_username, cu.role AS actor_role,
          p.id AS payment_id, p.amount, p.status AS pay_status, p.receipt_path,
          ru.name AS recorder_name, ru.username AS recorder_username
   FROM appointments a
@@ -127,9 +127,7 @@ ob_start();
                 echo '<div class="panel stack"><div class="row-between"><div>';
                 echo '<strong>ساعت ' . e((string) ($time['time_fa'] ?? format_fa_datetime((string) ($a['starts_at'] ?? '')))) . '</strong>';
                 echo '<div class="muted" style="font-size:.85rem;margin-top:.3rem">دکتر: ' . e((string) ($a['doctor_name'] ?? '')) . '</div>';
-                if (!empty($a['actor_name']) || !empty($a['actor_username'])) {
-                    echo staff_sign_html(['name' => $a['actor_name'] ?? '', 'username' => $a['actor_username'] ?? ''], 'نوبت ثبت‌شده توسط');
-                }
+                echo appointment_booked_by_html($a, 'نوبت ثبت‌شده توسط');
                 if (!empty($a['recorder_name']) || !empty($a['recorder_username'])) {
                     echo staff_sign_html(['name' => $a['recorder_name'] ?? '', 'username' => $a['recorder_username'] ?? ''], 'فیش بارگذاری‌شده توسط');
                 }

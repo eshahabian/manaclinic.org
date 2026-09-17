@@ -75,8 +75,8 @@ $amount = (int) $doctor['session_price'];
 
 $pdo->beginTransaction();
 try {
-    $pdo->prepare('INSERT INTO appointments (id,doctor_id,patient_id,starts_at,ends_at,status) VALUES (?,?,?,?,?,?)')
-        ->execute([$appointmentId, $doctorId, $user['id'], $startsAt, $endsAt, 'PENDING_PAYMENT']);
+    $pdo->prepare('INSERT INTO appointments (id,doctor_id,patient_id,starts_at,ends_at,status,created_by_user_id) VALUES (?,?,?,?,?,?,?)')
+        ->execute([$appointmentId, $doctorId, $user['id'], $startsAt, $endsAt, 'PENDING_PAYMENT', (string) $user['id']]);
     $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,status) VALUES (?,?,?,?)')
         ->execute([$paymentId, $appointmentId, $amount, 'PENDING']);
     $pdo->commit();

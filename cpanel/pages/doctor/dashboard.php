@@ -14,7 +14,7 @@ ensure_workshop_schema($pdo);
 
 $apptStmt = $pdo->prepare("
   SELECT a.*, u.name AS patient_name, u.phone,
-         cu.name AS actor_name, cu.username AS actor_username
+         cu.name AS actor_name, cu.username AS actor_username, cu.role AS actor_role
   FROM appointments a
   JOIN users u ON u.id = a.patient_id
   LEFT JOIN users cu ON cu.id = a.created_by_user_id
@@ -60,7 +60,7 @@ $ymdRenderDash = static function (array $list): void {
         echo '<li><div class="doctor-dash-row"><div>';
         echo '<strong>' . e((string) ($a['patient_name'] ?? '')) . '</strong>';
         echo '<span class="muted">' . e(format_fa_datetime((string) ($a['starts_at'] ?? ''))) . '</span>';
-        echo staff_sign_html(['name' => $a['actor_name'] ?? '', 'username' => $a['actor_username'] ?? ''], 'ثبت نوبت');
+        echo appointment_booked_by_html($a);
         echo '</div><div class="doctor-dash-row-actions">';
         echo '<span class="badge">' . e(appointment_row_status_label($a)) . '</span>';
         if (!empty($a['patient_id'])) {
