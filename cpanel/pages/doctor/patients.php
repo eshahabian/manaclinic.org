@@ -95,7 +95,12 @@ ob_start();
           <a class="panel row-between doctor-patient-row" href="<?= e(url('/doctor/patients/' . $p['id'])) ?>" style="color:inherit" data-search="<?= e($search) ?>">
             <div>
               <strong><?= e($p['name']) ?></strong>
-              <div class="muted" style="font-size:.85rem" dir="ltr"><?= e((string)$p['username']) ?><?= $phone !== '' ? ' · ' . e($phone) : '' ?></div>
+              <div class="muted" style="font-size:.85rem" dir="ltr">
+                <?= e((string)$p['username']) ?>
+                <?php if (can_view_patient_phone() && $phone !== ''): ?>
+                  · <?= e($phone) ?>
+                <?php endif; ?>
+              </div>
               <div style="font-size:.85rem;margin-top:.35rem">
                 <?= (int)$p['visit_count'] ?> نوبت
                 <?php if ($p['last_visit']): ?>

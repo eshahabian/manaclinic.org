@@ -31,10 +31,11 @@ header('Cache-Control: no-store');
 $out = fopen('php://output', 'w');
 // UTF-8 BOM for Excel
 fwrite($out, "\xEF\xBB\xBF");
-fputcsv($out, [
+$canPhone = can_view_patient_phone();
+fputcsv($out, array_values(array_filter([
     'نام',
     'نام کاربری',
-    'موبایل',
+    $canPhone ? 'موبایل' : null,
     'ایمیل',
     'وضعیت ثبت‌نام',
     'تاریخ ثبت‌نام',
@@ -42,13 +43,17 @@ fputcsv($out, [
     'کیف پول',
     'وضعیت پرداخت',
     'کد پیگیری',
-]);
+], static fn ($v) => $v !== null)));
 
 foreach ($rows as $row) {
-    fputcsv($out, [
+    $line = [
         (string) ($row['patient_name'] ?? ''),
         (string) ($row['username'] ?? ''),
-        (string) ($row['phone'] ?? ''),
+    ];
+    if ($canPhone) {
+        $line[] = (string) ($row['phone'] ?? '');
+    }
+    $line = array_merge($line, [
         (string) ($row['email'] ?? ''),
         enrollment_status_label((string) ($row['status'] ?? '')),
         (string) ($row['enrolled_at'] ?? ''),
@@ -57,6 +62,7 @@ foreach ($rows as $row) {
         (string) ($row['pay_status'] ?? ''),
         (string) ($row['ref_id'] ?? ''),
     ]);
+    fputcsv($out, $line);
 }
 fclose($out);
 exit;

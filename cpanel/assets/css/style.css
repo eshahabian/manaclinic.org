@@ -2758,6 +2758,69 @@ a.doctor-dash-stat:hover {
 .hour-picker-readonly .hour-chip.is-selected {
   box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--primary);
 }
+.avail-week-panel { padding: 1.1rem 1.15rem 1.25rem; }
+.avail-week-title { margin: 0 0 .85rem; font-size: 1.05rem; }
+.avail-weekday-row {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: .4rem;
+}
+@media (max-width: 720px) {
+  .avail-weekday-row { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+@media (max-width: 420px) {
+  .avail-weekday-row { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+.avail-weekday-btn {
+  position: relative;
+  font-family: inherit;
+  font-size: .88rem;
+  font-weight: 600;
+  padding: .7rem .35rem;
+  border-radius: .75rem;
+  border: 1px solid var(--line);
+  background: #fff;
+  cursor: pointer;
+  transition: border-color .15s ease, background .15s ease, color .15s ease;
+}
+.avail-weekday-btn:hover,
+.avail-weekday-btn.is-active {
+  border-color: var(--primary);
+  background: #f3faf6;
+  color: var(--primary);
+}
+.avail-weekday-btn.has-hours {
+  border-color: color-mix(in srgb, var(--primary) 45%, var(--line));
+}
+.avail-weekday-dot {
+  display: inline-block;
+  width: .45rem;
+  height: .45rem;
+  margin-inline-start: .25rem;
+  border-radius: 50%;
+  background: var(--primary);
+  vertical-align: middle;
+}
+.avail-weekday-editor {
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line);
+}
+.avail-weekday-editor-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem 1rem;
+  align-items: baseline;
+  margin-bottom: .75rem;
+}
+.avail-weekday-fields {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: .75rem;
+}
+@media (max-width: 640px) {
+  .avail-weekday-fields { grid-template-columns: 1fr; }
+}
 .hour-chip-who {
   font-size: .65rem;
   font-weight: 600;

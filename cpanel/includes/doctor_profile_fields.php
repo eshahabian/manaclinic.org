@@ -209,6 +209,24 @@ function doctor_is_shiva(?array $user): bool
     return str_contains($name, 'گرانمایه');
 }
 
+/** شماره تلفن مراجع فقط برای ادمین، منشی و دکتر گرانمایه‌پور */
+function can_view_patient_phone(?array $user = null): bool
+{
+    $user = $user ?? (function_exists('current_user') ? current_user() : null);
+    if (!$user) {
+        return false;
+    }
+    $role = (string) ($user['role'] ?? '');
+    if ($role === 'ADMIN' || $role === 'SECRETARY') {
+        return true;
+    }
+    if ($role === 'DOCTOR' && doctor_is_shiva($user)) {
+        return true;
+    }
+
+    return false;
+}
+
 function doctor_skips_profile_gate(?array $user): bool
 {
     if (!$user) {

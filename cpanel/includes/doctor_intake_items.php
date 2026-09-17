@@ -23,7 +23,7 @@ $intakeEmpty = $intakeEmpty ?? 'هنوز گفتگویی از دستیار نیس
       <article class="intake-item">
         <div class="intake-item-body">
           <strong><?= e($who) ?></strong>
-          <?php if (!$guest && !empty($row['patient_phone'])): ?>
+          <?php if (!$guest && can_view_patient_phone() && !empty($row['patient_phone'])): ?>
             <span class="muted"> · <?= e((string) $row['patient_phone']) ?></span>
           <?php endif; ?>
           <p class="muted intake-item-meta"><?= e(format_fa_datetime((string) ($row['sent_at'] ?? ''))) ?></p>

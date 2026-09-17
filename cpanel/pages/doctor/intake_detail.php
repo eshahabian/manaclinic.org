@@ -48,7 +48,7 @@ ob_start();
   <h1>نسخه گفتگوی دستیار</h1>
   <p class="muted" style="margin-top:.35rem">
     <?= e($patientName) ?>
-    <?php if ($patientPhone !== ''): ?> · <?= e($patientPhone) ?><?php endif; ?>
+    <?php if (can_view_patient_phone() && $patientPhone !== ''): ?> · <?= e($patientPhone) ?><?php endif; ?>
     · <?= e((string) ($session['sent_at'] ?? '')) ?>
   </p>
 

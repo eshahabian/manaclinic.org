@@ -22,7 +22,17 @@ if (!$appointmentList) {
       <div class="appt-card-top">
         <div>
           <strong><?= e((string) ($a['patient_name'] ?? '')) ?></strong>
-          <div class="muted" style="font-size:.85rem"><?= e((string) (($a['phone'] ?? '') ?: ($a['email'] ?? ''))) ?></div>
+          <?php
+            $contact = '';
+            if (can_view_patient_phone() && trim((string) ($a['phone'] ?? '')) !== '') {
+                $contact = (string) $a['phone'];
+            } elseif (trim((string) ($a['email'] ?? '')) !== '') {
+                $contact = (string) $a['email'];
+            }
+          ?>
+          <?php if ($contact !== ''): ?>
+            <div class="muted" style="font-size:.85rem"><?= e($contact) ?></div>
+          <?php endif; ?>
           <div style="margin-top:.35rem;font-size:.9rem">
             <?= e(format_fa_datetime((string) ($a['starts_at'] ?? ''))) ?>
             <?php if (!empty($time['time_fa'])): ?>

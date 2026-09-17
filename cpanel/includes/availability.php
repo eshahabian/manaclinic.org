@@ -349,6 +349,175 @@ function doctor_availability_apply_month(PDO $pdo, string $doctorId, int $jy, in
     return $n;
 }
 
+/** برچسب روزهای هفته — ۰=شنبه … ۶=جمعه */
+function doctor_weekdays_sat_first(): array
+{
+    return [
+        0 => 'شنبه',
+        1 => 'یکشنبه',
+        2 => 'دوشنبه',
+        3 => 'سه‌شنبه',
+        4 => 'چهارشنبه',
+        5 => 'پنجشنبه',
+        6 => 'جمعه',
+    ];
+}
+
+/** تبدیل ۰=شنبه به PHP date('w') */
+function doctor_weekday_to_php_w(int $weekdaySat0): int
+{
+    // شنبه→۶، یکشنبه→۰، … جمعه→۵
+    $map = [0 => 6, 1 => 0, 2 => 1, 3 => 2, 4 => 3, 5 => 4, 6 => 5];
+
+    return $map[$weekdaySat0] ?? -1;
+}
+
+function ensure_doctor_weekly_hours_schema(PDO $pdo): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $pdo->exec("
+      CREATE TABLE IF NOT EXISTS doctor_weekly_hours (
+        doctor_id VARCHAR(32) NOT NULL,
+        weekday TINYINT NOT NULL,
+        available_hours VARCHAR(128) NOT NULL,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        PRIMARY KEY (doctor_id, weekday),
+        INDEX idx_weekly_doctor (doctor_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
+    $ready = true;
+}
+
+/** @return array<int, list<int>> weekday => hours */
+function doctor_weekly_hours_map(PDO $pdo, string $doctorId): array
+{
+    ensure_doctor_weekly_hours_schema($pdo);
+    $stmt = $pdo->prepare('SELECT weekday, available_hours FROM doctor_weekly_hours WHERE doctor_id=?');
+    $stmt->execute([$doctorId]);
+    $map = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $w = (int) ($row['weekday'] ?? -1);
+        if ($w < 0 || $w > 6) {
+            continue;
+        }
+        $hours = appointment_hours_decode((string) ($row['available_hours'] ?? ''));
+        if ($hours !== []) {
+            $map[$w] = $hours;
+        }
+    }
+
+    return $map;
+}
+
+/**
+ * ساعت‌های متوالی از «از» تا «تا» در ترتیب رزرو (۶…۲۳ سپس ۰…۵).
+ * هر دو سر بازه به‌عنوان شروع اسلات ۱ ساعته لحاظ می‌شوند.
+ *
+ * @return list<int>
+ */
+function appointment_hours_range(int $fromHour, int $toHour): array
+{
+    $all = appointment_booking_hours();
+    $startIdx = array_search($fromHour, $all, true);
+    $endIdx = array_search($toHour, $all, true);
+    if ($startIdx === false || $endIdx === false) {
+        return [];
+    }
+    if ($endIdx < $startIdx) {
+        return [];
+    }
+
+    return array_values(array_map('intval', array_slice($all, (int) $startIdx, (int) $endIdx - (int) $startIdx + 1)));
+}
+
+function doctor_weekly_hours_save(PDO $pdo, string $doctorId, int $weekdaySat0, array $hours): void
+{
+    ensure_doctor_weekly_hours_schema($pdo);
+    $hours = appointment_hours_decode(appointment_hours_encode($hours));
+    if ($doctorId === '' || $weekdaySat0 < 0 || $weekdaySat0 > 6 || $hours === []) {
+        return;
+    }
+    $encoded = appointment_hours_encode($hours);
+    $pdo->prepare('
+      INSERT INTO doctor_weekly_hours (doctor_id, weekday, available_hours)
+      VALUES (?,?,?)
+      ON DUPLICATE KEY UPDATE available_hours=VALUES(available_hours)
+    ')->execute([$doctorId, $weekdaySat0, $encoded]);
+}
+
+function doctor_weekly_hours_clear(PDO $pdo, string $doctorId, int $weekdaySat0): void
+{
+    ensure_doctor_weekly_hours_schema($pdo);
+    $pdo->prepare('DELETE FROM doctor_weekly_hours WHERE doctor_id=? AND weekday=?')
+        ->execute([$doctorId, $weekdaySat0]);
+}
+
+/**
+ * اعمال ساعت‌های یک روز هفته روی N هفته آینده + ذخیره قالب هفتگی.
+ */
+function doctor_availability_apply_weekday(PDO $pdo, string $doctorId, int $weekdaySat0, array $hours, int $weeks = 12): int
+{
+    $hours = appointment_hours_decode(appointment_hours_encode($hours));
+    $phpW = doctor_weekday_to_php_w($weekdaySat0);
+    if ($doctorId === '' || $hours === [] || $phpW < 0 || $weeks < 1) {
+        return 0;
+    }
+    doctor_weekly_hours_save($pdo, $doctorId, $weekdaySat0, $hours);
+    $today = new DateTimeImmutable('today');
+    $n = 0;
+    $pdo->beginTransaction();
+    try {
+        for ($i = 0; $i < ($weeks * 7) + 7; $i++) {
+            $d = $today->modify('+' . $i . ' days');
+            if ((int) $d->format('w') !== $phpW) {
+                continue;
+            }
+            if (doctor_availability_upsert($pdo, $doctorId, $d->format('Y-m-d'), $hours)) {
+                $n++;
+            }
+            if ($n >= $weeks) {
+                break;
+            }
+        }
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+
+    return $n;
+}
+
+/** حذف قالب هفتگی و روزهای آیندهٔ همان weekday (بدون دست زدن به نوبت‌های ثبت‌شده) */
+function doctor_availability_clear_weekday(PDO $pdo, string $doctorId, int $weekdaySat0): int
+{
+    $phpW = doctor_weekday_to_php_w($weekdaySat0);
+    if ($doctorId === '' || $phpW < 0) {
+        return 0;
+    }
+    doctor_weekly_hours_clear($pdo, $doctorId, $weekdaySat0);
+    $today = date('Y-m-d');
+    $stmt = $pdo->prepare('SELECT id, date FROM availabilities WHERE doctor_id=? AND date>=?');
+    $stmt->execute([$doctorId, $today]);
+    $n = 0;
+    foreach ($stmt->fetchAll() as $row) {
+        $date = substr((string) ($row['date'] ?? ''), 0, 10);
+        $ts = strtotime($date . ' 12:00:00');
+        if ($ts === false || (int) date('w', $ts) !== $phpW) {
+            continue;
+        }
+        $pdo->prepare('DELETE FROM availabilities WHERE id=? AND doctor_id=?')->execute([(string) $row['id'], $doctorId]);
+        $n++;
+    }
+
+    return $n;
+}
+
 /**
  * @param array<int, array<string, mixed>> $items
  * @return array<string, array<string, mixed>>
@@ -414,6 +583,7 @@ function doctor_availability_render_day_card(
                       $firstName = $patientName !== '' ? (preg_split('/\s+/u', $patientName)[0] ?? $patientName) : '';
                       $statusLabel = is_array($booked) ? appointment_row_status_label($booked) : '';
                       $patientHref = is_array($booked) ? url('/doctor/patients/' . (string) ($booked['patient_id'] ?? '')) : '';
+                      $showPhone = can_view_patient_phone() && is_array($booked) ? (string) ($booked['phone'] ?? '') : '';
                     ?>
                     <button type="button"
                       class="hour-chip is-<?= e($state) ?>"
@@ -422,7 +592,7 @@ function doctor_availability_render_day_card(
                       data-label="<?= e(appointment_hour_chip_label($hour)) ?>"
                       data-date-label="<?= e(appointment_hour_date_for($dayDate, $hour)) ?>"
                       data-patient="<?= e($patientName) ?>"
-                      data-phone="<?= e(is_array($booked) ? (string) ($booked['phone'] ?? '') : '') ?>"
+                      data-phone="<?= e($showPhone) ?>"
                       data-status="<?= e($statusLabel) ?>"
                       data-href="<?= e($patientHref) ?>">
                       <span class="hour-chip-time"><?= e(appointment_hour_chip_label($hour)) ?></span>

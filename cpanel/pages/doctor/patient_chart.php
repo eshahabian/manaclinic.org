@@ -102,7 +102,7 @@ ob_start();
         </div>
         <p class="ehr-meta" dir="ltr">
           <span>@<?= e((string) $patient['username']) ?></span>
-          <?php if (!empty($patient['phone'])): ?>
+          <?php if (can_view_patient_phone() && !empty($patient['phone'])): ?>
             <span><?= e((string) $patient['phone']) ?></span>
           <?php endif; ?>
           <?php if (!empty($patient['email'])): ?>
