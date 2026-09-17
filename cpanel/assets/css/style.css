@@ -4988,6 +4988,82 @@ body.workshop-overview-locked { overflow: hidden; }
 @media (max-width: 900px) {
   .ehr-dap-grid { grid-template-columns: 1fr; }
 }
+.soap-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: .35rem;
+  border: 1px solid var(--line);
+  border-radius: .85rem;
+  overflow: hidden;
+  background: #fff;
+}
+.soap-table th,
+.soap-table td {
+  border-bottom: 1px solid var(--line);
+  vertical-align: top;
+  padding: .75rem .85rem;
+  text-align: right;
+}
+.soap-table tr:last-child th,
+.soap-table tr:last-child td {
+  border-bottom: 0;
+}
+.soap-table th {
+  width: 9.5rem;
+  background: #f7faf8;
+  font-weight: 600;
+}
+.soap-table .soap-key {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.55rem;
+  height: 1.55rem;
+  margin-inline-end: .35rem;
+  border-radius: .4rem;
+  background: var(--primary);
+  color: #fff;
+  font-size: .78rem;
+  font-weight: 700;
+}
+.soap-table .soap-en {
+  display: block;
+  margin-top: .25rem;
+  font-size: .92rem;
+}
+.soap-table .soap-fa {
+  display: block;
+  margin-top: .15rem;
+  font-size: .78rem;
+  font-weight: 400;
+}
+.soap-table .soap-cell {
+  width: 100%;
+  min-height: 5.5rem;
+  resize: vertical;
+}
+.soap-table--readonly td {
+  font-size: .92rem;
+  line-height: 1.75;
+  white-space: normal;
+}
+@media (max-width: 640px) {
+  .soap-table,
+  .soap-table tbody,
+  .soap-table tr,
+  .soap-table th,
+  .soap-table td {
+    display: block;
+    width: 100%;
+  }
+  .soap-table th {
+    border-bottom: 0;
+    padding-bottom: .25rem;
+  }
+  .soap-table td {
+    padding-top: .25rem;
+  }
+}
 .patient-note-feed {
   list-style: none;
   margin: 0;

@@ -84,11 +84,57 @@ function ensure_doctor_clinical_tables(PDO $pdo): void
     $addColumn($pdo, 'doctor_patient_charts', 'chief_complaint', 'chief_complaint TEXT NULL AFTER marital_status');
     $addColumn($pdo, 'doctor_patient_charts', 'residence', 'residence VARCHAR(255) NULL AFTER chief_complaint');
     $addColumn($pdo, 'doctor_patient_charts', 'family_history', 'family_history TEXT NULL AFTER residence');
+    $addColumn($pdo, 'doctor_patient_charts', 'soap_subject', 'soap_subject MEDIUMTEXT NULL AFTER family_history');
+    $addColumn($pdo, 'doctor_patient_charts', 'soap_object', 'soap_object MEDIUMTEXT NULL AFTER soap_subject');
+    $addColumn($pdo, 'doctor_patient_charts', 'soap_assessment', 'soap_assessment MEDIUMTEXT NULL AFTER soap_object');
+    $addColumn($pdo, 'doctor_patient_charts', 'soap_plan', 'soap_plan MEDIUMTEXT NULL AFTER soap_assessment');
     $addColumn($pdo, 'doctor_session_notes', 'd_text', 'd_text MEDIUMTEXT NULL AFTER note_text');
     $addColumn($pdo, 'doctor_session_notes', 'a_text', 'a_text MEDIUMTEXT NULL AFTER d_text');
     $addColumn($pdo, 'doctor_session_notes', 'p_text', 'p_text MEDIUMTEXT NULL AFTER a_text');
 
     $ready = true;
+}
+
+/** برچسب‌های SOAP شرح حال بالینی */
+function chart_soap_fields(): array
+{
+    return [
+        'soap_subject' => [
+            'key' => 'S',
+            'en' => 'Subject',
+            'fa' => 'ذهنی / گزارش مراجع',
+            'placeholder' => 'آنچه مراجع می‌گوید: شکایت، احساس، تاریخچه مرتبط…',
+        ],
+        'soap_object' => [
+            'key' => 'O',
+            'en' => 'Object',
+            'fa' => 'عینی / مشاهدات',
+            'placeholder' => 'مشاهدات درمانگر، ظاهر، رفتار، یافته‌های عینی…',
+        ],
+        'soap_assessment' => [
+            'key' => 'A',
+            'en' => 'Assessment',
+            'fa' => 'ارزیابی',
+            'placeholder' => 'جمع‌بندی بالینی، فرضیه‌ها، فرمول‌بندی…',
+        ],
+        'soap_plan' => [
+            'key' => 'P',
+            'en' => 'Plan',
+            'fa' => 'برنامه',
+            'placeholder' => 'اهداف، مداخلات، تکالیف، پیگیری…',
+        ],
+    ];
+}
+
+function chart_soap_has_content(array $chart): bool
+{
+    foreach (array_keys(chart_soap_fields()) as $col) {
+        if (trim((string) ($chart[$col] ?? '')) !== '') {
+            return true;
+        }
+    }
+
+    return false;
 }
 
 function chart_marital_label(?string $status): string

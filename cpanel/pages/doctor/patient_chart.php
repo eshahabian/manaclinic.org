@@ -86,6 +86,7 @@ $historySnippet = trim(preg_replace('/\s+/u', ' ', html_entity_decode(strip_tags
 if (function_exists('mb_strlen') && mb_strlen($historySnippet) > 220) {
     $historySnippet = mb_substr($historySnippet, 0, 217) . '…';
 }
+$soapHasContent = chart_soap_has_content($chart);
 
 ob_start();
 ?>
@@ -192,13 +193,29 @@ ob_start();
       </article>
       <article class="ehr-card">
         <header class="ehr-card-head">
-          <h2>شرح حال</h2>
+          <h2>شرح حال (SOAP)</h2>
           <a href="<?= e($tabUrl('chart')) ?>">ویرایش</a>
         </header>
-        <?php if ($historySnippet !== ''): ?>
+        <?php if ($soapHasContent): ?>
+          <table class="soap-table soap-table--readonly">
+            <tbody>
+              <?php foreach (chart_soap_fields() as $col => $meta): ?>
+                <?php $val = trim((string) ($chart[$col] ?? '')); ?>
+                <tr>
+                  <th scope="row">
+                    <span class="soap-key"><?= e($meta['key']) ?></span>
+                    <span class="soap-en"><?= e($meta['en']) ?></span>
+                    <span class="soap-fa muted"><?= e($meta['fa']) ?></span>
+                  </th>
+                  <td><?= $val !== '' ? nl2br(e($val)) : '<span class="muted">—</span>' ?></td>
+                </tr>
+              <?php endforeach; ?>
+            </tbody>
+          </table>
+        <?php elseif ($historySnippet !== ''): ?>
           <p class="ehr-preview"><?= e($historySnippet) ?></p>
         <?php else: ?>
-          <p class="muted">هنوز شرح حالی نوشته نشده. از تب شرح حال یادداشت بالینی را شروع کنید.</p>
+          <p class="muted">هنوز شرح حالی نوشته نشده. از تب شرح حال جدول SOAP را پر کنید.</p>
         <?php endif; ?>
       </article>
     </div>
@@ -298,13 +315,36 @@ ob_start();
 
         <header class="ehr-card-head" style="padding:0;border:0">
           <div>
-            <h2 style="font-size:1.05rem;margin:0">شرح حال بالینی</h2>
-            <p class="muted" style="margin:.3rem 0 0;font-size:.85rem">یادداشت آزاد بالینی؛ فقط شما می‌بینید.</p>
+            <h2 style="font-size:1.05rem;margin:0">شرح حال بالینی (SOAP)</h2>
+            <p class="muted" style="margin:.3rem 0 0;font-size:.85rem">چهار بخش Subject · Object · Assessment · Plan — فقط شما می‌بینید.</p>
           </div>
         </header>
-        <?= rich_editor_toolbar_html(['id' => 'clinical-toolbar']) ?>
-        <div id="clinical-editor" class="clinical-editor" contenteditable="true" role="textbox" aria-label="شرح حال" data-placeholder="شرح حال مراجعه‌کننده را اینجا بنویسید..."><?= $historyHtml ?></div>
-        <textarea name="history_text" id="history_text" hidden></textarea>
+        <table class="soap-table">
+          <tbody>
+            <?php foreach (chart_soap_fields() as $col => $meta): ?>
+              <tr>
+                <th scope="row">
+                  <label for="<?= e($col) ?>">
+                    <span class="soap-key"><?= e($meta['key']) ?></span>
+                    <span class="soap-en"><?= e($meta['en']) ?></span>
+                    <span class="soap-fa muted"><?= e($meta['fa']) ?></span>
+                  </label>
+                </th>
+                <td>
+                  <textarea
+                    class="input soap-cell"
+                    id="<?= e($col) ?>"
+                    name="<?= e($col) ?>"
+                    rows="4"
+                    placeholder="<?= e($meta['placeholder']) ?>"
+                    data-emoji-field
+                  ><?= e((string) ($chart[$col] ?? '')) ?></textarea>
+                </td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+        <textarea name="history_text" id="history_text" hidden><?= e($historyClean) ?></textarea>
         <div style="margin-top:.85rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
           <button class="btn btn-primary" type="submit">ذخیره اطلاعات پایه و شرح حال</button>
           <?php if (!empty($chart['updated_at'])): ?>
@@ -593,14 +633,6 @@ $pageScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260
 <script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
 <script>
-if (document.querySelector("#clinical-editor")) {
-  initRichEditor({
-    editor: "#clinical-editor",
-    toolbar: "#clinical-toolbar",
-    form: "#history-form",
-    hidden: "#history_text"
-  });
-}
 (function(){
   function faToEn(str){ return String(str).replace(/[۰-۹]/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹".indexOf(d); }); }
   function pad(n){ return (n < 10 ? "0" : "") + n; }
