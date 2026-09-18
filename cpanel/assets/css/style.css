@@ -4236,79 +4236,136 @@ html[dir="ltr"] .binder-body {
   flex-wrap: wrap;
   margin-top: 1.15rem;
 }
-.admin-pass-form {
-  display: inline-flex;
-  gap: .4rem;
-  flex-wrap: nowrap;
-  align-items: center;
-  margin: 0;
-}
 .admin-password-plain {
   display: inline-block;
-  padding: .2rem .45rem;
-  border-radius: .4rem;
+  padding: .25rem .55rem;
+  border-radius: .45rem;
   background: var(--bg-soft);
-  font-size: .9rem;
-  letter-spacing: .02em;
-}
-.admin-pass-form .input {
-  width: 7.5rem;
-  min-width: 6.5rem;
-  max-width: 9rem;
-  padding: .4rem .55rem;
-  font-size: .85rem;
-  flex: 0 0 auto;
-}
-.admin-pass-form .btn {
-  flex: 0 0 auto;
-  white-space: nowrap;
+  border: 1px solid color-mix(in srgb, var(--line) 80%, var(--primary));
+  font-size: .88rem;
+  letter-spacing: .03em;
+  color: var(--primary-dark);
 }
 .admin-user-ops {
-  min-width: 20rem;
+  min-width: 15.5rem;
+  width: 15.5rem;
   vertical-align: top;
 }
-.admin-user-ops-top {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: .4rem;
-}
-.admin-user-ops-top .btn {
-  white-space: nowrap;
-}
-.admin-user-actions {
-  display: inline-flex;
-  flex-wrap: nowrap;
-  gap: .4rem;
-  align-items: center;
-  margin: 0;
-}
-.admin-edit-form {
-  margin-top: .65rem;
-  padding: .75rem;
-  border-radius: .7rem;
-  border: 1px solid color-mix(in srgb, var(--primary) 22%, var(--line));
-  background: color-mix(in srgb, var(--primary) 5%, var(--card));
+.admin-ops {
   display: grid;
   gap: .55rem;
-  max-width: 22rem;
 }
-.admin-edit-form[hidden] {
+.admin-ops-bar {
+  display: flex;
+  flex-wrap: nowrap;
+  gap: .35rem;
+  align-items: stretch;
+}
+.admin-ops-delete {
+  margin: 0;
+  display: contents;
+}
+.admin-ops-btn {
+  appearance: none;
+  border: 1px solid var(--line);
+  background: var(--card);
+  color: var(--fg);
+  border-radius: .55rem;
+  padding: .45rem .55rem;
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 700;
+  line-height: 1.2;
+  cursor: pointer;
+  flex: 1 1 0;
+  min-width: 0;
+  transition: background .15s ease, border-color .15s ease, color .15s ease, box-shadow .15s ease;
+}
+.admin-ops-btn:hover {
+  background: var(--bg-soft);
+  border-color: color-mix(in srgb, var(--primary) 30%, var(--line));
+  color: var(--primary-dark);
+}
+.admin-ops-btn.is-on {
+  background: color-mix(in srgb, var(--primary) 14%, var(--card));
+  border-color: color-mix(in srgb, var(--primary) 40%, var(--line));
+  color: var(--primary-dark);
+  box-shadow: inset 0 -.15rem 0 var(--primary);
+}
+.admin-ops-btn-danger {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 35%, var(--line));
+  flex: 0 0 auto;
+  min-width: 3.4rem;
+}
+.admin-ops-btn-danger:hover {
+  background: color-mix(in srgb, var(--danger) 8%, var(--card));
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 45%, var(--line));
+}
+.admin-ops-panel {
+  margin: 0;
+  padding: .8rem .85rem;
+  border-radius: .75rem;
+  border: 1px solid color-mix(in srgb, var(--primary) 20%, var(--line));
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--primary) 7%, var(--card)),
+    var(--card)
+  );
+  display: grid;
+  gap: .65rem;
+  box-shadow: 0 8px 18px color-mix(in srgb, var(--fg) 5%, transparent);
+}
+.admin-ops-panel[hidden] {
   display: none !important;
 }
-.admin-edit-form .label {
-  margin: 0 0 .2rem;
-  font-size: .8rem;
+.admin-ops-panel-title {
+  margin: 0;
+  font-size: .78rem;
+  font-weight: 800;
+  letter-spacing: .03em;
+  color: var(--accent);
 }
-.admin-edit-form .input {
-  padding: .45rem .6rem;
-  font-size: .9rem;
+.admin-ops-pass-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: .4rem;
+  align-items: center;
 }
-.admin-edit-form-actions {
+.admin-ops-pass-row .input {
+  min-width: 0;
+  padding: .5rem .65rem;
+  font-size: .85rem;
+}
+.admin-ops-fields {
+  display: grid;
+  gap: .55rem;
+}
+.admin-ops-fields label {
+  display: grid;
+  gap: .25rem;
+}
+.admin-ops-fields .label {
+  margin: 0;
+  font-size: .78rem;
+  font-weight: 700;
+  color: var(--muted);
+}
+.admin-ops-fields .input {
+  padding: .5rem .65rem;
+  font-size: .88rem;
+}
+.admin-ops-panel-actions {
   display: flex;
   flex-wrap: wrap;
   gap: .4rem;
-  margin-top: .15rem;
+}
+@media (max-width: 900px) {
+  .admin-user-ops {
+    min-width: 13.5rem;
+    width: auto;
+  }
 }
 .staff-hours-toolbar {
   display: flex;

@@ -154,43 +154,56 @@ ob_start();
           </td>
           <td><?= e(format_fa_datetime($u['created_at'])) ?></td>
           <td class="admin-user-ops">
-            <div class="admin-user-ops-top">
-              <form method="post" action="<?= e(url('/admin/users')) ?>" class="admin-pass-form" autocomplete="off">
-                <?= csrf_field() ?>
-                <input type="hidden" name="action" value="set_password">
-                <input type="hidden" name="user_id" value="<?= e($uid) ?>">
-                <input class="input" type="password" name="new_password" required minlength="6" dir="ltr" placeholder="رمز جدید" autocomplete="new-password" aria-label="رمز جدید">
-                <button type="submit" class="btn btn-outline btn-sm">ثبت رمز</button>
-              </form>
-              <div class="admin-user-actions">
-                <button type="button" class="btn btn-outline btn-sm" data-admin-edit-toggle="<?= e($editId) ?>">ویرایش پروفایل</button>
+            <div class="admin-ops" data-admin-ops>
+              <div class="admin-ops-bar" role="group" aria-label="عملیات کاربر">
+                <button type="button" class="admin-ops-btn" data-admin-panel="edit" data-admin-edit-toggle="<?= e($editId) ?>" aria-expanded="false" aria-controls="<?= e($editId) ?>">
+                  ویرایش
+                </button>
+                <button type="button" class="admin-ops-btn" data-admin-panel="pass" aria-expanded="false" aria-controls="<?= e($editId) ?>-pass">
+                  رمز
+                </button>
                 <?php if ($u['role'] !== 'ADMIN'): ?>
-                  <form method="post" action="<?= e(url('/admin/users')) ?>" style="margin:0" onsubmit="return confirm('این کاربر و نوبت‌هایش حذف شود؟');">
+                  <form method="post" action="<?= e(url('/admin/users')) ?>" class="admin-ops-delete" onsubmit="return confirm('این کاربر و نوبت‌هایش حذف شود؟');">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="delete_user">
                     <input type="hidden" name="user_id" value="<?= e($uid) ?>">
-                    <button type="submit" class="btn btn-outline btn-sm" style="color:var(--danger)">حذف</button>
+                    <button type="submit" class="admin-ops-btn admin-ops-btn-danger">حذف</button>
                   </form>
                 <?php endif; ?>
               </div>
+
+              <form method="post" action="<?= e(url('/admin/users')) ?>" class="admin-ops-panel" id="<?= e($editId) ?>-pass" hidden autocomplete="off" data-admin-panel-body="pass">
+                <?= csrf_field() ?>
+                <input type="hidden" name="action" value="set_password">
+                <input type="hidden" name="user_id" value="<?= e($uid) ?>">
+                <p class="admin-ops-panel-title">تغییر رمز عبور</p>
+                <div class="admin-ops-pass-row">
+                  <input class="input" type="password" name="new_password" required minlength="6" dir="ltr" placeholder="رمز جدید (حداقل ۶ کاراکتر)" autocomplete="new-password" aria-label="رمز جدید">
+                  <button type="submit" class="btn btn-primary btn-sm">ثبت رمز</button>
+                </div>
+              </form>
+
+              <form method="post" action="<?= e(url('/admin/users')) ?>" class="admin-ops-panel" id="<?= e($editId) ?>" hidden autocomplete="off" data-admin-panel-body="edit">
+                <?= csrf_field() ?>
+                <input type="hidden" name="action" value="update_profile">
+                <input type="hidden" name="user_id" value="<?= e($uid) ?>">
+                <p class="admin-ops-panel-title">ویرایش نام و نام کاربری</p>
+                <div class="admin-ops-fields">
+                  <label>
+                    <span class="label">نام</span>
+                    <input class="input" type="text" name="name" required value="<?= e((string) $u['name']) ?>" autocomplete="off">
+                  </label>
+                  <label>
+                    <span class="label">نام کاربری</span>
+                    <input class="input" type="text" name="username" required dir="ltr" value="<?= e((string) $u['username']) ?>" pattern="[a-zA-Z0-9._\-]{3,32}" autocomplete="off">
+                  </label>
+                </div>
+                <div class="admin-ops-panel-actions">
+                  <button type="submit" class="btn btn-primary btn-sm">ذخیره</button>
+                  <button type="button" class="btn btn-outline btn-sm" data-admin-edit-cancel="<?= e($editId) ?>">بستن</button>
+                </div>
+              </form>
             </div>
-            <form method="post" action="<?= e(url('/admin/users')) ?>" class="admin-edit-form" id="<?= e($editId) ?>" hidden autocomplete="off">
-              <?= csrf_field() ?>
-              <input type="hidden" name="action" value="update_profile">
-              <input type="hidden" name="user_id" value="<?= e($uid) ?>">
-              <div>
-                <label class="label" for="<?= e($editId) ?>-name">نام</label>
-                <input class="input" id="<?= e($editId) ?>-name" type="text" name="name" required value="<?= e((string) $u['name']) ?>" autocomplete="off">
-              </div>
-              <div>
-                <label class="label" for="<?= e($editId) ?>-user">نام کاربری</label>
-                <input class="input" id="<?= e($editId) ?>-user" type="text" name="username" required dir="ltr" value="<?= e((string) $u['username']) ?>" pattern="[a-zA-Z0-9._\-]{3,32}" autocomplete="off">
-              </div>
-              <div class="admin-edit-form-actions">
-                <button type="submit" class="btn btn-primary btn-sm">ذخیره پروفایل</button>
-                <button type="button" class="btn btn-outline btn-sm" data-admin-edit-cancel="<?= e($editId) ?>">انصراف</button>
-              </div>
-            </form>
           </td>
         </tr>
       <?php endforeach; ?>
@@ -199,25 +212,35 @@ ob_start();
 </div>
 <script>
 (function(){
-  document.querySelectorAll("[data-admin-edit-toggle]").forEach(function(btn){
-    btn.addEventListener("click", function(){
-      var id = btn.getAttribute("data-admin-edit-toggle");
-      var form = id ? document.getElementById(id) : null;
-      if (!form) return;
-      var open = form.hasAttribute("hidden");
-      document.querySelectorAll(".admin-edit-form").forEach(function(f){ f.hidden = true; });
-      form.hidden = !open;
-      if (open) {
-        var first = form.querySelector("input[name=name]");
-        if (first) first.focus();
-      }
+  function closeAll(root){
+    var scope = root || document;
+    scope.querySelectorAll("[data-admin-ops]").forEach(function(ops){
+      ops.querySelectorAll(".admin-ops-panel").forEach(function(p){ p.hidden = true; });
+      ops.querySelectorAll(".admin-ops-btn[aria-expanded]").forEach(function(b){
+        b.setAttribute("aria-expanded", "false");
+        b.classList.remove("is-on");
+      });
     });
-  });
-  document.querySelectorAll("[data-admin-edit-cancel]").forEach(function(btn){
-    btn.addEventListener("click", function(){
-      var id = btn.getAttribute("data-admin-edit-cancel");
-      var form = id ? document.getElementById(id) : null;
-      if (form) form.hidden = true;
+  }
+
+  document.querySelectorAll("[data-admin-ops]").forEach(function(ops){
+    ops.querySelectorAll(".admin-ops-btn[data-admin-panel]").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var kind = btn.getAttribute("data-admin-panel");
+        var panel = ops.querySelector('[data-admin-panel-body="' + kind + '"]');
+        if (!panel) return;
+        var willOpen = panel.hasAttribute("hidden");
+        closeAll();
+        if (!willOpen) return;
+        panel.hidden = false;
+        btn.setAttribute("aria-expanded", "true");
+        btn.classList.add("is-on");
+        var focusEl = panel.querySelector("input:not([type=hidden])");
+        if (focusEl) focusEl.focus();
+      });
+    });
+    ops.querySelectorAll("[data-admin-edit-cancel]").forEach(function(btn){
+      btn.addEventListener("click", function(){ closeAll(ops); });
     });
   });
 })();
