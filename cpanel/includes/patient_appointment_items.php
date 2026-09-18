@@ -54,7 +54,6 @@ if (!function_exists('appointment_session_mode_badge_html') && is_file(__DIR__ .
                 class="btn btn-primary btn-sm pay-btn"
                 style="margin-top:.75rem"
                 data-id="<?= e((string) $a['id']) ?>"
-                disabled
               >پرداخت آنلاین</button>
             <?php endif; ?>
             <?php if (function_exists('patient_can_cancel_appointment') && patient_can_cancel_appointment((string) $a['status'])): ?>
