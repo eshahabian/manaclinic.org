@@ -1,0 +1,965 @@
+(function () {
+  var liveDestroy = null;
+  var stopping = false;
+  function attach(root) {
+  if (!root) return function () {};
+  var signalUrl = root.getAttribute("data-signal-url") || "/video-signal";
+  var room = root.getAttribute("data-room") || "";
+  var meId = root.getAttribute("data-me") || "";
+  var peerName = root.getAttribute("data-peer-name") || "طرف مقابل";
+  var audioOnly = root.getAttribute("data-media") === "audio";
+  var canStart = root.getAttribute("data-can-start") === "1";
+  var isGroup = root.getAttribute("data-group") === "1";
+  var stageEl = root.querySelector("[data-video-stage]");
+  var remotesEl = root.querySelector("[data-video-remotes]");
+  var localEl = root.querySelector("[data-video-local]");
+  var statusEl = root.querySelector("[data-video-status]");
+  var incomingEl = root.querySelector("[data-video-incoming]");
+  var permitEl = root.querySelector("[data-video-permit]");
+  var permitBtn = root.querySelector("[data-video-permit-btn]");
+  var startBtn = root.querySelector("[data-video-start]");
+  var hangBtn = root.querySelector("[data-video-hangup]");
+  var enhanceBtn = root.querySelector("[data-video-enhance]");
+  var fsBtns = root.querySelectorAll("[data-video-fs]");
+  var token = (document.querySelector('meta[name="csrf-token"]') || {}).content || "";
+  var ringUrl = root.getAttribute("data-ring-url") || "";
+  var hangUrl = root.getAttribute("data-hang-url") || "";
+  var canRecord = root.getAttribute("data-can-record") === "1";
+  var guardCapture = root.getAttribute("data-guard-capture") === "1";
+  var recordBtn = root.querySelector("[data-video-record]");
+  var blackoutEl = root.querySelector("[data-video-blackout]");
+
+  var localStream = null;
+  var ready = false;
+  var calling = false;
+  var seen = {};
+  var peers = {};
+  var pendingOffers = {};
+  var iceHold = {};
+  var lastStatus = "";
+  var audioCtx = null;
+  var ringTimer = null;
+  var ringAudio = null;
+  var hangAudio = null;
+  var recorder = null;
+  var recChunks = [];
+  var recTimer = null;
+  var guarded = false;
+  var joined = false;
+  var dialing = false;
+  var wantAutoAnswer = false;
+  var autoDial = false;
+  var pollPrimed = false;
+  var sessionLive = false;
+  var closingUi = false;
+  var mediaPromise = null;
+  var acceptPromise = null;
+  var ac = typeof AbortController !== "undefined" ? new AbortController() : null;
+  var bindOpts = ac ? { signal: ac.signal } : false;
+  try {
+    wantAutoAnswer = sessionStorage.getItem("mana-video-auto-answer") === "1"
+      || /(?:^|[?&])answer=1(?:&|$)/.test(location.search || "");
+    sessionStorage.removeItem("mana-video-auto-answer");
+  } catch (e) {}
+  autoDial = root.getAttribute("data-auto-dial") === "1";
+  root.classList.toggle("is-audio", !!audioOnly);
+  if (stageEl) stageEl.classList.toggle("is-audio", !!audioOnly);
+
+  function setStatus(text) {
+    if (statusEl) statusEl.textContent = text;
+  }
+  function setPermit(open, message) {
+    if (!permitEl) return;
+    permitEl.hidden = !open;
+    if (open && message) {
+      var p = permitEl.querySelector("p");
+      if (p) p.textContent = message;
+    }
+  }
+  function ctx() {
+    if (!audioCtx) {
+      var Ctx = window.AudioContext || window.webkitAudioContext;
+      if (Ctx) audioCtx = new Ctx();
+    }
+    if (audioCtx && audioCtx.state === "suspended") audioCtx.resume();
+    return audioCtx;
+  }
+  function iceServers() {
+    var extra = window.__VIDEO_ICE__;
+    if (extra && extra.length) return extra;
+    return [
+      { urls: [
+        "stun:stun.l.google.com:19302",
+        "stun:stun1.l.google.com:19302",
+        "stun:stun.cloudflare.com:3478",
+        "stun:global.stun.twilio.com:3478"
+      ] }
+    ];
+  }
+  function post(body) {
+    body.room = room;
+    return fetch(signalUrl, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "X-CSRF-Token": token,
+        "X-Requested-With": "XMLHttpRequest"
+      },
+      body: JSON.stringify(body)
+    }).then(function (r) {
+      return r.json().then(function (data) {
+        if (!r.ok) throw new Error((data && data.error) || "خطای ارتباط");
+        return data;
+      });
+    });
+  }
+  function sendTo(kind, to, payload) {
+    return post({ action: "send", kind: kind, target_id: to || "", payload: payload || null });
+  }
+  function mediaErrorText(err) {
+    var name = err && err.name;
+    if (name === "NotAllowedError" || name === "PermissionDeniedError") {
+      return "دسترسی به " + (audioOnly ? "میکروفون" : "دوربین و میکروفون") + " رد شد.";
+    }
+    if (location.protocol !== "https:" && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+      return "تماس تصویری فقط روی آدرس امن (https) کار می‌کند.";
+    }
+    return "مرورگر باید به " + (audioOnly ? "میکروفون" : "دوربین و میکروفون") + " دسترسی بدهد.";
+  }
+  function constraintSets() {
+    if (audioOnly) return [{ audio: true, video: false }];
+    return [
+      { audio: true, video: { facingMode: "user" } },
+      { audio: true, video: true },
+      { audio: true, video: { facingMode: "user", width: { ideal: 640 }, height: { ideal: 480 } } }
+    ];
+  }
+  function getUserMediaFallback(index, sets) {
+    sets = sets || constraintSets();
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      return Promise.reject(new Error("این مرورگر تماس را پشتیبانی نمی‌کند."));
+    }
+    if (index >= sets.length) return Promise.reject(new Error("دوربین یا میکروفون در دسترس نیست."));
+    return navigator.mediaDevices.getUserMedia(sets[index]).catch(function (err) {
+      if (err && (err.name === "NotAllowedError" || err.name === "PermissionDeniedError" || err.name === "SecurityError")) {
+        return Promise.reject(err);
+      }
+      return getUserMediaFallback(index + 1, sets);
+    });
+  }
+  function attachLocal(stream) {
+    localStream = stream;
+    ready = true;
+    try { window.__VC_PRESTREAM__ = stream; } catch (e) {}
+    if (localEl) {
+      localEl.srcObject = stream;
+      localEl.muted = true;
+      localEl.playsInline = true;
+      localEl.setAttribute("playsinline", "true");
+      localEl.setAttribute("webkit-playsinline", "true");
+      var play = localEl.play();
+      if (play && play.catch) play.catch(function () {});
+    }
+    setPermit(false);
+    root.classList.remove("is-black");
+    if (blackoutEl) blackoutEl.hidden = true;
+    pushLocalToPeers();
+  }
+  function livePrestream() {
+    var pre = null;
+    try { pre = window.__VC_PRESTREAM__; } catch (e) {}
+    if (pre && pre.getTracks && pre.getTracks().some(function (t) { return t.readyState === "live"; })) {
+      return pre;
+    }
+    return null;
+  }
+  function streamHasLive(kind, stream) {
+    var s = stream || localStream;
+    if (!s || !s.getTracks) return false;
+    return s.getTracks().some(function (t) {
+      return t && t.readyState === "live" && (!kind || t.kind === kind);
+    });
+  }
+  function pushLocalToPeers() {
+    if (!localStream) return;
+    Object.keys(peers).forEach(function (id) {
+      var rec = peers[id];
+      if (!rec || !rec.pc) return;
+      addLocalTracks(rec.pc);
+    });
+  }
+  function requestMedia() {
+    if (audioOnly && streamHasLive("audio")) {
+      return Promise.resolve(localStream);
+    }
+    if (!audioOnly && streamHasLive("video")) {
+      return Promise.resolve(localStream);
+    }
+    if (mediaPromise) return mediaPromise;
+    setStatus("منتظر اجازه دسترسی…");
+    mediaPromise = Promise.resolve().then(function () {
+      var priming = null;
+      try { priming = window.__VC_PRIMING__; } catch (e) {}
+      if (priming && typeof priming.then === "function") {
+        return priming.catch(function () { return null; }).then(function () {
+          var pre = livePrestream();
+          if (pre && (audioOnly || streamHasLive("video", pre))) return pre;
+          return getUserMediaFallback(0);
+        });
+      }
+      var pre = livePrestream();
+      if (pre) {
+        if (audioOnly || streamHasLive("video", pre)) return pre;
+        try { pre.getTracks().forEach(function (t) { t.stop(); }); } catch (e) {}
+        try { window.__VC_PRESTREAM__ = null; } catch (e2) {}
+      }
+      return getUserMediaFallback(0);
+    }).then(function (stream) {
+      attachLocal(stream);
+      setStatus(canStart ? "آماده تماس." : "آماده پذیرش تماس.");
+      return stream;
+    }).catch(function (err) {
+      mediaPromise = null;
+      ready = false;
+      setPermit(true, mediaErrorText(err));
+      setStatus(mediaErrorText(err));
+      throw err;
+    });
+    return mediaPromise;
+  }
+  function media() {
+    return requestMedia();
+  }
+  function remoteTile(id) {
+    if (!remotesEl) return null;
+    var el = remotesEl.querySelector('[data-peer="' + id + '"]');
+    if (el) return el;
+    var wrap = document.createElement("div");
+    wrap.className = "vc-remote-tile" + (audioOnly ? " is-audio" : "");
+    wrap.setAttribute("data-peer", id);
+    var vid = document.createElement("video");
+    vid.autoplay = true;
+    vid.muted = true;
+    vid.playsInline = true;
+    vid.controls = false;
+    vid.disablePictureInPicture = true;
+    vid.setAttribute("playsinline", "");
+    vid.setAttribute("webkit-playsinline", "");
+    vid.setAttribute("autoplay", "");
+    vid.setAttribute("muted", "");
+    vid.setAttribute("data-video-remote", "1");
+    wrap.appendChild(vid);
+    remotesEl.appendChild(wrap);
+    return wrap;
+  }
+  function videoTrackCount(stream) {
+    return stream && stream.getVideoTracks ? stream.getVideoTracks().length : 0;
+  }
+  function bindRemoteStream(vid, stream, force) {
+    if (!vid || !stream) return false;
+    var prev = vid.srcObject;
+    var prevN = videoTrackCount(prev);
+    var nextN = videoTrackCount(stream);
+    // فقط وقتی stream عوض شده یا ترک ویدیو تازه اضافه شده remount کن (موبایل با remount زیاد سیاه می‌ماند)
+    if (!force && prev === stream && prevN === nextN) return false;
+    if (!force && prev === stream && nextN <= prevN && nextN > 0) return false;
+    try { vid.pause(); } catch (e) {}
+    vid.srcObject = null;
+    vid.srcObject = stream;
+    return true;
+  }
+  function playRemote(vid, stream) {
+    if (!vid) return;
+    if (stream) bindRemoteStream(vid, stream);
+    vid.playsInline = true;
+    vid.setAttribute("playsinline", "");
+    vid.setAttribute("webkit-playsinline", "");
+    vid.autoplay = true;
+    var wantSound = !audioOnly;
+    var start = function () {
+      if (!vid.srcObject) return;
+      vid.muted = true;
+      var p = vid.play();
+      if (!p || !p.then) return;
+      p.then(function () {
+        if (!wantSound) return;
+        setTimeout(function () {
+          if (!vid.srcObject) return;
+          vid.muted = false;
+          vid.play().catch(function () {
+            vid.muted = true;
+            vid.play().catch(function () {});
+          });
+        }, 300);
+      }).catch(function () {
+        vid.muted = true;
+        vid.play().catch(function () {});
+      });
+    };
+    if (vid.readyState >= 2) start();
+    else {
+      vid.onloadedmetadata = start;
+      vid.onloadeddata = start;
+    }
+    start();
+    var ms = vid.srcObject;
+    if (ms && ms.getTracks) {
+      ms.getTracks().forEach(function (t) {
+        t.enabled = true;
+        if (t.kind === "video") {
+          try { t.contentHint = "motion"; } catch (e) {}
+          t.onunmute = function () {
+            bindRemoteStream(vid, ms, true);
+            start();
+          };
+        }
+      });
+    }
+  }
+  function markLive(hasVideo) {
+    if (!stageEl) return;
+    stageEl.classList.add("is-live");
+    if (hasVideo) {
+      stageEl.classList.remove("is-audio");
+      root.classList.remove("is-audio");
+    } else {
+      stageEl.classList.toggle("is-audio", !!audioOnly);
+    }
+  }
+  function senderKind(conn, sender) {
+    if (!conn || !sender || !conn.getTransceivers) return "";
+    var list = conn.getTransceivers() || [];
+    for (var i = 0; i < list.length; i++) {
+      if (list[i].sender === sender) {
+        if (list[i].receiver && list[i].receiver.track && list[i].receiver.track.kind) {
+          return list[i].receiver.track.kind;
+        }
+        if (sender.track && sender.track.kind) return sender.track.kind;
+      }
+    }
+    return sender.track ? sender.track.kind : "";
+  }
+  function addLocalTracks(conn) {
+    if (!localStream || !conn) return;
+    localStream.getTracks().forEach(function (track) {
+      if (!track || track.readyState === "ended") return;
+      track.enabled = true;
+      var senders = conn.getSenders ? conn.getSenders() : [];
+      var sender = null;
+      for (var i = 0; i < senders.length; i++) {
+        var s = senders[i];
+        if (s.track === track) { sender = s; break; }
+        if (s.track && s.track.kind === track.kind) { sender = s; break; }
+        if (!s.track && senderKind(conn, s) === track.kind) { sender = s; break; }
+      }
+      if (sender && sender.replaceTrack) {
+        if (sender.track !== track) sender.replaceTrack(track).catch(function () {});
+        return;
+      }
+      var already = senders.some(function (s) { return s.track && s.track.id === track.id; });
+      if (!already) conn.addTrack(track, localStream);
+    });
+  }
+  function descPayload(desc) {
+    if (!desc) return null;
+    return { type: desc.type, sdp: desc.sdp };
+  }
+  function ensurePeer(userId) {
+    if (!userId || userId === meId) return null;
+    if (peers[userId]) return peers[userId];
+    var tile = remoteTile(userId);
+    var vid = tile ? tile.querySelector("video") : null;
+    var remoteStream = new MediaStream();
+    var pc = new RTCPeerConnection({
+      iceServers: iceServers(),
+      iceTransportPolicy: "all",
+      bundlePolicy: "max-bundle",
+      rtcpMuxPolicy: "require"
+    });
+    var rec = { pc: pc, pendingIce: [], makingOffer: false, remoteStream: remoteStream, vid: vid, iceTimer: null };
+    pc.onicecandidate = function (ev) {
+      if (ev.candidate) {
+        sendTo("ice", userId, ev.candidate.toJSON ? ev.candidate.toJSON() : ev.candidate);
+      }
+    };
+    pc.ontrack = function (ev) {
+      if (ev.track) {
+        ev.track.enabled = true;
+        try { if (ev.track.kind === "video") ev.track.contentHint = "motion"; } catch (e) {}
+      }
+      var stream = ev.streams && ev.streams[0] ? ev.streams[0] : null;
+      if (!stream) {
+        if (ev.track && !remoteStream.getTracks().some(function (t) { return t.id === ev.track.id; })) {
+          remoteStream.addTrack(ev.track);
+        }
+        stream = remoteStream;
+      } else {
+        // مطمئن شو همه ترک‌ها (مخصوصاً ویدیو) داخل stream قابل پخش هستند
+        if (ev.track && !stream.getTracks().some(function (t) { return t.id === ev.track.id; })) {
+          stream.addTrack(ev.track);
+        }
+      }
+      rec.remoteStream = stream;
+      if (tile && ev.track && ev.track.kind === "video") {
+        tile.classList.remove("is-audio");
+      }
+      playRemote(vid, stream);
+      markLive(!!(ev.track && ev.track.kind === "video") || !!(stream.getVideoTracks && stream.getVideoTracks().length));
+    };
+    pc.onconnectionstatechange = function () {
+      if (pc.connectionState === "connected") {
+        calling = true;
+        sessionLive = true;
+        syncButtons();
+        setStatus("تماس برقرار شد.");
+        stopRing();
+        markLive(!!(rec.remoteStream && rec.remoteStream.getVideoTracks && rec.remoteStream.getVideoTracks().length));
+        if (rec.remoteStream) playRemote(vid, rec.remoteStream);
+      }
+    };
+    pc.oniceconnectionstatechange = function () {
+      if (pc.iceConnectionState !== "failed") return;
+      if (rec.iceTimer) clearTimeout(rec.iceTimer);
+      rec.iceTimer = setTimeout(function () {
+        rec.iceTimer = null;
+        if (!peers[userId] || pc.iceConnectionState === "connected" || pc.iceConnectionState === "completed") return;
+        try { if (pc.restartIce) pc.restartIce(); } catch (e) {}
+        offerTo(userId, true);
+      }, 3000);
+    };
+    peers[userId] = rec;
+    if (iceHold[userId] && iceHold[userId].length) {
+      rec.pendingIce = rec.pendingIce.concat(iceHold[userId]);
+      delete iceHold[userId];
+    }
+    return rec;
+  }
+  function flushIce(rec) {
+    if (!rec || !rec.pc.remoteDescription) return;
+    rec.pendingIce.splice(0).forEach(function (c) {
+      rec.pc.addIceCandidate(new RTCIceCandidate(c)).catch(function () {});
+    });
+  }
+  function hasKind(conn, kind) {
+    return (conn.getTransceivers ? conn.getTransceivers() : []).some(function (t) {
+      var k = (t.receiver && t.receiver.track && t.receiver.track.kind)
+        || (t.sender && t.sender.track && t.sender.track.kind);
+      return k === kind;
+    });
+  }
+  function offerTo(userId, iceRestart) {
+    var rec = ensurePeer(userId);
+    if (!rec || rec.makingOffer) return Promise.resolve();
+    if (rec.pc.signalingState !== "stable") return Promise.resolve();
+    rec.makingOffer = true;
+    addLocalTracks(rec.pc);
+    if (rec.pc.addTransceiver) {
+      if (!hasKind(rec.pc, "audio")) rec.pc.addTransceiver("audio", { direction: "sendrecv" });
+      if (!audioOnly && !hasKind(rec.pc, "video")) rec.pc.addTransceiver("video", { direction: "sendrecv" });
+    }
+    return rec.pc.createOffer({
+      offerToReceiveAudio: true,
+      offerToReceiveVideo: !audioOnly,
+      iceRestart: !!iceRestart
+    }).then(function (offer) {
+      return rec.pc.setLocalDescription(offer);
+    }).then(function () {
+      rec.makingOffer = false;
+      return sendTo("offer", userId, descPayload(rec.pc.localDescription));
+    }).catch(function (err) {
+      rec.makingOffer = false;
+      console.error(err);
+    });
+  }
+  function answerFrom(userId, offer) {
+    var rec = ensurePeer(userId);
+    if (!rec || !offer) return Promise.resolve();
+    var polite = String(meId) < String(userId);
+    var collide = rec.makingOffer || rec.pc.signalingState !== "stable";
+    if (collide) {
+      if (!polite) return Promise.resolve();
+      if (rec.pc.signalingState !== "stable") {
+        return rec.pc.setLocalDescription({ type: "rollback" }).then(function () {
+          rec.makingOffer = false;
+          return rec.pc.setRemoteDescription(new RTCSessionDescription(offer)).then(function () {
+            addLocalTracks(rec.pc);
+            flushIce(rec);
+            return rec.pc.createAnswer();
+          }).then(function (answer) {
+            return rec.pc.setLocalDescription(answer);
+          }).then(function () {
+            return sendTo("answer", userId, descPayload(rec.pc.localDescription));
+          });
+        }).catch(function (err) {
+          console.error(err);
+        });
+      }
+    }
+    return rec.pc.setRemoteDescription(new RTCSessionDescription(offer)).then(function () {
+      addLocalTracks(rec.pc);
+      (rec.pc.getTransceivers ? rec.pc.getTransceivers() : []).forEach(function (t) {
+        try {
+          var kind = (t.receiver && t.receiver.track && t.receiver.track.kind)
+            || (t.sender && t.sender.track && t.sender.track.kind)
+            || "";
+          if (audioOnly && kind === "video") {
+            t.direction = "inactive";
+            return;
+          }
+          if (t.direction === "recvonly" || t.direction === "inactive" || t.direction === "sendonly") {
+            t.direction = "sendrecv";
+          }
+        } catch (e) {}
+      });
+      flushIce(rec);
+      return rec.pc.createAnswer();
+    }).then(function (answer) {
+      return rec.pc.setLocalDescription(answer);
+    }).then(function () {
+      return sendTo("answer", userId, descPayload(rec.pc.localDescription));
+    }).catch(function (err) {
+      console.error(err);
+    });
+  }
+  function closePeer(userId) {
+    var rec = peers[userId];
+    if (!rec) return;
+    if (rec.iceTimer) clearTimeout(rec.iceTimer);
+    try { rec.pc.close(); } catch (e) {}
+    delete peers[userId];
+    var tile = remotesEl && remotesEl.querySelector('[data-peer="' + userId + '"]');
+    if (tile) tile.remove();
+  }
+  function leaveUi() {
+    if (closingUi) return;
+    closingUi = true;
+    if (window.ManaVideoCall) window.ManaVideoCall.stop();
+  }
+  function endAll(playHang) {
+    stopRing();
+    stopRecording(true);
+    Object.keys(peers).forEach(closePeer);
+    calling = false;
+    joined = false;
+    dialing = false;
+    sessionLive = false;
+    pendingOffers = {};
+    if (stageEl) stageEl.classList.remove("is-live");
+    if (incomingEl) incomingEl.hidden = true;
+    if (playHang) {
+      if (!hangAudio) hangAudio = new Audio(hangUrl);
+      if (hangAudio) hangAudio.play().catch(function () {});
+    }
+    syncButtons();
+  }
+  function startRing() {
+    stopRing();
+    if (ringUrl) {
+      if (!ringAudio) {
+        ringAudio = new Audio(ringUrl);
+        ringAudio.loop = true;
+      }
+      ringAudio.currentTime = 0;
+      ringAudio.play().catch(function () {});
+    }
+  }
+  function stopRing() {
+    if (ringTimer) { clearInterval(ringTimer); ringTimer = null; }
+    if (ringAudio) { ringAudio.pause(); try { ringAudio.currentTime = 0; } catch (e) {} }
+  }
+  function syncButtons() {
+    var incoming = incomingEl && !incomingEl.hidden && !calling;
+    if (startBtn) {
+      startBtn.hidden = calling || !(canStart || incoming);
+      startBtn.disabled = dialing;
+      startBtn.setAttribute("title", incoming ? "پاسخ" : "شروع تماس");
+    }
+    if (hangBtn) hangBtn.hidden = !(calling || incoming || Object.keys(peers).length);
+    if (recordBtn) recordBtn.hidden = !canRecord || !calling;
+  }
+  function shouldOffer(otherId) {
+    if (!otherId || otherId === meId) return false;
+    if (canStart) return true;
+    return String(meId) < String(otherId);
+  }
+  function ringMembers(members) {
+    (members || []).forEach(function (m) {
+      if (!m || m.id === meId) return;
+      sendTo("ringing", m.id, { name: peerName, media: audioOnly ? "audio" : "video", group: !!isGroup });
+    });
+  }
+  function flushPendingAnswers() {
+    Object.keys(pendingOffers).forEach(function (id) {
+      var off = pendingOffers[id];
+      delete pendingOffers[id];
+      answerFrom(id, off);
+    });
+  }
+  function startCall() {
+    if (dialing || calling) return;
+    dialing = true;
+    syncButtons();
+    media().then(function () {
+      return post({ action: "poll" });
+    }).then(function (data) {
+      var list = (data && data.members) || [];
+      setStatus("در حال تماس…");
+      if (canStart) ringMembers(list);
+      calling = true;
+      joined = true;
+      sessionLive = true;
+      dialing = false;
+      syncButtons();
+      list.forEach(function (m) {
+        if (m && m.id && shouldOffer(m.id) && (!isGroup || m.online)) offerTo(m.id);
+      });
+    }).catch(function () {
+      dialing = false;
+      syncButtons();
+    });
+  }
+  function acceptIncoming() {
+    if (calling) {
+      flushPendingAnswers();
+      return acceptPromise || Promise.resolve();
+    }
+    if (acceptPromise) return acceptPromise;
+    dialing = true;
+    syncButtons();
+    acceptPromise = media().then(function () {
+      if (incomingEl) incomingEl.hidden = true;
+      stopRing();
+      calling = true;
+      joined = true;
+      sessionLive = true;
+      dialing = false;
+      syncButtons();
+      sendTo("join", "", { name: peerName });
+      flushPendingAnswers();
+      pushLocalToPeers();
+    }).catch(function () {
+      dialing = false;
+      acceptPromise = null;
+      syncButtons();
+    });
+    return acceptPromise;
+  }
+  function handle(sig) {
+    if (!sig || seen[sig.id]) return;
+    seen[sig.id] = true;
+    var from = sig.from;
+    var kind = sig.kind;
+    var payload = sig.payload;
+    if (kind === "ringing") {
+      if (!calling && incomingEl) {
+        incomingEl.hidden = false;
+        incomingEl.textContent = "تماس ورودی از " + (payload && payload.name ? payload.name : peerName);
+        startRing();
+        syncButtons();
+        setStatus("تماس ورودی");
+        if (wantAutoAnswer && !acceptPromise && !dialing) acceptIncoming();
+      }
+    } else if (kind === "join") {
+      if (calling && from && shouldOffer(from)) {
+        offerTo(from);
+      }
+    } else if (kind === "offer" && payload) {
+      pendingOffers[from] = payload;
+      if (calling) {
+        delete pendingOffers[from];
+        media().then(function () { return answerFrom(from, payload); }).catch(function () {});
+      } else if (acceptPromise || dialing) {
+        // منتظر آماده‌شدن دوربین/میکروفون می‌مانیم؛ پاسخ زودهنگام ترک ویدیو را از دست می‌دهد
+      } else if (incomingEl) {
+        incomingEl.hidden = false;
+        startRing();
+        syncButtons();
+        if (wantAutoAnswer) acceptIncoming();
+      }
+    } else if (kind === "answer" && payload && peers[from]) {
+      var rec = peers[from];
+      if (rec.pc.signalingState === "have-local-offer") {
+        rec.pc.setRemoteDescription(new RTCSessionDescription(payload)).then(function () { flushIce(rec); }).catch(function () {});
+      }
+    } else if (kind === "ice" && payload) {
+      var recIce = peers[from];
+      if (recIce) {
+        recIce.pendingIce.push(payload);
+        flushIce(recIce);
+      } else {
+        iceHold[from] = iceHold[from] || [];
+        iceHold[from].push(payload);
+      }
+    } else if (kind === "leave") {
+      if (from) closePeer(from);
+    } else if (kind === "hangup") {
+      if (from) closePeer(from);
+      if (!sessionLive) return;
+      if (isGroup && Object.keys(peers).length > 0) return;
+      endAll(true);
+      setStatus("تماس قطع شد.");
+      setTimeout(leaveUi, 400);
+    }
+  }
+  function poll() {
+    post({ action: "poll" }).then(function (data) {
+      if (!data || !data.ok) return;
+      (data.signals || []).forEach(function (sig) {
+        if (!pollPrimed && sig && (sig.kind === "hangup" || sig.kind === "leave")) {
+          if (sig.id) seen[sig.id] = true;
+          return;
+        }
+        handle(sig);
+      });
+      pollPrimed = true;
+      if (!calling && canStart) {
+        var names = (data.members || []).filter(function (m) { return m.id !== meId && m.online; }).map(function (m) { return m.name; });
+        var next = names.length ? ("آنلاین: " + names.join("، ")) : "مخاطب فعلاً آفلاین است.";
+        if (next !== lastStatus) { lastStatus = next; setStatus(next); }
+      }
+      if (calling && isGroup) {
+        (data.members || []).forEach(function (m) {
+          if (m && m.id && shouldOffer(m.id) && m.online && !peers[m.id]) offerTo(m.id);
+        });
+      }
+    }).catch(function () {});
+  }
+  function setRecordingUi(on) {
+    if (!recordBtn) return;
+    recordBtn.classList.toggle("is-recording", !!on);
+    recordBtn.setAttribute("title", on ? "توقف ضبط" : "ضبط تماس");
+  }
+  function downloadRecording() {
+    if (!recChunks.length) return;
+    var blob = new Blob(recChunks, { type: recChunks[0].type || "video/webm" });
+    recChunks = [];
+    var a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "mana-call.webm";
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(function () { URL.revokeObjectURL(a.href); a.remove(); }, 800);
+  }
+  function stopRecording() {
+    if (recTimer) { cancelAnimationFrame(recTimer); recTimer = null; }
+    if (!recorder) { setRecordingUi(false); return; }
+    var rec = recorder;
+    recorder = null;
+    if (rec.state !== "inactive") rec.stop();
+    else downloadRecording();
+    setRecordingUi(false);
+  }
+  function startRecording() {
+    if (!canRecord || recorder) return;
+    recChunks = [];
+    var canvas = document.createElement("canvas");
+    canvas.width = 1280; canvas.height = 720;
+    var g = canvas.getContext("2d");
+    function draw() {
+      if (!recorder) return;
+      g.fillStyle = "#111";
+      g.fillRect(0, 0, canvas.width, canvas.height);
+      var vids = remotesEl ? remotesEl.querySelectorAll("video") : [];
+      if (vids[0] && vids[0].readyState >= 2) g.drawImage(vids[0], 0, 0, canvas.width, canvas.height);
+      recTimer = requestAnimationFrame(draw);
+    }
+    var mixed = canvas.captureStream(12);
+    if (localStream) localStream.getAudioTracks().forEach(function (t) { mixed.addTrack(t); });
+    try { recorder = new MediaRecorder(mixed, { mimeType: "video/webm" }); } catch (e) { recorder = new MediaRecorder(mixed); }
+    recorder.ondataavailable = function (e) { if (e.data && e.data.size) recChunks.push(e.data); };
+    recorder.onstop = downloadRecording;
+    recorder.start(1000);
+    draw();
+    setRecordingUi(true);
+  }
+
+  function on(el, ev, fn) {
+    if (!el) return;
+    if (bindOpts) el.addEventListener(ev, fn, bindOpts);
+    else el.addEventListener(ev, fn);
+  }
+  on(permitBtn, "click", function () {
+    ctx();
+    requestMedia().then(function () {
+      if (wantAutoAnswer || (!canStart && isGroup)) acceptIncoming();
+      else if (canStart) startCall();
+    }).catch(function () {});
+  });
+  on(startBtn, "click", function () {
+    ctx();
+    if (incomingEl && !incomingEl.hidden && !calling) acceptIncoming();
+    else if (canStart) startCall();
+  });
+  on(stageEl, "click", function () {
+    ctx();
+    if (localEl) localEl.play().catch(function () {});
+    root.querySelectorAll("[data-video-remote]").forEach(function (vid) {
+      if (vid.srcObject) {
+        // فقط اگر ویدیو گیر کرده، remount اجباری
+        if (vid.readyState < 2 || vid.videoWidth === 0) {
+          bindRemoteStream(vid, vid.srcObject, true);
+        }
+      }
+      vid.muted = false;
+      vid.play().catch(function () {
+        vid.muted = true;
+        vid.play().catch(function () {});
+      });
+    });
+  });
+  on(hangBtn, "click", function () {
+    sendTo("hangup", "", null);
+    endAll(true);
+    setTimeout(leaveUi, 80);
+  });
+  fsBtns.forEach(function (btn) {
+    on(btn, "click", function () {
+      var el = stageEl || root;
+      if (document.fullscreenElement) document.exitFullscreen();
+      else if (el.requestFullscreen) el.requestFullscreen();
+    });
+  });
+  on(enhanceBtn, "click", function () {
+    var enabled = !stageEl.classList.contains("is-enhanced");
+    stageEl.classList.toggle("is-enhanced", enabled);
+    enhanceBtn.setAttribute("aria-pressed", enabled ? "true" : "false");
+  });
+  on(recordBtn, "click", function () {
+    if (recorder) stopRecording();
+    else startRecording();
+  });
+  if (guardCapture) {
+    var hideTimer = null;
+    document.addEventListener("visibilitychange", function () {
+      if (hideTimer) { clearTimeout(hideTimer); hideTimer = null; }
+      if (!document.hidden) {
+        root.classList.remove("is-black");
+        if (blackoutEl) blackoutEl.hidden = true;
+        root.querySelectorAll("[data-video-remote]").forEach(function (vid) {
+          if (vid.srcObject) vid.play().catch(function () {});
+        });
+        return;
+      }
+      // تأخیر: دیالوگ اجازه دوربین موبایل نباید صفحه را سیاه کند
+      hideTimer = setTimeout(function () {
+        hideTimer = null;
+        if (!document.hidden) return;
+        root.classList.add("is-black");
+        if (blackoutEl) blackoutEl.hidden = false;
+      }, 1800);
+    }, bindOpts || false);
+  }
+  window.addEventListener("pagehide", function () {
+    if (calling) sendTo("leave", "", null);
+  }, bindOpts || false);
+  syncButtons();
+  requestMedia().then(function () {
+    if (wantAutoAnswer) acceptIncoming();
+    else if (autoDial && canStart) startCall();
+    else if (isGroup && canStart) startCall();
+    else if (isGroup && !canStart) acceptIncoming();
+  }).catch(function () {});
+  poll();
+  var pollTimer = setInterval(poll, 800);
+  return function (reason) {
+    if (ac) ac.abort();
+    clearInterval(pollTimer);
+    if (reason !== "replace" && sessionLive) {
+      try { sendTo("leave", "", null); } catch (e) {}
+    }
+    endAll(false);
+    if (localStream) {
+      localStream.getTracks().forEach(function (t) { t.stop(); });
+      localStream = null;
+    }
+  };
+  }
+
+  window.ManaVideoCall = {
+    start: function (info) {
+      stopping = false;
+      var root = document.querySelector("[data-video-call]");
+      var idle = document.querySelector("[data-vc-idle]");
+      if (!root || !info || !info.room) return;
+      if (info.iceServers && info.iceServers.length) window.__VIDEO_ICE__ = info.iceServers;
+      if (liveDestroy) {
+        liveDestroy("replace");
+        liveDestroy = null;
+      }
+      root.setAttribute("data-room", info.room);
+      root.setAttribute("data-peer-name", info.title || "تماس مانا");
+      root.setAttribute("data-media", info.media === "audio" ? "audio" : "video");
+      root.setAttribute("data-group", info.group ? "1" : "0");
+      root.setAttribute("data-can-start", info.canStart ? "1" : "0");
+      root.classList.toggle("is-audio", info.media === "audio");
+      if (info.answer) {
+        try { sessionStorage.setItem("mana-video-auto-answer", "1"); } catch (e) {}
+        root.setAttribute("data-auto-dial", "0");
+      } else {
+        root.setAttribute("data-auto-dial", info.autoStart === false ? "0" : "1");
+      }
+      var mark = root.querySelector("[data-vc-watermark]");
+      if (mark) mark.textContent = info.title ? ("در حال تماس با " + info.title) : "";
+      var shareWrap = document.querySelector("[data-vc-share-wrap]");
+      var shareInput = document.getElementById("vc-share-link");
+      if (shareInput) shareInput.value = info.shareUrl || "";
+      if (shareWrap) shareWrap.hidden = !info.shareUrl;
+      root.hidden = false;
+      if (idle) idle.hidden = true;
+      var composer = document.querySelector("[data-vc-composer]");
+      if (composer) composer.hidden = true;
+      var stage = root.querySelector("[data-video-stage]");
+      if (stage) {
+        stage.classList.toggle("is-group", !!info.group);
+        stage.classList.toggle("is-audio", info.media === "audio");
+      }
+      liveDestroy = attach(root);
+    },
+    stop: function (skipDestroy) {
+      if (stopping) return;
+      stopping = true;
+      if (!skipDestroy && liveDestroy) {
+        var d = liveDestroy;
+        liveDestroy = null;
+        d();
+      }
+      liveDestroy = null;
+      var root = document.querySelector("[data-video-call]");
+      var idle = document.querySelector("[data-vc-idle]");
+      if (root) {
+        root.hidden = true;
+        root.setAttribute("data-room", "");
+        root.classList.remove("is-audio", "is-black");
+      }
+      var composer = document.querySelector("[data-vc-composer]");
+      if (composer) composer.hidden = false;
+      if (idle) idle.hidden = !!composer;
+      var shareWrap = document.querySelector("[data-vc-share-wrap]");
+      if (shareWrap) shareWrap.hidden = true;
+      var mark = document.querySelector("[data-vc-watermark]");
+      if (mark) mark.textContent = "";
+      try {
+        var u = new URL(location.href);
+        ["room", "answer", "peer", "media", "join", "workshop"].forEach(function (k) { u.searchParams.delete(k); });
+        if (u.href !== location.href) history.replaceState({}, "", u.pathname + u.search + u.hash);
+      } catch (e) {}
+      stopping = false;
+    }
+  };
+
+  var bootRoot = document.querySelector("[data-video-call]");
+  var bootRoom = bootRoot && bootRoot.getAttribute("data-room");
+  if (bootRoom) {
+    window.ManaVideoCall.start({
+      room: bootRoom,
+      title: bootRoot.getAttribute("data-peer-name"),
+      media: bootRoot.getAttribute("data-media"),
+      group: bootRoot.getAttribute("data-group") === "1",
+      canStart: bootRoot.getAttribute("data-can-start") === "1",
+      shareUrl: (document.getElementById("vc-share-link") || {}).value || "",
+      answer: /(?:^|[?&])answer=1(?:&|$)/.test(location.search || "")
+    });
+  }
+})();
