@@ -1,0 +1,131 @@
+/**
+ * آزمایش سبک — حس روان‌تر روی تم مانا (قابل حذف)
+ * برگشت: لینک این فایل را از layout.php بردارید یا $manaAppleFeelLight = false کنید.
+ */
+
+/* تیترهای پنل کمی خواناتر — بدون دست زدن به کل سایت */
+.panel-main > h1,
+.panel-main .stack > h1,
+.doctor-dash-head h1 {
+  font-weight: 800;
+  letter-spacing: -0.012em;
+  line-height: 1.3;
+  color: var(--primary-dark);
+}
+
+/* فیدبک فوری فقط روی کنترل‌های واقعی */
+.btn,
+.slot-btn,
+.hour-chip,
+.avail-hour-pill,
+.avail-weekday-btn,
+.side-nav a,
+.panel-subtab,
+.binder-tab {
+  transition: transform 90ms ease-out, background-color 120ms ease, border-color 120ms ease, color 120ms ease;
+}
+
+.btn:active:not(:disabled),
+.slot-btn:active,
+.hour-chip:active,
+.avail-hour-pill:active,
+.avail-weekday-btn:active,
+.side-nav a:active {
+  transform: scale(0.98);
+}
+
+.btn:focus-visible,
+.slot-btn:focus-visible,
+.side-nav a:focus-visible,
+.input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--primary) 55%, transparent);
+  outline-offset: 2px;
+}
+
+.slot-btn:hover {
+  border-color: color-mix(in srgb, var(--primary) 35%, var(--line));
+  background: color-mix(in srgb, var(--primary) 5%, var(--card));
+}
+
+/* پیام‌های وضعیت واضح‌تر */
+.flash {
+  font-weight: 600;
+  line-height: 1.65;
+}
+
+.flash-success { border-inline-start: .25rem solid var(--success); }
+.flash-error { border-inline-start: .25rem solid var(--danger); }
+.flash-info { border-inline-start: .25rem solid var(--accent); }
+
+#book-error,
+#sec-error {
+  font-weight: 700;
+  line-height: 1.6;
+  padding: .55rem .75rem;
+  border-radius: .6rem;
+  background: color-mix(in srgb, var(--danger) 9%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--danger) 25%, var(--line));
+}
+
+#book-slots > .muted,
+.slots > .muted {
+  display: inline-block;
+  margin-top: .15rem;
+  padding: .55rem .75rem;
+  border-radius: .6rem;
+  background: color-mix(in srgb, var(--accent) 8%, var(--bg-soft));
+  border: 1px dashed color-mix(in srgb, var(--accent) 30%, var(--line));
+  color: color-mix(in srgb, var(--accent) 50%, var(--fg));
+  font-weight: 600;
+}
+
+/* مسیر صفحه در پنل */
+.page-wayfind {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: .3rem .5rem;
+  margin: 0 0 .75rem;
+  padding: .45rem .7rem;
+  border-radius: .6rem;
+  background: color-mix(in srgb, var(--primary) 6%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--primary) 16%, var(--line));
+  font-size: .86rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.page-wayfind a {
+  color: var(--primary-dark);
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+.page-wayfind-sep { opacity: .4; }
+.page-wayfind-here { color: var(--fg); font-weight: 800; }
+
+/* کاهش حرکت فقط برای همین کلاس‌ها — نه کل DOM */
+@media (prefers-reduced-motion: reduce) {
+  .btn,
+  .slot-btn,
+  .hour-chip,
+  .avail-hour-pill,
+  .avail-weekday-btn,
+  .side-nav a,
+  .panel-subtab,
+  .binder-tab {
+    transition: none;
+  }
+
+  .btn:active:not(:disabled),
+  .slot-btn:active,
+  .hour-chip:active,
+  .avail-hour-pill:active,
+  .avail-weekday-btn:active,
+  .side-nav a:active {
+    transform: none;
+  }
+}

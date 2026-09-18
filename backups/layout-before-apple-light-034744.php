@@ -51,14 +51,7 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
   <?= seo_render_head() ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260318b">
-  <?php
-    // آزمایش سبک حس روان‌تر — برای خاموش کردن: false
-    $manaAppleFeelLight = true;
-  ?>
-  <?php if (!empty($manaAppleFeelLight)): ?>
-    <link rel="stylesheet" href="<?= e(url('/assets/css/apple-feel-trial.css')) ?>?v=20260318b">
-  <?php endif; ?>
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260317d">
   <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
   <script>
   (function(){
@@ -232,37 +225,7 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
   <main>
     <?php if ($flash): ?>
       <div class="container-page" style="padding-top:1rem">
-        <div class="flash flash-<?= e($flash['type']) ?>" role="status"><?= e($flash['message']) ?></div>
-      </div>
-    <?php endif; ?>
-    <?php
-      $wayfindOn = !empty($manaAppleFeelLight);
-      $wayfindLabels = [
-          'DOCTOR' => 'پنل درمانگر',
-          'SECRETARY' => 'پنل منشی',
-          'ADMIN' => 'پنل مدیر',
-          'PATIENT' => 'پنل مراجعه‌کننده',
-      ];
-      $wayfindRole = (string) ($user['role'] ?? '');
-      $wayfindHref = $panelHref ?: null;
-      $wayfindLabel = $wayfindLabels[$wayfindRole] ?? null;
-      $wayfindTitle = trim((string) ($pageTitle ?? ''));
-      $wayfindPath = (string) ($GLOBALS['path'] ?? '');
-      $wayfindShow = $wayfindOn
-          && $wayfindHref
-          && $wayfindLabel
-          && $wayfindTitle !== ''
-          && $wayfindPath !== ''
-          && $wayfindPath !== $wayfindHref
-          && !str_starts_with($wayfindPath, '/video-call');
-    ?>
-    <?php if ($wayfindShow): ?>
-      <div class="container-page" style="padding-top:<?= $flash ? '0' : '.85rem' ?>">
-        <nav class="page-wayfind" aria-label="مسیر صفحه">
-          <a href="<?= e(url($wayfindHref)) ?>"><?= e($wayfindLabel) ?></a>
-          <span class="page-wayfind-sep" aria-hidden="true">/</span>
-          <span class="page-wayfind-here"><?= e($wayfindTitle) ?></span>
-        </nav>
+        <div class="flash flash-<?= e($flash['type']) ?>"><?= e($flash['message']) ?></div>
       </div>
     <?php endif; ?>
     <?= $content ?? '' ?>
