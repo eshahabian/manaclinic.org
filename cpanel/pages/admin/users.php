@@ -125,8 +125,7 @@ ob_start();
         <th>ثبت توسط</th>
         <th>رمز فعلی</th>
         <th>عضویت</th>
-        <th>تغییر رمز</th>
-        <th></th>
+        <th>عملیات</th>
       </tr>
     </thead>
     <tbody>
@@ -138,10 +137,12 @@ ob_start();
               'username' => $u['created_by_username'] ?? '',
               'role' => $u['created_by_role'] ?? '',
           ], '—');
+          $uid = (string) ($u['id'] ?? '');
+          $editId = 'admin-edit-' . preg_replace('/[^a-zA-Z0-9_-]/', '', $uid);
         ?>
         <tr>
           <td><?= e($u['name']) ?></td>
-          <td dir="ltr"><?= e((string)$u['username']) ?></td>
+          <td dir="ltr"><?= e((string) $u['username']) ?></td>
           <td><?= e(role_label($u['role'])) ?></td>
           <td style="font-size:.85rem"><?= e($creator) ?></td>
           <td>
@@ -152,31 +153,74 @@ ob_start();
             <?php endif; ?>
           </td>
           <td><?= e(format_fa_datetime($u['created_at'])) ?></td>
-          <td>
-            <form method="post" action="<?= e(url('/admin/users')) ?>" class="admin-pass-form" autocomplete="off">
-              <?= csrf_field() ?>
-              <input type="hidden" name="action" value="set_password">
-              <input type="hidden" name="user_id" value="<?= e($u['id']) ?>">
-              <input class="input" type="password" name="new_password" required minlength="6" dir="ltr" placeholder="رمز جدید" autocomplete="new-password">
-              <button type="submit" class="btn btn-outline btn-sm">ثبت رمز</button>
-            </form>
-          </td>
-          <td>
-            <div class="admin-user-actions">
-            <?php if ($u['role'] !== 'ADMIN'): ?>
-              <form method="post" action="<?= e(url('/admin/users')) ?>" style="margin:0" onsubmit="return confirm('این کاربر و نوبت‌هایش حذف شود؟');">
+          <td class="admin-user-ops">
+            <div class="admin-user-ops-top">
+              <form method="post" action="<?= e(url('/admin/users')) ?>" class="admin-pass-form" autocomplete="off">
                 <?= csrf_field() ?>
-                <input type="hidden" name="action" value="delete_user">
-                <input type="hidden" name="user_id" value="<?= e($u['id']) ?>">
-                <button type="submit" class="btn btn-outline btn-sm" style="color:var(--danger)">حذف</button>
+                <input type="hidden" name="action" value="set_password">
+                <input type="hidden" name="user_id" value="<?= e($uid) ?>">
+                <input class="input" type="password" name="new_password" required minlength="6" dir="ltr" placeholder="رمز جدید" autocomplete="new-password" aria-label="رمز جدید">
+                <button type="submit" class="btn btn-outline btn-sm">ثبت رمز</button>
               </form>
-            <?php endif; ?>
+              <div class="admin-user-actions">
+                <button type="button" class="btn btn-outline btn-sm" data-admin-edit-toggle="<?= e($editId) ?>">ویرایش پروفایل</button>
+                <?php if ($u['role'] !== 'ADMIN'): ?>
+                  <form method="post" action="<?= e(url('/admin/users')) ?>" style="margin:0" onsubmit="return confirm('این کاربر و نوبت‌هایش حذف شود؟');">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="delete_user">
+                    <input type="hidden" name="user_id" value="<?= e($uid) ?>">
+                    <button type="submit" class="btn btn-outline btn-sm" style="color:var(--danger)">حذف</button>
+                  </form>
+                <?php endif; ?>
+              </div>
             </div>
+            <form method="post" action="<?= e(url('/admin/users')) ?>" class="admin-edit-form" id="<?= e($editId) ?>" hidden autocomplete="off">
+              <?= csrf_field() ?>
+              <input type="hidden" name="action" value="update_profile">
+              <input type="hidden" name="user_id" value="<?= e($uid) ?>">
+              <div>
+                <label class="label" for="<?= e($editId) ?>-name">نام</label>
+                <input class="input" id="<?= e($editId) ?>-name" type="text" name="name" required value="<?= e((string) $u['name']) ?>" autocomplete="off">
+              </div>
+              <div>
+                <label class="label" for="<?= e($editId) ?>-user">نام کاربری</label>
+                <input class="input" id="<?= e($editId) ?>-user" type="text" name="username" required dir="ltr" value="<?= e((string) $u['username']) ?>" pattern="[a-zA-Z0-9._\-]{3,32}" autocomplete="off">
+              </div>
+              <div class="admin-edit-form-actions">
+                <button type="submit" class="btn btn-primary btn-sm">ذخیره پروفایل</button>
+                <button type="button" class="btn btn-outline btn-sm" data-admin-edit-cancel="<?= e($editId) ?>">انصراف</button>
+              </div>
+            </form>
           </td>
         </tr>
       <?php endforeach; ?>
     </tbody>
   </table>
 </div>
+<script>
+(function(){
+  document.querySelectorAll("[data-admin-edit-toggle]").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var id = btn.getAttribute("data-admin-edit-toggle");
+      var form = id ? document.getElementById(id) : null;
+      if (!form) return;
+      var open = form.hasAttribute("hidden");
+      document.querySelectorAll(".admin-edit-form").forEach(function(f){ f.hidden = true; });
+      form.hidden = !open;
+      if (open) {
+        var first = form.querySelector("input[name=name]");
+        if (first) first.focus();
+      }
+    });
+  });
+  document.querySelectorAll("[data-admin-edit-cancel]").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      var id = btn.getAttribute("data-admin-edit-cancel");
+      var form = id ? document.getElementById(id) : null;
+      if (form) form.hidden = true;
+    });
+  });
+})();
+</script>
 <?php
 render_admin_page('کاربران و رمز عبور', ob_get_clean());

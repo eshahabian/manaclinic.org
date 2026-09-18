@@ -60,6 +60,51 @@ if ($action === 'set_password') {
     redirect('/admin/users');
 }
 
+if ($action === 'update_profile') {
+    $id = post('user_id');
+    $name = trim(normalize_input((string) ($_POST['name'] ?? '')));
+    $username = mb_strtolower(trim(normalize_input((string) ($_POST['username'] ?? ''))));
+
+    if ($id === '') {
+        flash_set('error', 'کاربر مشخص نیست.');
+        redirect('/admin/users');
+    }
+    if ($name === '' || mb_strlen($name) < 2) {
+        flash_set('error', 'نام معتبر وارد کنید.');
+        redirect('/admin/users');
+    }
+    if (!preg_match('/^[a-z0-9._-]{3,32}$/', $username)) {
+        flash_set('error', 'نام کاربری باید ۳ تا ۳۲ کاراکتر لاتین (حروف، عدد، نقطه، خط تیره یا زیرخط) باشد.');
+        redirect('/admin/users');
+    }
+
+    $row = $pdo->prepare('SELECT id, name, username FROM users WHERE id = ? LIMIT 1');
+    $row->execute([$id]);
+    $target = $row->fetch();
+    if (!$target) {
+        flash_set('error', 'کاربر یافت نشد.');
+        redirect('/admin/users');
+    }
+
+    $taken = $pdo->prepare('SELECT id FROM users WHERE username = ? AND id <> ? LIMIT 1');
+    $taken->execute([$username, $id]);
+    if ($taken->fetch()) {
+        flash_set('error', 'این نام کاربری قبلاً گرفته شده است.');
+        redirect('/admin/users');
+    }
+
+    $pdo->prepare('UPDATE users SET name=?, username=? WHERE id=?')->execute([$name, $username, $id]);
+
+    $me = current_user();
+    if ($me && (string) $me['id'] === $id) {
+        $_SESSION['user']['name'] = $name;
+        $_SESSION['user']['username'] = $username;
+    }
+
+    flash_set('success', 'پروفایل «' . $name . '» به‌روز شد.');
+    redirect('/admin/users');
+}
+
 if ($action === 'delete_user') {
     $id = post('user_id');
     if ($id === '') {
