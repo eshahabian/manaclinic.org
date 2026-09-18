@@ -142,6 +142,7 @@ $routes = [
     'GET /sitemap.xml' => 'pages/sitemap.php',
     'GET /tests' => 'pages/tests.php',
     'GET /about' => 'pages/about.php',
+    'GET /services' => 'pages/services.php',
     'GET /faq' => 'pages/faq.php',
     'GET /rules' => 'pages/rules.php',
     'GET /contact' => 'pages/contact.php',

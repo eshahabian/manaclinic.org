@@ -51,7 +51,7 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
   <?= seo_render_head() ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260318b">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260318c">
   <?php
     // آزمایش سبک حس روان‌تر — برای خاموش کردن: false
     $manaAppleFeelLight = true;
@@ -120,6 +120,7 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
       </div>
       <nav class="nav-links" id="site-nav">
         <a href="<?= e(url('/')) ?>">صفحه اصلی</a>
+        <a href="<?= e(url('/services')) ?>">خدمات</a>
         <a href="<?= e(url('/doctors')) ?>">متخصصان</a>
         <a href="<?= e(url('/articles')) ?>">مقالات</a>
         <a href="<?= e(url('/tests')) ?>">آزمون‌ها</a>
@@ -191,6 +192,12 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
             <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 4h8v4H8zM6 8h12v12H6z"/><path d="M9 13l2 2 4-4"/></svg>
           </span>
           <span>آزمون‌ها</span>
+        </a>
+        <a class="mobile-nav-tile" href="<?= e(url('/services')) ?>">
+          <span class="mobile-nav-tile-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h10"/></svg>
+          </span>
+          <span>خدمات</span>
         </a>
         <a class="mobile-nav-tile" href="<?= e(url('/about')) ?>">
           <span class="mobile-nav-tile-icon" aria-hidden="true">
@@ -310,6 +317,7 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
       <div>
         <p class="footer-title">دسترسی سریع</p>
         <a href="<?= e(url('/')) ?>">صفحه اصلی</a>
+        <a href="<?= e(url('/services')) ?>">خدمات</a>
         <a href="<?= e(url('/doctors')) ?>">متخصصان</a>
         <a href="<?= e(url('/articles')) ?>">مقالات</a>
         <a href="<?= e(url('/tests')) ?>">آزمون‌ها</a>
