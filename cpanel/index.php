@@ -194,6 +194,7 @@ $routes = [
     'POST /pay-workshop' => 'actions/pay_workshop.php',
     'POST /cancel-enrollment' => 'actions/cancel_enrollment.php',
     'POST /cancel-appointment' => 'actions/cancel_appointment.php',
+    'POST /appointment-call-request' => 'actions/appointment_call_request.php',
     'POST /book' => 'actions/book.php',
 
     'GET /secretary' => 'pages/secretary/dashboard.php',

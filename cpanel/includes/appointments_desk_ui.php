@@ -17,20 +17,28 @@ $rows = $pdo->query("
 
 $upcoming = [];
 $done = [];
+$cancelled = [];
 $now = time();
+if (function_exists('appointment_restore_auto_cancelled_unpaid')) {
+    appointment_restore_auto_cancelled_unpaid($pdo);
+}
 foreach ($rows as $row) {
     $status = (string) ($row['status'] ?? '');
     $start = strtotime((string) ($row['starts_at'] ?? '')) ?: 0;
-    $isUpcoming = !in_array($status, ['CANCELLED', 'COMPLETED'], true) && $start >= $now;
-    if ($isUpcoming) {
-        $upcoming[] = $row;
-    } else {
+    if ($status === 'CANCELLED') {
+        $cancelled[] = $row;
+    } elseif ($status === 'COMPLETED' || $start < $now) {
         $done[] = $row;
+    } else {
+        $upcoming[] = $row;
     }
 }
 usort($upcoming, static fn(array $a, array $b): int => strcmp((string) $a['starts_at'], (string) $b['starts_at']));
+usort($done, static fn(array $a, array $b): int => strcmp((string) $b['starts_at'], (string) $a['starts_at']));
+usort($cancelled, static fn(array $a, array $b): int => strcmp((string) $b['starts_at'], (string) $a['starts_at']));
 $upcomingYmd = group_appointments_by_jalali_ymd($upcoming, 'desk-up', 'current');
 $doneYmd = group_appointments_by_jalali_ymd($done, 'desk-dn', 'latest');
+$cancelledYmd = group_appointments_by_jalali_ymd($cancelled, 'desk-cn', 'latest');
 $ymdRenderDesk = static function (array $list): void {
     $appointmentList = $list;
     $appointmentEmpty = 'نوبتی در این بازه نیست.';
@@ -38,7 +46,7 @@ $ymdRenderDesk = static function (array $list): void {
 };
 
 $tabParam = trim((string) ($_GET['tab'] ?? ''));
-$binderInitial = in_array($tabParam, ['new', 'upcoming', 'done'], true) ? $tabParam : 'upcoming';
+$binderInitial = in_array($tabParam, ['new', 'upcoming', 'done', 'cancelled'], true) ? $tabParam : 'upcoming';
 
 $secretaryBookEmbedded = true;
 require __DIR__ . '/../pages/secretary/book.php';
@@ -49,7 +57,7 @@ ob_start();
 ?>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
 <h1>نوبت‌ها</h1>
-<p class="muted" style="margin-top:.35rem;font-size:.9rem">نوبت جدید را از تب صورتی ثبت کنید. در پیش‌رو و انجام‌شده، سال، ماه و روز را جدا ببینید.</p>
+<p class="muted" style="margin-top:.35rem;font-size:.9rem">نوبت جدید را از تب صورتی ثبت کنید. در پیش‌رو، انجام‌شده و لغو شده، سال، ماه و روز را جدا ببینید.</p>
 <?php if (!empty($appointmentsDeskAdminTools)): ?>
   <div class="appt-toolbar">
     <form method="post" action="<?= e(url('/admin/appointments')) ?>" onsubmit="return confirm('همه نوبت‌ها برای همیشه حذف شوند؟');">
@@ -71,6 +79,9 @@ ob_start();
     <button type="button" class="binder-tab binder-tab-archive<?= $binderInitial === 'done' ? ' is-active' : '' ?>" role="tab" data-binder-tab="done" data-binder-tone="archive" aria-selected="<?= $binderInitial === 'done' ? 'true' : 'false' ?>">
       نوبت‌های انجام‌شده <span class="binder-tab-count"><?= count($done) ?></span>
     </button>
+    <button type="button" class="binder-tab binder-tab-cancelled<?= $binderInitial === 'cancelled' ? ' is-active' : '' ?>" role="tab" data-binder-tab="cancelled" data-binder-tone="cancelled" aria-selected="<?= $binderInitial === 'cancelled' ? 'true' : 'false' ?>">
+      نوبت‌های لغو شده <span class="binder-tab-count"><?= count($cancelled) ?></span>
+    </button>
   </div>
   <div class="binder-body">
     <section class="binder-panel<?= $binderInitial === 'new' ? ' is-active' : '' ?>" data-binder-panel="new" role="tabpanel"<?= $binderInitial === 'new' ? '' : ' hidden' ?>>
@@ -85,10 +96,19 @@ ob_start();
       ?>
     </section>
     <section class="binder-panel<?= $binderInitial === 'done' ? ' is-active' : '' ?>" data-binder-panel="done" role="tabpanel"<?= $binderInitial === 'done' ? '' : ' hidden' ?>>
-      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">نوبت‌های برگزارشده، گذشته یا لغو شده. اگر مراجع سر وقت آمد ولی کنسل کرد، از همین کارت «ثبت کنسلی مراجع» را بزنید.</p>
+      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">نوبت‌های برگزارشده یا گذشته. اگر مراجع سر وقت آمد ولی کنسل کرد، از تب لغو شده یا همین کارت «ثبت کنسلی مراجع» را بزنید.</p>
       <?php
         $ymdPack = $doneYmd;
         $ymdEmpty = 'نوبت انجام‌شده‌ای نیست.';
+        $ymdRenderItems = $ymdRenderDesk;
+        require __DIR__ . '/appointment_ymd_binder.php';
+      ?>
+    </section>
+    <section class="binder-panel<?= $binderInitial === 'cancelled' ? ' is-active' : '' ?>" data-binder-panel="cancelled" role="tabpanel"<?= $binderInitial === 'cancelled' ? '' : ' hidden' ?>>
+      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">نوبت‌هایی که لغو شده‌اند.</p>
+      <?php
+        $ymdPack = $cancelledYmd;
+        $ymdEmpty = 'نوبت لغوشده‌ای نیست.';
         $ymdRenderItems = $ymdRenderDesk;
         require __DIR__ . '/appointment_ymd_binder.php';
       ?>
@@ -97,6 +117,6 @@ ob_start();
 </div>
 <?php
 $appointmentsDeskHtml = ob_get_clean();
-$appointmentsDeskScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260910p"></script>'
+$appointmentsDeskScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260920a"></script>'
     . '<script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910r"></script>'
     . ($secretaryBookScripts ?? '');

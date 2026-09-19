@@ -3,6 +3,7 @@
     id = String(id || "");
     if (id === "appts" || id === "appointments" || id === "upcoming") return "appts";
     if (id === "done" || id === "completed") return "archive";
+    if (id === "cancelled" || id === "cancel") return "cancelled";
     if (id === "workshops") return "workshops";
     if (id.indexOf("offline") !== -1) return "offline";
     if (id.indexOf("online") !== -1) return "online";

@@ -69,20 +69,26 @@ $qDigits = $searchQ !== '' ? $normDigits($searchQ) : '';
 
 $upcoming = [];
 $done = [];
+$cancelled = [];
 $now = time();
+if (function_exists('appointment_restore_auto_cancelled_unpaid')) {
+    appointment_restore_auto_cancelled_unpaid($pdo);
+}
 foreach ($rows as $row) {
     $status = (string) ($row['status'] ?? '');
     $start = strtotime((string) ($row['starts_at'] ?? '')) ?: 0;
-    $isUpcoming = !in_array($status, ['CANCELLED', 'COMPLETED'], true) && $start >= $now;
-    if ($isUpcoming) {
-        $upcoming[] = $row;
-    } else {
+    if ($status === 'CANCELLED') {
+        $cancelled[] = $row;
+    } elseif ($status === 'COMPLETED' || $start < $now) {
         $done[] = $row;
+    } else {
+        $upcoming[] = $row;
     }
 }
 
 $upcomingFiltered = $upcoming;
 $doneFiltered = $done;
+$cancelledFiltered = $cancelled;
 $applyApptFilter = static function (array $list) use ($qNorm, $qTokens, $qDigits, $searchDay, $normName, $normDigits): array {
     if ($qNorm === '' && $qDigits === '' && $searchDay === '') {
         return $list;
@@ -123,15 +129,18 @@ $applyApptFilter = static function (array $list) use ($qNorm, $qTokens, $qDigits
 };
 $upcomingFiltered = $applyApptFilter($upcoming);
 $doneFiltered = $applyApptFilter($done);
+$cancelledFiltered = $applyApptFilter($cancelled);
 
 usort($upcomingFiltered, static fn(array $a, array $b): int => strcmp((string) $a['starts_at'], (string) $b['starts_at']));
 usort($doneFiltered, static fn(array $a, array $b): int => strcmp((string) $b['starts_at'], (string) $a['starts_at']));
+usort($cancelledFiltered, static fn(array $a, array $b): int => strcmp((string) $b['starts_at'], (string) $a['starts_at']));
 
 $upcomingYmd = group_appointments_by_jalali_ymd($upcomingFiltered, 'doc-up', 'current');
 $doneYmd = group_appointments_by_jalali_ymd($doneFiltered, 'doc-dn', 'latest');
+$cancelledYmd = group_appointments_by_jalali_ymd($cancelledFiltered, 'doc-cn', 'latest');
 
 $tabParam = trim((string) ($_GET['tab'] ?? ''));
-$binderInitial = in_array($tabParam, ['upcoming', 'done'], true) ? $tabParam : 'upcoming';
+$binderInitial = in_array($tabParam, ['upcoming', 'done', 'cancelled'], true) ? $tabParam : 'upcoming';
 
 $showDoctorOnCards = $seeAllAppointments;
 $ymdRenderDoctor = static function (array $list) use ($showDoctorOnCards): void {
@@ -162,7 +171,7 @@ ob_start();
   <?php endif; ?>
 </p>
 
-<div class="binder-tile" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($binderInitial) ?>" data-binder-tone="<?= e($binderInitial === 'done' ? 'archive' : 'appts') ?>" style="margin-top:1.25rem">
+<div class="binder-tile" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($binderInitial) ?>" data-binder-tone="<?= e($binderInitial === 'cancelled' ? 'archive' : ($binderInitial === 'done' ? 'archive' : 'appts')) ?>" style="margin-top:1.25rem">
   <div class="binder-tabs" role="tablist" aria-label="دسته‌بندی نوبت‌ها">
     <button type="button"
       class="binder-tab binder-tab-appts<?= $binderInitial === 'upcoming' ? ' is-active' : '' ?>"
@@ -181,6 +190,15 @@ ob_start();
       aria-selected="<?= $binderInitial === 'done' ? 'true' : 'false' ?>">
       نوبت‌های انجام‌شده
       <span class="binder-tab-count"><?= count($doneFiltered) ?></span>
+    </button>
+    <button type="button"
+      class="binder-tab binder-tab-cancelled<?= $binderInitial === 'cancelled' ? ' is-active' : '' ?>"
+      role="tab"
+      data-binder-tab="cancelled"
+      data-binder-tone="cancelled"
+      aria-selected="<?= $binderInitial === 'cancelled' ? 'true' : 'false' ?>">
+      نوبت‌های لغو شده
+      <span class="binder-tab-count"><?= count($cancelledFiltered) ?></span>
     </button>
   </div>
   <div class="binder-body">
@@ -243,7 +261,7 @@ ob_start();
       <?php endif; ?>
     </section>
     <section class="binder-panel<?= $binderInitial === 'done' ? ' is-active' : '' ?>" data-binder-panel="done" role="tabpanel"<?= $binderInitial === 'done' ? '' : ' hidden' ?>>
-      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">نوبت‌های برگزارشده، گذشته یا لغو شده. از تب ماه می‌توانید ببینید ماه پیش با چه کسانی وقت داشته‌اید.</p>
+      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">نوبت‌های برگزارشده یا گذشته. از تب ماه می‌توانید ببینید ماه پیش با چه کسانی وقت داشته‌اید.</p>
       <form class="appt-search-bar" method="get" action="<?= e(url('/doctor/appointments')) ?>" id="appt-done-search">
         <input type="hidden" name="tab" value="done">
         <div class="appt-search-field">
@@ -301,11 +319,70 @@ ob_start();
         ?>
       <?php endif; ?>
     </section>
+    <section class="binder-panel<?= $binderInitial === 'cancelled' ? ' is-active' : '' ?>" data-binder-panel="cancelled" role="tabpanel"<?= $binderInitial === 'cancelled' ? '' : ' hidden' ?>>
+      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">نوبت‌هایی که لغو شده‌اند (توسط مراجع، درمانگر یا سیستم).</p>
+      <form class="appt-search-bar" method="get" action="<?= e(url('/doctor/appointments')) ?>" id="appt-cancelled-search">
+        <input type="hidden" name="tab" value="cancelled">
+        <div class="appt-search-field">
+          <label class="label" for="appt_search_q_cn">جستجو با نام</label>
+          <input
+            class="input"
+            type="search"
+            id="appt_search_q_cn"
+            name="q"
+            value="<?= e($searchQ) ?>"
+            placeholder="<?= $seeAllAppointments ? 'نام مراجعه‌کننده…' : 'نام مراجعه‌کننده خودتان…' ?>"
+            autocomplete="off"
+          >
+        </div>
+        <div class="appt-search-field">
+          <label class="label" for="appt_search_day_view_cn">جستجو با تاریخ</label>
+          <input
+            class="input"
+            type="text"
+            id="appt_search_day_view_cn"
+            data-jdp
+            data-jdp-only-date
+            autocomplete="off"
+            readonly
+            placeholder="کلیک کنید تا تقویم باز شود"
+            style="cursor:pointer"
+            value="<?= e($searchJalali) ?>"
+          >
+          <input type="hidden" name="day" id="appt_search_day_cn" value="<?= e($searchDay) ?>">
+        </div>
+        <div class="appt-search-actions">
+          <button class="btn btn-primary" type="submit">جستجو</button>
+          <?php if ($filterActive): ?>
+            <a class="btn btn-outline" href="<?= e(url('/doctor/appointments?tab=cancelled')) ?>">پاک کردن</a>
+          <?php endif; ?>
+        </div>
+      </form>
+      <?php if ($filterActive): ?>
+        <p class="muted" style="margin:0 0 .85rem;font-size:.85rem">
+          نتیجه: <?= e($filterHint) ?>
+          — <?= to_fa_digits((string) count($cancelledFiltered)) ?> نوبت
+        </p>
+        <?php
+          $appointmentList = $cancelledFiltered;
+          $appointmentEmpty = 'با این جستجو نوبت لغوشده‌ای پیدا نشد.';
+          $appointmentShowDoctor = $showDoctorOnCards;
+          require __DIR__ . '/../../includes/doctor_appointment_cards.php';
+        ?>
+      <?php else: ?>
+        <?php
+          $ymdPack = $cancelledYmd;
+          $ymdEmpty = 'نوبت لغوشده‌ای نیست.';
+          $ymdRenderItems = $ymdRenderDoctor;
+          require __DIR__ . '/../../includes/appointment_ymd_binder.php';
+        ?>
+      <?php endif; ?>
+    </section>
   </div>
 </div>
 <?php
 $pageHead = '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">';
-$pageScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260910p"></script>'
+$pageScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260920a"></script>'
     . '<script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910r"></script>'
     . '<script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>'
     . '<script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>'
@@ -342,6 +419,7 @@ $pageScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260
   }
   bindDay("appt_search_day_view_up", "appt_search_day_up", "appt-upcoming-search");
   bindDay("appt_search_day_view_dn", "appt_search_day_dn", "appt-done-search");
+  bindDay("appt_search_day_view_cn", "appt_search_day_cn", "appt-cancelled-search");
 })();
 </script>';
 $GLOBALS['pageHead'] = $pageHead;

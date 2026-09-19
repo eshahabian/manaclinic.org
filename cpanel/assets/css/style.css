@@ -3321,6 +3321,8 @@ html[data-theme="dark"] .appt-search-bar {
 .binder-tab-offline { background-color: #f8e59a; color: #16352c; }
 .binder-tab-new { background-color: #f5b3d6; color: #5a1240; }
 .binder-tab-archive { background-color: #f5c49a; color: #5a2e10; }
+.binder-tab-cancelled { background-color: #e8d5d5; color: #5a2020; }
+.binder-tab-cancelled.is-active { color: #b33a3a; }
 .binder-tab-appts { background-color: #bfe8cc; color: #0f3d28; }
 .binder-tab-workshops { background-color: #c5e4f7; color: #16352c; }
 .binder-tab-in-person.is-active { color: #2a7ab8; }

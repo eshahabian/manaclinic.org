@@ -45,11 +45,7 @@ function patient_nav(): array
             ]]);
         }
     }
-    $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link() : null;
-    if ($videoLink) {
-        // بعد از «خلاصه» مطابق ترتیب اصلی ادمین
-        array_splice($nav, 1, 0, [$videoLink]);
-    }
+    // تماس مانا از منوی مراجعه‌کننده حذف شده؛ فقط روی نوبت آنلاین (۱۵ دقیقه قبل) دیده می‌شود.
 
     return $nav;
 }

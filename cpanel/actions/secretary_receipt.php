@@ -46,5 +46,11 @@ if ($next && str_starts_with($next, '/secretary')) {
 }
 $status = (string) ($payment['status'] ?? '');
 $start = strtotime((string) ($payment['starts_at'] ?? '')) ?: 0;
-$tab = (!in_array($status, ['CANCELLED', 'COMPLETED'], true) && $start >= time()) ? 'upcoming' : 'done';
+if ($status === 'CANCELLED') {
+    $tab = 'cancelled';
+} elseif ($status === 'COMPLETED' || $start < time()) {
+    $tab = 'done';
+} else {
+    $tab = 'upcoming';
+}
 redirect('/secretary/appointments?tab=' . $tab);

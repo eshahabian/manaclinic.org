@@ -30,7 +30,9 @@ if (!$appointmentList) {
       $patientId = (string) ($a['patient_id'] ?? '');
       $appId = (string) ($a['id'] ?? '');
       $upcoming = function_exists('appointment_is_upcoming') && appointment_is_upcoming($a);
-      $showManaStart = $upcoming;
+      $showManaStart = $upcoming
+          && function_exists('appointment_is_online_mode')
+          && appointment_is_online_mode($a);
       $chartSessionsUrl = $patientId !== ''
           ? url('/doctor/patients/' . rawurlencode($patientId) . '?tab=sessions#session-' . rawurlencode($appId))
           : '';

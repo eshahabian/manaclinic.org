@@ -145,7 +145,7 @@ function secretary_mark_patient_cancelled(PDO $pdo, string $appointmentId, array
         'SECRETARY',
         'کنسلی مراجع',
         "نوبت «{$patientName}» برای {$when} توسط {$actorName} به‌عنوان کنسلی مراجع ثبت شد.",
-        '/secretary/appointments?tab=done',
+        '/secretary/appointments?tab=cancelled',
         'appointment'
     );
     notify_doctor_profile(
@@ -153,7 +153,7 @@ function secretary_mark_patient_cancelled(PDO $pdo, string $appointmentId, array
         (string) $row['doctor_id'],
         'کنسلی مراجع',
         "مراجعه‌کننده «{$patientName}» نوبت {$when} را کنسل کرد. یادداشت: {$note}",
-        '/doctor/appointments?tab=done',
+        '/doctor/appointments?tab=cancelled',
         'appointment'
     );
 

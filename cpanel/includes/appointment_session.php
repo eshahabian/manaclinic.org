@@ -76,6 +76,75 @@ function appointment_is_online_mode(array $row): bool
     return appointment_normalize_session_mode((string) ($row['session_mode'] ?? '')) === 'ONLINE';
 }
 
+/**
+ * تماس مانا روی کارت نوبت آنلاین دیده شود (هنوز لغو/تمام نشده).
+ */
+function appointment_mana_call_should_show(array $row, ?int $now = null): bool
+{
+    $now = $now ?? time();
+    if (!appointment_is_online_mode($row)) {
+        return false;
+    }
+    $status = (string) ($row['status'] ?? '');
+    if (in_array($status, ['CANCELLED', 'COMPLETED'], true)) {
+        return false;
+    }
+    $start = strtotime((string) ($row['starts_at'] ?? '')) ?: 0;
+    if ($start <= 0) {
+        return false;
+    }
+    $end = strtotime((string) ($row['ends_at'] ?? '')) ?: ($start + 3600);
+
+    // از رزرو تا پایان جلسه دکمه دیده شود؛ فعال‌شدن جداست
+    return $now <= $end;
+}
+
+/** از ۱۵ دقیقه قبل از شروع تا پایان جلسه دکمه فعال است. */
+function appointment_mana_call_is_active(array $row, ?int $now = null): bool
+{
+    $now = $now ?? time();
+    if (!appointment_mana_call_should_show($row, $now)) {
+        return false;
+    }
+    $start = strtotime((string) ($row['starts_at'] ?? '')) ?: 0;
+    $end = strtotime((string) ($row['ends_at'] ?? '')) ?: ($start + 3600);
+
+    return $now >= ($start - 15 * 60) && $now <= $end;
+}
+
+/**
+ * بازگرداندن نوبت‌های آینده‌ای که به‌خاطر مهلت پرداخت خودکار لغو شده‌اند
+ * (پرداخت هنوز PENDING است؛ لغو دستی پرداخت را FAILED می‌کند).
+ */
+function appointment_restore_auto_cancelled_unpaid(PDO $pdo): int
+{
+    $n = 0;
+    try {
+        $n += (int) $pdo->exec("
+          UPDATE appointments a
+          INNER JOIN payments p ON p.appointment_id = a.id
+          SET a.status = 'PENDING_PAYMENT'
+          WHERE a.status = 'CANCELLED'
+            AND a.starts_at >= NOW()
+            AND (a.cancel_reason IS NULL OR TRIM(a.cancel_reason) = '')
+            AND p.status = 'PENDING'
+        ");
+        $n += (int) $pdo->exec("
+          UPDATE appointments a
+          LEFT JOIN payments p ON p.appointment_id = a.id
+          SET a.status = 'PENDING_PAYMENT'
+          WHERE a.status = 'CANCELLED'
+            AND a.starts_at >= NOW()
+            AND (a.cancel_reason IS NULL OR TRIM(a.cancel_reason) = '')
+            AND p.id IS NULL
+        ");
+    } catch (Throwable $ignored) {
+        return 0;
+    }
+
+    return $n;
+}
+
 /** انتخاب نوع جلسه در فرم رزرو */
 function appointment_session_mode_pick_html(string $name = 'session_mode', string $selected = 'IN_PERSON', string $idPrefix = 'sm'): string
 {

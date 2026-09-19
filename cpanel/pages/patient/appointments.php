@@ -6,6 +6,10 @@ require_once __DIR__ . '/../../includes/patient_panel.php';
 require_once __DIR__ . '/../../includes/appointment_cancel.php';
 require_once __DIR__ . '/../../includes/appointment_session.php';
 
+if (function_exists('appointment_restore_auto_cancelled_unpaid')) {
+    appointment_restore_auto_cancelled_unpaid($pdo);
+}
+
 $stmt = $pdo->prepare("
   SELECT a.*, u.name AS doctor_name, dp.specialty, p.amount, p.status AS pay_status, p.ref_id
   FROM appointments a
