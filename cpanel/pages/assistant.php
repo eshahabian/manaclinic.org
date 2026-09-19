@@ -52,6 +52,6 @@ ob_start();
 $content = ob_get_clean();
 
 $pageScripts = '<script>window.__ASSISTANT__ = ' . json_encode($assistantConfig, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) . ';</script>'
-    . '<script src="' . e(url('/assets/js/assistant.js')) . '?v=20260317c"></script>';
+    . '<script src="' . e(url('/assets/js/assistant.js')) . '?v=20260919a"></script>';
 
 require __DIR__ . '/../includes/layout.php';

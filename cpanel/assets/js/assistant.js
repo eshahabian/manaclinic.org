@@ -88,6 +88,46 @@
 
   function renderTopics(topics) {
     controlsEl.innerHTML = "";
+
+    var composer = document.createElement("div");
+    composer.className = "assistant-composer";
+    var ta = document.createElement("textarea");
+    ta.className = "input assistant-text";
+    ta.rows = 2;
+    ta.placeholder = "در مورد چی دوست داری حرف بزنیم؟";
+    composer.appendChild(ta);
+
+    var sendRow = document.createElement("div");
+    sendRow.className = "assistant-actions";
+    var sendBtn = document.createElement("button");
+    sendBtn.type = "button";
+    sendBtn.className = "btn btn-primary";
+    sendBtn.textContent = "ارسال";
+    function submitFreeTopic() {
+      var text = (ta.value || "").trim();
+      if (!text || busy || !sessionId) return;
+      addMsg("user", text);
+      ta.value = "";
+      setBusy(true);
+      postForm(chatUrl, { action: "free_topic", sessionId: sessionId, text: text })
+        .then(handleChatResponse)
+        .catch(function (err) {
+          addMsg("bot", err.message || "خطا");
+          setBusy(false);
+          renderTopics(topics);
+        });
+    }
+    sendBtn.addEventListener("click", submitFreeTopic);
+    ta.addEventListener("keydown", function (e) {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        submitFreeTopic();
+      }
+    });
+    sendRow.appendChild(sendBtn);
+    composer.appendChild(sendRow);
+    controlsEl.appendChild(composer);
+
     var hint = document.createElement("p");
     hint.className = "assistant-step muted";
     hint.textContent = "حوزه درمان را انتخاب کنید";

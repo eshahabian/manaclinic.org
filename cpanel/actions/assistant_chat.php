@@ -151,7 +151,7 @@ try {
         throttle_hit('assistant_start', 3600);
         $session = assistant_session_create($pdo, ($user && ($user['role'] ?? '') === 'PATIENT') ? (string) $user['id'] : null);
         $sessionId = (string) $session['id'];
-        $greeting = "سلام، خوش آمدید.\nمن دستیار مانا کلینیک هستم. لطفاً حوزه درمان مورد نظرتان را انتخاب کنید.";
+        $greeting = "سلام، خوش آمدید.\nمن دستیار مانا کلینیک هستم. میخواهی در مورد چی صحبت کنیم ؟";
         $answers = assistant_flow_meta_set([], [
             'phase' => 'topic',
             'topic' => '',
@@ -163,6 +163,40 @@ try {
         $messages = [['role' => 'assistant', 'content' => $greeting]];
         assistant_messages_save($pdo, $sessionId, $messages);
         echo json_encode(assistant_chat_topics_payload($sessionId, $greeting), JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+
+    if ($action === 'free_topic') {
+        throttle_guard_json('assistant_msg', 40, 600, 'پیام‌های پشت‌سرهم زیاد بود. کمی صبر کنید.');
+        throttle_hit('assistant_msg', 600);
+        $sessionId = trim(post('sessionId'));
+        $note = trim(post('text'));
+        $session = assistant_chat_require_session($pdo, $sessionId, $user);
+        if ($session['status'] === 'COMPLETED') {
+            throw new RuntimeException('گفتگو تمام شده است.');
+        }
+        if ($note === '') {
+            throw new RuntimeException('لطفاً بنویسید دوست دارید درباره چه حرف بزنیم.');
+        }
+        if (mb_strlen($note) > 2000) {
+            throw new RuntimeException('متن خیلی طولانی است.');
+        }
+        $answers = assistant_answers_decode($session['answers_json'] ?? null);
+        $meta = assistant_flow_meta($answers);
+        if (($meta['phase'] ?? '') !== 'topic') {
+            throw new RuntimeException('در این مرحله نمی‌توان این پیام را ثبت کرد.');
+        }
+        $meta['custom_note'] = $note;
+        $answers = assistant_flow_meta_set($answers, $meta);
+        assistant_save_progress($pdo, $sessionId, 0, $answers);
+
+        $bot = 'ممنون که گفتید. اگر بخواهید دقیق‌تر کمک کنم، یکی از حوزه‌های درمان زیر را هم انتخاب کنید.';
+        $messages = assistant_messages_decode($session['messages_json'] ?? null);
+        $messages[] = ['role' => 'user', 'content' => $note];
+        $messages[] = ['role' => 'assistant', 'content' => $bot];
+        assistant_messages_save($pdo, $sessionId, $messages);
+
+        echo json_encode(assistant_chat_topics_payload($sessionId, $bot), JSON_UNESCAPED_UNICODE);
         exit;
     }
 

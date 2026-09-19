@@ -3820,7 +3820,8 @@ html[dir="ltr"] .binder-body {
   color: #fff;
   border-color: transparent;
 }
-.assistant-step { margin: 0 0 .5rem; font-size: .85rem; }
+.assistant-step { margin: .85rem 0 .5rem; font-size: .85rem; }
+.assistant-controls > .assistant-composer + .assistant-step { margin-top: 1rem; }
 .assistant-options {
   display: grid;
   gap: .55rem;
