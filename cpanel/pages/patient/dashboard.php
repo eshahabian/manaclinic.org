@@ -81,16 +81,20 @@ ob_start();
       <section class="binder-panel<?= $outerInitial === 'workshops' ? ' is-active' : '' ?>" data-binder-panel="workshops" role="tabpanel"<?= $outerInitial === 'workshops' ? '' : ' hidden' ?>>
         <div class="patient-dash-panel-head">
           <div class="patient-dash-panel-actions">
-            <a class="btn btn-outline btn-sm" href="<?= e(url('/dashboard/workshops')) ?>">همه کارگاه‌ها</a>
+            <a class="btn btn-primary btn-sm" href="<?= e(url('/services')) ?>">دوره‌ها و کارگاه‌ها (خدمات)</a>
             <a class="btn btn-outline btn-sm" href="<?= e(url('/dashboard/workshops/requested')) ?>">درخواست‌ها</a>
             <a class="btn btn-outline btn-sm" href="<?= e(url('/dashboard/workshops/mine')) ?>">دوره‌های من</a>
           </div>
         </div>
+        <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">
+          دوره‌ها و کارگاه‌های جدید در بخش خدمات اعلام می‌شوند. اگر دوره تازه‌ای شروع شود، در «پیام‌ها» هم لینک ثبت‌نام برایتان می‌آید.
+        </p>
         <div data-patient-courses data-enroll-url="<?= e($ws['enrollUrl']) ?>" data-pay-url="<?= e($ws['payUrl']) ?>" data-cancel-url="<?= e($ws['cancelUrl']) ?>" data-after-enroll-url="<?= e(url('/dashboard/workshops/requested')) ?>">
           <?php
             $workshopBinderNested = true;
             $workshopBinderInitial = 'in-person';
-            $workshopBinderMode = 'catalog';
+            $workshopBinderMode = 'mine';
+            $enrollmentsByTab = patient_enrollments_filter_status($enrollmentsByTab, ['CONFIRMED', 'COMPLETED']);
             require __DIR__ . '/../../includes/patient_workshop_binder.php';
           ?>
         </div>

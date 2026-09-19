@@ -408,10 +408,10 @@ function workshop_notify_doctors(
     $typeLabel = workshop_type_label($type);
     $ownerHint = $ownerDoctorName ? " — درمانگر: «{$ownerDoctorName}»" : '';
     if (workshop_is_offline($type)) {
-        $body = "«{$creatorName}» دوره آفلاین «{$title}» منتشر کرد{$ownerHint}. مراجعه‌کنندگان در «دوره‌های جدید» می‌بینند.";
+        $body = "«{$creatorName}» دوره آفلاین «{$title}» منتشر کرد{$ownerHint}. در بخش خدمات سایت اعلام می‌شود و مراجعه‌کنندگان از پیام‌ها مطلع می‌شوند.";
     } else {
         $when = format_fa_datetime($startsAt);
-        $body = "«{$creatorName}» کارگاه {$typeLabel} «{$title}» ({$when}) منتشر کرد{$ownerHint}. مراجعه‌کنندگان در «دوره‌های جدید» می‌بینند.";
+        $body = "«{$creatorName}» کارگاه {$typeLabel} «{$title}» ({$when}) منتشر کرد{$ownerHint}. در بخش خدمات سایت اعلام می‌شود و مراجعه‌کنندگان از پیام‌ها مطلع می‌شوند.";
     }
     foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $userId) {
         notify_user(
@@ -435,6 +435,49 @@ function workshop_notify_other_doctors(
     string $startsAt
 ): void {
     workshop_notify_doctors($pdo, $creatorName, $title, $type, $startsAt, $excludeDoctorProfileId);
+}
+
+/** اطلاع همه مراجعه‌کنندگان از کارگاه/دوره جدید (پیام‌ها + لینک ثبت‌نام) */
+function workshop_notify_patients(
+    PDO $pdo,
+    string $workshopId,
+    string $title,
+    string $type,
+    string $startsAt,
+    ?string $senderUserId = null
+): int {
+    require_once __DIR__ . '/notifications.php';
+    $workshopId = trim($workshopId);
+    if ($workshopId === '') {
+        return 0;
+    }
+    $typeLabel = workshop_type_label($type);
+    $link = '/workshops/apply?id=' . rawurlencode($workshopId);
+    if (workshop_is_offline($type)) {
+        $notifTitle = 'دوره جدید: ' . $title;
+        $body = "دوره آفلاین «{$title}» اعلام شد. برای دیدن جزئیات و ثبت‌نام روی مشاهده بزنید؛ دوره‌ها از بخش خدمات سایت هم قابل ثبت‌نام هستند.";
+    } else {
+        $when = format_fa_datetime($startsAt);
+        $notifTitle = 'کارگاه جدید: ' . $title;
+        $body = "کارگاه {$typeLabel} «{$title}» ({$when}) اعلام شد. برای دیدن جزئیات و ثبت‌نام روی مشاهده بزنید؛ کارگاه‌ها از بخش خدمات سایت هم قابل ثبت‌نام هستند.";
+    }
+    $stmt = $pdo->prepare("SELECT id FROM users WHERE role = 'PATIENT'");
+    $stmt->execute();
+    $ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    foreach ($ids as $userId) {
+        notify_user(
+            $pdo,
+            (string) $userId,
+            $notifTitle,
+            $body,
+            $link,
+            'workshop',
+            $senderUserId,
+            'broadcast'
+        );
+    }
+
+    return count($ids);
 }
 
 /** فیلدهای مشترک ایجاد/ویرایش کارگاه از POST */

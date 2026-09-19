@@ -95,6 +95,14 @@ if ($action === 'create') {
         null,
         (string) $doctor['name']
     );
+    workshop_notify_patients(
+        $pdo,
+        $id,
+        $data['title'],
+        $data['type'],
+        $data['starts_at'],
+        (string) ($user['id'] ?? '')
+    );
     notify_doctor_profile(
         $pdo,
         (string) $doctor['id'],
@@ -269,6 +277,14 @@ if ($action === 'toggle') {
             (string) $workshopRow['starts_at'],
             null,
             (string) ($docName->fetchColumn() ?: '')
+        );
+        workshop_notify_patients(
+            $pdo,
+            $id,
+            (string) $workshopRow['title'],
+            (string) $workshopRow['type'],
+            (string) $workshopRow['starts_at'],
+            (string) ($user['id'] ?? '')
         );
     }
     flash_set('success', $pub ? 'کارگاه منتشر شد.' : 'انتشار لغو شد.');

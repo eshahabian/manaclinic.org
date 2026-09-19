@@ -22,9 +22,8 @@ function patient_nav(): array
         ['href' => '/dashboard', 'label' => 'خلاصه'],
         ['href' => '/dashboard/appointments', 'label' => 'نوبت‌های من'],
         ['href' => '/dashboard/messages', 'label' => 'پیام‌ها', 'badge' => 'messages'],
-        ['href' => '/dashboard/courses-new', 'label' => 'دوره‌های جدید', 'badge' => 'available'],
         [
-            'href' => '/dashboard/workshops',
+            'href' => '/dashboard/workshops/mine',
             'label' => 'کارگاه‌ها',
             'children' => [
                 ['href' => '/dashboard/workshops/requested', 'label' => 'دوره‌های درخواست داده‌شده', 'badge' => 'requested'],

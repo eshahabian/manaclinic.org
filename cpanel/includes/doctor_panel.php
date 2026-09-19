@@ -87,7 +87,8 @@ function doctor_nav(): array
         ['type' => 'link', 'href' => '/doctor/appointments', 'label' => 'نوبت‌ها'],
         ['type' => 'link', 'href' => '/doctor/availability', 'label' => 'روزهای خالی'],
         ['type' => 'link', 'href' => '/doctor/appointment-history', 'label' => 'تاریخچه نوبت‌ها'],
-        ['type' => 'link', 'href' => '/doctor/patients', 'label' => 'پرونده مراجعه‌کنندگان'],
+        // پرونده در منو مخفی است؛ مسیر /doctor/patients همچنان کار می‌کند
+        ['type' => 'link', 'href' => '/doctor/patients', 'label' => 'پرونده مراجعه‌کنندگان', 'hidden' => true],
         ['type' => 'link', 'href' => '/doctor/staff-messages', 'label' => 'پیام‌ها'],
         ['type' => 'link', 'href' => '/doctor/profile', 'label' => 'پروفایل حرفه‌ای'],
         ['type' => 'group', 'label' => 'محتوا'],
@@ -297,6 +298,9 @@ function render_doctor_page(string $title, string $innerHtml): void
         <p class="side-nav-title">پنل درمانگر</p>
         <nav>
           <?php foreach ($nav as $item): ?>
+            <?php if (!empty($item['hidden'])) {
+                continue;
+            } ?>
             <?php if (($item['type'] ?? 'link') === 'group'): ?>
               <p class="side-nav-group"><?= e($item['label']) ?></p>
             <?php else: ?>
@@ -318,7 +322,6 @@ function render_doctor_page(string $title, string $innerHtml): void
             <?php endif; ?>
           <?php endforeach; ?>
         </nav>
-        <p class="muted" style="font-size:.75rem;margin-top:1rem;line-height:1.6">پرونده مراجعه‌کنندگان فقط برای شما قابل مشاهده است.</p>
       </aside>
       <div class="panel-main"><?= $innerHtml ?></div>
     </div>

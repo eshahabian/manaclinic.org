@@ -82,8 +82,13 @@ foreach ($rows as $row) {
 }
 
 $upcomingFiltered = $upcoming;
-if ($qNorm !== '' || $qDigits !== '' || $searchDay !== '') {
-    $upcomingFiltered = array_values(array_filter($upcoming, static function (array $row) use ($qNorm, $qTokens, $qDigits, $searchDay, $normName, $normDigits): bool {
+$doneFiltered = $done;
+$applyApptFilter = static function (array $list) use ($qNorm, $qTokens, $qDigits, $searchDay, $normName, $normDigits): array {
+    if ($qNorm === '' && $qDigits === '' && $searchDay === '') {
+        return $list;
+    }
+
+    return array_values(array_filter($list, static function (array $row) use ($qNorm, $qTokens, $qDigits, $searchDay, $normName, $normDigits): bool {
         if ($searchDay !== '') {
             $ymd = substr(str_replace('T', ' ', (string) ($row['starts_at'] ?? '')), 0, 10);
             if ($ymd !== $searchDay) {
@@ -115,19 +120,18 @@ if ($qNorm !== '' || $qDigits !== '' || $searchDay !== '') {
 
         return true;
     }));
-}
+};
+$upcomingFiltered = $applyApptFilter($upcoming);
+$doneFiltered = $applyApptFilter($done);
 
 usort($upcomingFiltered, static fn(array $a, array $b): int => strcmp((string) $a['starts_at'], (string) $b['starts_at']));
-usort($done, static fn(array $a, array $b): int => strcmp((string) $b['starts_at'], (string) $a['starts_at']));
+usort($doneFiltered, static fn(array $a, array $b): int => strcmp((string) $b['starts_at'], (string) $a['starts_at']));
 
 $upcomingYmd = group_appointments_by_jalali_ymd($upcomingFiltered, 'doc-up', 'current');
-$doneYmd = group_appointments_by_jalali_ymd($done, 'doc-dn', 'latest');
+$doneYmd = group_appointments_by_jalali_ymd($doneFiltered, 'doc-dn', 'latest');
 
 $tabParam = trim((string) ($_GET['tab'] ?? ''));
 $binderInitial = in_array($tabParam, ['upcoming', 'done'], true) ? $tabParam : 'upcoming';
-if ($searchQ !== '' || $searchDay !== '') {
-    $binderInitial = 'upcoming';
-}
 
 $showDoctorOnCards = $seeAllAppointments;
 $ymdRenderDoctor = static function (array $list) use ($showDoctorOnCards): void {
@@ -138,6 +142,14 @@ $ymdRenderDoctor = static function (array $list) use ($showDoctorOnCards): void 
 };
 
 $filterActive = $searchQ !== '' || $searchDay !== '';
+$filterHintParts = [];
+if ($searchQ !== '') {
+    $filterHintParts[] = 'نام «' . $searchQ . '»';
+}
+if ($searchDay !== '') {
+    $filterHintParts[] = 'تاریخ ' . to_jalali_label($searchDay);
+}
+$filterHint = implode(' · ', $filterHintParts);
 
 ob_start();
 ?>
@@ -168,7 +180,7 @@ ob_start();
       data-binder-tone="archive"
       aria-selected="<?= $binderInitial === 'done' ? 'true' : 'false' ?>">
       نوبت‌های انجام‌شده
-      <span class="binder-tab-count"><?= count($done) ?></span>
+      <span class="binder-tab-count"><?= count($doneFiltered) ?></span>
     </button>
   </div>
   <div class="binder-body">
@@ -176,11 +188,11 @@ ob_start();
       <form class="appt-search-bar" method="get" action="<?= e(url('/doctor/appointments')) ?>" id="appt-upcoming-search">
         <input type="hidden" name="tab" value="upcoming">
         <div class="appt-search-field">
-          <label class="label" for="appt_search_q">جستجو با نام</label>
+          <label class="label" for="appt_search_q_up">جستجو با نام</label>
           <input
             class="input"
             type="search"
-            id="appt_search_q"
+            id="appt_search_q_up"
             name="q"
             value="<?= e($searchQ) ?>"
             placeholder="<?= $seeAllAppointments ? 'نام مراجعه‌کننده…' : 'نام مراجعه‌کننده خودتان…' ?>"
@@ -188,11 +200,11 @@ ob_start();
           >
         </div>
         <div class="appt-search-field">
-          <label class="label" for="appt_search_day_view">جستجو با تاریخ</label>
+          <label class="label" for="appt_search_day_view_up">جستجو با تاریخ</label>
           <input
             class="input"
             type="text"
-            id="appt_search_day_view"
+            id="appt_search_day_view_up"
             data-jdp
             data-jdp-only-date
             autocomplete="off"
@@ -201,7 +213,7 @@ ob_start();
             style="cursor:pointer"
             value="<?= e($searchJalali) ?>"
           >
-          <input type="hidden" name="day" id="appt_search_day" value="<?= e($searchDay) ?>">
+          <input type="hidden" name="day" id="appt_search_day_up" value="<?= e($searchDay) ?>">
         </div>
         <div class="appt-search-actions">
           <button class="btn btn-primary" type="submit">جستجو</button>
@@ -212,10 +224,7 @@ ob_start();
       </form>
       <?php if ($filterActive): ?>
         <p class="muted" style="margin:0 0 .85rem;font-size:.85rem">
-          نتیجه:
-          <?php if ($searchQ !== ''): ?>نام «<?= e($searchQ) ?>»<?php endif; ?>
-          <?php if ($searchQ !== '' && $searchDay !== ''): ?> · <?php endif; ?>
-          <?php if ($searchDay !== ''): ?>تاریخ <?= e(to_jalali_label($searchDay)) ?><?php endif; ?>
+          نتیجه: <?= e($filterHint) ?>
           — <?= to_fa_digits((string) count($upcomingFiltered)) ?> نوبت
         </p>
         <?php
@@ -235,12 +244,62 @@ ob_start();
     </section>
     <section class="binder-panel<?= $binderInitial === 'done' ? ' is-active' : '' ?>" data-binder-panel="done" role="tabpanel"<?= $binderInitial === 'done' ? '' : ' hidden' ?>>
       <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">نوبت‌های برگزارشده، گذشته یا لغو شده. از تب ماه می‌توانید ببینید ماه پیش با چه کسانی وقت داشته‌اید.</p>
-      <?php
-        $ymdPack = $doneYmd;
-        $ymdEmpty = 'نوبت انجام‌شده‌ای نیست.';
-        $ymdRenderItems = $ymdRenderDoctor;
-        require __DIR__ . '/../../includes/appointment_ymd_binder.php';
-      ?>
+      <form class="appt-search-bar" method="get" action="<?= e(url('/doctor/appointments')) ?>" id="appt-done-search">
+        <input type="hidden" name="tab" value="done">
+        <div class="appt-search-field">
+          <label class="label" for="appt_search_q_dn">جستجو با نام</label>
+          <input
+            class="input"
+            type="search"
+            id="appt_search_q_dn"
+            name="q"
+            value="<?= e($searchQ) ?>"
+            placeholder="<?= $seeAllAppointments ? 'نام مراجعه‌کننده…' : 'نام مراجعه‌کننده خودتان…' ?>"
+            autocomplete="off"
+          >
+        </div>
+        <div class="appt-search-field">
+          <label class="label" for="appt_search_day_view_dn">جستجو با تاریخ</label>
+          <input
+            class="input"
+            type="text"
+            id="appt_search_day_view_dn"
+            data-jdp
+            data-jdp-only-date
+            autocomplete="off"
+            readonly
+            placeholder="کلیک کنید تا تقویم باز شود"
+            style="cursor:pointer"
+            value="<?= e($searchJalali) ?>"
+          >
+          <input type="hidden" name="day" id="appt_search_day_dn" value="<?= e($searchDay) ?>">
+        </div>
+        <div class="appt-search-actions">
+          <button class="btn btn-primary" type="submit">جستجو</button>
+          <?php if ($filterActive): ?>
+            <a class="btn btn-outline" href="<?= e(url('/doctor/appointments?tab=done')) ?>">پاک کردن</a>
+          <?php endif; ?>
+        </div>
+      </form>
+      <?php if ($filterActive): ?>
+        <p class="muted" style="margin:0 0 .85rem;font-size:.85rem">
+          نتیجه: <?= e($filterHint) ?>
+          — <?= to_fa_digits((string) count($doneFiltered)) ?> نوبت
+        </p>
+        <?php
+          $appointmentList = $doneFiltered;
+          $appointmentEmpty = 'با این جستجو نوبت انجام‌شده‌ای پیدا نشد.';
+          $appointmentShowDoctor = $showDoctorOnCards;
+          require __DIR__ . '/../../includes/doctor_appointment_cards.php';
+        ?>
+      <?php else: ?>
+        <?php
+          $ymdPack = $doneYmd;
+          $ymdEmpty = 'نوبت انجام‌شده‌ای نیست.';
+          $ymdRenderItems = $ymdRenderDoctor;
+          require __DIR__ . '/../../includes/appointment_ymd_binder.php';
+        ?>
+      <?php endif; ?>
     </section>
   </div>
 </div>
@@ -254,34 +313,35 @@ $pageScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260
 (function(){
   function faToEn(str){ return String(str).replace(/[۰-۹]/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹".indexOf(d); }); }
   function pad(n){ return (n < 10 ? "0" : "") + n; }
-  function syncDay(){
-    var view = document.getElementById("appt_search_day_view");
-    var hidden = document.getElementById("appt_search_day");
+  function bindDay(viewId, hiddenId, formId){
+    var view = document.getElementById(viewId);
+    var hidden = document.getElementById(hiddenId);
     if (!view || !hidden || typeof jalaali === "undefined") return;
-    var t = faToEn(view.value).replace(/-/g, "/").trim();
-    if (t === "") { hidden.value = ""; return; }
-    var p = t.split("/");
-    if (p.length !== 3) { hidden.value = ""; return; }
-    var g = jalaali.toGregorian(parseInt(p[0],10), parseInt(p[1],10), parseInt(p[2],10));
-    hidden.value = g.gy + "-" + pad(g.gm) + "-" + pad(g.gd);
-  }
-  if (typeof jalaliDatepicker !== "undefined") {
-    jalaliDatepicker.startWatch({
-      selector: "#appt_search_day_view",
-      time: false,
-      hideAfterChange: true,
-      showTodayBtn: true,
-      showEmptyBtn: true
-    });
-  }
-  var dayView = document.getElementById("appt_search_day_view");
-  if (dayView) {
-    dayView.addEventListener("jdp:change", syncDay);
-    dayView.addEventListener("change", syncDay);
+    function syncDay(){
+      var t = faToEn(view.value).replace(/-/g, "/").trim();
+      if (t === "") { hidden.value = ""; return; }
+      var p = t.split("/");
+      if (p.length !== 3) { hidden.value = ""; return; }
+      var g = jalaali.toGregorian(parseInt(p[0],10), parseInt(p[1],10), parseInt(p[2],10));
+      hidden.value = g.gy + "-" + pad(g.gm) + "-" + pad(g.gd);
+    }
+    if (typeof jalaliDatepicker !== "undefined") {
+      jalaliDatepicker.startWatch({
+        selector: "#" + viewId,
+        time: false,
+        hideAfterChange: true,
+        showTodayBtn: true,
+        showEmptyBtn: true
+      });
+    }
+    view.addEventListener("jdp:change", syncDay);
+    view.addEventListener("change", syncDay);
     syncDay();
+    var form = document.getElementById(formId);
+    if (form) form.addEventListener("submit", function(){ syncDay(); });
   }
-  var form = document.getElementById("appt-upcoming-search");
-  if (form) form.addEventListener("submit", function(){ syncDay(); });
+  bindDay("appt_search_day_view_up", "appt_search_day_up", "appt-upcoming-search");
+  bindDay("appt_search_day_view_dn", "appt_search_day_dn", "appt-done-search");
 })();
 </script>';
 $GLOBALS['pageHead'] = $pageHead;

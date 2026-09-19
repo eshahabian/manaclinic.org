@@ -80,7 +80,7 @@ $doctorPathBoardById = $doctorPathBoardById ?? [];
             <?php elseif (empty($workshop['enrollment_open'])): ?>
               <p style="color:var(--warning,#b45309);font-size:.8rem;margin-top:.5rem">ثبت‌نام بسته — مراجعه‌کنندگان می‌بینند اما نمی‌توانند ثبت‌نام کنند.</p>
             <?php elseif ($workshopRole === 'doctor'): ?>
-              <p style="color:var(--success);font-size:.8rem;margin-top:.5rem">برای همه مراجعه‌کنندگان در «دوره‌های جدید» قابل مشاهده است؛ بعد از درخواست و تأیید شما به «دوره‌های من» می‌رود.</p>
+              <p style="color:var(--success);font-size:.8rem;margin-top:.5rem">در بخش خدمات سایت اعلام می‌شود؛ مراجعه‌کنندگان از پیام‌ها هم لینک ثبت‌نام می‌گیرند و بعد از تأیید شما به «دوره‌های من» می‌رود.</p>
             <?php endif; ?>
           </div>
           <div class="workshop-card-actions">

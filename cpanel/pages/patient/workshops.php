@@ -14,6 +14,11 @@ if (str_ends_with($path, '/workshops/requested')) {
     $view = 'mine';
 }
 
+if ($view === 'catalog') {
+    flash_set('success', 'دوره‌ها و کارگاه‌های جدید را از بخش خدمات ببینید و ثبت‌نام کنید. لینک دوره‌های تازه در پیام‌ها هم می‌آید.');
+    redirect('/services');
+}
+
 $tabParam = trim((string) ($_GET['type'] ?? $_GET['tab'] ?? ''));
 if (!in_array($tabParam, ['in-person', 'online', 'offline', 'archive'], true)) {
     $tabParam = 'in-person';

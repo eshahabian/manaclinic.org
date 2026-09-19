@@ -142,7 +142,7 @@ function notification_normalize_kind(string $kind): string
 function notification_is_patient_inbox(array $n): bool
 {
     $kind = notification_kind($n);
-    if (in_array($kind, ['clinic', 'broadcast'], true)) {
+    if (in_array($kind, ['clinic', 'broadcast', 'workshop'], true)) {
         return true;
     }
     $scope = notification_normalize_scope((string) ($n['scope'] ?? 'personal'));
@@ -152,12 +152,12 @@ function notification_is_patient_inbox(array $n): bool
 function notification_scope_label(array $n): string
 {
     $kind = notification_normalize_kind((string) ($n['kind'] ?? ''));
+    if ($kind === 'workshop') {
+        return 'کارگاه';
+    }
     if ($kind === 'broadcast'
         || notification_normalize_scope((string) ($n['scope'] ?? '')) === 'broadcast') {
         return 'همگانی';
-    }
-    if ($kind === 'workshop') {
-        return 'کارگاه';
     }
     if ($kind === 'appointment') {
         return 'نوبت';

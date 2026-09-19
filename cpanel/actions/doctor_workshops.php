@@ -113,6 +113,14 @@ if ($action === 'create') {
         $data['type'],
         $data['starts_at']
     );
+    workshop_notify_patients(
+        $pdo,
+        $id,
+        $data['title'],
+        $data['type'],
+        $data['starts_at'],
+        $staffUserId !== '' ? $staffUserId : null
+    );
     flash_set('success', 'کارگاه ایجاد شد. فایل هر جلسه را از ویرایش کارگاه بارگذاری کنید.');
     redirect('/doctor/workshops?edit=' . urlencode($id));
 }
@@ -218,6 +226,14 @@ if ($action === 'toggle') {
             (string) $workshopRow['title'],
             (string) $workshopRow['type'],
             (string) $workshopRow['starts_at']
+        );
+        workshop_notify_patients(
+            $pdo,
+            $id,
+            (string) $workshopRow['title'],
+            (string) $workshopRow['type'],
+            (string) $workshopRow['starts_at'],
+            $staffUserId !== '' ? $staffUserId : null
         );
     }
     flash_set('success', $pub ? 'کارگاه منتشر شد.' : 'انتشار لغو شد.');

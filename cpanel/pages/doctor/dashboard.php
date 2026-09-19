@@ -292,7 +292,7 @@ ob_start();
         require __DIR__ . '/../../includes/appointment_ymd_binder.php';
       ?>
       <p style="margin-top:1rem">
-        <a class="btn btn-primary btn-sm" href="<?= e(url('/doctor/patients')) ?>">پرونده مراجعه‌کنندگان</a>
+        <a class="btn btn-primary btn-sm" href="<?= e(url('/doctor/appointments')) ?>">مشاهده همه نوبت‌ها</a>
       </p>
     </section>
 
