@@ -3791,17 +3791,17 @@ html[dir="ltr"] .binder-body {
 .assistant-shell {
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: .75rem;
   padding: 1.1rem 1.15rem 1.25rem;
 }
 .assistant-messages {
-  min-height: 14rem;
-  max-height: min(52vh, 28rem);
+  min-height: 0;
+  max-height: min(40vh, 22rem);
   overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: .65rem;
-  padding: .25rem .15rem;
+  padding: .15rem .15rem 0;
 }
 .assistant-msg { display: flex; }
 .assistant-msg--bot { justify-content: flex-start; }
@@ -3822,6 +3822,9 @@ html[dir="ltr"] .binder-body {
 }
 .assistant-step { margin: .85rem 0 .5rem; font-size: .85rem; }
 .assistant-controls > .assistant-composer + .assistant-step { margin-top: 1rem; }
+.assistant-controls > .assistant-composer .assistant-text {
+  min-height: 5.75rem;
+}
 .assistant-options {
   display: grid;
   gap: .55rem;
