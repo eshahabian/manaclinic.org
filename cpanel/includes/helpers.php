@@ -865,7 +865,7 @@ function ymd_jalali_max_year(): int
 
 function ymd_cascade_script(): string
 {
-    return '<script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910r"></script>';
+    return '<script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260920c"></script>';
 }
 
 function ymd_empty_day_bucket(string $prefix, int $jy, int $jm, int $jd, string $today): array

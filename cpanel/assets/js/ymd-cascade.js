@@ -78,12 +78,32 @@
     function applyMonth(keepDay) {
       var y = currentYearEl();
       if (!y) return;
-      var months = monthsOf(y);
       showOnly(list(y, ":scope > [data-ymd-month]"), "data-ymd-month", monthSel ? monthSel.value : "");
       var m = currentMonthEl();
       var days = m ? daysOf(m) : [];
-      var wantDay = (keepDay && daySel && daySel.value) ? daySel.value : initialDay;
+      var wantDay = "";
+      if (keepDay && daySel && daySel.value) {
+        wantDay = daySel.value;
+      } else if (initialDay) {
+        wantDay = initialDay;
+      }
+      // تازه‌سازی برچسب data-ymd-initial-day پس از انتخاب کاربر
+      if (root && wantDay) {
+        root.setAttribute("data-ymd-initial-day", wantDay);
+        initialDay = wantDay;
+      }
       fillSelect(daySel, days, wantDay);
+      // اگر گزینه انتخاب‌شده برچسب خالی داشت، متن روز را از id بساز
+      if (daySel && daySel.value) {
+        var opt = daySel.options[daySel.selectedIndex];
+        if (opt && (!opt.textContent || !String(opt.textContent).trim())) {
+          var raw = daySel.value;
+          var mday = raw.match(/(\d{4})-(\d{2})-(\d{2})$/) || raw.match(/-(\d{1,2})$/);
+          if (mday) {
+            opt.textContent = mday[mday.length - 1].replace(/^0/, "");
+          }
+        }
+      }
       applyDay();
     }
     function applyYear(keepMonth) {
@@ -93,7 +113,7 @@
       var months = y ? monthsOf(y) : [];
       var wantMonth = (keepMonth && monthSel && monthSel.value) ? monthSel.value : initialMonth;
       fillSelect(monthSel, months, wantMonth);
-      applyMonth(false);
+      applyMonth(!!keepMonth);
     }
 
     if (yearSel) {
@@ -103,7 +123,13 @@
       monthSel.addEventListener("change", function () { applyMonth(false); });
     }
     if (daySel) {
-      daySel.addEventListener("change", applyDay);
+      daySel.addEventListener("change", function () {
+        if (daySel.value) {
+          root.setAttribute("data-ymd-initial-day", daySel.value);
+          initialDay = daySel.value;
+        }
+        applyDay();
+      });
     }
     applyYear(true);
   }

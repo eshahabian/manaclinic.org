@@ -3180,6 +3180,120 @@ a.secretary-patient-row.is-search-hidden,
 html[data-theme="dark"] .appt-search-bar {
   background: rgba(255, 255, 255, .04);
 }
+.sec-week-grid {
+  display: flex;
+  flex-direction: column;
+  gap: .85rem;
+}
+.sec-week-day {
+  padding: .85rem 1rem;
+  border: 1px solid var(--line);
+  border-radius: .85rem;
+  background: var(--bg, #fff);
+}
+.sec-week-day-head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem 1rem;
+  align-items: baseline;
+  justify-content: space-between;
+  margin-bottom: .65rem;
+}
+.sec-week-hours {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem;
+}
+.sec-week-hour {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 3.4rem;
+  padding: .45rem .65rem;
+  border-radius: .55rem;
+  border: 1px solid var(--line);
+  font: inherit;
+  font-size: .9rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform .12s ease, box-shadow .12s ease, background .12s ease;
+}
+.sec-week-hour.is-free {
+  background: #f3faf5;
+  color: var(--primary, #1f7a4c);
+  border-color: #cfe8d8;
+}
+.sec-week-hour.is-free:hover {
+  background: #e7f6ec;
+  transform: translateY(-1px);
+}
+.sec-week-hour.is-booked {
+  background: #e11d48;
+  color: #fff;
+  border-color: #be123c;
+}
+.sec-week-hour.is-booked:hover {
+  background: #be123c;
+  box-shadow: 0 6px 18px rgba(190, 18, 60, .28);
+}
+.sec-week-shadow {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 1.25rem;
+  background: rgba(15, 23, 42, .45);
+  backdrop-filter: blur(2px);
+}
+.sec-week-shadow[hidden] {
+  display: none !important;
+}
+.sec-week-shadow-card {
+  position: relative;
+  width: min(26rem, 100%);
+  padding: 1.25rem 1.35rem 1.1rem;
+  border-radius: 1rem;
+  background: var(--bg, #fff);
+  box-shadow: 0 18px 50px rgba(15, 23, 42, .28);
+}
+.sec-week-shadow-close {
+  position: absolute;
+  top: .55rem;
+  left: .55rem;
+  width: 2rem;
+  height: 2rem;
+  border: 0;
+  border-radius: 999px;
+  background: transparent;
+  font-size: 1.35rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--muted);
+}
+.sec-week-shadow-name {
+  margin: 0 0 .45rem;
+  font-size: 1.15rem;
+}
+.sec-week-shadow-meta {
+  margin: 0 0 1rem;
+  font-size: .9rem;
+  line-height: 1.7;
+}
+.sec-week-shadow-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: .5rem;
+}
+html[data-theme="dark"] .sec-week-hour.is-free {
+  background: rgba(31, 122, 76, .15);
+  border-color: rgba(31, 122, 76, .35);
+}
+html[data-theme="dark"] .sec-week-day {
+  background: rgba(255, 255, 255, .03);
+}
 .msg-ticks {
   display: inline-flex;
   align-items: center;

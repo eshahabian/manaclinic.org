@@ -138,7 +138,7 @@ $secretaryBookScripts = '
 <script src="' . e(url('/assets/js/name-transliterate.js')) . '?v=20260906p"></script>
 <script src="' . e(url('/assets/js/form-draft.js')) . '?v=20260906p"></script>
 <script src="' . e(url('/assets/js/secretary-patient-form.js')) . '?v=20260906p"></script>
-<script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910r"></script>
+<script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260920c"></script>
 <script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
 <script>
@@ -159,9 +159,10 @@ $secretaryBookScripts = '
   var newPhoneEl = document.getElementById("new_phone");
   var usernameHint = document.getElementById("username-hint");
 
+  var doctorSearchApi = null;
   if (window.enhanceSearchSelect) {
     enhanceSearchSelect(patientEl, { placeholder: "جستجو با نام، یوزر یا موبایل…" });
-    enhanceSearchSelect(doctorEl, { placeholder: "جستجو یا انتخاب دکتر" });
+    doctorSearchApi = enhanceSearchSelect(doctorEl, { placeholder: "جستجو یا انتخاب دکتر" });
   }
 
   var bound = bindSecretaryPatientFields({
@@ -688,6 +689,50 @@ $secretaryBookScripts = '
     if (dateEl.value) dateView.value = gregorianToJalaliText(dateEl.value);
     refreshAvailability();
   }
+
+  // پیش‌پر کردن از لینک ساعت آزاد جدول هفت‌روزه: ?tab=new&doctor_id=&date=&time=
+  (function prefillsFromQuery(){
+    var params = new URLSearchParams(window.location.search);
+    var preDoctor = (params.get("doctor_id") || "").trim();
+    var preDate = (params.get("date") || "").trim();
+    var preTime = (params.get("time") || "").trim();
+    if (!preDoctor || !doctorEl) return;
+    if (!Array.prototype.some.call(doctorEl.options, function(o){ return o.value === preDoctor; })) return;
+    if (doctorSearchApi && typeof doctorSearchApi.setValue === "function") {
+      doctorSearchApi.setValue(preDoctor, false);
+    } else {
+      doctorEl.value = preDoctor;
+    }
+    if (preferredDoctorEl && !preferredDoctorEl.value) preferredDoctorEl.value = preDoctor;
+    dateView.disabled = false;
+    dateView.placeholder = "تاریخ شمسی خالی";
+    lastChipsStructureKey = "";
+    if (preTime) {
+      selectedTime = preTime;
+      timeEl.value = preTime;
+    }
+    renderChips();
+    refreshAvailability().then(function(){
+      if (!preDate) return;
+      var g = String(preDate).substring(0,10);
+      var finish = function(){
+        if (!availableSet()[g]) return;
+        dateEl.value = g;
+        dateView.value = gregorianToJalaliText(g);
+        renderChips();
+        if (preTime) {
+          selectedTime = preTime;
+          timeEl.value = preTime;
+        }
+        loadSlots({ keepTime: true });
+      };
+      if (!availableSet()[g]) {
+        refreshAvailability().then(finish);
+      } else {
+        finish();
+      }
+    });
+  })();
 })();
 </script>
 ';
