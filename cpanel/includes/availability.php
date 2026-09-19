@@ -55,6 +55,34 @@ function ensure_availability_schema(PDO $pdo): void
     $ready = true;
 }
 
+/**
+ * لغو خودکار نوبت‌های پرداخت‌نشده بعد از ۲۰ دقیقه.
+ * فعلاً خاموش است تا پنل پیامک آماده شود — کد را پاک نکنید؛ فقط این فلگ را true کنید.
+ */
+function appointment_auto_cancel_unpaid_enabled(): bool
+{
+    return false;
+}
+
+/** نوبت‌های PENDING_PAYMENT قدیمی‌تر از ۲۰ دقیقه را لغو می‌کند (در صورت فعال بودن فلگ). */
+function appointment_expire_stale_pending_payments(PDO $pdo, ?string $doctorId = null): void
+{
+    if (!appointment_auto_cancel_unpaid_enabled()) {
+        return;
+    }
+    if ($doctorId !== null && $doctorId !== '') {
+        $pdo->prepare("
+          UPDATE appointments SET status='CANCELLED'
+          WHERE doctor_id=? AND status='PENDING_PAYMENT' AND created_at < (NOW() - INTERVAL 20 MINUTE)
+        ")->execute([$doctorId]);
+        return;
+    }
+    $pdo->exec("
+      UPDATE appointments SET status='CANCELLED'
+      WHERE status='PENDING_PAYMENT' AND created_at < (NOW() - INTERVAL 20 MINUTE)
+    ");
+}
+
 /** ساعت‌های مجاز رزرو — ۶ صبح تا ۶ صبح فردا (۲۴ ساعت) */
 function appointment_booking_hours(): array
 {
@@ -799,10 +827,7 @@ function appointment_normalize_posted_hours(mixed $posted): array
 function patient_open_slots_between(PDO $pdo, string $fromYmd, string $toYmd): array
 {
     ensure_availability_schema($pdo);
-    $pdo->exec("
-      UPDATE appointments SET status='CANCELLED'
-      WHERE status='PENDING_PAYMENT' AND created_at < (NOW() - INTERVAL 20 MINUTE)
-    ");
+    appointment_expire_stale_pending_payments($pdo);
 
     $stmt = $pdo->prepare("
       SELECT av.*, u.name AS doctor_name, dp.specialty, dp.session_price

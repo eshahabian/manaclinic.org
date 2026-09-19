@@ -18,10 +18,7 @@ if ($doctorId === '' || $date === '') {
     exit;
 }
 
-$pdo->prepare("
-  UPDATE appointments SET status='CANCELLED'
-  WHERE doctor_id=? AND status='PENDING_PAYMENT' AND created_at < (NOW() - INTERVAL 20 MINUTE)
-")->execute([$doctorId]);
+appointment_expire_stale_pending_payments($pdo, $doctorId);
 
 $stmt = $pdo->prepare('SELECT * FROM availabilities WHERE doctor_id=? AND date=? LIMIT 1');
 $stmt->execute([$doctorId, $date]);
