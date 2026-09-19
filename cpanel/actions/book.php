@@ -107,7 +107,7 @@ try {
         echo json_encode([
             'appointmentId' => $appointmentId,
             'paymentDisabled' => true,
-            'message' => 'نوبت با موفقیت ثبت شد. برای پرداخت به بخش نوبت‌های من بروید.',
+            'message' => 'نوبت ثبت شد. فیش پرداخت را در «نوبت‌های من» آپلود کنید یا برای منشی بفرستید تا پس از تأیید ثبت شود.',
         ], JSON_UNESCAPED_UNICODE);
         exit;
     }

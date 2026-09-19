@@ -11,7 +11,7 @@ if (function_exists('appointment_restore_auto_cancelled_unpaid')) {
 }
 
 $stmt = $pdo->prepare("
-  SELECT a.*, u.name AS doctor_name, dp.specialty, p.amount, p.status AS pay_status, p.ref_id
+  SELECT a.*, u.name AS doctor_name, dp.specialty, p.id AS payment_id, p.amount, p.status AS pay_status, p.ref_id, p.receipt_path
   FROM appointments a
   JOIN doctor_profiles dp ON dp.id = a.doctor_id
   JOIN users u ON u.id = dp.user_id
@@ -23,7 +23,9 @@ $stmt->execute([$user['id']]);
 $appointments = $stmt->fetchAll();
 $booked = isset($_GET['booked']);
 $payUrl = url('/dashboard/pay');
+$receiptUrl = url('/dashboard/upload-receipt');
 $cancelUrl = url('/cancel-appointment');
+$onlinePayEnabled = online_payment_enabled($config ?? []);
 $flashSuccess = flash_get();
 
 ob_start();
@@ -39,7 +41,11 @@ ob_start();
   </div>
   <?php if ($booked): ?>
     <div class="panel" style="border-color:var(--success);color:var(--success);font-size:.9rem">
-      نوبت با موفقیت ثبت شد. برای تکمیل، روی «پرداخت آنلاین» کلیک کنید.
+      <?php if ($onlinePayEnabled): ?>
+        نوبت با موفقیت ثبت شد. برای تکمیل، روی «پرداخت آنلاین» کلیک کنید.
+      <?php else: ?>
+        نوبت با موفقیت ثبت شد. فیش پرداخت را آپلود کنید یا برای منشی بفرستید تا پس از تأیید، نوبت ثبت شود.
+      <?php endif; ?>
     </div>
   <?php endif; ?>
   <?php if ($flashSuccess): ?>
@@ -50,12 +56,14 @@ ob_start();
   <?php
     $appointmentList = $appointments;
     $appointmentItemMode = 'manage';
+    $appointmentOnlinePayEnabled = $onlinePayEnabled;
     require __DIR__ . '/../../includes/patient_appointment_items.php';
   ?>
 </div>
 <script>
 (function(){
   var payUrl = <?= json_encode($payUrl, JSON_UNESCAPED_UNICODE) ?>;
+  var receiptUrl = <?= json_encode($receiptUrl, JSON_UNESCAPED_UNICODE) ?>;
   var cancelUrl = <?= json_encode($cancelUrl, JSON_UNESCAPED_UNICODE) ?>;
   var errEl = document.getElementById("pay-error");
   var cancelMsgEl = document.getElementById("cancel-msg");
@@ -84,6 +92,39 @@ ob_start();
           errEl.style.display = "block";
         });
     };
+  });
+  document.querySelectorAll(".receipt-file-input").forEach(function(inp){
+    inp.addEventListener("change", function(){
+      if (!inp.files || !inp.files.length) return;
+      errEl.style.display = "none";
+      var id = inp.getAttribute("data-id") || "";
+      var label = inp.closest("label");
+      if (label) label.classList.add("is-busy");
+      var fd = new FormData();
+      fd.append("appointmentId", id);
+      fd.append("receipt", inp.files[0]);
+      fetch(receiptUrl, { method: "POST", body: fd, credentials: "same-origin" })
+        .then(function(r){ return r.json().then(function(j){ return { ok: r.ok, j: j }; }); })
+        .then(function(res){
+          if (!res.ok) {
+            errEl.textContent = (res.j && res.j.error) || "آپلود فیش ناموفق بود";
+            errEl.style.display = "block";
+            inp.value = "";
+            if (label) label.classList.remove("is-busy");
+            return;
+          }
+          cancelMsgEl.textContent = (res.j && res.j.message) || "فیش ارسال شد.";
+          cancelMsgEl.style.color = "var(--success)";
+          cancelMsgEl.style.display = "block";
+          setTimeout(function(){ location.reload(); }, 900);
+        })
+        .catch(function(){
+          errEl.textContent = "خطای شبکه";
+          errEl.style.display = "block";
+          inp.value = "";
+          if (label) label.classList.remove("is-busy");
+        });
+    });
   });
   document.querySelectorAll(".cancel-app-btn").forEach(function(btn){
     btn.onclick = function(){

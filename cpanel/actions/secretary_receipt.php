@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-$user = require_login(['SECRETARY']);
+$user = require_login(['SECRETARY', 'ADMIN']);
 csrf_verify();
 
 $paymentId = trim(post('payment_id'));
@@ -41,7 +41,7 @@ try {
 }
 
 $next = safe_next_path((string) ($_POST['next'] ?? ''));
-if ($next && str_starts_with($next, '/secretary')) {
+if ($next && (str_starts_with($next, '/secretary') || str_starts_with($next, '/admin'))) {
     redirect($next);
 }
 $status = (string) ($payment['status'] ?? '');
@@ -53,4 +53,5 @@ if ($status === 'CANCELLED') {
 } else {
     $tab = 'upcoming';
 }
-redirect('/secretary/appointments?tab=' . $tab);
+$roleHome = (($user['role'] ?? '') === 'ADMIN') ? '/admin/appointments' : '/secretary/appointments';
+redirect($roleHome . '?tab=' . $tab);

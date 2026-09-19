@@ -6,8 +6,12 @@ declare(strict_types=1);
 
 $appointmentList = $appointmentList ?? [];
 $appointmentItemMode = $appointmentItemMode ?? 'simple';
+$appointmentOnlinePayEnabled = $appointmentOnlinePayEnabled ?? false;
 if (!function_exists('appointment_session_mode_badge_html') && is_file(__DIR__ . '/appointment_session.php')) {
     require_once __DIR__ . '/appointment_session.php';
+}
+if (!function_exists('appointment_pay_status_display') && is_file(__DIR__ . '/appointment_payment.php')) {
+    require_once __DIR__ . '/appointment_payment.php';
 }
 $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/appointment-call-request';
 ?>
@@ -27,11 +31,20 @@ $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/
       ?>
       <?php if ($appointmentItemMode === 'manage'): ?>
         <?php
-          $canPay = ($a['status'] ?? '') === 'PENDING_PAYMENT' && ($a['pay_status'] ?? '') === 'PENDING';
+          $canPayOnline = $appointmentOnlinePayEnabled
+              && ($a['status'] ?? '') === 'PENDING_PAYMENT'
+              && ($a['pay_status'] ?? '') === 'PENDING';
+          $canUploadReceipt = function_exists('appointment_payment_can_upload_receipt')
+              && appointment_payment_can_upload_receipt($a);
+          $awaitingReview = function_exists('appointment_payment_awaiting_receipt_review')
+              && appointment_payment_awaiting_receipt_review($a);
           $canCancel = function_exists('patient_can_cancel_appointment') && patient_can_cancel_appointment((string) $a['status']);
           $refundHint = ($a['status'] ?? '') === 'CONFIRMED' && ($a['pay_status'] ?? '') === 'PAID' && function_exists('appointment_refund_hint')
               ? appointment_refund_hint((string) $a['starts_at'])
               : '';
+          $payLabel = function_exists('appointment_pay_status_display')
+              ? appointment_pay_status_display($a)
+              : payment_status_label((string) ($a['pay_status'] ?? ''));
         ?>
         <div class="patient-appt-row patient-appt-row--manage">
           <div class="patient-appt-row-main">
@@ -49,7 +62,7 @@ $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/
               <span class="badge"><?= e(appointment_status_label((string) $a['status'])) ?></span>
               <?php if (!empty($a['amount'])): ?>
                 <div class="muted" style="margin-top:.45rem">
-                  <?= e(format_price((int) $a['amount'])) ?> — <?= e(payment_status_label((string) ($a['pay_status'] ?? ''))) ?>
+                  <?= e(format_price((int) $a['amount'])) ?> — <?= e($payLabel) ?>
                   <?= !empty($a['ref_id']) ? ' (پیگیری: ' . e((string) $a['ref_id']) . ')' : '' ?>
                 </div>
               <?php endif; ?>
@@ -58,6 +71,8 @@ $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/
           <div class="patient-appt-row-footer">
             <?php if ($showMana): ?>
               <p class="muted patient-appt-mana-hint">تماس مانا از ۱۵ دقیقه قبل از شروع جلسه فعال می‌شود.</p>
+            <?php elseif ($canUploadReceipt): ?>
+              <p class="muted patient-appt-mana-hint">فیش را اینجا آپلود کنید یا برای منشی بفرستید؛ بعد از تأیید منشی نوبت ثبت می‌شود.</p>
             <?php endif; ?>
             <div class="patient-appt-row-btns">
               <?php if ($showMana): ?>
@@ -70,13 +85,22 @@ $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/
                 >تماس مانا</button>
               <?php endif; ?>
               <a class="btn btn-outline btn-sm" href="<?= e($noteUrl) ?>">یادداشت جلسه</a>
-              <?php if ($canPay): ?>
-                <button type="button" class="btn btn-primary btn-sm pay-btn" data-id="<?= e($appId) ?>">پرداخت آنلاین</button>
+              <?php if ($canUploadReceipt): ?>
+                <label class="btn btn-primary btn-sm staff-receipt-pick">
+                  <?= $awaitingReview ? 'تعویض فیش' : 'آپلود فیش پرداخت' ?>
+                  <input class="receipt-file-input" type="file" accept="image/jpeg,image/png,image/webp,application/pdf" data-id="<?= e($appId) ?>">
+                </label>
+              <?php endif; ?>
+              <?php if ($canPayOnline): ?>
+                <button type="button" class="btn btn-outline btn-sm pay-btn" data-id="<?= e($appId) ?>">پرداخت آنلاین</button>
               <?php endif; ?>
               <?php if ($canCancel): ?>
                 <button type="button" class="btn btn-outline btn-sm cancel-app-btn" data-id="<?= e($appId) ?>">لغو نوبت</button>
               <?php endif; ?>
             </div>
+            <?php if ($awaitingReview): ?>
+              <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">فیش شما دریافت شد و در انتظار تأیید منشی است.</p>
+            <?php endif; ?>
             <?php if ($refundHint !== ''): ?>
               <p class="muted" style="font-size:.75rem;margin:.35rem 0 0"><?= e($refundHint) ?></p>
             <?php endif; ?>
