@@ -26,27 +26,40 @@ $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/
         $appId = (string) ($a['id'] ?? '');
       ?>
       <?php if ($appointmentItemMode === 'manage'): ?>
+        <?php
+          $canPay = ($a['status'] ?? '') === 'PENDING_PAYMENT' && ($a['pay_status'] ?? '') === 'PENDING';
+          $canCancel = function_exists('patient_can_cancel_appointment') && patient_can_cancel_appointment((string) $a['status']);
+          $refundHint = ($a['status'] ?? '') === 'CONFIRMED' && ($a['pay_status'] ?? '') === 'PAID' && function_exists('appointment_refund_hint')
+              ? appointment_refund_hint((string) $a['starts_at'])
+              : '';
+        ?>
         <div class="patient-appt-row patient-appt-row--manage">
-          <div>
-            <strong><?= e((string) $a['doctor_name']) ?></strong>
-            <?php if (!empty($a['specialty'])): ?>
-              <div class="muted" style="font-size:.85rem"><?= e((string) $a['specialty']) ?></div>
-            <?php endif; ?>
-            <div style="margin-top:.45rem;font-size:.9rem;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center">
-              <?= e(format_workshop_datetime_fa((string) $a['starts_at'])) ?>
-              <?= $modeBadge ?>
+          <div class="patient-appt-row-main">
+            <div class="patient-appt-row-info">
+              <strong><?= e((string) $a['doctor_name']) ?></strong>
+              <?php if (!empty($a['specialty'])): ?>
+                <div class="muted" style="font-size:.85rem"><?= e((string) $a['specialty']) ?></div>
+              <?php endif; ?>
+              <div style="margin-top:.45rem;font-size:.9rem;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center">
+                <?= e(format_workshop_datetime_fa((string) $a['starts_at'])) ?>
+                <?= $modeBadge ?>
+              </div>
+            </div>
+            <div class="patient-appt-row-meta">
+              <span class="badge"><?= e(appointment_status_label((string) $a['status'])) ?></span>
+              <?php if (!empty($a['amount'])): ?>
+                <div class="muted" style="margin-top:.45rem">
+                  <?= e(format_price((int) $a['amount'])) ?> — <?= e(payment_status_label((string) ($a['pay_status'] ?? ''))) ?>
+                  <?= !empty($a['ref_id']) ? ' (پیگیری: ' . e((string) $a['ref_id']) . ')' : '' ?>
+                </div>
+              <?php endif; ?>
             </div>
           </div>
-          <div class="patient-appt-row-actions">
-            <span class="badge"><?= e(appointment_status_label((string) $a['status'])) ?></span>
-            <?php if (!empty($a['amount'])): ?>
-              <div class="muted" style="margin-top:.45rem">
-                <?= e(format_price((int) $a['amount'])) ?> — <?= e(payment_status_label((string) ($a['pay_status'] ?? ''))) ?>
-                <?= !empty($a['ref_id']) ? ' (پیگیری: ' . e((string) $a['ref_id']) . ')' : '' ?>
-              </div>
+          <div class="patient-appt-row-footer">
+            <?php if ($showMana): ?>
+              <p class="muted patient-appt-mana-hint">تماس مانا از ۱۵ دقیقه قبل از شروع جلسه فعال می‌شود.</p>
             <?php endif; ?>
-            <div style="margin-top:.5rem;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center">
-              <a class="btn btn-outline btn-sm" href="<?= e($noteUrl) ?>">یادداشت جلسه</a>
+            <div class="patient-appt-row-btns">
               <?php if ($showMana): ?>
                 <button
                   type="button"
@@ -56,28 +69,16 @@ $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/
                   title="<?= $manaActive ? 'درخواست تماس برای درمانگر' : 'از ۱۵ دقیقه قبل از شروع جلسه فعال می‌شود' ?>"
                 >تماس مانا</button>
               <?php endif; ?>
-            </div>
-            <?php if ($showMana && !$manaActive): ?>
-              <p class="muted" style="font-size:.75rem;margin:.35rem 0 0;max-width:16rem">تماس مانا از ۱۵ دقیقه قبل از شروع جلسه فعال می‌شود.</p>
-            <?php endif; ?>
-            <?php if (($a['status'] ?? '') === 'PENDING_PAYMENT' && ($a['pay_status'] ?? '') === 'PENDING'): ?>
-              <button
-                type="button"
-                class="btn btn-primary btn-sm pay-btn"
-                style="margin-top:.75rem"
-                data-id="<?= e($appId) ?>"
-              >پرداخت آنلاین</button>
-            <?php endif; ?>
-            <?php if (function_exists('patient_can_cancel_appointment') && patient_can_cancel_appointment((string) $a['status'])): ?>
-              <button
-                type="button"
-                class="btn btn-outline btn-sm cancel-app-btn"
-                style="margin-top:.5rem"
-                data-id="<?= e($appId) ?>"
-              >لغو نوبت</button>
-              <?php if (($a['status'] ?? '') === 'CONFIRMED' && ($a['pay_status'] ?? '') === 'PAID' && function_exists('appointment_refund_hint')): ?>
-                <p class="muted" style="font-size:.75rem;margin-top:.35rem;max-width:14rem"><?= e(appointment_refund_hint((string) $a['starts_at'])) ?></p>
+              <a class="btn btn-outline btn-sm" href="<?= e($noteUrl) ?>">یادداشت جلسه</a>
+              <?php if ($canPay): ?>
+                <button type="button" class="btn btn-primary btn-sm pay-btn" data-id="<?= e($appId) ?>">پرداخت آنلاین</button>
               <?php endif; ?>
+              <?php if ($canCancel): ?>
+                <button type="button" class="btn btn-outline btn-sm cancel-app-btn" data-id="<?= e($appId) ?>">لغو نوبت</button>
+              <?php endif; ?>
+            </div>
+            <?php if ($refundHint !== ''): ?>
+              <p class="muted" style="font-size:.75rem;margin:.35rem 0 0"><?= e($refundHint) ?></p>
             <?php endif; ?>
           </div>
         </div>
@@ -89,8 +90,10 @@ $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/
               <?= e(format_workshop_datetime_fa((string) $a['starts_at'])) ?>
               <?= $modeBadge ?>
             </div>
-            <div style="margin-top:.5rem;display:flex;flex-wrap:wrap;gap:.4rem">
-              <a class="btn btn-outline btn-sm" href="<?= e($noteUrl) ?>">یادداشت جلسه</a>
+            <?php if ($showMana): ?>
+              <p class="muted patient-appt-mana-hint" style="margin-top:.55rem">تماس مانا از ۱۵ دقیقه قبل از شروع جلسه فعال می‌شود.</p>
+            <?php endif; ?>
+            <div class="patient-appt-row-btns" style="margin-top:.45rem">
               <?php if ($showMana): ?>
                 <button
                   type="button"
@@ -100,6 +103,7 @@ $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/
                   title="<?= $manaActive ? 'درخواست تماس برای درمانگر' : 'از ۱۵ دقیقه قبل از شروع جلسه فعال می‌شود' ?>"
                 >تماس مانا</button>
               <?php endif; ?>
+              <a class="btn btn-outline btn-sm" href="<?= e($noteUrl) ?>">یادداشت جلسه</a>
             </div>
           </div>
           <span class="badge"><?= e(appointment_status_label((string) $a['status'])) ?></span>
