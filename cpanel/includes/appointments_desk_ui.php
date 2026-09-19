@@ -100,7 +100,7 @@ ob_start();
   </div>
 <?php endif; ?>
 
-<div class="binder-tile" data-binder-tabs data-binder-initial="<?= e($binderInitial) ?>" data-binder-tone="<?= e($binderInitial) ?>" style="margin-top:1.5rem">
+<div class="binder-tile" data-binder-tabs data-binder-hash="0" data-binder-initial="<?= e($binderInitial) ?>" data-binder-tone="<?= e($binderInitial) ?>" style="margin-top:1.5rem">
   <div class="binder-tabs" role="tablist" aria-label="دسته‌بندی نوبت‌ها">
     <button type="button" class="binder-tab binder-tab-new<?= $binderInitial === 'new' ? ' is-active' : '' ?>" role="tab" data-binder-tab="new" data-binder-tone="new" aria-selected="<?= $binderInitial === 'new' ? 'true' : 'false' ?>">
       نوبت جدید

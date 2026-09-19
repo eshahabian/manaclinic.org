@@ -17,6 +17,30 @@ $patients = $pdo->query("
 $doctors = secretary_active_doctors($pdo);
 $nameDict = build_name_transliterations_client_map($pdo);
 
+$preDoctorId = trim((string) ($_GET['doctor_id'] ?? ''));
+$preDate = trim((string) ($_GET['date'] ?? ''));
+$preTime = trim((string) ($_GET['time'] ?? ''));
+if ($preDoctorId !== '' && !array_filter($doctors, static fn(array $d): bool => (string) ($d['id'] ?? '') === $preDoctorId)) {
+    $preDoctorId = '';
+}
+if ($preDate !== '' && !preg_match('/^\d{4}-\d{2}-\d{2}$/', $preDate)) {
+    $preDate = '';
+}
+if (preg_match('/^(\d{1,2}):(\d{2})/', $preTime, $timeMatch)) {
+    $preTime = sprintf('%02d:%02d', (int) $timeMatch[1], (int) $timeMatch[2]);
+} else {
+    $preTime = '';
+}
+$preDateJalali = '';
+if ($preDate !== '') {
+    [$gy, $gm, $gd] = array_map('intval', explode('-', $preDate));
+    if ($gy > 0 && $gm > 0 && $gd > 0) {
+        [$jy, $jm, $jd] = gregorian_to_jalali($gy, $gm, $gd);
+        $preDateJalali = $jy . '/' . sprintf('%02d', $jm) . '/' . sprintf('%02d', $jd);
+    }
+}
+$slotPrefillActive = $preDoctorId !== '' && ($preDate !== '' || $preTime !== '');
+
 require_once __DIR__ . '/../../includes/availability.php';
 ensure_availability_schema($pdo);
 
@@ -44,6 +68,12 @@ ob_start();
 
 <form class="panel form-stack" method="post" action="<?= e(url('/secretary/book')) ?>" id="secretary-book-form" style="margin-top:0" enctype="multipart/form-data">
   <?= csrf_field() ?>
+  <?php if ($slotPrefillActive): ?>
+    <p class="muted" style="margin:0 0 1rem;font-size:.9rem">
+      از جدول هفت‌روزه انتخاب شد<?= $preDateJalali !== '' ? ' · تاریخ ' . e(to_fa_digits($preDateJalali)) : '' ?><?= $preTime !== '' ? ' · ساعت ' . e(to_fa_digits(preg_replace('/:00$/', '', $preTime) ?: $preTime)) : '' ?>.
+      فقط مراجعه‌کننده را انتخاب کنید.
+    </p>
+  <?php endif; ?>
   <div>
     <label class="label" for="patient_id">مراجعه‌کننده</label>
     <select class="input" name="patient_id" id="patient_id">
@@ -85,7 +115,7 @@ ob_start();
     <select class="input" name="doctor_id" id="doctor_id" required>
       <option value="">انتخاب کنید</option>
       <?php foreach ($doctors as $d): ?>
-        <option value="<?= e($d['id']) ?>"><?= e($d['name']) ?> — <?= e($d['specialty']) ?></option>
+        <option value="<?= e($d['id']) ?>"<?= $preDoctorId === (string) $d['id'] ? ' selected' : '' ?>><?= e($d['name']) ?> — <?= e($d['specialty']) ?></option>
       <?php endforeach; ?>
     </select>
   </div>
@@ -97,14 +127,14 @@ ob_start();
 
   <div>
     <label class="label" for="sec-date-view">یا انتخاب از تقویم</label>
-    <input class="input" type="text" id="sec-date-view" data-jdp data-jdp-only-date autocomplete="off" readonly placeholder="ابتدا دکتر را انتخاب کنید" disabled>
-    <input type="hidden" name="date" id="sec-date" required>
+    <input class="input" type="text" id="sec-date-view" data-jdp data-jdp-only-date autocomplete="off" readonly placeholder="<?= $preDoctorId !== '' ? 'تاریخ شمسی خالی' : 'ابتدا دکتر را انتخاب کنید' ?>"<?= $preDoctorId !== '' ? '' : ' disabled' ?> value="<?= e($preDateJalali) ?>">
+    <input type="hidden" name="date" id="sec-date" required value="<?= e($preDate) ?>">
   </div>
 
   <div>
     <label class="label">ساعت</label>
     <div class="slots" id="sec-slots"><span class="muted">ابتدا تاریخ را انتخاب کنید</span></div>
-    <input type="hidden" name="time" id="sec-time" required>
+    <input type="hidden" name="time" id="sec-time" required value="<?= e($preTime) ?>">
   </div>
 
   <?php
@@ -170,12 +200,12 @@ $secretaryBookScripts = '
     transliterateUrl: ' . json_encode(url('/api/transliterate-name')) . ',
     nameDict: ' . json_encode($nameDict, JSON_UNESCAPED_UNICODE) . ',
     draftKey: "mana.secretary.book.new-patient",
-    clearParams: ["booked"],
+    clearParams: ["booked", "date"],
     enhanceSelects: true,
     draftFields: [
       "new_first_name", "new_last_name", "new_name_en", "new_surname",
       "new_preferred_doctor_id", "new_phone", "new_username",
-      "new_password", "new_password_confirm", "doctor_id", "sec-date", "notes"
+      "new_password", "new_password_confirm", "notes"
     ]
   });
 
@@ -216,7 +246,8 @@ $secretaryBookScripts = '
   var errEl = document.getElementById("sec-error");
   var slotsUrl = ' . json_encode(url('/api/slots')) . ';
   var daysUrl = ' . json_encode(url('/api/availability-days')) . ';
-  var selectedTime = "";
+  var selectedTime = (timeEl && timeEl.value) ? timeEl.value : "";
+  var applyingPrefill = false;
   var refreshTimer = null;
 
   function pad(n){ return (n < 10 ? "0" : "") + n; }
@@ -345,7 +376,8 @@ $secretaryBookScripts = '
       .catch(function(){});
   }
 
-  function selectDate(gDate){
+  function selectDate(gDate, opts){
+    opts = opts || {};
     errEl.style.display = "none";
     var g = String(gDate).substring(0,10);
     if (!doctorEl.value) {
@@ -355,7 +387,7 @@ $secretaryBookScripts = '
     }
     var finish = function(){
       var set = availableSet();
-      if (!set[g]) {
+      if (!set[g] && !opts.force) {
         dateEl.value = "";
         dateView.value = "";
         errEl.textContent = "این تاریخ برای دکتر انتخاب‌شده خالی نیست.";
@@ -367,7 +399,7 @@ $secretaryBookScripts = '
       dateEl.value = g;
       dateView.value = gregorianToJalaliText(g);
       renderChips();
-      loadSlots();
+      loadSlots({ keepTime: !!selectedTime || !!timeEl.value || !!opts.keepTime });
     };
     if (!availableSet()[g]) {
       refreshAvailability().then(finish);
@@ -587,7 +619,7 @@ $secretaryBookScripts = '
     chipsEl.innerHTML = html;
     if (window.initYmdCascade) window.initYmdCascade(chipsEl);
     var daySel = chipsEl.querySelector("[data-ymd-select=day]");
-    if (daySel && !dateEl.value && daySel.value) {
+    if (daySel && !dateEl.value && daySel.value && !selectedTime) {
       selectDate(daySel.value);
     } else if (dateEl.value) {
       revealDateInChips(dateEl.value);
@@ -632,6 +664,7 @@ $secretaryBookScripts = '
   });
 
   doctorEl.addEventListener("change", function(){
+    if (applyingPrefill) return;
     dateView.value = "";
     dateEl.value = "";
     timeEl.value = "";
@@ -687,51 +720,60 @@ $secretaryBookScripts = '
     dateView.disabled = false;
     dateView.placeholder = "تاریخ شمسی خالی";
     if (dateEl.value) dateView.value = gregorianToJalaliText(dateEl.value);
-    refreshAvailability();
   }
 
-  // پیش‌پر کردن از لینک ساعت آزاد جدول هفت‌روزه: ?tab=new&doctor_id=&date=&time=
-  (function prefillsFromQuery(){
+  // پیش‌پر کردن از کلیک روی ساعت آزاد جدول هفت‌روزه: ?tab=new&doctor_id=&date=&time=
+  (function applySlotPrefill(){
     var params = new URLSearchParams(window.location.search);
-    var preDoctor = (params.get("doctor_id") || "").trim();
-    var preDate = (params.get("date") || "").trim();
-    var preTime = (params.get("time") || "").trim();
-    if (!preDoctor || !doctorEl) return;
-    if (!Array.prototype.some.call(doctorEl.options, function(o){ return o.value === preDoctor; })) return;
-    if (doctorSearchApi && typeof doctorSearchApi.setValue === "function") {
-      doctorSearchApi.setValue(preDoctor, false);
-    } else {
-      doctorEl.value = preDoctor;
+    var preDoctor = (params.get("doctor_id") || doctorEl.value || "").trim();
+    var preDate = (params.get("date") || dateEl.value || "").trim();
+    var preTime = (params.get("time") || timeEl.value || "").trim();
+    if (preTime && preTime.length === 4) preTime = "0" + preTime;
+    if (!preDoctor && !preDate && !preTime) {
+      if (doctorEl.value) refreshAvailability();
+      return;
     }
-    if (preferredDoctorEl && !preferredDoctorEl.value) preferredDoctorEl.value = preDoctor;
-    dateView.disabled = false;
-    dateView.placeholder = "تاریخ شمسی خالی";
-    lastChipsStructureKey = "";
+    applyingPrefill = true;
+    if (preDoctor && Array.prototype.some.call(doctorEl.options, function(o){ return o.value === preDoctor; })) {
+      if (doctorSearchApi && typeof doctorSearchApi.setValue === "function") {
+        doctorSearchApi.setValue(preDoctor, false);
+      } else {
+        doctorEl.value = preDoctor;
+      }
+    }
+    if (preferredDoctorEl && doctorEl.value && !preferredDoctorEl.value) preferredDoctorEl.value = doctorEl.value;
     if (preTime) {
       selectedTime = preTime;
       timeEl.value = preTime;
     }
-    renderChips();
-    refreshAvailability().then(function(){
-      if (!preDate) return;
-      var g = String(preDate).substring(0,10);
-      var finish = function(){
-        if (!availableSet()[g]) return;
-        dateEl.value = g;
-        dateView.value = gregorianToJalaliText(g);
-        renderChips();
+    if (doctorEl.value) {
+      dateView.disabled = false;
+      dateView.placeholder = "تاریخ شمسی خالی";
+    }
+    lastChipsStructureKey = "";
+    function finishDate(){
+      if (preDate && doctorEl.value) {
         if (preTime) {
           selectedTime = preTime;
           timeEl.value = preTime;
         }
-        loadSlots({ keepTime: true });
-      };
-      if (!availableSet()[g]) {
-        refreshAvailability().then(finish);
+        selectDate(preDate, { force: true, keepTime: true });
+        if (preTime) {
+          selectedTime = preTime;
+          timeEl.value = preTime;
+          loadSlots({ keepTime: true });
+        }
       } else {
-        finish();
+        renderChips();
+        if (dateEl.value) loadSlots({ keepTime: true });
       }
-    });
+      applyingPrefill = false;
+    }
+    if (doctorEl.value) {
+      refreshAvailability().then(finishDate);
+    } else {
+      applyingPrefill = false;
+    }
   })();
 })();
 </script>
