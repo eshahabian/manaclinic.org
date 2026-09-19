@@ -3284,8 +3284,28 @@ html[data-theme="dark"] .appt-search-bar {
 }
 .sec-week-shadow-actions {
   display: flex;
+  flex-wrap: wrap;
   justify-content: flex-end;
   gap: .5rem;
+  align-items: center;
+}
+.sec-week-shadow-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .45rem;
+  align-items: center;
+  width: 100%;
+  margin-bottom: .35rem;
+}
+.sec-week-confirm-form {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+  align-items: center;
+  margin: 0;
+}
+.sec-week-hour-wrap {
+  display: inline-flex;
 }
 html[data-theme="dark"] .sec-week-hour.is-free {
   background: rgba(31, 122, 76, .15);

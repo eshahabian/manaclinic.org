@@ -115,8 +115,10 @@ function secretary_week_schedule(PDO $pdo, string $doctorId, int $days = 7): arr
     return $out;
 }
 
-function secretary_week_grid_html(array $week, string $doctorId, string $bookBaseUrl): string
+function secretary_week_grid_html(array $week, string $doctorId, string $bookBaseUrl, ?string $deskNext = null): string
 {
+    $deskNext = $deskNext ?: '/secretary/appointments';
+    $nextUpcoming = $deskNext . (str_contains($deskNext, '?') ? '&' : '?') . 'tab=upcoming&doctor_id=' . rawurlencode($doctorId);
     ob_start();
     ?>
     <div class="sec-week-grid" data-sec-week data-doctor-id="<?= e($doctorId) ?>">
@@ -145,6 +147,9 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                           : '';
                       $status = appointment_status_label((string) ($booking['status'] ?? ''));
                       $amount = isset($booking['amount']) ? format_price((int) $booking['amount']) : '';
+                      $canConfirmPay = function_exists('appointment_payment_can_upload_receipt')
+                          && appointment_payment_can_upload_receipt($booking);
+                      $hasReceipt = trim((string) ($booking['receipt_path'] ?? '')) !== '';
                       $title = trim(
                           (string) ($booking['patient_name'] ?? '')
                           . "\n" . $status
@@ -154,19 +159,49 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                           . (!empty($booking['phone']) ? "\n" . $booking['phone'] : '')
                       );
                       ?>
-                      <button
-                        type="button"
-                        class="sec-week-hour is-booked"
-                        data-booked="1"
-                        data-patient="<?= e((string) ($booking['patient_name'] ?? '')) ?>"
-                        data-phone="<?= e((string) ($booking['phone'] ?? '')) ?>"
-                        data-status="<?= e($status) ?>"
-                        data-pay="<?= e($pay) ?>"
-                        data-mode="<?= e($mode) ?>"
-                        data-amount="<?= e($amount) ?>"
-                        data-appt="<?= e((string) ($booking['id'] ?? '')) ?>"
-                        title="<?= e($title) ?>"
-                      ><?= e((string) ($slot['label'] ?? $time)) ?></button>
+                      <div class="sec-week-hour-wrap">
+                        <button
+                          type="button"
+                          class="sec-week-hour is-booked"
+                          data-booked="1"
+                          data-patient="<?= e((string) ($booking['patient_name'] ?? '')) ?>"
+                          data-phone="<?= e((string) ($booking['phone'] ?? '')) ?>"
+                          data-status="<?= e($status) ?>"
+                          data-pay="<?= e($pay) ?>"
+                          data-mode="<?= e($mode) ?>"
+                          data-amount="<?= e($amount) ?>"
+                          data-appt="<?= e((string) ($booking['id'] ?? '')) ?>"
+                          title="<?= e($title) ?>"
+                        ><?= e((string) ($slot['label'] ?? $time)) ?></button>
+                        <template class="sec-week-slot-actions">
+                          <div class="sec-week-shadow-tools">
+                            <?= staff_receipt_view_html(
+                                isset($booking['payment_id']) ? (string) $booking['payment_id'] : null,
+                                $hasReceipt ? (string) $booking['receipt_path'] : null,
+                                true,
+                                $nextUpcoming
+                            ) ?>
+                            <?php if ($canConfirmPay): ?>
+                              <form method="post" action="<?= e(url('/secretary/appointments')) ?>" enctype="multipart/form-data" class="appt-confirm-pay-form sec-week-confirm-form">
+                                <?= csrf_field() ?>
+                                <input type="hidden" name="action" value="confirm_payment">
+                                <input type="hidden" name="appointment_id" value="<?= e((string) ($booking['id'] ?? '')) ?>">
+                                <input type="hidden" name="next" value="<?= e($nextUpcoming) ?>">
+                                <label class="btn btn-outline btn-sm staff-receipt-pick" title="اختیاری — اگر فیش روی موبایل آمده، خالی بگذارید">
+                                  فیش (اختیاری)
+                                  <input type="file" name="receipt" accept="image/jpeg,image/png,image/webp,application/pdf">
+                                </label>
+                                <button type="submit" class="btn btn-primary btn-sm" onclick="return confirm('پرداخت تأیید و نوبت ثبت شود؟');">
+                                  <?= $hasReceipt ? 'تأیید فیش و ثبت نوبت' : 'تأیید پرداخت و ثبت نوبت' ?>
+                                </button>
+                              </form>
+                              <?php if (!$hasReceipt): ?>
+                                <p class="muted" style="font-size:.75rem;margin:0;flex-basis:100%">اگر فیش مستقیم به موبایل منشی ارسال شده، بدون آپلود هم می‌توانید تأیید کنید.</p>
+                              <?php endif; ?>
+                            <?php endif; ?>
+                          </div>
+                        </template>
+                      </div>
                       <?php
                   } else {
                       $href = $bookBaseUrl
@@ -212,7 +247,7 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
       shadow.addEventListener("click", function(e){ if (e.target === shadow) close(); });
       root.addEventListener("click", function(e){
         var btn = e.target && e.target.closest ? e.target.closest(".sec-week-hour.is-booked") : null;
-        if (!btn) return;
+        if (!btn || !root.contains(btn)) return;
         e.preventDefault();
         var lines = [];
         if (btn.getAttribute("data-status")) lines.push("وضعیت نوبت: " + btn.getAttribute("data-status"));
@@ -223,9 +258,18 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
         if (nameEl) nameEl.textContent = btn.getAttribute("data-patient") || "مراجعه‌کننده";
         if (metaEl) metaEl.textContent = lines.join(" · ");
         if (actionsEl) {
-          actionsEl.innerHTML = '<button type="button" class="btn btn-outline btn-sm sec-week-shadow-dismiss">بستن</button>';
-          var dismiss = actionsEl.querySelector(".sec-week-shadow-dismiss");
-          if (dismiss) dismiss.addEventListener("click", close);
+          actionsEl.innerHTML = "";
+          var wrap = btn.closest(".sec-week-hour-wrap");
+          var tpl = wrap ? wrap.querySelector("template.sec-week-slot-actions") : null;
+          if (tpl && tpl.content) {
+            actionsEl.appendChild(tpl.content.cloneNode(true));
+          }
+          var dismiss = document.createElement("button");
+          dismiss.type = "button";
+          dismiss.className = "btn btn-outline btn-sm sec-week-shadow-dismiss";
+          dismiss.textContent = "بستن";
+          dismiss.addEventListener("click", close);
+          actionsEl.appendChild(dismiss);
         }
         shadow.hidden = false;
       });

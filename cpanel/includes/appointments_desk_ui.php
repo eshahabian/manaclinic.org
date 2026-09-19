@@ -148,7 +148,7 @@ ob_start();
         <?php if ($weekDoctorId === ''): ?>
           <p class="muted">درمانگری برای نمایش یافت نشد.</p>
         <?php else: ?>
-          <?= secretary_week_grid_html($weekSchedule, $weekDoctorId, $deskAction) ?>
+          <?= secretary_week_grid_html($weekSchedule, $weekDoctorId, $deskAction, $appointmentsDeskNext) ?>
         <?php endif; ?>
       <?php endif; ?>
     </section>
