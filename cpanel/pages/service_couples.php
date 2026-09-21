@@ -7,12 +7,29 @@ $pageCanonical = url('/services/couples');
 $pageKeywords = 'زوج درمانی, مشاوره زوج, روابط عاطفی, مانا کلینیک سعادت آباد';
 
 $doctorsHref = service_doctors_search_href('زوج درمانی');
+$heroImage = url('/assets/img/services/couples-therapy.png');
 $domainDoctors = service_doctors_by_domain($pdo, 'couples');
+
+$workshopBanners = [];
+if (function_exists('workshop_home_banners')) {
+    $rawBanners = workshop_home_banners($pdo, 12);
+    foreach ($rawBanners as $promo) {
+        if (workshop_promo_phase($promo) === 'done') {
+            continue;
+        }
+        $workshopBanners[] = $promo;
+    }
+    usort($workshopBanners, static function (array $a, array $b): int {
+        return strcmp((string) ($b['created_at'] ?? ''), (string) ($a['created_at'] ?? ''));
+    });
+}
+
 $pageJsonLd = service_detail_json_ld(
     'زوج‌درمانی',
     '/services/couples',
     $pageDescription,
-    'زوج‌درمانی و روابط عاطفی'
+    'زوج‌درمانی و روابط عاطفی',
+    '/assets/img/services/couples-therapy.png'
 );
 
 ob_start();
@@ -27,6 +44,16 @@ ob_start();
   </nav>
 
   <header class="services-hero">
+    <figure class="service-detail-hero-media">
+      <img
+        src="<?= e($heroImage) ?>"
+        alt="فضای آرام اتاق زوج‌درمانی در کلینیک روانشناسی"
+        width="1600"
+        height="900"
+        loading="eager"
+        decoding="async"
+      >
+    </figure>
     <p class="services-kicker"><span>خدمات ما</span></p>
     <h1>زوج‌درمانی</h1>
   </header>
@@ -68,6 +95,84 @@ ob_start();
       <?php endif; ?>
     </section>
 
+    <section>
+      <h2>کارگاه‌ها و دوره‌های آموزشی</h2>
+      <p class="services-lead" style="margin:0 0 1rem;text-align:right">فرصتی برای یادگیری، تجربه و رشد در کنار دیگران</p>
+      <p>روان‌شناسی فقط به اتاق درمان محدود نمی‌شود. گاهی یک دوره آموزشی، یک گفت‌وگوی گروهی یا تجربه‌ای مشترک با افرادی که دغدغه‌ای مشابه دارند، می‌تواند دریچه تازه‌ای برای شناخت خود و روابطمان باز کند.</p>
+      <p>کارگاه‌ها و دوره‌های کلینیک مانا با موضوعات متنوع روان‌شناختی و مهارت‌های فردی و بین‌فردی برگزار می‌شوند؛ برنامه‌هایی که می‌توانند فرصتی برای یادگیری، تمرین و تجربه در فضایی تخصصی و تعاملی باشند.</p>
+      <h3>چه موضوعاتی در این برنامه‌ها مطرح می‌شود؟</h3>
+      <p>موضوع هر برنامه متناسب با هدف و مخاطبان آن متفاوت است؛ از خودشناسی و رشد فردی و مهارت‌های ارتباطی گرفته تا روابط عاطفی، فرزندپروری، تنظیم هیجان، مهارت‌های زندگی و موضوعات تخصصی‌تر روان‌شناسی.</p>
+      <p>برخی برنامه‌ها با رویکرد آموزشی طراحی می‌شوند و برخی دیگر امکان گفت‌وگو، تعامل و تمرین گروهی بیشتری دارند.</p>
+      <h3>در این دوره‌ها چه چیزی تجربه می‌کنیم؟</h3>
+      <p>قرار نیست فقط شنونده باشیم. بسته به نوع برنامه، ممکن است با مفاهیم جدید آشنا شویم، درباره تجربه‌های خود گفت‌وگو کنیم، تمرین‌های فردی یا گروهی انجام دهیم و از دیدگاه‌ها و تجربه‌های دیگران نیز استفاده کنیم.</p>
+      <p>هدف این است که آنچه در این برنامه‌ها یاد می‌گیریم، تا حد امکان از فضای کلاس فراتر برود و در زندگی روزمره، روابط و تصمیم‌های ما قابل استفاده باشد.</p>
+    </section>
+
+    <section class="home-workshop-banners service-detail-workshop-banners" id="home-workshop-banners" aria-labelledby="upcoming-workshops-heading">
+      <div class="section-head">
+        <div>
+          <h2 id="upcoming-workshops-heading">برنامه‌های پیش رو</h2>
+          <p class="muted">روی کارت بزنید تا توضیح و ثبت‌نام را ببینید</p>
+        </div>
+      </div>
+      <?php if ($workshopBanners): ?>
+        <div class="home-workshop-track">
+          <?php foreach ($workshopBanners as $promo): ?>
+            <?php
+              $phase = workshop_promo_phase($promo);
+              $when = workshop_is_offline((string) ($promo['type'] ?? ''))
+                  ? 'دوره آفلاین'
+                  : (format_workshop_datetime_fa((string) ($promo['starts_at'] ?? '')) . ' تا ' . format_workshop_datetime_fa((string) ($promo['ends_at'] ?? '')));
+              $meta = trim(workshop_type_label((string) ($promo['type'] ?? '')) . ' · ' . (string) ($promo['doctor_name'] ?? '') . ' · ' . $when);
+              $canApply = workshop_can_enroll($promo) && $phase !== 'done' && (string) ($promo['status'] ?? '') === 'PUBLISHED';
+              $bannerSrc = workshop_promo_image_src($promo);
+              $blurb = workshop_promo_blurb($promo);
+              $notes = trim((string) ($promo['description'] ?? ''));
+              $typeKey = workshop_tab_from_type((string) ($promo['type'] ?? ''));
+            ?>
+            <button
+              type="button"
+              class="home-workshop-banner"
+              data-workshop-banner
+              data-title="<?= e((string) ($promo['title'] ?? '')) ?>"
+              data-description="<?= e($blurb) ?>"
+              data-notes="<?= e($notes) ?>"
+              data-meta="<?= e($meta) ?>"
+              data-image="<?= e($bannerSrc) ?>"
+              data-apply="<?= e(workshop_apply_url((string) ($promo['id'] ?? ''))) ?>"
+              data-can-apply="<?= $canApply ? '1' : '0' ?>"
+            >
+              <img src="<?= e($bannerSrc) ?>" alt="<?= e((string) ($promo['title'] ?? 'بنر دوره')) ?>">
+              <span class="home-workshop-caption">
+                <strong><?= e((string) ($promo['title'] ?? 'دوره')) ?></strong>
+              </span>
+              <span class="home-workshop-badges">
+                <span class="home-workshop-badge home-workshop-badge--type-<?= e($typeKey) ?>"><?= e(workshop_type_label((string) ($promo['type'] ?? ''))) ?></span>
+                <span class="home-workshop-badge home-workshop-badge--<?= e($phase) ?>"><?= e(workshop_promo_phase_label($phase)) ?></span>
+              </span>
+            </button>
+          <?php endforeach; ?>
+        </div>
+      <?php else: ?>
+        <p class="muted home-workshop-empty">به‌زودی دوره‌های جدید اینجا اعلام می‌شود.</p>
+      <?php endif; ?>
+    </section>
+
+    <div id="home-workshop-modal" class="home-workshop-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="home-workshop-modal-title">
+      <div class="home-workshop-modal-backdrop" data-workshop-close tabindex="-1"></div>
+      <div class="home-workshop-modal-panel">
+        <div class="home-workshop-modal-header">
+          <h2 id="home-workshop-modal-title"></h2>
+          <button type="button" class="home-workshop-modal-close" data-workshop-close aria-label="بستن">×</button>
+        </div>
+        <div class="home-workshop-modal-body" id="home-workshop-modal-body"></div>
+        <div class="home-workshop-modal-actions">
+          <a class="btn btn-primary" id="home-workshop-modal-cta" href="#">ثبت‌نام در دوره</a>
+          <button type="button" class="btn btn-outline" data-workshop-close>بستن</button>
+        </div>
+      </div>
+    </div>
+
     <div class="service-detail-cta">
       <a class="btn btn-primary" href="<?= e($doctorsHref) ?>">رزرو نوبت زوج‌درمانی</a>
       <a class="btn btn-outline" href="<?= e(url('/assistant')) ?>">شروع با دستیار هوشمند</a>
@@ -78,4 +183,6 @@ ob_start();
 </div>
 <?php
 $content = ob_get_clean();
+$pageScripts = '<script src="' . e(url('/assets/js/home-workshop-banners.js')) . '?v=20260908k"></script>';
+$GLOBALS['pageScripts'] = $pageScripts;
 require __DIR__ . '/../includes/layout.php';
