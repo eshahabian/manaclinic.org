@@ -75,39 +75,6 @@ ob_start();
       <p>درمانگر تلاش می‌کند تنها به این سؤال که «چه کسی مقصر است؟» نپردازد؛ بلکه به زوج کمک می‌کند چرخه‌ای را که میان آنها شکل گرفته بشناسند و بفهمند پشت بسیاری از اختلاف‌ها چه نیازها، احساسات و الگوهایی قرار دارد. هدف، ایجاد فضایی برای گفت‌وگوی مؤثرتر و ساختن رابطه‌ای آگاهانه‌تر است.</p>
     </section>
 
-    <section class="service-detail-therapists" aria-labelledby="couples-therapists-heading">
-      <h2 id="couples-therapists-heading">متخصصان زوج‌درمانی</h2>
-      <p><a href="<?= e($doctorsHref) ?>">معرفی متخصصان کلینیک در حوزه زوج‌درمانی و روابط عاطفی.</a></p>
-      <?php if ($domainDoctors): ?>
-        <div class="doctors-directory service-detail-doctors">
-          <?php foreach ($domainDoctors as $doc): ?>
-            <?= doctor_card_html($doc) ?>
-          <?php endforeach; ?>
-        </div>
-        <p class="service-detail-related">
-          <a href="<?= e($doctorsHref) ?>">مشاهده همه متخصصان مرتبط</a>
-        </p>
-      <?php else: ?>
-        <p class="muted">
-          در حال حاضر درمانگر فعالی با این حوزه ثبت نشده است.
-          <a href="<?= e(url('/doctors')) ?>">فهرست همه متخصصان</a>
-        </p>
-      <?php endif; ?>
-    </section>
-
-    <section>
-      <h2>کارگاه‌ها و دوره‌های آموزشی</h2>
-      <p class="services-lead" style="margin:0 0 1rem;text-align:right">فرصتی برای یادگیری، تجربه و رشد در کنار دیگران</p>
-      <p>روان‌شناسی فقط به اتاق درمان محدود نمی‌شود. گاهی یک دوره آموزشی، یک گفت‌وگوی گروهی یا تجربه‌ای مشترک با افرادی که دغدغه‌ای مشابه دارند، می‌تواند دریچه تازه‌ای برای شناخت خود و روابطمان باز کند.</p>
-      <p>کارگاه‌ها و دوره‌های کلینیک مانا با موضوعات متنوع روان‌شناختی و مهارت‌های فردی و بین‌فردی برگزار می‌شوند؛ برنامه‌هایی که می‌توانند فرصتی برای یادگیری، تمرین و تجربه در فضایی تخصصی و تعاملی باشند.</p>
-      <h3>چه موضوعاتی در این برنامه‌ها مطرح می‌شود؟</h3>
-      <p>موضوع هر برنامه متناسب با هدف و مخاطبان آن متفاوت است؛ از خودشناسی و رشد فردی و مهارت‌های ارتباطی گرفته تا روابط عاطفی، فرزندپروری، تنظیم هیجان، مهارت‌های زندگی و موضوعات تخصصی‌تر روان‌شناسی.</p>
-      <p>برخی برنامه‌ها با رویکرد آموزشی طراحی می‌شوند و برخی دیگر امکان گفت‌وگو، تعامل و تمرین گروهی بیشتری دارند.</p>
-      <h3>در این دوره‌ها چه چیزی تجربه می‌کنیم؟</h3>
-      <p>قرار نیست فقط شنونده باشیم. بسته به نوع برنامه، ممکن است با مفاهیم جدید آشنا شویم، درباره تجربه‌های خود گفت‌وگو کنیم، تمرین‌های فردی یا گروهی انجام دهیم و از دیدگاه‌ها و تجربه‌های دیگران نیز استفاده کنیم.</p>
-      <p>هدف این است که آنچه در این برنامه‌ها یاد می‌گیریم، تا حد امکان از فضای کلاس فراتر برود و در زندگی روزمره، روابط و تصمیم‌های ما قابل استفاده باشد.</p>
-    </section>
-
     <section class="home-workshop-banners service-detail-workshop-banners" id="home-workshop-banners" aria-labelledby="upcoming-workshops-heading">
       <div class="section-head">
         <div>
@@ -172,6 +139,26 @@ ob_start();
         </div>
       </div>
     </div>
+
+    <section class="service-detail-therapists" aria-labelledby="couples-therapists-heading">
+      <h2 id="couples-therapists-heading">متخصصان زوج‌درمانی</h2>
+      <p><a href="<?= e($doctorsHref) ?>">معرفی متخصصان کلینیک در حوزه زوج‌درمانی و روابط عاطفی.</a></p>
+      <?php if ($domainDoctors): ?>
+        <div class="doctors-directory service-detail-doctors">
+          <?php foreach ($domainDoctors as $doc): ?>
+            <?= doctor_card_html($doc) ?>
+          <?php endforeach; ?>
+        </div>
+        <p class="service-detail-related">
+          <a href="<?= e($doctorsHref) ?>">مشاهده همه متخصصان مرتبط</a>
+        </p>
+      <?php else: ?>
+        <p class="muted">
+          در حال حاضر درمانگر فعالی با این حوزه ثبت نشده است.
+          <a href="<?= e(url('/doctors')) ?>">فهرست همه متخصصان</a>
+        </p>
+      <?php endif; ?>
+    </section>
 
     <div class="service-detail-cta">
       <a class="btn btn-primary" href="<?= e($doctorsHref) ?>">رزرو نوبت زوج‌درمانی</a>
