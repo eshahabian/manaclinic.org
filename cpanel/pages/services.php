@@ -10,7 +10,7 @@ $services = [
     [
         'title' => 'مشاوره فردی',
         'desc' => 'گاهی برای روشن‌کردن مسیر و سبک‌کردن بار ذهنی، به همراهی حرفه‌ای نیاز دارید.',
-        'href' => '/doctors',
+        'href' => '/services/individual',
         'icon' => 'person',
     ],
     [

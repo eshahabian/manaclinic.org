@@ -143,6 +143,7 @@ $routes = [
     'GET /tests' => 'pages/tests.php',
     'GET /about' => 'pages/about.php',
     'GET /services' => 'pages/services.php',
+    'GET /services/individual' => 'pages/service_individual.php',
     'GET /faq' => 'pages/faq.php',
     'GET /rules' => 'pages/rules.php',
     'GET /contact' => 'pages/contact.php',

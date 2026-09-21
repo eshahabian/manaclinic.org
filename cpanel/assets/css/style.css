@@ -6751,6 +6751,34 @@ html[data-theme="dark"] .emoji-picker-panel {
   color: var(--accent);
 }
 .service-card:hover .service-card-more { color: var(--primary); }
+.service-detail-body {
+  max-width: 42rem;
+  margin: 0 auto;
+  line-height: 1.95;
+  font-size: 1.02rem;
+  color: var(--fg);
+}
+.service-detail-body section { margin: 0 0 1.75rem; }
+.service-detail-body h2 {
+  margin: 0 0 .7rem;
+  font-size: 1.2rem;
+  font-weight: 800;
+  color: var(--primary-dark);
+  line-height: 1.45;
+}
+.service-detail-body p { margin: 0 0 .85rem; }
+.service-detail-body a {
+  color: var(--primary-dark);
+  font-weight: 700;
+  text-underline-offset: 3px;
+}
+.service-detail-cta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .65rem;
+  margin: 1.75rem 0 1.1rem;
+}
+.service-detail-related { margin: 0; font-size: .92rem; }
 @media (prefers-reduced-motion: reduce) {
   .service-card,
   .service-card:hover,
