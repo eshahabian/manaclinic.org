@@ -6785,11 +6785,25 @@ html[data-theme="dark"] .emoji-picker-panel {
   color: var(--primary-dark);
   line-height: 1.45;
 }
+.service-detail-body h3 {
+  margin: 1.1rem 0 .55rem;
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--fg);
+  line-height: 1.45;
+}
 .service-detail-body p { margin: 0 0 .85rem; }
 .service-detail-body a {
   color: var(--primary-dark);
   font-weight: 700;
   text-underline-offset: 3px;
+}
+.service-detail-workshop-banners {
+  margin-top: 2rem;
+  max-width: none;
+}
+.service-detail-workshop-banners .section-head {
+  margin-bottom: 1rem;
 }
 .service-detail-therapists .service-detail-doctors {
   margin: 1.1rem 0 1rem;
