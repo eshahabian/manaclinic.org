@@ -6751,6 +6751,25 @@ html[data-theme="dark"] .emoji-picker-panel {
   color: var(--accent);
 }
 .service-card:hover .service-card-more { color: var(--primary); }
+.service-detail-page .services-hero {
+  max-width: min(52rem, 100%);
+}
+.service-detail-hero-media {
+  margin: 0 0 1.35rem;
+  width: 100%;
+  border-radius: 1.25rem;
+  overflow: hidden;
+  background: color-mix(in srgb, var(--bg-soft) 70%, var(--card));
+  border: 1px solid color-mix(in srgb, var(--line) 80%, var(--primary));
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--fg) 5%, transparent);
+}
+.service-detail-hero-media img {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+}
 .service-detail-body {
   max-width: 42rem;
   margin: 0 auto;
@@ -6772,6 +6791,12 @@ html[data-theme="dark"] .emoji-picker-panel {
   font-weight: 700;
   text-underline-offset: 3px;
 }
+.service-detail-therapists .service-detail-doctors {
+  margin: 1.1rem 0 1rem;
+}
+.service-detail-therapists .service-detail-related {
+  margin-top: .35rem;
+}
 .service-detail-cta {
   display: flex;
   flex-wrap: wrap;
@@ -6779,6 +6804,12 @@ html[data-theme="dark"] .emoji-picker-panel {
   margin: 1.75rem 0 1.1rem;
 }
 .service-detail-related { margin: 0; font-size: .92rem; }
+@media (max-width: 639px) {
+  .service-detail-hero-media {
+    border-radius: 1rem;
+    margin-bottom: 1.15rem;
+  }
+}
 @media (prefers-reduced-motion: reduce) {
   .service-card,
   .service-card:hover,
