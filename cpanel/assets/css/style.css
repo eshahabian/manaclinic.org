@@ -6810,6 +6810,51 @@ html[data-theme="dark"] .emoji-picker-panel {
     margin-bottom: 1.15rem;
   }
 }
+
+.service-workshop-list {
+  list-style: none;
+  margin: 1rem 0 1.25rem;
+  padding: 0;
+  display: grid;
+  gap: .85rem;
+}
+.service-workshop-item {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: .75rem 1rem;
+  padding: 1rem 1.05rem;
+  border: 1px solid color-mix(in srgb, var(--line) 85%, var(--primary));
+  border-radius: 1rem;
+  background: color-mix(in srgb, var(--card) 88%, var(--bg-soft));
+}
+.service-workshop-item-main { flex: 1 1 14rem; min-width: 0; }
+.service-workshop-title {
+  display: inline-block;
+  font-weight: 800;
+  font-size: 1.05rem;
+  line-height: 1.5;
+  color: var(--primary-dark);
+  text-decoration: none;
+}
+.service-workshop-title:hover { text-decoration: underline; text-underline-offset: 3px; }
+.service-workshop-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .35rem .55rem;
+  align-items: center;
+  margin-top: .45rem;
+}
+.service-workshop-when {
+  margin: .45rem 0 0;
+  font-size: .9rem;
+  line-height: 1.7;
+}
+.service-detail-upcoming-workshops .service-detail-related {
+  margin-top: .85rem;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .service-card,
   .service-card:hover,

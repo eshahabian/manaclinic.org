@@ -65,6 +65,7 @@ require_once __DIR__ . '/includes/staff_board.php';
 require_once __DIR__ . '/includes/user_cleanup.php';
 require_once __DIR__ . '/includes/seo.php';
 require_once __DIR__ . '/includes/doctor_profile_fields.php';
+require_once __DIR__ . '/includes/service_page_helpers.php';
 require_once __DIR__ . '/includes/video_call.php';
 require_once __DIR__ . '/includes/patient_journal.php';
 require_once __DIR__ . '/includes/mail.php';
@@ -144,6 +145,12 @@ $routes = [
     'GET /about' => 'pages/about.php',
     'GET /services' => 'pages/services.php',
     'GET /services/individual' => 'pages/service_individual.php',
+    'GET /services/couples' => 'pages/service_couples.php',
+    'GET /services/child' => 'pages/service_child.php',
+    'GET /services/premarital' => 'pages/service_premarital.php',
+    'GET /services/family' => 'pages/service_family.php',
+    'GET /services/assessments' => 'pages/service_assessments.php',
+    'GET /services/workshops' => 'pages/service_workshops.php',
     'GET /faq' => 'pages/faq.php',
     'GET /rules' => 'pages/rules.php',
     'GET /contact' => 'pages/contact.php',

@@ -6,56 +6,16 @@ $pageDescription = 'مشاوره فردی در مانا کلینیک سعادت�
 $pageCanonical = url('/services/individual');
 $pageKeywords = 'مشاوره فردی, روان‌درمانی فردی, روانشناس سعادت آباد, مشاوره اضطراب, مانا کلینیک';
 
-$doctorsHref = url('/doctors?q=' . rawurlencode('مشاوره فردی'));
+$doctorsHref = service_doctors_search_href('مشاوره فردی');
 $heroImage = url('/assets/img/services/individual-counseling.png');
-
-$allDoctors = $pdo->query("
-  SELECT dp.*, u.name
-  FROM doctor_profiles dp
-  JOIN users u ON u.id = dp.user_id
-  WHERE dp.is_active = 1 AND dp.is_approved = 1
-  ORDER BY CASE WHEN u.name LIKE '%گرانمایه%' THEN 0 ELSE 1 END, dp.created_at ASC
-")->fetchAll();
-
-$individualDoctors = [];
-foreach ($allDoctors as $doc) {
-    $domains = doctor_profile_filter_keys(
-        doctor_profile_json_list($doc['domains_json'] ?? ''),
-        doctor_domain_options()
-    );
-    if (in_array('individual', $domains, true)) {
-        $individualDoctors[] = $doc;
-    }
-}
-
-$pageJsonLd = [
-    '@context' => 'https://schema.org',
-    '@graph' => [
-        [
-            '@type' => 'BreadcrumbList',
-            'itemListElement' => [
-                ['@type' => 'ListItem', 'position' => 1, 'name' => 'صفحه اصلی', 'item' => seo_absolute_url('/')],
-                ['@type' => 'ListItem', 'position' => 2, 'name' => 'خدمات', 'item' => seo_absolute_url('/services')],
-                ['@type' => 'ListItem', 'position' => 3, 'name' => 'مشاوره فردی', 'item' => seo_absolute_url('/services/individual')],
-            ],
-        ],
-        [
-            '@type' => 'MedicalWebPage',
-            'name' => 'مشاوره فردی',
-            'description' => $pageDescription,
-            'url' => seo_absolute_url('/services/individual'),
-            'isPartOf' => ['@type' => 'WebSite', 'name' => 'مانا کلینیک', 'url' => seo_absolute_url('/')],
-            'about' => [
-                '@type' => 'MedicalTherapy',
-                'name' => 'مشاوره و روان‌درمانی فردی',
-            ],
-            'primaryImageOfPage' => [
-                '@type' => 'ImageObject',
-                'url' => seo_absolute_url('/assets/img/services/individual-counseling.png'),
-            ],
-        ],
-    ],
-];
+$individualDoctors = service_doctors_by_domain($pdo, 'individual');
+$pageJsonLd = service_detail_json_ld(
+    'مشاوره فردی',
+    '/services/individual',
+    $pageDescription,
+    'مشاوره و روان‌درمانی فردی',
+    '/assets/img/services/individual-counseling.png'
+);
 
 ob_start();
 ?>
@@ -101,8 +61,8 @@ ob_start();
     </section>
 
     <section class="service-detail-therapists" aria-labelledby="individual-therapists-heading">
-      <h2 id="individual-therapists-heading">درمانگران مشاوره فردی</h2>
-      <p>روان‌شناسان و درمانگران مانا کلینیک که حوزه «مشاوره فردی» را در پروفایل خود دارند:</p>
+      <h2 id="individual-therapists-heading">متخصصان مشاوره فردی</h2>
+      <p><a href="<?= e($doctorsHref) ?>">آشنایی با روان‌شناسان و درمانگران کلینیک که در زمینه مشاوره و روان‌درمانی فردی فعالیت می‌کنند.</a></p>
       <?php if ($individualDoctors): ?>
         <div class="doctors-directory service-detail-doctors">
           <?php foreach ($individualDoctors as $doc): ?>
