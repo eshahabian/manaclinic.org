@@ -88,12 +88,12 @@ $nameDict = isset($pdo) ? build_name_transliterations_client_map($pdo) : [];
           <div class="auth-gender-grid">
             <label class="auth-gender-card">
               <input type="radio" name="gender" value="male" required>
-              <img src="<?= e(url('/assets/img/mind-room/male-room.jpg')) ?>" alt="اتاق ذهن مرد">
+              <img src="<?= e(url('/assets/img/mind-room/male-avatar.png')) ?>" alt="شخصیت مرد">
               <strong>مرد</strong>
             </label>
             <label class="auth-gender-card">
               <input type="radio" name="gender" value="female" required>
-              <img src="<?= e(url('/assets/img/mind-room/female-room.jpg')) ?>" alt="اتاق ذهن زن">
+              <img src="<?= e(url('/assets/img/mind-room/female-avatar.png')) ?>" alt="شخصیت زن">
               <strong>زن</strong>
             </label>
           </div>

@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 function mana_path_css_href(): string
 {
-    return url('/assets/css/mana-path.css') . '?v=20260923f';
+    return url('/assets/css/mana-path.css') . '?v=20260923g';
 }
 
 function mana_path_asset(string $file): string
@@ -14,14 +14,9 @@ function mana_path_asset(string $file): string
 function mana_path_gender_assets(string $gender): array
 {
     $female = $gender === 'female';
-    $roomFile = $female ? 'female-room.jpg' : 'male-room.jpg';
-    $roomPath = dirname(__DIR__) . '/assets/img/mind-room/' . $roomFile;
-    if (!is_file($roomPath)) {
-        $roomFile = $female ? 'female-room.png' : 'male-room.png';
-    }
     return [
         'gender' => $female ? 'female' : 'male',
-        'room' => mana_path_asset($roomFile),
+        'room' => mana_path_asset($female ? 'female-room.png' : 'male-room.png'),
         'avatar' => mana_path_asset($female ? 'female-avatar.png' : 'male-avatar.png'),
     ];
 }
@@ -90,12 +85,12 @@ function mana_path_gender_picker_html(string $post, string $current = ''): strin
       <div class="mr-gender-grid">
         <label class="mr-gender-card<?= $current === 'male' ? ' is-on' : '' ?>">
           <input type="radio" name="gender" value="male"<?= $current === 'male' ? ' checked' : '' ?> required>
-          <img src="<?= e($male['room']) ?>" alt="اتاق ذهن مرد">
+          <img src="<?= e($male['avatar']) ?>" alt="شخصیت مرد">
           <strong>مرد</strong>
         </label>
         <label class="mr-gender-card<?= $current === 'female' ? ' is-on' : '' ?>">
           <input type="radio" name="gender" value="female"<?= $current === 'female' ? ' checked' : '' ?> required>
-          <img src="<?= e($female['room']) ?>" alt="اتاق ذهن زن">
+          <img src="<?= e($female['avatar']) ?>" alt="شخصیت زن">
           <strong>زن</strong>
         </label>
       </div>
