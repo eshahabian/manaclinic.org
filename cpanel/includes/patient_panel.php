@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/workshops.php';
+require_once __DIR__ . '/mana_path.php';
 
 function patient_request_path(): string
 {
@@ -20,6 +21,12 @@ function patient_nav(): array
 {
     $nav = [
         ['href' => '/dashboard', 'label' => 'خلاصه'],
+    ];
+    $u = current_user();
+    if (function_exists('mana_path_user_allowed') && mana_path_user_allowed($u)) {
+        $nav[] = ['href' => '/dashboard/path', 'label' => 'مسیر مانا'];
+    }
+    $nav = array_merge($nav, [
         ['href' => '/dashboard/appointments', 'label' => 'نوبت‌های من'],
         ['href' => '/dashboard/messages', 'label' => 'پیام‌ها', 'badge' => 'messages'],
         [
@@ -37,8 +44,14 @@ function patient_nav(): array
     if (function_exists('mentions_nav_item')) {
         $mentionNav = mentions_nav_item();
         if ($mentionNav) {
-            // بعد از پیام‌ها
-            array_splice($nav, 3, 0, [[
+            $after = 3;
+            foreach ($nav as $i => $item) {
+                if (($item['href'] ?? '') === '/dashboard/messages') {
+                    $after = $i + 1;
+                    break;
+                }
+            }
+            array_splice($nav, $after, 0, [[
                 'href' => $mentionNav['href'],
                 'label' => $mentionNav['label'],
                 'badge' => 'mentions',

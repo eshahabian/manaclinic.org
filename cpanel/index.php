@@ -112,6 +112,10 @@ if (!$isLightRequest) {
     ensure_handover_schema($pdo);
     ensure_secretary_to_admin_schema($pdo);
     ensure_patient_journal_schema($pdo);
+    if (str_starts_with($path, '/dashboard/path')) {
+        require_once __DIR__ . '/includes/mana_path.php';
+        ensure_mana_path_schema($pdo);
+    }
     ensure_notifications_table($pdo);
     ensure_mail_schema($pdo);
     ensure_mentions_schema($pdo);
@@ -174,6 +178,8 @@ $routes = [
     'POST /video-signal' => 'actions/video_signal.php',
 
     'GET /dashboard' => 'pages/patient/dashboard.php',
+    'GET /dashboard/path' => 'pages/patient/mana_path.php',
+    'POST /dashboard/path' => 'actions/patient_mana_path.php',
     'GET /dashboard/appointments' => 'pages/patient/appointments.php',
     'GET /dashboard/workshops' => 'pages/patient/workshops.php',
     'GET /dashboard/workshops/requested' => 'pages/patient/workshops.php',
