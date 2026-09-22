@@ -545,11 +545,11 @@ function mana_path_add_tree(PDO $pdo, array &$profile, string $treeId): void
 function mana_path_moods(): array
 {
     return [
-        1 => ['emoji' => '😟', 'label' => 'سنگین'],
-        2 => ['emoji' => '😕', 'label' => 'ناآرام'],
-        3 => ['emoji' => '😐', 'label' => 'معمولی'],
-        4 => ['emoji' => '🙂', 'label' => 'آرام'],
-        5 => ['emoji' => '😊', 'label' => 'سبک'],
+        1 => ['emoji' => '😟', 'label' => 'خسته'],
+        2 => ['emoji' => '😕', 'label' => 'غمگین'],
+        3 => ['emoji' => '😐', 'label' => 'عادی'],
+        4 => ['emoji' => '🙂', 'label' => 'بهتر'],
+        5 => ['emoji' => '😊', 'label' => 'شاد'],
     ];
 }
 

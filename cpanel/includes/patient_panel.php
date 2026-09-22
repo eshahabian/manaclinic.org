@@ -95,6 +95,12 @@ function render_patient_page(string $title, string $innerHtml): void
     if ($title !== '') {
         $GLOBALS['pageTitle'] = $title;
     }
+    if (!empty($GLOBALS['mpathApp'])) {
+        $GLOBALS['pageBodyClass'] = trim((string) ($GLOBALS['pageBodyClass'] ?? '') . ' mpath-app');
+        $GLOBALS['content'] = $innerHtml;
+        require __DIR__ . '/layout.php';
+        return;
+    }
     ob_start();
     ?>
     <div class="container-page panel-layout">

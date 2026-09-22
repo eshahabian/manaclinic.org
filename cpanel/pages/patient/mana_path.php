@@ -87,50 +87,135 @@ try {
 $GLOBALS['pageRobots'] = 'noindex,nofollow';
 $GLOBALS['pageTitle'] = 'مسیر مانا';
 $GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(mana_path_css_href()) . '">';
+$GLOBALS['mpathApp'] = true;
 
 $post = url('/dashboard/path');
 $mpathUrl = url('/dashboard/path');
+$dashUrl = url('/dashboard');
+$journalUrl = url('/dashboard/journal');
+$doctorsUrl = url('/doctors');
 
 function mpath_step_url(string $tree, string $step, string $tab = 'path'): string
 {
     return url('/dashboard/path?tab=' . rawurlencode($tab) . '&tree=' . rawurlencode($tree) . '&step=' . rawurlencode($step));
 }
 
+function mpath_task_meta(string $id): array
+{
+    return match ($id) {
+        'breathe' => ['cls' => 'teal', 'hint' => '۴ دقیقه'],
+        'thoughts' => ['cls' => 'violet', 'hint' => '۲ دقیقه'],
+        'walk' => ['cls' => 'mint', 'hint' => '۱۰ دقیقه'],
+        'feelings' => ['cls' => 'violet', 'hint' => '۲ دقیقه'],
+        'assert' => ['cls' => 'amber', 'hint' => '۵ دقیقه'],
+        'sleep' => ['cls' => 'teal', 'hint' => 'امشب'],
+        'kind' => ['cls' => 'rose', 'hint' => '۱ دقیقه'],
+        default => ['cls' => 'teal', 'hint' => ''],
+    };
+}
+
+$medals = 0;
+foreach ($treeRows as $tr) {
+    $medals += count($tr['completed'] ?? []);
+}
+$xpNeed = 150;
+$xpIn = $xp % $xpNeed;
+$streak = (int) ($profile['gentle_streak'] ?? 0);
+$restDays = (int) ($profile['rest_days'] ?? 0);
+$world = $profile['world'] ?? mana_path_world_defaults();
+$unlocks = [
+    ['id' => 'room', 'label' => 'اتاق ساده', 'on' => true],
+    ['id' => 'plant', 'label' => 'گیاه', 'on' => ((int) ($world['plant'] ?? 0)) >= 20],
+    ['id' => 'desk', 'label' => 'میز کار', 'on' => ((int) ($world['desk'] ?? 0)) >= 35],
+    ['id' => 'books', 'label' => 'قفسه کتاب', 'on' => ((int) ($world['desk'] ?? 0)) >= 55],
+    ['id' => 'window', 'label' => 'پنجره بزرگ', 'on' => ((int) ($world['window'] ?? 0)) >= 40 || ((int) ($world['light'] ?? 0)) >= 50],
+];
+$unlockOn = 0;
+foreach ($unlocks as $u) {
+    if (!empty($u['on'])) {
+        $unlockOn++;
+    }
+}
+$companionLine = mana_path_pick_line($profile, $state);
+$moodUi = [
+    1 => 'خسته',
+    2 => 'غمگین',
+    3 => 'عادی',
+    4 => 'بهتر',
+    5 => 'شاد',
+];
+
 ob_start();
 ?>
-<div class="mpath">
-  <header class="mpath-hero">
-    <div>
-      <p class="mpath-kicker">مسیر مانا</p>
-      <h1><?= e($firstName) ?> — Level <?= e(to_fa_digits((string) $level)) ?> 🌱</h1>
-      <p class="mpath-stats">
-        حال امروز: <span><?= e($moodEmoji) ?></span>
-        · انرژی ذهن: <strong><?= e(to_fa_digits((string) $xp)) ?></strong>
-        <?php if ((int) ($profile['rest_days'] ?? 0) > 0): ?>
-          · <span class="mpath-rest">استراحت <?= e(to_fa_digits((string) $profile['rest_days'])) ?> روزه</span>
-        <?php elseif ((int) ($profile['gentle_streak'] ?? 0) > 0): ?>
-          · همراهی: <?= e(to_fa_digits((string) $profile['gentle_streak'])) ?> روز
+<div class="mpath-shell">
+  <header class="mpath-hud">
+    <a class="mpath-brand" href="<?= e($mpathUrl) ?>">
+      <span class="mpath-brand-mark" aria-hidden="true">🌿</span>
+      <span>
+        <strong>ManaClinic</strong>
+        <small>حال بهتر، زندگی عمیق‌تر</small>
+      </span>
+    </a>
+    <div class="mpath-hud-stats">
+      <div class="mpath-stat mpath-stat--xp">
+        <span>سطح <?= e(to_fa_digits((string) $level)) ?></span>
+        <div class="mpath-xp" role="progressbar" aria-valuemin="0" aria-valuemax="<?= (int) $xpNeed ?>" aria-valuenow="<?= (int) $xpIn ?>">
+          <i style="width:<?= (int) round(100 * $xpIn / max(1, $xpNeed)) ?>%"></i>
+        </div>
+        <small><?= e(to_fa_digits((string) $xpIn)) ?> / <?= e(to_fa_digits((string) $xpNeed)) ?> XP</small>
+      </div>
+      <div class="mpath-stat mpath-stat--chip">
+        <span aria-hidden="true">🔥</span>
+        <?php if ($restDays > 0): ?>
+          <b><?= e(to_fa_digits((string) $restDays)) ?></b>
+          <small>روز استراحت</small>
+        <?php else: ?>
+          <b><?= e(to_fa_digits((string) $streak)) ?></b>
+          <small>روز متوالی</small>
         <?php endif; ?>
-      </p>
+      </div>
+      <div class="mpath-stat mpath-stat--chip">
+        <span aria-hidden="true">⭐</span>
+        <b><?= e(to_fa_digits((string) $medals)) ?></b>
+        <small>مدال‌ها</small>
+      </div>
+    </div>
+    <div class="mpath-user">
+      <span>
+        <strong><?= e($firstName !== '' ? $firstName : 'مهمان') ?></strong>
+        <small>حال امروز: <?= e($moodNow && isset($moods[$moodNow]) ? $moods[$moodNow]['label'] : '—') ?></small>
+      </span>
+      <a class="mpath-avatar" href="<?= e($dashUrl) ?>" aria-label="پنل من"><?= e(mb_substr($firstName !== '' ? $firstName : 'م', 0, 1)) ?></a>
     </div>
   </header>
 
-  <?php if (!empty($profile['crisis_flag'])): ?>
-    <?= mana_path_crisis_html() ?>
-  <?php endif; ?>
+  <div class="mpath-mid">
+    <aside class="mpath-rail">
+      <nav aria-label="مسیر مانا">
+        <a class="<?= $tab === 'home' ? 'is-on' : '' ?>" href="<?= e($mpathUrl) ?>"><i>⌂</i> خانه</a>
+        <a class="<?= $tab === 'path' ? 'is-on' : '' ?>" href="<?= e($mpathUrl . '?tab=path&tree=' . rawurlencode($activeTree)) ?>"><i>◎</i> مسیر من</a>
+        <a class="<?= $tab === 'practice' ? 'is-on' : '' ?>" href="<?= e($mpathUrl . '?tab=practice') ?>"><i>✦</i> تمرین‌ها</a>
+        <button type="button" data-mpath-sheet="workshops"><i>▦</i> کارگاه‌ها</button>
+        <button type="button" data-mpath-sheet="sessions"><i>◷</i> جلسات من</button>
+        <a class="<?= $tab === 'path' && $openStep !== '' ? 'is-on' : '' ?>" href="<?= e($mpathUrl . '?tab=path&tree=' . rawurlencode($activeTree)) ?>"><i>◉</i> آزمون‌ها</a>
+        <a class="<?= $tab === 'progress' ? 'is-on' : '' ?>" href="<?= e($mpathUrl . '?tab=progress') ?>"><i>▤</i> پیشرفت</a>
+        <a href="<?= e($dashUrl) ?>"><i>☺</i> دوستان</a>
+        <a href="<?= e($dashUrl) ?>"><i>⚙</i> تنظیمات</a>
+      </nav>
+      <p class="mpath-rail-note">قدم‌های کوچک تغییرات بزرگ می‌سازند.</p>
+    </aside>
 
-  <nav class="mpath-tabs" aria-label="بخش‌های مسیر مانا">
-    <a class="<?= $tab === 'home' ? 'is-on' : '' ?>" href="<?= e($mpathUrl) ?>">خانه</a>
-    <a class="<?= $tab === 'path' ? 'is-on' : '' ?>" href="<?= e($mpathUrl . '?tab=path&tree=' . rawurlencode($activeTree)) ?>">مسیر من</a>
-    <a class="<?= $tab === 'practice' ? 'is-on' : '' ?>" href="<?= e($mpathUrl . '?tab=practice') ?>">تمرین‌ها</a>
-    <button type="button" class="mpath-tab-btn" data-mpath-sheet="workshops">کارگاه‌ها</button>
-    <button type="button" class="mpath-tab-btn" data-mpath-sheet="sessions">جلسات من</button>
-    <a class="<?= $tab === 'progress' ? 'is-on' : '' ?>" href="<?= e($mpathUrl . '?tab=progress') ?>">پیشرفت</a>
-  </nav>
+    <div class="mpath-stage">
+      <?php if (!empty($profile['crisis_flag'])): ?>
+        <?= mana_path_crisis_html() ?>
+      <?php endif; ?>
 
   <?php if (empty($profile['intro_done'])): ?>
-    <section class="mpath-card">
-      <h2>سلام؛ از کجا شروع کنیم؟</h2>
+    <div class="mpath-room-scene" aria-hidden="true">
+      <img src="<?= e(mana_path_room_photo_src()) ?>" alt="">
+    </div>
+    <section class="mpath-glass mpath-intro">
+      <h1>سلام؛ از کجا شروع کنیم؟</h1>
       <p class="muted">این روزها بیشتر درگیر چی هستی؟ می‌توانی چند مورد را انتخاب کنی. این تشخیص نیست؛ فقط نقطهٔ شروع مسیر است.</p>
       <form method="post" action="<?= e($post) ?>" class="mpath-concerns">
         <?= csrf_field() ?>
@@ -144,47 +229,18 @@ ob_start();
         <?php endforeach; ?>
         <button class="btn btn-primary" type="submit">ساخت مسیر من</button>
       </form>
-      <?= mana_path_future_film_html() ?>
     </section>
   <?php else: ?>
 
-    <?php if ($tab === 'home'): ?>
-      <div class="mpath-grid">
-        <?= mana_path_room_html($profile, $state) ?>
-        <section class="mpath-card">
-          <h2>حال امروز</h2>
-          <form method="post" action="<?= e($post) ?>" class="mpath-moods">
-            <?= csrf_field() ?>
-            <input type="hidden" name="do" value="mood">
-            <?php foreach ($moods as $n => $m): ?>
-              <button class="mpath-mood<?= $moodNow === $n ? ' is-on' : '' ?>" name="mood" value="<?= (int) $n ?>" type="submit">
-                <span><?= e($m['emoji']) ?></span>
-                <?= e($m['label']) ?>
-              </button>
-            <?php endforeach; ?>
-          </form>
-          <h3>ماموریت‌های کوچک امروز</h3>
-          <ul class="mpath-missions">
-            <?php foreach ($missions as $m): ?>
-              <?php $ok = in_array($m['id'], $doneMissions, true); ?>
-              <li>
-                <a href="<?= e($mpathUrl . '?tab=practice&mission=' . rawurlencode($m['id'])) ?>">
-                  <?= $ok ? '✓' : '○' ?> <?= e($m['title']) ?>
-                  <span class="muted">+<?= e(to_fa_digits((string) $m['xp'])) ?></span>
-                </a>
-              </li>
-            <?php endforeach; ?>
-          </ul>
-          <p class="mpath-links">
-            <a class="btn btn-primary btn-sm" href="<?= e($mpathUrl . '?tab=path&tree=' . rawurlencode($activeTree)) ?>">ادامه مسیر</a>
-            <a class="btn btn-outline btn-sm" href="<?= e(url('/dashboard/journal')) ?>">دفتر یادداشت</a>
-          </p>
-        </section>
-      </div>
-      <?= mana_path_future_film_html() ?>
-    <?php endif; ?>
+    <div class="mpath-room-scene">
+      <img src="<?= e(mana_path_room_photo_src()) ?>" alt="اتاق ذهن مسیر مانا">
+      <?php if ($tab === 'home'): ?>
+        <p class="mpath-speech"><?= e($companionLine) ?></p>
+      <?php endif; ?>
+    </div>
 
     <?php if ($tab === 'path'): ?>
+      <div class="mpath-glass mpath-panel">
       <?php
         $picked = $profile['concerns'] ?? [];
         if (!in_array($activeTree, $picked, true) && isset($catalog[$activeTree])) {
@@ -388,10 +444,11 @@ ob_start();
           <?php endif; ?>
         </section>
       <?php endif; ?>
+      </div>
     <?php endif; ?>
 
     <?php if ($tab === 'practice'): ?>
-      <section class="mpath-card">
+      <section class="mpath-glass mpath-panel mpath-card">
         <h2>تمرین‌های امروز</h2>
         <p class="muted">اگر امروز حالش نبود، فردا همین‌جا منتظرت می‌مانیم. استریک نمی‌سوزد.</p>
         <?php foreach ($missions as $m): ?>
@@ -427,7 +484,7 @@ ob_start();
     <?php endif; ?>
 
     <?php if ($tab === 'progress'): ?>
-      <section class="mpath-card">
+      <section class="mpath-glass mpath-panel mpath-card">
         <h2>پیشرفت قابل مشاهده</h2>
         <p class="muted">انرژی ذهن با تمرین می‌آید. اگر روزی نبودی، همراهی‌ات قطع نمی‌شود — فقط حالت استراحت است.</p>
         <ul class="mpath-progress">
@@ -460,8 +517,94 @@ ob_start();
     <?php endif; ?>
 
   <?php endif; ?>
+    </div>
 
-  <p class="mpath-disclaimer muted">مسیر مانا همراه تمرین و غربالگری است، نه تشخیص بیماری و نه جایگزین درمان. نسخهٔ آزمایشی فعلاً فقط برای حساب تو فعال است.</p>
+    <?php if (!empty($profile['intro_done'])): ?>
+    <aside class="mpath-today" aria-label="امروز چی کار کنیم">
+      <h2>امروز چی کار کنیم؟</h2>
+      <ul>
+        <?php foreach ($missions as $m): ?>
+          <?php
+            $ok = in_array($m['id'], $doneMissions, true);
+            $meta = mpath_task_meta((string) $m['id']);
+          ?>
+          <li>
+            <a class="mpath-task <?= e($meta['cls']) ?><?= $ok ? ' is-done' : '' ?>" href="<?= e($mpathUrl . '?tab=practice&mission=' . rawurlencode((string) $m['id'])) ?>">
+              <span class="mpath-task-ico"></span>
+              <span>
+                <strong><?= e((string) $m['title']) ?></strong>
+                <small><?= $ok ? 'انجام شد' : e($meta['hint']) ?></small>
+              </span>
+            </a>
+          </li>
+        <?php endforeach; ?>
+        <li>
+          <button type="button" class="mpath-task amber" data-mpath-sheet="workshops">
+            <span class="mpath-task-ico mpath-task-ico--play"></span>
+            <span>
+              <strong>ویدیوی آموزشی</strong>
+              <small>۵ دقیقه</small>
+            </span>
+          </button>
+        </li>
+        <li>
+          <button type="button" class="mpath-task rose" data-mpath-sheet="sessions">
+            <span class="mpath-task-ico mpath-task-ico--user"></span>
+            <span>
+              <strong>جلسه با درمانگر</strong>
+              <small><?= $mpathAppointments === [] ? 'در صورت نیاز' : 'جلسه‌های ثبت‌شده' ?></small>
+            </span>
+          </button>
+        </li>
+      </ul>
+    </aside>
+    <?php endif; ?>
+  </div>
+
+  <?php if (!empty($profile['intro_done'])): ?>
+  <section class="mpath-status">
+    <div class="mpath-mood-box">
+      <h2>خلق و حال آدمک</h2>
+      <form method="post" action="<?= e($post) ?>" class="mpath-faces">
+        <?= csrf_field() ?>
+        <input type="hidden" name="do" value="mood">
+        <?php foreach ($moodUi as $n => $lab): ?>
+          <button class="mpath-face mpath-face--<?= (int) $n ?><?= $moodNow === $n ? ' is-on' : '' ?>" name="mood" value="<?= (int) $n ?>" type="submit">
+            <span class="mpath-face-art" aria-hidden="true"></span>
+            <?= e($lab) ?>
+          </button>
+        <?php endforeach; ?>
+      </form>
+    </div>
+    <div class="mpath-world-box">
+      <h2>محیط اتاق تو</h2>
+      <ul class="mpath-unlocks">
+        <?php foreach ($unlocks as $u): ?>
+          <li class="<?= !empty($u['on']) ? 'is-on' : 'is-off' ?>">
+            <span class="mpath-lock" aria-hidden="true"></span>
+            <?= e($u['label']) ?>
+          </li>
+        <?php endforeach; ?>
+      </ul>
+      <p class="mpath-unlock-bar"><i style="width:<?= (int) round(100 * $unlockOn / max(1, count($unlocks))) ?>%"></i></p>
+      <small><?= e(to_fa_digits((string) $unlockOn)) ?> / <?= e(to_fa_digits((string) count($unlocks))) ?> آیتم باز شده</small>
+    </div>
+    <blockquote class="mpath-quote">
+      ذهن سالم محیط سالم می‌سازد.
+    </blockquote>
+  </section>
+  <?php endif; ?>
+
+  <nav class="mpath-dock" aria-label="میانبرها">
+    <a href="<?= e($mpathUrl . '?tab=practice') ?>">ماموریت امروز</a>
+    <a href="<?= e($mpathUrl . '?tab=practice') ?>">تمرین سریع</a>
+    <a href="<?= e($journalUrl) ?>">یادداشت روزانه</a>
+    <button type="button" data-mpath-sheet="workshops">کارگاه‌ها</button>
+    <a href="<?= e($doctorsUrl) ?>">رزرو جلسه</a>
+    <a class="mpath-dock-go" href="<?= e($mpathUrl . '?tab=path&tree=' . rawurlencode($activeTree)) ?>">ادامه مسیر</a>
+  </nav>
+
+  <p class="mpath-disclaimer">مسیر مانا همراه تمرین و غربالگری است، نه تشخیص بیماری و نه جایگزین درمان. نسخهٔ آزمایشی فعلاً فقط برای حساب تو فعال است.</p>
 </div>
 
 <div class="mpath-sheet" data-mpath-sheet-panel="workshops" hidden>
@@ -521,7 +664,7 @@ ob_start();
     </div>
   </div>
 </div>
-<script src="<?= e(url('/assets/js/mana-path.js')) ?>?v=20260923c"></script>
+<script src="<?= e(url('/assets/js/mana-path.js')) ?>?v=20260923d"></script>
 <?php
 $inner = ob_get_clean();
 render_patient_page('مسیر مانا', $inner);
