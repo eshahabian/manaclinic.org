@@ -6,7 +6,7 @@
 
   var panelSlot = drawer.querySelector("[data-mobile-panel]");
   var sideNav = document.querySelector(".side-nav");
-  var mqDesktop = window.matchMedia("(min-width: 768px)");
+  var mqDesktop = window.matchMedia("(min-width: 1200px)");
   var open = false;
 
   function fillDrawer() {

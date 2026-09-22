@@ -51,7 +51,7 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
   <?= seo_render_head() ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260921d">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260922a">
   <?php
     // آزمایش سبک حس روان‌تر — برای خاموش کردن: false
     $manaAppleFeelLight = true;
@@ -362,7 +362,7 @@ $overviewJs = __DIR__ . '/../assets/js/workshop-overview.js';
 <script><?php if (is_file($overviewJs)) { echo file_get_contents($overviewJs); } ?></script>
 <script src="<?= e(url('/assets/js/particles.js')) ?>?v=20260904t"></script>
 <script src="<?= e(url('/assets/js/password-field.js')) ?>?v=20260908a"></script>
-<script src="<?= e(url('/assets/js/mobile-nav.js')) ?>?v=20260909b"></script>
+<script src="<?= e(url('/assets/js/mobile-nav.js')) ?>?v=20260922a"></script>
 <script src="<?= e(url('/assets/js/site-chrome.js')) ?>?v=20260909b"></script>
 <script src="<?= e(url('/assets/js/emoji-picker.js')) ?>?v=20260916e"></script>
 <?php if ($user): ?>
