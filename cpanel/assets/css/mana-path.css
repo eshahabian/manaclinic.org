@@ -28,17 +28,83 @@
   gap: .4rem;
   margin: 0 0 1.1rem;
 }
-.mpath-tabs a {
+.mpath-tabs a,
+.mpath-tabs .mpath-tab-btn {
   border: 1px solid var(--line);
   background: var(--card);
   border-radius: 999px;
   padding: .28rem .75rem;
   font-size: .9rem;
+  color: inherit;
+  cursor: pointer;
+  font-family: inherit;
 }
-.mpath-tabs a.is-on {
+.mpath-tabs a.is-on,
+.mpath-tabs .mpath-tab-btn.is-on {
   background: var(--primary);
   color: #fff;
   border-color: transparent;
+}
+.mpath-sheet {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+}
+.mpath-sheet[hidden] { display: none !important; }
+.mpath-sheet-backdrop {
+  position: absolute;
+  inset: 0;
+  border: 0;
+  padding: 0;
+  cursor: pointer;
+  background: rgba(16, 24, 22, .52);
+}
+.mpath-sheet-card {
+  position: relative;
+  z-index: 1;
+  width: min(28rem, calc(100% - 1.5rem));
+  max-height: min(78vh, 36rem);
+  overflow: auto;
+  margin: 12vh auto 0;
+  background: var(--card);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 1.15rem;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, .28);
+  padding: 1.1rem 1.2rem 1.25rem;
+}
+.mpath-sheet-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: .7rem;
+}
+.mpath-sheet-head h2 {
+  margin: 0;
+  font-size: 1.15rem;
+}
+.mpath-sheet-x {
+  border: 0;
+  background: transparent;
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+  color: var(--muted);
+}
+.mpath-sheet-body { margin-top: .85rem; }
+.mpath-sheet-list {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: .65rem;
+}
+.mpath-sheet-list li {
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: .65rem .75rem;
+  display: grid;
+  gap: .15rem;
 }
 .mpath-grid {
   display: grid;
@@ -198,3 +264,4 @@ html[data-theme="dark"] .mpath-crisis {
 @media (prefers-reduced-motion: reduce) {
   .mpath-breathe.is-run .mpath-orb { animation: none; }
 }
+body.mpath-sheet-lock { overflow: hidden; }

@@ -29,4 +29,36 @@
       tick();
     });
   });
+
+  var openSheet = null;
+  function closeSheets() {
+    document.querySelectorAll("[data-mpath-sheet-panel]").forEach(function (el) {
+      el.hidden = true;
+    });
+    document.querySelectorAll(".mpath-tab-btn.is-on").forEach(function (b) {
+      b.classList.remove("is-on");
+    });
+    document.body.classList.remove("mpath-sheet-lock");
+    openSheet = null;
+  }
+  function openNamed(name, trigger) {
+    var panel = document.querySelector('[data-mpath-sheet-panel="' + name + '"]');
+    if (!panel) return;
+    closeSheets();
+    panel.hidden = false;
+    if (trigger) trigger.classList.add("is-on");
+    document.body.classList.add("mpath-sheet-lock");
+    openSheet = panel;
+  }
+  document.querySelectorAll("[data-mpath-sheet]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      openNamed(btn.getAttribute("data-mpath-sheet") || "", btn);
+    });
+  });
+  document.querySelectorAll("[data-mpath-sheet-close]").forEach(function (btn) {
+    btn.addEventListener("click", closeSheets);
+  });
+  document.addEventListener("keydown", function (e) {
+    if (e.key === "Escape" && openSheet) closeSheets();
+  });
 })();

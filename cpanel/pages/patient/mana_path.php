@@ -55,6 +55,35 @@ $doneMissions = mana_path_today_mission_ids($pdo, $patientId);
 $moodNow = isset($profile['mood_today']) ? (int) $profile['mood_today'] : 0;
 $moodEmoji = $moodNow && isset($moods[$moodNow]) ? $moods[$moodNow]['emoji'] : '—';
 
+$mpathAppointments = [];
+$mpathWorkshops = [];
+try {
+    $apStmt = $pdo->prepare("
+      SELECT a.id, a.starts_at, a.status, a.cancel_reason, u.name AS doctor_name
+      FROM appointments a
+      JOIN doctor_profiles dp ON dp.id = a.doctor_id
+      JOIN users u ON u.id = dp.user_id
+      WHERE a.patient_id = ?
+      ORDER BY a.starts_at DESC
+      LIMIT 8
+    ");
+    $apStmt->execute([$patientId]);
+    $mpathAppointments = $apStmt->fetchAll() ?: [];
+} catch (Throwable $ignored) {
+}
+try {
+    if (function_exists('patient_workshop_tab_data')) {
+        $wsPeek = patient_workshop_tab_data($pdo, $patientId);
+        foreach (['in-person', 'online', 'offline'] as $wsTab) {
+            foreach ($wsPeek['enrollmentsByTab'][$wsTab] ?? [] as $en) {
+                $mpathWorkshops[] = $en;
+            }
+        }
+        $mpathWorkshops = array_slice($mpathWorkshops, 0, 8);
+    }
+} catch (Throwable $ignored) {
+}
+
 $GLOBALS['pageRobots'] = 'noindex,nofollow';
 $GLOBALS['pageTitle'] = 'مسیر مانا';
 $GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(mana_path_css_href()) . '">';
@@ -94,8 +123,8 @@ ob_start();
     <a class="<?= $tab === 'home' ? 'is-on' : '' ?>" href="<?= e($mpathUrl) ?>">خانه</a>
     <a class="<?= $tab === 'path' ? 'is-on' : '' ?>" href="<?= e($mpathUrl . '?tab=path&tree=' . rawurlencode($activeTree)) ?>">مسیر من</a>
     <a class="<?= $tab === 'practice' ? 'is-on' : '' ?>" href="<?= e($mpathUrl . '?tab=practice') ?>">تمرین‌ها</a>
-    <a href="<?= e(url('/dashboard/workshops/mine')) ?>">کارگاه‌ها</a>
-    <a href="<?= e(url('/dashboard/appointments')) ?>">جلسات من</a>
+    <button type="button" class="mpath-tab-btn" data-mpath-sheet="workshops">کارگاه‌ها</button>
+    <button type="button" class="mpath-tab-btn" data-mpath-sheet="sessions">جلسات من</button>
     <a class="<?= $tab === 'progress' ? 'is-on' : '' ?>" href="<?= e($mpathUrl . '?tab=progress') ?>">پیشرفت</a>
   </nav>
 
@@ -432,7 +461,65 @@ ob_start();
 
   <p class="mpath-disclaimer muted">مسیر مانا همراه تمرین و غربالگری است، نه تشخیص بیماری و نه جایگزین درمان. نسخهٔ آزمایشی فعلاً فقط برای حساب تو فعال است.</p>
 </div>
-<script src="<?= e(url('/assets/js/mana-path.js')) ?>?v=20260922a"></script>
+
+<div class="mpath-sheet" data-mpath-sheet-panel="workshops" hidden>
+  <button type="button" class="mpath-sheet-backdrop" data-mpath-sheet-close aria-label="بستن"></button>
+  <div class="mpath-sheet-card" role="dialog" aria-modal="true" aria-labelledby="mpath-ws-title">
+    <header class="mpath-sheet-head">
+      <h2 id="mpath-ws-title">کارگاه‌های من</h2>
+      <button type="button" class="mpath-sheet-x" data-mpath-sheet-close aria-label="بستن">×</button>
+    </header>
+    <div class="mpath-sheet-body">
+      <?php if ($mpathWorkshops === []): ?>
+        <p class="muted">هنوز کارگاهی ثبت نشده. اگر بخواهی می‌توانی دوره‌ها را ببینی — مسیر همین‌جا می‌ماند.</p>
+      <?php else: ?>
+        <ul class="mpath-sheet-list">
+          <?php foreach ($mpathWorkshops as $en): ?>
+            <li>
+              <strong><?= e((string) ($en['title'] ?? 'کارگاه')) ?></strong>
+              <span class="muted"><?= e((string) ($en['doctor_name'] ?? '')) ?></span>
+              <?php if (!empty($en['starts_at'])): ?>
+                <span class="muted"><?= e(format_fa_datetime((string) $en['starts_at'])) ?></span>
+              <?php endif; ?>
+            </li>
+          <?php endforeach; ?>
+        </ul>
+      <?php endif; ?>
+      <p class="mpath-links">
+        <a class="btn btn-primary btn-sm" href="<?= e(url('/services/workshops')) ?>">دوره‌ها و کارگاه‌ها</a>
+      </p>
+    </div>
+  </div>
+</div>
+
+<div class="mpath-sheet" data-mpath-sheet-panel="sessions" hidden>
+  <button type="button" class="mpath-sheet-backdrop" data-mpath-sheet-close aria-label="بستن"></button>
+  <div class="mpath-sheet-card" role="dialog" aria-modal="true" aria-labelledby="mpath-ss-title">
+    <header class="mpath-sheet-head">
+      <h2 id="mpath-ss-title">جلسات من</h2>
+      <button type="button" class="mpath-sheet-x" data-mpath-sheet-close aria-label="بستن">×</button>
+    </header>
+    <div class="mpath-sheet-body">
+      <?php if ($mpathAppointments === []): ?>
+        <p class="muted">جلسه‌ای ثبت نشده. اگر آماده بودی می‌توانی درمانگر انتخاب کنی.</p>
+      <?php else: ?>
+        <ul class="mpath-sheet-list">
+          <?php foreach ($mpathAppointments as $ap): ?>
+            <li>
+              <strong><?= e((string) ($ap['doctor_name'] ?? 'درمانگر')) ?></strong>
+              <span><?= e(format_fa_datetime((string) ($ap['starts_at'] ?? ''))) ?></span>
+              <span class="muted"><?= e(appointment_row_status_label($ap)) ?></span>
+            </li>
+          <?php endforeach; ?>
+        </ul>
+      <?php endif; ?>
+      <p class="mpath-links">
+        <a class="btn btn-primary btn-sm" href="<?= e(url('/doctors')) ?>">رزرو جلسه</a>
+      </p>
+    </div>
+  </div>
+</div>
+<script src="<?= e(url('/assets/js/mana-path.js')) ?>?v=20260923a"></script>
 <?php
 $inner = ob_get_clean();
 render_patient_page('مسیر مانا', $inner);
