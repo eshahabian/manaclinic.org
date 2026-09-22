@@ -54,16 +54,65 @@ body.mpath-app .flash {
 }
 .mr-full .mr-buddy {
   position: absolute;
-  left: 36%;
+  left: 30%;
   bottom: 4.5%;
   height: min(58vh, 500px);
   width: auto;
   max-width: 32%;
   object-fit: contain;
   object-position: bottom center;
-  z-index: 1;
+  z-index: 3;
   pointer-events: none;
   filter: drop-shadow(0 18px 22px rgba(20, 14, 8, .38));
+}
+.mr-props {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  pointer-events: none;
+}
+.mr-prop {
+  position: absolute;
+  opacity: 0;
+  transform: scale(.94) translateY(8px);
+  transition: opacity .45s ease, transform .45s ease;
+  filter: drop-shadow(0 10px 14px rgba(20, 14, 8, .28));
+}
+.mr-prop.is-on {
+  opacity: 1;
+  transform: none;
+}
+.mr-prop--plant {
+  left: 2%;
+  top: 4%;
+  width: 30%;
+  z-index: 1;
+}
+.mr-prop--decor {
+  left: 16%;
+  top: 8%;
+  width: 20%;
+  z-index: 1;
+}
+.mr-prop--books {
+  right: .5%;
+  top: 14%;
+  height: 58%;
+  width: auto;
+  max-width: 16%;
+  z-index: 1;
+}
+.mr-prop--desk {
+  right: 14%;
+  bottom: 7%;
+  width: 27%;
+  z-index: 4;
+}
+.mr-prop--pet {
+  left: 12%;
+  bottom: 5%;
+  width: 26%;
+  z-index: 2;
 }
 .mr-full .mr-atmosphere {
   position: absolute;
@@ -201,7 +250,7 @@ body.mpath-app .flash {
 
 .mpath-mid {
   display: grid;
-  grid-template-columns: 196px minmax(0, 1fr) 248px;
+  grid-template-columns: 196px minmax(0, 1fr) 270px;
   gap: .7rem;
   align-items: stretch;
   min-height: 56vh;
@@ -368,61 +417,55 @@ body.mpath-app .flash {
 .mpath-intro { position: relative; z-index: 2; margin-top: 0; }
 
 .mpath-today {
-  background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(232,242,236,.94));
+  background: linear-gradient(180deg, #fff, #f3faf6);
   color: #1d2a2e;
-  border-radius: 20px;
-  padding: .85rem .8rem;
+  border-radius: 24px;
+  padding: .9rem .85rem 1rem;
   align-self: center;
-  transform: perspective(860px) rotateY(-16deg) rotateZ(-3.5deg);
+  transform: perspective(920px) rotateY(-12deg);
   transform-origin: left center;
-  box-shadow: 14px 22px 36px rgba(0, 0, 0, .28);
+  box-shadow: 18px 22px 40px rgba(0, 0, 0, .28);
 }
 .mpath-today h2 {
-  margin: 0 0 .7rem;
-  font-size: 1rem;
+  margin: 0 0 .75rem;
+  font-size: 1.05rem;
 }
-.mpath-today ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .45rem; }
+.mpath-today ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .4rem; }
 .mpath-task {
   display: flex;
   align-items: center;
-  gap: .55rem;
+  gap: .6rem;
   width: 100%;
   border: 0;
   background: #fff;
   color: inherit;
   text-align: right;
   font: inherit;
-  border-radius: 14px;
-  padding: .5rem .55rem;
+  border-radius: 16px;
+  padding: .42rem .5rem;
   text-decoration: none;
   cursor: pointer;
   box-shadow: 0 4px 14px rgba(20, 40, 30, .06);
 }
 .mpath-task strong, .mpath-task small { display: block; }
-.mpath-task small { color: #6b7c82; font-size: .75rem; }
+.mpath-task strong { font-size: .88rem; }
+.mpath-task small { color: #6b7c82; font-size: .72rem; }
 .mpath-task.is-done { opacity: .62; }
 .mpath-task-ico {
-  width: 36px;
-  height: 36px;
-  border-radius: 12px;
+  width: 42px;
+  height: 42px;
+  border-radius: 50%;
   flex: 0 0 auto;
-  background: #d7f3ea center / 18px no-repeat;
-}
-.mpath-task-ico {
   display: grid;
   place-items: center;
   font-size: 1.05rem;
+  line-height: 1;
 }
 .mpath-task.teal .mpath-task-ico { background-color: #d7f3ea; }
-.mpath-task.teal .mpath-task-ico::before { content: "◉"; }
 .mpath-task.violet .mpath-task-ico { background-color: #e6e0fb; }
-.mpath-task.violet .mpath-task-ico::before { content: "✎"; }
 .mpath-task.mint .mpath-task-ico { background-color: #d8f0e4; }
-.mpath-task.mint .mpath-task-ico::before { content: "👟"; }
 .mpath-task.amber .mpath-task-ico { background-color: #fde7c8; }
-.mpath-task.amber .mpath-task-ico::before { content: "▶"; }
 .mpath-task.rose .mpath-task-ico { background-color: #f8d7e8; }
-.mpath-task.rose .mpath-task-ico::before { content: "♥"; }
 
 .mpath-floor {
   width: max-content;

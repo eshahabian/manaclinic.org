@@ -239,7 +239,7 @@ function mana_path_set_gender(PDO $pdo, array &$profile, string $gender): void
 
 function mana_path_unlock_items(array $world): array
 {
-    // TEMP: preview all room items unlocked; restore thresholds after review.
+    // TEMP: keep items unlocked so room rewards can be reviewed; set false for live progression.
     $previewAllOn = true;
     $plant = (int) ($world['plant'] ?? 0);
     $desk = (int) ($world['desk'] ?? 0);
@@ -248,13 +248,13 @@ function mana_path_unlock_items(array $world): array
     $outfit = (int) ($world['outfit'] ?? 0);
     $items = [
         ['id' => 'room', 'label' => 'اتاق خواب', 'icon' => '🛏️', 'on' => true],
-        ['id' => 'plant', 'label' => 'گیاه', 'icon' => '🪴', 'on' => $plant >= 20],
-        ['id' => 'desk', 'label' => 'میز کار', 'icon' => '🪑', 'on' => $desk >= 35],
-        ['id' => 'books', 'label' => 'کتابخانه', 'icon' => '📚', 'on' => $desk >= 55],
-        ['id' => 'decor', 'label' => 'دکور', 'icon' => '🎨', 'on' => $outfit >= 1 || $light >= 40],
+        ['id' => 'plant', 'label' => 'گیاه', 'icon' => '🪴', 'on' => $plant >= 20, 'prop' => 'prop-plant.png'],
+        ['id' => 'desk', 'label' => 'میز کار', 'icon' => '🪑', 'on' => $desk >= 35, 'prop' => 'prop-desk.png'],
+        ['id' => 'books', 'label' => 'کتابخانه', 'icon' => '📚', 'on' => $desk >= 55, 'prop' => 'prop-books.png'],
+        ['id' => 'decor', 'label' => 'دکور', 'icon' => '🎨', 'on' => $outfit >= 1 || $light >= 40, 'prop' => 'prop-decor.png'],
         ['id' => 'music', 'label' => 'موسیقی', 'icon' => '🎵', 'on' => $light >= 45],
         ['id' => 'window', 'label' => 'پنجره / منظره', 'icon' => '🪟', 'on' => $window >= 40 || $light >= 50],
-        ['id' => 'pet', 'label' => 'حیوان خانگی', 'icon' => '🐶', 'on' => $plant >= 50],
+        ['id' => 'pet', 'label' => 'حیوان خانگی', 'icon' => '🐶', 'on' => $plant >= 50, 'prop' => 'prop-pet.png'],
     ];
     if ($previewAllOn) {
         foreach ($items as &$item) {

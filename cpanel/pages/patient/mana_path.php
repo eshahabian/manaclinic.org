@@ -110,14 +110,14 @@ function mpath_step_url(string $tree, string $step, string $tab = 'path'): strin
 function mpath_task_meta(string $id): array
 {
     return match ($id) {
-        'breathe' => ['cls' => 'teal', 'hint' => '۴ دقیقه'],
-        'thoughts' => ['cls' => 'violet', 'hint' => '۲ دقیقه'],
-        'walk' => ['cls' => 'mint', 'hint' => '۱۰ دقیقه'],
-        'feelings' => ['cls' => 'violet', 'hint' => '۲ دقیقه'],
-        'assert' => ['cls' => 'amber', 'hint' => '۵ دقیقه'],
-        'sleep' => ['cls' => 'teal', 'hint' => 'امشب'],
-        'kind' => ['cls' => 'rose', 'hint' => '۱ دقیقه'],
-        default => ['cls' => 'teal', 'hint' => ''],
+        'breathe' => ['cls' => 'teal', 'hint' => '۴ دقیقه', 'ico' => '🧘'],
+        'thoughts' => ['cls' => 'violet', 'hint' => '۲ دقیقه', 'ico' => '📝'],
+        'walk' => ['cls' => 'mint', 'hint' => '۱۰ دقیقه', 'ico' => '👟'],
+        'feelings' => ['cls' => 'violet', 'hint' => '۳ دقیقه', 'ico' => '💜'],
+        'assert' => ['cls' => 'amber', 'hint' => '۵ دقیقه', 'ico' => '💬'],
+        'sleep' => ['cls' => 'teal', 'hint' => 'امشب', 'ico' => '🌙'],
+        'kind' => ['cls' => 'rose', 'hint' => '۱ دقیقه', 'ico' => '💗'],
+        default => ['cls' => 'teal', 'hint' => '', 'ico' => '✦'],
     };
 }
 
@@ -151,6 +151,12 @@ ob_start();
 <div class="mpath-shell" data-gender="<?= e($assets['gender']) ?>" data-mood="<?= (int) $moodNow ?>" data-state="<?= e($state) ?>">
   <div class="mr-full">
     <img class="mr-room" src="<?= e($assets['room']) ?>" alt="اتاق ذهن">
+    <div class="mr-props" aria-hidden="true">
+      <?php foreach ($unlocks as $u): ?>
+        <?php if (empty($u['prop'])) { continue; } ?>
+        <img class="mr-prop mr-prop--<?= e((string) $u['id']) ?><?= !empty($u['on']) ? ' is-on' : '' ?>" src="<?= e(mana_path_asset((string) $u['prop'])) ?>" alt="">
+      <?php endforeach; ?>
+    </div>
     <img class="mr-buddy" src="<?= e($assets['avatar']) ?>" alt="">
     <div class="mr-atmosphere" aria-hidden="true"></div>
   </div>
@@ -549,8 +555,8 @@ ob_start();
     </div>
 
     <?php if (!empty($profile['intro_done'])): ?>
-    <aside class="mpath-today" aria-label="ماموریت‌های امروز">
-      <h2>ماموریت‌های امروز</h2>
+    <aside class="mpath-today" aria-label="امروز چیکار کنیم">
+      <h2>امروز چیکار کنیم؟</h2>
       <ul>
         <?php foreach ($missions as $m): ?>
           <?php
@@ -559,17 +565,17 @@ ob_start();
           ?>
           <li>
             <a class="mpath-task <?= e($meta['cls']) ?><?= $ok ? ' is-done' : '' ?>" href="<?= e($mpathUrl . '?tab=practice&mission=' . rawurlencode((string) $m['id'])) ?>">
-              <span class="mpath-task-ico"></span>
+              <span class="mpath-task-ico" aria-hidden="true"><?= e($meta['ico']) ?></span>
               <span>
                 <strong><?= e((string) $m['title']) ?></strong>
-                <small><?= $ok ? 'انجام شد' : e($meta['hint']) ?> · +<?= e(to_fa_digits((string) ($m['xp'] ?? 0))) ?> XP</small>
+                <small><?= $ok ? 'انجام شد' : e($meta['hint']) ?></small>
               </span>
             </a>
           </li>
         <?php endforeach; ?>
         <li>
           <button type="button" class="mpath-task amber" data-mpath-sheet="workshops">
-            <span class="mpath-task-ico mpath-task-ico--play"></span>
+            <span class="mpath-task-ico" aria-hidden="true">▶</span>
             <span>
               <strong>ویدیوی آموزشی</strong>
               <small>۵ دقیقه</small>
@@ -578,7 +584,7 @@ ob_start();
         </li>
         <li>
           <button type="button" class="mpath-task rose" data-mpath-sheet="sessions">
-            <span class="mpath-task-ico mpath-task-ico--user"></span>
+            <span class="mpath-task-ico" aria-hidden="true">👤</span>
             <span>
               <strong>جلسه با درمانگر</strong>
               <small><?= $mpathAppointments === [] ? 'در صورت نیاز' : 'جلسه‌های ثبت‌شده' ?></small>

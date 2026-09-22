@@ -3,12 +3,12 @@ declare(strict_types=1);
 
 function mana_path_css_href(): string
 {
-    return url('/assets/css/mana-path.css') . '?v=20260923n';
+    return url('/assets/css/mana-path.css') . '?v=20260923p';
 }
 
 function mana_path_asset(string $file): string
 {
-    return url('/assets/img/mind-room/' . $file) . '?v=20260923j';
+    return url('/assets/img/mind-room/' . $file) . '?v=20260923p';
 }
 
 function mana_path_gender_assets(string $gender): array
@@ -37,6 +37,10 @@ function mana_path_room_html(array $profile, string $state): string
     ?>
     <section class="mr-stage" data-state="<?= e($state) ?>" data-gender="<?= e($assets['gender']) ?>" data-mood="<?= (int) $mood ?>" aria-label="اتاق ذهن">
       <img class="mr-bg" src="<?= e($assets['room']) ?>" alt="">
+      <?php foreach (mana_path_unlock_items($profile['world'] ?? []) as $u): ?>
+        <?php if (empty($u['prop'])) { continue; } ?>
+        <img class="mr-prop mr-prop--<?= e((string) $u['id']) ?><?= !empty($u['on']) ? ' is-on' : '' ?>" src="<?= e(mana_path_asset((string) $u['prop'])) ?>" alt="">
+      <?php endforeach; ?>
       <img class="mr-buddy" src="<?= e($assets['avatar']) ?>" alt="">
     </section>
     <?php
