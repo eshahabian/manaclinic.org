@@ -424,17 +424,24 @@ body.mpath-app .flash {
 .mpath-task.rose .mpath-task-ico { background-color: #f8d7e8; }
 .mpath-task.rose .mpath-task-ico::before { content: "♥"; }
 
-.mpath-status {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: stretch;
-  gap: .4rem;
+.mpath-floor {
   width: max-content;
   max-width: calc(100% - .4rem);
   margin: .4rem auto 0;
+  display: grid;
+  gap: .4rem;
   position: relative;
   z-index: 3;
+}
+.mpath-status {
+  display: flex;
+  flex-wrap: nowrap;
+  justify-content: stretch;
+  align-items: stretch;
+  gap: .5rem;
+  width: max-content;
+  max-width: 100%;
+  margin: 0;
 }
 .mpath-mood-box,
 .mpath-world-box,
@@ -445,12 +452,12 @@ body.mpath-app .flash {
   backdrop-filter: blur(14px);
   border: 1px solid var(--mp-line);
   border-radius: 14px;
-  padding: .4rem .5rem .35rem;
+  padding: .5rem .62rem .45rem;
   margin: 0;
 }
-.mpath-goals-box { width: 11.5rem; }
-.mpath-world-box { width: 15.5rem; }
-.mpath-mood-box { width: 16.5rem; }
+.mpath-goals-box { width: 14.4rem; }
+.mpath-world-box { width: 19.4rem; }
+.mpath-mood-box { width: 20.6rem; }
 .mpath-mood-box h2,
 .mpath-world-box h2,
 .mpath-goals-box h2 {
@@ -474,8 +481,8 @@ body.mpath-app .flash {
   padding: 0;
 }
 .mpath-face-art {
-  width: 34px;
-  height: 34px;
+  width: 42px;
+  height: 42px;
   margin: 0 auto .18rem;
   border-radius: 50%;
   object-fit: cover;
@@ -509,8 +516,8 @@ body.mpath-app .flash {
 .mpath-lock {
   display: grid;
   place-items: center;
-  width: 30px;
-  height: 30px;
+  width: 38px;
+  height: 38px;
   margin: 0 auto .15rem;
   border-radius: 10px;
   background: #2a363c;
@@ -577,17 +584,17 @@ body.mpath-app .flash {
 
 .mpath-dock {
   display: flex;
-  flex-wrap: wrap;
-  gap: .45rem;
+  flex-wrap: nowrap;
+  gap: .25rem;
   align-items: center;
+  box-sizing: border-box;
+  width: 100%;
   background: var(--mp-panel);
   backdrop-filter: blur(14px);
   border: 1px solid var(--mp-line);
   border-radius: 18px;
   padding: .4rem .55rem;
-  margin-top: .45rem;
-  position: relative;
-  z-index: 3;
+  margin: 0;
 }
 .mpath-dock a,
 .mpath-dock button {
@@ -833,14 +840,15 @@ body.mpath-app .flash {
     background: rgba(8, 12, 14, .55);
   }
   .mpath-rail-mask[hidden] { display: none; }
+  .mpath-floor,
   .mpath-status {
     width: 100%;
     max-width: 100%;
-    justify-content: center;
   }
+  .mpath-status { flex-wrap: wrap; justify-content: center; }
   .mpath-goals-box,
   .mpath-world-box,
-  .mpath-mood-box { width: min(16.5rem, 100%); }
+  .mpath-mood-box { width: min(20.6rem, 100%); }
   .mr-stage { height: min(46vh, 420px); }
   .mpath-panel { position: relative; max-height: none; inset: auto; }
   .mpath-intro { margin-top: .7rem; }

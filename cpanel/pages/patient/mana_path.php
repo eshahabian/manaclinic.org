@@ -590,6 +590,7 @@ ob_start();
     <?php endif; ?>
   </div>
 
+  <div class="mpath-floor">
   <?php if (!empty($profile['intro_done'])): ?>
   <?php
     $unlockShow = array_slice($unlocks, 0, 5);
@@ -650,6 +651,7 @@ ob_start();
     <a href="<?= e($doctorsUrl) ?>">رزرو جلسه</a>
     <a class="mpath-dock-go" href="<?= e($mpathUrl . '?tab=path&tree=' . rawurlencode($activeTree)) ?>">ادامه مسیر</a>
   </nav>
+  </div>
 
   <p class="mpath-disclaimer">مسیر مانا همراه تمرین و غربالگری است، نه تشخیص بیماری و نه جایگزین درمان. نسخهٔ آزمایشی فعلاً فقط برای حساب تو فعال است.</p>
 </div>
