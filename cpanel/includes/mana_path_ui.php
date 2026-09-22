@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 function mana_path_css_href(): string
 {
-    return url('/assets/css/mana-path.css') . '?v=20260922a';
+    return url('/assets/css/mana-path.css') . '?v=20260922b';
 }
 
 function mana_path_room_html(array $profile, string $state): string

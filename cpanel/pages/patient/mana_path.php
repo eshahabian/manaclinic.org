@@ -60,7 +60,7 @@ $GLOBALS['pageTitle'] = 'مسیر مانا';
 $GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(mana_path_css_href()) . '">';
 
 $post = url('/dashboard/path');
-$base = url('/dashboard/path');
+$mpathUrl = url('/dashboard/path');
 
 function mpath_step_url(string $tree, string $step, string $tab = 'path'): string
 {
@@ -91,12 +91,12 @@ ob_start();
   <?php endif; ?>
 
   <nav class="mpath-tabs" aria-label="بخش‌های مسیر مانا">
-    <a class="<?= $tab === 'home' ? 'is-on' : '' ?>" href="<?= e($base) ?>">خانه</a>
-    <a class="<?= $tab === 'path' ? 'is-on' : '' ?>" href="<?= e($base . '?tab=path&tree=' . rawurlencode($activeTree)) ?>">مسیر من</a>
-    <a class="<?= $tab === 'practice' ? 'is-on' : '' ?>" href="<?= e($base . '?tab=practice') ?>">تمرین‌ها</a>
+    <a class="<?= $tab === 'home' ? 'is-on' : '' ?>" href="<?= e($mpathUrl) ?>">خانه</a>
+    <a class="<?= $tab === 'path' ? 'is-on' : '' ?>" href="<?= e($mpathUrl . '?tab=path&tree=' . rawurlencode($activeTree)) ?>">مسیر من</a>
+    <a class="<?= $tab === 'practice' ? 'is-on' : '' ?>" href="<?= e($mpathUrl . '?tab=practice') ?>">تمرین‌ها</a>
     <a href="<?= e(url('/dashboard/workshops/mine')) ?>">کارگاه‌ها</a>
     <a href="<?= e(url('/dashboard/appointments')) ?>">جلسات من</a>
-    <a class="<?= $tab === 'progress' ? 'is-on' : '' ?>" href="<?= e($base . '?tab=progress') ?>">پیشرفت</a>
+    <a class="<?= $tab === 'progress' ? 'is-on' : '' ?>" href="<?= e($mpathUrl . '?tab=progress') ?>">پیشرفت</a>
   </nav>
 
   <?php if (empty($profile['intro_done'])): ?>
@@ -138,7 +138,7 @@ ob_start();
             <?php foreach ($missions as $m): ?>
               <?php $ok = in_array($m['id'], $doneMissions, true); ?>
               <li>
-                <a href="<?= e($base . '?tab=practice&mission=' . rawurlencode($m['id'])) ?>">
+                <a href="<?= e($mpathUrl . '?tab=practice&mission=' . rawurlencode($m['id'])) ?>">
                   <?= $ok ? '✓' : '○' ?> <?= e($m['title']) ?>
                   <span class="muted">+<?= e(to_fa_digits((string) $m['xp'])) ?></span>
                 </a>
@@ -146,7 +146,7 @@ ob_start();
             <?php endforeach; ?>
           </ul>
           <p class="mpath-links">
-            <a class="btn btn-primary btn-sm" href="<?= e($base . '?tab=path&tree=' . rawurlencode($activeTree)) ?>">ادامه مسیر</a>
+            <a class="btn btn-primary btn-sm" href="<?= e($mpathUrl . '?tab=path&tree=' . rawurlencode($activeTree)) ?>">ادامه مسیر</a>
             <a class="btn btn-outline btn-sm" href="<?= e(url('/dashboard/journal')) ?>">دفتر یادداشت</a>
           </p>
         </section>
@@ -172,7 +172,7 @@ ob_start();
         ?>
         <?php foreach ($picked as $tid): ?>
           <?php if (!isset($catalog[$tid])) { continue; } ?>
-          <a class="<?= $tid === $activeTree ? 'is-on' : '' ?>" href="<?= e($base . '?tab=path&tree=' . rawurlencode($tid)) ?>">
+          <a class="<?= $tid === $activeTree ? 'is-on' : '' ?>" href="<?= e($mpathUrl . '?tab=path&tree=' . rawurlencode($tid)) ?>">
             <?= e($catalog[$tid]['emoji'] . ' ' . $catalog[$tid]['title']) ?>
           </a>
         <?php endforeach; ?>
@@ -416,7 +416,7 @@ ob_start();
               $doneN = count($row['completed'] ?? []);
               $allN = count($catalog[$tid]['steps']);
             ?>
-            <a href="<?= e($base . '?tab=path&tree=' . rawurlencode($tid)) ?>">
+            <a href="<?= e($mpathUrl . '?tab=path&tree=' . rawurlencode($tid)) ?>">
               <?= e($catalog[$tid]['title']) ?>
               — <?= e(to_fa_digits((string) $doneN)) ?> / <?= e(to_fa_digits((string) $allN)) ?>
               <?php if (!empty($row['last_band'])): ?>

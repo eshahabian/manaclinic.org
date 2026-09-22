@@ -63,12 +63,20 @@
   gap: .65rem;
 }
 .mpath-chip {
+  position: relative;
   display: grid;
   gap: .15rem;
   border: 1px solid var(--line);
   border-radius: 14px;
   padding: .7rem .85rem;
   cursor: pointer;
+}
+.mpath-chip input {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  cursor: pointer;
+  margin: 0;
 }
 .mpath-chip:has(input:checked) {
   border-color: var(--primary);
