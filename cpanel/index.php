@@ -112,9 +112,14 @@ if (!$isLightRequest) {
     ensure_handover_schema($pdo);
     ensure_secretary_to_admin_schema($pdo);
     ensure_patient_journal_schema($pdo);
-    if (str_starts_with($path, '/dashboard/path')) {
+    if (str_starts_with($path, '/dashboard/path') && is_file(__DIR__ . '/includes/mana_path.php')) {
         require_once __DIR__ . '/includes/mana_path.php';
-        ensure_mana_path_schema($pdo);
+        if (function_exists('ensure_mana_path_schema')) {
+            try {
+                ensure_mana_path_schema($pdo);
+            } catch (Throwable $ignored) {
+            }
+        }
     }
     ensure_notifications_table($pdo);
     ensure_mail_schema($pdo);

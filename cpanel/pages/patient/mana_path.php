@@ -21,7 +21,9 @@ $moods = mana_path_moods();
 $state = mana_path_companion_state($profile);
 $xp = (int) ($profile['energy_xp'] ?? 0);
 $level = mana_path_level($xp);
-$firstName = trim(explode(' ', (string) $user['name'])[0] ?: (string) $user['name']);
+$rawName = trim((string) ($user['name'] ?? ''));
+$nameParts = preg_split('/\s+/u', $rawName) ?: [];
+$firstName = trim((string) ($nameParts[0] ?? $rawName));
 
 $tab = trim((string) ($_GET['tab'] ?? 'home'));
 if (!in_array($tab, ['home', 'path', 'practice', 'progress'], true)) {

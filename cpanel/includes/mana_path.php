@@ -11,7 +11,7 @@ function mana_path_beta_usernames(): array
 
 function mana_path_user_allowed(?array $user): bool
 {
-    if (!$user || ($user['role'] ?? '') !== 'PATIENT') {
+    if (!$user) {
         return false;
     }
     $name = strtolower(trim((string) ($user['username'] ?? '')));
@@ -38,59 +38,61 @@ function ensure_mana_path_schema(PDO $pdo): void
     if ($ready) {
         return;
     }
-    $pdo->exec("
-      CREATE TABLE IF NOT EXISTS mana_path_profiles (
-        user_id VARCHAR(32) PRIMARY KEY,
-        intro_done TINYINT(1) NOT NULL DEFAULT 0,
-        concerns_json TEXT NULL,
-        active_tree VARCHAR(32) NULL,
-        energy_xp INT NOT NULL DEFAULT 0,
-        gentle_streak INT NOT NULL DEFAULT 0,
-        rest_days INT NOT NULL DEFAULT 0,
-        last_activity_date DATE NULL,
-        mood_today TINYINT NULL,
-        mood_date DATE NULL,
-        world_json TEXT NULL,
-        crisis_flag TINYINT(1) NOT NULL DEFAULT 0,
-        crisis_at DATETIME NULL,
-        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        CONSTRAINT fk_mana_path_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-    ");
-    $pdo->exec("
-      CREATE TABLE IF NOT EXISTS mana_path_trees (
-        id VARCHAR(32) PRIMARY KEY,
-        user_id VARCHAR(32) NOT NULL,
-        tree_id VARCHAR(32) NOT NULL,
-        current_index INT NOT NULL DEFAULT 0,
-        completed_json TEXT NULL,
-        last_score INT NULL,
-        last_band VARCHAR(80) NULL,
-        high_checkins INT NOT NULL DEFAULT 0,
-        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        UNIQUE KEY uq_mana_tree (user_id, tree_id),
-        INDEX idx_mana_tree_user (user_id),
-        CONSTRAINT fk_mana_tree_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-    ");
-    $pdo->exec("
-      CREATE TABLE IF NOT EXISTS mana_path_events (
-        id VARCHAR(32) PRIMARY KEY,
-        user_id VARCHAR(32) NOT NULL,
-        event_type VARCHAR(40) NOT NULL,
-        tree_id VARCHAR(32) NULL,
-        step_id VARCHAR(40) NULL,
-        payload_json TEXT NULL,
-        energy_delta INT NOT NULL DEFAULT 0,
-        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_mana_ev_user (user_id, created_at),
-        INDEX idx_mana_ev_day (user_id, event_type, created_at),
-        CONSTRAINT fk_mana_ev_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
-      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
-    ");
-    $ready = true;
+    try {
+        $pdo->exec("
+          CREATE TABLE IF NOT EXISTS mana_path_profiles (
+            user_id VARCHAR(32) PRIMARY KEY,
+            intro_done TINYINT(1) NOT NULL DEFAULT 0,
+            concerns_json TEXT NULL,
+            active_tree VARCHAR(32) NULL,
+            energy_xp INT NOT NULL DEFAULT 0,
+            gentle_streak INT NOT NULL DEFAULT 0,
+            rest_days INT NOT NULL DEFAULT 0,
+            last_activity_date DATE NULL,
+            mood_today TINYINT NULL,
+            mood_date DATE NULL,
+            world_json TEXT NULL,
+            crisis_flag TINYINT(1) NOT NULL DEFAULT 0,
+            crisis_at DATETIME NULL,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            INDEX idx_mana_path_activity (last_activity_date)
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+        $pdo->exec("
+          CREATE TABLE IF NOT EXISTS mana_path_trees (
+            id VARCHAR(32) PRIMARY KEY,
+            user_id VARCHAR(32) NOT NULL,
+            tree_id VARCHAR(32) NOT NULL,
+            current_index INT NOT NULL DEFAULT 0,
+            completed_json TEXT NULL,
+            last_score INT NULL,
+            last_band VARCHAR(80) NULL,
+            high_checkins INT NOT NULL DEFAULT 0,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            UNIQUE KEY uq_mana_tree (user_id, tree_id),
+            INDEX idx_mana_tree_user (user_id)
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+        $pdo->exec("
+          CREATE TABLE IF NOT EXISTS mana_path_events (
+            id VARCHAR(32) PRIMARY KEY,
+            user_id VARCHAR(32) NOT NULL,
+            event_type VARCHAR(40) NOT NULL,
+            tree_id VARCHAR(32) NULL,
+            step_id VARCHAR(40) NULL,
+            payload_json TEXT NULL,
+            energy_delta INT NOT NULL DEFAULT 0,
+            created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+            INDEX idx_mana_ev_user (user_id, created_at),
+            INDEX idx_mana_ev_day (user_id, event_type, created_at)
+          ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+        $ready = true;
+    } catch (Throwable $e) {
+        error_log('ManaClinic mana_path schema: ' . $e->getMessage());
+    }
 }
 
 function mana_path_world_defaults(): array
@@ -117,21 +119,42 @@ function mana_path_decode_json(?string $raw, array $fallback = []): array
 function mana_path_load_profile(PDO $pdo, string $userId): array
 {
     ensure_mana_path_schema($pdo);
-    $stmt = $pdo->prepare('SELECT * FROM mana_path_profiles WHERE user_id = ?');
-    $stmt->execute([$userId]);
-    $row = $stmt->fetch();
-    if (!$row) {
-        $pdo->prepare('INSERT INTO mana_path_profiles (user_id, world_json) VALUES (?, ?)')
-            ->execute([$userId, json_encode(mana_path_world_defaults(), JSON_UNESCAPED_UNICODE)]);
+    $empty = [
+        'user_id' => $userId,
+        'intro_done' => 0,
+        'concerns_json' => '[]',
+        'concerns' => [],
+        'active_tree' => null,
+        'energy_xp' => 0,
+        'gentle_streak' => 0,
+        'rest_days' => 0,
+        'last_activity_date' => null,
+        'mood_today' => null,
+        'mood_date' => null,
+        'world_json' => null,
+        'world' => mana_path_world_defaults(),
+        'crisis_flag' => 0,
+    ];
+    try {
+        $stmt = $pdo->prepare('SELECT * FROM mana_path_profiles WHERE user_id = ?');
         $stmt->execute([$userId]);
-        $row = $stmt->fetch() ?: ['user_id' => $userId];
+        $row = $stmt->fetch();
+        if (!$row) {
+            $pdo->prepare('INSERT INTO mana_path_profiles (user_id, world_json) VALUES (?, ?)')
+                ->execute([$userId, json_encode(mana_path_world_defaults(), JSON_UNESCAPED_UNICODE)]);
+            $stmt->execute([$userId]);
+            $row = $stmt->fetch() ?: $empty;
+        }
+        mana_path_refresh_rest($pdo, $row);
+        $stmt->execute([$userId]);
+        $row = $stmt->fetch() ?: $row;
+        $row['concerns'] = mana_path_decode_json($row['concerns_json'] ?? null);
+        $row['world'] = array_merge(mana_path_world_defaults(), mana_path_decode_json($row['world_json'] ?? null));
+        return $row;
+    } catch (Throwable $e) {
+        error_log('ManaClinic mana_path profile: ' . $e->getMessage());
+        return $empty;
     }
-    mana_path_refresh_rest($pdo, $row);
-    $stmt->execute([$userId]);
-    $row = $stmt->fetch() ?: $row;
-    $row['concerns'] = mana_path_decode_json($row['concerns_json'] ?? null);
-    $row['world'] = array_merge(mana_path_world_defaults(), mana_path_decode_json($row['world_json'] ?? null));
-    return $row;
 }
 
 function mana_path_refresh_rest(PDO $pdo, array $row): void
@@ -146,8 +169,11 @@ function mana_path_refresh_rest(PDO $pdo, array $row): void
         return;
     }
     $rest = max(0, $days - 1);
-    $pdo->prepare('UPDATE mana_path_profiles SET rest_days = ? WHERE user_id = ?')
-        ->execute([$rest, $row['user_id']]);
+    try {
+        $pdo->prepare('UPDATE mana_path_profiles SET rest_days = ? WHERE user_id = ?')
+            ->execute([$rest, $row['user_id']]);
+    } catch (Throwable $ignored) {
+    }
 }
 
 function mana_path_level(int $xp): int
@@ -173,14 +199,19 @@ function mana_path_companion_state(array $profile): string
 
 function mana_path_user_trees(PDO $pdo, string $userId): array
 {
-    $stmt = $pdo->prepare('SELECT * FROM mana_path_trees WHERE user_id = ? ORDER BY updated_at DESC');
-    $stmt->execute([$userId]);
-    $out = [];
-    foreach ($stmt->fetchAll() as $row) {
-        $row['completed'] = mana_path_decode_json($row['completed_json'] ?? null);
-        $out[(string) $row['tree_id']] = $row;
+    try {
+        $stmt = $pdo->prepare('SELECT * FROM mana_path_trees WHERE user_id = ? ORDER BY updated_at DESC');
+        $stmt->execute([$userId]);
+        $out = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $row['completed'] = mana_path_decode_json($row['completed_json'] ?? null);
+            $out[(string) $row['tree_id']] = $row;
+        }
+        return $out;
+    } catch (Throwable $e) {
+        error_log('ManaClinic mana_path trees: ' . $e->getMessage());
+        return [];
     }
-    return $out;
 }
 
 function mana_path_ensure_tree(PDO $pdo, string $userId, string $treeId): array
@@ -257,12 +288,16 @@ function mana_path_log(PDO $pdo, string $userId, string $type, int $xp, ?string 
 
 function mana_path_today_mission_ids(PDO $pdo, string $userId): array
 {
-    $stmt = $pdo->prepare("
-      SELECT step_id FROM mana_path_events
-      WHERE user_id = ? AND event_type = 'mission' AND DATE(created_at) = CURDATE()
-    ");
-    $stmt->execute([$userId]);
-    return array_values(array_filter(array_map(static fn ($r) => (string) ($r['step_id'] ?? ''), $stmt->fetchAll())));
+    try {
+        $stmt = $pdo->prepare("
+          SELECT step_id FROM mana_path_events
+          WHERE user_id = ? AND event_type = 'mission' AND DATE(created_at) = CURDATE()
+        ");
+        $stmt->execute([$userId]);
+        return array_values(array_filter(array_map(static fn ($r) => (string) ($r['step_id'] ?? ''), $stmt->fetchAll())));
+    } catch (Throwable $e) {
+        return [];
+    }
 }
 
 function mana_path_score_screening(string $toolId, array $answers): array

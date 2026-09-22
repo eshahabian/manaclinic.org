@@ -112,9 +112,11 @@ ob_start();
 <?= booking_terms_styles() ?>
 <?php
 $dashContent = ob_get_clean();
-if (function_exists('mana_path_user_allowed') && mana_path_user_allowed($user)) {
+if (function_exists('mana_path_user_allowed') && mana_path_user_allowed($user) && is_file(__DIR__ . '/../../includes/mana_path_ui.php')) {
     require_once __DIR__ . '/../../includes/mana_path_ui.php';
-    $GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(mana_path_css_href()) . '">';
+    if (function_exists('mana_path_css_href')) {
+        $GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(mana_path_css_href()) . '">';
+    }
 }
 $GLOBALS['pageScripts'] = '
 <script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260904u"></script>

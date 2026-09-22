@@ -2,7 +2,9 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/workshops.php';
-require_once __DIR__ . '/mana_path.php';
+if (is_file(__DIR__ . '/mana_path.php')) {
+    require_once __DIR__ . '/mana_path.php';
+}
 
 function patient_request_path(): string
 {
