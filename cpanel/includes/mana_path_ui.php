@@ -3,25 +3,20 @@ declare(strict_types=1);
 
 function mana_path_css_href(): string
 {
-    return url('/assets/css/mana-path.css') . '?v=20260923h';
+    return url('/assets/css/mana-path.css') . '?v=20260923i';
 }
 
 function mana_path_asset(string $file): string
 {
-    return url('/assets/img/mind-room/' . $file);
+    return url('/assets/img/mind-room/' . $file) . '?v=20260923i';
 }
 
 function mana_path_gender_assets(string $gender): array
 {
     $female = $gender === 'female';
-    $roomFile = 'room-bg.png';
-    $roomPath = dirname(__DIR__) . '/assets/img/mind-room/' . $roomFile;
-    if (!is_file($roomPath)) {
-        $roomFile = $female ? 'female-room.png' : 'male-room.png';
-    }
     return [
         'gender' => $female ? 'female' : 'male',
-        'room' => mana_path_asset($roomFile),
+        'room' => mana_path_asset('room-bg.png'),
         'avatar' => mana_path_asset($female ? 'female-avatar.png' : 'male-avatar.png'),
     ];
 }
