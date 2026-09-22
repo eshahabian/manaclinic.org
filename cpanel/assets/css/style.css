@@ -51,6 +51,12 @@ html[data-theme="dark"] {
 html, body {
   font-family: var(--font);
 }
+html.is-native-app body {
+  overscroll-behavior-y: none;
+}
+html.is-native-app .site-header {
+  padding-top: env(safe-area-inset-top, 0px);
+}
 html {
   background: var(--bg);
 }
