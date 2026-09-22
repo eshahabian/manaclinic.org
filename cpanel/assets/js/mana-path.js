@@ -61,4 +61,48 @@
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && openSheet) closeSheets();
   });
+
+  var shell = document.querySelector(".mpath-shell");
+  var rail = document.getElementById("mpath-rail");
+  function setNav(open) {
+    if (!shell) return;
+    shell.classList.toggle("is-nav", open);
+    document.querySelectorAll("[data-mpath-menu]").forEach(function (b) {
+      if (b.getAttribute("aria-expanded") !== null) b.setAttribute("aria-expanded", open ? "true" : "false");
+      if (b.classList.contains("mpath-rail-mask")) b.hidden = !open;
+    });
+  }
+  document.querySelectorAll("[data-mpath-menu]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      setNav(!(shell && shell.classList.contains("is-nav")));
+    });
+  });
+  if (rail) {
+    rail.querySelectorAll("a").forEach(function (a) {
+      a.addEventListener("click", function () { setNav(false); });
+    });
+  }
+
+  document.querySelectorAll("[data-mpath-mood] [data-mood]").forEach(function (btn) {
+    btn.addEventListener("mouseenter", function () {
+      if (shell) shell.setAttribute("data-mood", btn.getAttribute("data-mood") || "0");
+      document.querySelectorAll(".mr-stage").forEach(function (st) {
+        st.setAttribute("data-mood", btn.getAttribute("data-mood") || "0");
+      });
+    });
+  });
+
+  document.querySelectorAll(".mr-gender-card input").forEach(function (input) {
+    function sync() {
+      document.querySelectorAll(".mr-gender-card").forEach(function (card) {
+        card.classList.toggle("is-on", card.querySelector("input") && card.querySelector("input").checked);
+      });
+    }
+    input.addEventListener("change", sync);
+    sync();
+  });
+
+  document.querySelectorAll(".mpath-task.is-done").forEach(function (el) {
+    el.classList.add("is-pop");
+  });
 })();

@@ -3,12 +3,22 @@ declare(strict_types=1);
 
 function mana_path_css_href(): string
 {
-    return url('/assets/css/mana-path.css') . '?v=20260923d';
+    return url('/assets/css/mana-path.css') . '?v=20260923e';
 }
 
-function mana_path_room_photo_src(): string
+function mana_path_asset(string $file): string
 {
-    return url('/assets/img/mpath-room.jpg');
+    return url('/assets/img/mind-room/' . $file);
+}
+
+function mana_path_gender_assets(string $gender): array
+{
+    $female = $gender === 'female';
+    return [
+        'gender' => $female ? 'female' : 'male',
+        'room' => mana_path_asset($female ? 'female-room.png' : 'male-room.png'),
+        'avatar' => mana_path_asset($female ? 'female-avatar.png' : 'male-avatar.png'),
+    ];
 }
 
 function mana_path_pick_line(array $profile, string $state): string
@@ -20,12 +30,13 @@ function mana_path_pick_line(array $profile, string $state): string
 
 function mana_path_room_html(array $profile, string $state): string
 {
-    $line = mana_path_pick_line($profile, $state);
+    $gender = mana_path_normalize_gender((string) ($profile['companion_gender'] ?? 'male')) ?: 'male';
+    $assets = mana_path_gender_assets($gender);
+    $mood = (int) ($profile['mood_today'] ?? 0);
     ob_start();
     ?>
-    <section class="mpath-room" data-state="<?= e($state) ?>" aria-label="اتاق ذهن">
-      <img class="mpath-room-photo" src="<?= e(mana_path_room_photo_src()) ?>" alt="اتاق ذهن مسیر مانا">
-      <p class="mpath-bubble"><?= e($line) ?></p>
+    <section class="mr-stage" data-state="<?= e($state) ?>" data-gender="<?= e($assets['gender']) ?>" data-mood="<?= (int) $mood ?>" aria-label="اتاق ذهن">
+      <img class="mr-bg" src="<?= e($assets['room']) ?>" alt="اتاق ذهن">
     </section>
     <?php
     return (string) ob_get_clean();
@@ -60,4 +71,30 @@ function mana_path_kind_icon(string $kind): string
         'clinic' => '👩‍⚕️',
         default => '•',
     };
+}
+
+function mana_path_gender_picker_html(string $post, string $current = ''): string
+{
+    $male = mana_path_gender_assets('male');
+    $female = mana_path_gender_assets('female');
+    ob_start();
+    ?>
+    <fieldset class="mr-gender">
+      <legend>همراه اتاق ذهن کی باشد؟</legend>
+      <p class="muted">این انتخاب اتاق و آدمک را عوض می‌کند. هر وقت بخواهی از تنظیمات می‌توانی عوضش کنی.</p>
+      <div class="mr-gender-grid">
+        <label class="mr-gender-card<?= $current === 'male' ? ' is-on' : '' ?>">
+          <input type="radio" name="gender" value="male"<?= $current === 'male' ? ' checked' : '' ?> required>
+          <img src="<?= e($male['avatar']) ?>" alt="همراه مرد">
+          <strong>مرد</strong>
+        </label>
+        <label class="mr-gender-card<?= $current === 'female' ? ' is-on' : '' ?>">
+          <input type="radio" name="gender" value="female"<?= $current === 'female' ? ' checked' : '' ?> required>
+          <img src="<?= e($female['avatar']) ?>" alt="همراه زن">
+          <strong>زن</strong>
+        </label>
+      </div>
+    </fieldset>
+    <?php
+    return (string) ob_get_clean();
 }

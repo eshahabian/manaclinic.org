@@ -18,10 +18,16 @@ try {
         if (!is_array($concerns)) {
             $concerns = [];
         }
-        mana_path_save_intro($pdo, $profile, array_map('strval', $concerns));
+        mana_path_save_intro($pdo, $profile, array_map('strval', $concerns), (string) ($_POST['gender'] ?? ''));
         $tree = (string) ($profile['active_tree'] ?? 'anxiety');
         flash_set('success', 'مسیرت ساخته شد. ارزیابی اولیه وقتی آماده بودی اینجاست.');
         redirect('/dashboard/path?tab=path&tree=' . rawurlencode($tree) . '&step=screen');
+    }
+
+    if ($do === 'gender') {
+        mana_path_set_gender($pdo, $profile, (string) ($_POST['gender'] ?? ''));
+        flash_set('success', 'همراه اتاق ذهن ذخیره شد.');
+        redirect('/dashboard/path');
     }
 
     if ($do === 'mood') {

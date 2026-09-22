@@ -38,7 +38,7 @@ $nameParts = preg_split('/\s+/u', $rawName) ?: [];
 $firstName = trim((string) ($nameParts[0] ?? $rawName));
 
 $tab = trim((string) ($_GET['tab'] ?? 'home'));
-if (!in_array($tab, ['home', 'path', 'practice', 'progress'], true)) {
+if (!in_array($tab, ['home', 'path', 'practice', 'progress', 'settings'], true)) {
     $tab = 'home';
 }
 $activeTree = trim((string) ($_GET['tree'] ?? ($profile['active_tree'] ?? '')));
@@ -85,7 +85,7 @@ try {
 }
 
 $GLOBALS['pageRobots'] = 'noindex,nofollow';
-$GLOBALS['pageTitle'] = 'مسیر مانا';
+$GLOBALS['pageTitle'] = 'اتاق ذهن';
 $GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(mana_path_css_href()) . '">';
 $GLOBALS['mpathApp'] = true;
 
@@ -118,18 +118,12 @@ $medals = 0;
 foreach ($treeRows as $tr) {
     $medals += count($tr['completed'] ?? []);
 }
-$xpNeed = 150;
+$xpNeed = mana_path_xp_need();
 $xpIn = $xp % $xpNeed;
 $streak = (int) ($profile['gentle_streak'] ?? 0);
 $restDays = (int) ($profile['rest_days'] ?? 0);
 $world = $profile['world'] ?? mana_path_world_defaults();
-$unlocks = [
-    ['id' => 'room', 'label' => 'اتاق ساده', 'on' => true],
-    ['id' => 'plant', 'label' => 'گیاه', 'on' => ((int) ($world['plant'] ?? 0)) >= 20],
-    ['id' => 'desk', 'label' => 'میز کار', 'on' => ((int) ($world['desk'] ?? 0)) >= 35],
-    ['id' => 'books', 'label' => 'قفسه کتاب', 'on' => ((int) ($world['desk'] ?? 0)) >= 55],
-    ['id' => 'window', 'label' => 'پنجره بزرگ', 'on' => ((int) ($world['window'] ?? 0)) >= 40 || ((int) ($world['light'] ?? 0)) >= 50],
-];
+$unlocks = mana_path_unlock_items($world);
 $unlockOn = 0;
 foreach ($unlocks as $u) {
     if (!empty($u['on'])) {
@@ -137,23 +131,24 @@ foreach ($unlocks as $u) {
     }
 }
 $companionLine = mana_path_pick_line($profile, $state);
-$moodUi = [
-    1 => 'خسته',
-    2 => 'غمگین',
-    3 => 'عادی',
-    4 => 'بهتر',
-    5 => 'شاد',
-];
+$gender = mana_path_normalize_gender((string) ($profile['companion_gender'] ?? ''));
+$needGender = !empty($profile['intro_done']) && $gender === '';
+$assets = mana_path_gender_assets($gender !== '' ? $gender : 'male');
+$moodUi = [];
+foreach ($moods as $n => $m) {
+    $moodUi[(int) $n] = (string) $m['label'];
+}
 
 ob_start();
 ?>
-<div class="mpath-shell">
+<div class="mpath-shell" data-gender="<?= e($assets['gender']) ?>" data-mood="<?= (int) $moodNow ?>" data-state="<?= e($state) ?>">
   <header class="mpath-hud">
+    <button type="button" class="mpath-menu-btn" data-mpath-menu aria-controls="mpath-rail" aria-expanded="false">منو</button>
     <a class="mpath-brand" href="<?= e($mpathUrl) ?>">
       <span class="mpath-brand-mark" aria-hidden="true">🌿</span>
       <span>
-        <strong>ManaClinic</strong>
-        <small>حال بهتر، زندگی عمیق‌تر</small>
+        <strong>اتاق ذهن</strong>
+        <small>مسیر مانا</small>
       </span>
     </a>
     <div class="mpath-hud-stats">
@@ -185,25 +180,27 @@ ob_start();
         <strong><?= e($firstName !== '' ? $firstName : 'مهمان') ?></strong>
         <small>حال امروز: <?= e($moodNow && isset($moods[$moodNow]) ? $moods[$moodNow]['label'] : '—') ?></small>
       </span>
-      <a class="mpath-avatar" href="<?= e($dashUrl) ?>" aria-label="پنل من"><?= e(mb_substr($firstName !== '' ? $firstName : 'م', 0, 1)) ?></a>
+      <a class="mpath-avatar" href="<?= e($mpathUrl . '?tab=settings') ?>" aria-label="تنظیمات همراه">
+        <img src="<?= e($assets['avatar']) ?>" alt="">
+      </a>
     </div>
   </header>
 
   <div class="mpath-mid">
-    <aside class="mpath-rail">
-      <nav aria-label="مسیر مانا">
-        <a class="<?= $tab === 'home' ? 'is-on' : '' ?>" href="<?= e($mpathUrl) ?>"><i>⌂</i> خانه</a>
-        <a class="<?= $tab === 'path' ? 'is-on' : '' ?>" href="<?= e($mpathUrl . '?tab=path&tree=' . rawurlencode($activeTree)) ?>"><i>◎</i> مسیر من</a>
-        <a class="<?= $tab === 'practice' ? 'is-on' : '' ?>" href="<?= e($mpathUrl . '?tab=practice') ?>"><i>✦</i> تمرین‌ها</a>
-        <button type="button" data-mpath-sheet="workshops"><i>▦</i> کارگاه‌ها</button>
-        <button type="button" data-mpath-sheet="sessions"><i>◷</i> جلسات من</button>
-        <a class="<?= $tab === 'path' && $openStep !== '' ? 'is-on' : '' ?>" href="<?= e($mpathUrl . '?tab=path&tree=' . rawurlencode($activeTree)) ?>"><i>◉</i> آزمون‌ها</a>
-        <a class="<?= $tab === 'progress' ? 'is-on' : '' ?>" href="<?= e($mpathUrl . '?tab=progress') ?>"><i>▤</i> پیشرفت</a>
-        <a href="<?= e($dashUrl) ?>"><i>☺</i> دوستان</a>
-        <a href="<?= e($dashUrl) ?>"><i>⚙</i> تنظیمات</a>
+    <aside class="mpath-rail" id="mpath-rail">
+      <nav aria-label="اتاق ذهن">
+        <a class="<?= $tab === 'home' ? 'is-on' : '' ?>" href="<?= e($mpathUrl) ?>"><i aria-hidden="true">⌂</i> خانه</a>
+        <a class="<?= $tab === 'path' ? 'is-on' : '' ?>" href="<?= e($mpathUrl . '?tab=path&tree=' . rawurlencode($activeTree)) ?>"><i aria-hidden="true">◎</i> مسیر من</a>
+        <a class="<?= $tab === 'practice' ? 'is-on' : '' ?>" href="<?= e($mpathUrl . '?tab=practice') ?>"><i aria-hidden="true">✦</i> تمرین‌ها</a>
+        <button type="button" data-mpath-sheet="workshops"><i aria-hidden="true">▦</i> کارگاه‌ها</button>
+        <button type="button" data-mpath-sheet="sessions"><i aria-hidden="true">◷</i> جلسات من</button>
+        <a href="<?= e($mpathUrl . '?tab=path&tree=' . rawurlencode($activeTree)) ?>"><i aria-hidden="true">◉</i> آزمون‌ها</a>
+        <a class="<?= $tab === 'progress' ? 'is-on' : '' ?>" href="<?= e($mpathUrl . '?tab=progress') ?>"><i aria-hidden="true">▤</i> پیشرفت</a>
+        <a class="<?= $tab === 'settings' ? 'is-on' : '' ?>" href="<?= e($mpathUrl . '?tab=settings') ?>"><i aria-hidden="true">⚙</i> تنظیمات</a>
       </nav>
       <p class="mpath-rail-note">قدم‌های کوچک تغییرات بزرگ می‌سازند.</p>
     </aside>
+    <button type="button" class="mpath-rail-mask" data-mpath-menu hidden aria-label="بستن منو"></button>
 
     <div class="mpath-stage">
       <?php if (!empty($profile['crisis_flag'])): ?>
@@ -211,15 +208,17 @@ ob_start();
       <?php endif; ?>
 
   <?php if (empty($profile['intro_done'])): ?>
-    <div class="mpath-room-scene" aria-hidden="true">
-      <img src="<?= e(mana_path_room_photo_src()) ?>" alt="">
+    <div class="mr-stage" aria-hidden="true" data-gender="male" data-mood="4">
+      <img class="mr-bg" src="<?= e(mana_path_asset('male-room.png')) ?>" alt="">
+      <div class="mr-atmosphere"></div>
     </div>
     <section class="mpath-glass mpath-intro">
-      <h1>سلام؛ از کجا شروع کنیم؟</h1>
+      <h1>سلام؛ اتاق ذهن را بسازیم</h1>
       <p class="muted">این روزها بیشتر درگیر چی هستی؟ می‌توانی چند مورد را انتخاب کنی. این تشخیص نیست؛ فقط نقطهٔ شروع مسیر است.</p>
       <form method="post" action="<?= e($post) ?>" class="mpath-concerns">
         <?= csrf_field() ?>
         <input type="hidden" name="do" value="intro">
+        <?= mana_path_gender_picker_html($post) ?>
         <?php foreach ($concerns as $id => $c): ?>
           <label class="mpath-chip">
             <input type="checkbox" name="concerns[]" value="<?= e($id) ?>">
@@ -232,12 +231,23 @@ ob_start();
     </section>
   <?php else: ?>
 
-    <div class="mpath-room-scene">
-      <img src="<?= e(mana_path_room_photo_src()) ?>" alt="اتاق ذهن مسیر مانا">
-      <?php if ($tab === 'home'): ?>
-        <p class="mpath-speech"><?= e($companionLine) ?></p>
-      <?php endif; ?>
+    <?php if ($needGender): ?>
+      <section class="mpath-glass mpath-intro">
+        <h1>اول همراهت را انتخاب کن</h1>
+        <form method="post" action="<?= e($post) ?>">
+          <?= csrf_field() ?>
+          <input type="hidden" name="do" value="gender">
+          <?= mana_path_gender_picker_html($post) ?>
+          <button class="btn btn-primary" type="submit">ورود به اتاق ذهن</button>
+        </form>
+      </section>
+    <?php else: ?>
+    <div class="mr-stage" data-state="<?= e($state) ?>" data-gender="<?= e($assets['gender']) ?>" data-mood="<?= (int) $moodNow ?>">
+      <img class="mr-bg" src="<?= e($assets['room']) ?>" alt="اتاق ذهن">
+      <div class="mr-atmosphere" aria-hidden="true"></div>
     </div>
+    <p class="mr-caption"><?= e($companionLine) ?></p>
+    <?php endif; ?>
 
     <?php if ($tab === 'path'): ?>
       <div class="mpath-glass mpath-panel">
@@ -516,12 +526,28 @@ ob_start();
       </section>
     <?php endif; ?>
 
+    <?php if ($tab === 'settings'): ?>
+      <section class="mpath-glass mpath-panel mpath-card">
+        <h2>تنظیمات</h2>
+        <p class="muted">همراه و حال اتاق را اینجا عوض می‌کنی. بقیهٔ پیشرفت و مسیرت سر جایش می‌ماند.</p>
+        <form method="post" action="<?= e($post) ?>">
+          <?= csrf_field() ?>
+          <input type="hidden" name="do" value="gender">
+          <?= mana_path_gender_picker_html($post, $gender) ?>
+          <button class="btn btn-primary" type="submit">ذخیره همراه</button>
+        </form>
+        <p class="mpath-links">
+          <a class="btn btn-outline btn-sm" href="<?= e($dashUrl) ?>">بازگشت به پنل</a>
+        </p>
+      </section>
+    <?php endif; ?>
+
   <?php endif; ?>
     </div>
 
     <?php if (!empty($profile['intro_done'])): ?>
-    <aside class="mpath-today" aria-label="امروز چی کار کنیم">
-      <h2>امروز چی کار کنیم؟</h2>
+    <aside class="mpath-today" aria-label="ماموریت‌های امروز">
+      <h2>ماموریت‌های امروز</h2>
       <ul>
         <?php foreach ($missions as $m): ?>
           <?php
@@ -533,7 +559,7 @@ ob_start();
               <span class="mpath-task-ico"></span>
               <span>
                 <strong><?= e((string) $m['title']) ?></strong>
-                <small><?= $ok ? 'انجام شد' : e($meta['hint']) ?></small>
+                <small><?= $ok ? 'انجام شد' : e($meta['hint']) ?> · +<?= e(to_fa_digits((string) ($m['xp'] ?? 0))) ?> XP</small>
               </span>
             </a>
           </li>
@@ -564,24 +590,24 @@ ob_start();
   <?php if (!empty($profile['intro_done'])): ?>
   <section class="mpath-status">
     <div class="mpath-mood-box">
-      <h2>خلق و حال آدمک</h2>
-      <form method="post" action="<?= e($post) ?>" class="mpath-faces">
+      <h2>حال و هوای امروز</h2>
+      <form method="post" action="<?= e($post) ?>" class="mpath-faces" data-mpath-mood>
         <?= csrf_field() ?>
         <input type="hidden" name="do" value="mood">
         <?php foreach ($moodUi as $n => $lab): ?>
-          <button class="mpath-face mpath-face--<?= (int) $n ?><?= $moodNow === $n ? ' is-on' : '' ?>" name="mood" value="<?= (int) $n ?>" type="submit">
-            <span class="mpath-face-art" aria-hidden="true"></span>
+          <button class="mpath-face mpath-face--<?= (int) $n ?><?= $moodNow === $n ? ' is-on' : '' ?>" name="mood" value="<?= (int) $n ?>" type="submit" data-mood="<?= (int) $n ?>">
+            <img class="mpath-face-art" src="<?= e($assets['avatar']) ?>" alt="">
             <?= e($lab) ?>
           </button>
         <?php endforeach; ?>
       </form>
     </div>
     <div class="mpath-world-box">
-      <h2>محیط اتاق تو</h2>
+      <h2>محیط اتاق من</h2>
       <ul class="mpath-unlocks">
         <?php foreach ($unlocks as $u): ?>
           <li class="<?= !empty($u['on']) ? 'is-on' : 'is-off' ?>">
-            <span class="mpath-lock" aria-hidden="true"></span>
+            <span class="mpath-lock" aria-hidden="true"><?= !empty($u['on']) ? e((string) ($u['icon'] ?? '')) : '🔒' ?></span>
             <?= e($u['label']) ?>
           </li>
         <?php endforeach; ?>
@@ -664,7 +690,7 @@ ob_start();
     </div>
   </div>
 </div>
-<script src="<?= e(url('/assets/js/mana-path.js')) ?>?v=20260923d"></script>
+<script src="<?= e(url('/assets/js/mana-path.js')) ?>?v=20260923e"></script>
 <?php
 $inner = ob_get_clean();
-render_patient_page('مسیر مانا', $inner);
+render_patient_page('اتاق ذهن', $inner);

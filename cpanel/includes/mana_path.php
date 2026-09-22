@@ -92,6 +92,10 @@ function ensure_mana_path_schema(PDO $pdo): void
             INDEX idx_mana_ev_day (user_id, event_type, created_at)
           ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         ");
+        try {
+            $pdo->exec('ALTER TABLE mana_path_profiles ADD COLUMN companion_gender VARCHAR(8) NULL');
+        } catch (Throwable $ignored) {
+        }
         $ready = true;
     } catch (Throwable $e) {
         error_log('ManaClinic mana_path schema: ' . $e->getMessage());
@@ -137,6 +141,7 @@ function mana_path_load_profile(PDO $pdo, string $userId): array
         'world_json' => null,
         'world' => mana_path_world_defaults(),
         'crisis_flag' => 0,
+        'companion_gender' => '',
     ];
     try {
         $stmt = $pdo->prepare('SELECT * FROM mana_path_profiles WHERE user_id = ?');
@@ -153,6 +158,10 @@ function mana_path_load_profile(PDO $pdo, string $userId): array
         $row = $stmt->fetch() ?: $row;
         $row['concerns'] = mana_path_decode_json($row['concerns_json'] ?? null);
         $row['world'] = array_merge(mana_path_world_defaults(), mana_path_decode_json($row['world_json'] ?? null));
+        $row['companion_gender'] = mana_path_normalize_gender((string) ($row['companion_gender'] ?? ''));
+        if ($row['companion_gender'] === '') {
+            $row['companion_gender'] = mana_path_normalize_gender((string) ($row['world']['companion_gender'] ?? ''));
+        }
         return $row;
     } catch (Throwable $e) {
         error_log('ManaClinic mana_path profile: ' . $e->getMessage());
@@ -179,9 +188,62 @@ function mana_path_refresh_rest(PDO $pdo, array $row): void
     }
 }
 
+function mana_path_xp_need(): int
+{
+    return 1000;
+}
+
 function mana_path_level(int $xp): int
 {
-    return max(1, intdiv($xp, 150) + 1);
+    return max(1, intdiv($xp, mana_path_xp_need()) + 1);
+}
+
+function mana_path_normalize_gender(?string $gender): string
+{
+    $g = strtolower(trim((string) $gender));
+    return $g === 'female' || $g === 'male' ? $g : '';
+}
+
+function mana_path_set_gender(PDO $pdo, array &$profile, string $gender): void
+{
+    $g = mana_path_normalize_gender($gender);
+    if ($g === '') {
+        throw new RuntimeException('یک همراه زن یا مرد انتخاب کن.');
+    }
+    $world = array_merge(mana_path_world_defaults(), $profile['world'] ?? []);
+    $world['companion_gender'] = $g;
+    $ok = false;
+    try {
+        $pdo->prepare('UPDATE mana_path_profiles SET companion_gender = ?, world_json = ? WHERE user_id = ?')
+            ->execute([$g, json_encode($world, JSON_UNESCAPED_UNICODE), $profile['user_id']]);
+        $ok = true;
+    } catch (Throwable $ignored) {
+    }
+    if (!$ok) {
+        $pdo->prepare('UPDATE mana_path_profiles SET world_json = ? WHERE user_id = ?')
+            ->execute([json_encode($world, JSON_UNESCAPED_UNICODE), $profile['user_id']]);
+    }
+    $profile['companion_gender'] = $g;
+    $profile['world'] = $world;
+}
+
+function mana_path_unlock_items(array $world): array
+{
+    $plant = (int) ($world['plant'] ?? 0);
+    $desk = (int) ($world['desk'] ?? 0);
+    $light = (int) ($world['light'] ?? 0);
+    $window = (int) ($world['window'] ?? 0);
+    $outfit = (int) ($world['outfit'] ?? 0);
+    return [
+        ['id' => 'room', 'label' => 'اتاق ساده', 'icon' => '🏠', 'on' => true],
+        ['id' => 'plant', 'label' => 'گیاه', 'icon' => '🪴', 'on' => $plant >= 20],
+        ['id' => 'desk', 'label' => 'میز کار', 'icon' => '🪑', 'on' => $desk >= 35],
+        ['id' => 'books', 'label' => 'کتابخانه', 'icon' => '📚', 'on' => $desk >= 55],
+        ['id' => 'decor', 'label' => 'دکور', 'icon' => '🎨', 'on' => $outfit >= 1 || $light >= 40],
+        ['id' => 'music', 'label' => 'موسیقی', 'icon' => '🎵', 'on' => $light >= 45],
+        ['id' => 'window', 'label' => 'پنجره / منظره', 'icon' => '🪟', 'on' => $window >= 40 || $light >= 50],
+        ['id' => 'pet', 'label' => 'حیوان خانگی', 'icon' => '🐶', 'on' => $plant >= 50],
+    ];
 }
 
 function mana_path_companion_state(array $profile): string
@@ -240,6 +302,9 @@ function mana_path_ensure_tree(PDO $pdo, string $userId, string $treeId): array
 function mana_path_apply_world(array $world, array $delta): array
 {
     foreach ($delta as $key => $val) {
+        if ($key === 'companion_gender') {
+            continue;
+        }
         if ($key === 'outfit') {
             $world['outfit'] = min(3, max(0, (int) ($world['outfit'] ?? 0) + (int) $val));
             continue;
@@ -375,7 +440,7 @@ function mana_path_set_crisis(PDO $pdo, string $userId, bool $on): void
         ->execute([$on ? 1 : 0, $on ? date('Y-m-d H:i:s') : null, $userId]);
 }
 
-function mana_path_save_intro(PDO $pdo, array &$profile, array $concerns): void
+function mana_path_save_intro(PDO $pdo, array &$profile, array $concerns, string $gender = ''): void
 {
     $valid = array_keys(mana_path_concerns());
     $picked = array_values(array_intersect($valid, $concerns));
@@ -391,6 +456,9 @@ function mana_path_save_intro(PDO $pdo, array &$profile, array $concerns): void
     $profile['intro_done'] = 1;
     $profile['concerns'] = $picked;
     $profile['active_tree'] = $primary;
+    if (mana_path_normalize_gender($gender) !== '') {
+        mana_path_set_gender($pdo, $profile, $gender);
+    }
 }
 
 function mana_path_complete_step(PDO $pdo, array &$profile, string $treeId, string $stepId, array $payload = []): array
@@ -545,11 +613,11 @@ function mana_path_add_tree(PDO $pdo, array &$profile, string $treeId): void
 function mana_path_moods(): array
 {
     return [
-        1 => ['emoji' => '😟', 'label' => 'خسته'],
-        2 => ['emoji' => '😕', 'label' => 'غمگین'],
-        3 => ['emoji' => '😐', 'label' => 'عادی'],
-        4 => ['emoji' => '🙂', 'label' => 'بهتر'],
-        5 => ['emoji' => '😊', 'label' => 'شاد'],
+        1 => ['emoji' => '😟', 'label' => 'خیلی بد'],
+        2 => ['emoji' => '😕', 'label' => 'بد'],
+        3 => ['emoji' => '😐', 'label' => 'معمولی'],
+        4 => ['emoji' => '🙂', 'label' => 'خوب'],
+        5 => ['emoji' => '😊', 'label' => 'عالی'],
     ];
 }
 
