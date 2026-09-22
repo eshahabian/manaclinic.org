@@ -1,7 +1,10 @@
 <?php
 declare(strict_types=1);
 
-require_once __DIR__ . '/mana_path_catalog.php';
+$manaPathCatalog = __DIR__ . '/mana_path_catalog.php';
+if (is_file($manaPathCatalog)) {
+    require_once $manaPathCatalog;
+}
 
 function mana_path_beta_usernames(): array
 {

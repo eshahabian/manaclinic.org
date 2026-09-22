@@ -3,8 +3,20 @@ declare(strict_types=1);
 
 $user = require_login(['PATIENT']);
 require_once __DIR__ . '/../../includes/patient_panel.php';
-require_once __DIR__ . '/../../includes/mana_path.php';
-require_once __DIR__ . '/../../includes/mana_path_ui.php';
+
+$manaInc = __DIR__ . '/../../includes/mana_path.php';
+$manaUi = __DIR__ . '/../../includes/mana_path_ui.php';
+if (!is_file($manaInc) || !is_file($manaUi)) {
+    flash_set('error', 'مسیر مانا هنوز روی سرور کامل نصب نشده.');
+    redirect('/dashboard');
+}
+require_once $manaInc;
+require_once $manaUi;
+
+if (!function_exists('mana_path_trees') || !function_exists('mana_path_require_user')) {
+    flash_set('error', 'فایل محتوای مسیر مانا ناقص است.');
+    redirect('/dashboard');
+}
 
 mana_path_require_user($user);
 ensure_mana_path_schema($pdo);

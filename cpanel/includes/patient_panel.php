@@ -2,8 +2,16 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/workshops.php';
-if (is_file(__DIR__ . '/mana_path.php')) {
-    require_once __DIR__ . '/mana_path.php';
+
+function patient_mana_path_visible(?array $user): bool
+{
+    if (function_exists('mana_path_user_allowed')) {
+        return mana_path_user_allowed($user);
+    }
+    if (!$user) {
+        return false;
+    }
+    return strcasecmp(trim((string) ($user['username'] ?? '')), 'eshahabian') === 0;
 }
 
 function patient_request_path(): string
@@ -25,7 +33,7 @@ function patient_nav(): array
         ['href' => '/dashboard', 'label' => 'خلاصه'],
     ];
     $u = current_user();
-    if (function_exists('mana_path_user_allowed') && mana_path_user_allowed($u)) {
+    if (patient_mana_path_visible($u)) {
         $nav[] = ['href' => '/dashboard/path', 'label' => 'مسیر مانا'];
     }
     $nav = array_merge($nav, [

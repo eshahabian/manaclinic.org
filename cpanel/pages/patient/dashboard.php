@@ -35,8 +35,8 @@ ob_start();
 ?>
 <div class="stack">
   <h1>سلام <?= e($user['name']) ?></h1>
-  <?php if (function_exists('mana_path_user_allowed') && mana_path_user_allowed($user)): ?>
-    <p class="mpath-dash-link">
+  <?php if (patient_mana_path_visible($user)): ?>
+    <p style="display:flex;flex-wrap:wrap;align-items:center;gap:.55rem;margin:0 0 1rem">
       <a class="btn btn-primary btn-sm" href="<?= e(url('/dashboard/path')) ?>">مسیر مانا</a>
       <span class="muted">همراه روزانه تمرین، اتاق ذهن و مسیر اختصاصی — نسخه آزمایشی.</span>
     </p>
@@ -112,12 +112,6 @@ ob_start();
 <?= booking_terms_styles() ?>
 <?php
 $dashContent = ob_get_clean();
-if (function_exists('mana_path_user_allowed') && mana_path_user_allowed($user) && is_file(__DIR__ . '/../../includes/mana_path_ui.php')) {
-    require_once __DIR__ . '/../../includes/mana_path_ui.php';
-    if (function_exists('mana_path_css_href')) {
-        $GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(mana_path_css_href()) . '">';
-    }
-}
 $GLOBALS['pageScripts'] = '
 <script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260904u"></script>
 <script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910s"></script>
