@@ -239,12 +239,14 @@ function mana_path_set_gender(PDO $pdo, array &$profile, string $gender): void
 
 function mana_path_unlock_items(array $world): array
 {
+    // TEMP: preview all room items unlocked; restore thresholds after review.
+    $previewAllOn = true;
     $plant = (int) ($world['plant'] ?? 0);
     $desk = (int) ($world['desk'] ?? 0);
     $light = (int) ($world['light'] ?? 0);
     $window = (int) ($world['window'] ?? 0);
     $outfit = (int) ($world['outfit'] ?? 0);
-    return [
+    $items = [
         ['id' => 'room', 'label' => 'اتاق خواب', 'icon' => '🛏️', 'on' => true],
         ['id' => 'plant', 'label' => 'گیاه', 'icon' => '🪴', 'on' => $plant >= 20],
         ['id' => 'desk', 'label' => 'میز کار', 'icon' => '🪑', 'on' => $desk >= 35],
@@ -254,6 +256,13 @@ function mana_path_unlock_items(array $world): array
         ['id' => 'window', 'label' => 'پنجره / منظره', 'icon' => '🪟', 'on' => $window >= 40 || $light >= 50],
         ['id' => 'pet', 'label' => 'حیوان خانگی', 'icon' => '🐶', 'on' => $plant >= 50],
     ];
+    if ($previewAllOn) {
+        foreach ($items as &$item) {
+            $item['on'] = true;
+        }
+        unset($item);
+    }
+    return $items;
 }
 
 function mana_path_companion_state(array $profile): string
