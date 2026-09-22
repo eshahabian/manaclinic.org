@@ -591,9 +591,43 @@ ob_start();
   </div>
 
   <?php if (!empty($profile['intro_done'])): ?>
+  <?php
+    $unlockShow = array_slice($unlocks, 0, 5);
+    $unlockShowOn = 0;
+    foreach ($unlockShow as $u) {
+        if (!empty($u['on'])) {
+            $unlockShowOn++;
+        }
+    }
+  ?>
   <section class="mpath-status">
+    <div class="mpath-goals-box">
+      <h2>اهداف امروز</h2>
+      <ul class="mpath-goals">
+        <?php foreach ($missions as $m): ?>
+          <?php $ok = in_array($m['id'], $doneMissions, true); ?>
+          <li class="<?= $ok ? 'is-done' : '' ?>">
+            <span class="mpath-check" aria-hidden="true"><?= $ok ? '✓' : '' ?></span>
+            <?= e((string) $m['title']) ?>
+          </li>
+        <?php endforeach; ?>
+      </ul>
+    </div>
+    <div class="mpath-world-box">
+      <h2>محیط اتاق من</h2>
+      <ul class="mpath-unlocks">
+        <?php foreach ($unlockShow as $u): ?>
+          <li class="<?= !empty($u['on']) ? 'is-on' : 'is-off' ?>">
+            <span class="mpath-lock" aria-hidden="true"><?= !empty($u['on']) ? e((string) ($u['icon'] ?? '')) : '🔒' ?></span>
+            <?= e($u['label']) ?>
+          </li>
+        <?php endforeach; ?>
+      </ul>
+      <p class="mpath-unlock-bar"><i style="width:<?= (int) round(100 * $unlockShowOn / max(1, count($unlockShow))) ?>%"></i></p>
+      <small><?= e(to_fa_digits((string) $unlockShowOn)) ?> / <?= e(to_fa_digits((string) count($unlockShow))) ?> آیتم باز شده</small>
+    </div>
     <div class="mpath-mood-box">
-      <h2>حال و هوای امروز</h2>
+      <h2>خلق و حال امروز</h2>
       <form method="post" action="<?= e($post) ?>" class="mpath-faces" data-mpath-mood>
         <?= csrf_field() ?>
         <input type="hidden" name="do" value="mood">
@@ -605,22 +639,6 @@ ob_start();
         <?php endforeach; ?>
       </form>
     </div>
-    <div class="mpath-world-box">
-      <h2>محیط اتاق من</h2>
-      <ul class="mpath-unlocks">
-        <?php foreach ($unlocks as $u): ?>
-          <li class="<?= !empty($u['on']) ? 'is-on' : 'is-off' ?>">
-            <span class="mpath-lock" aria-hidden="true"><?= !empty($u['on']) ? e((string) ($u['icon'] ?? '')) : '🔒' ?></span>
-            <?= e($u['label']) ?>
-          </li>
-        <?php endforeach; ?>
-      </ul>
-      <p class="mpath-unlock-bar"><i style="width:<?= (int) round(100 * $unlockOn / max(1, count($unlocks))) ?>%"></i></p>
-      <small><?= e(to_fa_digits((string) $unlockOn)) ?> / <?= e(to_fa_digits((string) count($unlocks))) ?> آیتم باز شده</small>
-    </div>
-    <blockquote class="mpath-quote">
-      ذهن سالم محیط سالم می‌سازد.
-    </blockquote>
   </section>
   <?php endif; ?>
 

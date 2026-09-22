@@ -245,7 +245,7 @@ function mana_path_unlock_items(array $world): array
     $window = (int) ($world['window'] ?? 0);
     $outfit = (int) ($world['outfit'] ?? 0);
     return [
-        ['id' => 'room', 'label' => 'اتاق ساده', 'icon' => '🏠', 'on' => true],
+        ['id' => 'room', 'label' => 'اتاق خواب', 'icon' => '🛏️', 'on' => true],
         ['id' => 'plant', 'label' => 'گیاه', 'icon' => '🪴', 'on' => $plant >= 20],
         ['id' => 'desk', 'label' => 'میز کار', 'icon' => '🪑', 'on' => $desk >= 35],
         ['id' => 'books', 'label' => 'کتابخانه', 'icon' => '📚', 'on' => $desk >= 55],

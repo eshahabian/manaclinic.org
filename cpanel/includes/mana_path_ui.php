@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 function mana_path_css_href(): string
 {
-    return url('/assets/css/mana-path.css') . '?v=20260923j';
+    return url('/assets/css/mana-path.css') . '?v=20260923k';
 }
 
 function mana_path_asset(string $file): string
