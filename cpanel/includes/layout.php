@@ -51,7 +51,7 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
   <?= seo_render_head() ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260922a">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260922b">
   <?php
     // آزمایش سبک حس روان‌تر — برای خاموش کردن: false
     $manaAppleFeelLight = true;
@@ -151,90 +151,43 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
         <?php endif; ?>
       </div>
     </div>
+    <?php
+      $bookNext = '/doctors';
+      $bookHref = $user ? url($bookNext) : url('/register?next=' . rawurlencode($bookNext));
+      $workshopsHref = ($user && ($user['role'] ?? '') === 'PATIENT')
+        ? url('/dashboard/workshops')
+        : url('/#home-workshop-banners');
+      $navPath = (string) ($GLOBALS['path'] ?? '/');
+      $mobileHere = static function (string $hrefPath) use ($navPath): string {
+          $on = $hrefPath === '/'
+              ? $navPath === '/'
+              : ($navPath === $hrefPath || str_starts_with($navPath, $hrefPath . '/'));
+          return $on ? ' is-active' : '';
+      };
+    ?>
+    <div id="mobile-nav" class="mobile-nav" aria-label="منو" aria-hidden="true" inert>
+      <div class="container-page mobile-nav-inner">
+        <nav class="mobile-nav-list" aria-label="منوی سایت">
+          <a class="mobile-nav-cta" href="<?= e($bookHref) ?>">گرفتن نوبت</a>
+          <a href="<?= e($workshopsHref) ?>">کارگاه‌ها</a>
+          <a class="<?= e(trim($mobileHere('/'))) ?>" href="<?= e(url('/')) ?>">صفحه اصلی</a>
+          <a class="<?= e(trim($mobileHere('/services'))) ?>" href="<?= e(url('/services')) ?>">خدمات</a>
+          <a class="<?= e(trim($mobileHere('/doctors'))) ?>" href="<?= e(url('/doctors')) ?>">متخصصان</a>
+          <a class="<?= e(trim($mobileHere('/articles'))) ?>" href="<?= e(url('/articles')) ?>">مقالات</a>
+          <a class="<?= e(trim($mobileHere('/tests'))) ?>" href="<?= e(url('/tests')) ?>">آزمون‌ها</a>
+          <a class="<?= e(trim($mobileHere('/about'))) ?>" href="<?= e(url('/about')) ?>">درباره ما</a>
+          <a class="<?= e(trim($mobileHere('/faq'))) ?>" href="<?= e(url('/faq')) ?>">سوالات متداول</a>
+          <a class="<?= e(trim($mobileHere('/rules'))) ?>" href="<?= e(url('/rules')) ?>">قوانین</a>
+          <a class="<?= e(trim($mobileHere('/contact'))) ?>" href="<?= e(url('/contact')) ?>">تماس با ما</a>
+          <?php if ($panelHref): ?>
+            <a class="<?= e(trim($mobileHere($panelHref))) ?>" href="<?= e(url($panelHref)) ?>">پنل من</a>
+          <?php endif; ?>
+        </nav>
+        <div class="mobile-nav-panel" data-mobile-panel hidden></div>
+      </div>
+    </div>
   </header>
   <div class="mobile-nav-overlay" data-nav-overlay aria-hidden="true"></div>
-  <div id="mobile-nav" class="mobile-nav" role="dialog" aria-modal="true" aria-label="منو" aria-hidden="true" inert>
-    <div class="mobile-nav-inner">
-      <?php
-        $bookNext = '/doctors';
-        $bookHref = $user ? url($bookNext) : url('/register?next=' . rawurlencode($bookNext));
-        $workshopsHref = ($user && ($user['role'] ?? '') === 'PATIENT')
-          ? url('/dashboard/workshops')
-          : url('/#home-workshop-banners');
-      ?>
-      <nav class="mobile-nav-grid" aria-label="منوی سایت">
-        <a class="mobile-nav-tile" href="<?= e($workshopsHref) ?>">
-          <span class="mobile-nav-tile-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 19V7h16v12H4zM8 7V5h8v2M9 11h6M9 15h4"/></svg>
-          </span>
-          <span>کارگاه‌ها</span>
-        </a>
-        <a class="mobile-nav-tile mobile-nav-tile-accent" href="<?= e($bookHref) ?>">
-          <span class="mobile-nav-tile-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="4" y="5" width="16" height="16" rx="2"/><path d="M8 3v4M16 3v4M4 10h16M9 14h2v2H9z"/></svg>
-          </span>
-          <span>گرفتن نوبت</span>
-        </a>
-        <a class="mobile-nav-tile" href="<?= e(url('/')) ?>">
-          <span class="mobile-nav-tile-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 11.5 12 4l8 7.5V20H4v-8.5z"/><path d="M10 20v-6h4v6"/></svg>
-          </span>
-          <span>صفحه اصلی سایت</span>
-        </a>
-        <a class="mobile-nav-tile" href="<?= e(url('/articles')) ?>">
-          <span class="mobile-nav-tile-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 4h9l5 5v11H6V4z"/><path d="M15 4v5h5M9 13h6M9 17h4"/></svg>
-          </span>
-          <span>مقالات</span>
-        </a>
-        <a class="mobile-nav-tile" href="<?= e(url('/tests')) ?>">
-          <span class="mobile-nav-tile-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M8 4h8v4H8zM6 8h12v12H6z"/><path d="M9 13l2 2 4-4"/></svg>
-          </span>
-          <span>آزمون‌ها</span>
-        </a>
-        <a class="mobile-nav-tile" href="<?= e(url('/services')) ?>">
-          <span class="mobile-nav-tile-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 7h14M5 12h14M5 17h10"/></svg>
-          </span>
-          <span>خدمات</span>
-        </a>
-        <a class="mobile-nav-tile" href="<?= e(url('/about')) ?>">
-          <span class="mobile-nav-tile-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M12 11v5M12 8h.01"/></svg>
-          </span>
-          <span>درباره ما</span>
-        </a>
-        <a class="mobile-nav-tile" href="<?= e(url('/faq')) ?>">
-          <span class="mobile-nav-tile-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="8"/><path d="M9.5 9a2.5 2.5 0 1 1 3.9 2.1c-.7.4-1.4 1-1.4 2M12 17h.01"/></svg>
-          </span>
-          <span>سوالات متداول</span>
-        </a>
-        <a class="mobile-nav-tile" href="<?= e(url('/rules')) ?>">
-          <span class="mobile-nav-tile-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M7 4h10v16H7z"/><path d="M10 8h4M10 12h4M10 16h3"/></svg>
-          </span>
-          <span>قوانین</span>
-        </a>
-        <a class="mobile-nav-tile" href="<?= e(url('/contact')) ?>">
-          <span class="mobile-nav-tile-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M5 6h14v12H5z"/><path d="M5 8l7 5 7-5"/></svg>
-          </span>
-          <span>تماس با ما</span>
-        </a>
-        <?php if ($panelHref): ?>
-          <a class="mobile-nav-tile" href="<?= e(url($panelHref)) ?>">
-            <span class="mobile-nav-tile-icon" aria-hidden="true">
-              <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16v12H4z"/><path d="M8 7V5h8v2"/></svg>
-            </span>
-            <span>پنل من</span>
-          </a>
-        <?php endif; ?>
-      </nav>
-      <div class="mobile-nav-panel" data-mobile-panel hidden></div>
-    </div>
-  </div>
 
   <main>
     <?php if ($flash): ?>
