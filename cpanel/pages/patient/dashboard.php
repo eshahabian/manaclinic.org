@@ -35,6 +35,12 @@ ob_start();
 ?>
 <div class="stack">
   <h1>سلام <?= e($user['name']) ?></h1>
+  <?php if (strcasecmp(trim((string) ($user['username'] ?? '')), 'eshahabian') === 0): ?>
+    <p style="display:flex;flex-wrap:wrap;align-items:center;gap:.55rem;margin:0 0 1rem">
+      <a class="btn btn-primary btn-sm" href="<?= e(url('/dashboard/path')) ?>">مسیر مانا</a>
+      <span class="muted">همراه روزانه، اتاق ذهن و مسیر اختصاصی — نسخه آزمایشی.</span>
+    </p>
+  <?php endif; ?>
   <p class="muted">نوبت‌ها و کارگاه‌ها را با انتخاب سال، ماه و روز ببینید.</p>
   <p id="course-msg" class="course-flash" style="display:none" role="status"></p>
   <p id="dash-book-msg" class="course-flash" style="display:none" role="status"></p>
