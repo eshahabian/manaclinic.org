@@ -3,17 +3,6 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/workshops.php';
 
-function patient_mana_path_visible(?array $user): bool
-{
-    if (function_exists('mana_path_user_allowed')) {
-        return mana_path_user_allowed($user);
-    }
-    if (!$user) {
-        return false;
-    }
-    return strcasecmp(trim((string) ($user['username'] ?? '')), 'eshahabian') === 0;
-}
-
 function patient_request_path(): string
 {
     $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
@@ -31,12 +20,6 @@ function patient_nav(): array
 {
     $nav = [
         ['href' => '/dashboard', 'label' => 'خلاصه'],
-    ];
-    $u = current_user();
-    if (patient_mana_path_visible($u)) {
-        $nav[] = ['href' => '/dashboard/path', 'label' => 'مسیر مانا'];
-    }
-    $nav = array_merge($nav, [
         ['href' => '/dashboard/appointments', 'label' => 'نوبت‌های من'],
         ['href' => '/dashboard/messages', 'label' => 'پیام‌ها', 'badge' => 'messages'],
         [
@@ -54,14 +37,8 @@ function patient_nav(): array
     if (function_exists('mentions_nav_item')) {
         $mentionNav = mentions_nav_item();
         if ($mentionNav) {
-            $after = 3;
-            foreach ($nav as $i => $item) {
-                if (($item['href'] ?? '') === '/dashboard/messages') {
-                    $after = $i + 1;
-                    break;
-                }
-            }
-            array_splice($nav, $after, 0, [[
+            // بعد از پیام‌ها
+            array_splice($nav, 3, 0, [[
                 'href' => $mentionNav['href'],
                 'label' => $mentionNav['label'],
                 'badge' => 'mentions',
