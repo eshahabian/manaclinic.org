@@ -144,6 +144,7 @@ ob_start();
         <?php endforeach; ?>
         <button class="btn btn-primary" type="submit">ساخت مسیر من</button>
       </form>
+      <?= mana_path_future_film_html() ?>
     </section>
   <?php else: ?>
 
@@ -180,6 +181,7 @@ ob_start();
           </p>
         </section>
       </div>
+      <?= mana_path_future_film_html() ?>
     <?php endif; ?>
 
     <?php if ($tab === 'path'): ?>
@@ -519,7 +521,7 @@ ob_start();
     </div>
   </div>
 </div>
-<script src="<?= e(url('/assets/js/mana-path.js')) ?>?v=20260923a"></script>
+<script src="<?= e(url('/assets/js/mana-path.js')) ?>?v=20260923c"></script>
 <?php
 $inner = ob_get_clean();
 render_patient_page('مسیر مانا', $inner);

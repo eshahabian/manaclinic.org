@@ -3,7 +3,71 @@ declare(strict_types=1);
 
 function mana_path_css_href(): string
 {
-    return url('/assets/css/mana-path.css') . '?v=20260923a';
+    return url('/assets/css/mana-path.css') . '?v=20260923c';
+}
+
+function mana_path_future_film_html(): string
+{
+    ob_start();
+    ?>
+    <section class="mpf" aria-label="فیلم کوتاه آیندهٔ اتاق ذهن">
+      <div class="mpf-screen" data-mpf-film>
+        <svg class="mpf-svg" viewBox="0 0 360 260" role="img" aria-hidden="true">
+          <defs>
+            <linearGradient id="mpfSky" x1="0" y1="0" x2="0" y2="1">
+              <stop class="mpf-sky-a" offset="0%" stop-color="#7a9aa0"/>
+              <stop class="mpf-sky-b" offset="100%" stop-color="#e8d7c4"/>
+            </linearGradient>
+            <filter id="mpfGlow" x="-40%" y="-40%" width="180%" height="180%">
+              <feGaussianBlur stdDeviation="6" result="b"/>
+              <feMerge><feMergeNode in="b"/><feMergeNode in="SourceGraphic"/></feMerge>
+            </filter>
+          </defs>
+          <rect class="mpf-sky" width="360" height="260" fill="url(#mpfSky)"/>
+          <circle class="mpf-sun" cx="92" cy="74" r="14" fill="#fff3b0" filter="url(#mpfGlow)"/>
+          <rect x="18" y="28" width="324" height="208" rx="22" fill="#fffdf8" opacity=".94"/>
+          <rect x="38" y="48" width="92" height="72" rx="10" fill="#d7e8df"/>
+          <rect class="mpf-window" x="46" y="56" width="76" height="56" rx="6" fill="#8ec8e6"/>
+          <g class="mpf-bed">
+            <rect x="210" y="168" width="110" height="36" rx="10" fill="#e8d5c4"/>
+            <rect class="mpf-pillow" x="218" y="176" width="94" height="16" rx="6" fill="#f6eee6"/>
+            <rect class="mpf-blanket" x="216" y="158" width="98" height="12" rx="6" fill="#c9e4d6"/>
+          </g>
+          <g class="mpf-desk">
+            <rect x="40" y="168" width="78" height="36" rx="6" fill="#cbb79a"/>
+            <rect class="mpf-book" x="52" y="148" width="22" height="20" rx="3" fill="#f3f0ea"/>
+            <circle class="mpf-cup" cx="92" cy="156" r="7" fill="#d98b6a"/>
+          </g>
+          <g class="mpf-plant">
+            <ellipse cx="168" cy="202" rx="16" ry="8" fill="#b08968"/>
+            <line class="mpf-stem" x1="168" y1="196" x2="168" y2="168" stroke="#6a9a7c" stroke-width="4"/>
+            <ellipse class="mpf-leaf-l" cx="152" cy="176" rx="16" ry="8" fill="#5f9a62"/>
+            <ellipse class="mpf-leaf-r" cx="184" cy="178" rx="14" ry="7" fill="#7bb56e"/>
+            <circle class="mpf-flower" cx="168" cy="158" r="8" fill="#e08a6a"/>
+          </g>
+          <g class="mpf-buddy">
+            <circle cx="258" cy="126" r="16" fill="#f3d7c4"/>
+            <rect class="mpf-body" x="244" y="142" width="28" height="34" rx="10" fill="#c4ddd3"/>
+            <path class="mpf-eyes" d="M250 124 h4 M262 124 h4" stroke="#3a4a44" stroke-width="2" stroke-linecap="round"/>
+            <path class="mpf-mouth" d="M254 132 q4 5 8 0" fill="none" stroke="#3a4a44" stroke-width="1.8" stroke-linecap="round"/>
+            <g class="mpf-spark">
+              <circle cx="278" cy="112" r="2.2" fill="#e0a05c"/>
+              <circle cx="286" cy="124" r="1.6" fill="#7eb39c"/>
+              <circle cx="240" cy="108" r="1.8" fill="#e08a6a"/>
+            </g>
+          </g>
+          <rect x="18" y="228" width="324" height="8" rx="4" fill="#d5c4b0"/>
+          <text class="mpf-title" x="180" y="22" text-anchor="middle" font-size="11" fill="#1b5e4b">آیندهٔ اتاق ذهن</text>
+        </svg>
+        <p class="mpf-line" data-mpf-line>اول همه چیز ساده است.</p>
+      </div>
+      <div class="mpf-bar">
+        <button type="button" class="btn btn-outline btn-sm" data-mpf-replay>پخش دوباره</button>
+        <span class="muted">با قدم‌های کوچک، نور، گیاه و حال آدمک عوض می‌شود — بدون تنبیه.</span>
+      </div>
+    </section>
+    <?php
+    return (string) ob_get_clean();
 }
 
 function mana_path_room_html(array $profile, string $state): string

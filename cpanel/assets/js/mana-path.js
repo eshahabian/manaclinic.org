@@ -61,4 +61,36 @@
   document.addEventListener("keydown", function (e) {
     if (e.key === "Escape" && openSheet) closeSheets();
   });
+
+  var lines = [
+    "اول همه چیز ساده است.",
+    "نور کم‌کم برمی‌گردد.",
+    "گیاه با تمرین‌ها رشد می‌کند.",
+    "تخت و میز زنده می‌شوند.",
+    "آدمک لباس تازه می‌گیرد و سرحال‌تر می‌شود.",
+    "این آینده با قدم‌های کوچک ساخته می‌شود."
+  ];
+  document.querySelectorAll("[data-mpf-film]").forEach(function (screen) {
+    var lineEl = screen.querySelector("[data-mpf-line]");
+    var timer;
+    function play() {
+      screen.classList.remove("is-play");
+      void screen.offsetWidth;
+      screen.classList.add("is-play");
+      if (timer) window.clearInterval(timer);
+      var i = 0;
+      if (lineEl) lineEl.textContent = lines[0];
+      timer = window.setInterval(function () {
+        i += 1;
+        if (i >= lines.length) {
+          window.clearInterval(timer);
+          return;
+        }
+        if (lineEl) lineEl.textContent = lines[i];
+      }, 2000);
+    }
+    play();
+    var replay = screen.parentElement && screen.parentElement.querySelector("[data-mpf-replay]");
+    if (replay) replay.addEventListener("click", play);
+  });
 })();
