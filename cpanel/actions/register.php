@@ -84,6 +84,13 @@ if ($username === '') {
     redirect('/register?role=' . $role);
 }
 
+$gender = strtolower(trim(post('gender')));
+if ($role !== 'DOCTOR' && $gender !== 'male' && $gender !== 'female') {
+    flash_set('error', 'مشخص کن اتاق ذهن مرد است یا زن.');
+    redirect('/register?role=' . $role);
+}
+
+ensure_users_gender_schema($pdo);
 require_once __DIR__ . '/../includes/wallet.php';
 
 $id = cuid();
@@ -112,6 +119,10 @@ if ($role === 'DOCTOR') {
 $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,preferred_doctor_id,must_change_password) VALUES (?,?,?,?,?,?,?,?,0)')
     ->execute([$id, $username, $name, $email, $phone, password_hash($password, PASSWORD_DEFAULT), 'PATIENT', null]);
 user_remember_password_plain($pdo, $id, $password);
+try {
+    $pdo->prepare('UPDATE users SET gender=? WHERE id=?')->execute([$gender, $id]);
+} catch (Throwable $ignored) {
+}
 
 ensure_wallet($pdo, $id);
 
@@ -143,6 +154,7 @@ login_user([
     'username' => $username,
     'role' => 'PATIENT',
     'must_change_password' => 0,
+    'gender' => $gender,
 ]);
 flash_set('success', 'ثبت‌نام با موفقیت انجام شد. ایمیل خوش‌آمد برایتان ارسال شد.');
 $next = safe_next_path(post('next'));

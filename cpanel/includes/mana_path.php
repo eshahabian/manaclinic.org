@@ -225,6 +225,16 @@ function mana_path_set_gender(PDO $pdo, array &$profile, string $gender): void
     }
     $profile['companion_gender'] = $g;
     $profile['world'] = $world;
+    if (function_exists('ensure_users_gender_schema')) {
+        try {
+            ensure_users_gender_schema($pdo);
+            $pdo->prepare('UPDATE users SET gender = ? WHERE id = ?')->execute([$g, $profile['user_id']]);
+        } catch (Throwable $ignored) {
+        }
+    }
+    if (isset($_SESSION['user']) && (string) ($_SESSION['user']['id'] ?? '') === (string) $profile['user_id']) {
+        $_SESSION['user']['gender'] = $g;
+    }
 }
 
 function mana_path_unlock_items(array $world): array

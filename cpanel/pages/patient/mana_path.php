@@ -23,6 +23,13 @@ ensure_mana_path_schema($pdo);
 
 $patientId = (string) $user['id'];
 $profile = mana_path_load_profile($pdo, $patientId);
+$userGender = mana_path_normalize_gender((string) ($user['gender'] ?? ''));
+if ($userGender !== '' && mana_path_normalize_gender((string) ($profile['companion_gender'] ?? '')) === '') {
+    try {
+        mana_path_set_gender($pdo, $profile, $userGender);
+    } catch (Throwable $ignored) {
+    }
+}
 if ((string) ($profile['mood_date'] ?? '') !== date('Y-m-d')) {
     $profile['mood_today'] = null;
 }
@@ -142,6 +149,10 @@ foreach ($moods as $n => $m) {
 ob_start();
 ?>
 <div class="mpath-shell" data-gender="<?= e($assets['gender']) ?>" data-mood="<?= (int) $moodNow ?>" data-state="<?= e($state) ?>">
+  <div class="mr-full">
+    <img src="<?= e($assets['room']) ?>" alt="اتاق ذهن">
+    <div class="mr-atmosphere" aria-hidden="true"></div>
+  </div>
   <header class="mpath-hud">
     <button type="button" class="mpath-menu-btn" data-mpath-menu aria-controls="mpath-rail" aria-expanded="false">منو</button>
     <a class="mpath-brand" href="<?= e($mpathUrl) ?>">
@@ -189,6 +200,8 @@ ob_start();
   <div class="mpath-mid">
     <aside class="mpath-rail" id="mpath-rail">
       <nav aria-label="اتاق ذهن">
+        <a href="<?= e(url('/')) ?>"><i aria-hidden="true">←</i> سایت مانا</a>
+        <a href="<?= e($dashUrl) ?>"><i aria-hidden="true">☰</i> پنل من</a>
         <a class="<?= $tab === 'home' ? 'is-on' : '' ?>" href="<?= e($mpathUrl) ?>"><i aria-hidden="true">⌂</i> خانه</a>
         <a class="<?= $tab === 'path' ? 'is-on' : '' ?>" href="<?= e($mpathUrl . '?tab=path&tree=' . rawurlencode($activeTree)) ?>"><i aria-hidden="true">◎</i> مسیر من</a>
         <a class="<?= $tab === 'practice' ? 'is-on' : '' ?>" href="<?= e($mpathUrl . '?tab=practice') ?>"><i aria-hidden="true">✦</i> تمرین‌ها</a>
@@ -208,17 +221,12 @@ ob_start();
       <?php endif; ?>
 
   <?php if (empty($profile['intro_done'])): ?>
-    <div class="mr-stage" aria-hidden="true" data-gender="male" data-mood="4">
-      <img class="mr-bg" src="<?= e(mana_path_asset('male-room.png')) ?>" alt="">
-      <div class="mr-atmosphere"></div>
-    </div>
     <section class="mpath-glass mpath-intro">
       <h1>سلام؛ اتاق ذهن را بسازیم</h1>
       <p class="muted">این روزها بیشتر درگیر چی هستی؟ می‌توانی چند مورد را انتخاب کنی. این تشخیص نیست؛ فقط نقطهٔ شروع مسیر است.</p>
       <form method="post" action="<?= e($post) ?>" class="mpath-concerns">
         <?= csrf_field() ?>
         <input type="hidden" name="do" value="intro">
-        <?= mana_path_gender_picker_html($post) ?>
         <?php foreach ($concerns as $id => $c): ?>
           <label class="mpath-chip">
             <input type="checkbox" name="concerns[]" value="<?= e($id) ?>">
@@ -233,20 +241,14 @@ ob_start();
 
     <?php if ($needGender): ?>
       <section class="mpath-glass mpath-intro">
-        <h1>اول همراهت را انتخاب کن</h1>
+        <h1>اتاق ذهن را کامل کن</h1>
         <form method="post" action="<?= e($post) ?>">
           <?= csrf_field() ?>
           <input type="hidden" name="do" value="gender">
           <?= mana_path_gender_picker_html($post) ?>
-          <button class="btn btn-primary" type="submit">ورود به اتاق ذهن</button>
+          <button class="btn btn-primary" type="submit">نمایش اتاق</button>
         </form>
       </section>
-    <?php else: ?>
-    <div class="mr-stage" data-state="<?= e($state) ?>" data-gender="<?= e($assets['gender']) ?>" data-mood="<?= (int) $moodNow ?>">
-      <img class="mr-bg" src="<?= e($assets['room']) ?>" alt="اتاق ذهن">
-      <div class="mr-atmosphere" aria-hidden="true"></div>
-    </div>
-    <p class="mr-caption"><?= e($companionLine) ?></p>
     <?php endif; ?>
 
     <?php if ($tab === 'path'): ?>
@@ -690,7 +692,7 @@ ob_start();
     </div>
   </div>
 </div>
-<script src="<?= e(url('/assets/js/mana-path.js')) ?>?v=20260923e"></script>
+<script src="<?= e(url('/assets/js/mana-path.js')) ?>?v=20260923f"></script>
 <?php
 $inner = ob_get_clean();
 render_patient_page('اتاق ذهن', $inner);

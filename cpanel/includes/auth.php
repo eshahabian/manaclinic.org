@@ -23,6 +23,22 @@ function ensure_users_password_plain_schema(PDO $pdo): void
     $ready = true;
 }
 
+function ensure_users_gender_schema(PDO $pdo): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    try {
+        $has = $pdo->query("SHOW COLUMNS FROM users LIKE 'gender'")->fetch();
+        if (!$has) {
+            $pdo->exec("ALTER TABLE users ADD COLUMN gender VARCHAR(8) NULL AFTER role");
+        }
+    } catch (Throwable $ignored) {
+    }
+    $ready = true;
+}
+
 /** ذخیرهٔ نسخهٔ قابل‌مشاهدهٔ رمز فقط برای پنل ادمین */
 function user_remember_password_plain(PDO $pdo, string $userId, string $plain): void
 {
@@ -50,6 +66,7 @@ function login_user(array $user): void
         'username' => $user['username'] ?? null,
         'role' => $user['role'],
         'must_change_password' => (int) ($user['must_change_password'] ?? 0),
+        'gender' => ((string) ($user['gender'] ?? '') === 'female') ? 'female' : (((string) ($user['gender'] ?? '') === 'male') ? 'male' : ''),
     ];
     if (function_exists('staff_tracks_presence') && staff_tracks_presence($user) && function_exists('staff_shift_start')) {
         global $pdo;

@@ -81,6 +81,24 @@ $nameDict = isset($pdo) ? build_name_transliterations_client_map($pdo) : [];
           </label>
           <?php endif; ?>
         </div>
+        <?php if ($role !== 'DOCTOR'): ?>
+        <fieldset class="auth-gender">
+          <legend>اتاق ذهن تو</legend>
+          <p class="auth-hint">پسر یا دختر بودن، تصویر اتاق ذهن را مشخص می‌کند.</p>
+          <div class="auth-gender-grid">
+            <label class="auth-gender-card">
+              <input type="radio" name="gender" value="male" required>
+              <img src="<?= e(url('/assets/img/mind-room/male-room.jpg')) ?>" alt="اتاق ذهن مرد">
+              <strong>مرد</strong>
+            </label>
+            <label class="auth-gender-card">
+              <input type="radio" name="gender" value="female" required>
+              <img src="<?= e(url('/assets/img/mind-room/female-room.jpg')) ?>" alt="اتاق ذهن زن">
+              <strong>زن</strong>
+            </label>
+          </div>
+        </fieldset>
+        <?php endif; ?>
         <div class="auth-grid">
           <label class="auth-line">
             <span>نام کاربری</span>

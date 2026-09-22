@@ -2099,6 +2099,44 @@ body.is-auth {
   cursor: pointer;
   padding: .2rem;
 }
+.auth-gender {
+  border: 0;
+  margin: .35rem 0 .55rem;
+  padding: 0;
+}
+.auth-gender legend {
+  font-size: .82rem;
+  color: #5a6a63;
+  margin-bottom: .2rem;
+}
+.auth-gender-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: .55rem;
+}
+.auth-gender-card {
+  display: grid;
+  gap: .35rem;
+  text-align: center;
+  border: 1px solid #d8e0dc;
+  border-radius: 14px;
+  padding: .4rem;
+  cursor: pointer;
+  background: #fff;
+}
+.auth-gender-card input { position: absolute; opacity: 0; }
+.auth-gender-card img {
+  width: 100%;
+  height: 92px;
+  object-fit: cover;
+  object-position: 50% 42%;
+  border-radius: 10px;
+  display: block;
+}
+.auth-gender-card:has(input:checked) {
+  border-color: var(--auth-green, #3d6e5f);
+  box-shadow: 0 0 0 2px rgba(61, 110, 95, .2);
+}
 .auth-grid {
   display: grid;
   grid-template-columns: 1fr 1fr;
