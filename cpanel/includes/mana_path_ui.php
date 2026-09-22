@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 function mana_path_css_href(): string
 {
-    return url('/assets/css/mana-path.css') . '?v=20260923g';
+    return url('/assets/css/mana-path.css') . '?v=20260923h';
 }
 
 function mana_path_asset(string $file): string
@@ -14,9 +14,14 @@ function mana_path_asset(string $file): string
 function mana_path_gender_assets(string $gender): array
 {
     $female = $gender === 'female';
+    $roomFile = 'room-bg.png';
+    $roomPath = dirname(__DIR__) . '/assets/img/mind-room/' . $roomFile;
+    if (!is_file($roomPath)) {
+        $roomFile = $female ? 'female-room.png' : 'male-room.png';
+    }
     return [
         'gender' => $female ? 'female' : 'male',
-        'room' => mana_path_asset($female ? 'female-room.png' : 'male-room.png'),
+        'room' => mana_path_asset($roomFile),
         'avatar' => mana_path_asset($female ? 'female-avatar.png' : 'male-avatar.png'),
     ];
 }
@@ -36,7 +41,8 @@ function mana_path_room_html(array $profile, string $state): string
     ob_start();
     ?>
     <section class="mr-stage" data-state="<?= e($state) ?>" data-gender="<?= e($assets['gender']) ?>" data-mood="<?= (int) $mood ?>" aria-label="اتاق ذهن">
-      <img class="mr-bg" src="<?= e($assets['room']) ?>" alt="اتاق ذهن">
+      <img class="mr-bg" src="<?= e($assets['room']) ?>" alt="">
+      <img class="mr-buddy" src="<?= e($assets['avatar']) ?>" alt="">
     </section>
     <?php
     return (string) ob_get_clean();

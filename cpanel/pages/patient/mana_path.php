@@ -150,7 +150,8 @@ ob_start();
 ?>
 <div class="mpath-shell" data-gender="<?= e($assets['gender']) ?>" data-mood="<?= (int) $moodNow ?>" data-state="<?= e($state) ?>">
   <div class="mr-full">
-    <img src="<?= e($assets['room']) ?>" alt="اتاق ذهن">
+    <img class="mr-room" src="<?= e($assets['room']) ?>" alt="اتاق ذهن">
+    <img class="mr-buddy" src="<?= e($assets['avatar']) ?>" alt="">
     <div class="mr-atmosphere" aria-hidden="true"></div>
   </div>
   <header class="mpath-hud">
@@ -692,7 +693,7 @@ ob_start();
     </div>
   </div>
 </div>
-<script src="<?= e(url('/assets/js/mana-path.js')) ?>?v=20260923f"></script>
+<script src="<?= e(url('/assets/js/mana-path.js')) ?>?v=20260923h"></script>
 <?php
 $inner = ob_get_clean();
 render_patient_page('اتاق ذهن', $inner);
