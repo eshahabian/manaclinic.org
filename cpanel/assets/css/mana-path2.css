@@ -58,28 +58,8 @@ body.mp2-page {
   display: block;
   width: 150px;
   height: auto;
-  filter: drop-shadow(0 8px 14px rgba(70, 45, 20, .16));
 }
-.mp2-plant-sway {
-  overflow: visible;
-  transform-origin: 50% 92%;
-  animation: mp2-wind 3.8s ease-in-out infinite;
-}
-.mp2-plant-sway.is-grew {
-  animation: mp2-wind 3.8s ease-in-out infinite, mp2-plant-grow 1.35s ease;
-}
-@keyframes mp2-wind {
-  0%, 100% { transform: rotate(-2.2deg); }
-  50% { transform: rotate(2.8deg); }
-}
-@keyframes mp2-plant-grow {
-  0% { transform: rotate(-1deg) scale(.97); }
-  45% { transform: rotate(2deg) scale(1.04); }
-  100% { transform: rotate(-2.2deg) scale(1); }
-}
-@media (prefers-reduced-motion: reduce) {
-  .mp2-plant-sway, .mp2-plant-sway.is-grew { animation: none; }
-}
+.mp2-plant-static { overflow: visible; }
 @media (max-width: 720px) {
   .mp2-plant-tile { flex-basis: 118px; width: 118px; }
   .mp2-plant-tile img { width: 118px; }

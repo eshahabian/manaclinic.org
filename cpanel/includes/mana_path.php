@@ -1182,14 +1182,16 @@ function mana_path_plant_day(PDO $pdo, array &$profile): int
     $n = 0;
     try {
         $stmt = $pdo->prepare("
-          SELECT COUNT(*) AS c FROM mana_path_events
-          WHERE user_id = ? AND event_type = 'path2_day'
+          SELECT COUNT(DISTINCT DATE(created_at)) AS c
+          FROM mana_path_events
+          WHERE user_id = ? AND event_type IN ('mission', 'path2_day')
         ");
         $stmt->execute([(string) $profile['user_id']]);
         $n = (int) (($stmt->fetch()['c'] ?? 0));
     } catch (Throwable $ignored) {
     }
-    $day = min(30, max($stored, $n + 1));
+    $streak = (int) ($profile['gentle_streak'] ?? 0);
+    $day = min(30, max($stored, $n, $streak, 1));
     if ($day > $stored) {
         mana_path_plant_save($pdo, $profile, $day);
     }
@@ -1217,9 +1219,6 @@ function mana_path_plant_advance(PDO $pdo, array &$profile): int
 {
     $next = min(30, mana_path_plant_day($pdo, $profile));
     mana_path_plant_save($pdo, $profile, $next);
-    if (function_exists('session_status') && session_status() === PHP_SESSION_ACTIVE) {
-        $_SESSION['mp2_plant_grew'] = 1;
-    }
     return $next;
 }
 
@@ -1230,10 +1229,10 @@ function mana_path_plant_src(int $day): string
     for ($d = $day; $d >= 1; $d--) {
         $name = sprintf('plant-day-%02d.png', $d);
         if (is_file($dir . '/' . $name)) {
-            return url('/assets/img/plant/' . $name);
+            return url('/assets/img/plant/' . $name) . '?v=20260924i';
         }
     }
-    return url('/assets/img/plant/plant-day-01.png');
+    return url('/assets/img/plant/plant-day-01.png') . '?v=20260924i';
 }
 
 function mana_path2_advanced_today(PDO $pdo, string $userId): bool

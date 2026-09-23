@@ -92,12 +92,10 @@ $xpNeed = mana_path_xp_need();
 $xpIn = $xp % $xpNeed;
 $plantDay = mana_path_plant_day($pdo, $profile);
 $plantSrc = mana_path_plant_src($plantDay);
-$plantGrew = !empty($_SESSION['mp2_plant_grew']);
-unset($_SESSION['mp2_plant_grew']);
 
 $GLOBALS['pageRobots'] = 'noindex,nofollow';
 $GLOBALS['pageTitle'] = 'اتاق ذهن';
-$GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(url('/assets/css/mana-path2.css')) . '?v=20260924h">';
+$GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(url('/assets/css/mana-path2.css')) . '?v=20260924i">';
 $GLOBALS['pageBodyClass'] = trim((string) ($GLOBALS['pageBodyClass'] ?? '') . ' mp2-page');
 
 ob_start();
@@ -110,7 +108,7 @@ ob_start();
       <p class="mp2-lead">کارهای امروز را همین‌جا بزن. هفته از شنبه شروع می‌شود.</p>
     </div>
     <aside class="mp2-plant-tile" id="xp" aria-label="گیاه مسیر، روز <?= e(to_fa_digits((string) $plantDay)) ?> از ۳۰">
-      <div class="mp2-plant-sway<?= $plantGrew ? ' is-grew' : '' ?>">
+      <div class="mp2-plant-static">
         <img src="<?= e($plantSrc) ?>" alt="" width="160" height="214">
       </div>
     </aside>
