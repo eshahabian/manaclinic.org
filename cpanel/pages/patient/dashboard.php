@@ -31,7 +31,11 @@ $wsActiveCount = count($grouped['in-person']) + count($grouped['online']) + coun
 $section = trim((string) ($_GET['section'] ?? ''));
 $outerInitial = $section === 'workshops' ? 'workshops' : 'appts';
 
-if (strcasecmp(trim((string) ($user['username'] ?? '')), 'bshaverdi') === 0) {
+$wellUser = mb_strtolower(trim((string) ($user['username'] ?? '')));
+$wellName = (string) ($user['name'] ?? '');
+$showWellDash = in_array($wellUser, ['bshaverdi', 'shaverdi', 'borhan', 'borhanshaverdi'], true)
+    || ($wellName !== '' && mb_strpos($wellName, 'شاوردی') !== false);
+if ($showWellDash) {
     ob_start();
     require __DIR__ . '/../../includes/well_dash.php';
     $dashContent = (string) ob_get_clean();
