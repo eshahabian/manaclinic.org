@@ -349,7 +349,49 @@ body.mp2-page {
   background: rgba(255, 255, 255, .45);
 }
 .mp2-hist span { color: var(--mp2-muted); font-size: .86rem; }
+.mp2-concerns { margin-top: .85rem; }
+.mp2-concerns h2 { margin: 0 0 .4rem; }
+.mp2-now { display: flex; flex-wrap: wrap; gap: .4rem; margin: 0 0 .75rem; }
+.mp2-now b {
+  background: rgba(255,255,255,.55);
+  border: 1px solid var(--mp2-line);
+  border-radius: 999px;
+  padding: .28rem .7rem;
+  font-weight: 700;
+  font-size: .84rem;
+}
+.mp2-chips {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: .55rem;
+  margin: .55rem 0 .8rem;
+}
+.mp2-chips label {
+  display: block;
+  background: rgba(255,255,255,.55);
+  border: 1px solid var(--mp2-line);
+  border-radius: 14px;
+  padding: .65rem .7rem;
+  cursor: pointer;
+}
+.mp2-chips label:has(input:checked) {
+  border-color: var(--mp2-mint);
+  box-shadow: inset 0 0 0 1px var(--mp2-mint);
+}
+.mp2-chips span { display: block; font-weight: 700; }
+.mp2-chips small { display: block; color: var(--mp2-muted); font-size: .78rem; line-height: 1.6; margin-top: .2rem; }
+.mp2-chips input { margin-left: .35rem; }
+.mp2-concern-btn {
+  border: 0;
+  background: #111;
+  color: #fff;
+  border-radius: 12px;
+  padding: .55rem 1rem;
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
 @media (max-width: 860px) {
-  .mp2-grid, .mp2-status, .mp2-tools { grid-template-columns: 1fr; }
+  .mp2-grid, .mp2-status, .mp2-tools, .mp2-chips { grid-template-columns: 1fr; }
   .mp2-today { grid-template-columns: 1fr; }
 }

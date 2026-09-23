@@ -58,7 +58,7 @@ ob_start();
       <p><?= e((string) $report['lead']) ?></p>
       <div class="mp2r-actions">
         <button type="button" class="mp2r-btn mp2r-btn-dark" onclick="mp2rPrint()">دریافت برگه کامل نتیجه</button>
-        <a class="mp2r-btn mp2r-btn-ghost" href="<?= e($path2Url) ?>">تکرار مسیر</a>
+        <a class="mp2r-btn mp2r-btn-ghost" href="<?= e($path2Url) ?>">ادامه مسیر</a>
       </div>
     </div>
     <div class="mp2r-art" aria-hidden="true">

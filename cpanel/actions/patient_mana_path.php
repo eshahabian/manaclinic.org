@@ -29,6 +29,16 @@ try {
         redirect($back);
     }
 
+    if ($do === 'add_concerns') {
+        $concerns = $_POST['concerns'] ?? [];
+        if (!is_array($concerns)) {
+            $concerns = [];
+        }
+        mana_path_add_concerns($pdo, $profile, array_map('strval', $concerns));
+        flash_set('success', 'موضوع تازه به مسیرت اضافه شد.');
+        redirect($back);
+    }
+
     if ($do === 'gender') {
         mana_path_set_gender($pdo, $profile, (string) ($_POST['gender'] ?? ''));
         flash_set('success', 'همراه ذخیره شد.');

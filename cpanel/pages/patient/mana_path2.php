@@ -38,11 +38,22 @@ $progressPct = (int) round(100 * $doneStageN / max(1, $stageTotal));
 $monthHist = mana_path2_month_history($pdo, $patientId);
 
 $concerns = $profile['concerns'] ?? [];
-$goalLabel = 'مدیریت اضطراب';
 $allConcerns = mana_path_concerns();
-if (isset($concerns[0], $allConcerns[$concerns[0]])) {
-    $goalLabel = 'کاهش ' . $allConcerns[$concerns[0]]['label'];
+$goalBits = [];
+foreach ($concerns as $cid) {
+    $cid = (string) $cid;
+    if (isset($allConcerns[$cid])) {
+        $goalBits[] = $allConcerns[$cid]['label'];
+    }
 }
+$goalLabel = $goalBits !== [] ? ('کار روی ' . implode('، ', $goalBits)) : 'مدیریت اضطراب';
+$extraConcerns = [];
+foreach ($allConcerns as $cid => $c) {
+    if (!in_array($cid, $concerns, true)) {
+        $extraConcerns[$cid] = $c;
+    }
+}
+$needIntro = empty($profile['intro_done']) || $concerns === [];
 
 $nextAp = null;
 try {
@@ -79,7 +90,7 @@ if (function_exists('gregorian_to_jalali') && function_exists('jalali_month_name
 
 $GLOBALS['pageRobots'] = 'noindex,nofollow';
 $GLOBALS['pageTitle'] = 'اتاق ذهن';
-$GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(url('/assets/css/mana-path2.css')) . '?v=20260924e">';
+$GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(url('/assets/css/mana-path2.css')) . '?v=20260924f">';
 $GLOBALS['pageBodyClass'] = trim((string) ($GLOBALS['pageBodyClass'] ?? '') . ' mp2-page');
 
 ob_start();
@@ -237,6 +248,52 @@ ob_start();
       </div>
     </section>
   </div>
+
+  <section class="mp2-card mp2-concerns" id="concerns">
+    <?php if ($needIntro): ?>
+      <h2>این روزها بیشتر درگیر چی هستی؟</h2>
+      <p class="mp2-note">می‌توانی چند مورد را انتخاب کنی. این تشخیص نیست؛ فقط نقطهٔ شروع مسیر است.</p>
+      <form method="post" action="<?= e($post) ?>">
+        <?= csrf_field() ?>
+        <input type="hidden" name="do" value="intro">
+        <input type="hidden" name="back" value="/dashboard/path">
+        <div class="mp2-chips">
+          <?php foreach ($allConcerns as $id => $c): ?>
+            <label>
+              <input type="checkbox" name="concerns[]" value="<?= e($id) ?>">
+              <span><?= e($c['emoji'] . ' ' . $c['label']) ?></span>
+              <small><?= e($c['hint']) ?></small>
+            </label>
+          <?php endforeach; ?>
+        </div>
+        <button class="mp2-concern-btn" type="submit">ساخت مسیر من</button>
+      </form>
+    <?php else: ?>
+      <h2>مسیر و مشکل‌های من</h2>
+      <p class="mp2-note">الان روی این موضوع‌ها کار می‌کنی:</p>
+      <p class="mp2-now"><?php foreach ($concerns as $cid): ?><?php if (isset($allConcerns[$cid])): ?><b><?= e($allConcerns[$cid]['emoji'] . ' ' . $allConcerns[$cid]['label']) ?></b><?php endif; ?><?php endforeach; ?></p>
+      <?php if ($extraConcerns !== []): ?>
+        <p class="mp2-note">اگر مشکل تازه‌ای آمده، همان سوال‌های اول را بزن و به مسیر اضافه کن.</p>
+        <form method="post" action="<?= e($post) ?>">
+          <?= csrf_field() ?>
+          <input type="hidden" name="do" value="add_concerns">
+          <input type="hidden" name="back" value="/dashboard/path">
+          <div class="mp2-chips">
+            <?php foreach ($extraConcerns as $id => $c): ?>
+              <label>
+                <input type="checkbox" name="concerns[]" value="<?= e($id) ?>">
+                <span><?= e($c['emoji'] . ' ' . $c['label']) ?></span>
+                <small><?= e($c['hint']) ?></small>
+              </label>
+            <?php endforeach; ?>
+          </div>
+          <button class="mp2-concern-btn" type="submit">افزودن به مسیر</button>
+        </form>
+      <?php else: ?>
+        <p class="mp2-note">همهٔ موضوع‌های فعلی مسیر در لیستت هستند.</p>
+      <?php endif; ?>
+    <?php endif; ?>
+  </section>
 
   <p class="mp2-disclaimer">اتاق ذهن غربالگری و تمرین همراه است، نه تشخیص و نه جایگزین درمان. نسخه آزمایشی فقط برای حساب تو.</p>
 </div>

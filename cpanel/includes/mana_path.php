@@ -486,6 +486,41 @@ function mana_path_save_intro(PDO $pdo, array &$profile, array $concerns, string
     }
 }
 
+function mana_path_add_concerns(PDO $pdo, array &$profile, array $concerns): void
+{
+    $valid = array_keys(mana_path_concerns());
+    $picked = array_values(array_intersect($valid, $concerns));
+    if ($picked === []) {
+        throw new RuntimeException('حداقل یک موضوع تازه را انتخاب کن.');
+    }
+    $existing = [];
+    foreach ($profile['concerns'] ?? [] as $c) {
+        $c = (string) $c;
+        if ($c !== '' && !in_array($c, $existing, true)) {
+            $existing[] = $c;
+        }
+    }
+    $added = [];
+    foreach ($picked as $tid) {
+        if (!in_array($tid, $existing, true)) {
+            $existing[] = $tid;
+            $added[] = $tid;
+        }
+    }
+    if ($added === []) {
+        throw new RuntimeException('این موضوع‌ها از قبل در مسیرت هستند.');
+    }
+    $primary = $existing[0];
+    $pdo->prepare('UPDATE mana_path_profiles SET intro_done = 1, concerns_json = ?, active_tree = ? WHERE user_id = ?')
+        ->execute([json_encode($existing, JSON_UNESCAPED_UNICODE), $primary, $profile['user_id']]);
+    foreach ($added as $tid) {
+        mana_path_ensure_tree($pdo, (string) $profile['user_id'], $tid);
+    }
+    $profile['intro_done'] = 1;
+    $profile['concerns'] = $existing;
+    $profile['active_tree'] = $primary;
+}
+
 function mana_path_complete_step(PDO $pdo, array &$profile, string $treeId, string $stepId, array $payload = []): array
 {
     $catalog = mana_path_trees();
