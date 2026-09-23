@@ -49,13 +49,21 @@ $nameDict = isset($pdo) ? build_name_transliterations_client_map($pdo) : [];
         <?= csrf_field() ?>
         <input type="hidden" name="next" value="<?= e($authNext) ?>">
         <h1 class="auth-form-title"><?= $role === 'DOCTOR' ? 'درخواست درمانگر' : 'ثبت‌نام' ?></h1>
-        <label class="auth-line">
-          <span>نوع حساب</span>
-          <select class="auth-select" id="role" name="role" required>
-            <option value="PATIENT" <?= $role === 'PATIENT' ? 'selected' : '' ?>>مراجعه‌کننده</option>
-            <option value="DOCTOR" <?= $role === 'DOCTOR' ? 'selected' : '' ?>>درمانگر</option>
-          </select>
-        </label>
+        <div class="auth-grid">
+          <label class="auth-line">
+            <span>نوع حساب</span>
+            <select class="auth-select" id="role" name="role" required>
+              <option value="PATIENT" <?= $role === 'PATIENT' ? 'selected' : '' ?>>مراجعه‌کننده</option>
+              <option value="DOCTOR" <?= $role === 'DOCTOR' ? 'selected' : '' ?>>درمانگر</option>
+            </select>
+          </label>
+          <?php if ($role !== 'DOCTOR'): ?>
+          <label class="auth-line">
+            <span>موبایل</span>
+            <input name="phone" id="phone" required dir="ltr" inputmode="tel" autocomplete="tel">
+          </label>
+          <?php endif; ?>
+        </div>
         <?php if ($role === 'DOCTOR'): ?>
           <p class="auth-hint">فقط نام، نام خانوادگی و نام کاربری کافی است. بقیه اطلاعات بعد از تأیید مدیر تکمیل می‌شود.</p>
         <?php endif; ?>
@@ -104,12 +112,6 @@ $nameDict = isset($pdo) ? build_name_transliterations_client_map($pdo) : [];
             <span>ایمیل</span>
             <input name="email" id="email" type="email" required dir="ltr" autocomplete="email" inputmode="email" placeholder="ایمیل واقعی برای خوش‌آمد و بازیابی رمز لازم است.">
           </label>
-          <?php if ($role !== 'DOCTOR'): ?>
-          <label class="auth-line">
-            <span>موبایل</span>
-            <input name="phone" id="phone" required dir="ltr" inputmode="tel" autocomplete="tel">
-          </label>
-          <?php endif; ?>
         </div>
         <div class="auth-grid">
           <?= password_field_html('password', 'password', [

@@ -2218,6 +2218,7 @@ body.is-auth {
   .auth-card { min-height: 0; }
   .auth-card[data-mode="register"] { min-height: 0; }
   .auth-grid { grid-template-columns: 1fr; }
+  .auth-form-register .auth-grid { grid-template-columns: 1fr 1fr; }
   .auth-form, .auth-form-register { width: 100%; }
 }
 .account-type-grid {
