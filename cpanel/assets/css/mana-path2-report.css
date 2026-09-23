@@ -100,6 +100,26 @@ body.mp2r-page {
 .mp2r-legend b { background: #c45b98; }
 .mp2r-legend i { background: #b09ac8; border-top: 0; height: 0; border-bottom: 2px dashed #b09ac8; }
 .mp2r-radar { width: 100%; max-width: 420px; height: auto; display: block; margin: 0 auto; }
+.mp2r-chart-hint { color: #8a7a9a; font-size: .8rem; line-height: 1.7; margin: .55rem 0 .2rem; }
+.mp2r-concerns { margin-top: .7rem; padding-top: .7rem; border-top: 1px solid #f0e8f8; }
+.mp2r-concerns p { margin: 0 0 .45rem; font-weight: 700; color: #4a3270; font-size: .9rem; }
+.mp2r-concern-list {
+  display: flex; flex-wrap: wrap; gap: .4rem .55rem; margin: 0 0 .65rem;
+}
+.mp2r-concern-list label {
+  display: inline-flex; align-items: center; gap: .3rem;
+  background: #f7f2fc; border-radius: 999px; padding: .28rem .7rem; font-size: .82rem;
+}
+.mp2r-notes {
+  background: #fff;
+  border-radius: 24px;
+  padding: 1rem 1.05rem 1.05rem;
+  margin-bottom: .85rem;
+  box-shadow: 0 8px 24px rgba(70, 40, 100, .04);
+}
+.mp2r-notes h2 { margin: 0 0 .45rem; font-size: 1.02rem; }
+.mp2r-notes p { margin: 0 0 .45rem; line-height: 1.9; color: #5b4a6e; }
+.mp2r-notes small { color: #8a7a9a; font-size: .78rem; }
 
 .mp2r-stats {
   display: grid;

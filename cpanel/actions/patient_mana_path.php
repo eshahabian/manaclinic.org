@@ -16,6 +16,8 @@ if ($backRaw === '/dashboard/path2') {
     $back = '/dashboard/path2';
 } elseif ($backRaw === '/dashboard/path') {
     $back = '/dashboard/path';
+} elseif ($backRaw === '/dashboard/path/report') {
+    $back = '/dashboard/path/report';
 }
 
 try {
@@ -36,6 +38,16 @@ try {
         }
         mana_path_add_concerns($pdo, $profile, array_map('strval', $concerns));
         flash_set('success', 'موضوع تازه به مسیرت اضافه شد.');
+        redirect($back);
+    }
+
+    if ($do === 'set_concerns') {
+        $concerns = $_POST['concerns'] ?? [];
+        if (!is_array($concerns)) {
+            $concerns = [];
+        }
+        mana_path_set_concerns($pdo, $profile, array_map('strval', $concerns));
+        flash_set('success', 'دغدغه‌های نمودار ذخیره شد.');
         redirect($back);
     }
 

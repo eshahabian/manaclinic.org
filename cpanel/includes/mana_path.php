@@ -521,6 +521,32 @@ function mana_path_add_concerns(PDO $pdo, array &$profile, array $concerns): voi
     $profile['active_tree'] = $primary;
 }
 
+function mana_path_set_concerns(PDO $pdo, array &$profile, array $concerns): void
+{
+    $valid = array_keys(mana_path_concerns());
+    $picked = [];
+    foreach ($concerns as $c) {
+        $c = (string) $c;
+        if (isset($valid[$c]) || in_array($c, $valid, true)) {
+            if (!in_array($c, $picked, true)) {
+                $picked[] = $c;
+            }
+        }
+    }
+    if ($picked === []) {
+        throw new RuntimeException('حداقل یک دغدغه را انتخاب کن.');
+    }
+    $primary = $picked[0];
+    $pdo->prepare('UPDATE mana_path_profiles SET intro_done = 1, concerns_json = ?, active_tree = ? WHERE user_id = ?')
+        ->execute([json_encode($picked, JSON_UNESCAPED_UNICODE), $primary, $profile['user_id']]);
+    foreach ($picked as $tid) {
+        mana_path_ensure_tree($pdo, (string) $profile['user_id'], $tid);
+    }
+    $profile['intro_done'] = 1;
+    $profile['concerns'] = $picked;
+    $profile['active_tree'] = $primary;
+}
+
 function mana_path_complete_step(PDO $pdo, array &$profile, string $treeId, string $stepId, array $payload = []): array
 {
     $catalog = mana_path_trees();
@@ -830,64 +856,6 @@ function mana_path2_month_history(PDO $pdo, string $userId): array
 function mana_path2_report_axes_for(array $concerns): array
 {
     $all = mana_path_concerns();
-    $facets = [
-        'anxiety' => [
-            ['key' => 'anxiety', 'label' => 'اضطراب'],
-            ['key' => 'worry', 'label' => 'نگرانی'],
-            ['key' => 'body', 'label' => 'تنش جسمی'],
-            ['key' => 'fear', 'label' => 'ترس'],
-            ['key' => 'sleep', 'label' => 'اختلال خواب'],
-            ['key' => 'focus', 'label' => 'تمرکز'],
-        ],
-        'mood' => [
-            ['key' => 'mood', 'label' => 'خلق پایین'],
-            ['key' => 'energy', 'label' => 'انرژی'],
-            ['key' => 'sleep', 'label' => 'اختلال خواب'],
-            ['key' => 'focus', 'label' => 'تمرکز'],
-            ['key' => 'confidence', 'label' => 'خودباوری'],
-            ['key' => 'anxiety', 'label' => 'اضطراب'],
-        ],
-        'stress' => [
-            ['key' => 'stress', 'label' => 'استرس'],
-            ['key' => 'body', 'label' => 'تنش جسمی'],
-            ['key' => 'sleep', 'label' => 'اختلال خواب'],
-            ['key' => 'focus', 'label' => 'تمرکز'],
-            ['key' => 'anxiety', 'label' => 'اضطراب'],
-            ['key' => 'mood', 'label' => 'خلق'],
-        ],
-        'sleep' => [
-            ['key' => 'sleep', 'label' => 'اختلال خواب'],
-            ['key' => 'energy', 'label' => 'انرژی'],
-            ['key' => 'focus', 'label' => 'تمرکز'],
-            ['key' => 'mood', 'label' => 'خلق'],
-            ['key' => 'anxiety', 'label' => 'اضطراب'],
-            ['key' => 'stress', 'label' => 'استرس'],
-        ],
-        'relationship' => [
-            ['key' => 'relationship', 'label' => 'رابطه'],
-            ['key' => 'assert', 'label' => 'جرأت‌مندی'],
-            ['key' => 'mood', 'label' => 'خلق'],
-            ['key' => 'anxiety', 'label' => 'اضطراب'],
-            ['key' => 'confidence', 'label' => 'خودباوری'],
-            ['key' => 'stress', 'label' => 'استرس'],
-        ],
-        'confidence' => [
-            ['key' => 'confidence', 'label' => 'اعتمادبه‌نفس'],
-            ['key' => 'mood', 'label' => 'خلق'],
-            ['key' => 'anxiety', 'label' => 'اضطراب'],
-            ['key' => 'focus', 'label' => 'تمرکز'],
-            ['key' => 'relationship', 'label' => 'رابطه'],
-            ['key' => 'procrastination', 'label' => 'اهمال‌کاری'],
-        ],
-        'procrastination' => [
-            ['key' => 'procrastination', 'label' => 'اهمال‌کاری'],
-            ['key' => 'focus', 'label' => 'تمرکز'],
-            ['key' => 'anxiety', 'label' => 'اضطراب'],
-            ['key' => 'stress', 'label' => 'استرس'],
-            ['key' => 'confidence', 'label' => 'خودباوری'],
-            ['key' => 'mood', 'label' => 'خلق'],
-        ],
-    ];
     $picked = [];
     foreach ($concerns as $c) {
         $c = (string) $c;
@@ -895,24 +863,149 @@ function mana_path2_report_axes_for(array $concerns): array
             $picked[] = ['key' => $c, 'label' => (string) $all[$c]['label']];
         }
     }
-    $primary = (string) (($concerns[0] ?? 'anxiety'));
-    $fill = $facets[$primary] ?? $facets['anxiety'];
-    foreach ($fill as $row) {
-        $exists = false;
-        foreach ($picked as $p) {
-            if ($p['key'] === $row['key'] || $p['label'] === $row['label']) {
-                $exists = true;
-                break;
+    if ($picked === []) {
+        $picked[] = ['key' => 'anxiety', 'label' => (string) $all['anxiety']['label']];
+    }
+    return $picked;
+}
+
+function mana_path2_month_notes(PDO $pdo, string $userId, string $from, string $to): array
+{
+    $out = [];
+    try {
+        $stmt = $pdo->prepare("
+          SELECT created_at, step_id, payload_json
+          FROM mana_path_events
+          WHERE user_id = ? AND event_type = 'mission'
+            AND DATE(created_at) >= ? AND DATE(created_at) <= ?
+          ORDER BY created_at ASC
+        ");
+        $stmt->execute([$userId, $from, $to]);
+        foreach ($stmt->fetchAll() as $row) {
+            $payload = mana_path_decode_json($row['payload_json'] ?? null);
+            $note = trim((string) ($payload['note'] ?? ''));
+            if ($note === '') {
+                continue;
             }
+            $out[] = [
+                'src' => 'mission',
+                'date' => substr((string) ($row['created_at'] ?? ''), 0, 10),
+                'text' => $note,
+            ];
         }
-        if (!$exists) {
-            $picked[] = $row;
-        }
-        if (count($picked) >= 6) {
-            break;
+    } catch (Throwable $ignored) {
+    }
+    $journalFile = __DIR__ . '/patient_journal.php';
+    if (is_file($journalFile)) {
+        require_once $journalFile;
+        try {
+            if (function_exists('patient_journal_fetch_range')) {
+                foreach (patient_journal_fetch_range($pdo, $userId, $from, $to) as $j) {
+                    $body = trim((string) ($j['body'] ?? ''));
+                    if ($body === '') {
+                        continue;
+                    }
+                    $out[] = [
+                        'src' => 'journal',
+                        'date' => (string) ($j['entry_date'] ?? ''),
+                        'text' => $body,
+                    ];
+                }
+            }
+        } catch (Throwable $ignored) {
         }
     }
-    return array_slice($picked, 0, 6);
+    return $out;
+}
+
+function mana_path2_notes_ai(PDO $pdo, array &$profile, array $axes, array $notes, string $monthKey): array
+{
+    $empty = ['scores' => [], 'summary' => '', 'count' => count($notes)];
+    if ($notes === []) {
+        $empty['summary'] = 'این ماه یادداشت روزانه کمی ثبت شده. با نوشتن در کارهای امروز یا Journal، تحلیل دقیق‌تر می‌شود.';
+        return $empty;
+    }
+    $bits = [];
+    foreach (array_slice($notes, 0, 40) as $n) {
+        $bits[] = ((string) ($n['date'] ?? '')) . ' — ' . mb_substr((string) ($n['text'] ?? ''), 0, 280);
+    }
+    $blob = implode("\n", $bits);
+    if (function_exists('mb_substr')) {
+        $blob = mb_substr($blob, 0, 4500);
+    } else {
+        $blob = substr($blob, 0, 4500);
+    }
+    $hash = sha1($monthKey . '|' . implode(',', array_column($axes, 'key')) . '|' . $blob);
+    $world = array_merge(mana_path_world_defaults(), $profile['world'] ?? []);
+    $cached = is_array($world['report_note_ai'] ?? null) ? $world['report_note_ai'] : [];
+    if (($cached['hash'] ?? '') === $hash && is_array($cached['scores'] ?? null)) {
+        return [
+            'scores' => $cached['scores'],
+            'summary' => (string) ($cached['summary'] ?? ''),
+            'count' => count($notes),
+        ];
+    }
+    $assistantFile = __DIR__ . '/assistant.php';
+    if (!is_file($assistantFile)) {
+        return $empty;
+    }
+    require_once $assistantFile;
+    if (!function_exists('assistant_ai_available') || !assistant_ai_available()) {
+        $empty['summary'] = 'تحلیل یادداشت‌ها فعلاً در دسترس نیست.';
+        return $empty;
+    }
+    $axisLine = [];
+    foreach ($axes as $ax) {
+        $axisLine[] = (string) ($ax['key'] ?? '') . '=' . (string) ($ax['label'] ?? '');
+    }
+    $prompt = "تو تحلیل‌گر غربالگری مسیر درمان «مانا کلینیک» هستی. تشخیص قطعی نده.\n"
+        . "فقط JSON معتبر برگردان، بدون توضیح اضافه و بدون markdown.\n"
+        . "محورهای مجاز: " . implode('، ', $axisLine) . "\n"
+        . "برای هر محور عدد 0 تا 100 بده: شدت حضور آن دغدغه در متن یادداشت‌ها.\n"
+        . "خلاصه حداکثر ۳ جمله فارسی، همدلانه و غیرتشخیصی.\n"
+        . "قالب: {\"scores\":{\"<key>\":0},\"summary\":\"...\"}\n\n"
+        . "یادداشت‌های این ماه:\n" . $blob;
+    try {
+        $raw = assistant_ai_chat([
+            ['role' => 'system', 'content' => 'فقط JSON برگردان. تشخیص اختلال نده.'],
+            ['role' => 'user', 'content' => $prompt],
+        ], 500);
+        $raw = trim($raw);
+        if (str_starts_with($raw, '```')) {
+            $raw = preg_replace('/^```(?:json)?\s*/i', '', $raw) ?? $raw;
+            $raw = preg_replace('/\s*```$/', '', $raw) ?? $raw;
+        }
+        $data = json_decode($raw, true);
+        if (!is_array($data)) {
+            return $empty;
+        }
+        $scores = [];
+        $allowed = [];
+        foreach ($axes as $ax) {
+            $allowed[(string) $ax['key']] = true;
+        }
+        foreach ((array) ($data['scores'] ?? []) as $k => $v) {
+            $k = (string) $k;
+            if (!isset($allowed[$k])) {
+                continue;
+            }
+            $scores[$k] = max(0, min(100, (int) round((float) $v)));
+        }
+        $summary = trim((string) ($data['summary'] ?? ''));
+        $out = ['scores' => $scores, 'summary' => $summary, 'count' => count($notes)];
+        $world['report_note_ai'] = ['hash' => $hash, 'scores' => $scores, 'summary' => $summary];
+        try {
+            $pdo->prepare('UPDATE mana_path_profiles SET world_json = ? WHERE user_id = ?')
+                ->execute([json_encode($world, JSON_UNESCAPED_UNICODE), $profile['user_id']]);
+        } catch (Throwable $ignored) {
+        }
+        $profile['world'] = $world;
+        $profile['world_json'] = json_encode($world, JSON_UNESCAPED_UNICODE);
+        return $out;
+    } catch (Throwable $e) {
+        $empty['summary'] = 'تحلیل یادداشت‌ها این بار انجام نشد. بعداً دوباره صفحه را باز کن.';
+        return $empty;
+    }
 }
 
 function mana_path2_report_data(PDO $pdo, array $profile): array
@@ -978,6 +1071,9 @@ function mana_path2_report_data(PDO $pdo, array $profile): array
     $moodAvg = $moodN > 0 ? ($moodSum / $moodN) : 3;
     $moodLoad = (int) round((5 - $moodAvg) * 18);
     $axesMeta = mana_path2_report_axes_for($concerns);
+    $monthNotes = mana_path2_month_notes($pdo, $userId, (string) $hist['from'], (string) $hist['to']);
+    $monthKey = (string) ($hist['jy'] ?? '') . '-' . (string) ($hist['jm'] ?? '');
+    $noteAi = mana_path2_notes_ai($pdo, $profile, $axesMeta, $monthNotes, $monthKey);
     $axes = [];
     foreach ($axesMeta as $i => $ax) {
         $key = (string) $ax['key'];
@@ -1000,7 +1096,10 @@ function mana_path2_report_data(PDO $pdo, array $profile): array
         if (in_array($key, $concerns, true) || $key === $primary) {
             $you += 8;
         }
-        $you = max(12, min(96, $you - $i));
+        if (isset($noteAi['scores'][$key])) {
+            $you = (int) round($you * 0.65 + ((int) $noteAi['scores'][$key]) * 0.35);
+        }
+        $you = max(12, min(96, $you));
         $avg = 48 + (($i % 3) * 3);
         $axes[] = [
             'key' => $key,
@@ -1060,7 +1159,7 @@ function mana_path2_report_data(PDO $pdo, array $profile): array
         'title' => 'نتیجه گزارش ماهانه ' . $primaryLabel,
         'primary' => $primary,
         'primary_label' => $primaryLabel,
-        'lead' => 'این گزارش بر اساس کارهای روزانه، خلق ثبت‌شده و مسیر انتخابی تو در ' . ($hist['title'] ?? 'این ماه') . ' محاسبه شده و می‌تواند به شناخت بهتر خودت کمک کند.',
+        'lead' => 'این گزارش روی دغدغه‌هایی که در شروع اتاق ذهن انتخاب کردی بنا شده؛ کارهای روزانه، خلق، و تحلیل یادداشت‌هایت در ' . ($hist['title'] ?? 'این ماه') . ' روی نمودار اثر می‌گذارند.',
         'test_name' => 'گزارش ماهانه مسیر ' . $primaryLabel,
         'questions' => max(3, $missionN),
         'minutes' => max(8, min(25, 4 * count($hist['days']))),
@@ -1073,6 +1172,8 @@ function mana_path2_report_data(PDO $pdo, array $profile): array
         'accuracy_done' => $missionN,
         'accuracy_need' => $expected,
         'axes' => $axes,
+        'concerns' => $concerns,
+        'note_ai' => $noteAi,
         'analysis' => $analysis,
         'recs' => $recs,
         'history' => $hist,
@@ -1125,6 +1226,7 @@ function mana_path2_consult_pack(array $report): array
         . 'سطح غربالگری این ماه: ' . $band . ' (امتیاز ' . $score . " از ۱۰۰)\n"
         . 'ماه: ' . $month . "\n"
         . 'محورهای نمودار: ' . implode('، ', $axesLine) . "\n"
+        . 'تحلیل یادداشت‌ها: ' . (string) ($report['note_ai']['summary'] ?? '') . "\n"
         . "کارهای ثبت‌شده:\n" . ($doneBits !== [] ? implode("\n", $doneBits) : 'هنوز کار روزانه کمی ثبت شده.') . "\n"
         . "پیشنهادهای گزارش:\n" . implode("\n", $tips);
     $firstQ = $questions[0] ?? 'الان بیشتر دوست داری از کجا شروع کنیم؟';
@@ -1143,7 +1245,7 @@ function mana_path2_consult_pack(array $report): array
 
 function mana_path2_radar_points(array $values, float $cx, float $cy, float $rMax): string
 {
-    $n = max(3, count($values));
+    $n = max(1, count($values));
     $pts = [];
     for ($i = 0; $i < $n; $i++) {
         $ang = deg2rad(-90 + ($i * (360 / $n)));

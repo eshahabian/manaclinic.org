@@ -12,6 +12,13 @@ $patientId = (string) $user['id'];
 $profile = mana_path_load_profile($pdo, $patientId);
 $report = mana_path2_report_data($pdo, $profile);
 $path2Url = url('/dashboard/path');
+$reportPost = url('/dashboard/path/report');
+$allConcerns = mana_path_concerns();
+$pickedConcerns = $report['concerns'] ?? ($profile['concerns'] ?? []);
+if (!is_array($pickedConcerns)) {
+    $pickedConcerns = [];
+}
+$noteAi = $report['note_ai'] ?? ['summary' => '', 'count' => 0];
 $testsUrl = url('/tests');
 $doctorsUrl = url('/doctors');
 $score = (int) $report['score'];
@@ -42,7 +49,7 @@ $gridRings = [0.25, 0.5, 0.75, 1];
 
 $GLOBALS['pageRobots'] = 'noindex,nofollow';
 $GLOBALS['pageTitle'] = (string) $report['title'];
-$GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(url('/assets/css/mana-path2-report.css')) . '?v=20260924c">';
+$GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(url('/assets/css/mana-path2-report.css')) . '?v=20260924d">';
 $GLOBALS['pageBodyClass'] = trim((string) ($GLOBALS['pageBodyClass'] ?? '') . ' mp2r-page');
 $GLOBALS['pageScripts'] = ($GLOBALS['pageScripts'] ?? '') . '<script>function mp2rPrint(){window.print();}</script>';
 
@@ -128,8 +135,30 @@ ob_start();
         <polygon points="<?= e($avgPts) ?>" fill="rgba(180,160,210,.18)" stroke="#b09ac8" stroke-width="1.6" stroke-dasharray="4 4"/>
         <polygon points="<?= e($youPts) ?>" fill="rgba(212,106,168,.22)" stroke="#c45b98" stroke-width="2"/>
       </svg>
+      <p class="mp2r-chart-hint">محورها همان دغدغه‌هایی هستند که در شروع اتاق ذهن انتخاب کردی. کارهای روزانه و تحلیل یادداشت‌ها روی درصد اثر می‌گذارند.</p>
+      <form class="mp2r-concerns" method="post" action="<?= e($reportPost) ?>">
+        <?= csrf_field() ?>
+        <input type="hidden" name="do" value="set_concerns">
+        <input type="hidden" name="back" value="/dashboard/path/report">
+        <p>ویرایش دغدغه‌ها</p>
+        <div class="mp2r-concern-list">
+          <?php foreach ($allConcerns as $cid => $c): ?>
+            <label>
+              <input type="checkbox" name="concerns[]" value="<?= e((string) $cid) ?>" <?= in_array($cid, $pickedConcerns, true) ? 'checked' : '' ?>>
+              <?= e((string) ($c['emoji'] ?? '')) ?> <?= e((string) $c['label']) ?>
+            </label>
+          <?php endforeach; ?>
+        </div>
+        <button type="submit" class="mp2r-btn mp2r-btn-ghost">ذخیره دغدغه‌ها</button>
+      </form>
     </section>
   </div>
+
+  <section class="mp2r-notes">
+    <h2>تحلیل یادداشت‌های این ماه</h2>
+    <p><?= e((string) ($noteAi['summary'] ?? '')) ?></p>
+    <small><?= e(to_fa_digits((string) (int) ($noteAi['count'] ?? 0))) ?> یادداشت از کارهای روزانه و Journal در این ماه خوانده شد. این تحلیل غربالگری است، نه تشخیص.</small>
+  </section>
 
   <section class="mp2r-stats">
     <div><small>امتیاز کل</small><strong><?= e(to_fa_digits((string) $score)) ?> از ۱۰۰</strong></div>
