@@ -19,6 +19,9 @@ if (!function_exists('mana_path_trees') || !function_exists('mana_path_require_u
 }
 
 mana_path_require_user($user);
+if (!mana_path_room_live()) {
+    redirect('/dashboard/path2');
+}
 ensure_mana_path_schema($pdo);
 
 $patientId = (string) $user['id'];

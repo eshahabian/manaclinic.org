@@ -507,7 +507,6 @@ function mana_path_trees(): array
 
 function mana_path_daily_missions(): array
 {
-    $w = (int) date('N');
     $pool = [
         ['id' => 'breathe', 'title' => '۲ دقیقه تنفس', 'body' => 'کنار بدن بمان؛ لازم نیست حال عالی شود.', 'xp' => 25, 'world' => ['plant' => 4], 'practice' => 'breathe'],
         ['id' => 'thoughts', 'title' => 'ثبت افکار امروز', 'body' => 'یک فکر مزاحم را بنویس، بدون قضاوت.', 'xp' => 25, 'world' => ['desk' => 4], 'practice' => 'thought'],
@@ -518,8 +517,9 @@ function mana_path_daily_missions(): array
         ['id' => 'kind', 'title' => 'جمله مهربان به خود', 'body' => 'همان حرفی که به دوستت می‌زدی.', 'xp' => 20, 'world' => ['plant' => 5], 'practice' => 'kind'],
     ];
     $picked = [];
+    $dayIndex = ((int) date('z')) % count($pool);
     for ($i = 0; $i < 3; $i++) {
-        $picked[] = $pool[($w + $i * 2) % count($pool)];
+        $picked[] = $pool[($dayIndex + $i) % count($pool)];
     }
     return $picked;
 }

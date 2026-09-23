@@ -10,10 +10,16 @@ ensure_mana_path_schema($pdo);
 $patientId = (string) $user['id'];
 $profile = mana_path_load_profile($pdo, $patientId);
 $do = trim((string) ($_POST['do'] ?? ''));
-$back = '/dashboard/path';
 $backRaw = trim((string) ($_POST['back'] ?? ''));
-if ($backRaw === '/dashboard/path2') {
+$back = '/dashboard/path2';
+if ($backRaw === '/dashboard/path' && mana_path_room_live()) {
+    $back = '/dashboard/path';
+} elseif ($backRaw === '/dashboard/path2') {
     $back = '/dashboard/path2';
+} elseif (!mana_path_room_live()) {
+    $back = '/dashboard/path2';
+} elseif ($backRaw === '/dashboard/path') {
+    $back = '/dashboard/path';
 }
 
 try {
@@ -23,15 +29,14 @@ try {
             $concerns = [];
         }
         mana_path_save_intro($pdo, $profile, array_map('strval', $concerns), (string) ($_POST['gender'] ?? ''));
-        $tree = (string) ($profile['active_tree'] ?? 'anxiety');
-        flash_set('success', 'مسیرت ساخته شد. ارزیابی اولیه وقتی آماده بودی اینجاست.');
-        redirect('/dashboard/path?tab=path&tree=' . rawurlencode($tree) . '&step=screen');
+        flash_set('success', 'مسیرت ساخته شد.');
+        redirect($back);
     }
 
     if ($do === 'gender') {
         mana_path_set_gender($pdo, $profile, (string) ($_POST['gender'] ?? ''));
-        flash_set('success', 'همراه اتاق ذهن ذخیره شد.');
-        redirect('/dashboard/path');
+        flash_set('success', 'همراه ذخیره شد.');
+        redirect($back);
     }
 
     if ($do === 'mood') {
@@ -44,7 +49,7 @@ try {
         $treeId = trim((string) ($_POST['tree_id'] ?? ''));
         mana_path_add_tree($pdo, $profile, $treeId);
         flash_set('success', 'مسیر تازه باز شد.');
-        redirect('/dashboard/path?tab=path&tree=' . rawurlencode($treeId));
+        redirect($back);
     }
 
     if ($do === 'mission') {
@@ -52,15 +57,19 @@ try {
         $note = trim((string) ($_POST['note'] ?? ''));
         $res = mana_path_complete_mission($pdo, $profile, $missionId, ['note' => $note]);
         if (!empty($res['already'])) {
-            flash_set('success', 'این ماموریت امروز انجام شده.');
+            flash_set('success', 'این کار امروز انجام شده.');
         } else {
-            flash_set('success', 'آفرین. انرژی ذهن +' . (int) ($res['xp'] ?? 0));
+            $msg = 'آفرین. انرژی ذهن +' . (int) ($res['xp'] ?? 0);
+            if (!empty($res['advanced'])) {
+                $msg .= ' مرحله امروز سفر هم ثبت شد.';
+            }
+            flash_set('success', $msg);
         }
         $fresh = mana_path_load_profile($pdo, $patientId);
         if (!empty($fresh['crisis_flag'])) {
             flash_set('error', 'اگر در بحران هستی، اول ایمنی. مسیر را لازم نیست ادامه بدهی.');
         }
-        redirect('/dashboard/path?tab=practice');
+        redirect($back);
     }
 
     if ($do === 'step') {
@@ -79,7 +88,7 @@ try {
         $fresh = mana_path_load_profile($pdo, $patientId);
         if (!empty($fresh['crisis_flag']) || !empty($res['extra']['crisis'])) {
             flash_set('error', 'اگر فکر آسیب به خود داری، اول کمک فوری بگیر. این نتیجه تشخیص بیماری نیست.');
-            redirect('/dashboard/path?tab=path&tree=' . rawurlencode($treeId));
+            redirect($back);
         }
         if (!empty($res['already'])) {
             flash_set('success', 'این مرحله قبلاً انجام شده.');
@@ -91,7 +100,7 @@ try {
             $xp = (int) ($res['xp'] ?? 0);
             flash_set('success', $xp > 0 ? ('انجام شد. انرژی ذهن +' . $xp) : 'ثبت شد.');
         }
-        redirect('/dashboard/path?tab=path&tree=' . rawurlencode($treeId));
+        redirect($back);
     }
 
     flash_set('error', 'درخواست نامعتبر بود.');

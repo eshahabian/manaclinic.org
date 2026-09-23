@@ -23,7 +23,6 @@ function patient_nav(): array
     ];
     $u = current_user();
     if ($u && strcasecmp(trim((string) ($u['username'] ?? '')), 'eshahabian') === 0) {
-        $nav[] = ['href' => '/dashboard/path', 'label' => 'اتاق ذهن'];
         $nav[] = ['href' => '/dashboard/path2', 'label' => 'اتاق ذهن ۲'];
     }
     $nav = array_merge($nav, [

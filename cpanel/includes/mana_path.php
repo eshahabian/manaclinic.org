@@ -12,6 +12,12 @@ function mana_path_beta_usernames(): array
     return ['eshahabian'];
 }
 
+function mana_path_room_live(): bool
+{
+    // اتاق ذهن ۱ خاموش است؛ فایل‌ها مانده‌اند تا دوباره روشن شود.
+    return false;
+}
+
 function mana_path_user_allowed(?array $user): bool
 {
     if (!$user) {
@@ -594,7 +600,85 @@ function mana_path_complete_mission(PDO $pdo, array &$profile, string $missionId
     $xp = (int) $found['xp'];
     mana_path_mark_activity($pdo, $profile, $xp, $found['world'] ?? []);
     mana_path_log($pdo, (string) $profile['user_id'], 'mission', $xp, null, $missionId, ['note' => $note]);
-    return ['ok' => true, 'xp' => $xp];
+    $advance = mana_path2_try_advance($pdo, $profile);
+    return ['ok' => true, 'xp' => $xp, 'advanced' => $advance];
+}
+
+function mana_path2_journey(): array
+{
+    return [
+        ['id' => 'd1', 'label' => 'چک‌این حال', 'icon' => '◎'],
+        ['id' => 'd2', 'label' => 'شناخت افکار', 'icon' => '🧠'],
+        ['id' => 'd3', 'label' => 'شناخت احساسات', 'icon' => '🌱'],
+        ['id' => 'd4', 'label' => 'تنظیم اضطراب', 'icon' => '🔔'],
+        ['id' => 'd5', 'label' => 'تمرین مهارت', 'icon' => '✦'],
+        ['id' => 'd6', 'label' => 'حرکت واقعی', 'icon' => '🚶'],
+        ['id' => 'd7', 'label' => 'جمع‌بندی روز', 'icon' => '🏆'],
+    ];
+}
+
+function mana_path2_completed_stage_ids(PDO $pdo, string $userId): array
+{
+    try {
+        $stmt = $pdo->prepare("
+          SELECT step_id FROM mana_path_events
+          WHERE user_id = ? AND event_type = 'path2_day'
+          ORDER BY created_at ASC
+        ");
+        $stmt->execute([$userId]);
+        $ids = [];
+        foreach ($stmt->fetchAll() as $row) {
+            $id = (string) ($row['step_id'] ?? '');
+            if ($id !== '' && !in_array($id, $ids, true)) {
+                $ids[] = $id;
+            }
+        }
+        return $ids;
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function mana_path2_advanced_today(PDO $pdo, string $userId): bool
+{
+    try {
+        $stmt = $pdo->prepare("
+          SELECT id FROM mana_path_events
+          WHERE user_id = ? AND event_type = 'path2_day' AND DATE(created_at) = CURDATE()
+          LIMIT 1
+        ");
+        $stmt->execute([$userId]);
+        return (bool) $stmt->fetch();
+    } catch (Throwable $e) {
+        return false;
+    }
+}
+
+function mana_path2_try_advance(PDO $pdo, array &$profile): bool
+{
+    $userId = (string) $profile['user_id'];
+    $days = mana_path2_journey();
+    $done = mana_path2_completed_stage_ids($pdo, $userId);
+    if (count($done) >= count($days)) {
+        return false;
+    }
+    if (mana_path2_advanced_today($pdo, $userId)) {
+        return false;
+    }
+    $missions = mana_path_daily_missions();
+    $doneM = mana_path_today_mission_ids($pdo, $userId);
+    foreach ($missions as $m) {
+        if (!in_array((string) $m['id'], $doneM, true)) {
+            return false;
+        }
+    }
+    $next = $days[count($done)] ?? null;
+    if (!$next) {
+        return false;
+    }
+    mana_path_log($pdo, $userId, 'path2_day', 40, 'daily7', (string) $next['id'], ['day' => count($done) + 1]);
+    mana_path_mark_activity($pdo, $profile, 40, ['light' => 4]);
+    return true;
 }
 
 function mana_path_set_mood(PDO $pdo, array &$profile, int $mood): void
