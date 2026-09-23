@@ -151,12 +151,6 @@ ob_start();
 <div class="mpath-shell" data-gender="<?= e($assets['gender']) ?>" data-mood="<?= (int) $moodNow ?>" data-state="<?= e($state) ?>">
   <div class="mr-full">
     <img class="mr-room" src="<?= e($assets['room']) ?>" alt="اتاق ذهن">
-    <div class="mr-props" aria-hidden="true">
-      <?php foreach ($unlocks as $u): ?>
-        <?php if (empty($u['prop'])) { continue; } ?>
-        <img class="mr-prop mr-prop--<?= e((string) $u['id']) ?><?= !empty($u['on']) ? ' is-on' : '' ?>" src="<?= e(mana_path_asset((string) $u['prop'])) ?>" alt="">
-      <?php endforeach; ?>
-    </div>
     <img class="mr-buddy" src="<?= e($assets['avatar']) ?>" alt="">
     <div class="mr-atmosphere" aria-hidden="true"></div>
   </div>
