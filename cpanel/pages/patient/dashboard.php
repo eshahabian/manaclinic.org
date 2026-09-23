@@ -8,7 +8,7 @@ require_once __DIR__ . '/../../includes/availability.php';
 require_once __DIR__ . '/../../includes/workshop_overview.php';
 
 $stmt = $pdo->prepare("
-  SELECT a.*, u.name AS doctor_name
+  SELECT a.*, u.name AS doctor_name, dp.specialty
   FROM appointments a
   JOIN doctor_profiles dp ON dp.id = a.doctor_id
   JOIN users u ON u.id = dp.user_id
@@ -30,6 +30,14 @@ $wsActiveCount = count($grouped['in-person']) + count($grouped['online']) + coun
 
 $section = trim((string) ($_GET['section'] ?? ''));
 $outerInitial = $section === 'workshops' ? 'workshops' : 'appts';
+
+if (strcasecmp(trim((string) ($user['username'] ?? '')), 'bshaverdi') === 0) {
+    ob_start();
+    require __DIR__ . '/../../includes/well_dash.php';
+    $dashContent = (string) ob_get_clean();
+    render_patient_page('پنل مراجعه‌کننده', $dashContent);
+    return;
+}
 
 ob_start();
 ?>

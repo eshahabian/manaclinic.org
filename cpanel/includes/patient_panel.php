@@ -102,6 +102,12 @@ function render_patient_page(string $title, string $innerHtml): void
         require __DIR__ . '/layout.php';
         return;
     }
+    if (!empty($GLOBALS['wellDash'])) {
+        $GLOBALS['pageBodyClass'] = trim((string) ($GLOBALS['pageBodyClass'] ?? '') . ' well-dash');
+        $GLOBALS['content'] = $innerHtml;
+        require __DIR__ . '/layout.php';
+        return;
+    }
     ob_start();
     ?>
     <div class="container-page panel-layout">
