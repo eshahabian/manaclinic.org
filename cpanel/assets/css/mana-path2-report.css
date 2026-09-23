@@ -128,7 +128,13 @@ body.mp2r-page {
 }
 .mp2r-ai h2 { margin: 0 0 .5rem; }
 .mp2r-ai p { margin: 0 0 .7rem; line-height: 1.9; color: #5b4a6e; }
-.mp2r-bot { display: grid; place-items: center; }
+.mp2r-ai-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  margin-top: .35rem;
+}
+.mp2r-ai-actions form { margin: 0; }
 
 .mp2r-sec { margin: 0 0 .7rem; font-size: 1.05rem; }
 .mp2r-recs {

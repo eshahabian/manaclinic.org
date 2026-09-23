@@ -250,6 +250,28 @@ function assistant_session_create(PDO $pdo, ?string $patientId = null): array
     return assistant_session_get($pdo, $id) ?: ['id' => $id, 'current_step' => 0, 'answers_json' => '[]'];
 }
 
+function assistant_start_from_path_report(PDO $pdo, string $patientId, array $pack): array
+{
+    ensure_assistant_schema($pdo);
+    $session = assistant_session_create($pdo, $patientId);
+    $sessionId = (string) $session['id'];
+    $opening = trim((string) ($pack['opening'] ?? 'سلام. از گزارش ماهانه شروع می‌کنیم.'));
+    $answers = assistant_flow_meta_set([], [
+        'phase' => 'chat',
+        'topic' => (string) ($pack['topic_id'] ?? 'individual'),
+        'topic_label' => (string) ($pack['topic_label'] ?? 'مشاوره فردی'),
+        'explored' => [],
+        'custom_note' => 'path_report',
+        'path_brief' => (string) ($pack['brief'] ?? ''),
+        'path_questions' => array_values($pack['questions'] ?? []),
+    ]);
+    assistant_save_progress($pdo, $sessionId, 0, $answers);
+    assistant_messages_save($pdo, $sessionId, [
+        ['role' => 'assistant', 'content' => $opening],
+    ]);
+    return assistant_session_get($pdo, $sessionId) ?: $session;
+}
+
 function assistant_answers_decode(?string $json): array
 {
     if ($json === null || $json === '') {
@@ -477,6 +499,20 @@ function assistant_openai_messages_for_api(array $stored, ?array $flowMeta = nul
         }
     }
     $out = [['role' => 'system', 'content' => assistant_ai_system_prompt($topicLabel, $topicTags)]];
+    if (is_array($flowMeta)) {
+        $pathBrief = trim((string) ($flowMeta['path_brief'] ?? ''));
+        if ($pathBrief !== '') {
+            $extra = "\n\n======= سابقه اتاق ذهن این مراجعه =======\n" . $pathBrief;
+            $qs = $flowMeta['path_questions'] ?? [];
+            if (is_array($qs) && $qs !== []) {
+                $extra .= "\nسوالات از پیش تعیین‌شده را یکی‌یکی بپرس (نه همه با هم). بعد از هر پاسخ، بازخورد کوتاه و یک راهکار خیلی کوچک بده، بعد سوال بعدی.\n";
+                foreach (array_values($qs) as $i => $q) {
+                    $extra .= ($i + 1) . '. ' . trim((string) $q) . "\n";
+                }
+            }
+            $out[0]['content'] .= $extra;
+        }
+    }
     // فقط آخرین پیام‌ها را بفرست تا تایم‌اوت/HTML وسط گفتگو کمتر شود
     $dialog = [];
     foreach ($stored as $m) {

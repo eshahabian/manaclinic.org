@@ -42,7 +42,7 @@ $gridRings = [0.25, 0.5, 0.75, 1];
 
 $GLOBALS['pageRobots'] = 'noindex,nofollow';
 $GLOBALS['pageTitle'] = (string) $report['title'];
-$GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(url('/assets/css/mana-path2-report.css')) . '?v=20260924a">';
+$GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(url('/assets/css/mana-path2-report.css')) . '?v=20260924b">';
 $GLOBALS['pageBodyClass'] = trim((string) ($GLOBALS['pageBodyClass'] ?? '') . ' mp2r-page');
 $GLOBALS['pageScripts'] = ($GLOBALS['pageScripts'] ?? '') . '<script>function mp2rPrint(){window.print();}</script>';
 
@@ -142,8 +142,14 @@ ob_start();
     <div>
       <h2>تحلیل هوش مصنوعی</h2>
       <p><?= e((string) $report['analysis']) ?></p>
-      <p>پیشنهاد: تکنیک‌های مدیریت استرس، ثبت افکار، و فعالیت بدنی منظم را در برنامهٔ روزانه قرار دهید. در صورت تداوم این علائم، مشاوره با روانشناس توصیه می‌شود.</p>
-      <a class="mp2r-btn mp2r-btn-purple" href="<?= e($doctorsUrl) ?>">مشاوره تخصصی با روانشناس</a>
+      <p>پیشنهاد: تکنیک‌های مدیریت استرس، ثبت افکار، و فعالیت بدنی منظم را در برنامهٔ روزانه قرار دهید. در صورت تداوم این علائم، مشاوره با درمانگر توصیه می‌شود.</p>
+      <div class="mp2r-ai-actions">
+        <a class="mp2r-btn mp2r-btn-purple" href="<?= e($doctorsUrl) ?>">مشاوره تخصصی با درمانگر</a>
+        <form method="post" action="<?= e(url('/dashboard/path/report/ai')) ?>">
+          <?= csrf_field() ?>
+          <button type="submit" class="mp2r-btn mp2r-btn-dark">تحلیل هوش مصنوعی مانا</button>
+        </form>
+      </div>
     </div>
     <div class="mp2r-bot" aria-hidden="true">
       <svg viewBox="0 0 120 120" width="110" height="110">

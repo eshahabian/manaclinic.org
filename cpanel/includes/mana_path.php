@@ -1044,6 +1044,68 @@ function mana_path2_report_data(PDO $pdo, array $profile): array
     ];
 }
 
+function mana_path2_consult_pack(array $report): array
+{
+    $primary = (string) ($report['primary'] ?? 'anxiety');
+    $topicId = $primary === 'relationship' ? 'couples' : 'individual';
+    $topic = function_exists('assistant_topic_by_id') ? assistant_topic_by_id($topicId) : null;
+    $topicLabel = is_array($topic) ? (string) $topic['label'] : ($topicId === 'couples' ? 'زوج درمانی' : 'مشاوره فردی');
+    $label = (string) ($report['primary_label'] ?? 'اضطراب');
+    $band = (string) ($report['band'] ?? 'متوسط');
+    $score = (int) ($report['score'] ?? 0);
+    $month = (string) ($report['month_title'] ?? '');
+    $histDays = $report['history']['days'] ?? [];
+    $doneBits = [];
+    foreach (array_slice($histDays, 0, 8) as $day) {
+        $items = $day['items'] ?? [];
+        if ($items !== []) {
+            $doneBits[] = (string) ($day['weekday'] ?? '') . ' ' . (string) ($day['label'] ?? '') . ': ' . implode('، ', $items);
+        }
+    }
+    $axesLine = [];
+    foreach ($report['axes'] ?? [] as $ax) {
+        $axesLine[] = (string) ($ax['label'] ?? '') . ' ' . (int) ($ax['you'] ?? 0) . '٪';
+    }
+    $tips = [];
+    foreach (array_slice($report['recs'] ?? [], 0, 3) as $rec) {
+        $tips[] = (string) ($rec['title'] ?? '') . ': ' . (string) ($rec['text'] ?? '');
+    }
+    $questions = [
+        'این ماه کدام موقعیت بیشتر ' . $label . ' را بالا می‌برد؟',
+        'وقتی شدت بالا می‌رود معمولاً چه کار می‌کنی — و کدام‌یک کمکت می‌کند؟',
+        'از کارهای روزانه اتاق ذهن، کدام برایت مفیدتر بود؟',
+        'امشب یا فردا یک قدم خیلی کوچک چه می‌تواند باشد؟',
+    ];
+    if (in_array($primary, ['sleep'], true) || str_contains(implode(' ', $axesLine), 'خواب')) {
+        array_splice($questions, 1, 0, ['الگوی خواب این ماه چطور بوده: به‌خواب رفتن، بیدار شدن، یا هر دو؟']);
+        $questions = array_slice($questions, 0, 5);
+    }
+    if ($primary === 'relationship') {
+        $questions[0] = 'در رابطه‌ات کدام بخش بیشتر فشار می‌آورد: حرف زدن، حدومرز، یا فاصله؟';
+    }
+    if (in_array($band, ['نسبتاً بالا', 'بسیار بالا'], true)) {
+        $questions[] = 'آیا کسی در اطرافت از این وضعیت خبر دارد که بتوانی به او تکیه کنی؟';
+    }
+    $brief = 'موضوع اصلی مسیر: ' . $label . "\n"
+        . 'سطح غربالگری این ماه: ' . $band . ' (امتیاز ' . $score . " از ۱۰۰)\n"
+        . 'ماه: ' . $month . "\n"
+        . 'محورهای نمودار: ' . implode('، ', $axesLine) . "\n"
+        . "کارهای ثبت‌شده:\n" . ($doneBits !== [] ? implode("\n", $doneBits) : 'هنوز کار روزانه کمی ثبت شده.') . "\n"
+        . "پیشنهادهای گزارش:\n" . implode("\n", $tips);
+    $firstQ = $questions[0] ?? 'الان بیشتر دوست داری از کجا شروع کنیم؟';
+    $opening = 'سلام. گزارش ماهانه اتاق ذهن را دیدم. سطح ' . $label . ' در محدودهٔ «' . $band . '» است. '
+        . 'این تشخیص نیست؛ یک غربالگری مسیر است.' . "\n"
+        . ($tips !== [] ? ('برای شروع، این‌ها را می‌توانی همین امروز کوچک نگه داری: ' . (string) (($report['recs'][0]['text'] ?? 'یک تمرین کوتاه تنفس یا ثبت یک فکر.'))) : '')
+        . "\n\nبرای مشاورهٔ کوتاه، از این سوال شروع می‌کنیم:\n" . $firstQ;
+    return [
+        'topic_id' => $topicId,
+        'topic_label' => $topicLabel,
+        'brief' => $brief,
+        'questions' => $questions,
+        'opening' => $opening,
+    ];
+}
+
 function mana_path2_radar_points(array $values, float $cx, float $cy, float $rMax): string
 {
     $n = max(3, count($values));
