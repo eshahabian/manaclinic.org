@@ -35,7 +35,7 @@ function mana_path_room_html(array $profile, string $state): string
     $mood = (int) ($profile['mood_today'] ?? 0);
     ob_start();
     ?>
-    <section class="mr-stage" data-state="<?= e($state) ?>" data-gender="<?= e($assets['gender']) ?>" data-mood="<?= (int) $mood ?>" aria-label="اتاق ذهن">
+    <section class="mr-stage" data-state="<?= e($state) ?>" data-gender="<?= e($assets['gender']) ?>" data-mood="<?= (int) $mood ?>" aria-label="اتاق ذهن ۲">
       <img class="mr-bg" src="<?= e($assets['room']) ?>" alt="">
       <img class="mr-buddy" src="<?= e($assets['avatar']) ?>" alt="">
     </section>
@@ -81,7 +81,7 @@ function mana_path_gender_picker_html(string $post, string $current = ''): strin
     ob_start();
     ?>
     <fieldset class="mr-gender">
-      <legend>همراه اتاق ذهن کی باشد؟</legend>
+      <legend>همراه اتاق ذهن ۲ کی باشد؟</legend>
       <p class="muted">این انتخاب اتاق و آدمک را عوض می‌کند. هر وقت بخواهی از تنظیمات می‌توانی عوضش کنی.</p>
       <div class="mr-gender-grid">
         <label class="mr-gender-card<?= $current === 'male' ? ' is-on' : '' ?>">

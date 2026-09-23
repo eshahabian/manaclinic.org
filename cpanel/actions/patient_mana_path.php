@@ -11,12 +11,8 @@ $patientId = (string) $user['id'];
 $profile = mana_path_load_profile($pdo, $patientId);
 $do = trim((string) ($_POST['do'] ?? ''));
 $backRaw = trim((string) ($_POST['back'] ?? ''));
-$back = '/dashboard/path2';
-if ($backRaw === '/dashboard/path' && mana_path_room_live()) {
-    $back = '/dashboard/path';
-} elseif ($backRaw === '/dashboard/path2') {
-    $back = '/dashboard/path2';
-} elseif (!mana_path_room_live()) {
+$back = '/dashboard/path';
+if ($backRaw === '/dashboard/path2') {
     $back = '/dashboard/path2';
 } elseif ($backRaw === '/dashboard/path') {
     $back = '/dashboard/path';

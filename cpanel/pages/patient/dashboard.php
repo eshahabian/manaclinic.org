@@ -49,7 +49,7 @@ ob_start();
   <h1>سلام <?= e($user['name']) ?></h1>
   <?php if (strcasecmp(trim((string) ($user['username'] ?? '')), 'eshahabian') === 0): ?>
     <p style="display:flex;flex-wrap:wrap;align-items:center;gap:.55rem;margin:0 0 1rem">
-      <a class="btn btn-primary btn-sm" href="<?= e(url('/dashboard/path2')) ?>">اتاق ذهن ۲</a>
+      <a class="btn btn-primary btn-sm" href="<?= e(url('/dashboard/path')) ?>">اتاق ذهن</a>
       <span class="muted">مسیر درمان با تجربهٔ شبیه بازی — بدون رقابت و لیدربورد.</span>
     </p>
   <?php endif; ?>

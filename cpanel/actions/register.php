@@ -86,7 +86,7 @@ if ($username === '') {
 
 $gender = strtolower(trim(post('gender')));
 if ($role !== 'DOCTOR' && $gender !== 'male' && $gender !== 'female') {
-    flash_set('error', 'مشخص کن اتاق ذهن مرد است یا زن.');
+    flash_set('error', 'مشخص کن اتاق ذهن ۲ مرد است یا زن.');
     redirect('/register?role=' . $role);
 }
 

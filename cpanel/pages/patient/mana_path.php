@@ -20,7 +20,7 @@ if (!function_exists('mana_path_trees') || !function_exists('mana_path_require_u
 
 mana_path_require_user($user);
 if (!mana_path_room_live()) {
-    redirect('/dashboard/path2');
+    redirect('/dashboard/path');
 }
 ensure_mana_path_schema($pdo);
 
@@ -95,19 +95,19 @@ try {
 }
 
 $GLOBALS['pageRobots'] = 'noindex,nofollow';
-$GLOBALS['pageTitle'] = 'اتاق ذهن';
+$GLOBALS['pageTitle'] = 'اتاق ذهن ۲';
 $GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(mana_path_css_href()) . '">';
 $GLOBALS['mpathApp'] = true;
 
-$post = url('/dashboard/path');
-$mpathUrl = url('/dashboard/path');
+$post = url('/dashboard/path2');
+$mpathUrl = url('/dashboard/path2');
 $dashUrl = url('/dashboard');
 $journalUrl = url('/dashboard/journal');
 $doctorsUrl = url('/doctors');
 
 function mpath_step_url(string $tree, string $step, string $tab = 'path'): string
 {
-    return url('/dashboard/path?tab=' . rawurlencode($tab) . '&tree=' . rawurlencode($tree) . '&step=' . rawurlencode($step));
+    return url('/dashboard/path2?tab=' . rawurlencode($tab) . '&tree=' . rawurlencode($tree) . '&step=' . rawurlencode($step));
 }
 
 function mpath_task_meta(string $id): array
@@ -153,7 +153,7 @@ ob_start();
 ?>
 <div class="mpath-shell" data-gender="<?= e($assets['gender']) ?>" data-mood="<?= (int) $moodNow ?>" data-state="<?= e($state) ?>">
   <div class="mr-full">
-    <img class="mr-room" src="<?= e(mana_path_asset('room-full.png')) ?>" alt="اتاق ذهن" data-room-full="<?= e(mana_path_asset('room-full.png')) ?>" data-room-base="<?= e(mana_path_asset('room-bg.png')) ?>">
+    <img class="mr-room" src="<?= e(mana_path_asset('room-full.png')) ?>" alt="اتاق ذهن ۲" data-room-full="<?= e(mana_path_asset('room-full.png')) ?>" data-room-base="<?= e(mana_path_asset('room-bg.png')) ?>">
     <div class="mr-props" hidden>
       <?php foreach ($unlocks as $u): ?>
         <?php if (empty($u['prop'])) { continue; } ?>
@@ -168,7 +168,7 @@ ob_start();
     <a class="mpath-brand" href="<?= e($mpathUrl) ?>">
       <span class="mpath-brand-mark" aria-hidden="true">🌿</span>
       <span>
-        <strong>اتاق ذهن</strong>
+        <strong>اتاق ذهن ۲</strong>
         <small>مسیر مانا</small>
       </span>
     </a>
@@ -209,10 +209,10 @@ ob_start();
 
   <div class="mpath-mid">
     <aside class="mpath-rail" id="mpath-rail">
-      <nav aria-label="اتاق ذهن">
+      <nav aria-label="اتاق ذهن ۲">
         <a href="<?= e(url('/')) ?>"><i aria-hidden="true">←</i> سایت مانا</a>
         <a href="<?= e($dashUrl) ?>"><i aria-hidden="true">☰</i> پنل من</a>
-        <a href="<?= e(url('/dashboard/path2')) ?>"><i aria-hidden="true">▣</i> اتاق ذهن ۲</a>
+        <a href="<?= e(url('/dashboard/path')) ?>"><i aria-hidden="true">▣</i> اتاق ذهن</a>
         <a class="<?= $tab === 'home' ? 'is-on' : '' ?>" href="<?= e($mpathUrl) ?>"><i aria-hidden="true">⌂</i> خانه</a>
         <a class="<?= $tab === 'path' ? 'is-on' : '' ?>" href="<?= e($mpathUrl . '?tab=path&tree=' . rawurlencode($activeTree)) ?>"><i aria-hidden="true">◎</i> مسیر من</a>
         <a class="<?= $tab === 'practice' ? 'is-on' : '' ?>" href="<?= e($mpathUrl . '?tab=practice') ?>"><i aria-hidden="true">✦</i> تمرین‌ها</a>
@@ -233,7 +233,7 @@ ob_start();
 
   <?php if (empty($profile['intro_done'])): ?>
     <section class="mpath-glass mpath-intro">
-      <h1>سلام؛ اتاق ذهن را بسازیم</h1>
+      <h1>سلام؛ اتاق ذهن ۲ را بسازیم</h1>
       <p class="muted">این روزها بیشتر درگیر چی هستی؟ می‌توانی چند مورد را انتخاب کنی. این تشخیص نیست؛ فقط نقطهٔ شروع مسیر است.</p>
       <form method="post" action="<?= e($post) ?>" class="mpath-concerns">
         <?= csrf_field() ?>
@@ -252,7 +252,7 @@ ob_start();
 
     <?php if ($needGender): ?>
       <section class="mpath-glass mpath-intro">
-        <h1>اتاق ذهن را کامل کن</h1>
+        <h1>اتاق ذهن ۲ را کامل کن</h1>
         <form method="post" action="<?= e($post) ?>">
           <?= csrf_field() ?>
           <input type="hidden" name="do" value="gender">
@@ -409,7 +409,7 @@ ob_start();
               </form>
             <?php endif; ?>
           <?php elseif ($kind === 'chest'): ?>
-            <p>صندوق همراهی: لباس تازه و نور بیشتر برای اتاق ذهن.</p>
+            <p>صندوق همراهی: لباس تازه و نور بیشتر برای اتاق ذهن ۲.</p>
             <?php if ($stepMeta['status'] !== 'done'): ?>
               <form method="post" action="<?= e($post) ?>">
                 <?= csrf_field() ?>
@@ -730,4 +730,4 @@ ob_start();
 <script src="<?= e(url('/assets/js/mana-path.js')) ?>?v=20260923s"></script>
 <?php
 $inner = ob_get_clean();
-render_patient_page('اتاق ذهن', $inner);
+render_patient_page('اتاق ذهن ۲', $inner);

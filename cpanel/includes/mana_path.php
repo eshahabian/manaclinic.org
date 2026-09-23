@@ -14,7 +14,7 @@ function mana_path_beta_usernames(): array
 
 function mana_path_room_live(): bool
 {
-    // اتاق ذهن ۱ خاموش است؛ فایل‌ها مانده‌اند تا دوباره روشن شود.
+    // اتاق ذهن ۲ (اتاق تصویری) خاموش است؛ فایل‌ها مانده‌اند تا دوباره روشن شود.
     return false;
 }
 
@@ -1020,7 +1020,7 @@ function mana_path2_report_data(PDO $pdo, array $profile): array
             'energy' => ['title' => 'انرژی کم‌حجم', 'text' => 'خواب، نور صبح و یک پیاده‌روی کوتاه.', 'tone' => 'green'],
             'assert' => ['title' => 'تمرین جمله صادقانه', 'text' => 'پیش‌نویس یک حدومرز کوتاه برای موقعیت پرتنش.', 'tone' => 'blue'],
         ];
-        $recs[] = $map[$row['key']] ?? ['title' => $row['label'], 'text' => 'تمرین روزانه این محور را در اتاق ذهن ۲ ادامه بده.', 'tone' => 'purple'];
+        $recs[] = $map[$row['key']] ?? ['title' => $row['label'], 'text' => 'تمرین روزانه این محور را در اتاق ذهن ادامه بده.', 'tone' => 'purple'];
     }
     $jDate = to_fa_digits((string) ($hist['jy'] ?? '')) . '/' . to_fa_digits(sprintf('%02d', (int) ($hist['jm'] ?? 1))) . '/' . to_fa_digits(sprintf('%02d', (int) ($hist['jd'] ?? 1)));
     return [

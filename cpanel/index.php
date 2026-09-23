@@ -174,9 +174,10 @@ $routes = [
     'POST /video-signal' => 'actions/video_signal.php',
 
     'GET /dashboard' => 'pages/patient/dashboard.php',
-    'GET /dashboard/path' => 'pages/patient/mana_path.php',
+    'GET /dashboard/path' => 'pages/patient/mana_path2.php',
     'POST /dashboard/path' => 'actions/patient_mana_path.php',
-    'GET /dashboard/path2' => 'pages/patient/mana_path2.php',
+    'GET /dashboard/path/report' => 'pages/patient/mana_path2_report.php',
+    'GET /dashboard/path2' => 'pages/patient/mana_path.php',
     'POST /dashboard/path2' => 'actions/patient_mana_path.php',
     'GET /dashboard/path2/report' => 'pages/patient/mana_path2_report.php',
     'GET /dashboard/appointments' => 'pages/patient/appointments.php',

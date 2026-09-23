@@ -60,7 +60,7 @@ try {
 } catch (Throwable $ignored) {
 }
 
-$post = url('/dashboard/path2');
+$post = url('/dashboard/path');
 $journalUrl = url('/dashboard/journal');
 $doctorsUrl = url('/doctors');
 $actNeed = count($missions);
@@ -78,7 +78,7 @@ if (function_exists('gregorian_to_jalali') && function_exists('jalali_month_name
 }
 
 $GLOBALS['pageRobots'] = 'noindex,nofollow';
-$GLOBALS['pageTitle'] = 'اتاق ذهن ۲';
+$GLOBALS['pageTitle'] = 'اتاق ذهن';
 $GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(url('/assets/css/mana-path2.css')) . '?v=20260924e">';
 $GLOBALS['pageBodyClass'] = trim((string) ($GLOBALS['pageBodyClass'] ?? '') . ' mp2-page');
 
@@ -86,7 +86,7 @@ ob_start();
 ?>
 <div class="mp2">
   <p class="mp2-kicker">◎ ماموریت امروز</p>
-  <h1>اتاق ذهن ۲</h1>
+  <h1>اتاق ذهن</h1>
   <p class="mp2-lead">کارهای امروز را همین‌جا بزن. هفته از شنبه شروع می‌شود.</p>
   <p class="mp2-model">امروز <?= e($todayLabel) ?> — هدف، سفر روزانه، XP و streak برای ادامه دادن است. رقابت با دیگران اینجا نیست.</p>
 
@@ -149,7 +149,7 @@ ob_start();
                   <?= csrf_field() ?>
                   <input type="hidden" name="do" value="mission">
                   <input type="hidden" name="mission_id" value="<?= e((string) $m['id']) ?>">
-                  <input type="hidden" name="back" value="/dashboard/path2">
+                  <input type="hidden" name="back" value="/dashboard/path">
                   <?php if ($needsNote): ?>
                     <textarea name="note" required rows="2" placeholder="اول این کار را انجام بده، بعد اینجا بنویس."></textarea>
                   <?php endif; ?>
@@ -222,7 +222,7 @@ ob_start();
       <form method="post" action="<?= e($post) ?>" class="mp2-faces">
         <?= csrf_field() ?>
         <input type="hidden" name="do" value="mood">
-        <input type="hidden" name="back" value="/dashboard/path2">
+        <input type="hidden" name="back" value="/dashboard/path">
         <?php foreach ($moods as $n => $m): ?>
           <button name="mood" value="<?= (int) $n ?>" type="submit" class="<?= $moodNow === (int) $n ? 'is-on' : '' ?>">
             <?= e($m['emoji']) ?> <?= e($m['label']) ?>
@@ -232,14 +232,14 @@ ob_start();
       <div class="mp2-tools">
         <a href="#journey"><strong>🧠 کارهای امروز</strong>تمرین روزانه CBT</a>
         <a href="<?= e($journalUrl) ?>"><strong>📓 Journal</strong>یادداشت روزانه</a>
-        <a class="is-lg" href="<?= e(url('/dashboard/path2/report')) ?>"><strong>📅 گزارش ماهانه</strong>نتیجه مسیر این ماه</a>
+        <a class="is-lg" href="<?= e(url('/dashboard/path/report')) ?>"><strong>📅 گزارش ماهانه</strong>نتیجه مسیر این ماه</a>
         <a class="is-lg" href="#status"><strong>⭐ XP / Achievement</strong>سطح <?= e(to_fa_digits((string) $level)) ?></a>
       </div>
     </section>
   </div>
 
-  <p class="mp2-disclaimer">اتاق ذهن ۲ غربالگری و تمرین همراه است، نه تشخیص و نه جایگزین درمان. نسخه آزمایشی فقط برای حساب تو.</p>
+  <p class="mp2-disclaimer">اتاق ذهن غربالگری و تمرین همراه است، نه تشخیص و نه جایگزین درمان. نسخه آزمایشی فقط برای حساب تو.</p>
 </div>
 <?php
 $inner = (string) ob_get_clean();
-render_patient_page('اتاق ذهن ۲', $inner);
+render_patient_page('اتاق ذهن', $inner);

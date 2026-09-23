@@ -11,7 +11,7 @@ ensure_mana_path_schema($pdo);
 $patientId = (string) $user['id'];
 $profile = mana_path_load_profile($pdo, $patientId);
 $report = mana_path2_report_data($pdo, $profile);
-$path2Url = url('/dashboard/path2');
+$path2Url = url('/dashboard/path');
 $testsUrl = url('/tests');
 $doctorsUrl = url('/doctors');
 $score = (int) $report['score'];
