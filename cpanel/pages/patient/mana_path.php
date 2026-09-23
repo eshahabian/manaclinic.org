@@ -150,7 +150,13 @@ ob_start();
 ?>
 <div class="mpath-shell" data-gender="<?= e($assets['gender']) ?>" data-mood="<?= (int) $moodNow ?>" data-state="<?= e($state) ?>">
   <div class="mr-full">
-    <img class="mr-room" src="<?= e($assets['room']) ?>" alt="اتاق ذهن">
+    <img class="mr-room" src="<?= e(mana_path_asset('room-full.png')) ?>" alt="اتاق ذهن" data-room-full="<?= e(mana_path_asset('room-full.png')) ?>" data-room-base="<?= e(mana_path_asset('room-bg.png')) ?>">
+    <div class="mr-props" hidden>
+      <?php foreach ($unlocks as $u): ?>
+        <?php if (empty($u['prop'])) { continue; } ?>
+        <img class="mr-prop mr-prop--<?= e((string) $u['id']) ?> is-on" data-prop="<?= e((string) $u['id']) ?>" src="<?= e(mana_path_asset((string) $u['prop'])) ?>" alt="">
+      <?php endforeach; ?>
+    </div>
     <img class="mr-buddy" src="<?= e($assets['avatar']) ?>" alt="">
     <div class="mr-atmosphere" aria-hidden="true"></div>
   </div>
@@ -593,7 +599,9 @@ ob_start();
   <div class="mpath-floor">
   <?php if (!empty($profile['intro_done'])): ?>
   <?php
-    $unlockShow = array_slice($unlocks, 0, 5);
+    $unlockShow = array_values(array_filter($unlocks, static function (array $u): bool {
+        return (string) ($u['id'] ?? '') === 'room' || !empty($u['prop']);
+    }));
     $unlockShowOn = 0;
     foreach ($unlockShow as $u) {
         if (!empty($u['on'])) {
@@ -616,16 +624,18 @@ ob_start();
     </div>
     <div class="mpath-world-box">
       <h2>محیط اتاق من</h2>
-      <ul class="mpath-unlocks">
+      <ul class="mpath-unlocks" data-mpath-world>
         <?php foreach ($unlockShow as $u): ?>
-          <li class="<?= !empty($u['on']) ? 'is-on' : 'is-off' ?>">
-            <span class="mpath-lock" aria-hidden="true"><?= !empty($u['on']) ? e((string) ($u['icon'] ?? '')) : '🔒' ?></span>
-            <?= e($u['label']) ?>
+          <li>
+            <button type="button" class="mpath-unlock-btn <?= !empty($u['on']) ? 'is-on' : 'is-off' ?>" data-prop="<?= e((string) $u['id']) ?>" aria-pressed="<?= !empty($u['on']) ? 'true' : 'false' ?>">
+              <span class="mpath-lock" aria-hidden="true"><?= e((string) ($u['icon'] ?? '🔒')) ?></span>
+              <?= e($u['label']) ?>
+            </button>
           </li>
         <?php endforeach; ?>
       </ul>
-      <p class="mpath-unlock-bar"><i style="width:<?= (int) round(100 * $unlockShowOn / max(1, count($unlockShow))) ?>%"></i></p>
-      <small><?= e(to_fa_digits((string) $unlockShowOn)) ?> / <?= e(to_fa_digits((string) count($unlockShow))) ?> آیتم باز شده</small>
+      <p class="mpath-unlock-bar"><i data-mpath-world-bar style="width:<?= (int) round(100 * $unlockShowOn / max(1, count($unlockShow))) ?>%"></i></p>
+      <small data-mpath-world-count><?= e(to_fa_digits((string) $unlockShowOn)) ?> / <?= e(to_fa_digits((string) count($unlockShow))) ?> آیتم باز شده</small>
     </div>
     <div class="mpath-mood-box">
       <h2>خلق و حال امروز</h2>
@@ -713,7 +723,7 @@ ob_start();
     </div>
   </div>
 </div>
-<script src="<?= e(url('/assets/js/mana-path.js')) ?>?v=20260923h"></script>
+<script src="<?= e(url('/assets/js/mana-path.js')) ?>?v=20260923r"></script>
 <?php
 $inner = ob_get_clean();
 render_patient_page('اتاق ذهن', $inner);

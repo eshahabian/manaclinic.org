@@ -247,14 +247,14 @@ function mana_path_unlock_items(array $world): array
     $window = (int) ($world['window'] ?? 0);
     $outfit = (int) ($world['outfit'] ?? 0);
     $items = [
-        ['id' => 'room', 'label' => 'اتاق خواب', 'icon' => '🛏️', 'on' => true],
-        ['id' => 'plant', 'label' => 'گیاه', 'icon' => '🪴', 'on' => $plant >= 20, 'prop' => 'prop-plant.png'],
-        ['id' => 'desk', 'label' => 'میز کار', 'icon' => '🪑', 'on' => $desk >= 35, 'prop' => 'prop-desk.png'],
-        ['id' => 'books', 'label' => 'کتابخانه', 'icon' => '📚', 'on' => $desk >= 55, 'prop' => 'prop-books.png'],
-        ['id' => 'decor', 'label' => 'دکور', 'icon' => '🎨', 'on' => $outfit >= 1 || $light >= 40, 'prop' => 'prop-decor.png'],
+        ['id' => 'room', 'label' => 'اتاق خواب', 'icon' => '🛏️', 'on' => true, 'prop' => 'layer-room.png'],
+        ['id' => 'plant', 'label' => 'گیاه', 'icon' => '🪴', 'on' => $plant >= 20, 'prop' => 'layer-plant.png'],
+        ['id' => 'desk', 'label' => 'میز کار', 'icon' => '🪑', 'on' => $desk >= 35, 'prop' => 'layer-desk.png'],
+        ['id' => 'books', 'label' => 'کتابخانه', 'icon' => '📚', 'on' => $desk >= 55, 'prop' => 'layer-books.png'],
+        ['id' => 'decor', 'label' => 'دکور', 'icon' => '🎨', 'on' => $outfit >= 1 || $light >= 40, 'prop' => 'layer-decor.png'],
         ['id' => 'music', 'label' => 'موسیقی', 'icon' => '🎵', 'on' => $light >= 45],
         ['id' => 'window', 'label' => 'پنجره / منظره', 'icon' => '🪟', 'on' => $window >= 40 || $light >= 50],
-        ['id' => 'pet', 'label' => 'حیوان خانگی', 'icon' => '🐶', 'on' => $plant >= 50, 'prop' => 'prop-pet.png'],
+        ['id' => 'pet', 'label' => 'حیوان خانگی', 'icon' => '🐶', 'on' => $plant >= 50, 'prop' => 'layer-pet.png'],
     ];
     if ($previewAllOn) {
         foreach ($items as &$item) {

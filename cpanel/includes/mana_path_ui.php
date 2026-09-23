@@ -3,12 +3,12 @@ declare(strict_types=1);
 
 function mana_path_css_href(): string
 {
-    return url('/assets/css/mana-path.css') . '?v=20260923q';
+    return url('/assets/css/mana-path.css') . '?v=20260923r';
 }
 
 function mana_path_asset(string $file): string
 {
-    return url('/assets/img/mind-room/' . $file) . '?v=20260923q';
+    return url('/assets/img/mind-room/' . $file) . '?v=20260923r';
 }
 
 function mana_path_gender_assets(string $gender): array

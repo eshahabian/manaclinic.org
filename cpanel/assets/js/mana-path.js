@@ -105,4 +105,65 @@
   document.querySelectorAll(".mpath-task.is-done").forEach(function (el) {
     el.classList.add("is-pop");
   });
+
+  (function () {
+    var box = document.querySelector("[data-mpath-world]");
+    var room = document.querySelector(".mr-room");
+    var props = document.querySelector(".mr-props");
+    if (!box || !room) return;
+    var btns = Array.prototype.slice.call(box.querySelectorAll("[data-prop]"));
+    var key = "mpath-world-toggles";
+    var fa = "۰۱۲۳۴۵۶۷۸۹";
+    function toFa(n) {
+      return String(n).replace(/\d/g, function (d) { return fa[d]; });
+    }
+    function applySaved() {
+      try {
+        var saved = JSON.parse(sessionStorage.getItem(key) || "{}");
+        btns.forEach(function (btn) {
+          var id = btn.getAttribute("data-prop");
+          if (Object.prototype.hasOwnProperty.call(saved, id)) {
+            btn.classList.toggle("is-on", !!saved[id]);
+            btn.classList.toggle("is-off", !saved[id]);
+            btn.setAttribute("aria-pressed", saved[id] ? "true" : "false");
+          }
+        });
+      } catch (e) {}
+    }
+    function sync() {
+      var onMap = {};
+      var onCount = 0;
+      btns.forEach(function (btn) {
+        var id = btn.getAttribute("data-prop");
+        var on = btn.classList.contains("is-on");
+        onMap[id] = on;
+        if (on) onCount += 1;
+        document.querySelectorAll('.mr-prop[data-prop="' + id + '"]').forEach(function (img) {
+          img.classList.toggle("is-on", on);
+        });
+      });
+      var allOn = onCount === btns.length;
+      if (props) props.hidden = allOn;
+      var full = room.getAttribute("data-room-full");
+      var base = room.getAttribute("data-room-base");
+      if (allOn && full) room.src = full;
+      else if (base) room.src = base;
+      var bar = document.querySelector("[data-mpath-world-bar]");
+      if (bar) bar.style.width = Math.round(100 * onCount / Math.max(1, btns.length)) + "%";
+      var count = document.querySelector("[data-mpath-world-count]");
+      if (count) count.textContent = toFa(onCount) + " / " + toFa(btns.length) + " آیتم باز شده";
+      try { sessionStorage.setItem(key, JSON.stringify(onMap)); } catch (e) {}
+    }
+    applySaved();
+    sync();
+    btns.forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var on = !btn.classList.contains("is-on");
+        btn.classList.toggle("is-on", on);
+        btn.classList.toggle("is-off", !on);
+        btn.setAttribute("aria-pressed", on ? "true" : "false");
+        sync();
+      });
+    });
+  })();
 })();
