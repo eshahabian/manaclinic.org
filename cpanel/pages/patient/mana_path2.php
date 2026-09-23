@@ -79,7 +79,7 @@ if (function_exists('gregorian_to_jalali') && function_exists('jalali_month_name
 
 $GLOBALS['pageRobots'] = 'noindex,nofollow';
 $GLOBALS['pageTitle'] = 'اتاق ذهن ۲';
-$GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(url('/assets/css/mana-path2.css')) . '?v=20260924c">';
+$GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(url('/assets/css/mana-path2.css')) . '?v=20260924d">';
 $GLOBALS['pageBodyClass'] = trim((string) ($GLOBALS['pageBodyClass'] ?? '') . ' mp2-page');
 
 ob_start();
@@ -127,23 +127,35 @@ ob_start();
       </div>
       <p class="mp2-goal">هدف فعلی من:<strong><?= e($goalLabel) ?></strong></p>
       <h3>کارهای امروز</h3>
-      <ul class="mp2-checks">
-        <?php foreach ($missions as $m): ?>
-          <?php $ok = in_array($m['id'], $doneMissions, true); ?>
-          <li>
+      <ul class="mp2-today">
+        <?php foreach ($missions as $i => $m): ?>
+          <?php
+            $ok = in_array($m['id'], $doneMissions, true);
+            $practice = (string) ($m['practice'] ?? '');
+            $needsNote = in_array($practice, ['thought', 'feelings', 'assert', 'kind'], true);
+          ?>
+          <li class="<?= $ok ? 'is-done' : '' ?>">
             <?php if ($ok): ?>
-              <span class="is-done"><span class="mp2-box"></span><?= e((string) $m['title']) ?></span>
+              <span class="mp2-orb" aria-hidden="true">✓</span>
+              <p class="mp2-today-cap">کار امروز من: <?= e((string) $m['title']) ?></p>
             <?php else: ?>
-              <form method="post" action="<?= e($post) ?>">
-                <?= csrf_field() ?>
-                <input type="hidden" name="do" value="mission">
-                <input type="hidden" name="mission_id" value="<?= e((string) $m['id']) ?>">
-                <input type="hidden" name="back" value="/dashboard/path2">
-                <button type="submit">
-                  <span class="mp2-box"></span>
-                  <?= e((string) $m['title']) ?>
-                </button>
-              </form>
+              <details>
+                <summary>
+                  <span class="mp2-orb"><?= e(to_fa_digits((string) ($i + 1))) ?></span>
+                  <span class="mp2-today-cap">کار امروز من: <?= e((string) $m['title']) ?></span>
+                </summary>
+                <p class="mp2-today-body"><?= e((string) ($m['body'] ?? '')) ?></p>
+                <form method="post" action="<?= e($post) ?>">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="do" value="mission">
+                  <input type="hidden" name="mission_id" value="<?= e((string) $m['id']) ?>">
+                  <input type="hidden" name="back" value="/dashboard/path2">
+                  <?php if ($needsNote): ?>
+                    <textarea name="note" required rows="2" placeholder="اول این کار را انجام بده، بعد اینجا بنویس."></textarea>
+                  <?php endif; ?>
+                  <button type="submit">ثبت انجام این کار</button>
+                </form>
+              </details>
             <?php endif; ?>
           </li>
         <?php endforeach; ?>
@@ -213,16 +225,15 @@ ob_start();
         <input type="hidden" name="back" value="/dashboard/path2">
         <?php foreach ($moods as $n => $m): ?>
           <button name="mood" value="<?= (int) $n ?>" type="submit" class="<?= $moodNow === (int) $n ? 'is-on' : '' ?>">
-            <?= e($m['emoji'] . ' ' . $m['label']) ?>
+            <?= e($m['emoji']) ?> <?= e($m['label']) ?>
           </button>
         <?php endforeach; ?>
       </form>
       <div class="mp2-tools">
         <a href="#journey"><strong>🧠 کارهای امروز</strong>تمرین روزانه CBT</a>
         <a href="<?= e($journalUrl) ?>"><strong>📓 Journal</strong>یادداشت روزانه</a>
-        <a href="#journey"><strong>🗺️ Journey</strong>هفته از شنبه</a>
-        <a href="#status"><strong>⭐ XP / Achievement</strong>سطح <?= e(to_fa_digits((string) $level)) ?></a>
-        <a href="#history"><strong>📅 هیستوری</strong>کارهای این ماه</a>
+        <a class="is-lg" href="#history"><strong>📅 هیستوری</strong>کارهای این ماه</a>
+        <a class="is-lg" href="#status"><strong>⭐ XP / Achievement</strong>سطح <?= e(to_fa_digits((string) $level)) ?></a>
       </div>
     </section>
   </div>
