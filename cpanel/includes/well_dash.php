@@ -98,10 +98,14 @@ foreach ($appointments as $row) {
     }
 }
 $progress = min(100, $doneThisMonth * 20 + ($upcoming ? 15 : 0) + 10);
+$circ = 301.593;
+$dashOff = $circ * (1 - $progress / 100);
 $weekDays = ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'];
 $view = (($_GET['cal'] ?? 'month') === 'day') ? 'day' : 'month';
 $art = url('/assets/img/well/counsel.png');
 $clinicImg = url('/assets/img/well/clinic.png');
+$userImg = url('/assets/img/well/user.png');
+$docImg = url('/assets/img/well/doctor.png');
 $dash = url('/dashboard');
 $apptsUrl = url('/dashboard/appointments');
 $journalUrl = url('/dashboard/journal');
@@ -109,26 +113,33 @@ $msgUrl = url('/dashboard/messages');
 $profileUrl = url('/dashboard/profile');
 $doctorsUrl = url('/doctors');
 
-$GLOBALS['pageHead'] = trim((string) ($GLOBALS['pageHead'] ?? '') . '<link rel="stylesheet" href="' . e(url('/assets/css/well-dash.css')) . '?v=20260923a">');
+$GLOBALS['pageHead'] = trim((string) ($GLOBALS['pageHead'] ?? '') . '<link rel="stylesheet" href="' . e(url('/assets/css/well-dash.css')) . '?v=20260923b">');
 $GLOBALS['wellDash'] = true;
 $GLOBALS['pageBodyClass'] = trim((string) ($GLOBALS['pageBodyClass'] ?? '') . ' well-dash');
+
+$icon = static function (string $d): string {
+    return '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><path d="' . $d . '"/></svg>';
+};
 ?>
+<div class="wd-shell">
 <div class="wd">
   <aside class="wd-rail" aria-label="میانبر پنل">
-    <span class="wd-mark">م</span>
-    <a class="is-on" href="<?= e($dash) ?>" title="خلاصه">▣</a>
-    <a href="<?= e($apptsUrl) ?>" title="نوبت‌ها">📅</a>
-    <a href="<?= e(url('/dashboard/workshops/mine')) ?>" title="کارگاه‌ها">▦</a>
-    <a href="<?= e(url('/dashboard/wallet')) ?>" title="کیف پول">◈</a>
-    <a href="<?= e($profileUrl) ?>" title="پروفایل">⚙</a>
+    <span class="wd-plus">+</span>
+    <a class="is-on" href="<?= e($dash) ?>" title="خلاصه"><?= $icon('M4 10.5 12 4l8 6.5V20H4z') ?></a>
+    <a href="<?= e($apptsUrl) ?>" title="نوبت‌ها"><?= $icon('M7 4v3M17 4v3M5 9h14v11H5z') ?></a>
+    <a href="<?= e(url('/dashboard/workshops/mine')) ?>" title="کارگاه‌ها"><?= $icon('M4 7h16v12H4zM8 7V5h8v2') ?></a>
+    <a href="<?= e(url('/dashboard/wallet')) ?>" title="کیف پول"><?= $icon('M5 8h14v10H5zM15 13h4') ?></a>
+    <a href="<?= e($profileUrl) ?>" title="پروفایل"><?= $icon('M12 12a4 4 0 1 0-4-4 4 4 0 0 0 4 4zm-7 8a7 7 0 0 1 14 0') ?></a>
     <span class="wd-spacer"></span>
-    <a href="<?= e(url('/')) ?>" title="سایت">؟</a>
+    <a href="<?= e(url('/')) ?>" title="سایت"><?= $icon('M12 5v14M5 12h14') ?></a>
   </aside>
   <aside class="wd-side">
-    <img class="wd-avatar" src="<?= e($art) ?>" alt="">
+    <img class="wd-avatar" src="<?= e($userImg) ?>" alt="">
     <h2>وضعیتت را بسنج</h2>
     <p>حال روزانه و فعالیت‌هایت را همین‌جا دنبال کن.</p>
     <a class="wd-check" href="<?= e($journalUrl) ?>">الان بسنج</a>
+    <div class="wd-float wd-float--cal" aria-hidden="true"><b></b><i><em></em><em></em><em></em><em></em><em></em><em></em><em></em><em></em></i></div>
+    <div class="wd-float wd-float--chart" aria-hidden="true"><span></span></div>
     <img class="wd-art" src="<?= e($art) ?>" alt="جلسه مشاوره در مانا کلینیک">
   </aside>
   <div class="wd-main">
@@ -138,60 +149,91 @@ $GLOBALS['pageBodyClass'] = trim((string) ($GLOBALS['pageBodyClass'] ?? '') . ' 
         <small>بیا حال خوب را هر روز با هم دنبال کنیم.</small>
       </div>
       <div class="wd-tools">
-        <a href="<?= e($doctorsUrl) ?>" title="جستجو">🔍</a>
-        <a href="<?= e($msgUrl) ?>" title="پیام‌ها">🔔<?php if ($unread > 0): ?><span class="wd-badge"><?= (int) $unread ?></span><?php endif; ?></a>
-        <a href="<?= e($profileUrl) ?>"><img src="<?= e($art) ?>" alt=""></a>
+        <a class="wd-ico" href="<?= e($doctorsUrl) ?>" title="جستجو"><?= $icon('M11 5a6 6 0 1 1-6 6 6 6 0 0 1 6-6zm9 15-4.3-4.3') ?></a>
+        <a class="wd-ico" href="<?= e($msgUrl) ?>" title="پیام‌ها"><?= $icon('M6 8h12v9H6zM8 8V6h8v2') ?><?php if ($unread > 0): ?><span class="n"><?= (int) $unread ?></span><?php endif; ?></a>
+        <a href="<?= e($profileUrl) ?>"><img src="<?= e($userImg) ?>" alt=""></a>
       </div>
     </header>
-    <div class="wd-body">
+    <div class="wd-cols">
       <div>
-        <section class="wd-card">
-          <h2>نوبت نزدیک</h2>
-          <?php if ($upcoming): ?>
-            <?php
-              $uts = strtotime((string) $upcoming['starts_at']) ?: 0;
-              $kind = (string) ($upcoming['session_mode'] ?? $upcoming['mode'] ?? '');
-              $online = stripos($kind, 'ONLINE') !== false;
-            ?>
-            <div class="wd-up">
-              <img src="<?= e($clinicImg) ?>" alt="">
-              <div>
-                <strong><?= e((string) ($upcoming['doctor_name'] ?? 'درمانگر')) ?></strong>
-                <div class="muted"><?= e((string) ($upcoming['specialty'] ?? 'روان‌شناسی')) ?></div>
-                <div class="muted">مانا کلینیک · سعادت‌آباد</div>
+        <h2 class="wd-sec-h">نوبت نزدیک</h2>
+        <?php if ($upcoming): ?>
+          <?php
+            $uts = strtotime((string) $upcoming['starts_at']) ?: 0;
+            $kind = (string) ($upcoming['session_mode'] ?? $upcoming['mode'] ?? '');
+            $online = stripos($kind, 'ONLINE') !== false;
+            $jUp = $uts ? gregorian_to_jalali((int) date('Y', $uts), (int) date('n', $uts), (int) date('j', $uts)) : $todayJ;
+          ?>
+          <div class="wd-up">
+            <img src="<?= e($clinicImg) ?>" alt="">
+            <div>
+              <div class="wd-doc">
+                <img src="<?= e($docImg) ?>" alt="">
                 <div>
-                  <span class="wd-chip">📅 <?= e(format_fa_datetime((string) $upcoming['starts_at'])) ?></span>
+                  <strong><?= e((string) ($upcoming['doctor_name'] ?? 'درمانگر')) ?></strong>
+                  <em><?= e((string) ($upcoming['specialty'] ?? 'روان‌شناسی')) ?></em>
                 </div>
               </div>
-              <a class="wd-video" href="<?= e($online ? url('/video-call') : $apptsUrl) ?>"><?= $online ? 'تماس تصویری' : 'جزئیات نوبت' ?></a>
             </div>
-          <?php else: ?>
-            <p class="wd-empty">نوبت نزدیکی ثبت نشده.</p>
+            <a class="wd-video" href="<?= e($online ? url('/video-call') : $apptsUrl) ?>"><?= $online ? 'تماس تصویری' : 'جزئیات نوبت' ?></a>
+          </div>
+          <div class="wd-meta">
+            <span>مانا کلینیک · سعادت‌آباد</span>
+            <div class="wd-pills">
+              <span class="wd-pill"><?= e(to_fa_digits((string) $jUp[2]) . ' ' . (jalali_month_names()[$jUp[1]] ?? '') . ' ' . to_fa_digits((string) $jUp[0])) ?></span>
+              <span class="wd-pill"><?= e($uts ? to_fa_digits(date('H:i', $uts)) : '') ?></span>
+            </div>
+          </div>
+        <?php else: ?>
+          <div class="wd-up">
+            <img src="<?= e($clinicImg) ?>" alt="">
+            <div>
+              <div class="wd-doc">
+                <img src="<?= e($docImg) ?>" alt="">
+                <div>
+                  <strong>هنوز نوبتی ندارید</strong>
+                  <em>رزرو جلسه با درمانگر مانا</em>
+                </div>
+              </div>
+            </div>
             <a class="wd-video" href="<?= e($doctorsUrl) ?>">رزرو نوبت</a>
-          <?php endif; ?>
-        </section>
-        <div class="wd-split">
-          <section class="wd-card">
-            <h2>فعالیت‌های من</h2>
-            <p class="muted" style="margin:0 0 .4rem;font-size:.8rem">امروز <?= e(to_fa_digits((string) $todayJ[2]) . ' ' . jalali_month_names()[$todayJ[1]] . ' ' . to_fa_digits((string) $todayJ[0])) ?></p>
-            <div class="wd-bars">
-              <?php foreach ($barMonths as $i => $bm): ?>
-                <?php $h = 18 + (int) round(90 * ((int) $bm['n'] / $maxBar)); ?>
-                <span class="<?= $i === 5 ? 'is-now' : '' ?>" style="height:<?= $h ?>px"><small><?= e(mb_substr((string) $bm['label'], 0, 3)) ?></small></span>
-              <?php endforeach; ?>
-            </div>
-            <a class="wd-soft" href="<?= e($journalUrl) ?>"><span>💙 حال خوب<br><small class="muted">اضطراب و آرامش</small></span><span>‹</span></a>
-          </section>
-          <section class="wd-ring">
-            <h2>پیشرفت امروز</h2>
-            <p class="muted" style="font-size:.82rem;margin:.2rem 0">قدم‌های کوچک کیفیت درمان را می‌سازند.</p>
-            <b><?= e(to_fa_digits((string) $progress)) ?>٪</b>
-          </section>
+          </div>
+        <?php endif; ?>
+        <hr class="wd-hr">
+        <div class="wd-act-h">
+          <h2 class="wd-sec-h">فعالیت‌های من</h2>
+          <select aria-label="ماه" onchange="location.href=this.value">
+            <?php foreach ($barMonths as $bm): ?>
+              <option value="<?= e($dash . '?ym=' . sprintf('%04d-%02d', $bm['y'], $bm['m'])) ?>" <?= ($bm['y'] === $jy && $bm['m'] === $jm) ? 'selected' : '' ?>><?= e($bm['label']) ?></option>
+            <?php endforeach; ?>
+          </select>
         </div>
+        <div class="wd-act">
+          <div class="wd-bars">
+            <?php foreach ($barMonths as $i => $bm): ?>
+              <?php $h = 22 + (int) round(88 * ((int) $bm['n'] / $maxBar)); ?>
+              <span class="<?= $i === 5 ? 'is-now' : '' ?>" style="height:<?= $h ?>px"><small><?= e(mb_substr((string) $bm['label'], 0, 1)) ?></small></span>
+            <?php endforeach; ?>
+          </div>
+          <div class="wd-ring">
+            <h3>پیشرفت امروز</h3>
+            <p>قدم‌های کوچک کیفیت درمان را می‌سازند.</p>
+            <svg class="wd-donut" viewBox="0 0 120 120" aria-label="<?= e(to_fa_digits((string) $progress)) ?> درصد">
+              <circle cx="60" cy="60" r="48" fill="none" stroke="#d4edd2" stroke-width="12"/>
+              <circle cx="60" cy="60" r="48" fill="none" stroke="#7dcf7a" stroke-width="12" stroke-linecap="round"
+                stroke-dasharray="<?= e((string) $circ) ?>" stroke-dashoffset="<?= e((string) $dashOff) ?>" transform="rotate(-90 60 60)"/>
+              <text x="60" y="66" text-anchor="middle" font-size="22" font-weight="800" fill="#16352f"><?= e(to_fa_digits((string) $progress)) ?>٪</text>
+            </svg>
+          </div>
+        </div>
+        <a class="wd-good" href="<?= e($journalUrl) ?>">
+          <span><b>حال خوب</b><small>اضطراب و آرامش</small></span>
+          <span>‹</span>
+        </a>
       </div>
-      <aside class="wd-card wd-cal">
-        <h2>فهرست نوبت‌ها</h2>
-        <div class="wd-cal-tabs">
+      <aside class="wd-cal">
+        <h2 class="wd-sec-h">فهرست نوبت‌ها</h2>
+        <div class="wd-tabs">
           <a class="<?= $view === 'month' ? 'is-on' : '' ?>" href="<?= e($dash . '?ym=' . sprintf('%04d-%02d', $jy, $jm) . '&cal=month') ?>">ماهانه</a>
           <a class="<?= $view === 'day' ? 'is-on' : '' ?>" href="<?= e($dash . '?cal=day') ?>">روزانه</a>
         </div>
@@ -219,16 +261,21 @@ $GLOBALS['pageBodyClass'] = trim((string) ($GLOBALS['pageBodyClass'] ?? '') . ' 
           </div>
         <?php endif; ?>
         <?php if ($list === []): ?>
-          <p class="wd-empty" style="margin-top:.8rem">نوبت آینده‌ای در فهرست نیست.</p>
+          <div class="wd-event is-a">
+            <img src="<?= e($docImg) ?>" alt="">
+            <span><strong>نوبت آینده‌ای نیست</strong><small>از فهرست درمانگران رزرو کنید</small></span>
+            <span class="go">›</span>
+          </div>
         <?php else: ?>
-          <?php foreach ($list as $row): ?>
+          <?php foreach ($list as $i => $row): ?>
             <?php $ts = strtotime((string) $row['starts_at']) ?: 0; ?>
-            <a class="wd-event" href="<?= e($apptsUrl) ?>">
-              <i>◎</i>
+            <a class="wd-event <?= $i === 0 ? 'is-a' : 'is-b' ?>" href="<?= e($apptsUrl) ?>">
+              <img src="<?= e($docImg) ?>" alt="">
               <span>
                 <strong><?= e((string) ($row['doctor_name'] ?? 'جلسه')) ?></strong>
                 <small><?= e($ts ? to_fa_digits(date('H:i', $ts)) : '') ?></small>
               </span>
+              <span class="go">›</span>
             </a>
           <?php endforeach; ?>
         <?php endif; ?>
@@ -236,4 +283,5 @@ $GLOBALS['pageBodyClass'] = trim((string) ($GLOBALS['pageBodyClass'] ?? '') . ' 
       </aside>
     </div>
   </div>
+</div>
 </div>
