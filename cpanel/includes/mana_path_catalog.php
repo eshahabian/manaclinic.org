@@ -505,21 +505,188 @@ function mana_path_trees(): array
     ];
 }
 
-function mana_path_daily_missions(): array
+function mana_path_mission_catalog(): array
 {
-    $pool = [
-        ['id' => 'breathe', 'title' => '۲ دقیقه تنفس', 'body' => 'کنار بدن بمان؛ لازم نیست حال عالی شود.', 'xp' => 25, 'world' => ['plant' => 4], 'practice' => 'breathe'],
-        ['id' => 'thoughts', 'title' => 'ثبت افکار امروز', 'body' => 'یک فکر مزاحم را بنویس، بدون قضاوت.', 'xp' => 25, 'world' => ['desk' => 4], 'practice' => 'thought'],
-        ['id' => 'walk', 'title' => '۱۰ دقیقه پیاده‌روی', 'body' => 'اگر بیرون سخت است، کنار پنجره بایست.', 'xp' => 30, 'world' => ['window' => 6, 'light' => 4], 'practice' => 'real'],
-        ['id' => 'feelings', 'title' => 'نوشتن ۳ احساس امروز', 'body' => 'سه کلمه کافی است.', 'xp' => 25, 'world' => ['desk' => 5], 'practice' => 'feelings'],
-        ['id' => 'assert', 'title' => 'تمرین جرأت‌مندی', 'body' => 'یک جملهٔ صادقانه پیش‌نویس کن.', 'xp' => 25, 'world' => ['desk' => 4], 'practice' => 'assert'],
-        ['id' => 'sleep', 'title' => 'آماده‌سازی تخت', 'body' => 'نور کمتر، گوشی دورتر، فقط برای امشب.', 'xp' => 25, 'world' => ['bed' => 6], 'practice' => 'real'],
-        ['id' => 'kind', 'title' => 'جمله مهربان به خود', 'body' => 'همان حرفی که به دوستت می‌زدی.', 'xp' => 20, 'world' => ['plant' => 5], 'practice' => 'kind'],
+    return [
+        'breathe' => [
+            'title' => '۲ دقیقه تنفس',
+            'body' => 'کنار بدن بمان؛ لازم نیست حال عالی شود. چهار ثانیه دم، مکث، بازدم.',
+            'xp' => 25,
+            'world' => ['plant' => 4],
+            'practice' => 'breathe',
+            'needs_note' => false,
+            'concerns' => ['anxiety', 'stress'],
+        ],
+        'unhook' => [
+            'title' => 'نام‌گذاری نگرانی',
+            'body' => 'یک نگرانی امروز را بنویس و فقط برچسب بزن: «ذهن دارد تهدید می‌سازد.» لازم نیست حلش کنی.',
+            'xp' => 25,
+            'world' => ['desk' => 4],
+            'practice' => 'thought',
+            'needs_note' => true,
+            'concerns' => ['anxiety'],
+        ],
+        'thoughts' => [
+            'title' => 'ثبت افکار امروز',
+            'body' => 'یک فکر مزاحم را بنویس، بدون قضاوت.',
+            'xp' => 25,
+            'world' => ['desk' => 4],
+            'practice' => 'thought',
+            'needs_note' => true,
+            'concerns' => ['anxiety', 'mood', 'procrastination'],
+        ],
+        'walk' => [
+            'title' => '۱۰ دقیقه پیاده‌روی',
+            'body' => 'اگر بیرون سخت است، کنار پنجره بایست. هدف حرکت ملایم است.',
+            'xp' => 30,
+            'world' => ['window' => 6, 'light' => 4],
+            'practice' => 'real',
+            'needs_note' => false,
+            'concerns' => ['anxiety', 'mood', 'stress', 'procrastination'],
+        ],
+        'feelings' => [
+            'title' => 'نوشتن ۳ احساس امروز',
+            'body' => 'سه کلمه کافی است؛ لازم نیست قشنگ باشد.',
+            'xp' => 25,
+            'world' => ['desk' => 5],
+            'practice' => 'feelings',
+            'needs_note' => true,
+            'concerns' => ['mood', 'relationship'],
+        ],
+        'activation' => [
+            'title' => 'یک کار کوچک معنادار',
+            'body' => 'کوچک‌ترین کاری که امروز به تو حس «انجام شد» می‌دهد را بنویس و همان را بردار.',
+            'xp' => 25,
+            'world' => ['desk' => 5],
+            'practice' => 'feelings',
+            'needs_note' => true,
+            'concerns' => ['mood', 'procrastination'],
+        ],
+        'bodyscan' => [
+            'title' => 'اسکن بدن یک دقیقه‌ای',
+            'body' => 'از پا تا شانه، فقط متوجه تنش شو. لازم نیست برود؛ فقط ببینش.',
+            'xp' => 20,
+            'world' => ['plant' => 3],
+            'practice' => 'breathe',
+            'needs_note' => false,
+            'concerns' => ['stress', 'anxiety'],
+        ],
+        'assert' => [
+            'title' => 'تمرین جرأت‌مندی',
+            'body' => 'یک جملهٔ صادقانه برای موقعیت پرتنش پیش‌نویس کن.',
+            'xp' => 25,
+            'world' => ['desk' => 4],
+            'practice' => 'assert',
+            'needs_note' => true,
+            'concerns' => ['relationship', 'confidence'],
+        ],
+        'needtalk' => [
+            'title' => 'یک خواسته در رابطه',
+            'body' => 'یک خواسته را کوتاه و بدون سرزنش بنویس؛ لازم نیست امروز بگویی‌اش.',
+            'xp' => 25,
+            'world' => ['desk' => 4],
+            'practice' => 'assert',
+            'needs_note' => true,
+            'concerns' => ['relationship'],
+        ],
+        'sleep' => [
+            'title' => 'آماده‌سازی تخت',
+            'body' => 'نور کمتر، گوشی دورتر، فقط برای امشب.',
+            'xp' => 25,
+            'world' => ['bed' => 6],
+            'practice' => 'real',
+            'needs_note' => false,
+            'concerns' => ['sleep', 'stress'],
+        ],
+        'winddown' => [
+            'title' => 'روتین آرام شب',
+            'body' => '۱۰ دقیقه قبل خواب: نور کم، یک کار تکراری آرام، بدون صفحه.',
+            'xp' => 25,
+            'world' => ['bed' => 6],
+            'practice' => 'real',
+            'needs_note' => false,
+            'concerns' => ['sleep'],
+        ],
+        'kind' => [
+            'title' => 'جمله مهربان به خود',
+            'body' => 'همان حرفی که به دوستت می‌زدی را اینجا بنویس.',
+            'xp' => 20,
+            'world' => ['plant' => 5],
+            'practice' => 'kind',
+            'needs_note' => true,
+            'concerns' => ['confidence', 'mood'],
+        ],
+        'evidence' => [
+            'title' => 'یک شاهد مخالف',
+            'body' => 'یک مورد کوچک امروز که نشان می‌دهد همیشه «کم» نیستی را بنویس.',
+            'xp' => 25,
+            'world' => ['desk' => 4],
+            'practice' => 'kind',
+            'needs_note' => true,
+            'concerns' => ['confidence'],
+        ],
+        'start2' => [
+            'title' => 'شروع ۲ دقیقه‌ای',
+            'body' => 'کاری که عقب افتاده را فقط ۲ دقیقه شروع کن و همان را اینجا بنویس.',
+            'xp' => 25,
+            'world' => ['desk' => 5],
+            'practice' => 'thought',
+            'needs_note' => true,
+            'concerns' => ['procrastination'],
+        ],
     ];
+}
+
+function mana_path_daily_missions(?array $concerns = null): array
+{
+    $catalog = mana_path_mission_catalog();
+    $wanted = [];
+    $valid = array_keys(mana_path_concerns());
+    foreach ($concerns ?? [] as $c) {
+        $c = (string) $c;
+        if (in_array($c, $valid, true) && !in_array($c, $wanted, true)) {
+            $wanted[] = $c;
+        }
+    }
+    $pool = [];
+    foreach ($catalog as $id => $m) {
+        $tags = $m['concerns'] ?? [];
+        if ($wanted === [] || array_intersect($wanted, $tags) !== []) {
+            $m['id'] = $id;
+            $pool[] = $m;
+        }
+    }
+    if ($pool === []) {
+        foreach ($catalog as $id => $m) {
+            $m['id'] = $id;
+            $pool[] = $m;
+        }
+    }
+    $n = count($pool);
+    $seed = ((int) date('z') + (count($wanted) * 5));
     $picked = [];
-    $dayIndex = ((int) date('z')) % count($pool);
-    for ($i = 0; $i < 3; $i++) {
-        $picked[] = $pool[($dayIndex + $i) % count($pool)];
+    $seen = [];
+    if ($wanted !== []) {
+        $primary = $wanted[0];
+        $primaryPool = [];
+        foreach ($pool as $m) {
+            if (in_array($primary, $m['concerns'] ?? [], true)) {
+                $primaryPool[] = $m;
+            }
+        }
+        if ($primaryPool !== []) {
+            $first = $primaryPool[$seed % count($primaryPool)];
+            $picked[] = $first;
+            $seen[$first['id']] = true;
+        }
+    }
+    for ($i = 0; $i < $n && count($picked) < 3; $i++) {
+        $item = $pool[($seed + $i) % $n];
+        if (isset($seen[$item['id']])) {
+            continue;
+        }
+        $seen[$item['id']] = true;
+        $picked[] = $item;
     }
     return $picked;
 }

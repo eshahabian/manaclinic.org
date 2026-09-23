@@ -639,7 +639,7 @@ function mana_path_complete_step(PDO $pdo, array &$profile, string $treeId, stri
 
 function mana_path_complete_mission(PDO $pdo, array &$profile, string $missionId, array $payload = []): array
 {
-    $missions = mana_path_daily_missions();
+    $missions = mana_path_daily_missions($profile['concerns'] ?? []);
     $found = null;
     foreach ($missions as $m) {
         if ($m['id'] === $missionId) {
@@ -665,9 +665,9 @@ function mana_path_complete_mission(PDO $pdo, array &$profile, string $missionId
     return ['ok' => true, 'xp' => $xp, 'advanced' => $advance];
 }
 
-function mana_path2_weekdays(): array
+function mana_path2_weekdays(?array $concerns = null): array
 {
-    return [
+    $days = [
         ['id' => 'sat', 'label' => 'شنبه', 'short' => 'ش', 'focus' => 'چک‌این حال', 'icon' => '◎'],
         ['id' => 'sun', 'label' => 'یکشنبه', 'short' => 'ی', 'focus' => 'شناخت افکار', 'icon' => '🧠'],
         ['id' => 'mon', 'label' => 'دوشنبه', 'short' => 'د', 'focus' => 'شناخت احساسات', 'icon' => '🌱'],
@@ -676,6 +676,33 @@ function mana_path2_weekdays(): array
         ['id' => 'thu', 'label' => 'پنجشنبه', 'short' => 'پ', 'focus' => 'حرکت واقعی', 'icon' => '🚶'],
         ['id' => 'fri', 'label' => 'جمعه', 'short' => 'ج', 'focus' => 'جمع‌بندی روز', 'icon' => '🏆'],
     ];
+    $focus = [
+        'anxiety' => 'تنظیم اضطراب',
+        'mood' => 'فعال‌سازی خلق',
+        'stress' => 'کاهش تنش',
+        'relationship' => 'جرأت‌مندی در رابطه',
+        'sleep' => 'مراقبت از خواب',
+        'confidence' => 'مهربانی با خود',
+        'procrastination' => 'شروع کوچک کار',
+    ];
+    $wanted = [];
+    $valid = array_keys(mana_path_concerns());
+    foreach ($concerns ?? [] as $c) {
+        $c = (string) $c;
+        if (in_array($c, $valid, true) && !in_array($c, $wanted, true)) {
+            $wanted[] = $c;
+        }
+    }
+    if ($wanted === []) {
+        return $days;
+    }
+    foreach ($days as $i => &$day) {
+        $key = $wanted[$i % count($wanted)];
+        $day['focus'] = $focus[$key] ?? $day['focus'];
+        $day['concern'] = $key;
+    }
+    unset($day);
+    return $days;
 }
 
 function mana_path2_weekday_index(?string $ymd = null): int
@@ -738,16 +765,16 @@ function mana_path2_day_complete(array $dayRow, bool $requireAllMissions = false
     return count($missions) > 0 || !empty($dayRow['path2_day']) || !empty($dayRow['mood']);
 }
 
-function mana_path2_week_status(PDO $pdo, string $userId, int $streak = 0): array
+function mana_path2_week_status(PDO $pdo, string $userId, int $streak = 0, ?array $concerns = null): array
 {
-    $days = mana_path2_weekdays();
+    $days = mana_path2_weekdays($concerns);
     $start = mana_path2_week_start();
     $todayIdx = mana_path2_weekday_index();
     $end = date('Y-m-d', strtotime($start . ' +6 days'));
     $byDate = mana_path2_activity_dates($pdo, $userId, $start, $end);
     $today = date('Y-m-d');
     $todayMissions = mana_path_today_mission_ids($pdo, $userId);
-    $todayAll = count($todayMissions) >= count(mana_path_daily_missions());
+    $todayAll = count($todayMissions) >= count(mana_path_daily_missions($concerns));
     $streakDates = [];
     $maxLook = max(0, min(14, $streak));
     for ($i = 1; $i <= $maxLook; $i++) {
@@ -780,17 +807,10 @@ function mana_path2_week_status(PDO $pdo, string $userId, int $streak = 0): arra
 function mana_path2_month_history(PDO $pdo, string $userId): array
 {
     $titles = [];
-    foreach (mana_path_daily_missions() as $m) {
-        $titles[(string) $m['id']] = (string) $m['title'];
+    foreach (mana_path_mission_catalog() as $id => $m) {
+        $titles[(string) $id] = (string) ($m['title'] ?? $id);
     }
     $pool = [
-        'breathe' => '۲ دقیقه تنفس',
-        'thoughts' => 'ثبت افکار امروز',
-        'walk' => '۱۰ دقیقه پیاده‌روی',
-        'feelings' => 'نوشتن ۳ احساس امروز',
-        'assert' => 'تمرین جرأت‌مندی',
-        'sleep' => 'آماده‌سازی تخت',
-        'kind' => 'جمله مهربان به خود',
         'mood' => 'ثبت حال',
     ];
     $titles = array_merge($pool, $titles);
@@ -1030,13 +1050,20 @@ function mana_path2_report_data(PDO $pdo, array $profile): array
         'procrastination' => 15,
     ];
     $missionAxis = [
-        'breathe' => ['anxiety', 'body', 'focus'],
-        'thoughts' => ['worry', 'anxiety', 'fear'],
-        'walk' => ['anxiety', 'body', 'energy'],
-        'feelings' => ['mood', 'confidence'],
-        'assert' => ['relationship', 'assert', 'confidence'],
-        'sleep' => ['sleep', 'energy'],
+        'breathe' => ['anxiety', 'stress'],
+        'unhook' => ['anxiety'],
+        'thoughts' => ['anxiety', 'mood', 'procrastination'],
+        'walk' => ['anxiety', 'mood', 'stress', 'procrastination'],
+        'feelings' => ['mood', 'relationship'],
+        'activation' => ['mood', 'procrastination'],
+        'bodyscan' => ['stress', 'anxiety'],
+        'assert' => ['relationship', 'confidence'],
+        'needtalk' => ['relationship'],
+        'sleep' => ['sleep', 'stress'],
+        'winddown' => ['sleep'],
         'kind' => ['confidence', 'mood'],
+        'evidence' => ['confidence'],
+        'start2' => ['procrastination'],
     ];
     $missionHits = [];
     $moodSum = 0;
@@ -1259,7 +1286,7 @@ function mana_path2_try_advance(PDO $pdo, array &$profile): bool
 {
     $userId = (string) $profile['user_id'];
     $doneM = mana_path_today_mission_ids($pdo, $userId);
-    foreach (mana_path_daily_missions() as $m) {
+    foreach (mana_path_daily_missions($profile['concerns'] ?? []) as $m) {
         if (!in_array((string) $m['id'], $doneM, true)) {
             return false;
         }
@@ -1267,7 +1294,7 @@ function mana_path2_try_advance(PDO $pdo, array &$profile): bool
     if (mana_path2_advanced_today($pdo, $userId)) {
         return false;
     }
-    $days = mana_path2_weekdays();
+    $days = mana_path2_weekdays($profile['concerns'] ?? []);
     $today = $days[mana_path2_weekday_index()] ?? null;
     if (!$today) {
         return false;

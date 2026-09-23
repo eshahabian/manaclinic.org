@@ -59,7 +59,7 @@ if ($activeTree === '' || !isset($catalog[$activeTree])) {
 $openStep = trim((string) ($_GET['step'] ?? ''));
 $openMission = trim((string) ($_GET['mission'] ?? ''));
 
-$missions = mana_path_daily_missions();
+$missions = mana_path_daily_missions($profile['concerns'] ?? []);
 $doneMissions = mana_path_today_mission_ids($pdo, $patientId);
 
 $moodNow = isset($profile['mood_today']) ? (int) $profile['mood_today'] : 0;

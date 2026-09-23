@@ -11,12 +11,13 @@ ensure_mana_path_schema($pdo);
 
 $patientId = (string) $user['id'];
 $profile = mana_path_load_profile($pdo, $patientId);
+$concerns = $profile['concerns'] ?? [];
 $moods = mana_path_moods();
 $xp = (int) ($profile['energy_xp'] ?? 0);
 $level = mana_path_level($xp);
 $streak = (int) ($profile['gentle_streak'] ?? 0);
 $moodNow = ((string) ($profile['mood_date'] ?? '') === date('Y-m-d')) ? (int) ($profile['mood_today'] ?? 0) : 0;
-$missions = mana_path_daily_missions();
+$missions = mana_path_daily_missions($concerns);
 $doneMissions = mana_path_today_mission_ids($pdo, $patientId);
 $doneN = 0;
 foreach ($missions as $m) {
@@ -25,7 +26,7 @@ foreach ($missions as $m) {
     }
 }
 
-$stages = mana_path2_week_status($pdo, $patientId, $streak);
+$stages = mana_path2_week_status($pdo, $patientId, $streak, $concerns);
 $doneStageN = 0;
 foreach ($stages as $st) {
     if (!empty($st['done'])) {
@@ -37,7 +38,6 @@ $todayDone = $doneN >= count($missions);
 $progressPct = (int) round(100 * $doneStageN / max(1, $stageTotal));
 $monthHist = mana_path2_month_history($pdo, $patientId);
 
-$concerns = $profile['concerns'] ?? [];
 $allConcerns = mana_path_concerns();
 $goalBits = [];
 foreach ($concerns as $cid) {
@@ -47,12 +47,6 @@ foreach ($concerns as $cid) {
     }
 }
 $goalLabel = $goalBits !== [] ? ('کار روی ' . implode('، ', $goalBits)) : 'مدیریت اضطراب';
-$extraConcerns = [];
-foreach ($allConcerns as $cid => $c) {
-    if (!in_array($cid, $concerns, true)) {
-        $extraConcerns[$cid] = $c;
-    }
-}
 $needIntro = empty($profile['intro_done']) || $concerns === [];
 
 $nextAp = null;
@@ -152,12 +146,12 @@ ob_start();
       </div>
       <p class="mp2-goal">هدف فعلی من:<strong><?= e($goalLabel) ?></strong></p>
       <h3>کارهای امروز</h3>
+      <p class="mp2-note">این ۳ تمرین از دغدغه‌های انتخابی‌ات چیده شده‌اند.</p>
       <ul class="mp2-today">
         <?php foreach ($missions as $i => $m): ?>
           <?php
             $ok = in_array($m['id'], $doneMissions, true);
-            $practice = (string) ($m['practice'] ?? '');
-            $needsNote = in_array($practice, ['thought', 'feelings', 'assert', 'kind'], true);
+            $needsNote = !empty($m['needs_note']);
           ?>
           <li class="<?= $ok ? 'is-done' : '' ?>">
             <?php if ($ok): ?>
@@ -255,7 +249,7 @@ ob_start();
         <?php endforeach; ?>
       </form>
       <div class="mp2-tools">
-        <a href="#journey"><strong>🧠 کارهای امروز</strong>تمرین روزانه CBT</a>
+        <a href="#journey"><strong>🧠 کارهای امروز</strong>تمرین بر اساس دغدغه‌هایت</a>
         <a href="<?= e($journalUrl) ?>"><strong>📓 Journal</strong>یادداشت روزانه</a>
         <a class="is-lg" href="<?= e(url('/dashboard/path/report')) ?>"><strong>📅 گزارش ماهانه</strong>نتیجه مسیر این ماه</a>
         <a class="is-lg" href="#xp"><strong>⭐ XP / Achievement</strong>سطح <?= e(to_fa_digits((string) $level)) ?></a>
@@ -284,28 +278,22 @@ ob_start();
       </form>
     <?php else: ?>
       <h2>مسیر و مشکل‌های من</h2>
-      <p class="mp2-note">الان روی این موضوع‌ها کار می‌کنی:</p>
-      <p class="mp2-now"><?php foreach ($concerns as $cid): ?><?php if (isset($allConcerns[$cid])): ?><b><?= e($allConcerns[$cid]['emoji'] . ' ' . $allConcerns[$cid]['label']) ?></b><?php endif; ?><?php endforeach; ?></p>
-      <?php if ($extraConcerns !== []): ?>
-        <p class="mp2-note">اگر مشکل تازه‌ای آمده، همان سوال‌های اول را بزن و به مسیر اضافه کن.</p>
-        <form method="post" action="<?= e($post) ?>">
-          <?= csrf_field() ?>
-          <input type="hidden" name="do" value="add_concerns">
-          <input type="hidden" name="back" value="/dashboard/path">
-          <div class="mp2-chips">
-            <?php foreach ($extraConcerns as $id => $c): ?>
-              <label>
-                <input type="checkbox" name="concerns[]" value="<?= e($id) ?>">
-                <span><?= e($c['emoji'] . ' ' . $c['label']) ?></span>
-                <small><?= e($c['hint']) ?></small>
-              </label>
-            <?php endforeach; ?>
-          </div>
-          <button class="mp2-concern-btn" type="submit">افزودن به مسیر</button>
-        </form>
-      <?php else: ?>
-        <p class="mp2-note">همهٔ موضوع‌های فعلی مسیر در لیستت هستند.</p>
-      <?php endif; ?>
+      <p class="mp2-note">کارهای امروز و تمرین هفته از همین دغدغه‌ها ساخته می‌شود. می‌توانی کم یا زیادشان کنی.</p>
+      <form method="post" action="<?= e($post) ?>">
+        <?= csrf_field() ?>
+        <input type="hidden" name="do" value="set_concerns">
+        <input type="hidden" name="back" value="/dashboard/path">
+        <div class="mp2-chips">
+          <?php foreach ($allConcerns as $id => $c): ?>
+            <label>
+              <input type="checkbox" name="concerns[]" value="<?= e($id) ?>" <?= in_array($id, $concerns, true) ? 'checked' : '' ?>>
+              <span><?= e($c['emoji'] . ' ' . $c['label']) ?></span>
+              <small><?= e($c['hint']) ?></small>
+            </label>
+          <?php endforeach; ?>
+        </div>
+        <button class="mp2-concern-btn" type="submit">به‌روز کردن مسیر</button>
+      </form>
     <?php endif; ?>
   </section>
 
