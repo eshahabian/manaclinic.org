@@ -42,7 +42,7 @@ $gridRings = [0.25, 0.5, 0.75, 1];
 
 $GLOBALS['pageRobots'] = 'noindex,nofollow';
 $GLOBALS['pageTitle'] = (string) $report['title'];
-$GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(url('/assets/css/mana-path2-report.css')) . '?v=20260924b">';
+$GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(url('/assets/css/mana-path2-report.css')) . '?v=20260924c">';
 $GLOBALS['pageBodyClass'] = trim((string) ($GLOBALS['pageBodyClass'] ?? '') . ' mp2r-page');
 $GLOBALS['pageScripts'] = ($GLOBALS['pageScripts'] ?? '') . '<script>function mp2rPrint(){window.print();}</script>';
 
@@ -135,7 +135,7 @@ ob_start();
     <div><small>امتیاز کل</small><strong><?= e(to_fa_digits((string) $score)) ?> از ۱۰۰</strong></div>
     <div><small>سطح <?= e((string) $report['primary_label']) ?></small><strong><?= e((string) $report['band']) ?></strong></div>
     <div><small>میانگین افراد هم‌مسیر</small><strong><?= e(to_fa_digits((string) $report['peer'])) ?> از ۱۰۰</strong></div>
-    <div><small>صحت ثبت</small><strong><?= e(to_fa_digits((string) $report['accuracy'])) ?></strong></div>
+    <div><small>کارهای این ماه</small><strong><?= e(to_fa_digits((string) $report['accuracy'])) ?>٪</strong><span class="mp2r-stat-sub"><?= e(to_fa_digits((string) ($report['accuracy_done'] ?? 0))) ?> از <?= e(to_fa_digits((string) ($report['accuracy_need'] ?? 0))) ?> کار روزانه</span></div>
   </section>
 
   <section class="mp2r-ai">

@@ -914,9 +914,6 @@ function mana_path2_report_data(PDO $pdo, array $profile): array
     $moodSum = 0;
     $moodN = 0;
     $missionN = 0;
-    foreach ($hist['days'] as $day) {
-        $missionN += count($day['items'] ?? []);
-    }
     try {
         $stmt = $pdo->prepare("
           SELECT event_type, step_id, payload_json
@@ -927,6 +924,7 @@ function mana_path2_report_data(PDO $pdo, array $profile): array
         $stmt->execute([$userId, $hist['from'], $hist['to']]);
         foreach ($stmt->fetchAll() as $row) {
             if ((string) $row['event_type'] === 'mission') {
+                $missionN++;
                 $sid = (string) ($row['step_id'] ?? '');
                 foreach ($missionAxis[$sid] ?? [] as $k) {
                     $missionHits[$k] = ($missionHits[$k] ?? 0) + 1;
@@ -996,7 +994,7 @@ function mana_path2_report_data(PDO $pdo, array $profile): array
     }
     $elapsed = max(1, min((int) ($hist['jd'] ?? 1), (int) ($hist['month_len'] ?? 30)));
     $expected = $elapsed * 3;
-    $accuracy = (int) min(99, max(40, round(100 * $missionN / max(1, $expected))));
+    $accuracy = (int) min(100, round(100 * $missionN / max(1, $expected)));
     $peer = 54;
     $top = $axes;
     usort($top, static fn($a, $b) => ($b['you'] <=> $a['you']));
@@ -1037,6 +1035,8 @@ function mana_path2_report_data(PDO $pdo, array $profile): array
         'band' => $band,
         'peer' => $peer,
         'accuracy' => $accuracy,
+        'accuracy_done' => $missionN,
+        'accuracy_need' => $expected,
         'axes' => $axes,
         'analysis' => $analysis,
         'recs' => $recs,

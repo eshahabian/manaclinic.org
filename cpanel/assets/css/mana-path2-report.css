@@ -115,6 +115,7 @@ body.mp2r-page {
 }
 .mp2r-stats small { display: block; color: #8a7a9a; font-size: .78rem; margin-bottom: .25rem; }
 .mp2r-stats strong { font-size: 1.05rem; }
+.mp2r-stat-sub { display: block; margin-top: .2rem; font-size: .75rem; color: #8a7a9a; }
 
 .mp2r-ai {
   display: grid;

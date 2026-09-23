@@ -13,8 +13,7 @@ if (!assistant_enabled()) {
     redirect('/dashboard/path/report');
 }
 
-if ($_SERVER['REQUEST_METHOD'] !== 'POST' || !csrf_verify()) {
-    flash_set('error', 'درخواست نامعتبر بود.');
+if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     redirect('/dashboard/path/report');
 }
 
