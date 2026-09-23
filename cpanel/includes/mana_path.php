@@ -1172,7 +1172,68 @@ function mana_path2_try_advance(PDO $pdo, array &$profile): bool
     }
     mana_path_log($pdo, $userId, 'path2_day', 40, 'week', (string) $today['id'], ['weekday' => $today['label']]);
     mana_path_mark_activity($pdo, $profile, 40, ['light' => 4]);
+    mana_path_plant_advance($pdo, $profile);
     return true;
+}
+
+function mana_path_plant_day(PDO $pdo, array &$profile): int
+{
+    $stored = max(1, min(30, (int) ($profile['world']['plant_day'] ?? 1)));
+    $n = 0;
+    try {
+        $stmt = $pdo->prepare("
+          SELECT COUNT(*) AS c FROM mana_path_events
+          WHERE user_id = ? AND event_type = 'path2_day'
+        ");
+        $stmt->execute([(string) $profile['user_id']]);
+        $n = (int) (($stmt->fetch()['c'] ?? 0));
+    } catch (Throwable $ignored) {
+    }
+    $day = min(30, max($stored, $n + 1));
+    if ($day > $stored) {
+        mana_path_plant_save($pdo, $profile, $day);
+    }
+    return $day;
+}
+
+function mana_path_plant_save(PDO $pdo, array &$profile, int $day): void
+{
+    $day = max(1, min(30, $day));
+    $world = array_merge(mana_path_world_defaults(), $profile['world'] ?? []);
+    if ((int) ($world['plant_day'] ?? 0) === $day) {
+        return;
+    }
+    $world['plant_day'] = $day;
+    try {
+        $pdo->prepare('UPDATE mana_path_profiles SET world_json = ? WHERE user_id = ?')
+            ->execute([json_encode($world, JSON_UNESCAPED_UNICODE), $profile['user_id']]);
+    } catch (Throwable $ignored) {
+    }
+    $profile['world'] = $world;
+    $profile['world_json'] = json_encode($world, JSON_UNESCAPED_UNICODE);
+}
+
+function mana_path_plant_advance(PDO $pdo, array &$profile): int
+{
+    $next = min(30, mana_path_plant_day($pdo, $profile));
+    mana_path_plant_save($pdo, $profile, $next);
+    if (function_exists('session_status') && session_status() === PHP_SESSION_ACTIVE) {
+        $_SESSION['mp2_plant_grew'] = 1;
+    }
+    return $next;
+}
+
+function mana_path_plant_src(int $day): string
+{
+    $day = max(1, min(30, $day));
+    $dir = dirname(__DIR__) . '/assets/img/plant';
+    for ($d = $day; $d >= 1; $d--) {
+        $name = sprintf('plant-day-%02d.png', $d);
+        if (is_file($dir . '/' . $name)) {
+            return url('/assets/img/plant/' . $name);
+        }
+    }
+    return url('/assets/img/plant/plant-day-01.png');
 }
 
 function mana_path2_advanced_today(PDO $pdo, string $userId): bool

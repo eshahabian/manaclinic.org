@@ -90,12 +90,14 @@ if (function_exists('gregorian_to_jalali') && function_exists('jalali_month_name
 
 $xpNeed = mana_path_xp_need();
 $xpIn = $xp % $xpNeed;
-$plantStage = min(6, max(1, $level));
-$plantGrow = $xpNeed > 0 ? ($xpIn / $xpNeed) : 0;
+$plantDay = mana_path_plant_day($pdo, $profile);
+$plantSrc = mana_path_plant_src($plantDay);
+$plantGrew = !empty($_SESSION['mp2_plant_grew']);
+unset($_SESSION['mp2_plant_grew']);
 
 $GLOBALS['pageRobots'] = 'noindex,nofollow';
 $GLOBALS['pageTitle'] = 'اتاق ذهن';
-$GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(url('/assets/css/mana-path2.css')) . '?v=20260924g">';
+$GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(url('/assets/css/mana-path2.css')) . '?v=20260924h">';
 $GLOBALS['pageBodyClass'] = trim((string) ($GLOBALS['pageBodyClass'] ?? '') . ' mp2-page');
 
 ob_start();
@@ -107,53 +109,10 @@ ob_start();
       <h1>اتاق ذهن</h1>
       <p class="mp2-lead">کارهای امروز را همین‌جا بزن. هفته از شنبه شروع می‌شود.</p>
     </div>
-    <aside class="mp2-plant-tile" id="xp" title="با XP گلدان رشد می‌کند">
-      <div class="mp2-plant-sway" data-stage="<?= (int) $plantStage ?>">
-        <svg viewBox="0 0 120 150" width="120" height="150" aria-hidden="true">
-          <g class="mp2-p-stem">
-            <path d="M60 112 C58 88, 62 70, 60 <?= $plantStage >= 4 ? '42' : ($plantStage >= 2 ? '58' : '78') ?>" fill="none" stroke="#2f8f5a" stroke-width="3.2" stroke-linecap="round"/>
-          </g>
-          <?php if ($plantStage >= 1): ?>
-            <g class="mp2-p-leaf mp2-p-leaf-a">
-              <ellipse cx="48" cy="<?= $plantStage >= 3 ? '86' : '92' ?>" rx="12" ry="7" fill="#5cbc6e" transform="rotate(-28 48 90)"/>
-            </g>
-          <?php endif; ?>
-          <?php if ($plantStage >= 2): ?>
-            <g class="mp2-p-leaf mp2-p-leaf-b">
-              <ellipse cx="74" cy="80" rx="14" ry="8" fill="#3fa35c" transform="rotate(32 74 80)"/>
-            </g>
-          <?php endif; ?>
-          <?php if ($plantStage >= 3): ?>
-            <g class="mp2-p-leaf mp2-p-leaf-c">
-              <ellipse cx="44" cy="68" rx="16" ry="9" fill="#2f8f5a" transform="rotate(-18 44 68)"/>
-            </g>
-          <?php endif; ?>
-          <?php if ($plantStage >= 4): ?>
-            <g class="mp2-p-leaf mp2-p-leaf-d">
-              <ellipse cx="78" cy="58" rx="17" ry="10" fill="#248a4e" transform="rotate(22 78 58)"/>
-            </g>
-          <?php endif; ?>
-          <?php if ($plantStage >= 5): ?>
-            <g class="mp2-p-leaf mp2-p-leaf-e">
-              <ellipse cx="52" cy="46" rx="15" ry="9" fill="#1f7a45" transform="rotate(-12 52 46)"/>
-              <circle cx="60" cy="36" r="7" fill="#e8c36a"/>
-              <circle cx="60" cy="36" r="3.2" fill="#c9842a"/>
-            </g>
-          <?php endif; ?>
-          <?php if ($plantStage < 6 && $plantGrow >= .2): ?>
-            <g class="mp2-p-leaf mp2-p-leaf-a" opacity="<?= htmlspecialchars((string) round(.2 + .6 * $plantGrow, 2), ENT_QUOTES) ?>">
-              <ellipse cx="70" cy="<?= $plantStage >= 4 ? '40' : '72' ?>" rx="10" ry="6" fill="#7dce86" transform="rotate(18 70 72)"/>
-            </g>
-          <?php endif; ?>
-          <ellipse cx="60" cy="118" rx="28" ry="6" fill="#6b4a32"/>
-          <path d="M32 108c2 22 16 32 28 32s26-10 28-32Z" fill="#a85d38"/>
-          <path d="M34 108c3 18 14 28 26 28s23-10 26-28Z" fill="#c47a4a"/>
-          <path d="M38 108h44v6c0 14-10 24-22 24s-22-10-22-24Z" fill="#d48958"/>
-          <rect x="22" y="104" width="76" height="8" rx="3" fill="#b86a3e"/>
-        </svg>
+    <aside class="mp2-plant-tile" id="xp" aria-label="گیاه مسیر، روز <?= e(to_fa_digits((string) $plantDay)) ?> از ۳۰">
+      <div class="mp2-plant-sway<?= $plantGrew ? ' is-grew' : '' ?>">
+        <img src="<?= e($plantSrc) ?>" alt="" width="160" height="214">
       </div>
-      <strong>سطح <?= e(to_fa_digits((string) $level)) ?></strong>
-      <small><?= e(to_fa_digits((string) $xpIn)) ?> / <?= e(to_fa_digits((string) $xpNeed)) ?> XP</small>
     </aside>
   </div>
   <p class="mp2-model">امروز <?= e($todayLabel) ?> — هدف، سفر روزانه، XP و streak برای ادامه دادن است. رقابت با دیگران اینجا نیست.</p>
