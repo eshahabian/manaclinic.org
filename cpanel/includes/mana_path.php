@@ -604,39 +604,207 @@ function mana_path_complete_mission(PDO $pdo, array &$profile, string $missionId
     return ['ok' => true, 'xp' => $xp, 'advanced' => $advance];
 }
 
-function mana_path2_journey(): array
+function mana_path2_weekdays(): array
 {
     return [
-        ['id' => 'd1', 'label' => 'چک‌این حال', 'icon' => '◎'],
-        ['id' => 'd2', 'label' => 'شناخت افکار', 'icon' => '🧠'],
-        ['id' => 'd3', 'label' => 'شناخت احساسات', 'icon' => '🌱'],
-        ['id' => 'd4', 'label' => 'تنظیم اضطراب', 'icon' => '🔔'],
-        ['id' => 'd5', 'label' => 'تمرین مهارت', 'icon' => '✦'],
-        ['id' => 'd6', 'label' => 'حرکت واقعی', 'icon' => '🚶'],
-        ['id' => 'd7', 'label' => 'جمع‌بندی روز', 'icon' => '🏆'],
+        ['id' => 'sat', 'label' => 'شنبه', 'short' => 'ش', 'focus' => 'چک‌این حال', 'icon' => '◎'],
+        ['id' => 'sun', 'label' => 'یکشنبه', 'short' => 'ی', 'focus' => 'شناخت افکار', 'icon' => '🧠'],
+        ['id' => 'mon', 'label' => 'دوشنبه', 'short' => 'د', 'focus' => 'شناخت احساسات', 'icon' => '🌱'],
+        ['id' => 'tue', 'label' => 'سه‌شنبه', 'short' => 'س', 'focus' => 'تنظیم اضطراب', 'icon' => '🔔'],
+        ['id' => 'wed', 'label' => 'چهارشنبه', 'short' => 'چ', 'focus' => 'تمرین مهارت', 'icon' => '✦'],
+        ['id' => 'thu', 'label' => 'پنجشنبه', 'short' => 'پ', 'focus' => 'حرکت واقعی', 'icon' => '🚶'],
+        ['id' => 'fri', 'label' => 'جمعه', 'short' => 'ج', 'focus' => 'جمع‌بندی روز', 'icon' => '🏆'],
     ];
 }
 
-function mana_path2_completed_stage_ids(PDO $pdo, string $userId): array
+function mana_path2_weekday_index(?string $ymd = null): int
 {
+    $w = (int) date('w', $ymd ? strtotime($ymd . ' 12:00:00') : time());
+    return ($w + 1) % 7;
+}
+
+function mana_path2_week_start(?string $ymd = null): string
+{
+    $ts = $ymd ? strtotime($ymd . ' 12:00:00') : time();
+    $idx = mana_path2_weekday_index($ymd);
+    return date('Y-m-d', $ts - ($idx * 86400));
+}
+
+function mana_path2_activity_dates(PDO $pdo, string $userId, string $from, string $to): array
+{
+    $out = [];
     try {
         $stmt = $pdo->prepare("
-          SELECT step_id FROM mana_path_events
-          WHERE user_id = ? AND event_type = 'path2_day'
+          SELECT DATE(created_at) AS d, event_type, step_id
+          FROM mana_path_events
+          WHERE user_id = ?
+            AND DATE(created_at) >= ?
+            AND DATE(created_at) <= ?
+            AND event_type IN ('mission', 'mood', 'path2_day', 'step')
           ORDER BY created_at ASC
         ");
-        $stmt->execute([$userId]);
-        $ids = [];
+        $stmt->execute([$userId, $from, $to]);
         foreach ($stmt->fetchAll() as $row) {
-            $id = (string) ($row['step_id'] ?? '');
-            if ($id !== '' && !in_array($id, $ids, true)) {
-                $ids[] = $id;
+            $d = (string) ($row['d'] ?? '');
+            if ($d === '') {
+                continue;
+            }
+            if (!isset($out[$d])) {
+                $out[$d] = ['mission' => [], 'mood' => 0, 'path2_day' => 0, 'step' => 0];
+            }
+            $type = (string) ($row['event_type'] ?? '');
+            if ($type === 'mission') {
+                $sid = (string) ($row['step_id'] ?? '');
+                if ($sid !== '' && !in_array($sid, $out[$d]['mission'], true)) {
+                    $out[$d]['mission'][] = $sid;
+                }
+            } elseif (isset($out[$d][$type])) {
+                $out[$d][$type]++;
             }
         }
-        return $ids;
     } catch (Throwable $e) {
         return [];
     }
+    return $out;
+}
+
+function mana_path2_day_complete(array $dayRow, bool $requireAllMissions = false): bool
+{
+    $missions = $dayRow['mission'] ?? [];
+    if ($requireAllMissions) {
+        return count($missions) >= count(mana_path_daily_missions());
+    }
+    return count($missions) > 0 || !empty($dayRow['path2_day']) || !empty($dayRow['mood']);
+}
+
+function mana_path2_week_status(PDO $pdo, string $userId, int $streak = 0): array
+{
+    $days = mana_path2_weekdays();
+    $start = mana_path2_week_start();
+    $todayIdx = mana_path2_weekday_index();
+    $end = date('Y-m-d', strtotime($start . ' +6 days'));
+    $byDate = mana_path2_activity_dates($pdo, $userId, $start, $end);
+    $today = date('Y-m-d');
+    $todayMissions = mana_path_today_mission_ids($pdo, $userId);
+    $todayAll = count($todayMissions) >= count(mana_path_daily_missions());
+    $streakDates = [];
+    $maxLook = max(0, min(14, $streak));
+    for ($i = 1; $i <= $maxLook; $i++) {
+        $streakDates[] = date('Y-m-d', strtotime('-' . $i . ' days'));
+    }
+    $out = [];
+    foreach ($days as $i => $day) {
+        $ymd = date('Y-m-d', strtotime($start . ' +' . $i . ' days'));
+        $row = $byDate[$ymd] ?? [];
+        if ($ymd === $today) {
+            $done = $todayAll;
+        } else {
+            $done = mana_path2_day_complete($row, false) || in_array($ymd, $streakDates, true);
+        }
+        $out[] = [
+            'id' => $day['id'],
+            'label' => $day['label'],
+            'short' => $day['short'],
+            'focus' => $day['focus'],
+            'icon' => $day['icon'],
+            'ymd' => $ymd,
+            'done' => $done,
+            'now' => $i === $todayIdx && !$done,
+            'future' => $i > $todayIdx,
+        ];
+    }
+    return $out;
+}
+
+function mana_path2_month_history(PDO $pdo, string $userId): array
+{
+    $titles = [];
+    foreach (mana_path_daily_missions() as $m) {
+        $titles[(string) $m['id']] = (string) $m['title'];
+    }
+    $pool = [
+        'breathe' => '۲ دقیقه تنفس',
+        'thoughts' => 'ثبت افکار امروز',
+        'walk' => '۱۰ دقیقه پیاده‌روی',
+        'feelings' => 'نوشتن ۳ احساس امروز',
+        'assert' => 'تمرین جرأت‌مندی',
+        'sleep' => 'آماده‌سازی تخت',
+        'kind' => 'جمله مهربان به خود',
+        'mood' => 'ثبت حال',
+    ];
+    $titles = array_merge($pool, $titles);
+    $jy = (int) date('Y');
+    $jm = (int) date('n');
+    $jd = (int) date('j');
+    if (function_exists('gregorian_to_jalali')) {
+        [$jy, $jm, $jd] = gregorian_to_jalali($jy, $jm, $jd);
+    }
+    $monthLen = function_exists('jalali_month_length') ? jalali_month_length($jy, $jm) : 31;
+    $monthName = function_exists('jalali_month_names') ? (jalali_month_names()[$jm] ?? '') : '';
+    if (function_exists('jalali_to_gregorian')) {
+        [$gy1, $gm1, $gd1] = jalali_to_gregorian($jy, $jm, 1);
+        [$gy2, $gm2, $gd2] = jalali_to_gregorian($jy, $jm, $monthLen);
+        $from = sprintf('%04d-%02d-%02d', $gy1, $gm1, $gd1);
+        $to = sprintf('%04d-%02d-%02d', $gy2, $gm2, $gd2);
+    } else {
+        $from = date('Y-m-01');
+        $to = date('Y-m-t');
+    }
+    $byDate = mana_path2_activity_dates($pdo, $userId, $from, $to);
+    $weekdays = mana_path2_weekdays();
+    $days = [];
+    krsort($byDate);
+    foreach ($byDate as $ymd => $row) {
+        $items = [];
+        foreach ($row['mission'] as $mid) {
+            $items[] = $titles[$mid] ?? $mid;
+        }
+        if (!empty($row['mood'])) {
+            $items[] = 'ثبت حال';
+        }
+        if ($items === []) {
+            continue;
+        }
+        $widx = mana_path2_weekday_index($ymd);
+        $jLabel = $ymd;
+        if (function_exists('gregorian_to_jalali')) {
+            $ts = strtotime($ymd . ' 12:00:00') ?: time();
+            [$ay, $am, $ad] = gregorian_to_jalali((int) date('Y', $ts), (int) date('n', $ts), (int) date('j', $ts));
+            $jLabel = to_fa_digits((string) $ad) . ' ' . (function_exists('jalali_month_names') ? (jalali_month_names()[$am] ?? '') : '');
+        }
+        $days[] = [
+            'ymd' => $ymd,
+            'label' => $jLabel,
+            'weekday' => $weekdays[$widx]['label'] ?? '',
+            'items' => $items,
+        ];
+    }
+    return [
+        'title' => trim($monthName . ' ' . (function_exists('to_fa_digits') ? to_fa_digits((string) $jy) : (string) $jy)),
+        'days' => $days,
+    ];
+}
+
+function mana_path2_try_advance(PDO $pdo, array &$profile): bool
+{
+    $userId = (string) $profile['user_id'];
+    $doneM = mana_path_today_mission_ids($pdo, $userId);
+    foreach (mana_path_daily_missions() as $m) {
+        if (!in_array((string) $m['id'], $doneM, true)) {
+            return false;
+        }
+    }
+    if (mana_path2_advanced_today($pdo, $userId)) {
+        return false;
+    }
+    $days = mana_path2_weekdays();
+    $today = $days[mana_path2_weekday_index()] ?? null;
+    if (!$today) {
+        return false;
+    }
+    mana_path_log($pdo, $userId, 'path2_day', 40, 'week', (string) $today['id'], ['weekday' => $today['label']]);
+    mana_path_mark_activity($pdo, $profile, 40, ['light' => 4]);
+    return true;
 }
 
 function mana_path2_advanced_today(PDO $pdo, string $userId): bool
@@ -652,33 +820,6 @@ function mana_path2_advanced_today(PDO $pdo, string $userId): bool
     } catch (Throwable $e) {
         return false;
     }
-}
-
-function mana_path2_try_advance(PDO $pdo, array &$profile): bool
-{
-    $userId = (string) $profile['user_id'];
-    $days = mana_path2_journey();
-    $done = mana_path2_completed_stage_ids($pdo, $userId);
-    if (count($done) >= count($days)) {
-        return false;
-    }
-    if (mana_path2_advanced_today($pdo, $userId)) {
-        return false;
-    }
-    $missions = mana_path_daily_missions();
-    $doneM = mana_path_today_mission_ids($pdo, $userId);
-    foreach ($missions as $m) {
-        if (!in_array((string) $m['id'], $doneM, true)) {
-            return false;
-        }
-    }
-    $next = $days[count($done)] ?? null;
-    if (!$next) {
-        return false;
-    }
-    mana_path_log($pdo, $userId, 'path2_day', 40, 'daily7', (string) $next['id'], ['day' => count($done) + 1]);
-    mana_path_mark_activity($pdo, $profile, 40, ['light' => 4]);
-    return true;
 }
 
 function mana_path_set_mood(PDO $pdo, array &$profile, int $mood): void

@@ -25,16 +25,17 @@ foreach ($missions as $m) {
     }
 }
 
-$stages = mana_path2_journey();
-$doneStages = mana_path2_completed_stage_ids($pdo, $patientId);
-$stageTotal = count($stages);
-$doneStageN = count($doneStages);
-$advancedToday = mana_path2_advanced_today($pdo, $patientId);
-$stageNow = min($stageTotal, $doneStageN + ($advancedToday || $doneStageN >= $stageTotal ? 0 : 1));
-if ($stageNow < 1) {
-    $stageNow = 1;
+$stages = mana_path2_week_status($pdo, $patientId, $streak);
+$doneStageN = 0;
+foreach ($stages as $st) {
+    if (!empty($st['done'])) {
+        $doneStageN++;
+    }
 }
+$stageTotal = count($stages);
+$todayDone = $doneN >= count($missions);
 $progressPct = (int) round(100 * $doneStageN / max(1, $stageTotal));
+$monthHist = mana_path2_month_history($pdo, $patientId);
 
 $concerns = $profile['concerns'] ?? [];
 $goalLabel = 'مدیریت اضطراب';
@@ -78,7 +79,7 @@ if (function_exists('gregorian_to_jalali') && function_exists('jalali_month_name
 
 $GLOBALS['pageRobots'] = 'noindex,nofollow';
 $GLOBALS['pageTitle'] = 'اتاق ذهن ۲';
-$GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(url('/assets/css/mana-path2.css')) . '?v=20260924a">';
+$GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(url('/assets/css/mana-path2.css')) . '?v=20260924c">';
 $GLOBALS['pageBodyClass'] = trim((string) ($GLOBALS['pageBodyClass'] ?? '') . ' mp2-page');
 
 ob_start();
@@ -86,7 +87,7 @@ ob_start();
 <div class="mp2">
   <p class="mp2-kicker">◎ ماموریت امروز</p>
   <h1>اتاق ذهن ۲</h1>
-  <p class="mp2-lead">سفر ۷ مرحله‌ای است و هر مرحله برای <strong>یک روز</strong> است. کارهای امروز را همین‌جا بزن؛ صفحه عوض نمی‌شود.</p>
+  <p class="mp2-lead">کارهای امروز را همین‌جا بزن. هفته از شنبه شروع می‌شود.</p>
   <p class="mp2-model">امروز <?= e($todayLabel) ?> — هدف، سفر روزانه، XP و streak برای ادامه دادن است. رقابت با دیگران اینجا نیست.</p>
 
   <div class="mp2-grid">
@@ -97,14 +98,13 @@ ob_start();
           <?php for ($i = 0; $i < 14; $i++): ?><span>▾</span><?php endfor; ?>
         </div>
         <ol class="mp2-vlist">
-          <?php foreach ($stages as $i => $st): ?>
+          <?php foreach ($stages as $st): ?>
             <?php
-              $n = $i + 1;
-              $cls = $n <= $doneStageN ? 'is-done' : ($n === $stageNow ? 'is-now' : '');
+              $cls = !empty($st['done']) ? 'is-done' : (!empty($st['now']) ? 'is-now' : '');
             ?>
             <li class="<?= e($cls) ?>">
-              <strong>روز <?= e(to_fa_digits((string) $n)) ?> — <?= e($st['label']) ?></strong>
-              <span class="mp2-dot"><?= $n <= $doneStageN ? '✓' : e($st['icon']) ?></span>
+              <strong><?= e((string) $st['label']) ?><small><?= e((string) $st['focus']) ?></small></strong>
+              <span class="mp2-dot"><?= !empty($st['done']) ? '✓' : e((string) $st['icon']) ?></span>
             </li>
           <?php endforeach; ?>
         </ol>
@@ -114,16 +114,15 @@ ob_start();
     <section class="mp2-card" id="journey">
       <div class="mp2-hhead">
         <h2>سفر من 🌿</h2>
-        <small>مرحله <?= e(to_fa_digits((string) min($stageTotal, max(1, $doneStageN + ($advancedToday ? 0 : 1))))) ?> از <?= e(to_fa_digits((string) $stageTotal)) ?> · روزانه</small>
+        <small>این هفته <?= e(to_fa_digits((string) $doneStageN)) ?> از <?= e(to_fa_digits((string) $stageTotal)) ?></small>
       </div>
-      <div class="mp2-dots" aria-hidden="true">
+      <div class="mp2-dots">
         <?php foreach ($stages as $i => $step): ?>
-          <?php
-            $done = $i < $doneStageN;
-            $now = $i === $doneStageN && !$advancedToday;
-          ?>
-          <?php if ($i > 0): ?><b class="<?= $done || $now ? 'is-on' : '' ?>"></b><?php endif; ?>
-          <i class="<?= $done ? 'is-done' : ($now ? 'is-now' : '') ?>" title="<?= e((string) ($step['label'] ?? '')) ?>"></i>
+          <?php if ($i > 0): ?><b class="<?= !empty($step['done']) || !empty($step['now']) ? 'is-on' : '' ?>"></b><?php endif; ?>
+          <span class="mp2-dow" title="<?= e((string) $step['label']) ?>">
+            <i class="<?= !empty($step['done']) ? 'is-done' : (!empty($step['now']) ? 'is-now' : '') ?>"></i>
+            <?= e((string) $step['short']) ?>
+          </span>
         <?php endforeach; ?>
       </div>
       <p class="mp2-goal">هدف فعلی من:<strong><?= e($goalLabel) ?></strong></p>
@@ -143,19 +142,16 @@ ob_start();
                 <button type="submit">
                   <span class="mp2-box"></span>
                   <?= e((string) $m['title']) ?>
-                  <em>انجام شد</em>
                 </button>
               </form>
             <?php endif; ?>
           </li>
         <?php endforeach; ?>
       </ul>
-      <?php if ($advancedToday): ?>
-        <p class="mp2-note">مرحله امروز در سفر ثبت شد. فردا مرحله بعد باز می‌شود.</p>
-      <?php elseif ($doneStageN >= $stageTotal): ?>
-        <p class="mp2-note">هر ۷ مرحله را تمام کرده‌ای. کارهای روزانه را می‌توانی برای XP ادامه بدهی.</p>
+      <?php if ($todayDone || $doneN >= $actNeed): ?>
+        <p class="mp2-note">امروز انجام شد؛ نقطه این روز سبز است.</p>
       <?php else: ?>
-        <p class="mp2-note">با زدن هر کار، همان‌جا ثبت می‌شود. وقتی هر سه تمام شود، یک مرحله از سفر جلو می‌روی.</p>
+        <p class="mp2-note">نقطه سیاه، امروز است. با تمام شدن کارها سبز می‌شود.</p>
       <?php endif; ?>
       <div class="mp2-foot">
         <span>⭐ <?= e(to_fa_digits((string) $xp)) ?> XP</span>
@@ -224,12 +220,28 @@ ob_start();
       <div class="mp2-tools">
         <a href="#journey"><strong>🧠 کارهای امروز</strong>تمرین روزانه CBT</a>
         <a href="<?= e($journalUrl) ?>"><strong>📓 Journal</strong>یادداشت روزانه</a>
-        <a href="#journey"><strong>🗺️ Journey</strong>۷ مرحله روزانه</a>
+        <a href="#journey"><strong>🗺️ Journey</strong>هفته از شنبه</a>
         <a href="#status"><strong>⭐ XP / Achievement</strong>سطح <?= e(to_fa_digits((string) $level)) ?></a>
-        <a href="<?= e($doctorsUrl) ?>"><strong>👩‍⚕️ درمانگر</strong>رزرو یا پیام جلسه</a>
+        <a href="#history"><strong>📅 هیستوری</strong>کارهای این ماه</a>
       </div>
     </section>
   </div>
+
+  <section class="mp2-card mp2-hist" id="history">
+    <h2>هیستوری <?= e((string) ($monthHist['title'] ?? '')) ?></h2>
+    <?php if (($monthHist['days'] ?? []) === []): ?>
+      <p class="mp2-note">این ماه هنوز کاری ثبت نشده.</p>
+    <?php else: ?>
+      <ul>
+        <?php foreach ($monthHist['days'] as $day): ?>
+          <li>
+            <strong><?= e((string) $day['weekday']) ?> · <?= e((string) $day['label']) ?></strong>
+            <span><?= e(implode('، ', $day['items'])) ?></span>
+          </li>
+        <?php endforeach; ?>
+      </ul>
+    <?php endif; ?>
+  </section>
   <p class="mp2-disclaimer">اتاق ذهن ۲ غربالگری و تمرین همراه است، نه تشخیص و نه جایگزین درمان. نسخه آزمایشی فقط برای حساب تو.</p>
 </div>
 <?php
