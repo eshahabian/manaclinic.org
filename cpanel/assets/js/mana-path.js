@@ -139,15 +139,13 @@
         onMap[id] = on;
         if (on) onCount += 1;
         document.querySelectorAll('.mr-prop[data-prop="' + id + '"]').forEach(function (img) {
-          img.classList.toggle("is-on", on);
+          img.classList.toggle("is-on", !on);
         });
       });
       var allOn = onCount === btns.length;
       if (props) props.hidden = allOn;
       var full = room.getAttribute("data-room-full");
-      var base = room.getAttribute("data-room-base");
-      if (allOn && full) room.src = full;
-      else if (base) room.src = base;
+      if (full) room.src = full;
       var bar = document.querySelector("[data-mpath-world-bar]");
       if (bar) bar.style.width = Math.round(100 * onCount / Math.max(1, btns.length)) + "%";
       var count = document.querySelector("[data-mpath-world-count]");

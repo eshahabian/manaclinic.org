@@ -723,7 +723,7 @@ ob_start();
     </div>
   </div>
 </div>
-<script src="<?= e(url('/assets/js/mana-path.js')) ?>?v=20260923r"></script>
+<script src="<?= e(url('/assets/js/mana-path.js')) ?>?v=20260923s"></script>
 <?php
 $inner = ob_get_clean();
 render_patient_page('اتاق ذهن', $inner);
