@@ -782,7 +782,278 @@ function mana_path2_month_history(PDO $pdo, string $userId): array
     return [
         'title' => trim($monthName . ' ' . (function_exists('to_fa_digits') ? to_fa_digits((string) $jy) : (string) $jy)),
         'days' => $days,
+        'from' => $from,
+        'to' => $to,
+        'jy' => $jy,
+        'jm' => $jm,
+        'jd' => $jd,
+        'month_len' => $monthLen,
+        'month_name' => $monthName,
     ];
+}
+
+function mana_path2_report_axes_for(array $concerns): array
+{
+    $all = mana_path_concerns();
+    $facets = [
+        'anxiety' => [
+            ['key' => 'anxiety', 'label' => 'اضطراب'],
+            ['key' => 'worry', 'label' => 'نگرانی'],
+            ['key' => 'body', 'label' => 'تنش جسمی'],
+            ['key' => 'fear', 'label' => 'ترس'],
+            ['key' => 'sleep', 'label' => 'اختلال خواب'],
+            ['key' => 'focus', 'label' => 'تمرکز'],
+        ],
+        'mood' => [
+            ['key' => 'mood', 'label' => 'خلق پایین'],
+            ['key' => 'energy', 'label' => 'انرژی'],
+            ['key' => 'sleep', 'label' => 'اختلال خواب'],
+            ['key' => 'focus', 'label' => 'تمرکز'],
+            ['key' => 'confidence', 'label' => 'خودباوری'],
+            ['key' => 'anxiety', 'label' => 'اضطراب'],
+        ],
+        'stress' => [
+            ['key' => 'stress', 'label' => 'استرس'],
+            ['key' => 'body', 'label' => 'تنش جسمی'],
+            ['key' => 'sleep', 'label' => 'اختلال خواب'],
+            ['key' => 'focus', 'label' => 'تمرکز'],
+            ['key' => 'anxiety', 'label' => 'اضطراب'],
+            ['key' => 'mood', 'label' => 'خلق'],
+        ],
+        'sleep' => [
+            ['key' => 'sleep', 'label' => 'اختلال خواب'],
+            ['key' => 'energy', 'label' => 'انرژی'],
+            ['key' => 'focus', 'label' => 'تمرکز'],
+            ['key' => 'mood', 'label' => 'خلق'],
+            ['key' => 'anxiety', 'label' => 'اضطراب'],
+            ['key' => 'stress', 'label' => 'استرس'],
+        ],
+        'relationship' => [
+            ['key' => 'relationship', 'label' => 'رابطه'],
+            ['key' => 'assert', 'label' => 'جرأت‌مندی'],
+            ['key' => 'mood', 'label' => 'خلق'],
+            ['key' => 'anxiety', 'label' => 'اضطراب'],
+            ['key' => 'confidence', 'label' => 'خودباوری'],
+            ['key' => 'stress', 'label' => 'استرس'],
+        ],
+        'confidence' => [
+            ['key' => 'confidence', 'label' => 'اعتمادبه‌نفس'],
+            ['key' => 'mood', 'label' => 'خلق'],
+            ['key' => 'anxiety', 'label' => 'اضطراب'],
+            ['key' => 'focus', 'label' => 'تمرکز'],
+            ['key' => 'relationship', 'label' => 'رابطه'],
+            ['key' => 'procrastination', 'label' => 'اهمال‌کاری'],
+        ],
+        'procrastination' => [
+            ['key' => 'procrastination', 'label' => 'اهمال‌کاری'],
+            ['key' => 'focus', 'label' => 'تمرکز'],
+            ['key' => 'anxiety', 'label' => 'اضطراب'],
+            ['key' => 'stress', 'label' => 'استرس'],
+            ['key' => 'confidence', 'label' => 'خودباوری'],
+            ['key' => 'mood', 'label' => 'خلق'],
+        ],
+    ];
+    $picked = [];
+    foreach ($concerns as $c) {
+        $c = (string) $c;
+        if (isset($all[$c])) {
+            $picked[] = ['key' => $c, 'label' => (string) $all[$c]['label']];
+        }
+    }
+    $primary = (string) (($concerns[0] ?? 'anxiety'));
+    $fill = $facets[$primary] ?? $facets['anxiety'];
+    foreach ($fill as $row) {
+        $exists = false;
+        foreach ($picked as $p) {
+            if ($p['key'] === $row['key'] || $p['label'] === $row['label']) {
+                $exists = true;
+                break;
+            }
+        }
+        if (!$exists) {
+            $picked[] = $row;
+        }
+        if (count($picked) >= 6) {
+            break;
+        }
+    }
+    return array_slice($picked, 0, 6);
+}
+
+function mana_path2_report_data(PDO $pdo, array $profile): array
+{
+    $userId = (string) ($profile['user_id'] ?? '');
+    $hist = mana_path2_month_history($pdo, $userId);
+    $concerns = $profile['concerns'] ?? [];
+    if (!is_array($concerns) || $concerns === []) {
+        $concerns = ['anxiety'];
+    }
+    $all = mana_path_concerns();
+    $primary = (string) $concerns[0];
+    $primaryLabel = (string) ($all[$primary]['label'] ?? 'اضطراب');
+    $trees = mana_path_user_trees($pdo, $userId);
+    $screenMax = [
+        'anxiety' => 21,
+        'mood' => 27,
+        'stress' => 16,
+        'sleep' => 16,
+        'relationship' => 15,
+        'confidence' => 15,
+        'procrastination' => 15,
+    ];
+    $missionAxis = [
+        'breathe' => ['anxiety', 'body', 'focus'],
+        'thoughts' => ['worry', 'anxiety', 'fear'],
+        'walk' => ['anxiety', 'body', 'energy'],
+        'feelings' => ['mood', 'confidence'],
+        'assert' => ['relationship', 'assert', 'confidence'],
+        'sleep' => ['sleep', 'energy'],
+        'kind' => ['confidence', 'mood'],
+    ];
+    $missionHits = [];
+    $moodSum = 0;
+    $moodN = 0;
+    $missionN = 0;
+    foreach ($hist['days'] as $day) {
+        $missionN += count($day['items'] ?? []);
+    }
+    try {
+        $stmt = $pdo->prepare("
+          SELECT event_type, step_id, payload_json
+          FROM mana_path_events
+          WHERE user_id = ? AND DATE(created_at) >= ? AND DATE(created_at) <= ?
+            AND event_type IN ('mission', 'mood')
+        ");
+        $stmt->execute([$userId, $hist['from'], $hist['to']]);
+        foreach ($stmt->fetchAll() as $row) {
+            if ((string) $row['event_type'] === 'mission') {
+                $sid = (string) ($row['step_id'] ?? '');
+                foreach ($missionAxis[$sid] ?? [] as $k) {
+                    $missionHits[$k] = ($missionHits[$k] ?? 0) + 1;
+                }
+            } else {
+                $payload = mana_path_decode_json($row['payload_json'] ?? null);
+                $mv = (int) ($payload['mood'] ?? 0);
+                if ($mv >= 1 && $mv <= 5) {
+                    $moodSum += $mv;
+                    $moodN++;
+                }
+            }
+        }
+    } catch (Throwable $ignored) {
+    }
+    $moodAvg = $moodN > 0 ? ($moodSum / $moodN) : 3;
+    $moodLoad = (int) round((5 - $moodAvg) * 18);
+    $axesMeta = mana_path2_report_axes_for($concerns);
+    $axes = [];
+    foreach ($axesMeta as $i => $ax) {
+        $key = (string) $ax['key'];
+        $treeKey = $key;
+        if ($key === 'worry' || $key === 'body' || $key === 'fear' || $key === 'focus') {
+            $treeKey = 'anxiety';
+        }
+        if ($key === 'energy') {
+            $treeKey = 'mood';
+        }
+        if ($key === 'assert') {
+            $treeKey = 'relationship';
+        }
+        $you = 42 + $moodLoad;
+        if (isset($trees[$treeKey]['last_score'])) {
+            $max = $screenMax[$treeKey] ?? 21;
+            $you = (int) round(100 * ((int) $trees[$treeKey]['last_score']) / max(1, $max));
+        }
+        $you += (int) min(18, ($missionHits[$key] ?? 0) * 4);
+        if (in_array($key, $concerns, true) || $key === $primary) {
+            $you += 8;
+        }
+        $you = max(12, min(96, $you - $i));
+        $avg = 48 + (($i % 3) * 3);
+        $axes[] = [
+            'key' => $key,
+            'label' => (string) $ax['label'],
+            'you' => $you,
+            'avg' => $avg,
+        ];
+    }
+    $score = 0;
+    foreach ($axes as $ax) {
+        $score += (int) $ax['you'];
+    }
+    $score = (int) round($score / max(1, count($axes)));
+    $band = 'خیلی کم';
+    if ($score > 20) {
+        $band = 'کم';
+    }
+    if ($score > 40) {
+        $band = 'متوسط';
+    }
+    if ($score > 60) {
+        $band = 'نسبتاً بالا';
+    }
+    if ($score > 80) {
+        $band = 'بسیار بالا';
+    }
+    $elapsed = max(1, min((int) ($hist['jd'] ?? 1), (int) ($hist['month_len'] ?? 30)));
+    $expected = $elapsed * 3;
+    $accuracy = (int) min(99, max(40, round(100 * $missionN / max(1, $expected))));
+    $peer = 54;
+    $top = $axes;
+    usort($top, static fn($a, $b) => ($b['you'] <=> $a['you']));
+    $topNames = array_map(static fn($a) => $a['label'], array_slice($top, 0, 3));
+    $analysis = 'بر اساس پاسخ‌ها و کارهای این ماه، سطح ' . $primaryLabel . ' در محدودهٔ «' . $band . '» قرار دارد. بیشترین نشانه‌ها در بخش '
+        . implode('، ', $topNames) . ' دیده می‌شود. این گزارش غربالگری مسیر است، نه تشخیص.';
+    $recs = [];
+    foreach (array_slice($top, 0, 4) as $row) {
+        $map = [
+            'anxiety' => ['title' => 'مشاوره تخصصی', 'text' => 'اگر اضطراب روزها را تنگ کرده، جلسه با درمانگر مانا کمک می‌کند.', 'tone' => 'purple'],
+            'worry' => ['title' => 'ثبت نگرانی', 'text' => 'هر روز یک نگرانی را بنویس و همان را کوچک کن.', 'tone' => 'blue'],
+            'body' => ['title' => 'فعالیت بدنی منظم', 'text' => 'روزانه ۱۰ تا ۲۰ دقیقه حرکت ملایم تنش جسمی را کم می‌کند.', 'tone' => 'blue'],
+            'fear' => ['title' => 'مواجههٔ تدریجی', 'text' => 'یک موقعیت کوچک امن را انتخاب کن و قدم‌به‌قدم نزدیک شو.', 'tone' => 'yellow'],
+            'sleep' => ['title' => 'بهبود کیفیت خواب', 'text' => 'روتین آرام شب، نور کمتر و گوشی دورتر.', 'tone' => 'yellow'],
+            'focus' => ['title' => 'تمرکز کوتاه', 'text' => 'بازهٔ ۱۰ دقیقه‌ای بدون حواس‌پرتی را تمرین کن.', 'tone' => 'green'],
+            'mood' => ['title' => 'فعال‌سازی رفتاری', 'text' => 'یک کار کوچک معنادار در برنامهٔ روزانه بگذار.', 'tone' => 'green'],
+            'stress' => ['title' => 'بازیابی روزانه', 'text' => 'چهار دقیقه تنفس و یک استراحت کوتاه بین کارها.', 'tone' => 'purple'],
+            'relationship' => ['title' => 'جرأت‌مندی ملایم', 'text' => 'یک خواسته را شفاف و آرام بیان کن.', 'tone' => 'blue'],
+            'confidence' => ['title' => 'جمله مهربان', 'text' => 'همان حرفی که به دوستت می‌زدی را به خودت بگو.', 'tone' => 'green'],
+            'procrastination' => ['title' => 'شروع ۲ دقیقه‌ای', 'text' => 'کوچک‌ترین تکهٔ کار را همین امروز بردار.', 'tone' => 'yellow'],
+            'energy' => ['title' => 'انرژی کم‌حجم', 'text' => 'خواب، نور صبح و یک پیاده‌روی کوتاه.', 'tone' => 'green'],
+            'assert' => ['title' => 'تمرین جمله صادقانه', 'text' => 'پیش‌نویس یک حدومرز کوتاه برای موقعیت پرتنش.', 'tone' => 'blue'],
+        ];
+        $recs[] = $map[$row['key']] ?? ['title' => $row['label'], 'text' => 'تمرین روزانه این محور را در اتاق ذهن ۲ ادامه بده.', 'tone' => 'purple'];
+    }
+    $jDate = to_fa_digits((string) ($hist['jy'] ?? '')) . '/' . to_fa_digits(sprintf('%02d', (int) ($hist['jm'] ?? 1))) . '/' . to_fa_digits(sprintf('%02d', (int) ($hist['jd'] ?? 1)));
+    return [
+        'title' => 'نتیجه گزارش ماهانه ' . $primaryLabel,
+        'primary' => $primary,
+        'primary_label' => $primaryLabel,
+        'lead' => 'این گزارش بر اساس کارهای روزانه، خلق ثبت‌شده و مسیر انتخابی تو در ' . ($hist['title'] ?? 'این ماه') . ' محاسبه شده و می‌تواند به شناخت بهتر خودت کمک کند.',
+        'test_name' => 'گزارش ماهانه مسیر ' . $primaryLabel,
+        'questions' => max(3, $missionN),
+        'minutes' => max(8, min(25, 4 * count($hist['days']))),
+        'date' => $jDate,
+        'month_title' => (string) ($hist['title'] ?? ''),
+        'score' => $score,
+        'band' => $band,
+        'peer' => $peer,
+        'accuracy' => $accuracy,
+        'axes' => $axes,
+        'analysis' => $analysis,
+        'recs' => $recs,
+        'history' => $hist,
+    ];
+}
+
+function mana_path2_radar_points(array $values, float $cx, float $cy, float $rMax): string
+{
+    $n = max(3, count($values));
+    $pts = [];
+    for ($i = 0; $i < $n; $i++) {
+        $ang = deg2rad(-90 + ($i * (360 / $n)));
+        $v = max(0, min(100, (float) $values[$i])) / 100;
+        $pts[] = round($cx + cos($ang) * $rMax * $v, 1) . ',' . round($cy + sin($ang) * $rMax * $v, 1);
+    }
+    return implode(' ', $pts);
 }
 
 function mana_path2_try_advance(PDO $pdo, array &$profile): bool

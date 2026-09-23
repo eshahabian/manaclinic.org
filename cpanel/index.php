@@ -178,6 +178,7 @@ $routes = [
     'POST /dashboard/path' => 'actions/patient_mana_path.php',
     'GET /dashboard/path2' => 'pages/patient/mana_path2.php',
     'POST /dashboard/path2' => 'actions/patient_mana_path.php',
+    'GET /dashboard/path2/report' => 'pages/patient/mana_path2_report.php',
     'GET /dashboard/appointments' => 'pages/patient/appointments.php',
     'GET /dashboard/workshops' => 'pages/patient/workshops.php',
     'GET /dashboard/workshops/requested' => 'pages/patient/workshops.php',

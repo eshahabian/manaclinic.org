@@ -79,7 +79,7 @@ if (function_exists('gregorian_to_jalali') && function_exists('jalali_month_name
 
 $GLOBALS['pageRobots'] = 'noindex,nofollow';
 $GLOBALS['pageTitle'] = 'اتاق ذهن ۲';
-$GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(url('/assets/css/mana-path2.css')) . '?v=20260924d">';
+$GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(url('/assets/css/mana-path2.css')) . '?v=20260924e">';
 $GLOBALS['pageBodyClass'] = trim((string) ($GLOBALS['pageBodyClass'] ?? '') . ' mp2-page');
 
 ob_start();
@@ -232,27 +232,12 @@ ob_start();
       <div class="mp2-tools">
         <a href="#journey"><strong>🧠 کارهای امروز</strong>تمرین روزانه CBT</a>
         <a href="<?= e($journalUrl) ?>"><strong>📓 Journal</strong>یادداشت روزانه</a>
-        <a class="is-lg" href="#history"><strong>📅 هیستوری</strong>کارهای این ماه</a>
+        <a class="is-lg" href="<?= e(url('/dashboard/path2/report')) ?>"><strong>📅 گزارش ماهانه</strong>نتیجه مسیر این ماه</a>
         <a class="is-lg" href="#status"><strong>⭐ XP / Achievement</strong>سطح <?= e(to_fa_digits((string) $level)) ?></a>
       </div>
     </section>
   </div>
 
-  <section class="mp2-card mp2-hist" id="history">
-    <h2>هیستوری <?= e((string) ($monthHist['title'] ?? '')) ?></h2>
-    <?php if (($monthHist['days'] ?? []) === []): ?>
-      <p class="mp2-note">این ماه هنوز کاری ثبت نشده.</p>
-    <?php else: ?>
-      <ul>
-        <?php foreach ($monthHist['days'] as $day): ?>
-          <li>
-            <strong><?= e((string) $day['weekday']) ?> · <?= e((string) $day['label']) ?></strong>
-            <span><?= e(implode('، ', $day['items'])) ?></span>
-          </li>
-        <?php endforeach; ?>
-      </ul>
-    <?php endif; ?>
-  </section>
   <p class="mp2-disclaimer">اتاق ذهن ۲ غربالگری و تمرین همراه است، نه تشخیص و نه جایگزین درمان. نسخه آزمایشی فقط برای حساب تو.</p>
 </div>
 <?php
