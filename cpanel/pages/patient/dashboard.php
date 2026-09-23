@@ -38,7 +38,8 @@ ob_start();
   <?php if (strcasecmp(trim((string) ($user['username'] ?? '')), 'eshahabian') === 0): ?>
     <p style="display:flex;flex-wrap:wrap;align-items:center;gap:.55rem;margin:0 0 1rem">
       <a class="btn btn-primary btn-sm" href="<?= e(url('/dashboard/path')) ?>">اتاق ذهن</a>
-      <span class="muted">همراه روزانه، اتاق ذهن و مسیر اختصاصی — نسخه آزمایشی.</span>
+      <a class="btn btn-outline btn-sm" href="<?= e(url('/dashboard/path2')) ?>">اتاق ذهن ۲</a>
+      <span class="muted">مسیر درمان با تجربهٔ شبیه بازی — بدون رقابت و لیدربورد.</span>
     </p>
   <?php endif; ?>
   <p class="muted">نوبت‌ها و کارگاه‌ها را با انتخاب سال، ماه و روز ببینید.</p>

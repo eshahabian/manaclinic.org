@@ -209,6 +209,7 @@ ob_start();
       <nav aria-label="اتاق ذهن">
         <a href="<?= e(url('/')) ?>"><i aria-hidden="true">←</i> سایت مانا</a>
         <a href="<?= e($dashUrl) ?>"><i aria-hidden="true">☰</i> پنل من</a>
+        <a href="<?= e(url('/dashboard/path2')) ?>"><i aria-hidden="true">▣</i> اتاق ذهن ۲</a>
         <a class="<?= $tab === 'home' ? 'is-on' : '' ?>" href="<?= e($mpathUrl) ?>"><i aria-hidden="true">⌂</i> خانه</a>
         <a class="<?= $tab === 'path' ? 'is-on' : '' ?>" href="<?= e($mpathUrl . '?tab=path&tree=' . rawurlencode($activeTree)) ?>"><i aria-hidden="true">◎</i> مسیر من</a>
         <a class="<?= $tab === 'practice' ? 'is-on' : '' ?>" href="<?= e($mpathUrl . '?tab=practice') ?>"><i aria-hidden="true">✦</i> تمرین‌ها</a>

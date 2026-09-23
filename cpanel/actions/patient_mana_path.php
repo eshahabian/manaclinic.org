@@ -11,6 +11,10 @@ $patientId = (string) $user['id'];
 $profile = mana_path_load_profile($pdo, $patientId);
 $do = trim((string) ($_POST['do'] ?? ''));
 $back = '/dashboard/path';
+$backRaw = trim((string) ($_POST['back'] ?? ''));
+if ($backRaw === '/dashboard/path2') {
+    $back = '/dashboard/path2';
+}
 
 try {
     if ($do === 'intro') {
@@ -33,7 +37,7 @@ try {
     if ($do === 'mood') {
         mana_path_set_mood($pdo, $profile, (int) ($_POST['mood'] ?? 0));
         flash_set('success', 'حالت ثبت شد. انرژی ذهن کمی بیشتر شد.');
-        redirect('/dashboard/path');
+        redirect($back);
     }
 
     if ($do === 'add_tree') {
