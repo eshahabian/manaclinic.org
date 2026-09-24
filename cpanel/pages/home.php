@@ -50,10 +50,11 @@ ob_start();
     <p class="eyebrow">مانا کلینیک</p>
     <h1>آرامش ذهن، مسیر روشن‌تر زندگی</h1>
     <p style="max-width:36rem;opacity:.92;margin-top:1rem;line-height:1.9">
-      مقالات تخصصی بخوانید، متخصص مناسب را پیدا کنید و آنلاین نوبت بگیرید.
+      از مسئله‌ات شروع کن، درمانگر مناسب را ببین و نوبت حضوری یا آنلاین بگیر.
     </p>
     <div class="hero-actions">
       <a class="btn btn-accent" href="<?= e(url('/doctors')) ?>">رزرو نوبت</a>
+      <a class="btn btn-ghost" href="<?= e(url('/issues')) ?>">از مسئله شروع کن</a>
       <a class="btn btn-ghost" href="<?= e(url('/articles')) ?>">خواندن مقالات</a>
     </div>
   </div>
@@ -203,11 +204,7 @@ ob_start();
         </div>
         <div class="articles-showcase">
           <?php foreach ($articles as $article): ?>
-            <a class="panel card-link article-card" href="<?= e(url('/articles/' . $article['slug'])) ?>">
-              <span class="badge"><?= e($article['author_name']) ?></span>
-              <h3 class="article-card-title"><?= e($article['title']) ?></h3>
-              <p class="muted article-card-excerpt"><?= e($article['excerpt']) ?></p>
-            </a>
+            <?= clinic_article_card_html($article) ?>
           <?php endforeach; ?>
         </div>
         <?php if ($articles): ?>

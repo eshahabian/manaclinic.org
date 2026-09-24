@@ -118,12 +118,9 @@ ob_start();
       </div>
 
       <ul class="doctor-facts">
-        <?php if ((int) ($doctor['session_price'] ?? 0) > 0): ?>
-          <li><strong>هزینه جلسه</strong> <?= e(format_price((int) $doctor['session_price'])) ?></li>
-        <?php endif; ?>
         <li><strong>نوع جلسه</strong> حضوری در سعادت‌آباد و آنلاین</li>
         <li><strong>اولین نوبت آزاد</strong> <?= $dates !== [] ? e(clinic_ymd_fa((string) $dates[0])) : 'هنوز اعلام نشده' ?></li>
-        <li><strong>مسیر رزرو</strong> تاریخ و ساعت را همین صفحه انتخاب کن</li>
+        <li><strong>مسیر رزرو</strong> تاریخ و ساعت را همین صفحه انتخاب کن؛ هزینه فقط هنگام رزرو دیده می‌شود</li>
       </ul>
       <p class="doctor-first-session">جلسه اول برای شناخت مسئله، سابقه و انتظارت است؛ لازم نیست از قبل «آماده» باشی. بعد از رزرو، پرداخت از نوبت‌های من انجام می‌شود.</p>
       <p class="doctor-hero-book"><a class="btn btn-primary" href="#booking-box">رزرو نوبت این متخصص</a></p>
@@ -212,9 +209,9 @@ ob_start();
 
     <div class="panel stack" id="booking-box">
       <h2 style="margin:0">رزرو نوبت</h2>
-      <p class="muted" style="margin:.35rem 0 0;font-size:.9rem;line-height:1.7">حضوری در سعادت‌آباد یا آنلاین. پس از رزرو، پرداخت از «نوبت‌های من» است.</p>
+      <p class="muted" style="margin:.35rem 0 0;font-size:.9rem;line-height:1.7">حضوری در سعادت‌آباد یا آنلاین. هزینه جلسه بعد از انتخاب ساعت نمایش داده می‌شود؛ پرداخت از «نوبت‌های من» است.</p>
       <?php if ((int) ($doctor['session_price'] ?? 0) > 0): ?>
-        <p class="doctor-book-price"><?= e(format_price((int) $doctor['session_price'])) ?> <span class="muted">هر جلسه</span></p>
+        <p class="doctor-book-price" id="book-price" hidden><?= e(format_price((int) $doctor['session_price'])) ?> <span class="muted">هزینه این نوبت</span></p>
       <?php endif; ?>
       <div>
         <label class="label" for="book-date-view">انتخاب تاریخ</label>
@@ -261,7 +258,7 @@ ob_start();
     </div>
   </div>
   <div class="doctor-book-bar" aria-label="رزرو سریع">
-    <span><?= (int) ($doctor['session_price'] ?? 0) > 0 ? e(format_price((int) $doctor['session_price'])) : 'نوبت این متخصص' ?></span>
+    <span>نوبت حضوری یا آنلاین</span>
     <a class="btn btn-primary" href="#booking-box">رزرو نوبت</a>
   </div>
 </div>
@@ -314,8 +311,13 @@ $pageScripts = '
     return "<span class=\\"muted\\">" + (msg || "در این تاریخ درمانگر وقت خالی ندارد") + "</span>";
   }
 
+  var priceEl = document.getElementById("book-price");
+  function hidePrice(){ if (priceEl) priceEl.hidden = true; }
+  function showPrice(){ if (priceEl) priceEl.hidden = false; }
+
   function loadSlots(){
     timeEl.value = "";
+    hidePrice();
     slotsEl.innerHTML = "در حال بارگذاری...";
     if (!dateEl.value) {
       slotsEl.innerHTML = "<span class=\\"muted\\">ابتدا تاریخ را انتخاب کنید</span>";
@@ -351,7 +353,7 @@ $pageScripts = '
           }
           b.onclick = function(){
             Array.prototype.forEach.call(slotsEl.querySelectorAll(".slot-btn"), function(x){ x.classList.remove("active"); });
-            b.classList.add("active"); timeEl.value = value;
+            b.classList.add("active"); timeEl.value = value; showPrice();
           };
           slotsEl.appendChild(b);
         });

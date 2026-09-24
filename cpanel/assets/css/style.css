@@ -5135,7 +5135,7 @@ body.workshop-overview-locked { overflow: hidden; }
   line-height: 1.5;
   color: var(--muted);
 }
-.doctor-card-price { margin: .35rem 0 0; font-size: .88rem; font-weight: 700; color: #1a5c4a; }
+.doctor-card .doctor-card-price { display: none !important; }
 .doctor-card-cta {
   display: inline-block;
   margin-top: .7rem;
@@ -5152,6 +5152,11 @@ body.workshop-overview-locked { overflow: hidden; }
 .dir-filters { margin-top: 1.15rem; display: grid; gap: 1rem; }
 .dir-filter-legend { display: block; font-size: .82rem; font-weight: 700; margin-bottom: .4rem; }
 .dir-filter-chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+.home-specialists-block .dir-filter-chips,
+.issue-home-chips {
+  justify-content: center;
+  text-align: center;
+}
 .dir-chip {
   display: inline-flex;
   align-items: center;
@@ -5176,6 +5181,15 @@ body.workshop-overview-locked { overflow: hidden; }
 .clinic-match h2 { margin: 0 0 .4rem; font-size: 1.15rem; }
 .article-topics { margin: 1.25rem 0 0; display: flex; flex-wrap: wrap; gap: .4rem; }
 .issue-home-chips { margin: 0 0 1.25rem; }
+.article-funnel {
+  margin: 1.15rem 0 0;
+  padding: 1rem 1.05rem;
+  border-radius: 16px;
+  background: #eef6f3;
+  max-width: 48rem;
+  line-height: 1.85;
+}
+.article-funnel-card .doctor-card-cta { margin-top: .85rem; }
 .doctor-book-bar {
   display: none;
   position: sticky;

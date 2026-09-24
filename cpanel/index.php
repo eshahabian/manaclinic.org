@@ -141,6 +141,7 @@ $routes = [
     'GET /doctors' => 'pages/doctors.php',
     'GET /workshops/apply' => 'pages/workshop_apply.php',
     'GET /articles' => 'pages/articles.php',
+    'GET /issues' => 'pages/issues.php',
     'GET /sitemap.xml' => 'pages/sitemap.php',
     'GET /tests' => 'pages/tests.php',
     'GET /about' => 'pages/about.php',

@@ -332,7 +332,6 @@ function doctor_card_html(array $doc): string
         }
     }
     $focusLine = implode('، ', array_slice(doctor_profile_labels($focus, doctor_focus_options()), 0, 3));
-    $price = (int) ($doc['session_price'] ?? 0);
 
     ob_start();
     ?>
@@ -343,10 +342,7 @@ function doctor_card_html(array $doc): string
       <?php if ($focusLine !== ''): ?>
         <p class="doctor-card-focus"><?= e($focusLine) ?></p>
       <?php endif; ?>
-      <p class="doctor-card-meta">حضوری و آنلاین</p>
-      <?php if ($price > 0): ?>
-        <p class="doctor-card-price"><?= e(format_price($price)) ?></p>
-      <?php endif; ?>
+      <p class="doctor-card-meta">حضوری در سعادت‌آباد و آنلاین</p>
       <span class="doctor-card-cta">رزرو نوبت</span>
     </a>
     <?php

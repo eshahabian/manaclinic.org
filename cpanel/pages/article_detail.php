@@ -77,28 +77,30 @@ $primaryTopic = $articleTopics[0] ?? '';
 $topicMeta = $primaryTopic !== '' ? clinic_issue_topic($primaryTopic) : null;
 $matchHref = $primaryTopic !== '' ? clinic_doctors_href(['focus' => $primaryTopic]) : url('/doctors');
 $matchHeading = $topicMeta ? ('متخصصان «' . $topicMeta['label'] . '»') : 'متخصصان مانا کلینیک';
+$relatedArts = [];
+if ($primaryTopic !== '') {
+    foreach (clinic_articles_for_topic($pdo, $primaryTopic, 5) as $rel) {
+        if ((string) ($rel['slug'] ?? '') !== $slug) {
+            $relatedArts[] = $rel;
+        }
+        if (count($relatedArts) >= 3) {
+            break;
+        }
+    }
+}
 
 ob_start();
 ?>
 <article class="container-page section" itemscope itemtype="https://schema.org/Article">
   <a href="<?= e(url('/articles')) ?>" style="color:var(--primary);font-size:.9rem">← بازگشت به مقالات</a>
   <h1 style="margin-top:1rem;max-width:48rem;line-height:1.4" itemprop="headline"><?= e($article['title']) ?></h1>
-  <div style="margin-top:1rem;display:flex;gap:.75rem;align-items:center">
+  <div style="margin-top:1rem;display:flex;flex-wrap:wrap;gap:.75rem;align-items:center">
     <span class="badge" itemprop="author"><?= e($article['author_name']) ?></span>
     <?php if (!empty($article['published_at'])): ?>
       <time class="muted" style="font-size:.85rem" datetime="<?= e(date('c', strtotime((string) $article['published_at']))) ?>" itemprop="datePublished">
         <?= e(format_fa_datetime((string) $article['published_at'])) ?>
       </time>
     <?php endif; ?>
-  </div>
-  <?php if (!empty($article['cover_url'])): ?>
-    <img class="article-hero-media" src="<?= e(url((string) $article['cover_url'])) ?>" alt="<?= e($article['title']) ?>" itemprop="image">
-  <?php endif; ?>
-  <?php if (!empty($article['video_url'])): ?>
-    <video class="article-hero-media" src="<?= e(url((string) $article['video_url'])) ?>" controls playsinline></video>
-  <?php endif; ?>
-  <div class="panel article-body" style="margin-top:2rem;max-width:48rem;line-height:1.9" itemprop="articleBody">
-    <?= rich_html_for_display($article['content']) ?>
   </div>
   <?php if ($articleTopics !== []): ?>
     <p class="article-topics">
@@ -110,11 +112,28 @@ ob_start();
       <?php endforeach; ?>
     </p>
   <?php endif; ?>
+  <?= clinic_funnel_cta_html($matchHref, $topicMeta) ?>
+  <?php if (!empty($article['cover_url'])): ?>
+    <img class="article-hero-media" src="<?= e(url((string) $article['cover_url'])) ?>" alt="<?= e($article['title']) ?>" itemprop="image">
+  <?php endif; ?>
+  <?php if (!empty($article['video_url'])): ?>
+    <video class="article-hero-media" src="<?= e(url((string) $article['video_url'])) ?>" controls playsinline></video>
+  <?php endif; ?>
+  <div class="panel article-body" style="margin-top:2rem;max-width:48rem;line-height:1.9" itemprop="articleBody">
+    <?= rich_html_for_display($article['content']) ?>
+  </div>
   <?= clinic_related_block_html($matchDoctors, $matchHeading, $matchHref) ?>
-  <p class="service-detail-cta" style="margin-top:1.25rem">
-    <a class="btn btn-primary" href="<?= e($matchHref) ?>">رزرو نوبت مرتبط</a>
-    <a class="btn btn-outline" href="<?= e(url('/contact')) ?>">تماس با کلینیک سعادت‌آباد</a>
-  </p>
+  <?php if ($relatedArts !== []): ?>
+    <section class="clinic-match" aria-labelledby="rel-arts-h">
+      <h2 id="rel-arts-h">مقالات نزدیک به همین موضوع</h2>
+      <div class="grid-2">
+        <?php foreach ($relatedArts as $rel): ?>
+          <?= clinic_article_card_html($rel) ?>
+        <?php endforeach; ?>
+      </div>
+    </section>
+  <?php endif; ?>
+  <?= clinic_funnel_cta_html($matchHref, $topicMeta) ?>
 </article>
 <?php
 $content = ob_get_clean();

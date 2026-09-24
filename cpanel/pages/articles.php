@@ -27,8 +27,14 @@ ob_start();
 ?>
 <div class="container-page section">
   <h1><?= $topic ? e('مقالات ' . $topic['label']) : 'مقالات روانشناسی' ?></h1>
-  <p class="muted">محتوای تخصصی از تیم مانا کلینیک؛ هر مقاله به درمانگران همان موضوع وصل است.</p>
-  <div class="dir-filter-chips" style="margin-top:1rem">
+  <p class="muted">هر مقاله به موضوع و درمانگر همان حوزه وصل است. از چیپ‌ها موضوع را ببین یا مستقیم نوبت بگیر.</p>
+  <?php if ($topic): ?>
+    <p class="service-detail-cta" style="margin-top:1rem">
+      <a class="btn btn-primary" href="<?= e(url('/issues/' . $topicKey)) ?>">لندینگ «<?= e($topic['label']) ?>»</a>
+      <a class="btn btn-outline" href="<?= e(clinic_doctors_href(['focus' => $topicKey])) ?>">رزرو درمانگر این موضوع</a>
+    </p>
+  <?php endif; ?>
+  <div class="dir-filter-chips issue-home-chips" style="margin-top:1rem">
     <a class="dir-chip<?= $topicKey === '' ? ' is-on' : '' ?>" href="<?= e(url('/articles')) ?>">همه</a>
     <?php foreach (clinic_issue_topics() as $key => $row): ?>
       <a class="dir-chip<?= $topicKey === $key ? ' is-on' : '' ?>" href="<?= e(url('/articles?topic=' . rawurlencode($key))) ?>"><?= e($row['label']) ?></a>
@@ -36,14 +42,7 @@ ob_start();
   </div>
   <div class="grid-2" style="margin-top:2rem">
     <?php foreach ($articles as $article): ?>
-      <a class="panel card-link" href="<?= e(url('/articles/' . $article['slug'])) ?>">
-        <?php if (!empty($article['cover_url'])): ?>
-          <img class="article-card-cover" src="<?= e(url((string) $article['cover_url'])) ?>" alt="<?= e($article['title']) ?>">
-        <?php endif; ?>
-        <span class="badge"><?= e($article['author_name']) ?></span>
-        <h2 style="margin:.75rem 0 0;font-size:1.25rem;line-height:1.7"><?= e($article['title']) ?></h2>
-        <p class="muted line-clamp-3" style="margin-top:.75rem;line-height:1.8;font-size:.9rem"><?= e($article['excerpt']) ?></p>
-      </a>
+      <?= clinic_article_card_html($article) ?>
     <?php endforeach; ?>
     <?php if (!$articles): ?><p class="muted">هنوز مقاله‌ای نیست.</p><?php endif; ?>
   </div>
