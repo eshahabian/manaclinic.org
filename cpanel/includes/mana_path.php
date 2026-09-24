@@ -1256,12 +1256,10 @@ function mana_path2_report_data(PDO $pdo, array $profile): array
             $you = (int) round($you * 0.65 + ((int) $noteAi['scores'][$key]) * 0.35);
         }
         $you = max(12, min(96, $you));
-        $avg = 48 + (($i % 3) * 3);
         $axes[] = [
             'key' => $key,
             'label' => (string) $ax['label'],
             'you' => $you,
-            'avg' => $avg,
         ];
     }
     $score = 0;
@@ -1285,7 +1283,6 @@ function mana_path2_report_data(PDO $pdo, array $profile): array
     $elapsed = max(1, min((int) ($hist['jd'] ?? 1), (int) ($hist['month_len'] ?? 30)));
     $expected = $elapsed * 3;
     $accuracy = (int) min(100, round(100 * $missionN / max(1, $expected)));
-    $peer = 54;
     $top = $axes;
     usort($top, static fn($a, $b) => ($b['you'] <=> $a['you']));
     $topNames = array_map(static fn($a) => $a['label'], array_slice($top, 0, 3));
@@ -1323,7 +1320,6 @@ function mana_path2_report_data(PDO $pdo, array $profile): array
         'month_title' => (string) ($hist['title'] ?? ''),
         'score' => $score,
         'band' => $band,
-        'peer' => $peer,
         'accuracy' => $accuracy,
         'accuracy_done' => $missionN,
         'accuracy_need' => $expected,

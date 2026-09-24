@@ -19,7 +19,6 @@ if (!is_array($pickedConcerns)) {
     $pickedConcerns = [];
 }
 $noteAi = $report['note_ai'] ?? ['summary' => '', 'count' => 0];
-$testsUrl = url('/tests');
 $doctorsUrl = url('/doctors');
 $score = (int) $report['score'];
 $bandIdx = 0;
@@ -37,19 +36,17 @@ if ($score > 80) {
 }
 $circ = 2 * M_PI * 54;
 $dashOff = $circ * (1 - $score / 100);
-$cx = 170;
-$cy = 170;
-$rMax = 112;
+$cx = 210;
+$cy = 200;
+$rMax = 100;
 $youVals = array_map(static fn($a) => (int) $a['you'], $report['axes']);
-$avgVals = array_map(static fn($a) => (int) $a['avg'], $report['axes']);
 $youPts = mana_path2_radar_points($youVals, $cx, $cy, $rMax);
-$avgPts = mana_path2_radar_points($avgVals, $cx, $cy, $rMax);
-$n = count($report['axes']);
+$n = max(1, count($report['axes']));
 $gridRings = [0.25, 0.5, 0.75, 1];
 
 $GLOBALS['pageRobots'] = 'noindex,nofollow';
 $GLOBALS['pageTitle'] = (string) $report['title'];
-$GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(url('/assets/css/mana-path2-report.css')) . '?v=20260924d">';
+$GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(url('/assets/css/mana-path2-report.css')) . '?v=20260924e">';
 $GLOBALS['pageBodyClass'] = trim((string) ($GLOBALS['pageBodyClass'] ?? '') . ' mp2r-page');
 $GLOBALS['pageScripts'] = ($GLOBALS['pageScripts'] ?? '') . '<script>function mp2rPrint(){window.print();}</script>';
 
@@ -112,27 +109,34 @@ ob_start();
         <h2>نمودار نتایج شما</h2>
         <button type="button" class="mp2r-dl" onclick="mp2rPrint()">دانلود نمودار</button>
       </div>
-      <div class="mp2r-legend"><b></b> شما <i></i> میانگین افراد هم‌مسیر</div>
-      <svg class="mp2r-radar" viewBox="0 0 340 340" role="img" aria-label="نمودار راداری مشکلات این ماه">
+      <div class="mp2r-legend"><b></b> نتیجه شما</div>
+      <svg class="mp2r-radar" viewBox="0 0 420 400" role="img" aria-label="نمودار راداری مشکلات این ماه">
         <?php foreach ($gridRings as $g): ?>
           <polygon fill="none" stroke="#ece6f4" stroke-width="1" points="<?= e(mana_path2_radar_points(array_fill(0, $n, 100 * $g), $cx, $cy, $rMax)) ?>"/>
         <?php endforeach; ?>
         <?php for ($i = 0; $i < $n; $i++): ?>
           <?php
             $ang = deg2rad(-90 + ($i * (360 / $n)));
-            $x2 = $cx + cos($ang) * $rMax;
-            $y2 = $cy + sin($ang) * $rMax;
-            $lx = $cx + cos($ang) * ($rMax + 36);
-            $ly = $cy + sin($ang) * ($rMax + 28);
+            $cosA = cos($ang);
+            $sinA = sin($ang);
+            $x2 = $cx + $cosA * $rMax;
+            $y2 = $cy + $sinA * $rMax;
+            $lx = $cx + $cosA * ($rMax + 58);
+            $ly = $cy + $sinA * ($rMax + 42);
+            $anchor = 'middle';
+            if ($cosA < -0.4) {
+                $anchor = 'end';
+            } elseif ($cosA > 0.4) {
+                $anchor = 'start';
+            }
             $ax = $report['axes'][$i];
           ?>
           <line x1="<?= $cx ?>" y1="<?= $cy ?>" x2="<?= round($x2, 1) ?>" y2="<?= round($y2, 1) ?>" stroke="#ece6f4"/>
-          <text x="<?= round($lx, 1) ?>" y="<?= round($ly, 1) ?>" text-anchor="middle" font-size="11" fill="#5b4a6e">
-            <?= e((string) $ax['label']) ?>
-            (<?= e(to_fa_digits((string) $ax['you'])) ?>٪)
+          <text x="<?= round($lx, 1) ?>" y="<?= round($ly, 1) ?>" text-anchor="<?= e($anchor) ?>" font-size="11" fill="#5b4a6e">
+            <tspan x="<?= round($lx, 1) ?>" dy="0"><?= e((string) $ax['label']) ?></tspan>
+            <tspan x="<?= round($lx, 1) ?>" dy="14">(<?= e(to_fa_digits((string) $ax['you'])) ?>٪)</tspan>
           </text>
         <?php endfor; ?>
-        <polygon points="<?= e($avgPts) ?>" fill="rgba(180,160,210,.18)" stroke="#b09ac8" stroke-width="1.6" stroke-dasharray="4 4"/>
         <polygon points="<?= e($youPts) ?>" fill="rgba(212,106,168,.22)" stroke="#c45b98" stroke-width="2"/>
       </svg>
       <p class="mp2r-chart-hint">محورها همان دغدغه‌هایی هستند که در شروع اتاق ذهن انتخاب کردی. کارهای روزانه و تحلیل یادداشت‌ها روی درصد اثر می‌گذارند.</p>
@@ -163,7 +167,6 @@ ob_start();
   <section class="mp2r-stats">
     <div><small>امتیاز کل</small><strong><?= e(to_fa_digits((string) $score)) ?> از ۱۰۰</strong></div>
     <div><small>سطح <?= e((string) $report['primary_label']) ?></small><strong><?= e((string) $report['band']) ?></strong></div>
-    <div><small>میانگین افراد هم‌مسیر</small><strong><?= e(to_fa_digits((string) $report['peer'])) ?> از ۱۰۰</strong></div>
     <div><small>کارهای این ماه</small><strong><?= e(to_fa_digits((string) $report['accuracy'])) ?>٪</strong><span class="mp2r-stat-sub"><?= e(to_fa_digits((string) ($report['accuracy_done'] ?? 0))) ?> از <?= e(to_fa_digits((string) ($report['accuracy_need'] ?? 0))) ?> کار روزانه</span></div>
   </section>
 
@@ -202,14 +205,6 @@ ob_start();
         </article>
       <?php endforeach; ?>
     </div>
-  </section>
-
-  <section class="mp2r-more">
-    <div>
-      <h2>مایل به بررسی تست‌های دیگر هستید؟</h2>
-      <p>تست‌های بیشتری برای شناخت بهتر خودتان انجام دهید.</p>
-    </div>
-    <a class="mp2r-btn mp2r-btn-ghost" href="<?= e($testsUrl) ?>">مشاهده همه تست‌ها</a>
   </section>
 </div>
 <?php
