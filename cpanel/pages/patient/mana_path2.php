@@ -16,7 +16,7 @@ $moods = mana_path_moods();
 $xp = (int) ($profile['energy_xp'] ?? 0);
 $level = mana_path_level($xp);
 $streak = (int) ($profile['gentle_streak'] ?? 0);
-$moodNow = ((string) ($profile['mood_date'] ?? '') === date('Y-m-d')) ? (int) ($profile['mood_today'] ?? 0) : 0;
+$moodNow = ((string) ($profile['mood_date'] ?? '') === mana_path_today_ymd()) ? (int) ($profile['mood_today'] ?? 0) : 0;
 $missions = mana_path_daily_missions($concerns);
 $doneMissions = mana_path_today_mission_ids($pdo, $patientId);
 $doneN = 0;
@@ -76,11 +76,8 @@ if ($nextAp && function_exists('format_fa_datetime')) {
 } elseif ($nextAp) {
     $nextWhen = (string) $nextAp['starts_at'];
 }
-$todayLabel = to_fa_digits(date('j'));
-if (function_exists('gregorian_to_jalali') && function_exists('jalali_month_names')) {
-    $tj = gregorian_to_jalali((int) date('Y'), (int) date('n'), (int) date('j'));
-    $todayLabel = to_fa_digits((string) $tj[2]) . ' ' . (jalali_month_names()[$tj[1]] ?? '') . ' ' . to_fa_digits((string) $tj[0]);
-}
+$todayJ = mana_path_jalali_parts();
+$todayLabel = (string) ($todayJ['label'] ?? '');
 
 $xpNeed = mana_path_xp_need();
 $xpIn = $xp % $xpNeed;
@@ -89,7 +86,7 @@ $plantSrc = mana_path_plant_src($plantDay);
 
 $GLOBALS['pageRobots'] = 'noindex,nofollow';
 $GLOBALS['pageTitle'] = 'اتاق ذهن';
-$GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(url('/assets/css/mana-path2.css')) . '?v=20260924i">';
+$GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(url('/assets/css/mana-path2.css')) . '?v=20260924j">';
 $GLOBALS['pageBodyClass'] = trim((string) ($GLOBALS['pageBodyClass'] ?? '') . ' mp2-page');
 
 ob_start();
@@ -99,9 +96,9 @@ ob_start();
     <div>
       <p class="mp2-kicker">◎ ماموریت امروز</p>
       <h1>اتاق ذهن</h1>
-      <p class="mp2-lead">کارهای امروز را همین‌جا بزن. هفته از شنبه شروع می‌شود.</p>
+      <p class="mp2-lead">کارهای امروز را همین‌جا بزن. هفته از شنبه شروع می‌شود و با تاریخ شمسی تهران به‌روز است.</p>
     </div>
-    <aside class="mp2-plant-tile" id="xp" aria-label="گیاه مسیر، روز <?= e(to_fa_digits((string) $plantDay)) ?> از ۳۰">
+    <aside class="mp2-plant-tile" id="xp" aria-label="گیاه مسیر، <?= e(to_fa_digits((string) $plantDay)) ?> روز موفق از ۳۰">
       <div class="mp2-plant-static">
         <img src="<?= e($plantSrc) ?>" alt="" width="160" height="214">
       </div>
@@ -119,10 +116,19 @@ ob_start();
         <ol class="mp2-vlist">
           <?php foreach ($stages as $st): ?>
             <?php
-              $cls = !empty($st['done']) ? 'is-done' : (!empty($st['now']) ? 'is-now' : '');
+              $cls = [];
+              if (!empty($st['done'])) {
+                  $cls[] = 'is-done';
+              }
+              if (!empty($st['now'])) {
+                  $cls[] = 'is-now';
+              }
+              if (!empty($st['today'])) {
+                  $cls[] = 'is-today';
+              }
             ?>
-            <li class="<?= e($cls) ?>">
-              <strong><?= e((string) $st['label']) ?><small><?= e((string) $st['focus']) ?></small></strong>
+            <li class="<?= e(implode(' ', $cls)) ?>">
+              <strong><?= e((string) $st['label']) ?><?php if (!empty($st['jlabel'])): ?> <em><?= e((string) $st['jlabel']) ?></em><?php endif; ?><small><?= e((string) $st['focus']) ?></small></strong>
               <span class="mp2-dot"><?= !empty($st['done']) ? '✓' : e((string) $st['icon']) ?></span>
             </li>
           <?php endforeach; ?>
@@ -138,30 +144,31 @@ ob_start();
       <div class="mp2-dots">
         <?php foreach ($stages as $i => $step): ?>
           <?php if ($i > 0): ?><b class="<?= !empty($step['done']) || !empty($step['now']) ? 'is-on' : '' ?>"></b><?php endif; ?>
-          <span class="mp2-dow" title="<?= e((string) $step['label']) ?>">
-            <i class="<?= !empty($step['done']) ? 'is-done' : (!empty($step['now']) ? 'is-now' : '') ?>"></i>
+          <span class="mp2-dow<?= !empty($step['today']) ? ' is-today' : '' ?>" title="<?= e((string) $step['label'] . ' ' . ($step['jlabel'] ?? '')) ?>">
+            <i class="<?= !empty($step['done']) ? 'is-done' : (!empty($step['now']) || !empty($step['today']) ? 'is-now' : '') ?>"></i>
             <?= e((string) $step['short']) ?>
           </span>
         <?php endforeach; ?>
       </div>
       <p class="mp2-goal">هدف فعلی من:<strong><?= e($goalLabel) ?></strong></p>
-      <h3>کارهای امروز</h3>
-      <p class="mp2-note">این ۳ تمرین از دغدغه‌های انتخابی‌ات چیده شده‌اند.</p>
+      <h3>کارهای <?= e((string) ($todayJ['wday'] ?? 'امروز')) ?></h3>
+      <p class="mp2-note">ترکیب امروز از دغدغه‌هایت — <?= e($todayLabel) ?></p>
       <ul class="mp2-today">
         <?php foreach ($missions as $i => $m): ?>
           <?php
             $ok = in_array($m['id'], $doneMissions, true);
             $needsNote = !empty($m['needs_note']);
+            $tag = mana_path_mission_tag($m, $concerns);
           ?>
           <li class="<?= $ok ? 'is-done' : '' ?>">
             <?php if ($ok): ?>
               <span class="mp2-orb" aria-hidden="true">✓</span>
-              <p class="mp2-today-cap">کار امروز من: <?= e((string) $m['title']) ?></p>
+              <p class="mp2-today-cap">کار امروز من: <?= e((string) $m['title']) ?><?php if ($tag !== ''): ?><small class="mp2-tag"><?= e($tag) ?></small><?php endif; ?></p>
             <?php else: ?>
               <details>
                 <summary>
                   <span class="mp2-orb"><?= e(to_fa_digits((string) ($i + 1))) ?></span>
-                  <span class="mp2-today-cap">کار امروز من: <?= e((string) $m['title']) ?></span>
+                  <span class="mp2-today-cap">کار امروز من: <?= e((string) $m['title']) ?><?php if ($tag !== ''): ?><small class="mp2-tag"><?= e($tag) ?></small><?php endif; ?></span>
                 </summary>
                 <p class="mp2-today-body"><?= e((string) ($m['body'] ?? '')) ?></p>
                 <form method="post" action="<?= e($post) ?>">

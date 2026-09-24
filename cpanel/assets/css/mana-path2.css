@@ -138,7 +138,15 @@ body.mp2-page {
   flex: 0 0 auto;
 }
 .mp2-vlist .is-done .mp2-dot { background: #1f8f68; color: #fff; border-color: #1f8f68; }
-.mp2-vlist .is-now .mp2-dot { outline: 2px solid var(--mp2-mint); }
+.mp2-vlist .is-now .mp2-dot,
+.mp2-vlist .is-today .mp2-dot { outline: 2px solid var(--mp2-mint); }
+.mp2-vlist .is-today strong { color: #111; }
+.mp2-vlist strong em {
+  font-style: normal;
+  font-weight: 600;
+  color: var(--mp2-mint);
+  font-size: .78rem;
+}
 .mp2-start {
   margin: 0 0 .7rem;
   text-align: left;
@@ -178,6 +186,7 @@ body.mp2-page {
 }
 .mp2-dow i.is-done { background: var(--mp2-mint); }
 .mp2-dow i.is-now { background: #111; box-shadow: 0 0 0 3px rgba(31, 143, 104, .28); }
+.mp2-dow.is-today { color: #111; font-weight: 700; }
 .mp2-dots b {
   flex: 1;
   height: 2px;
@@ -229,6 +238,13 @@ body.mp2-page {
   font-size: .8rem;
   line-height: 1.65;
   white-space: normal;
+}
+.mp2-tag {
+  display: block;
+  margin-top: .1rem;
+  color: var(--mp2-mint);
+  font-size: .72rem;
+  font-weight: 600;
 }
 .mp2-today summary {
   list-style: none;

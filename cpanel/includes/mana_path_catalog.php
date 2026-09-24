@@ -663,7 +663,8 @@ function mana_path_daily_missions(?array $concerns = null): array
         }
     }
     $n = count($pool);
-    $seed = ((int) date('z') + (count($wanted) * 5));
+    $j = function_exists('mana_path_jalali_parts') ? mana_path_jalali_parts() : ['jy' => (int) date('Y'), 'jm' => (int) date('n'), 'jd' => (int) date('j')];
+    $seed = ((int) ($j['jy'] ?? 0) * 400) + ((int) ($j['jm'] ?? 0) * 32) + (int) ($j['jd'] ?? 0) + (count($wanted) * 5);
     $picked = [];
     $seen = [];
     if ($wanted !== []) {
@@ -689,6 +690,24 @@ function mana_path_daily_missions(?array $concerns = null): array
         $picked[] = $item;
     }
     return $picked;
+}
+
+function mana_path_mission_tag(array $mission, array $concerns): string
+{
+    $all = mana_path_concerns();
+    foreach ($mission['concerns'] ?? [] as $k) {
+        $k = (string) $k;
+        if (in_array($k, $concerns, true) && isset($all[$k])) {
+            return (string) $all[$k]['emoji'] . ' ' . (string) $all[$k]['label'];
+        }
+    }
+    foreach ($mission['concerns'] ?? [] as $k) {
+        $k = (string) $k;
+        if (isset($all[$k])) {
+            return (string) $all[$k]['emoji'] . ' ' . (string) $all[$k]['label'];
+        }
+    }
+    return '';
 }
 
 function mana_path_companion_lines(string $state, int $restDays): array

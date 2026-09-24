@@ -177,7 +177,7 @@ function mana_path_load_profile(PDO $pdo, string $userId): array
 
 function mana_path_refresh_rest(PDO $pdo, array $row): void
 {
-    $today = date('Y-m-d');
+    $today = mana_path_today_ymd();
     $last = (string) ($row['last_activity_date'] ?? '');
     if ($last === '' || $last === $today) {
         return;
@@ -341,7 +341,7 @@ function mana_path_apply_world(array $world, array $delta): array
 
 function mana_path_mark_activity(PDO $pdo, array &$profile, int $xp, array $worldDelta = []): void
 {
-    $today = date('Y-m-d');
+    $today = mana_path_today_ymd();
     $last = (string) ($profile['last_activity_date'] ?? '');
     $streak = (int) ($profile['gentle_streak'] ?? 0);
     if ($last !== $today) {
@@ -381,13 +381,24 @@ function mana_path_log(PDO $pdo, string $userId, string $type, int $xp, ?string 
 
 function mana_path_today_mission_ids(PDO $pdo, string $userId): array
 {
+    $today = mana_path_today_ymd();
     try {
         $stmt = $pdo->prepare("
-          SELECT step_id FROM mana_path_events
-          WHERE user_id = ? AND event_type = 'mission' AND DATE(created_at) = CURDATE()
+          SELECT step_id, created_at FROM mana_path_events
+          WHERE user_id = ? AND event_type = 'mission'
         ");
         $stmt->execute([$userId]);
-        return array_values(array_filter(array_map(static fn ($r) => (string) ($r['step_id'] ?? ''), $stmt->fetchAll())));
+        $ids = [];
+        foreach ($stmt->fetchAll() as $r) {
+            if (mana_path_event_ymd((string) ($r['created_at'] ?? '')) !== $today) {
+                continue;
+            }
+            $sid = (string) ($r['step_id'] ?? '');
+            if ($sid !== '' && !in_array($sid, $ids, true)) {
+                $ids[] = $sid;
+            }
+        }
+        return $ids;
     } catch (Throwable $e) {
         return [];
     }
@@ -665,6 +676,71 @@ function mana_path_complete_mission(PDO $pdo, array &$profile, string $missionId
     return ['ok' => true, 'xp' => $xp, 'advanced' => $advance];
 }
 
+function mana_path_tz(): DateTimeZone
+{
+    try {
+        return new DateTimeZone('Asia/Tehran');
+    } catch (Throwable $e) {
+        return new DateTimeZone('UTC');
+    }
+}
+
+function mana_path_now(): DateTimeImmutable
+{
+    return new DateTimeImmutable('now', mana_path_tz());
+}
+
+function mana_path_today_ymd(): string
+{
+    return mana_path_now()->format('Y-m-d');
+}
+
+function mana_path_jalali_parts(?string $ymd = null): array
+{
+    $dt = $ymd
+        ? DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $ymd . ' 12:00:00', mana_path_tz())
+        : mana_path_now();
+    if (!$dt) {
+        $dt = mana_path_now();
+    }
+    $gy = (int) $dt->format('Y');
+    $gm = (int) $dt->format('n');
+    $gd = (int) $dt->format('j');
+    $jy = $gy;
+    $jm = $gm;
+    $jd = $gd;
+    if (function_exists('gregorian_to_jalali')) {
+        [$jy, $jm, $jd] = gregorian_to_jalali($gy, $gm, $gd);
+    }
+    $months = function_exists('jalali_month_names') ? jalali_month_names() : [];
+    $widx = ((int) $dt->format('w') + 1) % 7;
+    $wdays = ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه'];
+    return [
+        'ymd' => $dt->format('Y-m-d'),
+        'jy' => (int) $jy,
+        'jm' => (int) $jm,
+        'jd' => (int) $jd,
+        'widx' => $widx,
+        'wday' => $wdays[$widx] ?? '',
+        'month' => (string) ($months[(int) $jm] ?? ''),
+        'label' => ($wdays[$widx] ?? '') . ' ' . to_fa_digits((string) $jd) . ' ' . (string) ($months[(int) $jm] ?? '') . ' ' . to_fa_digits((string) $jy),
+        'short' => to_fa_digits((string) $jd) . ' ' . (string) ($months[(int) $jm] ?? ''),
+    ];
+}
+
+function mana_path_event_ymd(string $createdAt): string
+{
+    $raw = trim($createdAt);
+    if ($raw === '') {
+        return mana_path_today_ymd();
+    }
+    try {
+        $dt = new DateTimeImmutable($raw, mana_path_tz());
+        return $dt->setTimezone(mana_path_tz())->format('Y-m-d');
+    } catch (Throwable $e) {
+        return substr($raw, 0, 10);
+    }
+}
 function mana_path2_weekdays(?array $concerns = null): array
 {
     $days = [
@@ -707,15 +783,18 @@ function mana_path2_weekdays(?array $concerns = null): array
 
 function mana_path2_weekday_index(?string $ymd = null): int
 {
-    $w = (int) date('w', $ymd ? strtotime($ymd . ' 12:00:00') : time());
-    return ($w + 1) % 7;
+    return (int) (mana_path_jalali_parts($ymd)['widx'] ?? 0);
 }
 
 function mana_path2_week_start(?string $ymd = null): string
 {
-    $ts = $ymd ? strtotime($ymd . ' 12:00:00') : time();
-    $idx = mana_path2_weekday_index($ymd);
-    return date('Y-m-d', $ts - ($idx * 86400));
+    $parts = mana_path_jalali_parts($ymd);
+    $idx = (int) ($parts['widx'] ?? 0);
+    $dt = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', ($parts['ymd'] ?? mana_path_today_ymd()) . ' 12:00:00', mana_path_tz());
+    if (!$dt) {
+        $dt = mana_path_now();
+    }
+    return $dt->modify('-' . $idx . ' days')->format('Y-m-d');
 }
 
 function mana_path2_activity_dates(PDO $pdo, string $userId, string $from, string $to): array
@@ -723,17 +802,19 @@ function mana_path2_activity_dates(PDO $pdo, string $userId, string $from, strin
     $out = [];
     try {
         $stmt = $pdo->prepare("
-          SELECT DATE(created_at) AS d, event_type, step_id
+          SELECT created_at, event_type, step_id
           FROM mana_path_events
           WHERE user_id = ?
-            AND DATE(created_at) >= ?
-            AND DATE(created_at) <= ?
+            AND created_at >= ?
+            AND created_at < ?
             AND event_type IN ('mission', 'mood', 'path2_day', 'step')
           ORDER BY created_at ASC
         ");
-        $stmt->execute([$userId, $from, $to]);
+        $toNext = (DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $to . ' 00:00:00', mana_path_tz()) ?: mana_path_now())
+            ->modify('+1 day')->format('Y-m-d H:i:s');
+        $stmt->execute([$userId, $from . ' 00:00:00', $toNext]);
         foreach ($stmt->fetchAll() as $row) {
-            $d = (string) ($row['d'] ?? '');
+            $d = mana_path_event_ymd((string) ($row['created_at'] ?? ''));
             if ($d === '') {
                 continue;
             }
@@ -770,25 +851,23 @@ function mana_path2_week_status(PDO $pdo, string $userId, int $streak = 0, ?arra
     $days = mana_path2_weekdays($concerns);
     $start = mana_path2_week_start();
     $todayIdx = mana_path2_weekday_index();
-    $end = date('Y-m-d', strtotime($start . ' +6 days'));
+    $today = mana_path_today_ymd();
+    $startDt = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $start . ' 12:00:00', mana_path_tz()) ?: mana_path_now();
+    $end = $startDt->modify('+6 days')->format('Y-m-d');
     $byDate = mana_path2_activity_dates($pdo, $userId, $start, $end);
-    $today = date('Y-m-d');
     $todayMissions = mana_path_today_mission_ids($pdo, $userId);
     $todayAll = count($todayMissions) >= count(mana_path_daily_missions($concerns));
-    $streakDates = [];
-    $maxLook = max(0, min(14, $streak));
-    for ($i = 1; $i <= $maxLook; $i++) {
-        $streakDates[] = date('Y-m-d', strtotime('-' . $i . ' days'));
-    }
     $out = [];
     foreach ($days as $i => $day) {
-        $ymd = date('Y-m-d', strtotime($start . ' +' . $i . ' days'));
+        $ymd = $startDt->modify('+' . $i . ' days')->format('Y-m-d');
+        $j = mana_path_jalali_parts($ymd);
         $row = $byDate[$ymd] ?? [];
         if ($ymd === $today) {
             $done = $todayAll;
         } else {
-            $done = mana_path2_day_complete($row, false) || in_array($ymd, $streakDates, true);
+            $done = $i < $todayIdx && mana_path2_day_complete($row, false);
         }
+        $isToday = $i === $todayIdx;
         $out[] = [
             'id' => $day['id'],
             'label' => $day['label'],
@@ -796,8 +875,10 @@ function mana_path2_week_status(PDO $pdo, string $userId, int $streak = 0, ?arra
             'focus' => $day['focus'],
             'icon' => $day['icon'],
             'ymd' => $ymd,
+            'jlabel' => (string) ($j['short'] ?? ''),
             'done' => $done,
-            'now' => $i === $todayIdx && !$done,
+            'today' => $isToday,
+            'now' => $isToday && !$done,
             'future' => $i > $todayIdx,
         ];
     }
@@ -814,12 +895,10 @@ function mana_path2_month_history(PDO $pdo, string $userId): array
         'mood' => 'ثبت حال',
     ];
     $titles = array_merge($pool, $titles);
-    $jy = (int) date('Y');
-    $jm = (int) date('n');
-    $jd = (int) date('j');
-    if (function_exists('gregorian_to_jalali')) {
-        [$jy, $jm, $jd] = gregorian_to_jalali($jy, $jm, $jd);
-    }
+    $nowJ = mana_path_jalali_parts();
+    $jy = (int) $nowJ['jy'];
+    $jm = (int) $nowJ['jm'];
+    $jd = (int) $nowJ['jd'];
     $monthLen = function_exists('jalali_month_length') ? jalali_month_length($jy, $jm) : 31;
     $monthName = function_exists('jalali_month_names') ? (jalali_month_names()[$jm] ?? '') : '';
     if (function_exists('jalali_to_gregorian')) {
@@ -1308,23 +1387,49 @@ function mana_path2_try_advance(PDO $pdo, array &$profile): bool
 function mana_path_plant_day(PDO $pdo, array &$profile): int
 {
     $stored = max(1, min(30, (int) ($profile['world']['plant_day'] ?? 1)));
-    $n = 0;
-    try {
-        $stmt = $pdo->prepare("
-          SELECT COUNT(DISTINCT DATE(created_at)) AS c
-          FROM mana_path_events
-          WHERE user_id = ? AND event_type IN ('mission', 'path2_day')
-        ");
-        $stmt->execute([(string) $profile['user_id']]);
-        $n = (int) (($stmt->fetch()['c'] ?? 0));
-    } catch (Throwable $ignored) {
-    }
-    $streak = (int) ($profile['gentle_streak'] ?? 0);
-    $day = min(30, max($stored, $n, $streak, 1));
+    $n = mana_path_success_days($pdo, (string) $profile['user_id']);
+    $day = min(30, max(1, $stored, $n));
     if ($day > $stored) {
         mana_path_plant_save($pdo, $profile, $day);
     }
     return $day;
+}
+
+function mana_path_success_days(PDO $pdo, string $userId): int
+{
+    $need = max(1, count(mana_path_daily_missions()));
+    $byDay = [];
+    try {
+        $stmt = $pdo->prepare("
+          SELECT event_type, step_id, created_at
+          FROM mana_path_events
+          WHERE user_id = ? AND event_type IN ('mission', 'path2_day')
+        ");
+        $stmt->execute([$userId]);
+        foreach ($stmt->fetchAll() as $row) {
+            $d = mana_path_event_ymd((string) ($row['created_at'] ?? ''));
+            if (!isset($byDay[$d])) {
+                $byDay[$d] = ['mission' => [], 'path2' => false];
+            }
+            if ((string) ($row['event_type'] ?? '') === 'path2_day') {
+                $byDay[$d]['path2'] = true;
+                continue;
+            }
+            $sid = (string) ($row['step_id'] ?? '');
+            if ($sid !== '' && !in_array($sid, $byDay[$d]['mission'], true)) {
+                $byDay[$d]['mission'][] = $sid;
+            }
+        }
+    } catch (Throwable $e) {
+        return 0;
+    }
+    $n = 0;
+    foreach ($byDay as $row) {
+        if (!empty($row['path2']) || count($row['mission']) >= $need) {
+            $n++;
+        }
+    }
+    return $n;
 }
 
 function mana_path_plant_save(PDO $pdo, array &$profile, int $day): void
@@ -1366,17 +1471,22 @@ function mana_path_plant_src(int $day): string
 
 function mana_path2_advanced_today(PDO $pdo, string $userId): bool
 {
+    $today = mana_path_today_ymd();
     try {
         $stmt = $pdo->prepare("
-          SELECT id FROM mana_path_events
-          WHERE user_id = ? AND event_type = 'path2_day' AND DATE(created_at) = CURDATE()
-          LIMIT 1
+          SELECT created_at FROM mana_path_events
+          WHERE user_id = ? AND event_type = 'path2_day'
         ");
         $stmt->execute([$userId]);
-        return (bool) $stmt->fetch();
+        foreach ($stmt->fetchAll() as $row) {
+            if (mana_path_event_ymd((string) ($row['created_at'] ?? '')) === $today) {
+                return true;
+            }
+        }
     } catch (Throwable $e) {
         return false;
     }
+    return false;
 }
 
 function mana_path_set_mood(PDO $pdo, array &$profile, int $mood): void
@@ -1384,7 +1494,7 @@ function mana_path_set_mood(PDO $pdo, array &$profile, int $mood): void
     if ($mood < 1 || $mood > 5) {
         throw new RuntimeException('حال معتبر نیست.');
     }
-    $today = date('Y-m-d');
+    $today = mana_path_today_ymd();
     $already = (string) ($profile['mood_date'] ?? '') === $today;
     $pdo->prepare('UPDATE mana_path_profiles SET mood_today = ?, mood_date = ? WHERE user_id = ?')
         ->execute([$mood, $today, $profile['user_id']]);
