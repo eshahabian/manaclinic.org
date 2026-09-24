@@ -80,8 +80,14 @@ ob_start();
         <div class="section-head">
           <div>
             <h2>متخصصان ما</h2>
-            <p class="muted">متخصصان با تجربه برای همراهی در مسیر درمان</p>
+            <p class="muted">از مسئله‌ات شروع کن یا مستقیم درمانگر را ببین</p>
           </div>
+        </div>
+        <div class="dir-filter-chips issue-home-chips">
+          <?php foreach (array_slice(clinic_issue_topics(), 0, 8, true) as $issueKey => $issueRow): ?>
+            <a class="dir-chip" href="<?= e(url('/issues/' . $issueKey)) ?>"><?= e($issueRow['label']) ?></a>
+          <?php endforeach; ?>
+          <a class="dir-chip" href="<?= e(url('/doctors')) ?>">همه متخصصان</a>
         </div>
         <div class="doctors-showcase">
           <?php foreach ($doctors as $doc): ?>

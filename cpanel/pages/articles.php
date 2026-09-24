@@ -9,15 +9,31 @@ $articles = $pdo->query("
   ORDER BY a.published_at DESC
 ")->fetchAll();
 
-$pageTitle = 'مقالات';
-$pageDescription = 'مقالات تخصصی روانشناسی و روان‌درمانی مانا کلینیک؛ اضطراب، خواب، مهربانی با خود، تنظیم هیجان و سلامت روان.';
-$pageCanonical = url('/articles');
-$pageKeywords = 'مقالات روانشناسی, سلامت روان, اضطراب, تنظیم هیجان, مانا کلینیک';
+$topicKey = clinic_normalize_filter((string) ($_GET['topic'] ?? ''), doctor_focus_options());
+$topic = $topicKey !== '' ? clinic_issue_topic($topicKey) : null;
+if ($topicKey !== '') {
+    $articles = array_values(array_filter($articles, static function ($row) use ($topicKey) {
+        return in_array($topicKey, clinic_article_topics($row), true);
+    }));
+}
+
+$pageTitle = $topic ? ('مقالات ' . $topic['label'] . ' | مانا کلینیک') : 'مقالات';
+$pageDescription = $topic
+    ? ('مقالات «' . $topic['label'] . '» از تیم مانا کلینیک سعادت‌آباد؛ همراه با معرفی درمانگر مرتبط و امکان رزرو نوبت.')
+    : 'مقالات تخصصی روانشناسی و روان‌درمانی مانا کلینیک؛ اضطراب، خواب، مهربانی با خود، تنظیم هیجان و سلامت روان.';
+$pageCanonical = $topic ? url('/issues/' . $topicKey) : url('/articles');
+$pageKeywords = $topic ? $topic['keywords'] : 'مقالات روانشناسی, سلامت روان, اضطراب, تنظیم هیجان, مانا کلینیک';
 ob_start();
 ?>
 <div class="container-page section">
-  <h1>مقالات روانشناسی</h1>
-  <p class="muted">محتوای تخصصی از تیم مانا کلینیک</p>
+  <h1><?= $topic ? e('مقالات ' . $topic['label']) : 'مقالات روانشناسی' ?></h1>
+  <p class="muted">محتوای تخصصی از تیم مانا کلینیک؛ هر مقاله به درمانگران همان موضوع وصل است.</p>
+  <div class="dir-filter-chips" style="margin-top:1rem">
+    <a class="dir-chip<?= $topicKey === '' ? ' is-on' : '' ?>" href="<?= e(url('/articles')) ?>">همه</a>
+    <?php foreach (clinic_issue_topics() as $key => $row): ?>
+      <a class="dir-chip<?= $topicKey === $key ? ' is-on' : '' ?>" href="<?= e(url('/articles?topic=' . rawurlencode($key))) ?>"><?= e($row['label']) ?></a>
+    <?php endforeach; ?>
+  </div>
   <div class="grid-2" style="margin-top:2rem">
     <?php foreach ($articles as $article): ?>
       <a class="panel card-link" href="<?= e(url('/articles/' . $article['slug'])) ?>">

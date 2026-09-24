@@ -62,6 +62,22 @@ if (!empty($article['cover_url'])) {
     $pageJsonLd['@graph'][0]['image'] = seo_absolute_url(url((string) $article['cover_url']));
 }
 
+$articleTopics = clinic_article_topics($article);
+$matchDoctors = [];
+foreach ($articleTopics as $tk) {
+    foreach (clinic_doctors_by_focus($pdo, $tk) as $doc) {
+        $did = (string) ($doc['id'] ?? '');
+        if ($did !== '' && !isset($matchDoctors[$did])) {
+            $matchDoctors[$did] = $doc;
+        }
+    }
+}
+$matchDoctors = array_slice(array_values($matchDoctors), 0, 6);
+$primaryTopic = $articleTopics[0] ?? '';
+$topicMeta = $primaryTopic !== '' ? clinic_issue_topic($primaryTopic) : null;
+$matchHref = $primaryTopic !== '' ? clinic_doctors_href(['focus' => $primaryTopic]) : url('/doctors');
+$matchHeading = $topicMeta ? ('متخصصان «' . $topicMeta['label'] . '»') : 'متخصصان مانا کلینیک';
+
 ob_start();
 ?>
 <article class="container-page section" itemscope itemtype="https://schema.org/Article">
@@ -84,6 +100,21 @@ ob_start();
   <div class="panel article-body" style="margin-top:2rem;max-width:48rem;line-height:1.9" itemprop="articleBody">
     <?= rich_html_for_display($article['content']) ?>
   </div>
+  <?php if ($articleTopics !== []): ?>
+    <p class="article-topics">
+      <?php foreach ($articleTopics as $tk): ?>
+        <?php $t = clinic_issue_topic($tk); ?>
+        <?php if ($t): ?>
+          <a class="dir-chip" href="<?= e(url('/issues/' . $tk)) ?>"><?= e($t['label']) ?></a>
+        <?php endif; ?>
+      <?php endforeach; ?>
+    </p>
+  <?php endif; ?>
+  <?= clinic_related_block_html($matchDoctors, $matchHeading, $matchHref) ?>
+  <p class="service-detail-cta" style="margin-top:1.25rem">
+    <a class="btn btn-primary" href="<?= e($matchHref) ?>">رزرو نوبت مرتبط</a>
+    <a class="btn btn-outline" href="<?= e(url('/contact')) ?>">تماس با کلینیک سعادت‌آباد</a>
+  </p>
 </article>
 <?php
 $content = ob_get_clean();

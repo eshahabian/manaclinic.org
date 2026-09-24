@@ -5116,6 +5116,82 @@ body.workshop-overview-locked { overflow: hidden; }
 .doctor-public-bio p { margin: .4rem 0; line-height: 1.9; color: #3d4f49; }
 .doctor-public-courses { margin: 0; padding-right: 1.1rem; line-height: 1.85; }
 .doctor-public-license { margin: 0; font-size: 1.05rem; letter-spacing: .02em; }
+.doctor-facts {
+  list-style: none;
+  margin: 1rem 0 0;
+  padding: 0;
+  display: grid;
+  gap: .45rem;
+}
+.doctor-facts li { font-size: .92rem; line-height: 1.7; color: #3d4f49; }
+.doctor-facts strong { display: inline; margin-left: .35rem; color: #111; }
+.doctor-first-session { margin: .85rem 0 0; line-height: 1.85; color: #3d4f49; font-size: .92rem; }
+.doctor-hero-book { margin: 1rem 0 0; }
+.doctor-book-price { margin: .35rem 0 0; font-weight: 700; font-size: 1.05rem; }
+.doctor-card-focus,
+.doctor-card-meta {
+  margin: .4rem 0 0;
+  font-size: .8rem;
+  line-height: 1.5;
+  color: var(--muted);
+}
+.doctor-card-price { margin: .35rem 0 0; font-size: .88rem; font-weight: 700; color: #1a5c4a; }
+.doctor-card-cta {
+  display: inline-block;
+  margin-top: .7rem;
+  padding: .35rem .75rem;
+  border-radius: 999px;
+  background: #1f8f68;
+  color: #fff;
+  font-size: .8rem;
+  font-weight: 600;
+}
+.dir-search { margin-top: 1.25rem; max-width: 36rem; }
+.dir-search-row { display: flex; gap: .5rem; }
+.dir-search-row .input { flex: 1; }
+.dir-filters { margin-top: 1.15rem; display: grid; gap: 1rem; }
+.dir-filter-legend { display: block; font-size: .82rem; font-weight: 700; margin-bottom: .4rem; }
+.dir-filter-chips { display: flex; flex-wrap: wrap; gap: .4rem; }
+.dir-chip {
+  display: inline-flex;
+  align-items: center;
+  padding: .28rem .7rem;
+  border-radius: 999px;
+  border: 1px solid var(--line, #d5e0db);
+  background: #fff;
+  color: inherit;
+  font-size: .82rem;
+  line-height: 1.4;
+  text-decoration: none;
+}
+.dir-chip.is-on {
+  border-color: #1f8f68;
+  background: #eef6f3;
+  color: #1a5c4a;
+  font-weight: 600;
+}
+.dir-count { margin: 1rem 0 0; font-weight: 600; }
+.dir-clear { margin: .25rem 0 0; font-size: .85rem; }
+.clinic-match { margin-top: 2rem; }
+.clinic-match h2 { margin: 0 0 .4rem; font-size: 1.15rem; }
+.article-topics { margin: 1.25rem 0 0; display: flex; flex-wrap: wrap; gap: .4rem; }
+.issue-home-chips { margin: 0 0 1.25rem; }
+.doctor-book-bar {
+  display: none;
+  position: sticky;
+  bottom: 0;
+  z-index: 20;
+  margin: 1.25rem -1rem -1rem;
+  padding: .75rem 1rem calc(.75rem + env(safe-area-inset-bottom, 0));
+  background: rgba(255,255,255,.94);
+  border-top: 1px solid var(--line, #e5e7eb);
+  justify-content: space-between;
+  align-items: center;
+  gap: .75rem;
+}
+@media (max-width: 720px) {
+  .doctor-book-bar { display: flex; }
+}
 
 .doc-profile-page { max-width: none; width: 100%; }
 .admin-secretary-msgs,

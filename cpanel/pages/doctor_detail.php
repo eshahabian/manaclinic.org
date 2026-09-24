@@ -117,10 +117,35 @@ ob_start();
         </div>
       </div>
 
+      <ul class="doctor-facts">
+        <?php if ((int) ($doctor['session_price'] ?? 0) > 0): ?>
+          <li><strong>هزینه جلسه</strong> <?= e(format_price((int) $doctor['session_price'])) ?></li>
+        <?php endif; ?>
+        <li><strong>نوع جلسه</strong> حضوری در سعادت‌آباد و آنلاین</li>
+        <li><strong>اولین نوبت آزاد</strong> <?= $dates !== [] ? e(clinic_ymd_fa((string) $dates[0])) : 'هنوز اعلام نشده' ?></li>
+        <li><strong>مسیر رزرو</strong> تاریخ و ساعت را همین صفحه انتخاب کن</li>
+      </ul>
+      <p class="doctor-first-session">جلسه اول برای شناخت مسئله، سابقه و انتظارت است؛ لازم نیست از قبل «آماده» باشی. بعد از رزرو، پرداخت از نوبت‌های من انجام می‌شود.</p>
+      <p class="doctor-hero-book"><a class="btn btn-primary" href="#booking-box">رزرو نوبت این متخصص</a></p>
+
       <?php if ($domains !== []): ?>
         <div class="doctor-public-block">
           <h2>حوزه درمان</h2>
-          <?= doctor_chips_html($domains, doctor_domain_options()) ?>
+          <div class="doctor-chip-row">
+            <?php
+              $domainUrls = [
+                  'individual' => '/services/individual',
+                  'couples' => '/services/couples',
+                  'child' => '/services/child',
+                  'premarital' => '/services/premarital',
+                  'family' => '/services/family',
+              ];
+            ?>
+            <?php foreach ($domains as $dk): ?>
+              <?php $href = isset($domainUrls[$dk]) ? url($domainUrls[$dk]) : clinic_doctors_href(['domain' => $dk]); ?>
+              <a class="doctor-chip" href="<?= e($href) ?>"><?= e(doctor_domain_options()[$dk] ?? $dk) ?></a>
+            <?php endforeach; ?>
+          </div>
         </div>
       <?php endif; ?>
 
@@ -134,7 +159,11 @@ ob_start();
       <?php if ($focus !== []): ?>
         <div class="doctor-public-block">
           <h2>زمینه تخصصی</h2>
-          <?= doctor_chips_html($focus, doctor_focus_options()) ?>
+          <div class="doctor-chip-row">
+            <?php foreach ($focus as $fk): ?>
+              <a class="doctor-chip" href="<?= e(url('/issues/' . $fk)) ?>"><?= e(doctor_focus_options()[$fk] ?? $fk) ?></a>
+            <?php endforeach; ?>
+          </div>
         </div>
       <?php endif; ?>
 
@@ -182,8 +211,11 @@ ob_start();
     </div>
 
     <div class="panel stack" id="booking-box">
-      <h2 style="margin:0">رزرو نوبت آنلاین</h2>
-      <p class="muted" style="margin:.35rem 0 0;font-size:.9rem;line-height:1.7">پس از رزرو، پرداخت از بخش «نوبت‌های من» انجام می‌شود.</p>
+      <h2 style="margin:0">رزرو نوبت</h2>
+      <p class="muted" style="margin:.35rem 0 0;font-size:.9rem;line-height:1.7">حضوری در سعادت‌آباد یا آنلاین. پس از رزرو، پرداخت از «نوبت‌های من» است.</p>
+      <?php if ((int) ($doctor['session_price'] ?? 0) > 0): ?>
+        <p class="doctor-book-price"><?= e(format_price((int) $doctor['session_price'])) ?> <span class="muted">هر جلسه</span></p>
+      <?php endif; ?>
       <div>
         <label class="label" for="book-date-view">انتخاب تاریخ</label>
         <input
@@ -227,6 +259,10 @@ ob_start();
       <?= booking_terms_acceptance_html('terms-accept') ?>
       <button type="button" class="btn btn-primary" id="book-submit" disabled>رزرو نوبت</button>
     </div>
+  </div>
+  <div class="doctor-book-bar" aria-label="رزرو سریع">
+    <span><?= (int) ($doctor['session_price'] ?? 0) > 0 ? e(format_price((int) $doctor['session_price'])) : 'نوبت این متخصص' ?></span>
+    <a class="btn btn-primary" href="#booking-box">رزرو نوبت</a>
   </div>
 </div>
 <?= booking_terms_modal_html() ?>

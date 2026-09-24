@@ -65,6 +65,7 @@ require_once __DIR__ . '/includes/staff_board.php';
 require_once __DIR__ . '/includes/user_cleanup.php';
 require_once __DIR__ . '/includes/seo.php';
 require_once __DIR__ . '/includes/doctor_profile_fields.php';
+require_once __DIR__ . '/includes/clinic_directory.php';
 require_once __DIR__ . '/includes/service_page_helpers.php';
 require_once __DIR__ . '/includes/video_call.php';
 require_once __DIR__ . '/includes/patient_journal.php';
@@ -333,6 +334,11 @@ if (preg_match('#^/reset-password/([a-fA-F0-9]{32,64})$#', $path, $m) && $method
         $_GET['c'] = $_GET['token'];
     }
     require __DIR__ . '/pages/reset_password.php';
+    exit;
+}
+if (preg_match('#^/issues/([a-z]+)$#', $path, $m) && $method === 'GET') {
+    $_GET['topic'] = $m[1];
+    require __DIR__ . '/pages/issue.php';
     exit;
 }
 if (preg_match('#^/doctors/([a-zA-Z0-9_-]+)$#', $path, $m) && $method === 'GET') {

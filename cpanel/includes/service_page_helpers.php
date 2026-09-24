@@ -8,6 +8,9 @@ declare(strict_types=1);
  */
 function service_doctors_by_domain(PDO $pdo, string $domainKey): array
 {
+    if (function_exists('clinic_filter_doctors')) {
+        return clinic_filter_doctors($pdo, ['domain' => $domainKey]);
+    }
     ensure_doctor_profile_schema($pdo);
 
     $allDoctors = $pdo->query("
@@ -34,6 +37,17 @@ function service_doctors_by_domain(PDO $pdo, string $domainKey): array
 
 function service_doctors_search_href(string $label): string
 {
+    $map = [
+        'مشاوره فردی' => ['domain' => 'individual'],
+        'زوج درمانی' => ['domain' => 'couples'],
+        'کودک و نوجوان' => ['domain' => 'child'],
+        'پیش از ازدواج' => ['domain' => 'premarital'],
+        'خانواده درمانی' => ['domain' => 'family'],
+    ];
+    if (function_exists('clinic_doctors_href') && isset($map[$label])) {
+        return clinic_doctors_href($map[$label]);
+    }
+
     return url('/doctors?q=' . rawurlencode($label));
 }
 

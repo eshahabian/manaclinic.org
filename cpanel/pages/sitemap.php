@@ -26,6 +26,16 @@ $urls = [
     ['loc' => seo_absolute_url('/contact'), 'priority' => '0.8', 'changefreq' => 'monthly'],
 ];
 
+if (function_exists('clinic_issue_topics')) {
+    foreach (array_keys(clinic_issue_topics()) as $issueKey) {
+        $urls[] = [
+            'loc' => seo_absolute_url('/issues/' . $issueKey),
+            'priority' => '0.8',
+            'changefreq' => 'weekly',
+        ];
+    }
+}
+
 try {
     $articles = $pdo->query("
       SELECT slug, DATE_FORMAT(COALESCE(published_at, created_at), '%Y-%m-%d') AS lastmod
