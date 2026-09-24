@@ -734,12 +734,34 @@ function mana_path_event_ymd(string $createdAt): string
     if ($raw === '') {
         return mana_path_today_ymd();
     }
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw)) {
+        return $raw;
+    }
     try {
-        $dt = new DateTimeImmutable($raw, mana_path_tz());
+        $hasOffset = (bool) preg_match('/(?:Z|[+-]\d{2}:?\d{2})$/i', $raw);
+        // DATETIME بدون افست را UTC می‌گیریم (CURRENT_TIMESTAMP روی cPanel معمولاً همین است)
+        // بعد به تقویم تهران می‌بریم تا DATE()/CURDATE نیمه‌شب دوشنبه را قورت ندهد.
+        $dt = $hasOffset
+            ? new DateTimeImmutable($raw)
+            : new DateTimeImmutable($raw, new DateTimeZone('UTC'));
         return $dt->setTimezone(mana_path_tz())->format('Y-m-d');
     } catch (Throwable $e) {
         return substr($raw, 0, 10);
     }
+}
+
+function mana_path2_required_missions_done(array $doneIds, ?array $concerns = null): bool
+{
+    $need = mana_path_daily_missions($concerns);
+    if ($need === []) {
+        return false;
+    }
+    foreach ($need as $m) {
+        if (!in_array((string) ($m['id'] ?? ''), $doneIds, true)) {
+            return false;
+        }
+    }
+    return true;
 }
 function mana_path2_weekdays(?array $concerns = null): array
 {
@@ -801,6 +823,11 @@ function mana_path2_activity_dates(PDO $pdo, string $userId, string $from, strin
 {
     $out = [];
     try {
+        $fromDt = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $from . ' 00:00:00', mana_path_tz()) ?: mana_path_now();
+        $toDt = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $to . ' 00:00:00', mana_path_tz()) ?: mana_path_now();
+        // حاشیهٔ ۲ روز: DATETIME یوتی‌سی حوالی نیمه‌شب تهران از پنجرهٔ DATE() جا نماند.
+        $sqlFrom = $fromDt->modify('-2 days')->format('Y-m-d H:i:s');
+        $sqlTo = $toDt->modify('+3 days')->format('Y-m-d H:i:s');
         $stmt = $pdo->prepare("
           SELECT created_at, event_type, step_id
           FROM mana_path_events
@@ -810,12 +837,10 @@ function mana_path2_activity_dates(PDO $pdo, string $userId, string $from, strin
             AND event_type IN ('mission', 'mood', 'path2_day', 'step')
           ORDER BY created_at ASC
         ");
-        $toNext = (DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $to . ' 00:00:00', mana_path_tz()) ?: mana_path_now())
-            ->modify('+1 day')->format('Y-m-d H:i:s');
-        $stmt->execute([$userId, $from . ' 00:00:00', $toNext]);
+        $stmt->execute([$userId, $sqlFrom, $sqlTo]);
         foreach ($stmt->fetchAll() as $row) {
             $d = mana_path_event_ymd((string) ($row['created_at'] ?? ''));
-            if ($d === '') {
+            if ($d === '' || $d < $from || $d > $to) {
                 continue;
             }
             if (!isset($out[$d])) {
@@ -848,6 +873,7 @@ function mana_path2_day_complete(array $dayRow, bool $requireAllMissions = false
 
 function mana_path2_week_status(PDO $pdo, string $userId, int $streak = 0, ?array $concerns = null): array
 {
+    unset($streak); // سبز کردن با streak ممنوع؛ فقط رویداد واقعی روز.
     $days = mana_path2_weekdays($concerns);
     $start = mana_path2_week_start();
     $todayIdx = mana_path2_weekday_index();
@@ -856,18 +882,20 @@ function mana_path2_week_status(PDO $pdo, string $userId, int $streak = 0, ?arra
     $end = $startDt->modify('+6 days')->format('Y-m-d');
     $byDate = mana_path2_activity_dates($pdo, $userId, $start, $end);
     $todayMissions = mana_path_today_mission_ids($pdo, $userId);
-    $todayAll = count($todayMissions) >= count(mana_path_daily_missions($concerns));
+    $todayAll = mana_path2_required_missions_done($todayMissions, $concerns);
     $out = [];
     foreach ($days as $i => $day) {
         $ymd = $startDt->modify('+' . $i . ' days')->format('Y-m-d');
         $j = mana_path_jalali_parts($ymd);
-        $row = $byDate[$ymd] ?? [];
-        if ($ymd === $today) {
-            $done = $todayAll;
+        $row = $byDate[$ymd] ?? ['mission' => [], 'mood' => 0, 'path2_day' => 0, 'step' => 0];
+        $isToday = $i === $todayIdx || $ymd === $today;
+        if ($isToday) {
+            $done = $todayAll || !empty($row['path2_day']);
+        } elseif ($i < $todayIdx) {
+            $done = mana_path2_day_complete($row, false);
         } else {
-            $done = $i < $todayIdx && mana_path2_day_complete($row, false);
+            $done = false;
         }
-        $isToday = $i === $todayIdx;
         $out[] = [
             'id' => $day['id'],
             'label' => $day['label'],
@@ -879,7 +907,7 @@ function mana_path2_week_status(PDO $pdo, string $userId, int $streak = 0, ?arra
             'done' => $done,
             'today' => $isToday,
             'now' => $isToday && !$done,
-            'future' => $i > $todayIdx,
+            'future' => $i > $todayIdx && !$isToday,
         ];
     }
     return $out;
@@ -976,19 +1004,29 @@ function mana_path2_month_notes(PDO $pdo, string $userId, string $from, string $
           SELECT created_at, step_id, payload_json
           FROM mana_path_events
           WHERE user_id = ? AND event_type = 'mission'
-            AND DATE(created_at) >= ? AND DATE(created_at) <= ?
+            AND created_at >= ? AND created_at < ?
           ORDER BY created_at ASC
         ");
-        $stmt->execute([$userId, $from, $to]);
+        $fromDt = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $from . ' 00:00:00', mana_path_tz()) ?: mana_path_now();
+        $toDt = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', $to . ' 00:00:00', mana_path_tz()) ?: mana_path_now();
+        $stmt->execute([
+            $userId,
+            $fromDt->modify('-2 days')->format('Y-m-d H:i:s'),
+            $toDt->modify('+3 days')->format('Y-m-d H:i:s'),
+        ]);
         foreach ($stmt->fetchAll() as $row) {
             $payload = mana_path_decode_json($row['payload_json'] ?? null);
             $note = trim((string) ($payload['note'] ?? ''));
             if ($note === '') {
                 continue;
             }
+            $d = mana_path_event_ymd((string) ($row['created_at'] ?? ''));
+            if ($d < $from || $d > $to) {
+                continue;
+            }
             $out[] = [
                 'src' => 'mission',
-                'date' => substr((string) ($row['created_at'] ?? ''), 0, 10),
+                'date' => $d,
                 'text' => $note,
             ];
         }
@@ -1149,14 +1187,26 @@ function mana_path2_report_data(PDO $pdo, array $profile): array
     $moodN = 0;
     $missionN = 0;
     try {
+        $fromDt = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', (string) $hist['from'] . ' 00:00:00', mana_path_tz()) ?: mana_path_now();
+        $toDt = DateTimeImmutable::createFromFormat('Y-m-d H:i:s', (string) $hist['to'] . ' 00:00:00', mana_path_tz()) ?: mana_path_now();
         $stmt = $pdo->prepare("
-          SELECT event_type, step_id, payload_json
+          SELECT event_type, step_id, payload_json, created_at
           FROM mana_path_events
-          WHERE user_id = ? AND DATE(created_at) >= ? AND DATE(created_at) <= ?
+          WHERE user_id = ? AND created_at >= ? AND created_at < ?
             AND event_type IN ('mission', 'mood')
         ");
-        $stmt->execute([$userId, $hist['from'], $hist['to']]);
+        $stmt->execute([
+            $userId,
+            $fromDt->modify('-2 days')->format('Y-m-d H:i:s'),
+            $toDt->modify('+3 days')->format('Y-m-d H:i:s'),
+        ]);
+        $histFrom = (string) $hist['from'];
+        $histTo = (string) $hist['to'];
         foreach ($stmt->fetchAll() as $row) {
+            $d = mana_path_event_ymd((string) ($row['created_at'] ?? ''));
+            if ($d < $histFrom || $d > $histTo) {
+                continue;
+            }
             if ((string) $row['event_type'] === 'mission') {
                 $missionN++;
                 $sid = (string) ($row['step_id'] ?? '');
