@@ -12,14 +12,15 @@ body.mp2-page {
   --mp2-line: rgba(17, 17, 17, .12);
   direction: rtl;
   color: var(--mp2-text);
-  background: rgba(255, 255, 255, .28);
-  backdrop-filter: blur(18px);
-  -webkit-backdrop-filter: blur(18px);
-  border: 1px solid rgba(255, 255, 255, .55);
-  border-radius: 28px;
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
   padding: 1.1rem 1rem 1.4rem;
   margin: -.2rem 0 1rem;
-  overflow: hidden;
+  overflow: visible;
 }
 .mp2 h1, .mp2 h2, .mp2 h3 { color: #111; }
 .mp2 a { color: inherit; }
