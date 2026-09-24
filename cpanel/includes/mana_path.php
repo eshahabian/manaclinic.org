@@ -390,7 +390,7 @@ function mana_path_today_mission_ids(PDO $pdo, string $userId): array
         $stmt->execute([$userId]);
         $ids = [];
         foreach ($stmt->fetchAll() as $r) {
-            if (mana_path_event_ymd((string) ($r['created_at'] ?? '')) !== $today) {
+            if (!in_array($today, mana_path_event_ymds((string) ($r['created_at'] ?? '')), true)) {
                 continue;
             }
             $sid = (string) ($r['step_id'] ?? '');
@@ -728,26 +728,33 @@ function mana_path_jalali_parts(?string $ymd = null): array
     ];
 }
 
-function mana_path_event_ymd(string $createdAt): string
+function mana_path_event_ymds(string $createdAt): array
 {
     $raw = trim($createdAt);
     if ($raw === '') {
-        return mana_path_today_ymd();
+        return [mana_path_today_ymd()];
     }
     if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw)) {
-        return $raw;
+        return [$raw];
+    }
+    $dates = [];
+    try {
+        $dates[] = (new DateTimeImmutable($raw, mana_path_tz()))->format('Y-m-d');
+    } catch (Throwable $ignored) {
     }
     try {
-        $hasOffset = (bool) preg_match('/(?:Z|[+-]\d{2}:?\d{2})$/i', $raw);
-        // DATETIME بدون افست را UTC می‌گیریم (CURRENT_TIMESTAMP روی cPanel معمولاً همین است)
-        // بعد به تقویم تهران می‌بریم تا DATE()/CURDATE نیمه‌شب دوشنبه را قورت ندهد.
-        $dt = $hasOffset
-            ? new DateTimeImmutable($raw)
-            : new DateTimeImmutable($raw, new DateTimeZone('UTC'));
-        return $dt->setTimezone(mana_path_tz())->format('Y-m-d');
-    } catch (Throwable $e) {
-        return substr($raw, 0, 10);
+        $asUtc = new DateTimeImmutable($raw, new DateTimeZone('UTC'));
+        $dates[] = $asUtc->setTimezone(mana_path_tz())->format('Y-m-d');
+    } catch (Throwable $ignored) {
     }
+    $dates = array_values(array_unique(array_filter($dates)));
+    return $dates !== [] ? $dates : [substr($raw, 0, 10)];
+}
+
+function mana_path_event_ymd(string $createdAt): string
+{
+    $all = mana_path_event_ymds($createdAt);
+    return $all[0] ?? mana_path_today_ymd();
 }
 
 function mana_path2_required_missions_done(array $doneIds, ?array $concerns = null): bool
@@ -839,21 +846,23 @@ function mana_path2_activity_dates(PDO $pdo, string $userId, string $from, strin
         ");
         $stmt->execute([$userId, $sqlFrom, $sqlTo]);
         foreach ($stmt->fetchAll() as $row) {
-            $d = mana_path_event_ymd((string) ($row['created_at'] ?? ''));
-            if ($d === '' || $d < $from || $d > $to) {
-                continue;
-            }
-            if (!isset($out[$d])) {
-                $out[$d] = ['mission' => [], 'mood' => 0, 'path2_day' => 0, 'step' => 0];
-            }
+            $dates = mana_path_event_ymds((string) ($row['created_at'] ?? ''));
             $type = (string) ($row['event_type'] ?? '');
-            if ($type === 'mission') {
-                $sid = (string) ($row['step_id'] ?? '');
-                if ($sid !== '' && !in_array($sid, $out[$d]['mission'], true)) {
-                    $out[$d]['mission'][] = $sid;
+            $sid = (string) ($row['step_id'] ?? '');
+            foreach ($dates as $d) {
+                if ($d === '' || $d < $from || $d > $to) {
+                    continue;
                 }
-            } elseif (isset($out[$d][$type])) {
-                $out[$d][$type]++;
+                if (!isset($out[$d])) {
+                    $out[$d] = ['mission' => [], 'mood' => 0, 'path2_day' => 0, 'step' => 0];
+                }
+                if ($type === 'mission') {
+                    if ($sid !== '' && !in_array($sid, $out[$d]['mission'], true)) {
+                        $out[$d]['mission'][] = $sid;
+                    }
+                } elseif (isset($out[$d][$type])) {
+                    $out[$d][$type]++;
+                }
             }
         }
     } catch (Throwable $e) {
@@ -868,7 +877,7 @@ function mana_path2_day_complete(array $dayRow, bool $requireAllMissions = false
     if ($requireAllMissions) {
         return count($missions) >= count(mana_path_daily_missions());
     }
-    return count($missions) > 0 || !empty($dayRow['path2_day']) || !empty($dayRow['mood']);
+    return count($missions) > 0 || !empty($dayRow['path2_day']) || !empty($dayRow['mood']) || !empty($dayRow['step']);
 }
 
 function mana_path2_week_status(PDO $pdo, string $userId, int $streak = 0, ?array $concerns = null): array
@@ -890,7 +899,7 @@ function mana_path2_week_status(PDO $pdo, string $userId, int $streak = 0, ?arra
         $row = $byDate[$ymd] ?? ['mission' => [], 'mood' => 0, 'path2_day' => 0, 'step' => 0];
         $isToday = $i === $todayIdx || $ymd === $today;
         if ($isToday) {
-            $done = $todayAll || !empty($row['path2_day']);
+            $done = $todayAll || !empty($row['path2_day']) || count($row['mission'] ?? []) > 0;
         } elseif ($i < $todayIdx) {
             $done = mana_path2_day_complete($row, false);
         } else {
@@ -1525,7 +1534,7 @@ function mana_path2_advanced_today(PDO $pdo, string $userId): bool
         ");
         $stmt->execute([$userId]);
         foreach ($stmt->fetchAll() as $row) {
-            if (mana_path_event_ymd((string) ($row['created_at'] ?? '')) === $today) {
+            if (in_array($today, mana_path_event_ymds((string) ($row['created_at'] ?? '')), true)) {
                 return true;
             }
         }

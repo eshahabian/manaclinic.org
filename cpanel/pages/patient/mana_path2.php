@@ -86,7 +86,7 @@ $plantSrc = mana_path_plant_src($plantDay);
 
 $GLOBALS['pageRobots'] = 'noindex,nofollow';
 $GLOBALS['pageTitle'] = 'اتاق ذهن';
-$GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(url('/assets/css/mana-path2.css')) . '?v=20260924k">';
+$GLOBALS['pageHead'] = '<link rel="stylesheet" href="' . e(url('/assets/css/mana-path2.css')) . '?v=20260924m">';
 $GLOBALS['pageBodyClass'] = trim((string) ($GLOBALS['pageBodyClass'] ?? '') . ' mp2-page');
 
 ob_start();
@@ -152,8 +152,7 @@ ob_start();
       </div>
       <p class="mp2-goal">هدف فعلی من:<strong><?= e($goalLabel) ?></strong></p>
       <h3>کارهای <?= e((string) ($todayJ['wday'] ?? 'امروز')) ?></h3>
-      <div class="mp2-orbs">
-      <p class="mp2-today-mid">ترکیب امروز از دغدغه‌هایت — <?= e($todayLabel) ?></p>
+      <p class="mp2-today-lead">ترکیب امروز از دغدغه‌هایت — <?= e($todayLabel) ?></p>
       <ul class="mp2-today">
         <?php foreach ($missions as $i => $m): ?>
           <?php
@@ -187,7 +186,6 @@ ob_start();
           </li>
         <?php endforeach; ?>
       </ul>
-      </div>
       <?php if ($todayDone || $doneN >= $actNeed): ?>
         <p class="mp2-note">امروز انجام شد؛ نقطه این روز سبز است.</p>
       <?php else: ?>
