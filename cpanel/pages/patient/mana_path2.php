@@ -78,6 +78,7 @@ if ($nextAp && function_exists('format_fa_datetime')) {
 }
 $todayJ = mana_path_jalali_parts();
 $todayLabel = (string) ($todayJ['label'] ?? '');
+$dailyMotto = mana_path_daily_motto((string) ($todayJ['ymd'] ?? ''));
 
 $xpNeed = mana_path_xp_need();
 $xpIn = $xp % $xpNeed;
@@ -96,7 +97,7 @@ ob_start();
     <div>
       <p class="mp2-kicker">◎ ماموریت امروز</p>
       <h1>اتاق ذهن</h1>
-      <p class="mp2-lead">کارهای امروز را همین‌جا بزن. هفته از شنبه شروع می‌شود و با تاریخ شمسی تهران به‌روز است.</p>
+      <p class="mp2-lead"><?= e($dailyMotto) ?></p>
     </div>
     <aside class="mp2-plant-tile" id="xp" aria-label="گیاه مسیر، <?= e(to_fa_digits((string) $plantDay)) ?> روز موفق از ۳۰">
       <div class="mp2-plant-static">
