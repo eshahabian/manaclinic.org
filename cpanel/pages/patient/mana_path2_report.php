@@ -1,18 +1,20 @@
 <?php
 declare(strict_types=1);
 
-$user = require_login(['PATIENT']);
-require_once __DIR__ . '/../../includes/patient_panel.php';
 require_once __DIR__ . '/../../includes/mana_path.php';
 
+$actor = mana_path_actor($pdo);
+$user = $actor['user'];
+$isDoctorRoom = !empty($actor['doctor']);
 mana_path_require_user($user);
 ensure_mana_path_schema($pdo);
 
-$patientId = (string) $user['id'];
+$patientId = (string) $actor['owner_id'];
 $profile = mana_path_load_profile($pdo, $patientId);
 $report = mana_path2_report_data($pdo, $profile);
-$path2Url = url('/dashboard/path');
-$reportPost = url('/dashboard/path/report');
+$pathUrls = mana_path_urls();
+$path2Url = url((string) $pathUrls['home']);
+$reportPost = url((string) $pathUrls['report']);
 $allConcerns = mana_path_concerns();
 $pickedConcerns = $report['concerns'] ?? ($profile['concerns'] ?? []);
 if (!is_array($pickedConcerns)) {
@@ -143,7 +145,7 @@ ob_start();
       <form class="mp2r-concerns" method="post" action="<?= e($reportPost) ?>">
         <?= csrf_field() ?>
         <input type="hidden" name="do" value="set_concerns">
-        <input type="hidden" name="back" value="/dashboard/path/report">
+        <input type="hidden" name="back" value="<?= e((string) $pathUrls['report']) ?>">
         <p>ویرایش دغدغه‌ها</p>
         <div class="mp2r-concern-list">
           <?php foreach ($allConcerns as $cid => $c): ?>
@@ -176,8 +178,10 @@ ob_start();
       <p><?= e((string) $report['analysis']) ?></p>
       <p>پیشنهاد: تکنیک‌های مدیریت استرس، ثبت افکار، و فعالیت بدنی منظم را در برنامهٔ روزانه قرار دهید. در صورت تداوم این علائم، مشاوره با درمانگر توصیه می‌شود.</p>
       <div class="mp2r-ai-actions">
+        <?php if (!$isDoctorRoom): ?>
         <a class="mp2r-btn mp2r-btn-purple" href="<?= e($doctorsUrl) ?>">مشاوره تخصصی با درمانگر</a>
-        <form method="post" action="<?= e(url('/dashboard/path/report/ai')) ?>">
+        <?php endif; ?>
+        <form method="post" action="<?= e(url((string) $pathUrls['report_ai'])) ?>">
           <?= csrf_field() ?>
           <button type="submit" class="mp2r-btn mp2r-btn-dark">تحلیل هوش مصنوعی مانا</button>
         </form>
@@ -209,4 +213,4 @@ ob_start();
 </div>
 <?php
 $inner = (string) ob_get_clean();
-render_patient_page((string) $report['title'], $inner);
+mana_path_render((string) $report['title'], $inner);

@@ -246,6 +246,11 @@ $routes = [
     'GET /staff/receipt' => 'actions/staff_receipt_file.php',
 
     'GET /doctor' => 'pages/doctor/dashboard.php',
+    'GET /doctor/path' => 'pages/patient/mana_path2.php',
+    'POST /doctor/path' => 'actions/patient_mana_path.php',
+    'GET /doctor/path/report' => 'pages/patient/mana_path2_report.php',
+    'POST /doctor/path/report' => 'actions/patient_mana_path.php',
+    'POST /doctor/path/report/ai' => 'actions/patient_path_ai.php',
     'GET /doctor/intakes' => 'pages/doctor/intakes.php',
     'GET /doctor/notifications' => 'pages/doctor/notifications.php',
     'GET /doctor/profile' => 'pages/doctor/profile.php',

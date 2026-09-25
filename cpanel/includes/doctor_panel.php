@@ -77,6 +77,7 @@ function doctor_nav(): array
 
     $nav = array_merge($nav, [
         ['type' => 'group', 'label' => 'درمانگرها'],
+        ['type' => 'link', 'href' => '/doctor/path', 'label' => 'اتاق ذهن'],
         [
             'type' => 'link',
             'href' => '/doctor/notifications',

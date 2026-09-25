@@ -1,15 +1,16 @@
 <?php
 declare(strict_types=1);
 
-$user = require_login(['PATIENT']);
-require_once __DIR__ . '/../../includes/patient_panel.php';
 require_once __DIR__ . '/../../includes/mana_path.php';
 require_once __DIR__ . '/../../includes/mana_path_ui.php';
 
+$actor = mana_path_actor($pdo);
+$user = $actor['user'];
+$isDoctorRoom = !empty($actor['doctor']);
 mana_path_require_user($user);
 ensure_mana_path_schema($pdo);
 
-$patientId = (string) $user['id'];
+$patientId = (string) $actor['owner_id'];
 $profile = mana_path_load_profile($pdo, $patientId);
 $concerns = $profile['concerns'] ?? [];
 $moods = mana_path_moods();
@@ -65,7 +66,9 @@ try {
 } catch (Throwable $ignored) {
 }
 
-$post = url('/dashboard/path');
+$pathUrls = mana_path_urls();
+$pathHome = (string) $pathUrls['home'];
+$post = url($pathHome);
 $journalUrl = url('/dashboard/journal');
 $doctorsUrl = url('/doctors');
 $actNeed = count($missions);
@@ -176,7 +179,7 @@ ob_start();
                   <?= csrf_field() ?>
                   <input type="hidden" name="do" value="mission">
                   <input type="hidden" name="mission_id" value="<?= e((string) $m['id']) ?>">
-                  <input type="hidden" name="back" value="/dashboard/path">
+                  <input type="hidden" name="back" value="<?= e($pathHome) ?>">
                   <?php if ($needsNote): ?>
                     <textarea name="note" required rows="2" placeholder="اول این کار را انجام بده، بعد اینجا بنویس."></textarea>
                   <?php endif; ?>
@@ -226,6 +229,7 @@ ob_start();
           <dt>🔥 Streak</dt>
           <dd><?= e(to_fa_digits((string) $streak)) ?> روز</dd>
         </div>
+        <?php if (!$isDoctorRoom): ?>
         <div>
           <dt>📅 جلسه بعد</dt>
           <dd>
@@ -237,6 +241,7 @@ ob_start();
             <?php endif; ?>
           </dd>
         </div>
+        <?php endif; ?>
         <?php if ($moodNow > 0 && $moodNow <= 2): ?>
           <p class="mp2-alert">⚠️ افت حال امروز ثبت شد — اگر خواستی با درمانگر در میان بگذار؛ مسیر همین‌جا می‌ماند.</p>
         <?php endif; ?>
@@ -245,11 +250,11 @@ ob_start();
 
     <section class="mp2-card">
       <h2>ابزارهای مسیر</h2>
-      <p class="mp2-note">چک‌این خلق و کارهای روزانه همین صفحه است. ژورنال و درمانگر جدا می‌مانند.</p>
+      <p class="mp2-note"><?= $isDoctorRoom ? 'چک‌این خلق و کارهای روزانه همین صفحه است.' : 'چک‌این خلق و کارهای روزانه همین صفحه است. ژورنال و درمانگر جدا می‌مانند.' ?></p>
       <form method="post" action="<?= e($post) ?>" class="mp2-faces">
         <?= csrf_field() ?>
         <input type="hidden" name="do" value="mood">
-        <input type="hidden" name="back" value="/dashboard/path">
+        <input type="hidden" name="back" value="<?= e($pathHome) ?>">
         <?php foreach ($moods as $n => $m): ?>
           <button name="mood" value="<?= (int) $n ?>" type="submit" class="<?= $moodNow === (int) $n ? 'is-on' : '' ?>">
             <?= e($m['emoji']) ?> <?= e($m['label']) ?>
@@ -258,8 +263,10 @@ ob_start();
       </form>
       <div class="mp2-tools">
         <a href="#journey"><strong>🧠 کارهای امروز</strong>تمرین بر اساس دغدغه‌هایت</a>
+        <?php if (!$isDoctorRoom): ?>
         <a href="<?= e($journalUrl) ?>"><strong>📓 Journal</strong>یادداشت روزانه</a>
-        <a class="is-lg" href="<?= e(url('/dashboard/path/report')) ?>"><strong>📅 گزارش ماهانه</strong>نتیجه مسیر این ماه</a>
+        <?php endif; ?>
+        <a class="is-lg" href="<?= e(url((string) $pathUrls['report'])) ?>"><strong>📅 گزارش ماهانه</strong>نتیجه مسیر این ماه</a>
         <a class="is-lg" href="#xp"><strong>⭐ XP / Achievement</strong>سطح <?= e(to_fa_digits((string) $level)) ?></a>
       </div>
     </section>
@@ -272,7 +279,7 @@ ob_start();
       <form method="post" action="<?= e($post) ?>">
         <?= csrf_field() ?>
         <input type="hidden" name="do" value="intro">
-        <input type="hidden" name="back" value="/dashboard/path">
+        <input type="hidden" name="back" value="<?= e($pathHome) ?>">
         <div class="mp2-chips">
           <?php foreach ($allConcerns as $id => $c): ?>
             <label>
@@ -290,7 +297,7 @@ ob_start();
       <form method="post" action="<?= e($post) ?>">
         <?= csrf_field() ?>
         <input type="hidden" name="do" value="set_concerns">
-        <input type="hidden" name="back" value="/dashboard/path">
+        <input type="hidden" name="back" value="<?= e($pathHome) ?>">
         <div class="mp2-chips">
           <?php foreach ($allConcerns as $id => $c): ?>
             <label>
@@ -309,4 +316,4 @@ ob_start();
 </div>
 <?php
 $inner = (string) ob_get_clean();
-render_patient_page('اتاق ذهن', $inner);
+mana_path_render('اتاق ذهن', $inner);

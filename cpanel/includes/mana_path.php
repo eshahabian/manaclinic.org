@@ -18,10 +18,23 @@ function mana_path_room_live(): bool
     return false;
 }
 
+function mana_path_on_doctor_route(): bool
+{
+    global $path;
+
+    return str_starts_with((string) ($path ?? ''), '/doctor/path');
+}
+
 function mana_path_user_allowed(?array $user): bool
 {
     if (!$user) {
         return false;
+    }
+    if (($user['role'] ?? '') === 'DOCTOR') {
+        return true;
+    }
+    if (($user['role'] ?? '') === 'ADMIN' && mana_path_on_doctor_route()) {
+        return true;
     }
     $name = strtolower(trim((string) ($user['username'] ?? '')));
     foreach (mana_path_beta_usernames() as $allowed) {
@@ -30,6 +43,55 @@ function mana_path_user_allowed(?array $user): bool
         }
     }
     return false;
+}
+
+/** کاربر جاری اتاق ذهن: مراجعه‌کنندهٔ آزمایشی یا درمانگر در پنل خودش. */
+function mana_path_actor(PDO $pdo): array
+{
+    if (mana_path_on_doctor_route()) {
+        require_once __DIR__ . '/doctor_panel.php';
+        $ctx = require_doctor_profile($pdo);
+
+        return [
+            'user' => $ctx['user'],
+            'owner_id' => doctor_ctx_user_id($ctx),
+            'doctor' => true,
+        ];
+    }
+
+    $user = require_login(['PATIENT']);
+
+    return [
+        'user' => $user,
+        'owner_id' => (string) ($user['id'] ?? ''),
+        'doctor' => false,
+    ];
+}
+
+function mana_path_urls(): array
+{
+    $home = mana_path_on_doctor_route() ? '/doctor/path' : '/dashboard/path';
+
+    return [
+        'home' => $home,
+        'report' => $home . '/report',
+        'report_ai' => $home . '/report/ai',
+    ];
+}
+
+function mana_path_render(string $title, string $html): void
+{
+    if (mana_path_on_doctor_route()) {
+        if (!function_exists('render_doctor_page')) {
+            require_once __DIR__ . '/doctor_panel.php';
+        }
+        render_doctor_page($title, $html);
+        return;
+    }
+    if (!function_exists('render_patient_page')) {
+        require_once __DIR__ . '/patient_panel.php';
+    }
+    render_patient_page($title, $html);
 }
 
 function mana_path_require_user(array $user): void

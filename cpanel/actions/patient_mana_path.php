@@ -1,24 +1,22 @@
 <?php
 declare(strict_types=1);
 
-$user = require_login(['PATIENT']);
 require_once __DIR__ . '/../includes/mana_path.php';
 
+$actor = mana_path_actor($pdo);
+$user = $actor['user'];
 mana_path_require_user($user);
 ensure_mana_path_schema($pdo);
 
-$patientId = (string) $user['id'];
+$patientId = (string) $actor['owner_id'];
 $profile = mana_path_load_profile($pdo, $patientId);
 $do = trim((string) ($_POST['do'] ?? ''));
 $backRaw = trim((string) ($_POST['back'] ?? ''));
-$back = '/dashboard/path';
-if ($backRaw === '/dashboard/path2') {
-    $back = '/dashboard/path2';
-} elseif ($backRaw === '/dashboard/path') {
-    $back = '/dashboard/path';
-} elseif ($backRaw === '/dashboard/path/report') {
-    $back = '/dashboard/path/report';
-}
+$pathUrls = mana_path_urls();
+$allowedBack = mana_path_on_doctor_route()
+    ? ['/doctor/path', '/doctor/path/report']
+    : ['/dashboard/path', '/dashboard/path2', '/dashboard/path/report'];
+$back = in_array($backRaw, $allowedBack, true) ? $backRaw : (string) $pathUrls['home'];
 
 try {
     if ($do === 'intro') {

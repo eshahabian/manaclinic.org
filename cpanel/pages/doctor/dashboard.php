@@ -131,6 +131,7 @@ ob_start();
     <div>
       <h1>سلام، <?= e(doctor_ctx_user_name($ctx)) ?></h1>
       <p class="muted">خلاصه کار — نوبت منشی و رزرو آنلاین اینجاست. از تب نوبت‌ها سال، ماه و روز را جدا کنید.</p>
+      <p style="margin:.65rem 0 0"><a class="btn btn-primary btn-sm" href="<?= e(url('/doctor/path')) ?>">اتاق ذهن</a></p>
     </div>
     <?php if ($unreadCount > 0): ?>
       <span class="badge doctor-dash-badge"><?= (int) $unreadCount ?> پیام خوانده‌نشده</span>
