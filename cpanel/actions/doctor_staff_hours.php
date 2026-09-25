@@ -5,11 +5,11 @@ require_once __DIR__ . '/../includes/doctor_panel.php';
 
 $ctx = require_doctor_profile($pdo);
 if (!doctor_can_view_staff_hours($ctx['user'] ?? null)) {
-    flash_set('error', 'مشاهده ساعت کاری منشی‌ها فقط برای دکتر شیوا گرانمایه‌پور و مدیر مجاز است.');
+    flash_set('error', 'مشاهده ورود و خروج منشی‌ها فقط برای دکتر شیوا گرانمایه‌پور، دکتر عطیه گارسچی و مدیر مجاز است.');
     redirect('/doctor/notifications');
 }
-if (($ctx['user']['role'] ?? '') !== 'DOCTOR' && empty($ctx['admin_mode'])) {
-    flash_set('error', 'فقط دکتر یا مدیر می‌تواند نام منشی‌ها را عوض کند.');
+if (!doctor_can_message_secretaries($ctx['user'] ?? null)) {
+    flash_set('error', 'تغییر نام منشی‌ها فقط برای دکتر شیوا گرانمایه‌پور، دکتر عطیه گارسچی و مدیر مجاز است.');
     redirect('/doctor/staff-hours');
 }
 csrf_verify();

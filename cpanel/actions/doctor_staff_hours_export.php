@@ -5,7 +5,7 @@ require_once __DIR__ . '/../includes/doctor_panel.php';
 
 $ctx = require_doctor_profile($pdo);
 if (!doctor_can_view_staff_hours($ctx['user'] ?? null)) {
-    flash_set('error', 'خروجی ساعت کاری منشی‌ها فقط برای دکتر شیوا گرانمایه‌پور و مدیر مجاز است.');
+    flash_set('error', 'خروجی ورود و خروج منشی‌ها فقط برای دکتر شیوا گرانمایه‌پور، دکتر عطیه گارسچی و مدیر مجاز است.');
     redirect('/doctor/notifications');
 }
 $who = trim((string) ($_GET['who'] ?? ''));

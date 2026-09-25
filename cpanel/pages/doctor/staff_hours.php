@@ -4,7 +4,7 @@ require_once __DIR__ . '/../../includes/doctor_panel.php';
 
 $ctx = require_doctor_profile($pdo);
 if (!doctor_can_view_staff_hours($ctx['user'] ?? null)) {
-    flash_set('error', 'مشاهده ساعت کاری منشی‌ها فقط برای دکتر شیوا گرانمایه‌پور و مدیر مجاز است.');
+    flash_set('error', 'مشاهده ورود و خروج منشی‌ها فقط برای دکتر شیوا گرانمایه‌پور، دکتر عطیه گارسچی و مدیر مجاز است.');
     redirect('/doctor/notifications');
 }
 $fallback = '<h1>ساعت کاری منشی‌ها</h1><p class="muted">بارگذاری ساعت کاری الان ممکن نیست. یک‌بار دیگر صفحه را باز کنید.</p>';
@@ -14,7 +14,7 @@ try {
     require_once __DIR__ . '/../../includes/staff_hours_ui.php';
     $slots = staff_hours_collect($pdo);
     $html = staff_hours_render(is_array($slots) ? $slots : [], [
-        'can_rename' => (($ctx['user']['role'] ?? '') === 'DOCTOR' || !empty($ctx['admin_mode'])),
+        'can_rename' => doctor_can_message_secretaries($ctx['user'] ?? null),
         'rename_action' => '/doctor/staff-hours',
         'export_base' => '/doctor/staff-hours-export',
     ]);

@@ -6,7 +6,7 @@ require_once __DIR__ . '/../includes/admin_staff_messages.php';
 
 $user = require_login(['DOCTOR']);
 if (!doctor_can_message_secretaries($user)) {
-    flash_set('error', 'پیام به منشی‌ها فقط برای دکتر شیوا گرانمایه‌پور و مدیر سایت مجاز است.');
+    flash_set('error', 'پیام به منشی‌ها فقط برای دکتر شیوا گرانمایه‌پور، دکتر عطیه گارسچی و مدیر سایت مجاز است.');
     redirect('/doctor/notifications');
 }
 csrf_verify();

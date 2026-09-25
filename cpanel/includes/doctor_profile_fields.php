@@ -209,7 +209,22 @@ function doctor_is_shiva(?array $user): bool
     return str_contains($name, 'گرانمایه');
 }
 
-/** شماره تلفن مراجع فقط برای ادمین، منشی و دکتر گرانمایه‌پور */
+function doctor_is_garsichi(?array $user): bool
+{
+    if (!$user) {
+        return false;
+    }
+
+    return str_contains((string) ($user['name'] ?? ''), 'گارسچی');
+}
+
+/** دسترسی‌های ویژه پنل: دکتر شیوا و دکتر عطیه گارسچی */
+function doctor_has_shiva_access(?array $user): bool
+{
+    return doctor_is_shiva($user) || doctor_is_garsichi($user);
+}
+
+/** شماره تلفن مراجع فقط برای ادمین، منشی، دکتر شیوا و دکتر عطیه گارسچی */
 function can_view_patient_phone(?array $user = null): bool
 {
     $user = $user ?? (function_exists('current_user') ? current_user() : null);
@@ -220,7 +235,7 @@ function can_view_patient_phone(?array $user = null): bool
     if ($role === 'ADMIN' || $role === 'SECRETARY') {
         return true;
     }
-    if ($role === 'DOCTOR' && doctor_is_shiva($user)) {
+    if ($role === 'DOCTOR' && doctor_has_shiva_access($user)) {
         return true;
     }
 
@@ -232,7 +247,7 @@ function doctor_skips_profile_gate(?array $user): bool
     if (!$user) {
         return false;
     }
-    if (doctor_is_shiva($user)) {
+    if (doctor_has_shiva_access($user)) {
         return true;
     }
     $username = strtolower(trim((string) ($user['username'] ?? '')));

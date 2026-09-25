@@ -206,7 +206,7 @@ function appointment_shared_note_load_context(PDO $pdo, array $user, string $app
         $allowed = true;
     } elseif ($role === 'ADMIN') {
         $allowed = true;
-    } elseif ($role === 'DOCTOR' && function_exists('doctor_is_shiva') && doctor_is_shiva($user)) {
+    } elseif ($role === 'DOCTOR' && function_exists('doctor_has_shiva_access') && doctor_has_shiva_access($user)) {
         $allowed = true;
     }
 

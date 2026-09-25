@@ -9,11 +9,11 @@ require_once __DIR__ . '/../../includes/appointment_list_helpers.php';
 $ctx = require_doctor_profile($pdo);
 $doctorId = (string) ($ctx['profile']['id'] ?? '');
 
-/** دکتر شیوا گرانمایه‌پور (و پنل ادمین روی همان حساب): همه نوبت‌ها؛ بقیه فقط نوبت‌های خودشان */
-$seeAllAppointments = doctor_is_shiva([
+/** دکتر شیوا و دکتر عطیه گارسچی (و پنل ادمین روی همان حساب): همه نوبت‌ها؛ بقیه فقط نوبت‌های خودشان */
+$seeAllAppointments = doctor_has_shiva_access([
     'name' => (string) ($ctx['profile']['name'] ?? ($ctx['user']['name'] ?? '')),
     'username' => (string) ($ctx['user']['username'] ?? ''),
-]) || doctor_is_shiva($ctx['user'] ?? null);
+]) || doctor_has_shiva_access($ctx['user'] ?? null);
 
 $searchQ = trim((string) ($_GET['q'] ?? ''));
 $searchDay = trim((string) ($_GET['day'] ?? ''));

@@ -4,7 +4,7 @@ declare(strict_types=1);
 /**
  * تخته یادداشت مشترک منشی‌ها:
  * چک‌لیست مشترک با ادیتور غنی (مثل شرح حال درمانگر).
- * دسترسی: منشی‌ها + ادمین + دکتر شیوا گرانمایه‌پور.
+ * دسترسی: منشی‌ها + ادمین + دکتر شیوا گرانمایه‌پور + دکتر عطیه گارسچی.
  */
 
 function ensure_staff_board_schema(PDO $pdo): void
@@ -34,7 +34,7 @@ function ensure_staff_board_schema(PDO $pdo): void
     $ready = true;
 }
 
-/** منشی، ادمین، یا دکتر شیوا */
+/** منشی، ادمین، دکتر شیوا یا دکتر عطیه گارسچی */
 function staff_board_can_access(?array $user): bool
 {
     if (!$user) {
@@ -44,7 +44,7 @@ function staff_board_can_access(?array $user): bool
     if ($role === 'SECRETARY' || $role === 'ADMIN') {
         return true;
     }
-    if ($role === 'DOCTOR' && function_exists('doctor_is_shiva') && doctor_is_shiva($user)) {
+    if ($role === 'DOCTOR' && function_exists('doctor_has_shiva_access') && doctor_has_shiva_access($user)) {
         return true;
     }
 
@@ -60,7 +60,7 @@ function staff_board_require_user(): array
 {
     $user = require_login(['SECRETARY', 'ADMIN', 'DOCTOR']);
     if (!staff_board_can_access($user)) {
-        flash_set('error', 'دسترسی به یادداشت مشترک منشی‌ها فقط برای منشی‌ها، مدیر و دکتر شیوا گرانمایه‌پور است.');
+        flash_set('error', 'دسترسی به یادداشت مشترک منشی‌ها فقط برای منشی‌ها، مدیر، دکتر شیوا گرانمایه‌پور و دکتر عطیه گارسچی است.');
         $role = strtoupper((string) ($user['role'] ?? ''));
         if ($role === 'DOCTOR') {
             redirect('/doctor/notifications');
@@ -335,7 +335,7 @@ function staff_board_render(PDO $pdo, array $user, array $opts = []): string
 
       <?php if ($canEdit): ?>
         <div class="staff-board-composer panel" id="staff-board-composer">
-          <p class="muted" style="margin:0;font-size:.85rem">یادداشت آزاد کاری؛ هر دو منشی، مدیر و دکتر شیوا می‌بینند.</p>
+          <p class="muted" style="margin:0;font-size:.85rem">یادداشت آزاد کاری؛ منشی‌ها، مدیر، دکتر شیوا و دکتر عطیه گارسچی می‌بینند.</p>
           <?= rich_editor_toolbar_html(['id' => 'staff-board-toolbar']) ?>
           <div
             id="staff-board-editor"
