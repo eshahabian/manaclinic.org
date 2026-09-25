@@ -155,7 +155,7 @@ function staff_hours_render(array $slots, array $opts = []): string
     ob_start();
     ?>
 <h1>ساعت کاری منشی‌ها</h1>
-<p class="muted">ساعت عادی از ۹ صبح تا ۸ شب است؛ خارج از این بازه اضافه‌کار حساب می‌شود. تب هر منشی و هر درمانگر جداست. «زمان حضور» از اولین ورود تا آخرین خروج همان روز است (مثلاً ۰۹:۳۶ تا ۲۳:۴۰). لپ‌تاپ و موبایل فقط مدت واقعی آنلاین بودن با همان دستگاه را نشان می‌دهند؛ اگر بین ورودها قطع شده باشد، همان فاصله به‌عنوان «قطع بین ورودها» جدا می‌آید.</p>
+<p class="muted">ساعت عادی از ۹ صبح تا ۸ شب است؛ خارج از این بازه اضافه‌کار حساب می‌شود. برای هر روز فقط ساعت اولین ورود، آخرین خروج، و اضافه‌کار دیده می‌شود. تب هر منشی و هر درمانگر جداست.</p>
 
 <?= staff_hours_render_live_devices($people) ?>
 
@@ -226,7 +226,7 @@ function staff_hours_render_self(array $block, array $opts = []): string
     $title = (string) ($opts['title'] ?? 'ساعت کاری من');
     $intro = (string) ($opts['intro'] ?? '');
     if ($intro === '') {
-        $intro = 'ساعت عادی از ۹ صبح تا ۸ شب است؛ خارج از این بازه اضافه‌کار حساب می‌شود. زمان حضور از اولین ورود تا آخرین خروج همان روز است؛ لپ‌تاپ/موبایل مدت آنلاین واقعی است و قطع بین ورودها جدا دیده می‌شود.';
+        $intro = 'ساعت عادی از ۹ صبح تا ۸ شب است؛ خارج از این بازه اضافه‌کار حساب می‌شود. برای هر روز ساعت اولین ورود، آخرین خروج، و اضافه‌کار دیده می‌شود.';
     }
     $todayRows = staff_hours_day_rows($block, $today, $today);
     $open = is_array($block['open'] ?? null) ? $block['open'] : null;
@@ -474,30 +474,13 @@ function staff_hours_render_day_presence(array $rows, array $opts = []): string
         return '<p class="muted">' . e($empty) . '</p>';
     }
 
-    $break = function_exists('staff_day_presence_device_breakdown')
-        ? staff_day_presence_device_breakdown($rows)
-        : [
-            'presence' => (int) (staff_day_presence_seconds_split($rows)['total'] ?? 0),
-            'mobile' => 0,
-            'desktop' => 0,
-            'online' => 0,
-            'gap' => 0,
-            'regular' => (int) (staff_day_presence_seconds_split($rows)['regular'] ?? 0),
-            'overtime' => (int) (staff_day_presence_seconds_split($rows)['overtime'] ?? 0),
-        ];
-    $split = [
-        'total' => (int) ($break['presence'] ?? 0),
-        'regular' => (int) ($break['regular'] ?? 0),
-        'overtime' => (int) ($break['overtime'] ?? 0),
-    ];
+    $split = function_exists('staff_day_presence_seconds_split')
+        ? staff_day_presence_seconds_split($rows)
+        : ['total' => 0, 'regular' => 0, 'overtime' => 0];
     $meta = staff_day_presence_meta($rows);
     $outClock = !empty($meta['open'])
         ? ($isToday ? 'الان' : '— هنوز باز')
         : staff_hours_format_clock($meta['last_out'] ?? null);
-    $count = (int) ($meta['count'] ?? 0);
-    $moreLabel = $count > 1
-        ? 'بیشتر · ' . to_fa_digits((string) $count) . ' ورود و خروج'
-        : 'بیشتر';
 
     ob_start();
     ?>
@@ -508,34 +491,14 @@ function staff_hours_render_day_presence(array $rows, array $opts = []): string
           <span class="staff-presence-value"><?= e(staff_hours_format_clock($meta['first_in'] ?? null)) ?></span>
         </div>
         <div class="staff-presence-stat">
-          <span class="staff-presence-label">ساعت خروج</span>
+          <span class="staff-presence-label">خروج</span>
           <span class="staff-presence-value"><?= e($outClock) ?></span>
         </div>
         <div class="staff-presence-stat">
-          <span class="staff-presence-label">زمان حضور</span>
-          <span class="staff-presence-value"><?= e(staff_format_duration((int) ($break['presence'] ?? 0))) ?></span>
+          <span class="staff-presence-label">اضافه‌کار</span>
+          <span class="staff-presence-value"><?= e(staff_format_duration((int) ($split['overtime'] ?? 0))) ?></span>
         </div>
-        <div class="staff-presence-stat">
-          <span class="staff-presence-label">آنلاین لپ‌تاپ</span>
-          <span class="staff-presence-value"><?= e(staff_format_duration((int) ($break['desktop'] ?? 0))) ?></span>
-        </div>
-        <div class="staff-presence-stat staff-presence-stat-mobile">
-          <span class="staff-presence-label">آنلاین موبایل</span>
-          <span class="staff-presence-value"><?= e(staff_format_duration((int) ($break['mobile'] ?? 0))) ?></span>
-        </div>
-        <?php if ((int) ($break['gap'] ?? 0) > 0): ?>
-          <div class="staff-presence-stat staff-presence-stat-gap">
-            <span class="staff-presence-label">قطع بین ورودها</span>
-            <span class="staff-presence-value"><?= e(staff_format_duration((int) $break['gap'])) ?></span>
-          </div>
-        <?php endif; ?>
       </div>
-      <p class="staff-presence-split muted"><?= e(staff_format_split_line($split, true)) ?></p>
-      <p class="staff-presence-split muted"><?= e(staff_format_device_split_line($break)) ?></p>
-      <details class="staff-presence-more">
-        <summary><?= e($moreLabel) ?></summary>
-        <?= staff_hours_render_shift_lines($rows, $isToday) ?>
-      </details>
     </div>
     <?php
     return (string) ob_get_clean();
@@ -631,14 +594,6 @@ function staff_hours_render_month_tile(array $block, array $month, string $today
     usort($dayPacks, static fn(array $a, array $b): int => strcmp((string) $b['date'], (string) $a['date']));
 
     $split = staff_days_presence_seconds_split(array_column($dayPacks, 'rows'));
-    $break = function_exists('staff_days_presence_device_breakdown')
-        ? staff_days_presence_device_breakdown(array_column($dayPacks, 'rows'))
-        : [
-            'presence' => (int) ($split['total'] ?? 0),
-            'mobile' => 0,
-            'desktop' => 0,
-            'gap' => 0,
-        ];
     $presentDays = 0;
     foreach ($dayPacks as $pack) {
         if (($pack['rows'] ?? []) !== [] || !empty($pack['report'])) {
@@ -681,26 +636,10 @@ function staff_hours_render_month_tile(array $block, array $month, string $today
             <span class="staff-presence-value"><?= e(to_fa_digits((string) $presentDays)) ?> روز</span>
           </div>
           <div class="staff-presence-stat">
-            <span class="staff-presence-label">زمان حضور</span>
-            <span class="staff-presence-value"><?= e(staff_format_duration((int) ($break['presence'] ?? $split['total'] ?? 0))) ?></span>
+            <span class="staff-presence-label">اضافه‌کار</span>
+            <span class="staff-presence-value"><?= e(staff_format_duration((int) ($split['overtime'] ?? 0))) ?></span>
           </div>
-          <div class="staff-presence-stat">
-            <span class="staff-presence-label">آنلاین لپ‌تاپ</span>
-            <span class="staff-presence-value"><?= e(staff_format_duration((int) ($break['desktop'] ?? 0))) ?></span>
-          </div>
-          <div class="staff-presence-stat staff-presence-stat-mobile">
-            <span class="staff-presence-label">آنلاین موبایل</span>
-            <span class="staff-presence-value"><?= e(staff_format_duration((int) ($break['mobile'] ?? 0))) ?></span>
-          </div>
-          <?php if ((int) ($break['gap'] ?? 0) > 0): ?>
-            <div class="staff-presence-stat staff-presence-stat-gap">
-              <span class="staff-presence-label">قطع بین ورودها</span>
-              <span class="staff-presence-value"><?= e(staff_format_duration((int) $break['gap'])) ?></span>
-            </div>
-          <?php endif; ?>
         </div>
-        <p class="staff-presence-split muted"><?= e(staff_format_split_line($split, true)) ?> · <?= e(to_fa_digits((string) count($allRows))) ?> بار ورود</p>
-        <p class="staff-presence-split muted"><?= e(staff_format_device_split_line($break)) ?></p>
         <details class="staff-presence-more">
           <summary>بیشتر · <?= e(to_fa_digits((string) $presentDays)) ?> روز</summary>
           <div class="staff-month-days">
