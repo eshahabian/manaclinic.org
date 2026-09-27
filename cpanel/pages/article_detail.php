@@ -136,7 +136,6 @@ ob_start();
       </div>
     </section>
   <?php endif; ?>
-  <?= clinic_funnel_cta_html($matchHref, $topicMeta) ?>
 </article>
 <?php
 $content = ob_get_clean();
