@@ -14,7 +14,9 @@ if ($workshopId === '') {
     redirect('/doctor/workshops');
 }
 
-$back = '/doctor/workshops?edit=' . urlencode($workshopId) . '#workshop-form';
+$back = post('back') === 'list'
+    ? '/doctor/workshops'
+    : '/doctor/workshops?edit=' . urlencode($workshopId) . '#workshop-form';
 
 if ($action === 'upload') {
     try {

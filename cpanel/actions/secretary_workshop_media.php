@@ -13,7 +13,9 @@ if ($workshopId === '') {
     redirect('/secretary/workshops');
 }
 
-$back = '/secretary/workshops?edit=' . urlencode($workshopId) . '#workshop-form';
+$back = post('back') === 'list'
+    ? '/secretary/workshops'
+    : '/secretary/workshops?edit=' . urlencode($workshopId) . '#workshop-form';
 
 if ($action === 'upload') {
     try {

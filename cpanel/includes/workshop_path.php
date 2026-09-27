@@ -827,32 +827,27 @@ function workshop_path_media_html(array $files, array $ctx): string
         oncontextmenu="return false;"
         style="width:100%;margin-top:.5rem;display:none"
       ></audio>
-      <p class="muted offline-audio-wm">هنگام پخش، نام شما گفته می‌شود. فایل صوتی برای دانلود مستقیم ساخته نشده است.</p>
+      <p class="muted offline-audio-wm">سه بار در طول صوت، پخش قطع می‌شود و نام شما گفته می‌شود. زمان این سه بار برای هر فایل فرق دارد.</p>
     </div>
   <?php endforeach; ?>
   <?php foreach ($pdfs as $pdf): ?>
-    <?php
-      $pdfId = (string) ($pdf['id'] ?? '');
-      $pdfView = workshop_media_stream_url($pdfId, $user);
-      $pdfDown = workshop_media_stream_url($pdfId, $user, true);
-    ?>
-    <div class="wm-pdf-box">
+    <?php $pdfId = (string) ($pdf['id'] ?? ''); ?>
+    <div
+      class="wm-pdf-box"
+      data-pdf-url="<?= e(workshop_media_stream_url($pdfId, $user)) ?>"
+      data-pdf-name="<?= e((string) ($pdf['original_name'] ?? 'session.pdf')) ?>"
+      data-pdf-mark="<?= e($watermark) ?>"
+    >
       <?php if (trim((string) ($pdf['original_name'] ?? '')) !== ''): ?>
         <p class="muted" style="font-size:.8rem;margin:.55rem 0 .35rem"><?= e((string) $pdf['original_name']) ?></p>
       <?php endif; ?>
       <div class="wm-pdf-actions">
-        <button type="button" class="btn btn-primary btn-sm js-pdf-show" data-src="<?= e($pdfView) ?>">نمایش</button>
-        <a class="btn btn-outline btn-sm" href="<?= e($pdfDown) ?>">دانلود</a>
+        <button type="button" class="btn btn-primary btn-sm js-pdf-show">نمایش</button>
+        <button type="button" class="btn btn-outline btn-sm js-pdf-download">دانلود</button>
       </div>
-      <div class="wm-pdf-frame" hidden>
-        <iframe title="پی‌دی‌اف جلسه"></iframe>
-        <div class="wm-overlay" aria-hidden="true">
-          <?php for ($i = 0; $i < 12; $i++): ?>
-            <span><?= e($watermark) ?></span>
-          <?php endfor; ?>
-        </div>
-      </div>
-      <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">نمایش و دانلود هر دو واترمارک دارند: <?= e($watermark) ?></p>
+      <p class="muted wm-pdf-status" style="font-size:.8rem;margin:.4rem 0 0"></p>
+      <div class="wm-pdf-pages" hidden></div>
+      <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">نمایش و فایل دانلودی هر دو مهر <?= e($watermark) ?> را دارند.</p>
     </div>
   <?php endforeach; ?>
 </div>
@@ -895,7 +890,8 @@ function workshop_offline_protect_script(array $audioStreams = [], string $water
         $mark = '""';
     }
 
-    return '<script src="' . e(url('/assets/js/workshop-offline-protect.js')) . '?v=20260928audio"></script>'
+    return '<script src="' . e(url('/assets/js/workshop-offline-protect.js')) . '?v=20260928speak"></script>'
+        . '<script src="' . e(url('/assets/js/workshop-pdf-view.js')) . '?v=20260928pdf"></script>'
         . '<script>window.workshopOfflineAudioStreams=' . $json
         . ';window.workshopOfflineWatermark=' . $mark
         . ';if(window.workshopOfflineProtect){window.workshopOfflineProtect();}</script>';

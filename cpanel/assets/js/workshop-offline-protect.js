@@ -102,51 +102,76 @@
       return bytes;
     }
 
-    function speakOver(audio) {
+    function markTimes(duration, id) {
+      var dur = duration;
+      if (!dur || !isFinite(dur) || dur < 3) return [];
+      var h = 0;
+      var key = String(id || "");
+      var i;
+      for (i = 0; i < key.length; i++) h = (h * 33 + key.charCodeAt(i)) >>> 0;
+      var a = 0.14 + (h % 16) / 100;
+      var b = 0.44 + ((h >>> 4) % 14) / 100;
+      var c = 0.74 + ((h >>> 8) % 12) / 100;
+      var t1 = Math.max(4, dur * a);
+      var t2 = Math.max(t1 + Math.min(20, dur * 0.12), dur * b);
+      var t3 = Math.min(dur - 1.5, Math.max(t2 + Math.min(20, dur * 0.12), dur * c));
+      if (dur < 20) {
+        return [dur * 0.22, dur * 0.5, dur * 0.78];
+      }
+      return [t1, t2, t3];
+    }
+
+    function sayThenResume(audio) {
       var label = window.workshopOfflineWatermark || "";
-      if (!label || !window.speechSynthesis || !audio) return;
-      var prev = audio.volume;
+      if (!audio) return;
+      audio.pause();
+      var resumed = false;
+      function resume() {
+        if (resumed) return;
+        resumed = true;
+        audio.play().catch(function () {});
+      }
+      if (!label || !window.speechSynthesis) {
+        resume();
+        return;
+      }
       var utter = new SpeechSynthesisUtterance("این نسخه برای " + label + " است");
       utter.lang = "fa-IR";
       utter.rate = 0.92;
-      audio.volume = 0.28;
-      utter.onend = function () {
-        try { audio.volume = prev || 1; } catch (e) {}
-      };
+      utter.onend = resume;
+      utter.onerror = resume;
+      setTimeout(resume, 5000);
       try {
         window.speechSynthesis.cancel();
         window.speechSynthesis.speak(utter);
-      } catch (e2) {
-        try { audio.volume = prev || 1; } catch (e3) {}
+      } catch (e) {
+        resume();
       }
     }
 
-    function bindSpokenMark(audio) {
+    function bindSpokenMark(audio, id) {
       if (!audio || audio.getAttribute("data-wm-bound") === "1") return;
       audio.setAttribute("data-wm-bound", "1");
-      var started = false;
-      var mid = false;
-      var last = 0;
-      function say() {
-        last = audio.currentTime || last;
-        speakOver(audio);
-      }
-      audio.addEventListener("playing", function () {
-        if (started) return;
-        started = true;
-        setTimeout(function () {
-          if (!audio.paused) say();
-        }, 7000);
-      });
+      var times = null;
+      var done = [false, false, false];
+      var busy = false;
       audio.addEventListener("timeupdate", function () {
-        var now = audio.currentTime || 0;
-        var dur = audio.duration;
-        if (dur && !mid && now > dur / 2 && now > 12) {
-          mid = true;
-          say();
-          return;
+        if (busy || audio.paused) return;
+        if (!times) {
+          if (!audio.duration || !isFinite(audio.duration)) return;
+          times = markTimes(audio.duration, id);
         }
-        if (now - last > 180 && now > 20) say();
+        var now = audio.currentTime || 0;
+        var i;
+        for (i = 0; i < times.length; i++) {
+          if (!done[i] && now >= times[i]) {
+            done[i] = true;
+            busy = true;
+            sayThenResume(audio);
+            setTimeout(function () { busy = false; }, 5200);
+            break;
+          }
+        }
       });
     }
 
@@ -171,7 +196,6 @@
         if (!audio || !entry || !entry.url) return;
         btn.disabled = true;
         if (status) status.textContent = "در حال آماده‌سازی پخش...";
-        speakOver(audio);
         fetch(entry.url, {
           credentials: "same-origin",
           cache: "no-store",
@@ -189,8 +213,8 @@
             audio.src = blobUrl;
             audio.style.display = "block";
             btn.style.display = "none";
-            if (status) status.textContent = "در حال پخش. نام شما وسط فایل گفته می‌شود.";
-            bindSpokenMark(audio);
+            if (status) status.textContent = "در حال پخش. سه بار صدا قطع می‌شود و نام شما گفته می‌شود.";
+            bindSpokenMark(audio, id);
             return audio.play();
           })
           .catch(function () {

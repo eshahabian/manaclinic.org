@@ -637,34 +637,59 @@ function workshop_media_log_secretary_action(PDO $pdo, array $user, string $acti
     );
 }
 
-function workshop_session_file_lines_html(array $sessions): string
+function workshop_session_file_lines_html(array $sessions, string $deleteAction = '', string $workshopId = ''): string
 {
     if ($sessions === []) {
         return '';
     }
-    $rows = '';
+    $blocks = '';
     foreach ($sessions as $session) {
         if (!is_array($session) || trim((string) ($session['id'] ?? '')) === '') {
             continue;
         }
-        $bits = [];
+        $files = [];
         foreach (['PDF' => 'پی‌دی‌اف', 'AUDIO' => 'صوت', 'VIDEO' => 'ویدیو'] as $kind => $label) {
-            $count = count(workshop_media_kind_files($session['files'][$kind] ?? null));
-            if ($count > 0) {
-                $bits[] = $count > 1 ? $label . ' (' . $count . ')' : $label;
+            foreach (workshop_media_kind_files($session['files'][$kind] ?? null) as $file) {
+                $files[] = ['label' => $label, 'file' => $file];
             }
         }
-        $rows .= '<li><strong>' . e((string) ($session['title'] ?? 'جلسه')) . '</strong> — '
-            . ($bits !== [] ? e(implode('، ', $bits)) : '<span class="muted">فایلی ندارد</span>')
-            . '</li>';
+        $title = (string) ($session['title'] ?? 'جلسه');
+        $date = (string) ($session['session_date'] ?? '');
+        $blocks .= '<div class="workshop-session-file-block"><strong>' . e($title) . '</strong>';
+        if ($date !== '') {
+            $blocks .= ' <span class="muted">' . e(to_jalali_label($date)) . '</span>';
+        }
+        if ($files === []) {
+            $blocks .= '<p class="muted" style="margin:.25rem 0 0">فایلی بارگذاری نشده است.</p></div>';
+            continue;
+        }
+        $blocks .= '<ul>';
+        foreach ($files as $row) {
+            $file = $row['file'];
+            $name = trim((string) ($file['original_name'] ?? ''));
+            if ($name === '') {
+                $name = 'فایل';
+            }
+            $blocks .= '<li><span>' . e($row['label'] . ' — ' . $name) . '</span>';
+            $itemId = (string) ($file['id'] ?? '');
+            if ($deleteAction !== '' && $workshopId !== '' && $itemId !== '') {
+                $blocks .= '<form method="post" action="' . e($deleteAction) . '" onsubmit="return confirm(\'این فایل حذف شود؟\')">'
+                    . '<input type="hidden" name="action" value="delete">'
+                    . '<input type="hidden" name="back" value="list">'
+                    . '<input type="hidden" name="workshop_id" value="' . e($workshopId) . '">'
+                    . '<input type="hidden" name="item_id" value="' . e($itemId) . '">'
+                    . '<button class="btn btn-outline btn-sm" type="submit">حذف فایل</button>'
+                    . '</form>';
+            }
+            $blocks .= '</li>';
+        }
+        $blocks .= '</ul></div>';
     }
-    if ($rows === '') {
+    if ($blocks === '') {
         return '';
     }
 
-    return '<div class="workshop-session-file-lines"><div class="muted" style="font-size:.78rem;margin:.55rem 0 .25rem">فایل هر جلسه</div><ul>'
-        . $rows
-        . '</ul></div>';
+    return '<div class="workshop-session-file-lines"><h3>فایل‌های هر جلسه</h3>' . $blocks . '</div>';
 }
 
 function workshop_files_badge_html(array $files): string

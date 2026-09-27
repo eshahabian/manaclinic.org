@@ -50,7 +50,6 @@ $doctorPathBoardById = $doctorPathBoardById ?? [];
             <?php $workshopMediaStats = workshop_media_counts_html(workshop_media_counts_from_row($workshop)); if ($workshopMediaStats): ?>
               <div style="margin-top:.4rem"><?= $workshopMediaStats ?></div>
             <?php endif; ?>
-            <?= workshop_session_file_lines_html($staffSessions) ?>
             <div class="muted" style="font-size:.75rem;margin-top:.35rem">برای دیدن کلیات و کار روی کارگاه کلیک کنید</div>
             <div class="muted" style="font-size:.85rem;margin-top:.35rem">
               <?php if ($workshop['type'] === 'OFFLINE'): ?>
@@ -124,6 +123,7 @@ $doctorPathBoardById = $doctorPathBoardById ?? [];
             </form>
           </div>
         </div>
+        <?= workshop_session_file_lines_html($staffSessions, url($workshopMediaPost), (string) $workshop['id']) ?>
         <?php if ($workshopRole === 'doctor' && !empty($workshop['items_to_bring'])): ?>
           <p style="font-size:.85rem;margin:.75rem 0 0"><strong>موارد همراه:</strong> <?= e($workshop['items_to_bring']) ?></p>
         <?php endif; ?>
