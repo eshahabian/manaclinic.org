@@ -9,6 +9,48 @@ $workshopSessions = $workshopSessions ?? [];
 $workshopMediaPost = $workshopMediaPost ?? '';
 $editWorkshopId = $editWorkshopId ?? null;
 ?>
+<?php
+$bundleCourse = [];
+$bundleSlides = [];
+if (!empty($editWorkshopId)) {
+    global $pdo;
+    if ($pdo instanceof PDO && function_exists('workshop_media_placed_list')) {
+        $bundleCourse = workshop_media_placed_list($pdo, (string) $editWorkshopId, 'COURSE');
+        $bundleSlides = workshop_media_placed_list($pdo, (string) $editWorkshopId, 'SLIDES');
+    }
+}
+$bundleDelete = static function (array $file) use ($editWorkshopId, $workshopMediaPost): void {
+    if (empty($file['id']) || !$editWorkshopId || $workshopMediaPost === '') {
+        return;
+    }
+    echo ' <button type="button" class="btn btn-outline btn-sm js-media-delete" data-action="' . e(url($workshopMediaPost)) . '" data-workshop="' . e((string) $editWorkshopId) . '" data-item="' . e((string) $file['id']) . '">حذف فایل</button>';
+};
+?>
+<div class="panel workshop-bundle-form" style="padding:1rem;background:var(--bg-soft,#f8fafc)">
+  <h3 style="margin:0;font-size:.95rem">فایل کلی کارگاه</h3>
+  <p class="muted" style="font-size:.85rem;line-height:1.65;margin:.4rem 0 .7rem">یک پی‌دی‌اف یا فایل صوتی برای کل دوره، نه برای یک جلسهٔ خاص. مراجع آن را بالای مسیر دوره می‌بیند.</p>
+  <?php foreach ($bundleCourse as $file): ?>
+    <p class="muted" style="font-size:.8rem;margin:0 0 .35rem"><?= e(workshop_media_kind_label((string) ($file['kind'] ?? ''))) ?> — <?= e((string) ($file['original_name'] ?? 'فایل')) ?><?php $bundleDelete($file); ?></p>
+  <?php endforeach; ?>
+  <div class="workshop-session-slots">
+    <div class="workshop-session-kind">
+      <label class="label">پی‌دی‌اف کل دوره</label>
+      <input class="input js-more-session-file" type="file" name="course_file[PDF][]" accept=".pdf,application/pdf">
+    </div>
+    <div class="workshop-session-kind">
+      <label class="label">صوت کل دوره</label>
+      <input class="input js-more-session-file" type="file" name="course_file[AUDIO][]" accept="audio/*,.mp3,.m4a,.wav,.ogg">
+    </div>
+  </div>
+</div>
+<div class="panel workshop-bundle-form" style="padding:1rem;background:var(--bg-soft,#f8fafc)">
+  <h3 style="margin:0;font-size:.95rem">پاورپوینت کارگاه</h3>
+  <p class="muted" style="font-size:.85rem;line-height:1.65;margin:.4rem 0 .7rem">فقط فایل pptx. نام مراجع روی اسلایدها و روی نمایش داخل پنل می‌نشیند.</p>
+  <?php foreach ($bundleSlides as $file): ?>
+    <p class="muted" style="font-size:.8rem;margin:0 0 .35rem"><?= e((string) ($file['original_name'] ?? 'slides.pptx')) ?><?php $bundleDelete($file); ?></p>
+  <?php endforeach; ?>
+  <input class="input js-more-session-file" type="file" name="slide_file[]" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation">
+</div>
 <div id="field-session-media" class="panel workshop-session-media" style="padding:1rem;background:var(--bg-soft,#f8fafc);border-style:dashed">
   <h3 style="margin:0;font-size:.95rem">فایل هر جلسه</h3>
   <p class="muted" style="font-size:.85rem;line-height:1.65;margin:.4rem 0 0">

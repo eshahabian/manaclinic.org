@@ -570,6 +570,7 @@ function workshop_save_sessions_and_media(PDO $pdo, string $workshopId, array $d
     );
     $saved = workshop_media_process_session_uploads($pdo, $workshopId, $doctorProfileId);
     $saved += workshop_media_process_form_uploads($pdo, $workshopId, $doctorProfileId);
+    $saved += workshop_media_process_bundle_uploads($pdo, $workshopId, $doctorProfileId);
     return $saved;
 }
 

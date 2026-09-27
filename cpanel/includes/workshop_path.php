@@ -506,12 +506,20 @@ function workshop_path_context(PDO $pdo, array $enrollment): array
     $offline = function_exists('workshop_is_offline') && workshop_is_offline($type);
     $progress = workshop_path_progress($steps, $offline);
 
+    $workshopId = (string) ($enrollment['workshop_id'] ?? '');
+
     return [
         'enrollment' => $enrollment,
         'steps' => $steps,
         'progress' => $progress,
         'offline' => $offline,
         'today' => $today,
+        'course_files' => $workshopId !== '' && function_exists('workshop_media_placed_list')
+            ? workshop_media_placed_list($pdo, $workshopId, 'COURSE')
+            : [],
+        'slide_files' => $workshopId !== '' && function_exists('workshop_media_placed_list')
+            ? workshop_media_placed_list($pdo, $workshopId, 'SLIDES')
+            : [],
     ];
 }
 
@@ -637,6 +645,13 @@ function workshop_path_render(array $ctx, string $mode): string
     <p><?= e((string) ($progress['message'] ?? '')) ?></p>
   </div>
 
+  <?= workshop_course_bundle_html(
+      is_array($ctx['course_files'] ?? null) ? $ctx['course_files'] : [],
+      is_array($ctx['slide_files'] ?? null) ? $ctx['slide_files'] : [],
+      is_array($ctx['user'] ?? null) ? $ctx['user'] : [],
+      (string) ($ctx['watermark'] ?? '')
+  ) ?>
+
   <?php if ($steps === []): ?>
     <p class="muted">هنوز جلسه‌ای برای این دوره تعریف نشده است.</p>
   <?php else: ?>
@@ -658,7 +673,13 @@ function workshop_path_render(array $ctx, string $mode): string
             <div class="workshop-path-card-head">
               <strong><?= e((string) ($step['title'] ?? 'جلسه')) ?></strong>
               <span class="badge"><?= e(workshop_path_state_label($state)) ?></span>
-              <?= workshop_files_badge_html(is_array($step['files'] ?? null) ? $step['files'] : []) ?>
+              <?php
+                $badgeFiles = is_array($step['files'] ?? null) ? $step['files'] : [];
+                if ($mode === 'patient') {
+                    $badgeFiles['PDF'] = [];
+                }
+              ?>
+              <?= workshop_files_badge_html($badgeFiles) ?>
             </div>
             <?php if (!empty($step['date_fa'])): ?>
               <div class="muted" style="font-size:.85rem;margin-top:.25rem"><?= e((string) $step['date_fa']) ?></div>
@@ -666,7 +687,16 @@ function workshop_path_render(array $ctx, string $mode): string
 
             <?php
               $stepFiles = is_array($step['files'] ?? null) ? $step['files'] : [];
-              $stepHasFiles = workshop_path_step_has_files($step);
+              if ($mode === 'patient') {
+                  $stepFiles['PDF'] = [];
+              }
+              $stepHasFiles = false;
+              foreach (['PDF', 'AUDIO', 'VIDEO'] as $kindName) {
+                  if (workshop_media_kind_files($stepFiles[$kindName] ?? null) !== []) {
+                      $stepHasFiles = true;
+                      break;
+                  }
+              }
             ?>
             <?php if ($stepHasFiles): ?>
               <div class="workshop-path-files-view">
@@ -780,6 +810,61 @@ function workshop_path_audio_streams_from_steps(array $steps, array $user): arra
     return $out;
 }
 
+function workshop_course_bundle_html(array $courseFiles, array $slideFiles, array $user, string $watermark): string
+{
+    $course = ['PDF' => [], 'AUDIO' => [], 'VIDEO' => []];
+    foreach ($courseFiles as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        $kind = (string) ($item['kind'] ?? '');
+        if (isset($course[$kind])) {
+            $course[$kind][] = $item;
+        }
+    }
+    $hasCourse = $course['PDF'] !== [] || $course['AUDIO'] !== [];
+    $slides = [];
+    foreach ($slideFiles as $item) {
+        if (is_array($item) && (string) ($item['id'] ?? '') !== '') {
+            $slides[] = $item;
+        }
+    }
+    if (!$hasCourse && $slides === []) {
+        return '';
+    }
+
+    ob_start();
+    ?>
+<div class="workshop-bundle">
+  <?php if ($hasCourse): ?>
+    <section class="panel workshop-bundle-block">
+      <h2>فایل کلی کارگاه</h2>
+      <p class="muted">این فایل برای کل دوره است، نه فقط یک جلسه.</p>
+      <?= workshop_path_media_html($course, ['user' => $user, 'watermark' => $watermark, 'show_pdf' => true]) ?>
+    </section>
+  <?php endif; ?>
+  <?php if ($slides !== []): ?>
+    <section class="panel workshop-bundle-block">
+      <h2>پاورپوینت کارگاه</h2>
+      <p class="muted">نمایش و فایل دانلودی هر دو مهر <?= e($watermark) ?> را دارند.</p>
+      <?php foreach ($slides as $slide): ?>
+        <?php $slideId = (string) ($slide['id'] ?? ''); ?>
+        <div class="wm-ppt-box">
+          <p class="muted" style="font-size:.8rem;margin:.55rem 0 .35rem"><?= e((string) ($slide['original_name'] ?? 'slides.pptx')) ?></p>
+          <div class="wm-pdf-actions">
+            <button type="button" class="btn btn-primary btn-sm js-ppt-show" data-ppt-url="<?= e(workshop_media_stream_url($slideId, $user) . '&preview=1') ?>">نمایش</button>
+            <a class="btn btn-outline btn-sm" href="<?= e(workshop_media_stream_url($slideId, $user, true)) ?>">دانلود</a>
+          </div>
+          <div class="wm-ppt-frame" hidden></div>
+        </div>
+      <?php endforeach; ?>
+    </section>
+  <?php endif; ?>
+</div>
+    <?php
+    return (string) ob_get_clean();
+}
+
 function workshop_path_media_html(array $files, array $ctx): string
 {
     $user = is_array($ctx['user'] ?? null) ? $ctx['user'] : [];
@@ -787,8 +872,14 @@ function workshop_path_media_html(array $files, array $ctx): string
     $videos = function_exists('workshop_media_kind_files') ? workshop_media_kind_files($files['VIDEO'] ?? null) : [];
     $audios = function_exists('workshop_media_kind_files') ? workshop_media_kind_files($files['AUDIO'] ?? null) : [];
     $pdfs = function_exists('workshop_media_kind_files') ? workshop_media_kind_files($files['PDF'] ?? null) : [];
+    $showPdf = array_key_exists('show_pdf', $ctx)
+        ? (bool) $ctx['show_pdf']
+        : ((string) ($user['role'] ?? '') !== 'PATIENT');
+    if (!$showPdf) {
+        $pdfs = [];
+    }
     if ($videos === [] && $audios === [] && $pdfs === []) {
-        return '<p class="muted workshop-path-locked">برای این جلسه هنوز فایلی بارگذاری نشده است.</p>';
+        return '';
     }
 
     ob_start();
@@ -896,7 +987,7 @@ function workshop_offline_protect_script(array $audioStreams = [], string $water
     }
 
     return '<script src="' . e(url('/assets/js/workshop-offline-protect.js')) . '?v=20260928speak"></script>'
-        . '<script src="' . e(url('/assets/js/workshop-pdf-view.js')) . '?v=20260928pdflocal"></script>'
+        . '<script src="' . e(url('/assets/js/workshop-pdf-view.js')) . '?v=20260928ppt"></script>'
         . '<script>window.workshopOfflineAudioStreams=' . $json
         . ';window.workshopOfflineWatermark=' . $mark
         . ';if(window.workshopOfflineProtect){window.workshopOfflineProtect();}</script>';

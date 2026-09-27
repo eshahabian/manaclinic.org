@@ -173,6 +173,10 @@ function workshop_sessions_with_media(PDO $pdo, string $workshopId): array
     $bySession = [];
     $unassigned = [];
     foreach ($items as $item) {
+        $placement = (string) ($item['placement'] ?? 'SESSION');
+        if ($placement === 'COURSE' || $placement === 'SLIDES') {
+            continue;
+        }
         $sid = trim((string) ($item['session_id'] ?? ''));
         if ($sid === '') {
             $unassigned[] = $item;

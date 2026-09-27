@@ -140,6 +140,9 @@ $doctorPathBoardById = $doctorPathBoardById ?? [];
           </div>
           <div class="wcard-panel wcard-panel-files">
             <?= workshop_session_file_lines_html($staffSessions, url($workshopMediaPost), $wid) ?>
+            <?php if (isset($pdo) && $pdo instanceof PDO && function_exists('workshop_bundle_manage_lines')): ?>
+              <?= workshop_bundle_manage_lines($pdo, $wid, url($workshopMediaPost)) ?>
+            <?php endif; ?>
           </div>
           <div class="wcard-panel wcard-panel-enroll">
             <?php if (in_array($workshopRole, ['secretary', 'doctor'], true)): ?>

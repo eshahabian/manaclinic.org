@@ -54,7 +54,8 @@ if ($path === '' || !is_file($path)) {
 }
 
 $wantsDownload = (string) ($_GET['dl'] ?? '') === '1';
-if ($wantsDownload && $isPatient && ($item['kind'] ?? '') !== 'PDF') {
+$isPpt = ($item['kind'] ?? '') === 'PPT';
+if ($wantsDownload && $isPatient && ($item['kind'] ?? '') !== 'PDF' && !$isPpt) {
     http_response_code(403);
     exit('Forbidden');
 }
@@ -67,13 +68,31 @@ if ((string) ($user['role'] ?? '') === 'SECRETARY' && $wantsDownload && function
     workshop_media_log_secretary_action($pdo, $user, 'workshop_media_download', $item);
 }
 $tmpStamp = null;
+$watermark = workshop_media_watermark_for_user($user, $pdo);
+if ($isPpt && (string) ($_GET['preview'] ?? '') === '1') {
+    header('Content-Type: text/html; charset=utf-8');
+    header('X-Robots-Tag: noindex, nofollow');
+    header('Cache-Control: private, no-store');
+    echo workshop_pptx_preview_document($path, $watermark);
+    exit;
+}
 if (($item['kind'] ?? '') === 'PDF') {
-    $watermark = workshop_media_watermark_for_user($user, $pdo);
     $stamped = workshop_pdf_stamp_temp($path, $watermark);
     if ($stamped) {
         $tmpStamp = $stamped;
         $path = $stamped;
     }
+}
+if ($isPpt) {
+    $stamped = workshop_pptx_stamp_temp($path, $watermark);
+    if ($stamped) {
+        $tmpStamp = $stamped;
+        $path = $stamped;
+    } elseif ($isPatient) {
+        http_response_code(403);
+        exit('Forbidden');
+    }
+    $wantsDownload = true;
 }
 
 $size = filesize($path);
@@ -106,12 +125,18 @@ if (!$maskAudio && isset($_SERVER['HTTP_RANGE']) && preg_match('/bytes=(\d*)-(\d
 }
 
 $safeName = basename(str_replace(['"', "\r", "\n"], '', (string) ($item['original_name'] ?? 'file')));
+if ($isPpt) {
+    $mime = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+    if (!str_ends_with(strtolower($safeName), '.pptx')) {
+        $safeName .= '.pptx';
+    }
+}
 header('Content-Type: ' . $mime);
 header($maskAudio ? 'Accept-Ranges: none' : 'Accept-Ranges: bytes');
 header('Content-Length: ' . $length);
 if ($maskAudio) {
     header('Content-Disposition: inline');
-} elseif (($item['kind'] ?? '') === 'PDF' && $wantsDownload) {
+} elseif ($isPpt || (($item['kind'] ?? '') === 'PDF' && $wantsDownload)) {
     header('Content-Disposition: attachment; filename="' . $safeName . '"');
 } else {
     header('Content-Disposition: inline; filename="' . $safeName . '"');

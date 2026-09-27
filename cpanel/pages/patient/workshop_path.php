@@ -36,6 +36,7 @@ $ctx['post_url'] = url('/dashboard/workshops/path-note');
 $ctx['user'] = $user;
 $ctx['watermark'] = workshop_media_watermark_for_user($user, $pdo);
 $audioStreams = workshop_path_audio_streams_from_steps(is_array($ctx['steps'] ?? null) ? $ctx['steps'] : [], $user);
+$audioStreams += workshop_media_audio_streams_from_items(is_array($ctx['course_files'] ?? null) ? $ctx['course_files'] : [], $user);
 $qaHtml = '';
 if ($offline) {
     $qaTab = trim((string) ($_GET['qa'] ?? '')) === 'private' ? 'private' : 'public';
@@ -70,7 +71,7 @@ ob_start();
   <?php if ($offline): ?>
     <p class="muted" style="margin-top:.35rem;line-height:1.7">محتوای دوره همین‌جا در پنل پخش می‌شود — دانلود و ضبط صفحه مجاز نیست. پایین صفحه بخش پرسش و پاسخ است.</p>
   <?php else: ?>
-    <p class="muted" style="margin-top:.35rem;line-height:1.7">هر جلسه یک قدم از مسیر است. فایل‌های همان جلسه (پی‌دی‌اف، صوت یا ویدیو) پایین عنوان جلسه دیده می‌شود. بعد از برگزاری همان روز می‌توانید برای خودتان بنویسید. یادداشت درمانگر فقط برای شماست.</p>
+    <p class="muted" style="margin-top:.35rem;line-height:1.7">هر جلسه یک قدم از مسیر است. صوت و ویدیوی همان جلسه پایین عنوان جلسه دیده می‌شود. فایل کلی دوره و پاورپوینت، اگر باشد، بالای مسیر است. بعد از برگزاری همان روز می‌توانید برای خودتان بنویسید.</p>
   <?php endif; ?>
   <?= workshop_path_render($ctx, 'patient') ?>
   <?= $qaHtml ?>

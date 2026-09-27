@@ -6,6 +6,7 @@ require_once __DIR__ . '/../../includes/patient_panel.php';
 require_once __DIR__ . '/../../includes/workshops.php';
 require_once __DIR__ . '/../../includes/workshop_media.php';
 require_once __DIR__ . '/../../includes/workshop_path.php';
+require_once __DIR__ . '/../../includes/workshop_path.php';
 
 ensure_workshop_media_schema($pdo);
 $enrollmentId = trim((string) ($_GET['enrollment'] ?? ''));
@@ -72,6 +73,13 @@ ob_start();
   </div>
   <p class="muted" style="margin-top:.5rem"><?= e($pageLabel) ?> — فقط پخش آنلاین برای حساب شما. لینک‌ها موقت هستند و قابل اشتراک‌گذاری نیستند.</p>
 
+  <?= workshop_course_bundle_html(
+      workshop_media_placed_list($pdo, (string) $enrollment['workshop_id'], 'COURSE'),
+      workshop_media_placed_list($pdo, (string) $enrollment['workshop_id'], 'SLIDES'),
+      $user,
+      $watermark
+  ) ?>
+
   <?php if (!$mediaItems): ?>
     <div class="panel">
       <p class="muted">هنوز فایلی برای جلسات این کارگاه بارگذاری نشده است.</p>
@@ -89,8 +97,7 @@ ob_start();
       <?php
         $sessionFiles = is_array($session['files'] ?? null) ? $session['files'] : [];
         $hasAny = workshop_media_kind_files($sessionFiles['VIDEO'] ?? null) !== []
-            || workshop_media_kind_files($sessionFiles['AUDIO'] ?? null) !== []
-            || workshop_media_kind_files($sessionFiles['PDF'] ?? null) !== [];
+            || workshop_media_kind_files($sessionFiles['AUDIO'] ?? null) !== [];
       ?>
       <?php if (!$hasAny): ?>
         <p class="muted">برای این روز هنوز فایلی بارگذاری نشده است.</p>

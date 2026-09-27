@@ -124,6 +124,22 @@
   }
 
   document.addEventListener("click", function (e) {
+    var pptBtn = e.target && e.target.closest ? e.target.closest(".js-ppt-show") : null;
+    if (pptBtn) {
+      var pptBox = pptBtn.closest(".wm-ppt-box");
+      var wrap = pptBox ? pptBox.querySelector(".wm-ppt-frame") : null;
+      var src = pptBtn.getAttribute("data-ppt-url") || "";
+      if (wrap && src) {
+        wrap.innerHTML = "";
+        var frame = document.createElement("iframe");
+        frame.className = "wm-ppt-native";
+        frame.title = "پاورپوینت";
+        frame.src = src;
+        wrap.appendChild(frame);
+        wrap.hidden = false;
+      }
+      return;
+    }
     var showBtn = e.target && e.target.closest ? e.target.closest(".js-pdf-show") : null;
     var downBtn = e.target && e.target.closest ? e.target.closest(".js-pdf-download") : null;
     var btn = showBtn || downBtn;

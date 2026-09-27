@@ -23,6 +23,7 @@ $pathCtx['post_url'] = url('/doctor/workshops/path-note');
 $pathCtx['user'] = is_array($ctxUser['user'] ?? null) ? $ctxUser['user'] : (current_user() ?: []);
 $pathCtx['watermark'] = workshop_media_watermark_for_user($pathCtx['user'], $pdo);
 $audioStreams = workshop_path_audio_streams_from_steps(is_array($pathCtx['steps'] ?? null) ? $pathCtx['steps'] : [], $pathCtx['user']);
+$audioStreams += workshop_media_audio_streams_from_items(is_array($pathCtx['course_files'] ?? null) ? $pathCtx['course_files'] : [], $pathCtx['user']);
 
 $GLOBALS['pageRobots'] = 'noindex,nofollow';
 

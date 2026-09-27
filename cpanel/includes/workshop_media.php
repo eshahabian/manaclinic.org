@@ -32,7 +32,14 @@ function ensure_workshop_media_schema(PDO $pdo): void
     } catch (Throwable $ignored) {
     }
     try {
-        $pdo->exec("ALTER TABLE workshop_media_items MODIFY kind ENUM('VIDEO','AUDIO','PDF') NOT NULL");
+        $pdo->exec("ALTER TABLE workshop_media_items MODIFY kind ENUM('VIDEO','AUDIO','PDF','PPT') NOT NULL");
+    } catch (Throwable $ignored) {
+    }
+    try {
+        $col = $pdo->query("SHOW COLUMNS FROM workshop_media_items LIKE 'placement'")->fetch();
+        if (!$col) {
+            $pdo->exec("ALTER TABLE workshop_media_items ADD COLUMN placement VARCHAR(16) NOT NULL DEFAULT 'SESSION' AFTER session_id");
+        }
     } catch (Throwable $ignored) {
     }
     workshop_media_ensure_storage();
@@ -70,6 +77,7 @@ function workshop_media_kind_label(string $kind): string
     return match ($kind) {
         'AUDIO' => 'صوت',
         'PDF' => 'پی‌دی‌اف',
+        'PPT' => 'پاورپوینت',
         default => 'ویدیو',
     };
 }
@@ -81,6 +89,12 @@ function workshop_media_allowed_specs(string $kind): array
             'application/pdf' => 'pdf',
             'application/x-pdf' => 'pdf',
             'application/octet-stream' => 'pdf',
+        ];
+    }
+    if ($kind === 'PPT') {
+        return [
+            'application/vnd.openxmlformats-officedocument.presentationml.presentation' => 'pptx',
+            'application/zip' => 'pptx',
         ];
     }
     if ($kind === 'AUDIO') {
@@ -317,7 +331,7 @@ function workshop_media_workshop_exists(PDO $pdo, string $workshopId): bool
     return (bool) $stmt->fetch();
 }
 
-function workshop_media_save_upload(PDO $pdo, string $workshopId, ?string $doctorProfileId, string $kind, string $title, ?string $description, array $file, ?string $sessionId = null): string
+function workshop_media_save_upload(PDO $pdo, string $workshopId, ?string $doctorProfileId, string $kind, string $title, ?string $description, array $file, ?string $sessionId = null, string $placement = 'SESSION'): string
 {
     ensure_workshop_media_schema($pdo);
     if ($doctorProfileId !== null) {
@@ -327,8 +341,11 @@ function workshop_media_save_upload(PDO $pdo, string $workshopId, ?string $docto
     } elseif (!workshop_media_workshop_exists($pdo, $workshopId)) {
         throw new RuntimeException('کارگاه یافت نشد.');
     }
-    if (!in_array($kind, ['VIDEO', 'AUDIO', 'PDF'], true)) {
+    if (!in_array($kind, ['VIDEO', 'AUDIO', 'PDF', 'PPT'], true)) {
         throw new RuntimeException('نوع فایل نامعتبر است.');
+    }
+    if (!in_array($placement, ['SESSION', 'COURSE', 'SLIDES'], true)) {
+        $placement = 'SESSION';
     }
     if ($title === '') {
         throw new RuntimeException('عنوان محتوا را بنویسید.');
@@ -341,6 +358,15 @@ function workshop_media_save_upload(PDO $pdo, string $workshopId, ?string $docto
     }
 
     $mime = workshop_media_detect_mime((string) $file['tmp_name']);
+    if ($kind === 'PPT') {
+        $original = strtolower((string) ($file['name'] ?? ''));
+        if (!str_ends_with($original, '.pptx')) {
+            throw new RuntimeException('پاورپوینت را با پسوند pptx بفرستید تا نام مراجع روی اسلایدها بنشیند.');
+        }
+        if (in_array($mime, ['application/zip', 'application/octet-stream', 'application/vnd.ms-powerpoint'], true)) {
+            $mime = 'application/vnd.openxmlformats-officedocument.presentationml.presentation';
+        }
+    }
     $allowed = workshop_media_allowed_specs($kind);
     if (!isset($allowed[$mime])) {
         throw new RuntimeException('فرمت فایل پشتیبانی نمی‌شود.');
@@ -361,12 +387,13 @@ function workshop_media_save_upload(PDO $pdo, string $workshopId, ?string $docto
     $sort = workshop_media_count($pdo, $workshopId);
     $pdo->prepare('
       INSERT INTO workshop_media_items
-        (id, workshop_id, session_id, kind, title, description, file_path, original_name, mime_type, file_size, sort_order)
-      VALUES (?,?,?,?,?,?,?,?,?,?,?)
+        (id, workshop_id, session_id, placement, kind, title, description, file_path, original_name, mime_type, file_size, sort_order)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
     ')->execute([
         $id,
         $workshopId,
-        $sessionId,
+        $placement === 'SESSION' ? $sessionId : null,
+        $placement,
         $kind,
         $title,
         $description ?: null,
@@ -497,6 +524,91 @@ function workshop_media_process_path_session_files(
     }
 
     return $saved;
+}
+
+/** فایل کلی دوره (پی‌دی‌اف یا صوت) و پاورپوینت کارگاه — بدون وابستگی به یک جلسه. */
+function workshop_media_process_bundle_uploads(PDO $pdo, string $workshopId, ?string $doctorProfileId): int
+{
+    $saved = 0;
+    $course = $_FILES['course_file'] ?? [];
+    if (is_array($course['name'] ?? null)) {
+        foreach (['PDF', 'AUDIO'] as $kind) {
+            $names = $course['name'][$kind] ?? null;
+            $indexes = is_array($names) ? array_keys($names) : [];
+            foreach ($indexes as $index) {
+                $pick = static function (string $key) use ($course, $kind, $index) {
+                    $value = $course[$key][$kind] ?? null;
+                    return is_array($value) ? ($value[$index] ?? null) : null;
+                };
+                $file = [
+                    'name' => (string) ($pick('name') ?? ''),
+                    'type' => (string) ($pick('type') ?? ''),
+                    'tmp_name' => (string) ($pick('tmp_name') ?? ''),
+                    'error' => (int) ($pick('error') ?? UPLOAD_ERR_NO_FILE),
+                    'size' => (int) ($pick('size') ?? 0),
+                ];
+                if ($file['error'] === UPLOAD_ERR_NO_FILE || $file['name'] === '') {
+                    continue;
+                }
+                $title = 'فایل کلی کارگاه — ' . workshop_media_kind_label($kind);
+                workshop_media_save_upload($pdo, $workshopId, $doctorProfileId, $kind, $title, null, $file, null, 'COURSE');
+                $saved++;
+            }
+        }
+    }
+
+    $slides = $_FILES['slide_file'] ?? [];
+    if (is_array($slides['name'] ?? null)) {
+        foreach (array_keys($slides['name']) as $index) {
+            $file = [
+                'name' => (string) ($slides['name'][$index] ?? ''),
+                'type' => (string) ($slides['type'][$index] ?? ''),
+                'tmp_name' => (string) ($slides['tmp_name'][$index] ?? ''),
+                'error' => (int) ($slides['error'][$index] ?? UPLOAD_ERR_NO_FILE),
+                'size' => (int) ($slides['size'][$index] ?? 0),
+            ];
+            if ($file['error'] === UPLOAD_ERR_NO_FILE || $file['name'] === '') {
+                continue;
+            }
+            workshop_media_save_upload($pdo, $workshopId, $doctorProfileId, 'PPT', 'پاورپوینت کارگاه', null, $file, null, 'SLIDES');
+            $saved++;
+        }
+    }
+
+    return $saved;
+}
+
+function workshop_media_placed_list(PDO $pdo, string $workshopId, string $placement): array
+{
+    $placement = $placement === 'SLIDES' ? 'SLIDES' : 'COURSE';
+    $out = [];
+    foreach (workshop_media_list($pdo, $workshopId) as $item) {
+        if (!is_array($item)) {
+            continue;
+        }
+        if ((string) ($item['placement'] ?? 'SESSION') === $placement) {
+            $out[] = $item;
+        }
+    }
+
+    return $out;
+}
+
+function workshop_media_audio_streams_from_items(array $items, array $user): array
+{
+    $out = [];
+    foreach ($items as $item) {
+        if (!is_array($item) || (string) ($item['kind'] ?? '') !== 'AUDIO') {
+            continue;
+        }
+        $id = (string) ($item['id'] ?? '');
+        if ($id === '') {
+            continue;
+        }
+        $out[$id] = workshop_media_audio_client_pack($id, $user, (string) ($item['mime_type'] ?? ''));
+    }
+
+    return $out;
 }
 
 /** بارگذاری چند فایل از فرم ایجاد/ویرایش کارگاه — doctorProfileId=null یعنی دسترسی منشی */
@@ -697,6 +809,41 @@ function workshop_session_file_lines_html(array $sessions, string $deleteAction 
     return '<div class="workshop-session-file-lines"><h3>فایل‌های هر جلسه</h3>' . $blocks . '</div>';
 }
 
+function workshop_bundle_manage_lines(PDO $pdo, string $workshopId, string $deleteAction = ''): string
+{
+    $groups = [
+        'فایل کلی کارگاه' => workshop_media_placed_list($pdo, $workshopId, 'COURSE'),
+        'پاورپوینت' => workshop_media_placed_list($pdo, $workshopId, 'SLIDES'),
+    ];
+    $html = '';
+    foreach ($groups as $title => $items) {
+        if ($items === []) {
+            continue;
+        }
+        $html .= '<div class="workshop-session-file-block"><strong>' . e($title) . '</strong><ul>';
+        foreach ($items as $file) {
+            $name = trim((string) ($file['original_name'] ?? ''));
+            if ($name === '') {
+                $name = 'فایل';
+            }
+            $html .= '<li><span>' . e(workshop_media_kind_label((string) ($file['kind'] ?? '')) . ' — ' . $name) . '</span>';
+            $itemId = (string) ($file['id'] ?? '');
+            if ($deleteAction !== '' && $itemId !== '') {
+                $html .= '<form method="post" action="' . e($deleteAction) . '" onsubmit="return confirm(\'این فایل حذف شود؟\')">'
+                    . '<input type="hidden" name="action" value="delete">'
+                    . '<input type="hidden" name="back" value="list">'
+                    . '<input type="hidden" name="workshop_id" value="' . e($workshopId) . '">'
+                    . '<input type="hidden" name="item_id" value="' . e($itemId) . '">'
+                    . '<button class="btn btn-outline btn-sm" type="submit">حذف فایل</button></form>';
+            }
+            $html .= '</li>';
+        }
+        $html .= '</ul></div>';
+    }
+
+    return $html;
+}
+
 function workshop_files_badge_html(array $files): string
 {
     $bits = [];
@@ -772,6 +919,124 @@ function workshop_media_stream_url(string $itemId, ?array $user = null, bool $do
         $query .= '&dl=1';
     }
     return url('/workshop-media/stream?' . $query);
+}
+
+function workshop_pptx_watermark_shapes(string $safeText): string
+{
+    $spots = [
+        [9101, 400000, 700000],
+        [9102, 500000, 2800000],
+        [9103, 300000, 4800000],
+    ];
+    $xml = '';
+    foreach ($spots as [$id, $x, $y]) {
+        $xml .= '<p:sp><p:nvSpPr><p:cNvPr id="' . $id . '" name="ManaMark' . $id . '"/>'
+            . '<p:cNvSpPr/><p:nvPr/></p:nvSpPr><p:spPr><a:xfrm rot="-2700000"><a:off x="' . $x . '" y="' . $y . '"/>'
+            . '<a:ext cx="9000000" cy="600000"/></a:xfrm><a:prstGeom prst="rect"><a:avLst/></a:prstGeom><a:noFill/></p:spPr>'
+            . '<p:txBody><a:bodyPr wrap="square"/><a:lstStyle/><a:p><a:pPr algn="ctr"/>'
+            . '<a:r><a:rPr lang="fa-IR" sz="2200" b="1"><a:solidFill><a:srgbClr val="555555"><a:alpha val="42000"/></a:srgbClr></a:solidFill></a:rPr>'
+            . '<a:t>' . $safeText . '</a:t></a:r></a:p></p:txBody></p:sp>';
+    }
+
+    return $xml;
+}
+
+function workshop_pptx_stamp_temp(string $srcPath, string $watermark): ?string
+{
+    if (!class_exists('ZipArchive') || !is_file($srcPath) || trim($watermark) === '') {
+        return null;
+    }
+    $tmp = sys_get_temp_dir() . '/mana_pptx_' . bin2hex(random_bytes(8)) . '.pptx';
+    if (!copy($srcPath, $tmp)) {
+        return null;
+    }
+    $zip = new ZipArchive();
+    if ($zip->open($tmp) !== true) {
+        @unlink($tmp);
+        return null;
+    }
+    $safe = htmlspecialchars($watermark, ENT_XML1 | ENT_QUOTES, 'UTF-8');
+    $shapes = workshop_pptx_watermark_shapes($safe);
+    $stamped = 0;
+    for ($i = 0; $i < $zip->numFiles; $i++) {
+        $name = (string) $zip->getNameIndex($i);
+        if (!preg_match('#^ppt/slides/slide\d+\.xml$#', $name)) {
+            continue;
+        }
+        $xml = $zip->getFromName($name);
+        if (!is_string($xml) || !str_contains($xml, '</p:spTree>')) {
+            continue;
+        }
+        $xml = preg_replace('/<\/p:spTree>/', $shapes . '</p:spTree>', $xml, 1);
+        if (is_string($xml)) {
+            $zip->addFromString($name, $xml);
+            $stamped++;
+        }
+    }
+    $zip->close();
+    if ($stamped < 1) {
+        @unlink($tmp);
+        return null;
+    }
+
+    return $tmp;
+}
+
+function workshop_pptx_preview_document(string $srcPath, string $watermark): string
+{
+    $slides = [];
+    if (class_exists('ZipArchive') && is_file($srcPath)) {
+        $zip = new ZipArchive();
+        if ($zip->open($srcPath) === true) {
+            $names = [];
+            for ($i = 0; $i < $zip->numFiles; $i++) {
+                $name = (string) $zip->getNameIndex($i);
+                if (preg_match('#^ppt/slides/slide(\d+)\.xml$#', $name, $m)) {
+                    $names[(int) $m[1]] = $name;
+                }
+            }
+            ksort($names);
+            foreach ($names as $num => $name) {
+                $xml = $zip->getFromName($name);
+                $text = '';
+                if (is_string($xml) && preg_match_all('#<a:t[^>]*>(.*?)</a:t>#su', $xml, $found)) {
+                    $bits = [];
+                    foreach ($found[1] as $bit) {
+                        $bit = trim(html_entity_decode(strip_tags($bit), ENT_QUOTES | ENT_HTML5, 'UTF-8'));
+                        if ($bit !== '') {
+                            $bits[] = $bit;
+                        }
+                    }
+                    $text = implode("\n", $bits);
+                }
+                $slides[] = ['n' => $num, 'text' => $text];
+            }
+            $zip->close();
+        }
+    }
+    $mark = htmlspecialchars($watermark, ENT_QUOTES | ENT_HTML5, 'UTF-8');
+    $body = '';
+    if (!$slides) {
+        $body = '<p>پیش‌نمایش این فایل ساخته نشد. فایل دانلودی مهر نام را روی اسلایدها دارد.</p>';
+    }
+    foreach ($slides as $slide) {
+        $text = trim((string) $slide['text']);
+        $shown = $text !== ''
+            ? nl2br(htmlspecialchars($text, ENT_QUOTES | ENT_HTML5, 'UTF-8'))
+            : 'این اسلاید بیشتر تصویر است. در فایل دانلودی، نام شما روی خود اسلاید نوشته شده است.';
+        $body .= '<article class="slide"><h2>اسلاید ' . (int) $slide['n'] . '</h2><p>' . $shown . '</p></article>';
+    }
+
+    return '<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="robots" content="noindex">'
+        . '<title>پاورپوینت</title><style>'
+        . 'body{margin:0;font-family:Tahoma,sans-serif;background:#f6f4ef;color:#243;}'
+        . '.mark{position:fixed;inset:0;pointer-events:none;display:grid;grid-template-columns:1fr 1fr;gap:2rem;align-content:space-evenly;justify-items:center;overflow:hidden;}'
+        . '.mark span{transform:rotate(-24deg);color:rgba(40,40,40,.28);font-weight:700;font-size:1.05rem;white-space:nowrap;}'
+        . '.slide{position:relative;z-index:1;margin:.8rem;padding:1rem 1.1rem;background:#fff;border-radius:.7rem;box-shadow:0 1px 4px rgba(0,0,0,.06);}'
+        . 'h2{margin:0 0 .45rem;font-size:.95rem;} p{margin:0;line-height:1.8;white-space:pre-wrap;}'
+        . '</style></head><body><div class="mark" aria-hidden="true">'
+        . str_repeat('<span>' . $mark . '</span>', 8)
+        . '</div>' . $body . '</body></html>';
 }
 
 function workshop_pdf_stamp_temp(string $srcPath, string $watermark): ?string
