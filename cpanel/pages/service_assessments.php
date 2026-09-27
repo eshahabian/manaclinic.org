@@ -54,10 +54,9 @@ ob_start();
 
     <div class="service-detail-cta">
       <a class="btn btn-primary" href="<?= e($testsHref) ?>">مشاهده آزمون‌ها</a>
-      <a class="btn btn-outline" href="<?= e($doctorsHref) ?>">مشاوره با متخصص</a>
-      <a class="btn btn-outline" href="<?= e(url('/contact')) ?>">تماس با کلینیک</a>
-      <a class="btn btn-outline" href="<?= e(url('/services')) ?>">بازگشت به خدمات</a>
     </div>
+
+    <?= service_related_articles_html($pdo, 'assessments') ?>
   </article>
 </div>
 <?php

@@ -15,8 +15,13 @@ if ($action === 'create') {
     $content = sanitize_rich_html((string) ($_POST['content'] ?? ''));
     $text = trim(strip_tags($content));
 
+    $services = article_service_tags_from_request();
     if (!$authorId || $title === '' || $text === '') {
         flash_set('error', 'دکتر، عنوان و متن مقاله الزامی است.');
+        redirect('/secretary/articles');
+    }
+    if ($services === []) {
+        flash_set('error', 'موضوع مقاله را انتخاب کنید تا در صفحهٔ خدمت مرتبط دیده شود.');
         redirect('/secretary/articles');
     }
     if ($excerpt === '') {
@@ -41,8 +46,8 @@ if ($action === 'create') {
     $slug = article_unique_slug($pdo, $title);
     $pdo->prepare('
       INSERT INTO articles
-        (id, title, slug, content, excerpt, cover_url, video_url, published, published_at, author_id, submitted_by_user_id, approval_status)
-      VALUES (?,?,?,?,?,?,?,0,NULL,?,?,?)
+        (id, title, slug, content, excerpt, cover_url, video_url, published, published_at, author_id, submitted_by_user_id, approval_status, services_json)
+      VALUES (?,?,?,?,?,?,?,0,NULL,?,?,?,?)
     ')->execute([
         $id,
         $title,
@@ -54,6 +59,7 @@ if ($action === 'create') {
         $authorId,
         (string) $user['id'],
         'PENDING',
+        json_encode($services, JSON_UNESCAPED_UNICODE),
     ]);
 
     $docProfile = $pdo->prepare('SELECT id FROM doctor_profiles WHERE user_id=? LIMIT 1');

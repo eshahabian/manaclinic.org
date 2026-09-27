@@ -38,6 +38,8 @@ ob_start();
           <?php if (!empty($a['excerpt'])): ?>
             <p style="margin:.5rem 0 0;font-size:.9rem;line-height:1.7"><?= e($a['excerpt']) ?></p>
           <?php endif; ?>
+          <?php $pendingTags = article_service_tag_labels($a); ?>
+          <?php if ($pendingTags !== ''): ?><div class="muted" style="font-size:.85rem;margin-top:.35rem"><?= e($pendingTags) ?></div><?php endif; ?>
         </div>
         <div style="display:flex;gap:.5rem;flex-wrap:wrap">
           <form method="post" action="<?= e(url('/doctor/articles')) ?>">
@@ -67,6 +69,7 @@ ob_start();
   <p class="muted" style="margin:0;font-size:.85rem">متن را انتخاب کنید، بعد Bold / زیرخط / سایز / رنگ / جدول بزنید.</p>
   <div><label class="label">عنوان</label><input class="input" name="title" required></div>
   <div><label class="label">خلاصه</label><input class="input" name="excerpt"></div>
+  <?= article_service_picker_html() ?>
   <div>
     <label class="label">متن مقاله</label>
     <?= rich_editor_toolbar_html(['id' => 'article-toolbar']) ?>
@@ -85,7 +88,8 @@ ob_start();
 </form>
 <div class="stack" style="margin-top:1.5rem">
 <?php foreach ($others as $a): ?>
-  <div class="panel row-between">
+  <div class="panel stack">
+    <div class="row-between" style="align-items:flex-start;gap:1rem">
     <div>
       <strong><?= e($a['title']) ?></strong>
       <div class="muted" style="font-size:.85rem"><?= e(article_approval_label((string) ($a['approval_status'] ?? 'NONE'), (int) $a['published'])) ?><?= !empty($a['submitter_name']) ? ' · منشی: ' . e($a['submitter_name']) : '' ?></div>
@@ -101,6 +105,13 @@ ob_start();
         <button class="btn btn-danger btn-sm" type="submit">حذف</button>
       </form>
     </div>
+    </div>
+    <form method="post" action="<?= e(url('/doctor/articles')) ?>" class="article-service-retag">
+      <input type="hidden" name="action" value="set_services">
+      <input type="hidden" name="id" value="<?= e($a['id']) ?>">
+      <?= article_service_picker_html(article_service_tags($a), true) ?>
+      <button class="btn btn-outline btn-sm" type="submit" style="margin-top:.65rem">ذخیره موضوع</button>
+    </form>
   </div>
 <?php endforeach; ?>
 </div>

@@ -40,6 +40,7 @@ function ensure_articles_schema(PDO $pdo): void
     $addColumn($pdo, 'video_url', 'video_url VARCHAR(500) NULL AFTER cover_url');
     $addColumn($pdo, 'submitted_by_user_id', 'submitted_by_user_id VARCHAR(32) NULL AFTER author_id');
     $addColumn($pdo, 'approval_status', "approval_status VARCHAR(20) NOT NULL DEFAULT 'NONE' AFTER submitted_by_user_id");
+    $addColumn($pdo, 'services_json', 'services_json TEXT NULL AFTER approval_status');
 
     article_media_ensure_storage();
     $ready = true;
@@ -152,6 +153,73 @@ function article_delete_files(array $article): void
 {
     article_delete_media_file($article['cover_url'] ?? null);
     article_delete_media_file($article['video_url'] ?? null);
+}
+
+function article_service_tag_options(): array
+{
+    return [
+        'individual' => 'مشاوره فردی',
+        'couples' => 'زوج‌درمانی',
+        'child' => 'کودک و نوجوان',
+        'premarital' => 'پیش از ازدواج',
+        'family' => 'خانواده‌درمانی',
+        'workshops' => 'کارگاه‌ها و دوره‌ها',
+        'assessments' => 'آزمون‌ها و ارزیابی‌ها',
+    ];
+}
+
+function article_service_tags(array $article): array
+{
+    if (!function_exists('doctor_profile_json_list') || !function_exists('doctor_profile_filter_keys')) {
+        return [];
+    }
+
+    return doctor_profile_filter_keys(
+        doctor_profile_json_list($article['services_json'] ?? ''),
+        article_service_tag_options()
+    );
+}
+
+function article_service_tag_labels(array $article): string
+{
+    $options = article_service_tag_options();
+    $labels = [];
+    foreach (article_service_tags($article) as $key) {
+        if (isset($options[$key])) {
+            $labels[] = $options[$key];
+        }
+    }
+
+    return implode('، ', $labels);
+}
+
+function article_service_tags_from_request(): array
+{
+    $raw = $_POST['services'] ?? [];
+    if (!is_array($raw) || !function_exists('doctor_profile_filter_keys')) {
+        return [];
+    }
+
+    return doctor_profile_filter_keys($raw, article_service_tag_options());
+}
+
+function article_service_picker_html(array $selected = [], bool $compact = false): string
+{
+    if (!function_exists('doctor_chip_picker_html')) {
+        return '';
+    }
+    ob_start();
+    ?>
+    <div>
+      <label class="label"><?= $compact ? 'موضوع خدمت' : 'این مقاله مربوط به کدام خدمت است؟' ?></label>
+      <?php if (!$compact): ?>
+        <p class="muted" style="margin:0 0 .55rem;font-size:.82rem;line-height:1.7">حداقل یک مورد را انتخاب کنید. بعد از انتشار، مقاله در صفحهٔ اصلی و صفحهٔ همان خدمت دیده می‌شود.</p>
+      <?php endif; ?>
+      <?= doctor_chip_picker_html('services', article_service_tag_options(), $selected) ?>
+    </div>
+    <?php
+
+    return (string) ob_get_clean();
 }
 
 function article_author_doctors(PDO $pdo): array

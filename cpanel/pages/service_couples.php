@@ -160,12 +160,7 @@ ob_start();
       <?php endif; ?>
     </section>
 
-    <div class="service-detail-cta">
-      <a class="btn btn-primary" href="<?= e($doctorsHref) ?>">رزرو نوبت زوج‌درمانی</a>
-      <a class="btn btn-outline" href="<?= e(url('/assistant')) ?>">شروع با دستیار هوشمند</a>
-      <a class="btn btn-outline" href="<?= e(url('/contact')) ?>">تماس با کلینیک</a>
-      <a class="btn btn-outline" href="<?= e(url('/services')) ?>">بازگشت به خدمات</a>
-    </div>
+    <?= service_related_articles_html($pdo, 'couples') ?>
   </article>
 </div>
 <?php

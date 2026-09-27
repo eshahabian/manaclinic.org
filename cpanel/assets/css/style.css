@@ -505,7 +505,8 @@ select option {
 .doctor-card-photo {
   width: 92px;
   height: 92px;
-  margin: 0 0 .85rem;
+  margin: 0 auto .85rem;
+  align-self: center;
   font-size: 1.35rem;
 }
 .doctor-card-name {
@@ -6884,7 +6885,27 @@ html[data-theme="dark"] .emoji-picker-panel {
   margin-bottom: 1rem;
 }
 .service-detail-therapists .service-detail-doctors {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: stretch;
+  gap: 1rem;
   margin: 1.1rem 0 1rem;
+}
+.service-detail-therapists .service-detail-doctors .doctor-card {
+  flex: 0 1 20rem;
+  width: min(100%, 22rem);
+  max-width: 22rem;
+}
+.service-detail-articles {
+  margin-top: 2rem;
+}
+.service-detail-articles .articles-showcase,
+.service-detail-articles-grid {
+  grid-template-columns: 1fr;
+}
+.service-detail-articles .article-card {
+  min-height: 0;
 }
 .service-detail-therapists .service-detail-related {
   margin-top: .35rem;

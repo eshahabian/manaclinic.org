@@ -84,11 +84,7 @@ ob_start();
       </p>
     </section>
 
-    <div class="service-detail-cta">
-      <a class="btn btn-primary" href="<?= e(url('/#home-workshop-banners')) ?>">کارگاه‌های صفحه اصلی</a>
-      <a class="btn btn-outline" href="<?= e(url('/contact')) ?>">تماس با کلینیک</a>
-      <a class="btn btn-outline" href="<?= e(url('/services')) ?>">بازگشت به خدمات</a>
-    </div>
+    <?= service_related_articles_html($pdo, 'workshops') ?>
   </article>
 </div>
 <?php

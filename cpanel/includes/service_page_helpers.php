@@ -35,6 +35,71 @@ function service_doctors_by_domain(PDO $pdo, string $domainKey): array
     return $filtered;
 }
 
+/**
+ * Published articles explicitly tagged for a clinic service page.
+ *
+ * @return list<array<string, mixed>>
+ */
+function service_articles_for_key(PDO $pdo, string $serviceKey, int $limit = 6): array
+{
+    if (!function_exists('article_service_tag_options') || !isset(article_service_tag_options()[$serviceKey])) {
+        return [];
+    }
+    try {
+        if (function_exists('ensure_articles_schema')) {
+            ensure_articles_schema($pdo);
+        }
+        $rows = $pdo->query("
+          SELECT a.*, u.name AS author_name
+          FROM articles a
+          JOIN users u ON u.id = a.author_id
+          WHERE a.published = 1
+          ORDER BY a.published_at DESC
+        ")->fetchAll() ?: [];
+    } catch (Throwable $e) {
+        return [];
+    }
+
+    $out = [];
+    foreach ($rows as $row) {
+        if (!in_array($serviceKey, article_service_tags($row), true)) {
+            continue;
+        }
+        $out[] = $row;
+        if (count($out) >= $limit) {
+            break;
+        }
+    }
+
+    return $out;
+}
+
+function service_related_articles_html(PDO $pdo, string $serviceKey): string
+{
+    $articles = service_articles_for_key($pdo, $serviceKey);
+    if ($articles === [] || !function_exists('clinic_article_card_html')) {
+        return '';
+    }
+    $label = article_service_tag_options()[$serviceKey] ?? 'این خدمت';
+    ob_start();
+    ?>
+    <section class="service-detail-articles" aria-labelledby="service-articles-heading">
+      <h2 id="service-articles-heading">مقالات <?= e($label) ?></h2>
+      <p class="muted">نوشته‌های مرتبط با این خدمت</p>
+      <div class="articles-showcase service-detail-articles-grid">
+        <?php foreach ($articles as $article): ?>
+          <?= clinic_article_card_html($article) ?>
+        <?php endforeach; ?>
+      </div>
+      <p class="service-detail-related">
+        <a href="<?= e(url('/articles')) ?>">همه مقالات</a>
+      </p>
+    </section>
+    <?php
+
+    return (string) ob_get_clean();
+}
+
 function service_doctors_search_href(string $label): string
 {
     $map = [

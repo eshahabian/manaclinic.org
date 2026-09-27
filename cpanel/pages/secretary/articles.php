@@ -37,6 +37,7 @@ ob_start();
   </div>
   <div><label class="label">عنوان</label><input class="input" name="title" required></div>
   <div><label class="label">خلاصه</label><input class="input" name="excerpt" maxlength="220" placeholder="حدود ۱۴۰ تا ۱۸۰ حرف برای نمایش در فهرست مقالات"></div>
+  <?= article_service_picker_html() ?>
   <div>
     <label class="label">متن مقاله</label>
     <?= rich_editor_toolbar_html(['id' => 'article-toolbar']) ?>
@@ -69,6 +70,8 @@ ob_start();
     <div>
       <strong><?= e($a['title']) ?></strong>
       <div class="muted" style="font-size:.85rem">دکتر <?= e($a['author_name']) ?> — <?= e(article_approval_label((string) $a['approval_status'], (int) $a['published'])) ?></div>
+      <?php $tagLine = article_service_tag_labels($a); ?>
+      <?php if ($tagLine !== ''): ?><div class="muted" style="font-size:.85rem"><?= e($tagLine) ?></div><?php endif; ?>
       <?php if ((int) $a['published']): ?>
         <a href="<?= e(url('/articles/' . $a['slug'])) ?>" style="color:var(--primary);font-size:.85rem">مشاهده عمومی</a>
       <?php endif; ?>

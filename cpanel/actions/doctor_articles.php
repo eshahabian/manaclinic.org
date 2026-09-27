@@ -14,9 +14,12 @@ if ($action === 'create') {
     $excerpt = post('excerpt');
     $content = sanitize_rich_html((string) ($_POST['content'] ?? ''));
     $published = isset($_POST['published']) ? 1 : 0;
-    if ($title && $content !== '' && trim(strip_tags($content)) !== '') {
+    $services = article_service_tags_from_request();
+    if ($services === []) {
+        flash_set('error', 'موضوع مقاله را انتخاب کنید تا در صفحهٔ خدمت مرتبط دیده شود.');
+    } elseif ($title && $content !== '' && trim(strip_tags($content)) !== '') {
         $slug = article_unique_slug($pdo, $title);
-        $pdo->prepare('INSERT INTO articles (id,title,slug,content,excerpt,published,published_at,author_id,approval_status) VALUES (?,?,?,?,?,?,?,?,?)')
+        $pdo->prepare('INSERT INTO articles (id,title,slug,content,excerpt,published,published_at,author_id,approval_status,services_json) VALUES (?,?,?,?,?,?,?,?,?,?)')
             ->execute([
                 cuid(),
                 $title,
@@ -27,6 +30,7 @@ if ($action === 'create') {
                 $published ? date('Y-m-d H:i:s') : null,
                 $authorId,
                 $published ? 'APPROVED' : 'NONE',
+                json_encode($services, JSON_UNESCAPED_UNICODE),
             ]);
         flash_set('success', 'مقاله ذخیره شد.');
     } else {
@@ -67,6 +71,20 @@ if ($action === 'create') {
             }
             flash_set('success', 'مقاله رد شد و منتشر نشد.');
         }
+    }
+} elseif ($action === 'set_services') {
+    $id = post('id');
+    $services = article_service_tags_from_request();
+    $row = $pdo->prepare('SELECT id FROM articles WHERE id=? AND author_id=? LIMIT 1');
+    $row->execute([$id, $authorId]);
+    if (!$row->fetch()) {
+        flash_set('error', 'مقاله پیدا نشد.');
+    } elseif ($services === []) {
+        flash_set('error', 'حداقل یک موضوع برای مقاله انتخاب کنید.');
+    } else {
+        $pdo->prepare('UPDATE articles SET services_json=? WHERE id=? AND author_id=?')
+            ->execute([json_encode($services, JSON_UNESCAPED_UNICODE), $id, $authorId]);
+        flash_set('success', 'موضوع مقاله ذخیره شد و در صفحهٔ همان خدمت دیده می‌شود.');
     }
 } elseif ($action === 'toggle') {
     $id = post('id');
