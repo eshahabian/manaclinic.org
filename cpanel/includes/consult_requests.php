@@ -108,8 +108,8 @@ function consult_request_form_html(string $prefix = 'consult'): string
       <?= csrf_field() ?>
       <input type="hidden" name="next" value="<?= e($next) ?>">
       <input class="footer-consult-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
-      <label class="sr-only" for="<?= e($prefix) ?>-name">نام و نام خانوادگی</label>
-      <input class="input" id="<?= e($prefix) ?>-name" name="name" maxlength="100" placeholder="نام و نام خانوادگی" autocomplete="name">
+      <label class="sr-only" for="<?= e($prefix) ?>-name">نام و نام خانوادگی، الزامی</label>
+      <input class="input" id="<?= e($prefix) ?>-name" name="name" required aria-required="true" maxlength="100" placeholder="نام و نام خانوادگی *" autocomplete="name">
       <label class="sr-only" for="<?= e($prefix) ?>-phone">شماره تماس، الزامی</label>
       <input class="input input-rtl" id="<?= e($prefix) ?>-phone" name="phone" required aria-required="true" inputmode="tel" maxlength="20" dir="rtl" placeholder="شماره تماس *" autocomplete="tel">
       <label class="sr-only" for="<?= e($prefix) ?>-message">توضیح درخواست، الزامی</label>

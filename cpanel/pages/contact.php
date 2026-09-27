@@ -50,7 +50,7 @@ ob_start();
   </div>
   <div class="panel consult-form-card">
     <h2>درخواست مشاوره</h2>
-    <p class="muted consult-form-lead">فرم را پر کنید؛ در اولین فرصت با شما تماس می‌گیریم. شماره تماس و توضیح درخواست الزامی است.</p>
+    <p class="muted consult-form-lead">فرم را پر کنید؛ در اولین فرصت با شما تماس می‌گیریم. نام، شماره تماس و توضیح درخواست الزامی است.</p>
     <?php
       if (!function_exists('consult_request_form_html')) {
           require_once dirname(__DIR__) . '/includes/consult_requests.php';

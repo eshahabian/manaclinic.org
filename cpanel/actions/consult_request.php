@@ -24,6 +24,10 @@ $name = mb_substr(post('name'), 0, 100);
 $phone = consult_normalize_phone(post('phone'));
 $message = mb_substr(post('message'), 0, 1000);
 
+if (mb_strlen($name) < 3) {
+    flash_set('error', 'نام و نام خانوادگی را وارد کنید.');
+    redirect($back);
+}
 if ($phone === '') {
     flash_set('error', 'شماره تماس را درست وارد کنید. مثلاً ۰۹۱۲۱۲۳۴۵۶۷');
     redirect($back);

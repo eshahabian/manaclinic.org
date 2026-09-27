@@ -55,7 +55,7 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260928consult">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260928footer">
   <?php
     // آزمایش سبک حس روان‌تر — برای خاموش کردن: false
     $manaAppleFeelLight = true;
@@ -234,7 +234,8 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
   </main>
 
   <footer class="site-footer">
-    <div class="container-page footer-grid">
+    <?php $footerHideConsult = (string) ($GLOBALS['path'] ?? '/') === '/contact'; ?>
+    <div class="container-page footer-grid<?= $footerHideConsult ? ' is-compact' : '' ?>">
       <div>
         <p class="brand">
           <img class="brand-logo" src="<?= e(url('/assets/img/logo.png')) ?>" width="36" height="36" alt="">
@@ -272,6 +273,7 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
           ></iframe>
         </a>
       </div>
+      <?php if (!$footerHideConsult): ?>
       <div>
         <p class="footer-title">درخواست مشاوره</p>
         <p class="footer-consult-lead muted">فرم را پر کنید؛ در اولین فرصت با شما تماس می‌گیریم.</p>
@@ -282,6 +284,7 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
           echo consult_request_form_html('footer-consult');
         ?>
       </div>
+      <?php endif; ?>
     </div>
     <div class="footer-copy">
       <div>© <?= date('Y') ?> مانا کلینیک — همه حقوق محفوظ است.</div>
