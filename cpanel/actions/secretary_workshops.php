@@ -75,14 +75,12 @@ if ($action === 'create') {
         workshop_store_banner_from_request($pdo, $id);
         $pdo->prepare('UPDATE workshops SET created_by_user_id=?, updated_by_user_id=? WHERE id=?')
             ->execute([$user['id'], $user['id'], $id]);
-        $pdo->commit();
+        db_commit($pdo);
         staff_log_action($pdo, (string) $user['id'], 'workshop_create', 'workshop', $id);
     } catch (Throwable $e) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
+        if (!workshop_save_caught($pdo, $e)) {
+            redirect($base);
         }
-        flash_set('error', $e->getMessage());
-        redirect($base);
     }
 
     $creatorName = (string) ($user['name'] ?? 'منشی');
@@ -181,14 +179,12 @@ if ($action === 'update') {
         workshop_store_banner_from_request($pdo, $id);
         $pdo->prepare('UPDATE workshops SET updated_by_user_id=? WHERE id=?')
             ->execute([$user['id'], $id]);
-        $pdo->commit();
+        db_commit($pdo);
         staff_log_action($pdo, (string) $user['id'], 'workshop_update', 'workshop', $id);
     } catch (Throwable $e) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
+        if (!workshop_save_caught($pdo, $e)) {
+            redirect($base . '?edit=' . urlencode($id));
         }
-        flash_set('error', $e->getMessage());
-        redirect($base . '?edit=' . urlencode($id));
     }
 
     flash_set('success', 'تغییرات کارگاه ذخیره شد.');

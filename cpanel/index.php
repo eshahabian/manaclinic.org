@@ -77,7 +77,10 @@ $pdo = db_connect($config);
 
 $path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
 $base = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/\\');
-if ($base && $base !== '/' && str_starts_with($path, $base)) {
+if ($base === '/' || $base === '\\') {
+    $base = '';
+}
+while ($base !== '' && ($path === $base || str_starts_with($path, $base . '/'))) {
     $path = substr($path, strlen($base)) ?: '/';
 }
 $path = '/' . trim($path, '/');
@@ -425,6 +428,10 @@ if (preg_match('#^/doctor/patients/([a-zA-Z0-9_-]+)/highlight$#', $path, $m) && 
 if (isset($routes[$key])) {
     require __DIR__ . '/' . $routes[$key];
     exit;
+}
+
+if ($method === 'GET' && $path === '/doctor/workshops/doctor-path') {
+    redirect('/doctor/workshops');
 }
 
 http_response_code(404);

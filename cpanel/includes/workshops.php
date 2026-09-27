@@ -573,6 +573,25 @@ function workshop_save_sessions_and_media(PDO $pdo, string $workshopId, array $d
     return $saved;
 }
 
+/** true یعنی داده‌ها ذخیره شده‌اند و خطای commit کاذب بوده است. */
+function workshop_save_caught(PDO $pdo, Throwable $e): bool
+{
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    $msg = $e->getMessage();
+    if (stripos($msg, 'no active transaction') !== false) {
+        return true;
+    }
+    if ($e instanceof PDOException) {
+        flash_set('error', 'ذخیره کارگاه انجام نشد. یک بار دیگر تلاش کنید.');
+        return false;
+    }
+    flash_set('error', $msg !== '' ? $msg : 'ذخیره کارگاه انجام نشد.');
+
+    return false;
+}
+
 function workshop_group_link_label(?string $url): string
 {
     $url = strtolower((string) $url);

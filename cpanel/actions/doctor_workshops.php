@@ -96,13 +96,11 @@ if ($action === 'create') {
         workshop_save_sessions_and_media($pdo, $id, $data, $ctx['profile']['id']);
         workshop_store_banner_from_request($pdo, $id);
 
-        $pdo->commit();
+        db_commit($pdo);
     } catch (Throwable $e) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
+        if (!workshop_save_caught($pdo, $e)) {
+            redirect('/doctor/workshops');
         }
-        flash_set('error', $e->getMessage());
-        redirect('/doctor/workshops');
     }
 
     workshop_notify_other_doctors(
@@ -182,13 +180,11 @@ if ($action === 'update') {
         workshop_save_sessions_and_media($pdo, $id, $data, $ctx['profile']['id']);
         workshop_store_banner_from_request($pdo, $id);
 
-        $pdo->commit();
+        db_commit($pdo);
     } catch (Throwable $e) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
+        if (!workshop_save_caught($pdo, $e)) {
+            redirect('/doctor/workshops?edit=' . urlencode($id));
         }
-        flash_set('error', $e->getMessage());
-        redirect('/doctor/workshops?edit=' . urlencode($id));
     }
 
     flash_set('success', 'تغییرات کارگاه ذخیره شد.');
@@ -251,14 +247,15 @@ if ($action === 'toggle') {
     try {
         $pdo->beginTransaction();
         $count = complete_workshop($pdo, $id, $ctx['profile']['id']);
-        $pdo->commit();
+        db_commit($pdo);
         flash_set('success', "کارگاه پایان یافت. {$count} ثبت‌نام تسویه شد.");
         redirect('/doctor/workshops?tab=archive');
     } catch (Throwable $e) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
+        if (!workshop_save_caught($pdo, $e)) {
+            redirect('/doctor/workshops');
         }
-        flash_set('error', $e->getMessage());
+        flash_set('success', 'کارگاه پایان یافت.');
+        redirect('/doctor/workshops?tab=archive');
     }
 }
 

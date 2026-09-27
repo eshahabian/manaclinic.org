@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 function ensure_workshop_media_schema(PDO $pdo): void
 {
+    static $ready = false;
+    if ($ready || $pdo->inTransaction()) {
+        return;
+    }
     $pdo->exec("
       CREATE TABLE IF NOT EXISTS workshop_media_items (
         id VARCHAR(32) PRIMARY KEY,
@@ -34,6 +38,7 @@ function ensure_workshop_media_schema(PDO $pdo): void
     workshop_media_ensure_storage();
     require_once __DIR__ . '/workshop_sessions.php';
     ensure_workshop_sessions_schema($pdo);
+    $ready = true;
 }
 
 function workshop_media_storage_root(): string

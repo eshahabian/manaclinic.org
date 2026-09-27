@@ -24,7 +24,7 @@ if (!is_array($workshop)) {
     redirect('/doctor/workshops');
 }
 
-$back = workshop_doctor_board_url($workshop, $sessionId);
+$back = workshop_doctor_board_path($workshop, $sessionId);
 
 $sessions = workshop_sessions_list($pdo, $workshopId);
 $chosen = null;
@@ -141,8 +141,15 @@ try {
         $bits[] = 'فایل جلسه بارگذاری شد.';
     }
     flash_set('success', implode(' ', $bits));
-} catch (RuntimeException $e) {
-    flash_set('error', $e->getMessage());
+} catch (Throwable $e) {
+    $msg = $e->getMessage();
+    if (stripos($msg, 'no active transaction') !== false) {
+        flash_set('success', 'ذخیره شد.');
+    } elseif ($e instanceof PDOException) {
+        flash_set('error', 'ذخیره انجام نشد. یک بار دیگر تلاش کنید.');
+    } else {
+        flash_set('error', $msg !== '' ? $msg : 'ذخیره انجام نشد.');
+    }
 }
 
 redirect($back);

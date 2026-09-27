@@ -46,7 +46,7 @@ function workshop_path_doctor_url(string $enrollmentId): string
     return url('/doctor/workshops/path?enrollment=' . rawurlencode($enrollmentId));
 }
 
-function workshop_doctor_board_url(array $workshop, string $sessionId = ''): string
+function workshop_doctor_board_path(array $workshop, string $sessionId = ''): string
 {
     $workshopId = (string) ($workshop['id'] ?? '');
     $archived = function_exists('workshop_is_archived') && workshop_is_archived($workshop);
@@ -55,12 +55,17 @@ function workshop_doctor_board_url(array $workshop, string $sessionId = ''): str
         : (function_exists('workshop_courses_tab_for_type')
             ? workshop_courses_tab_for_type((string) ($workshop['type'] ?? ''))
             : 'in-person');
-    $url = url('/doctor/workshops?tab=' . rawurlencode($tab) . '&doctor_path=' . rawurlencode($workshopId));
+    $path = '/doctor/workshops?tab=' . rawurlencode($tab) . '&doctor_path=' . rawurlencode($workshopId);
     if ($sessionId !== '') {
-        return $url . '#doctor-step-' . rawurlencode($sessionId);
+        return $path . '#doctor-step-' . rawurlencode($sessionId);
     }
 
-    return $url . '#workshop-' . rawurlencode($workshopId) . '-doctor-path';
+    return $path . '#workshop-' . rawurlencode($workshopId) . '-doctor-path';
+}
+
+function workshop_doctor_board_url(array $workshop, string $sessionId = ''): string
+{
+    return url(workshop_doctor_board_path($workshop, $sessionId));
 }
 
 function workshop_doctor_board_close_url(array $workshop): string
@@ -891,7 +896,7 @@ function workshop_offline_protect_script(array $audioStreams = [], string $water
     }
 
     return '<script src="' . e(url('/assets/js/workshop-offline-protect.js')) . '?v=20260928speak"></script>'
-        . '<script src="' . e(url('/assets/js/workshop-pdf-view.js')) . '?v=20260928pdf"></script>'
+        . '<script src="' . e(url('/assets/js/workshop-pdf-view.js')) . '?v=20260928pdflocal"></script>'
         . '<script>window.workshopOfflineAudioStreams=' . $json
         . ';window.workshopOfflineWatermark=' . $mark
         . ';if(window.workshopOfflineProtect){window.workshopOfflineProtect();}</script>';

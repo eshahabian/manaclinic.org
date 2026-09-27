@@ -1,7 +1,20 @@
 (function () {
-  var PDFJS = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-  var PDFJS_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-  var PDFLIB = "https://cdnjs.cloudflare.com/ajax/libs/pdf-lib/1.17.1/pdf-lib.min.js";
+  function vendor(file) {
+    var named = {
+      "pdf.min.js": window.workshopPdfJs,
+      "pdf.worker.min.js": window.workshopPdfWorker,
+      "pdf-lib.min.js": window.workshopPdfLib
+    };
+    if (named[file]) return named[file];
+    var tag = document.querySelector('script[src*="workshop-pdf-view.js"]');
+    var src = tag ? (tag.getAttribute("src") || "") : "";
+    var root = src.replace(/assets\/js\/workshop-pdf-view\.js.*$/, "");
+    return root + "assets/vendor/pdfjs/" + file;
+  }
+
+  var PDFJS = vendor("pdf.min.js");
+  var PDFJS_WORKER = vendor("pdf.worker.min.js");
+  var PDFLIB = vendor("pdf-lib.min.js");
   var loading = null;
 
   function loadScript(src) {
@@ -173,8 +186,22 @@
         btn.disabled = false;
         box.removeAttribute("data-busy");
       });
-    }).catch(function () {
-      setStatus(box, "نمایش فایل ممکن نشد. صفحه را تازه کنید.");
+    }).catch(function (err) {
+      var pagesElFail = box.querySelector(".wm-pdf-pages");
+      var src = box.getAttribute("data-pdf-url") || "";
+      if (showBtn && pagesElFail && src) {
+        pagesElFail.innerHTML = "";
+        var frame = document.createElement("iframe");
+        frame.className = "wm-pdf-native";
+        frame.title = "نمایش پی‌دی‌اف";
+        frame.src = src;
+        pagesElFail.appendChild(frame);
+        pagesElFail.hidden = false;
+        setStatus(box, "نمایش ساده فایل باز شد.");
+      } else {
+        var why = err && err.message === "fetch" ? "فایل از سرور خوانده نشد." : "نمایش فایل ممکن نشد. صفحه را تازه کنید.";
+        setStatus(box, why);
+      }
       btn.disabled = false;
       box.removeAttribute("data-busy");
     });

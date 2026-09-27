@@ -78,9 +78,15 @@ function redirect(string $path): never
         }
         $path = '/';
     }
-    if ($prefix !== '' && ($path === $prefix || str_starts_with($path, $prefix . '/'))) {
-        header('Location: ' . $path);
-        exit;
+    if ($prefix !== '') {
+        $doubled = $prefix . $prefix;
+        while (str_starts_with($path, $doubled)) {
+            $path = substr($path, strlen($prefix)) ?: '/';
+        }
+        if ($path === $prefix || str_starts_with($path, $prefix . '/')) {
+            header('Location: ' . $path);
+            exit;
+        }
     }
     header('Location: ' . $prefix . $path);
     exit;
