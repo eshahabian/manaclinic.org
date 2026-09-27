@@ -103,6 +103,9 @@ $session = $room ? video_call_session_payload($pdo, $user, $room, $media) : null
 $shareUrl = (string) ($session['shareUrl'] ?? '');
 $peerName = (string) ($session['title'] ?? 'جلسه');
 $callActive = $room && !empty($session['room']);
+$answerNow = (string) ($_GET['answer'] ?? '') === '1';
+$startNow = (string) ($_GET['start'] ?? '') === '1' || $peerId !== '' || $workshopId !== '';
+$joinNow = (bool) ($room && ($answerNow || $startNow || (string) ($_GET['joincall'] ?? '') === '1'));
 
 ob_start();
 $wmName = $peerName !== '' ? $peerName : 'جلسه';
@@ -151,7 +154,7 @@ $wmName = $peerName !== '' ? $peerName : 'جلسه';
   <?php endif; ?>
   <div class="vc-lobby-main">
     <?php if ($clinician): ?>
-    <div class="vc-composer" data-vc-composer<?= $callActive ? ' hidden' : '' ?>>
+    <div class="vc-composer" data-vc-composer<?= $joinNow ? ' hidden' : '' ?>>
       <header class="vc-composer-head">
         <strong data-vc-composer-title>خانه</strong>
         <button type="button" class="btn btn-outline btn-sm" data-vc-save-open hidden>ذخیره گروه در مخاطبین</button>
@@ -167,7 +170,7 @@ $wmName = $peerName !== '' ? $peerName : 'جلسه';
       </div>
     </div>
     <?php endif; ?>
-    <div class="vc-idle" data-vc-idle<?= ($callActive || $clinician) ? ' hidden' : '' ?>>
+    <div class="vc-idle" data-vc-idle<?= ($joinNow || $clinician) ? ' hidden' : '' ?>>
       <img class="vc-lobby-hero" src="<?= e(url('/assets/img/mana-call.png')) ?>?v=20260909c" width="160" height="160" alt="تماس مانا">
       <h1>تماس مانا</h1>
       <p class="muted" style="max-width:28rem;line-height:1.8">
@@ -186,7 +189,7 @@ $wmName = $peerName !== '' ? $peerName : 'جلسه';
       data-group="<?= !empty($session['group']) ? '1' : '0' ?>"
       data-ring-url="<?= e(url('/assets/audio/incoming-call.ogg')) ?>"
       data-hang-url="<?= e(url('/assets/audio/hang-up.ogg')) ?>"
-      <?= $callActive ? '' : 'hidden' ?>
+      hidden
     >
   <p class="video-call-status" data-video-status hidden><?= $callActive ? 'در حال اتصال…' : 'آماده تماس' ?></p>
   <div class="video-call-permit" data-video-permit hidden>
@@ -262,6 +265,44 @@ $wmName = $peerName !== '' ? $peerName : 'جلسه';
     <div class="video-call-blackout" data-video-blackout hidden>نمایش تصویر در این حالت ممکن نیست</div>
   </div>
     </div>
+    <div class="vc-home-call" data-livekit-v2 data-livekit-home
+      data-room="<?= $joinNow ? e((string) ($session['room'] ?? '')) : '' ?>"
+      data-media="<?= e($media) ?>"
+      data-auto="<?= $joinNow ? '1' : '0' ?>"
+      data-me="<?= e((string) ($user['id'] ?? '')) ?>"
+      <?= $joinNow ? '' : 'hidden' ?>>
+      <?php if ($joinNow): ?><script>window.__MANA_LIVEKIT_CALL_ACTIVE__=true;</script><?php endif; ?>
+      <header class="vc-composer-head">
+        <strong><?= $clinician ? 'خانه' : 'تماس مانا' ?></strong>
+      </header>
+      <div class="lk-controls">
+        <button type="button" class="btn btn-primary" data-lk-connect>ورود به تماس</button>
+        <button type="button" class="btn btn-outline" data-lk-camera<?= $media === 'audio' ? ' hidden' : '' ?> disabled>دوربین</button>
+        <button type="button" class="btn btn-outline" data-lk-mic disabled>میکروفون</button>
+        <label class="lk-bg-wrap"<?= $media === 'audio' ? ' hidden' : '' ?>>
+          <span class="lk-bg-label">پس‌زمینه</span>
+          <select class="lk-bg-select" data-lk-bg disabled>
+            <option value="none">بدون پس‌زمینه</option>
+            <option value="blur">مات (تار)</option>
+            <option value="green">سبز کلینیک</option>
+            <option value="mint">گرادیان ملایم</option>
+            <option value="room">فضای آرام</option>
+          </select>
+        </label>
+        <button type="button" class="btn btn-outline" data-lk-fs disabled>تمام‌صفحه</button>
+        <?php if ($clinician): ?>
+          <button type="button" class="btn btn-outline lk-record" data-lk-record disabled>ضبط جلسه</button>
+        <?php endif; ?>
+        <button type="button" class="btn btn-outline" data-lk-leave disabled>خروج</button>
+      </div>
+      <p class="muted" data-lk-status>برای شروع، دکمه «ورود به تماس» را بزنید تا دوربین اجازه بگیرد.</p>
+      <div class="lk-stage" data-lk-stage
+           data-bg-room="<?= e(url('/assets/img/mind-room/room-bg.png')) ?>"
+           data-bg-soft="<?= e(url('/assets/img/well/clinic.png')) ?>">
+        <div class="lk-remotes" data-lk-remotes></div>
+        <div class="lk-self" data-lk-self></div>
+      </div>
+    </div>
   </div>
 </div>
 <?php if ($clinician): ?>
@@ -326,7 +367,10 @@ $inner = ob_get_clean();
 $GLOBALS['pageScripts'] = '<script>window.__MANA_LIVEKIT_EMBED__=true;window.__MANA_LIVEKIT_REDIRECT__=true;window.__VIDEO_ICE__ = '
     . json_encode(video_call_ice_servers(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
     . ';</script>'
-    . '<script src="' . e(url('/assets/js/video-call-lobby.js')) . '?v=20260911r"></script>';
+    . '<script src="https://cdn.jsdelivr.net/npm/livekit-client@2.22.3/dist/livekit-client.umd.min.js"></script>'
+    . '<script src="' . e(url('/assets/js/video-call-livekit-ui.js')) . '?v=20260928home"></script>'
+    . '<script src="' . e(url('/assets/js/video-call-lobby.js')) . '?v=20260911r"></script>'
+    . '<script src="' . e(url('/assets/js/video-call-livekit-bridge-v3.js')) . '?v=20260928home"></script>';
 
 $role = (string) ($user['role'] ?? '');
 if ($role === 'DOCTOR') {

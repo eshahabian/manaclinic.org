@@ -54,7 +54,7 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
   <?= seo_render_head() ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260928fsbg">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260928home">
   <?php
     // آزمایش سبک حس روان‌تر — برای خاموش کردن: false
     $manaAppleFeelLight = true;
@@ -336,7 +336,7 @@ $videoWatch = function_exists('video_call_watch_config') ? video_call_watch_conf
 if ($videoWatch):
 ?>
 <script>window.__VIDEO_CALL_WATCH__ = <?= json_encode($videoWatch, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;</script>
-<script src="<?= e(url('/assets/js/video-call-watch.js')) ?>?v=20260911r"></script>
+<script src="<?= e(url('/assets/js/video-call-watch.js')) ?>?v=20260928home"></script>
 <?php endif; ?>
 <?php if ($user && ($user['role'] ?? '') === 'SECRETARY'): ?>
 <script src="<?= e(url('/assets/js/secretary-idle.js')) ?>?v=20260906y"></script>

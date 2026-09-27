@@ -1,7 +1,7 @@
 (function () {
   "use strict";
-  // Route lobby starts to the same standalone LiveKit page for both sides.
-  // Do not open therapist media in an iframe (mobile camera + split engines).
+  // Start the call inside the lobby «خانه» pane when that frame is on the page.
+  // Standalone /video-call-live remains the fallback. Do not iframe therapist media.
   window.__MANA_LIVEKIT_EMBED__ = true;
   window.__MANA_LIVEKIT_REDIRECT__ = true;
 
@@ -29,12 +29,64 @@
     return "/video-call-live?" + q.toString();
   }
 
+  function signalUrl() {
+    var el = document.querySelector("[data-signal-url]");
+    return (el && el.getAttribute("data-signal-url")) || "/video-signal";
+  }
+
+  function csrf() {
+    return (document.querySelector('meta[name="csrf-token"]') || {}).content || "";
+  }
+
+  function postSignal(body) {
+    return fetch(signalUrl(), {
+      method: "POST",
+      credentials: "same-origin",
+      headers: {
+        "Content-Type": "application/json",
+        Accept: "application/json",
+        "X-CSRF-Token": csrf(),
+        "X-Requested-With": "XMLHttpRequest"
+      },
+      body: JSON.stringify(body)
+    }).then(function (r) { return r.json(); });
+  }
+
+  function ringRoom(i) {
+    var meEl = document.querySelector("[data-me]");
+    var me = meEl ? (meEl.getAttribute("data-me") || "") : "";
+    return postSignal({ action: "poll", room: String(i.room) }).then(function (data) {
+      var members = (data && data.members) || [];
+      var jobs = [];
+      members.forEach(function (m) {
+        if (!m || !m.id || String(m.id) === me) return;
+        jobs.push(postSignal({
+          action: "send",
+          room: String(i.room),
+          kind: "ringing",
+          target_id: String(m.id),
+          payload: {
+            name: i.title || "تماس مانا",
+            media: i.media === "audio" ? "audio" : "video",
+            group: !!i.group,
+            engine: "livekit"
+          }
+        }));
+      });
+      return Promise.all(jobs);
+    }).catch(function () {});
+  }
+
   function go(i) {
     if (!i || !i.room) return;
     stopMedia();
+    var home = document.querySelector("[data-livekit-home]");
+    if (home && window.ManaLiveKitUi && typeof window.ManaLiveKitUi.open === "function") {
+      if (i.canStart) ringRoom(i);
+      window.ManaLiveKitUi.open(i);
+      return;
+    }
     if (i.canStart) {
-      // Therapist and patient use the exact same LiveKit page.
-      // Ringing is inserted once by video_call_livekit.php when start=1.
       location.replace(callUrl(i, { start: "1" }));
       return;
     }

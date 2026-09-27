@@ -29,7 +29,7 @@
   function onLiveKitCallPage() {
     var path = (location.pathname || "").replace(/\/+$/, "");
     if (path.indexOf("/video-call-live") >= 0 || path.indexOf("/video-call-embed") >= 0) return true;
-    if (document.querySelector("[data-livekit-v2]")) return true;
+    if (document.querySelector("[data-livekit-v2]:not([hidden])")) return true;
     if (window.__MANA_LIVEKIT_CALL_ACTIVE__) return true;
     return false;
   }
@@ -90,8 +90,11 @@
     markAnswered(room);
     ackRoom(room);
     stopAlert(true);
-    // Always land both parties on the same standalone LiveKit page.
-    var url = "/video-call-live";
+    if (document.querySelector("[data-livekit-home]") && window.ManaLiveKitUi && typeof window.ManaLiveKitUi.open === "function") {
+      window.ManaLiveKitUi.open({ room: room, media: media, answer: true });
+      return;
+    }
+    var url = "/video-call";
     var q = "answer=1&media=" + encodeURIComponent(media);
     if (room) q = "room=" + encodeURIComponent(room) + "&" + q;
     window.location.href = url + "?" + q;
