@@ -50,7 +50,6 @@ $doctorPathBoardById = $doctorPathBoardById ?? [];
             <?php $workshopMediaStats = workshop_media_counts_html(workshop_media_counts_from_row($workshop)); if ($workshopMediaStats): ?>
               <div style="margin-top:.4rem"><?= $workshopMediaStats ?></div>
             <?php endif; ?>
-            <div class="muted" style="font-size:.75rem;margin-top:.35rem">برای دیدن کلیات و کار روی کارگاه کلیک کنید</div>
             <div class="muted" style="font-size:.85rem;margin-top:.35rem">
               <?php if ($workshop['type'] === 'OFFLINE'): ?>
                 دوره آفلاین
@@ -65,23 +64,6 @@ $doctorPathBoardById = $doctorPathBoardById ?? [];
               · <?= !empty($workshop['enrollment_open']) ? 'ثبت‌نام باز' : 'ثبت‌نام بسته' ?>
               · <?= $workshop['status'] === 'COMPLETED' ? 'آرشیو / برگزار شده' : ($workshop['status'] === 'CANCELLED' ? 'لغو شده' : 'فعال') ?>
             </div>
-            <?php if ($workshop['type'] === 'IN_PERSON' && !empty($workshop['location'])): ?>
-              <div class="muted" style="font-size:.8rem;margin-top:.35rem">محل: <?= e($workshop['location']) ?></div>
-            <?php endif; ?>
-            <?php if ($workshopRole === 'secretary' && !empty($workshop['group_url'])): ?>
-              <div class="muted" style="font-size:.8rem;margin-top:.35rem">
-                گروه: <a href="<?= e($workshop['group_url']) ?>" target="_blank" rel="noopener" dir="ltr"><?= e($workshop['group_url']) ?></a>
-              </div>
-            <?php endif; ?>
-            <?php if ($archived): ?>
-              <p class="muted" style="font-size:.8rem;margin-top:.5rem">این کارگاه در آرشیو است — زمانش تمام شده یا پایان داده شده.</p>
-            <?php elseif (!$workshop['is_published'] || $workshop['status'] !== 'PUBLISHED'): ?>
-              <p style="color:var(--danger);font-size:.8rem;margin-top:.5rem">مراجعه‌کنندگان این کارگاه را نمی‌بینند — دکمه «انتشار» را بزنید.</p>
-            <?php elseif (empty($workshop['enrollment_open'])): ?>
-              <p style="color:var(--warning,#b45309);font-size:.8rem;margin-top:.5rem">ثبت‌نام بسته — مراجعه‌کنندگان می‌بینند اما نمی‌توانند ثبت‌نام کنند.</p>
-            <?php elseif ($workshopRole === 'doctor'): ?>
-              <p style="color:var(--success);font-size:.8rem;margin-top:.5rem">در بخش خدمات سایت اعلام می‌شود؛ مراجعه‌کنندگان از پیام‌ها هم لینک ثبت‌نام می‌گیرند و بعد از تأیید شما به «دوره‌های من» می‌رود.</p>
-            <?php endif; ?>
           </div>
           <div class="workshop-card-actions">
             <?php if ($workshopRole === 'doctor'): ?>
@@ -123,69 +105,114 @@ $doctorPathBoardById = $doctorPathBoardById ?? [];
             </form>
           </div>
         </div>
-        <?= workshop_session_file_lines_html($staffSessions, url($workshopMediaPost), (string) $workshop['id']) ?>
-        <?php if ($workshopRole === 'doctor' && !empty($workshop['items_to_bring'])): ?>
-          <p style="font-size:.85rem;margin:.75rem 0 0"><strong>موارد همراه:</strong> <?= e($workshop['items_to_bring']) ?></p>
-        <?php endif; ?>
-        <?php if ($workshopRole === 'doctor' && !empty($workshop['notes'])): ?>
-          <p class="muted" style="font-size:.85rem;margin:.5rem 0 0"><strong>یادداشت:</strong> <?= e($workshop['notes']) ?></p>
-        <?php endif; ?>
-        <?php if ($workshopRole === 'doctor'): ?>
-          <?php
-            $wid = (string) $workshop['id'];
-            $doctorBoardOpen = $openDoctorPathId !== '' && $openDoctorPathId === $wid;
-            $pathPeople = [];
-            foreach (($workshopEnrollmentsById[$wid] ?? []) as $enr) {
-                if (!is_array($enr)) {
-                    continue;
-                }
-                if (!in_array((string) ($enr['status'] ?? ''), ['CONFIRMED', 'COMPLETED'], true)) {
-                    continue;
-                }
-                $pathPeople[] = $enr;
-            }
-          ?>
-            <div class="workshop-path-people">
-              <h3 class="workshop-path-people-title">مسیر و یادداشت‌های دکتر</h3>
-              <ul class="workshop-path-people-list">
-                <li>
-                  <span>یادداشت جلسات، پیام خصوصی برای مراجع، فایل هر جلسه</span>
-                  <?php if (function_exists('workshop_doctor_board_url')): ?>
-                    <?php if ($doctorBoardOpen && function_exists('workshop_doctor_board_close_url')): ?>
-                      <a class="btn btn-outline btn-sm" href="<?= e(workshop_doctor_board_close_url($workshop)) ?>">بستن مسیر</a>
-                    <?php else: ?>
-                      <a class="btn btn-outline btn-sm" href="<?= e(workshop_doctor_board_url($workshop)) ?>">مسیر و یادداشت</a>
-                    <?php endif; ?>
-                  <?php endif; ?>
-                </li>
-              </ul>
-              <?php if ($doctorBoardOpen && !empty($doctorPathBoardById[$wid]) && function_exists('workshop_doctor_path_render')): ?>
-                <?= workshop_doctor_path_render($doctorPathBoardById[$wid]) ?>
-              <?php endif; ?>
-            </div>
-          <?php if ($pathPeople): ?>
-            <div class="workshop-path-people">
-              <h3 class="workshop-path-people-title">مسیر و یادداشت شرکت‌کننده‌ها</h3>
-              <ul class="workshop-path-people-list">
-                <?php foreach ($pathPeople as $enr): ?>
+        <?php
+          $wid = (string) $workshop['id'];
+          $tabName = 'wcard-' . $wid;
+          $doctorBoardOpen = $workshopRole === 'doctor' && $openDoctorPathId !== '' && $openDoctorPathId === $wid;
+          $pathPeople = [];
+          if ($workshopRole === 'doctor') {
+              foreach (($workshopEnrollmentsById[$wid] ?? []) as $enr) {
+                  if (!is_array($enr)) {
+                      continue;
+                  }
+                  if (!in_array((string) ($enr['status'] ?? ''), ['CONFIRMED', 'COMPLETED'], true)) {
+                      continue;
+                  }
+                  $pathPeople[] = $enr;
+              }
+          }
+          $openTab = $doctorBoardOpen ? 'path' : 'files';
+        ?>
+        <div class="wcard-tabs">
+          <input type="radio" name="<?= e($tabName) ?>" id="<?= e($tabName) ?>-files" <?= $openTab === 'files' ? 'checked' : '' ?>>
+          <input type="radio" name="<?= e($tabName) ?>" id="<?= e($tabName) ?>-enroll" <?= $openTab === 'enroll' ? 'checked' : '' ?>>
+          <?php if ($workshopRole === 'doctor'): ?>
+            <input type="radio" name="<?= e($tabName) ?>" id="<?= e($tabName) ?>-path" <?= $openTab === 'path' ? 'checked' : '' ?>>
+          <?php endif; ?>
+          <input type="radio" name="<?= e($tabName) ?>" id="<?= e($tabName) ?>-info" <?= $openTab === 'info' ? 'checked' : '' ?>>
+          <div class="wcard-tabbar" role="tablist">
+            <label for="<?= e($tabName) ?>-files">فایل جلسات</label>
+            <label for="<?= e($tabName) ?>-enroll">ثبت‌نام‌ها</label>
+            <?php if ($workshopRole === 'doctor'): ?>
+              <label for="<?= e($tabName) ?>-path">مسیر</label>
+            <?php endif; ?>
+            <label for="<?= e($tabName) ?>-info">جزئیات</label>
+          </div>
+          <div class="wcard-panel wcard-panel-files">
+            <?= workshop_session_file_lines_html($staffSessions, url($workshopMediaPost), $wid) ?>
+          </div>
+          <div class="wcard-panel wcard-panel-enroll">
+            <?php if (in_array($workshopRole, ['secretary', 'doctor'], true)): ?>
+              <?php
+                $enrollmentList = $workshopEnrollmentsById[$wid] ?? [];
+                $enrollmentDeskAction = url($workshopPostBase);
+                require __DIR__ . '/workshop_enrollment_desk.php';
+              ?>
+            <?php endif; ?>
+          </div>
+          <?php if ($workshopRole === 'doctor'): ?>
+            <div class="wcard-panel wcard-panel-path">
+              <div class="workshop-path-people">
+                <ul class="workshop-path-people-list">
                   <li>
-                    <span><?= e((string) ($enr['patient_name'] ?? 'مراجع')) ?></span>
-                    <?php if (function_exists('workshop_path_doctor_url')): ?>
-                      <a class="btn btn-outline btn-sm" href="<?= e(workshop_path_doctor_url((string) ($enr['id'] ?? ''))) ?>">مسیر و یادداشت</a>
+                    <span>یادداشت جلسه، پیام برای مراجع و فایل همان جلسه</span>
+                    <?php if (function_exists('workshop_doctor_board_url')): ?>
+                      <?php if ($doctorBoardOpen && function_exists('workshop_doctor_board_close_url')): ?>
+                        <a class="btn btn-outline btn-sm" href="<?= e(workshop_doctor_board_close_url($workshop)) ?>">بستن مسیر</a>
+                      <?php else: ?>
+                        <a class="btn btn-outline btn-sm" href="<?= e(workshop_doctor_board_url($workshop)) ?>">باز کردن مسیر</a>
+                      <?php endif; ?>
                     <?php endif; ?>
                   </li>
-                <?php endforeach; ?>
-              </ul>
+                </ul>
+                <?php if ($doctorBoardOpen && !empty($doctorPathBoardById[$wid]) && function_exists('workshop_doctor_path_render')): ?>
+                  <?= workshop_doctor_path_render($doctorPathBoardById[$wid]) ?>
+                <?php endif; ?>
+              </div>
+              <?php if ($pathPeople): ?>
+                <div class="workshop-path-people">
+                  <h3 class="workshop-path-people-title">شرکت‌کننده‌ها</h3>
+                  <ul class="workshop-path-people-list">
+                    <?php foreach ($pathPeople as $enr): ?>
+                      <li>
+                        <span><?= e((string) ($enr['patient_name'] ?? 'مراجع')) ?></span>
+                        <?php if (function_exists('workshop_path_doctor_url')): ?>
+                          <a class="btn btn-outline btn-sm" href="<?= e(workshop_path_doctor_url((string) ($enr['id'] ?? ''))) ?>">مسیر این نفر</a>
+                        <?php endif; ?>
+                      </li>
+                    <?php endforeach; ?>
+                  </ul>
+                </div>
+              <?php else: ?>
+                <p class="muted" style="margin:.75rem 0 0">هنوز شرکت‌کننده تأییدشده‌ای نیست.</p>
+              <?php endif; ?>
             </div>
           <?php endif; ?>
-        <?php endif; ?>
-        <?php if (in_array($workshopRole, ['secretary', 'doctor'], true)): ?>
-          <?php
-            $enrollmentList = $workshopEnrollmentsById[(string) $workshop['id']] ?? [];
-            $enrollmentDeskAction = url($workshopPostBase);
-            require __DIR__ . '/workshop_enrollment_desk.php';
-          ?>
-        <?php endif; ?>
+          <div class="wcard-panel wcard-panel-info">
+            <?php if ($workshop['type'] === 'IN_PERSON' && !empty($workshop['location'])): ?>
+              <p style="margin:.35rem 0 0"><strong>محل:</strong> <?= e((string) $workshop['location']) ?></p>
+            <?php endif; ?>
+            <?php if (!empty($workshop['group_url'])): ?>
+              <p style="margin:.55rem 0 0"><strong>گروه:</strong> <a href="<?= e((string) $workshop['group_url']) ?>" target="_blank" rel="noopener" dir="ltr"><?= e((string) $workshop['group_url']) ?></a></p>
+            <?php endif; ?>
+            <?php if (!empty($workshop['items_to_bring'])): ?>
+              <p style="margin:.55rem 0 0"><strong>موارد همراه:</strong> <?= e((string) $workshop['items_to_bring']) ?></p>
+            <?php endif; ?>
+            <?php if (!empty($workshop['notes'])): ?>
+              <p class="muted" style="margin:.55rem 0 0"><strong>یادداشت:</strong> <?= e((string) $workshop['notes']) ?></p>
+            <?php endif; ?>
+            <?php if (empty($workshop['items_to_bring']) && empty($workshop['notes']) && empty($workshop['location']) && empty($workshop['group_url'])): ?>
+              <p class="muted" style="margin:.35rem 0 0">جزئیات دیگری ثبت نشده است.</p>
+            <?php endif; ?>
+            <?php if ($archived): ?>
+              <p class="muted" style="font-size:.85rem;margin:.7rem 0 0">این کارگاه در آرشیو است.</p>
+            <?php elseif (!$workshop['is_published'] || $workshop['status'] !== 'PUBLISHED'): ?>
+              <p style="color:var(--danger);font-size:.85rem;margin:.7rem 0 0">مراجعه‌کنندگان این کارگاه را نمی‌بینند — دکمه «انتشار» را بزنید.</p>
+            <?php elseif (empty($workshop['enrollment_open'])): ?>
+              <p style="color:var(--warning,#b45309);font-size:.85rem;margin:.7rem 0 0">ثبت‌نام بسته است.</p>
+            <?php endif; ?>
+          </div>
+        </div>
       </article>
     <?php endforeach; ?>
   </div>
