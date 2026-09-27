@@ -976,10 +976,15 @@ body.home-workshop-locked { overflow: hidden; }
   inset: 0;
   z-index: 3;
   display: grid;
+  grid-template-columns: 1fr;
+  gap: 0;
+  padding: 0;
+  min-height: 18rem;
+}
+.video-call-stage.is-group .vc-remotes {
   grid-template-columns: repeat(auto-fit, minmax(42%, 1fr));
   gap: .35rem;
   padding: .35rem;
-  min-height: 18rem;
 }
 .vc-remote-tile { min-height: 18rem; height: 100%; background: #0d1a16; border-radius: .6rem; overflow: hidden; position: relative; z-index: 3; }
 .vc-remote-tile video {
@@ -1038,8 +1043,10 @@ body.home-workshop-locked { overflow: hidden; }
 }
 .video-call-self {
   position: absolute;
-  inset-inline-end: .8rem;
-  top: .75rem;
+  right: .8rem;
+  left: auto;
+  bottom: .85rem;
+  top: auto;
   width: 7.4rem;
   z-index: 5;
   pointer-events: none;
@@ -1742,8 +1749,10 @@ body.home-workshop-locked { overflow: hidden; }
   .video-call-self {
     width: 18vw;
     max-width: 4.6rem;
-    inset-inline-end: 2vw;
-    top: 2vw;
+    right: 2vw;
+    left: auto;
+    bottom: 2.4rem;
+    top: auto;
   }
   .video-call-local {
     width: 18vw;
@@ -6906,6 +6915,71 @@ html[data-theme="dark"] .emoji-picker-panel {
 }
 .service-detail-articles .article-card {
   min-height: 0;
+}
+
+.lk-stage {
+  position: relative;
+  height: min(72vh, 40rem);
+  min-height: 18rem;
+  background: #0d1a16;
+  border-radius: 1rem;
+  overflow: hidden;
+}
+.lk-remotes {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  grid-template-columns: 1fr;
+}
+.lk-remotes:has(> .lk-tile:nth-child(2)) {
+  grid-template-columns: repeat(auto-fit, minmax(16rem, 1fr));
+  gap: .35rem;
+  padding: .35rem;
+}
+.lk-tile {
+  position: relative;
+  min-height: 0;
+  height: 100%;
+  background: #12241f;
+  overflow: hidden;
+}
+.lk-tile video {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+  background: #0d1a16;
+}
+.lk-self {
+  position: absolute;
+  right: .75rem;
+  bottom: .75rem;
+  width: 9rem;
+  height: 6.6rem;
+  z-index: 6;
+  border-radius: .75rem;
+  overflow: hidden;
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .45);
+  border: 2px solid rgba(255, 255, 255, .35);
+  background: #1a2e28;
+}
+.lk-self:not(:has(video)) { display: none; }
+.lk-self .lk-tile {
+  width: 100%;
+  height: 100%;
+  border-radius: 0;
+}
+.lk-self .lk-tile video {
+  min-height: 0;
+}
+@media (max-width: 640px) {
+  .lk-stage { height: min(68vh, 32rem); }
+  .lk-self {
+    width: 6.4rem;
+    height: 4.8rem;
+    right: .5rem;
+    bottom: .5rem;
+  }
 }
 .service-detail-therapists .service-detail-related {
   margin-top: .35rem;

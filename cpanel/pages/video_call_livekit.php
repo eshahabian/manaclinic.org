@@ -110,7 +110,10 @@ ob_start();
         <button type="button" class="btn btn-outline" data-lk-leave disabled>خروج</button>
       </div>
       <p class="muted" data-lk-status style="margin:0">برای شروع، دکمه «ورود به تماس» را بزنید تا دوربین اجازه بگیرد.</p>
-      <div data-lk-grid style="display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:.75rem;min-height:18rem;background:#0d1a16;border-radius:1rem;padding:.75rem"></div>
+      <div class="lk-stage" data-lk-stage>
+        <div class="lk-remotes" data-lk-remotes></div>
+        <div class="lk-self" data-lk-self></div>
+      </div>
     <?php endif; ?>
   </div>
 </div>
@@ -130,7 +133,7 @@ try {
 (function(){
   var root=document.querySelector('[data-livekit-v2]'); if(!root)return;
   var key=root.dataset.room||'', audioOnly=root.dataset.media==='audio', auto=root.dataset.auto==='1';
-  var grid=root.querySelector('[data-lk-grid]'), statusEl=root.querySelector('[data-lk-status]');
+  var remotesEl=root.querySelector('[data-lk-remotes]'), selfEl=root.querySelector('[data-lk-self]'), statusEl=root.querySelector('[data-lk-status]');
   var connectBtn=root.querySelector('[data-lk-connect]'), cameraBtn=root.querySelector('[data-lk-camera]'), micBtn=root.querySelector('[data-lk-mic]'), leaveBtn=root.querySelector('[data-lk-leave]');
   var room=null, busy=false, joined=false;
 
@@ -143,30 +146,33 @@ try {
     var n=remoteCount();
     status(n>0 ? ('تماس برقرار است — طرف مقابل متصل ('+n+')') : 'تماس برقرار است — در انتظار ورود طرف مقابل…');
   }
-  function tile(identity,label){
+  function tile(identity,label,local){
+    var parent=local?selfEl:remotesEl;
     var x=document.getElementById(id(identity));
-    if(x)return x;
+    if(x){
+      if(parent&&x.parentElement!==parent)parent.appendChild(x);
+      return x;
+    }
     x=document.createElement('div');
     x.id=id(identity);
-    x.style.cssText='position:relative;min-height:15rem;background:#12241f;border-radius:.85rem;overflow:hidden;display:grid;place-items:center;color:#fff';
+    x.className='lk-tile'+(local?' is-self':'');
     var n=document.createElement('span');
     n.textContent=label||'شرکت‌کننده';
-    n.style.cssText='position:absolute;right:.6rem;bottom:.45rem;z-index:3;background:rgba(0,0,0,.55);padding:.2rem .45rem;border-radius:.4rem;font-size:.75rem';
+    n.style.cssText='position:absolute;right:.45rem;bottom:.35rem;z-index:3;background:rgba(0,0,0,.55);padding:.15rem .4rem;border-radius:.4rem;font-size:.7rem;color:#fff';
     x.appendChild(n);
-    grid.appendChild(x);
+    if(parent)parent.appendChild(x);
     return x;
   }
   function attach(track,p,local){
     var T=LivekitClient.Track;
-    var who=p&&p.identity?p.identity:(local?'local':'remote');
-    var x=tile(who, local?'شما':'طرف مقابل');
+    var who=local?'local':(p&&p.identity?p.identity:'remote');
+    var x=tile(who, local?'شما':'طرف مقابل', !!local);
     var el=track.attach();
     el.autoplay=true;
     el.playsInline=true;
     el.setAttribute('playsinline','');
     if(track.kind===T.Kind.Video){
       el.muted=!!local;
-      el.style.cssText='width:100%;height:100%;min-height:15rem;object-fit:cover;display:block;background:#0d1a16';
       var old=x.querySelector('video');
       if(old&&old!==el)old.remove();
       x.insertBefore(el,x.firstChild);
@@ -189,7 +195,7 @@ try {
     });
     setCallStatus();
   }
-  function unlock(){grid.querySelectorAll('audio,video').forEach(function(el){var p=el.play();if(p&&p.catch)p.catch(function(){});});}
+  function unlock(){root.querySelectorAll('audio,video').forEach(function(el){var p=el.play();if(p&&p.catch)p.catch(function(){});});}
 
   async function connect(){
     if(busy||!window.LivekitClient)return;
@@ -250,8 +256,9 @@ try {
     await room.localParticipant.setMicrophoneEnabled(on);
     micBtn.textContent=on?'قطع میکروفون':'وصل میکروفون';
   });
-  leaveBtn.addEventListener('click',function(){if(room)room.disconnect();room=null;grid.innerHTML='';joined=false;status('از تماس خارج شدید.');buttons(false);});
-  grid.addEventListener('click',unlock);
+  leaveBtn.addEventListener('click',function(){if(room)room.disconnect();room=null;if(remotesEl)remotesEl.innerHTML='';if(selfEl)selfEl.innerHTML='';joined=false;status('از تماس خارج شدید.');buttons(false);});
+  if(remotesEl)remotesEl.addEventListener('click',unlock);
+  if(selfEl)selfEl.addEventListener('click',unlock);
   document.addEventListener('visibilitychange',function(){if(!document.hidden){unlock();hydrateRemotes();}});
   window.addEventListener('pagehide',function(){if(room)room.disconnect();});
 
