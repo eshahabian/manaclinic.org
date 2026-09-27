@@ -71,6 +71,7 @@ require_once __DIR__ . '/includes/video_call.php';
 require_once __DIR__ . '/includes/patient_journal.php';
 require_once __DIR__ . '/includes/mail.php';
 require_once __DIR__ . '/includes/mentions.php';
+require_once __DIR__ . '/includes/consult_requests.php';
 
 $pdo = db_connect($config);
 
@@ -157,6 +158,8 @@ $routes = [
     'GET /faq' => 'pages/faq.php',
     'GET /rules' => 'pages/rules.php',
     'GET /contact' => 'pages/contact.php',
+    'POST /consult-request' => 'actions/consult_request.php',
+    'POST /consult-requests/done' => 'actions/consult_request_done.php',
     'GET /assistant' => 'pages/assistant.php',
     'POST /assistant/chat' => 'actions/assistant_chat.php',
     'POST /assistant/send' => 'actions/assistant_send.php',
@@ -226,6 +229,7 @@ $routes = [
     'GET /secretary/patients' => 'pages/secretary/patients.php',
     'POST /secretary/patients' => 'actions/secretary_create_patient.php',
     'GET /secretary/messages' => 'pages/secretary/messages.php',
+    'GET /secretary/consult-requests' => 'pages/consult_requests.php',
     'GET /secretary/colleague-messages' => 'pages/secretary/colleague_messages.php',
     'GET /secretary/board' => 'pages/secretary/board.php',
     'GET /secretary/mentions' => 'pages/mentions.php',
@@ -254,6 +258,7 @@ $routes = [
     'POST /doctor/path/report/ai' => 'actions/patient_path_ai.php',
     'GET /doctor/intakes' => 'pages/doctor/intakes.php',
     'GET /doctor/notifications' => 'pages/doctor/notifications.php',
+    'GET /doctor/consult-requests' => 'pages/consult_requests.php',
     'GET /doctor/profile' => 'pages/doctor/profile.php',
     'POST /doctor/profile' => 'actions/doctor_profile.php',
     'GET /doctor/availability' => 'pages/doctor/availability.php',
@@ -289,6 +294,7 @@ $routes = [
     'POST /doctor/mentions' => 'pages/mentions.php',
 
     'GET /admin' => 'pages/admin/dashboard.php',
+    'GET /admin/consult-requests' => 'pages/consult_requests.php',
     'GET /admin/doctors' => 'pages/admin/doctors.php',
     'POST /admin/doctors' => 'actions/admin_doctors.php',
     'GET /admin/users' => 'pages/admin/users.php',

@@ -24,6 +24,12 @@ function admin_nav(): array {
     $nav = [
         ['type' => 'group', 'label' => 'اصلی'],
         ['href' => '/admin', 'label' => 'خلاصه'],
+        [
+            'href' => '/admin/consult-requests',
+            'label' => 'درخواست مشاوره',
+            'badge' => function_exists('consult_request_new_count') ? consult_request_new_count() : 0,
+            'badge_tone' => 'new',
+        ],
         ['href' => '/admin/users', 'label' => 'کاربران'],
         ['href' => '/admin/doctors', 'label' => 'درمانگرها', 'badge' => admin_pending_doctor_count()],
         ['href' => '/admin/appointments', 'label' => 'نوبت‌ها'],

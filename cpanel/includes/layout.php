@@ -53,8 +53,9 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
   </script>
   <?= seo_render_head() ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;600;700&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260928home">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260928vazir">
   <?php
     // آزمایش سبک حس روان‌تر — برای خاموش کردن: false
     $manaAppleFeelLight = true;
@@ -271,17 +272,20 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
         </a>
       </div>
       <div>
-        <p class="footer-title">دسترسی سریع</p>
-        <a href="<?= e(url('/')) ?>">صفحه اصلی</a>
-        <a href="<?= e(url('/services')) ?>">خدمات</a>
-        <a href="<?= e(url('/doctors')) ?>">متخصصان</a>
-        <a href="<?= e(url('/articles')) ?>">مقالات</a>
-        <a href="<?= e(url('/tests')) ?>">آزمون‌ها</a>
-        <a href="<?= e(url('/about')) ?>">درباره ما</a>
-        <a href="<?= e(url('/faq')) ?>">سوالات متداول</a>
-        <a href="<?= e(url('/rules')) ?>">قوانین</a>
-        <a href="<?= e(url('/contact')) ?>">تماس با ما</a>
-        <a href="<?= e(url('/register')) ?>">ثبت‌نام</a>
+        <p class="footer-title">درخواست مشاوره</p>
+        <p class="footer-consult-lead muted">فرم را پر کنید؛ در اولین فرصت با شما تماس می‌گیریم.</p>
+        <form class="footer-consult" method="post" action="<?= e(url('/consult-request')) ?>">
+          <?= csrf_field() ?>
+          <input type="hidden" name="next" value="<?= e((string) ($GLOBALS['path'] ?? '/')) ?>">
+          <input class="footer-consult-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+          <label class="sr-only" for="consult-name">نام و نام خانوادگی</label>
+          <input class="input" id="consult-name" name="name" maxlength="100" placeholder="نام و نام خانوادگی" autocomplete="name">
+          <label class="sr-only" for="consult-phone">شماره تماس</label>
+          <input class="input" id="consult-phone" name="phone" required inputmode="tel" maxlength="20" dir="ltr" placeholder="شماره تماس *" autocomplete="tel">
+          <label class="sr-only" for="consult-message">توضیح درخواست</label>
+          <textarea class="input" id="consult-message" name="message" required maxlength="1000" rows="4" placeholder="توضیح مختصر درباره درخواست شما *"></textarea>
+          <button type="submit" class="btn btn-primary">ارسال درخواست</button>
+        </form>
       </div>
     </div>
     <div class="footer-copy">

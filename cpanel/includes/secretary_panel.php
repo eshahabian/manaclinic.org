@@ -5,6 +5,12 @@ function secretary_nav(): array
 {
     $nav = [
         ['href' => '/secretary/messages', 'label' => 'پیام‌ها'],
+        [
+            'href' => '/secretary/consult-requests',
+            'label' => 'درخواست مشاوره',
+            'badge' => function_exists('consult_request_new_count') ? consult_request_new_count() : 0,
+            'badge_tone' => 'new',
+        ],
         ['href' => '/secretary/appointments', 'label' => 'نوبت‌ها'],
         ['href' => '/secretary/patients', 'label' => 'مراجعه‌کنندگان'],
         ['href' => '/secretary/profile', 'label' => 'پیام مدیر'],

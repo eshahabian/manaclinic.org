@@ -171,7 +171,6 @@ window.ManaAuthGate = {
 };
 </script>
 <?php
-$GLOBALS['pageHead'] = ($GLOBALS['pageHead'] ?? '') . '<link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,700&display=swap" rel="stylesheet">';
 $GLOBALS['pageBodyClass'] = trim(($GLOBALS['pageBodyClass'] ?? '') . ' is-auth');
 $GLOBALS['pageScripts'] = ($GLOBALS['pageScripts'] ?? '')
     . '<script src="' . e(url('/assets/js/name-transliterate.js')) . '?v=20260914a"></script>'

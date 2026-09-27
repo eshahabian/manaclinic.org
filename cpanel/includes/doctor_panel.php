@@ -54,16 +54,24 @@ function doctor_nav(): array
 
     $nav = [];
     $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link(true) : null;
+    $consultLink = [
+        'type' => 'link',
+        'href' => '/doctor/consult-requests',
+        'label' => 'درخواست مشاوره',
+        'badge' => function_exists('consult_request_new_count') ? consult_request_new_count() : 0,
+        'badge_tone' => 'new',
+    ];
     if ($videoLink) {
         $nav[] = ['type' => 'group', 'label' => 'اصلی'];
         $nav[] = $videoLink;
+        $nav[] = $consultLink;
+    } else {
+        $nav[] = ['type' => 'group', 'label' => 'اصلی'];
+        $nav[] = $consultLink;
     }
     if (function_exists('mentions_nav_item')) {
         $mentionNav = mentions_nav_item($pdo instanceof PDO ? $pdo : null, current_user());
         if ($mentionNav) {
-            if (!$videoLink) {
-                $nav[] = ['type' => 'group', 'label' => 'اصلی'];
-            }
             $mentionNav['type'] = 'link';
             $nav[] = $mentionNav;
         }
