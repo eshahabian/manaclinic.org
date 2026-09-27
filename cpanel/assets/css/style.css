@@ -1947,6 +1947,26 @@ body.home-workshop-locked { overflow: hidden; }
   line-height: 1.7;
 }
 .footer-consult .btn { width: 100%; }
+.footer-consult input[name="phone"] {
+  direction: rtl;
+  text-align: right;
+}
+.footer-consult input[name="phone"]::placeholder {
+  text-align: right;
+  direction: rtl;
+}
+.contact-page { max-width: 72rem; }
+.contact-layout {
+  display: grid;
+  gap: 1.25rem;
+  margin-top: 1.5rem;
+  align-items: stretch;
+}
+.consult-form-card h2 { margin: 0 0 .35rem; font-size: 1.2rem; }
+.consult-form-lead { margin: 0 0 .9rem; line-height: 1.75; font-size: .9rem; }
+@media (min-width: 860px) {
+  .contact-layout { grid-template-columns: 1fr 1fr; }
+}
 .footer-consult-hp {
   position: absolute;
   width: 1px;

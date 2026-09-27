@@ -55,7 +55,7 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260928nav">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260928consult">
   <?php
     // آزمایش سبک حس روان‌تر — برای خاموش کردن: false
     $manaAppleFeelLight = true;
@@ -275,18 +275,12 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
       <div>
         <p class="footer-title">درخواست مشاوره</p>
         <p class="footer-consult-lead muted">فرم را پر کنید؛ در اولین فرصت با شما تماس می‌گیریم.</p>
-        <form class="footer-consult" method="post" action="<?= e(url('/consult-request')) ?>">
-          <?= csrf_field() ?>
-          <input type="hidden" name="next" value="<?= e((string) ($GLOBALS['path'] ?? '/')) ?>">
-          <input class="footer-consult-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
-          <label class="sr-only" for="consult-name">نام و نام خانوادگی</label>
-          <input class="input" id="consult-name" name="name" maxlength="100" placeholder="نام و نام خانوادگی" autocomplete="name">
-          <label class="sr-only" for="consult-phone">شماره تماس</label>
-          <input class="input" id="consult-phone" name="phone" required inputmode="tel" maxlength="20" dir="ltr" placeholder="شماره تماس *" autocomplete="tel">
-          <label class="sr-only" for="consult-message">توضیح درخواست</label>
-          <textarea class="input" id="consult-message" name="message" required maxlength="1000" rows="4" placeholder="توضیح مختصر درباره درخواست شما *"></textarea>
-          <button type="submit" class="btn btn-primary">ارسال درخواست</button>
-        </form>
+        <?php
+          if (!function_exists('consult_request_form_html')) {
+              require_once __DIR__ . '/consult_requests.php';
+          }
+          echo consult_request_form_html('footer-consult');
+        ?>
       </div>
     </div>
     <div class="footer-copy">

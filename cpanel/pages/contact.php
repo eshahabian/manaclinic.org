@@ -9,13 +9,14 @@ $mapUrl = 'https://www.google.com/maps?q=35.772637,51.377568';
 $mapEmbed = 'https://maps.google.com/maps?q=35.772637,51.377568&z=16&output=embed';
 ob_start();
 ?>
-<div class="container-page section" style="max-width:48rem">
+<div class="container-page section contact-page">
   <h1>تماس با ما</h1>
   <p class="muted" style="margin-top:.5rem;line-height:1.9">
     برای پرسش درباره نوبت‌ها، خدمات یا همکاری، از راه‌های زیر با ما در ارتباط باشید.
   </p>
 
-  <div class="panel stack" style="margin-top:1.5rem">
+  <div class="contact-layout">
+  <div class="panel stack">
     <div>
       <div class="label">شماره موبایل</div>
       <a href="tel:09101387838" style="color:var(--primary);font-weight:600" dir="ltr">۰۹۱۰ ۱۳۸ ۷۸۳۸</a>
@@ -46,6 +47,17 @@ ob_start();
         به‌صورت آنلاین نوبت بگیرید.
       </p>
     </div>
+  </div>
+  <div class="panel consult-form-card">
+    <h2>درخواست مشاوره</h2>
+    <p class="muted consult-form-lead">فرم را پر کنید؛ در اولین فرصت با شما تماس می‌گیریم. شماره تماس و توضیح درخواست الزامی است.</p>
+    <?php
+      if (!function_exists('consult_request_form_html')) {
+          require_once dirname(__DIR__) . '/includes/consult_requests.php';
+      }
+      echo consult_request_form_html('page-consult');
+    ?>
+  </div>
   </div>
 
   <div class="panel" style="margin-top:1.25rem;overflow:hidden;padding:0">
