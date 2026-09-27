@@ -12,7 +12,7 @@ $editWorkshopId = $editWorkshopId ?? null;
 <div id="field-session-media" class="panel workshop-session-media" style="padding:1rem;background:var(--bg-soft,#f8fafc);border-style:dashed">
   <h3 style="margin:0;font-size:.95rem">فایل هر جلسه</h3>
   <p class="muted" style="font-size:.85rem;line-height:1.65;margin:.4rem 0 0">
-    برای هر جلسه (روزانه، هفتگی یا ماهانه)، پی‌دی‌اف، صوت و ویدیو جداگانه بارگذاری می‌شود. فقط اعضای تأییدشده این فایل‌ها را می‌بینند.
+    برای هر جلسه می‌توانید چند پی‌دی‌اف، صوت یا ویدیو بگذارید. بعد از انتخاب هر فایل، دوباره «انتخاب فایل» می‌آید. فقط اعضای تأییدشده این فایل‌ها را می‌بینند.
   </p>
   <p class="muted" style="font-size:.8rem;margin:.35rem 0 0">حداکثر <?= (int) ($mediaMaxMb ?? 300) ?> مگابایت برای هر فایل</p>
 
@@ -26,19 +26,19 @@ $editWorkshopId = $editWorkshopId ?? null;
         <?php endif; ?>
         <div class="workshop-session-slots">
           <?php foreach (['PDF' => ['پی‌دی‌اف', '.pdf,application/pdf'], 'AUDIO' => ['صوت', 'audio/*,.mp3,.m4a,.wav,.ogg'], 'VIDEO' => ['ویدیو', 'video/*,.mp4,.webm,.mov']] as $kind => $meta): ?>
-            <?php $existing = $session['files'][$kind] ?? null; ?>
+            <?php $existingList = function_exists('workshop_media_kind_files') ? workshop_media_kind_files($session['files'][$kind] ?? null) : []; ?>
             <div class="workshop-session-kind">
               <label class="label"><?= e($meta[0]) ?></label>
-              <?php if ($existing): ?>
+              <?php foreach ($existingList as $existing): ?>
                 <div class="muted" style="font-size:.78rem;margin-bottom:.35rem">
                   <?= e((string) $existing['original_name']) ?> · <?= e(workshop_media_format_size((int) $existing['file_size'])) ?>
                   <?php if ($editWorkshopId && $workshopMediaPost !== ''): ?>
                     <button type="button" class="btn btn-outline btn-sm js-media-delete" data-action="<?= e(url($workshopMediaPost)) ?>" data-workshop="<?= e((string) $editWorkshopId) ?>" data-item="<?= e((string) $existing['id']) ?>">حذف</button>
                   <?php endif; ?>
                 </div>
-              <?php endif; ?>
+              <?php endforeach; ?>
               <?php if ($date !== ''): ?>
-                <input class="input" type="file" name="session_file[<?= e($date) ?>][<?= e($kind) ?>]" accept="<?= e($meta[1]) ?>">
+                <input class="input js-more-session-file" type="file" name="session_file[<?= e($date) ?>][<?= e($kind) ?>][]" accept="<?= e($meta[1]) ?>">
               <?php endif; ?>
             </div>
           <?php endforeach; ?>

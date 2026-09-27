@@ -39,9 +39,9 @@ function workshop_overview_payload(array $workshop, ?array $enrollment, array $s
         if ($canSeeFiles) {
             $files = [];
             foreach (['PDF' => 'پی‌دی‌اف', 'AUDIO' => 'صوت', 'VIDEO' => 'ویدیو'] as $kind => $label) {
-                $file = $session['files'][$kind] ?? null;
-                if ($file) {
-                    $files[] = $label;
+                $list = function_exists('workshop_media_kind_files') ? workshop_media_kind_files($session['files'][$kind] ?? null) : [];
+                if ($list) {
+                    $files[] = count($list) > 1 ? $label . ' (' . count($list) . ')' : $label;
                 }
             }
             $day['files'] = $files;

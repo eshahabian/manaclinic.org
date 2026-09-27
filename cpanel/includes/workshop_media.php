@@ -353,14 +353,6 @@ function workshop_media_save_upload(PDO $pdo, string $workshopId, ?string $docto
     }
 
     $sort = workshop_media_count($pdo, $workshopId);
-    if ($sessionId) {
-        $old = $pdo->prepare('SELECT id FROM workshop_media_items WHERE workshop_id=? AND session_id=? AND kind=? LIMIT 1');
-        $old->execute([$workshopId, $sessionId, $kind]);
-        $oldId = (string) ($old->fetchColumn() ?: '');
-        if ($oldId !== '') {
-            workshop_media_delete($pdo, $oldId, $doctorProfileId);
-        }
-    }
     $pdo->prepare('
       INSERT INTO workshop_media_items
         (id, workshop_id, session_id, kind, title, description, file_path, original_name, mime_type, file_size, sort_order)
@@ -403,22 +395,57 @@ function workshop_media_process_session_uploads(PDO $pdo, string $workshopId, ?s
         $session = $byDate[$date];
         foreach ($kinds as $kind => $unusedName) {
             $kind = strtoupper((string) $kind);
-            $file = [
-                'name' => (string) ($files['name'][$date][$kind] ?? ''),
-                'type' => (string) ($files['type'][$date][$kind] ?? ''),
-                'tmp_name' => (string) ($files['tmp_name'][$date][$kind] ?? ''),
-                'error' => (int) ($files['error'][$date][$kind] ?? UPLOAD_ERR_NO_FILE),
-                'size' => (int) ($files['size'][$date][$kind] ?? 0),
-            ];
-            if ($file['error'] === UPLOAD_ERR_NO_FILE) {
-                continue;
+            $names = $files['name'][$date][$kind] ?? null;
+            $indexes = is_array($names) ? array_keys($names) : [0];
+            foreach ($indexes as $index) {
+                $file = workshop_media_nested_upload($files, $date, $kind, (int) $index);
+                if ($file['error'] === UPLOAD_ERR_NO_FILE || $file['name'] === '') {
+                    continue;
+                }
+                $title = (string) $session['title'] . ' — ' . workshop_media_kind_label($kind);
+                workshop_media_save_upload($pdo, $workshopId, $doctorProfileId, $kind, $title, null, $file, (string) $session['id']);
+                $saved++;
             }
-            $title = (string) $session['title'] . ' — ' . workshop_media_kind_label($kind);
-            workshop_media_save_upload($pdo, $workshopId, $doctorProfileId, $kind, $title, null, $file, (string) $session['id']);
-            $saved++;
         }
     }
     return $saved;
+}
+
+function workshop_media_nested_upload(array $files, string $date, string $kind, int $index): array
+{
+    $pick = static function (string $key) use ($files, $date, $kind, $index) {
+        $node = $files[$key][$date][$kind] ?? null;
+        if (is_array($node)) {
+            return $node[$index] ?? null;
+        }
+        return $index === 0 ? $node : null;
+    };
+
+    return [
+        'name' => (string) ($pick('name') ?? ''),
+        'type' => (string) ($pick('type') ?? ''),
+        'tmp_name' => (string) ($pick('tmp_name') ?? ''),
+        'error' => (int) ($pick('error') ?? UPLOAD_ERR_NO_FILE),
+        'size' => (int) ($pick('size') ?? 0),
+    ];
+}
+
+function workshop_media_kind_files(mixed $value): array
+{
+    if (!is_array($value) || $value === []) {
+        return [];
+    }
+    if (isset($value['id'])) {
+        return [$value];
+    }
+    $out = [];
+    foreach ($value as $file) {
+        if (is_array($file) && isset($file['id'])) {
+            $out[] = $file;
+        }
+    }
+
+    return $out;
 }
 
 function workshop_media_process_path_session_files(
@@ -435,21 +462,32 @@ function workshop_media_process_path_session_files(
     }
     $saved = 0;
     foreach (['PDF', 'AUDIO', 'VIDEO'] as $kind) {
-        $file = [
-            'name' => (string) ($files['name'][$kind] ?? ''),
-            'type' => (string) ($files['type'][$kind] ?? ''),
-            'tmp_name' => (string) ($files['tmp_name'][$kind] ?? ''),
-            'error' => (int) ($files['error'][$kind] ?? UPLOAD_ERR_NO_FILE),
-            'size' => (int) ($files['size'][$kind] ?? 0),
-        ];
-        if ($file['error'] === UPLOAD_ERR_NO_FILE) {
-            continue;
+        $names = $files['name'][$kind] ?? null;
+        $indexes = is_array($names) ? array_keys($names) : [0];
+        foreach ($indexes as $index) {
+            $node = static function (string $key) use ($files, $kind, $index) {
+                $value = $files[$key][$kind] ?? null;
+                if (is_array($value)) {
+                    return $value[$index] ?? null;
+                }
+                return $index === 0 ? $value : null;
+            };
+            $file = [
+                'name' => (string) ($node('name') ?? ''),
+                'type' => (string) ($node('type') ?? ''),
+                'tmp_name' => (string) ($node('tmp_name') ?? ''),
+                'error' => (int) ($node('error') ?? UPLOAD_ERR_NO_FILE),
+                'size' => (int) ($node('size') ?? 0),
+            ];
+            if ($file['error'] === UPLOAD_ERR_NO_FILE || $file['name'] === '') {
+                continue;
+            }
+            $title = trim($sessionTitle) !== ''
+                ? $sessionTitle . ' — ' . workshop_media_kind_label($kind)
+                : workshop_media_kind_label($kind);
+            workshop_media_save_upload($pdo, $workshopId, $doctorProfileId, $kind, $title, null, $file, $sessionId);
+            $saved++;
         }
-        $title = trim($sessionTitle) !== ''
-            ? $sessionTitle . ' — ' . workshop_media_kind_label($kind)
-            : workshop_media_kind_label($kind);
-        workshop_media_save_upload($pdo, $workshopId, $doctorProfileId, $kind, $title, null, $file, $sessionId);
-        $saved++;
     }
 
     return $saved;

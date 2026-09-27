@@ -549,6 +549,6 @@ ob_start();
   }
 })();
 </script>
-<script src="<?= e(url('/assets/js/workshop-session-media.js')) ?>?v=20260906u"></script>
+<script src="<?= e(url('/assets/js/workshop-session-media.js')) ?>?v=20260928files"></script>
 <?php
 render_secretary_page('کارگاه‌ها', ob_get_clean());

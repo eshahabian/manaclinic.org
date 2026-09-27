@@ -191,14 +191,14 @@ function workshop_sessions_with_media(PDO $pdo, string $workshopId): array
         $sid = (string) $session['id'];
         $files = $bySession[$sid] ?? [];
         $session['files'] = [
-            'PDF' => null,
-            'AUDIO' => null,
-            'VIDEO' => null,
+            'PDF' => [],
+            'AUDIO' => [],
+            'VIDEO' => [],
         ];
         foreach ($files as $file) {
             $kind = (string) ($file['kind'] ?? '');
-            if (isset($session['files'][$kind]) && $session['files'][$kind] === null) {
-                $session['files'][$kind] = $file;
+            if (isset($session['files'][$kind])) {
+                $session['files'][$kind][] = $file;
             }
         }
     }
@@ -211,16 +211,16 @@ function workshop_sessions_with_media(PDO $pdo, string $workshopId): array
             'title' => 'سایر فایل‌ها',
             'sort_order' => 999,
             'files' => [
-                'PDF' => null,
-                'AUDIO' => null,
-                'VIDEO' => null,
+                'PDF' => [],
+                'AUDIO' => [],
+                'VIDEO' => [],
             ],
         ];
         $last = count($sessions) - 1;
         foreach ($unassigned as $file) {
             $kind = (string) ($file['kind'] ?? '');
-            if (isset($sessions[$last]['files'][$kind]) && $sessions[$last]['files'][$kind] === null) {
-                $sessions[$last]['files'][$kind] = $file;
+            if (isset($sessions[$last]['files'][$kind])) {
+                $sessions[$last]['files'][$kind][] = $file;
             }
         }
     }

@@ -1,4 +1,16 @@
 (function () {
+  document.addEventListener("change", function (e) {
+    var input = e.target;
+    if (!input || !input.classList || !input.classList.contains("js-more-session-file")) return;
+    if (!input.files || !input.files.length) return;
+    if (input.getAttribute("data-picked") === "1") return;
+    input.setAttribute("data-picked", "1");
+    var next = input.cloneNode(false);
+    next.value = "";
+    next.removeAttribute("data-picked");
+    input.insertAdjacentElement("afterend", next);
+  });
+
   var list = document.getElementById("workshop-session-media-list");
   if (!list) return;
   var typeEl = document.getElementById("workshop-type");
@@ -58,9 +70,9 @@
       "<strong>" + title + "</strong>" +
       '<input type="hidden" name="extra_session_dates[]" value="' + date + '">' +
       '<div class="workshop-session-slots">' +
-      '<div class="workshop-session-kind"><label class="label">پی‌دی‌اف</label><input class="input" type="file" name="session_file[' + date + '][PDF]" accept=".pdf,application/pdf"></div>' +
-      '<div class="workshop-session-kind"><label class="label">صوت</label><input class="input" type="file" name="session_file[' + date + '][AUDIO]" accept="audio/*,.mp3,.m4a,.wav,.ogg"></div>' +
-      '<div class="workshop-session-kind"><label class="label">ویدیو</label><input class="input" type="file" name="session_file[' + date + '][VIDEO]" accept="video/*,.mp4,.webm,.mov"></div>' +
+      '<div class="workshop-session-kind"><label class="label">پی‌دی‌اف</label><input class="input js-more-session-file" type="file" name="session_file[' + date + '][PDF][]" accept=".pdf,application/pdf"></div>' +
+      '<div class="workshop-session-kind"><label class="label">صوت</label><input class="input js-more-session-file" type="file" name="session_file[' + date + '][AUDIO][]" accept="audio/*,.mp3,.m4a,.wav,.ogg"></div>' +
+      '<div class="workshop-session-kind"><label class="label">ویدیو</label><input class="input js-more-session-file" type="file" name="session_file[' + date + '][VIDEO][]" accept="video/*,.mp4,.webm,.mov"></div>' +
       "</div></div>"
     );
   }

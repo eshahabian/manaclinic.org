@@ -252,21 +252,21 @@ function workshop_doctor_path_render(array $board): string
               <p class="muted" style="margin:0 0 .45rem;font-size:.8rem">حداکثر <?= e(to_fa_digits((string) $mediaMaxMb)) ?> مگابایت برای هر فایل. فقط اعضای تأییدشده این فایل‌ها را در مسیر خود می‌بینند.</p>
               <div class="workshop-session-slots workshop-path-files">
                 <?php foreach (['PDF' => ['پی‌دی‌اف', '.pdf,application/pdf'], 'AUDIO' => ['صوت', 'audio/*,.mp3,.m4a,.wav,.ogg'], 'VIDEO' => ['ویدیو', 'video/*,.mp4,.webm,.mov']] as $kind => $meta): ?>
-                  <?php $existing = is_array($files[$kind] ?? null) ? $files[$kind] : null; ?>
+                  <?php $existingList = function_exists('workshop_media_kind_files') ? workshop_media_kind_files($files[$kind] ?? null) : []; ?>
                   <div class="workshop-session-kind">
                     <label class="label"><?= e($meta[0]) ?></label>
-                    <?php if ($existing): ?>
+                    <?php foreach ($existingList as $existing): ?>
                       <div class="muted" style="font-size:.78rem;margin-bottom:.35rem">
                         <?= e((string) ($existing['original_name'] ?? 'فایل')) ?>
                         <?php if (!empty($existing['file_size'])): ?>
                           · <?= e(workshop_media_format_size((int) $existing['file_size'])) ?>
                         <?php endif; ?>
+                        <?php if ($mediaPost !== '' && !empty($existing['id'])): ?>
+                          <button type="submit" class="btn btn-outline btn-sm" name="delete_media_id" value="<?= e((string) $existing['id']) ?>" formnovalidate onclick="return confirm('این فایل حذف شود؟')">حذف</button>
+                        <?php endif; ?>
                       </div>
-                      <?php if ($mediaPost !== '' && !empty($existing['id'])): ?>
-                        <button type="submit" class="btn btn-outline btn-sm" name="delete_media_id" value="<?= e((string) $existing['id']) ?>" formnovalidate onclick="return confirm('این فایل حذف شود؟')">حذف</button>
-                      <?php endif; ?>
-                    <?php endif; ?>
-                    <input class="input" type="file" name="path_file[<?= e($kind) ?>]" accept="<?= e($meta[1]) ?>">
+                    <?php endforeach; ?>
+                    <input class="input js-more-session-file" type="file" name="path_file[<?= e($kind) ?>][]" accept="<?= e($meta[1]) ?>">
                   </div>
                 <?php endforeach; ?>
               </div>
@@ -718,17 +718,17 @@ function workshop_path_media_html(array $files, array $ctx): string
 {
     $user = is_array($ctx['user'] ?? null) ? $ctx['user'] : [];
     $watermark = (string) ($ctx['watermark'] ?? '');
-    $video = is_array($files['VIDEO'] ?? null) ? $files['VIDEO'] : null;
-    $audio = is_array($files['AUDIO'] ?? null) ? $files['AUDIO'] : null;
-    $pdf = is_array($files['PDF'] ?? null) ? $files['PDF'] : null;
-    if (!$video && !$audio && !$pdf) {
+    $videos = function_exists('workshop_media_kind_files') ? workshop_media_kind_files($files['VIDEO'] ?? null) : [];
+    $audios = function_exists('workshop_media_kind_files') ? workshop_media_kind_files($files['AUDIO'] ?? null) : [];
+    $pdfs = function_exists('workshop_media_kind_files') ? workshop_media_kind_files($files['PDF'] ?? null) : [];
+    if ($videos === [] && $audios === [] && $pdfs === []) {
         return '<p class="muted workshop-path-locked">برای این جلسه هنوز فایلی بارگذاری نشده است.</p>';
     }
 
     ob_start();
     ?>
 <div class="workshop-path-media" data-offline-protect>
-  <?php if ($video): ?>
+  <?php foreach ($videos as $video): ?>
     <div class="wm-video-box">
       <video
         controls
@@ -746,8 +746,8 @@ function workshop_path_media_html(array $files, array $ctx): string
         <?php endfor; ?>
       </div>
     </div>
-  <?php endif; ?>
-  <?php if ($audio): ?>
+  <?php endforeach; ?>
+  <?php foreach ($audios as $audio): ?>
     <div class="offline-audio-box" data-audio-id="<?= e((string) $audio['id']) ?>">
       <p class="muted offline-audio-status" id="audio-status-<?= e((string) $audio['id']) ?>">برای پخش صوت، دکمه زیر را بزنید.</p>
       <button type="button" class="btn btn-primary btn-sm audio-play-btn" data-audio-id="<?= e((string) $audio['id']) ?>">پخش صوت</button>
@@ -762,8 +762,8 @@ function workshop_path_media_html(array $files, array $ctx): string
       ></audio>
       <p class="muted offline-audio-wm">واترمارک: <?= e($watermark) ?> — دانلود و ضبط صفحه غیرفعال است.</p>
     </div>
-  <?php endif; ?>
-  <?php if ($pdf): ?>
+  <?php endforeach; ?>
+  <?php foreach ($pdfs as $pdf): ?>
     <div class="wm-pdf-box">
       <div class="wm-pdf-frame">
         <iframe src="<?= e(workshop_media_stream_url((string) $pdf['id'], $user)) ?>" title="پی‌دی‌اف جلسه"></iframe>
@@ -775,7 +775,7 @@ function workshop_path_media_html(array $files, array $ctx): string
       </div>
       <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">فقط مشاهده داخل پنل — دانلود پی‌دی‌اف بسته است. واترمارک: <?= e($watermark) ?></p>
     </div>
-  <?php endif; ?>
+  <?php endforeach; ?>
 </div>
     <?php
     return (string) ob_get_clean();
