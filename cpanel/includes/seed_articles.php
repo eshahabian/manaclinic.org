@@ -227,3 +227,87 @@ HTML;
         $realGarsichi,
     ]);
 }
+
+/**
+ * گزارش فارسی تازه‌ترین کارآزمایی زوج‌درمانی (دورائس و همکاران، ۲۰۲۶).
+ * نام عمومی نویسنده، نام خود پژوهشگر است؛ حساب فنی فقط برای کلید خارجی مقاله است.
+ */
+function ensure_latest_couples_research_article(PDO $pdo): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+
+    try {
+        ensure_articles_schema($pdo);
+        $slug = 'zog-darmani-zehn-agahi-duraes-2026';
+        $byline = 'ریکاردو اس. اس. دورائس و همکاران';
+        $services = json_encode(['couples'], JSON_UNESCAPED_UNICODE);
+        $check = $pdo->prepare('SELECT id, byline_name, services_json FROM articles WHERE slug=? LIMIT 1');
+        $check->execute([$slug]);
+        $existing = $check->fetch();
+        if ($existing) {
+            if (trim((string) ($existing['byline_name'] ?? '')) === '' || trim((string) ($existing['services_json'] ?? '')) === '') {
+                $pdo->prepare('UPDATE articles SET byline_name=?, services_json=?, published=1 WHERE id=?')
+                    ->execute([$byline, $services, (string) $existing['id']]);
+            }
+            return;
+        }
+
+        $authorId = $pdo->query("SELECT id FROM users WHERE role='ADMIN' ORDER BY created_at ASC LIMIT 1")->fetchColumn();
+        if (!$authorId) {
+            $authorId = find_doctor_atiyeh_garsichi_id($pdo);
+        }
+        if (!$authorId) {
+            $authorId = $pdo->query('SELECT id FROM users ORDER BY created_at ASC LIMIT 1')->fetchColumn();
+        }
+        if (!$authorId) {
+            return;
+        }
+
+        $title = 'زوج‌درمانی شناختی‌رفتاری با ذهن‌آگاهی برای زوج‌های کم‌درآمد';
+        $excerpt = 'کارآزمایی تازهٔ دورائس و همکاران نشان می‌دهد هشت جلسه زوج‌درمانی شناختی‌رفتاری همراه با ذهن‌آگاهی، سازگاری رابطه و نشانه‌های افسردگی را در زوج‌های کم‌درآمد بهبود داده است.';
+        $content = <<<'HTML'
+<p>این نوشته گزارش فارسی مقالهٔ منتشرشدهٔ <strong>ریکاردو اس. اس. دورائس</strong> و همکاران است، نه بازنشر متن کامل آن. مقاله در ۳۱ اوت ۲۰۲۶ در <em>Journal of Marital and Family Therapy</em> چاپ شده و جنبهٔ آموزشی دارد؛ تشخیص یا درمان نیست.</p>
+<p>نویسندگان: ریکاردو اس. اس. دورائس، زیلا الیزابت پولاچه وارگاس، آنا کریستینا گارسیا دیاس، فرانسیسکو لوتوفو نتو، رناتو تی. راموس و آنتونیو د پادوا سرافیم. نویسندهٔ مسئول، دورائس است.</p>
+
+<h2>پژوهش چه پرسشی داشت؟</h2>
+<p>فشار اقتصادی اغلب تعارض رابطه، ناسازگاری و آسیب‌پذیری روانی را شدیدتر می‌کند، در حالی که دسترسی زوج‌های کم‌درآمد به درمان تخصصی محدود است. این کارآزمایی مقدماتی در برزیل بررسی کرد که آیا ترکیب زوج‌درمانی شناختی‌رفتاری با تمرین ذهن‌آگاهی می‌تواند سازگاری دونفره، توجه آگاهانه و نشانه‌های افسردگی را بهتر کند.</p>
+
+<h2>روش کار</h2>
+<p>۳۴ نفر (۱۷ زوج دگرجنس‌گرا) به‌طور تصادفی به دو گروه تقسیم شدند: ۱۶ نفر درمان گرفتند و ۱۸ نفر در فهرست انتظار ماندند. درآمد سرانهٔ خانوار تا حدود یک حداقل دستمزد بود. درمان، هشت جلسهٔ مشترکِ حدود ۸۰ دقیقه‌ای در هشت هفته بود، به‌همراه تمرین روزانه در خانه. سنجش‌ها پیش از درمان، بلافاصله بعد از آن و سه ماه بعد انجام شد: سازگاری دونفره، توجه آگاهانه، مهارت‌های اجتماعی زناشویی و نشانه‌های افسردگی.</p>
+
+<h2>یافته‌ها</h2>
+<p>گروه درمان در سازگاری رابطه، توجه آگاهانه و کاهش نشانه‌های افسردگی مسیر متفاوتی از گروه انتظار داشت. اثر زمان در گروه برای این سه پیامد معنادار و از نظر بزرگی قوی بود. برای نمونه، میانگین سازگاری دونفره در گروه درمان از ۳۸٫۷ به ۴۹٫۶ در پیگیری سه‌ماهه رسید، در حالی که گروه انتظار تقریباً در همان سطح حدود ۴۶ تا ۴۷ ماند. نشانه‌های افسردگی گروه درمان از میانگین ۱۷٫۵ به ۹٫۹ کاهش یافت و گروه انتظار نزدیک ۱۱٫۵ ثابت ماند. توجه آگاهانه هم در گروه درمان بالا رفت و در گروه انتظار تقریباً بدون تغییر ماند.</p>
+<p>مهارت‌های اجتماعی زناشویی در هر دو گروه با گذشت زمان کمی بهتر شد، اما تفاوت میان دو گروه از نظر آماری معنادار نبود. چون دو گروه از ابتدا در سازگاری رابطه و افسردگی هم‌سطح نبودند، تحلیل‌های تعدیل‌شده با نمرهٔ پایه هم انجام شد و برتری گروه درمان در همان سه پیامد اصلی پابرجا ماند.</p>
+
+<h2>محدودیت‌ها</h2>
+<p>نمونه کوچک است و نتیجه را باید مقدماتی دانست. با وجود تصادفی‌سازی، گروه درمان از ابتدا آشفته‌تر و افسرده‌تر بود. پیگیری فقط سه ماه است و پاسخ‌های دو شریک کاملاً مستقل از هم نیستند. خود نویسندگان تأکید کرده‌اند که این یافته‌ها هنوز برای نتیجه‌گیری قطعی دربارهٔ اثر بلندمدت کافی نیست.</p>
+
+<h2>جمع‌بندی</h2>
+<p>ترکیب زوج‌درمانی شناختی‌رفتاری با ذهن‌آگاهی، حتی برای زوج‌هایی که تجربهٔ قبلی مدیتیشن یا درمان ندارند، می‌تواند سازگاری رابطه و حال خلقی را بهتر کند. این پروتکل کوتاه و قابل‌اجرا، برای کلینیک‌هایی که با زوج‌های تحت فشار اقتصادی کار می‌کنند، یک مسیر عملی پیشنهاد می‌کند؛ نه جایگزین ارزیابی تخصصی هر زوج.</p>
+<p>منبع: Durães, R. S. S., Pulache Vargas, Z. E., Garcia Dias, A. C., Lotufo-Neto, F., Ramos, R. T., &amp; Serafim, A. P. (2026). Effects of cognitive behavioral couple therapy with integrated mindfulness on mindful attention, depressive symptoms, and dyadic adjustment in low-income couples: A pilot randomized clinical trial. <em>Journal of Marital and Family Therapy</em>. <a href="https://doi.org/10.1111/jmft.70169" rel="noopener noreferrer" target="_blank">https://doi.org/10.1111/jmft.70169</a></p>
+<p>ثبت کارآزمایی: RBR-66n5c5r. این مطلب برای آشنایی نوشته شده و جایگزین جلسهٔ زوج‌درمانی در مانا کلینیک سعادت‌آباد نیست.</p>
+HTML;
+
+        $pdo->prepare('
+          INSERT INTO articles
+            (id, title, slug, content, excerpt, published, published_at, author_id, approval_status, services_json, byline_name)
+          VALUES (?,?,?,?,?,1,NOW(),?,?,?,?)
+        ')->execute([
+            cuid(),
+            $title,
+            $slug,
+            $content,
+            $excerpt,
+            (string) $authorId,
+            'APPROVED',
+            $services,
+            $byline,
+        ]);
+    } catch (Throwable $e) {
+        return;
+    }
+}

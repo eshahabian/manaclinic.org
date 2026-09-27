@@ -10,6 +10,9 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute([$slug]);
 $article = $stmt->fetch();
+if ($article) {
+    $article['author_name'] = article_public_author_name($article);
+}
 if (!$article) {
     http_response_code(404);
     $pageTitle = 'یافت نشد';

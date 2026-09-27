@@ -41,6 +41,7 @@ function ensure_articles_schema(PDO $pdo): void
     $addColumn($pdo, 'submitted_by_user_id', 'submitted_by_user_id VARCHAR(32) NULL AFTER author_id');
     $addColumn($pdo, 'approval_status', "approval_status VARCHAR(20) NOT NULL DEFAULT 'NONE' AFTER submitted_by_user_id");
     $addColumn($pdo, 'services_json', 'services_json TEXT NULL AFTER approval_status');
+    $addColumn($pdo, 'byline_name', 'byline_name VARCHAR(255) NULL AFTER services_json');
 
     article_media_ensure_storage();
     $ready = true;
@@ -153,6 +154,16 @@ function article_delete_files(array $article): void
 {
     article_delete_media_file($article['cover_url'] ?? null);
     article_delete_media_file($article['video_url'] ?? null);
+}
+
+function article_public_author_name(array $article): string
+{
+    $byline = trim((string) ($article['byline_name'] ?? ''));
+    if ($byline !== '') {
+        return $byline;
+    }
+
+    return trim((string) ($article['author_name'] ?? ''));
 }
 
 function article_service_tag_options(): array

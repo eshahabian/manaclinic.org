@@ -133,6 +133,7 @@ if (strtoupper((string) $method) === 'POST') {
 $isAssistantApi = str_starts_with($path, '/assistant/chat') || str_starts_with($path, '/assistant/send');
 if ($method === 'GET' && !$isAssistantApi && !$isLightRequest) {
     ensure_featured_psychology_article($pdo);
+    ensure_latest_couples_research_article($pdo);
 }
 
 // مسیرهای اکشن

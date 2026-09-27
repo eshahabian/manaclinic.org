@@ -517,7 +517,7 @@ function clinic_article_card_html(array $article): string
       <?php if ($meta): ?>
         <span class="badge"><?= e($meta['label']) ?></span>
       <?php endif; ?>
-      <span class="muted" style="font-size:.82rem"><?= e((string) ($article['author_name'] ?? '')) ?></span>
+      <span class="muted" style="font-size:.82rem"><?= e(article_public_author_name($article)) ?></span>
       <h2 class="article-card-title" style="margin:.45rem 0 0;font-size:1.15rem"><?= e((string) $article['title']) ?></h2>
       <?php if (!empty($article['excerpt'])): ?>
         <p class="muted line-clamp-3" style="margin-top:.65rem;font-size:.9rem;line-height:1.8"><?= e((string) $article['excerpt']) ?></p>

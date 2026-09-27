@@ -14,7 +14,7 @@ ob_start();
   <div class="panel row-between">
     <div>
       <strong><?= e($a['title']) ?></strong>
-      <div class="muted" style="font-size:.85rem">نویسنده: <?= e($a['author_name']) ?> — <?= $a['published'] ? 'منتشر شده' : 'پیش‌نویس' ?></div>
+      <div class="muted" style="font-size:.85rem">نویسنده: <?= e(article_public_author_name($a)) ?> — <?= $a['published'] ? 'منتشر شده' : 'پیش‌نویس' ?></div>
       <?php if ($a['published']): ?><a href="<?= e(url('/articles/' . $a['slug'])) ?>" style="color:var(--primary);font-size:.85rem">مشاهده عمومی</a><?php endif; ?>
     </div>
     <div style="display:flex;gap:.5rem">
