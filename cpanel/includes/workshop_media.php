@@ -549,6 +549,140 @@ function workshop_media_delete(PDO $pdo, string $itemId, ?string $doctorProfileI
     $pdo->prepare('DELETE FROM workshop_media_items WHERE id=?')->execute([$itemId]);
 }
 
+function workshop_media_audio_mask_key(string $itemId, string $userId): string
+{
+    return substr(hash('sha256', workshop_media_stream_secret() . '|audio|' . $itemId . '|' . $userId), 0, 16);
+}
+
+/** برای مراجع، صوت با کلید موقت برمی‌گردد تا دانلود مستقیم فایل mp3 قابل پخش نباشد. */
+function workshop_media_audio_client_pack(string $itemId, array $user, string $mime = ''): array
+{
+    $role = (string) ($user['role'] ?? '');
+    $mime = strtolower(trim($mime));
+    if ($mime === '' || $mime === 'application/octet-stream') {
+        $mime = 'audio/mpeg';
+    }
+
+    return [
+        'url' => workshop_media_stream_url($itemId, $user),
+        'mask' => $role === 'PATIENT' ? workshop_media_audio_mask_key($itemId, (string) ($user['id'] ?? '')) : '',
+        'mime' => $mime,
+    ];
+}
+
+function workshop_media_xor_chunk(string $chunk, string $key, int $offset): string
+{
+    $keyLen = strlen($key);
+    if ($keyLen < 1 || $chunk === '') {
+        return $chunk;
+    }
+    $len = strlen($chunk);
+    for ($i = 0; $i < $len; $i++) {
+        $chunk[$i] = $chunk[$i] ^ $key[($offset + $i) % $keyLen];
+    }
+
+    return $chunk;
+}
+
+function workshop_media_file_log_note(PDO $pdo, array $item): string
+{
+    $workshopTitle = '';
+    $workshopId = (string) ($item['workshop_id'] ?? '');
+    if ($workshopId !== '') {
+        $stmt = $pdo->prepare('SELECT title FROM workshops WHERE id=? LIMIT 1');
+        $stmt->execute([$workshopId]);
+        $workshopTitle = (string) ($stmt->fetchColumn() ?: '');
+    }
+    $sessionLabel = '';
+    $sessionId = (string) ($item['session_id'] ?? '');
+    if ($sessionId !== '') {
+        $stmt = $pdo->prepare('SELECT title, session_date FROM workshop_sessions WHERE id=? LIMIT 1');
+        $stmt->execute([$sessionId]);
+        $row = $stmt->fetch();
+        if (is_array($row)) {
+            $sessionLabel = trim((string) ($row['title'] ?? ''));
+            $date = trim((string) ($row['session_date'] ?? ''));
+            if ($date !== '') {
+                $sessionLabel .= ($sessionLabel !== '' ? ' — ' : '') . $date;
+            }
+        }
+    }
+    $kind = workshop_media_kind_label((string) ($item['kind'] ?? ''));
+    $name = trim((string) ($item['original_name'] ?? ''));
+    if ($name === '') {
+        $name = 'فایل';
+    }
+
+    return 'فایل: ' . $name
+        . ' | نوع: ' . $kind
+        . ' | کارگاه: ' . ($workshopTitle !== '' ? $workshopTitle : $workshopId)
+        . ' | جلسه: ' . ($sessionLabel !== '' ? $sessionLabel : '—');
+}
+
+function workshop_media_log_secretary_action(PDO $pdo, array $user, string $action, array $item): void
+{
+    if ((string) ($user['role'] ?? '') !== 'SECRETARY') {
+        return;
+    }
+    if (!function_exists('staff_log_action')) {
+        require_once __DIR__ . '/staff_desk.php';
+    }
+    staff_log_action(
+        $pdo,
+        (string) ($user['id'] ?? ''),
+        $action,
+        'workshop_media',
+        (string) ($item['id'] ?? ''),
+        workshop_media_file_log_note($pdo, $item)
+    );
+}
+
+function workshop_session_file_lines_html(array $sessions): string
+{
+    if ($sessions === []) {
+        return '';
+    }
+    $rows = '';
+    foreach ($sessions as $session) {
+        if (!is_array($session) || trim((string) ($session['id'] ?? '')) === '') {
+            continue;
+        }
+        $bits = [];
+        foreach (['PDF' => 'پی‌دی‌اف', 'AUDIO' => 'صوت', 'VIDEO' => 'ویدیو'] as $kind => $label) {
+            $count = count(workshop_media_kind_files($session['files'][$kind] ?? null));
+            if ($count > 0) {
+                $bits[] = $count > 1 ? $label . ' (' . $count . ')' : $label;
+            }
+        }
+        $rows .= '<li><strong>' . e((string) ($session['title'] ?? 'جلسه')) . '</strong> — '
+            . ($bits !== [] ? e(implode('، ', $bits)) : '<span class="muted">فایلی ندارد</span>')
+            . '</li>';
+    }
+    if ($rows === '') {
+        return '';
+    }
+
+    return '<div class="workshop-session-file-lines"><div class="muted" style="font-size:.78rem;margin:.55rem 0 .25rem">فایل هر جلسه</div><ul>'
+        . $rows
+        . '</ul></div>';
+}
+
+function workshop_files_badge_html(array $files): string
+{
+    $bits = [];
+    foreach (['PDF' => 'پی‌دی‌اف', 'AUDIO' => 'صوت', 'VIDEO' => 'ویدیو'] as $kind => $label) {
+        $count = count(workshop_media_kind_files($files[$kind] ?? null));
+        if ($count > 0) {
+            $bits[] = $count > 1 ? $label . ' (' . $count . ')' : $label;
+        }
+    }
+    if ($bits === []) {
+        return '<span class="badge">بدون فایل</span>';
+    }
+
+    return '<span class="badge">فایل: ' . e(implode('، ', $bits)) . '</span>';
+}
+
 function workshop_media_stream_secret(): string
 {
     global $config;

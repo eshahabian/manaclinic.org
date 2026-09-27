@@ -53,9 +53,21 @@ if ($path === '' || !is_file($path)) {
     exit('File missing');
 }
 
-$download = (string) ($_GET['dl'] ?? '') === '1' && !$isPatient;
+$wantsDownload = (string) ($_GET['dl'] ?? '') === '1';
+if ($wantsDownload && $isPatient && ($item['kind'] ?? '') !== 'PDF') {
+    http_response_code(403);
+    exit('Forbidden');
+}
+$maskAudio = $isPatient && ($item['kind'] ?? '') === 'AUDIO';
+if ($maskAudio && (string) ($_SERVER['HTTP_X_MANA_PLAYER'] ?? '') !== '1') {
+    http_response_code(403);
+    exit('Forbidden');
+}
+if ((string) ($user['role'] ?? '') === 'SECRETARY' && $wantsDownload && function_exists('workshop_media_log_secretary_action')) {
+    workshop_media_log_secretary_action($pdo, $user, 'workshop_media_download', $item);
+}
 $tmpStamp = null;
-if (($item['kind'] ?? '') === 'PDF' && $isPatient) {
+if (($item['kind'] ?? '') === 'PDF') {
     $watermark = workshop_media_watermark_for_user($user, $pdo);
     $stamped = workshop_pdf_stamp_temp($path, $watermark);
     if ($stamped) {
@@ -66,11 +78,14 @@ if (($item['kind'] ?? '') === 'PDF' && $isPatient) {
 
 $size = filesize($path);
 $mime = (string) ($item['kind'] === 'PDF' ? 'application/pdf' : $item['mime_type']);
+if ($maskAudio) {
+    $mime = 'application/octet-stream';
+}
 $start = 0;
 $end = $size - 1;
 $length = $size;
 
-if (isset($_SERVER['HTTP_RANGE']) && preg_match('/bytes=(\d*)-(\d*)/', $_SERVER['HTTP_RANGE'], $m)) {
+if (!$maskAudio && isset($_SERVER['HTTP_RANGE']) && preg_match('/bytes=(\d*)-(\d*)/', $_SERVER['HTTP_RANGE'], $m)) {
     if ($m[1] !== '') {
         $start = (int) $m[1];
     }
@@ -90,15 +105,16 @@ if (isset($_SERVER['HTTP_RANGE']) && preg_match('/bytes=(\d*)-(\d*)/', $_SERVER[
     header("Content-Range: bytes {$start}-{$end}/{$size}");
 }
 
+$safeName = basename(str_replace(['"', "\r", "\n"], '', (string) ($item['original_name'] ?? 'file')));
 header('Content-Type: ' . $mime);
-header('Accept-Ranges: bytes');
+header($maskAudio ? 'Accept-Ranges: none' : 'Accept-Ranges: bytes');
 header('Content-Length: ' . $length);
-if ($isPatient && ($item['kind'] ?? '') !== 'PDF') {
+if ($maskAudio) {
     header('Content-Disposition: inline');
-} elseif (($item['kind'] ?? '') === 'PDF' && $download) {
-    header('Content-Disposition: attachment; filename="workshop-' . basename((string) $item['original_name']) . '"');
+} elseif (($item['kind'] ?? '') === 'PDF' && $wantsDownload) {
+    header('Content-Disposition: attachment; filename="' . $safeName . '"');
 } else {
-    header('Content-Disposition: inline; filename="' . basename((string) $item['original_name']) . '"');
+    header('Content-Disposition: inline; filename="' . $safeName . '"');
 }
 header('Cache-Control: private, no-store, no-cache, must-revalidate');
 header('Pragma: no-cache');
@@ -113,6 +129,7 @@ if (!$fp) {
 if ($start > 0) {
     fseek($fp, $start);
 }
+$audioMask = $maskAudio ? workshop_media_audio_mask_key($itemId, (string) $user['id']) : '';
 $buffer = 8192;
 $sent = 0;
 while (!feof($fp) && $sent < $length) {
@@ -120,6 +137,9 @@ while (!feof($fp) && $sent < $length) {
     $chunk = fread($fp, $read);
     if ($chunk === false) {
         break;
+    }
+    if ($audioMask !== '') {
+        $chunk = workshop_media_xor_chunk($chunk, $audioMask, $start + $sent);
     }
     echo $chunk;
     $sent += strlen($chunk);

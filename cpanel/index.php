@@ -295,6 +295,7 @@ $routes = [
 
     'GET /admin' => 'pages/admin/dashboard.php',
     'GET /admin/consult-requests' => 'pages/consult_requests.php',
+    'GET /admin/workshop-file-log' => 'pages/admin/workshop_file_log.php',
     'GET /admin/doctors' => 'pages/admin/doctors.php',
     'POST /admin/doctors' => 'actions/admin_doctors.php',
     'GET /admin/users' => 'pages/admin/users.php',

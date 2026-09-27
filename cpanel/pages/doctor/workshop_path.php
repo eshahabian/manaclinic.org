@@ -44,5 +44,5 @@ ob_start();
 $pageScripts = '<script src="' . e(url('/assets/js/workshop-session-media.js')) . '?v=20260928files"></script>
 <script src="' . e(url('/assets/js/rich-editor.js')) . '?v=20260916e"></script>
 <script>if (window.initRichEditors) { window.initRichEditors(document); }</script>'
-    . ($audioStreams !== [] ? workshop_offline_protect_script($audioStreams) : '');
+    . workshop_offline_protect_script($audioStreams, (string) ($pathCtx['watermark'] ?? ''));
 render_doctor_page('مسیر ' . $patientName, ob_get_clean());

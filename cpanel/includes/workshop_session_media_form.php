@@ -34,9 +34,10 @@ $editWorkshopId = $editWorkshopId ?? null;
                   <?= e((string) $existing['original_name']) ?> · <?= e(workshop_media_format_size((int) $existing['file_size'])) ?>
                   <?php if (!empty($existing['id'])): ?>
                     <a href="<?= e(workshop_media_stream_url((string) $existing['id'])) ?>" target="_blank" rel="noopener">مشاهده</a>
+                    <a href="<?= e(workshop_media_stream_url((string) $existing['id'], null, true)) ?>">دانلود</a>
                   <?php endif; ?>
                   <?php if ($editWorkshopId && $workshopMediaPost !== ''): ?>
-                    <button type="button" class="btn btn-outline btn-sm js-media-delete" data-action="<?= e(url($workshopMediaPost)) ?>" data-workshop="<?= e((string) $editWorkshopId) ?>" data-item="<?= e((string) $existing['id']) ?>">حذف</button>
+                    <button type="button" class="btn btn-outline btn-sm js-media-delete" data-action="<?= e(url($workshopMediaPost)) ?>" data-workshop="<?= e((string) $editWorkshopId) ?>" data-item="<?= e((string) $existing['id']) ?>">حذف فایل</button>
                   <?php endif; ?>
                 </div>
               <?php endforeach; ?>

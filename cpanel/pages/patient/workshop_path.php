@@ -79,5 +79,5 @@ ob_start();
 $inner = ob_get_clean();
 $richScript = '<script src="' . e(url('/assets/js/rich-editor.js')) . '?v=20260916e"></script>
 <script>if (window.initRichEditors) { window.initRichEditors(document); }</script>';
-$GLOBALS['pageScripts'] = $richScript . ($audioStreams !== [] ? workshop_offline_protect_script($audioStreams) : '');
+$GLOBALS['pageScripts'] = $richScript . workshop_offline_protect_script($audioStreams, (string) ($ctx['watermark'] ?? ''));
 render_patient_page(($offline ? 'دوره — ' : 'مسیر دوره — ') . $title, $inner);

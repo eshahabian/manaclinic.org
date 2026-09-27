@@ -713,8 +713,11 @@ if ($openDoctorPathId !== '' && isset($doctorPathBoardById[$openDoctorPathId])) 
         $boardUser
     );
 }
-if ($boardAudioStreams !== []) {
-    echo workshop_offline_protect_script($boardAudioStreams);
+if ($openDoctorPathId !== '' && isset($doctorPathBoardById[$openDoctorPathId])) {
+    echo workshop_offline_protect_script(
+        $boardAudioStreams,
+        (string) ($doctorPathBoardById[$openDoctorPathId]['watermark'] ?? '')
+    );
 }
 ?>
 <script src="<?= e(url('/assets/js/rich-editor.js')) ?>?v=20260916e"></script>

@@ -5,6 +5,7 @@ $user = require_login(['PATIENT']);
 require_once __DIR__ . '/../../includes/patient_panel.php';
 require_once __DIR__ . '/../../includes/workshops.php';
 require_once __DIR__ . '/../../includes/workshop_media.php';
+require_once __DIR__ . '/../../includes/workshop_path.php';
 
 ensure_workshop_media_schema($pdo);
 $enrollmentId = trim((string) ($_GET['enrollment'] ?? ''));
@@ -52,8 +53,12 @@ $pageLabel = $pageLabels[$enrollment['type']] ?? 'ضبط جلسات';
 
 $audioStreams = [];
 foreach ($mediaItems as $item) {
-    if ($item['kind'] === 'AUDIO') {
-        $audioStreams[$item['id']] = workshop_media_stream_url((string) $item['id'], $user);
+    if (($item['kind'] ?? '') === 'AUDIO' && !empty($item['id'])) {
+        $audioStreams[(string) $item['id']] = workshop_media_audio_client_pack(
+            (string) $item['id'],
+            $user,
+            (string) ($item['mime_type'] ?? '')
+        );
     }
 }
 
@@ -83,64 +88,15 @@ ob_start();
       </div>
       <?php
         $sessionFiles = is_array($session['files'] ?? null) ? $session['files'] : [];
-        $videoList = workshop_media_kind_files($sessionFiles['VIDEO'] ?? null);
-        $audioList = workshop_media_kind_files($sessionFiles['AUDIO'] ?? null);
-        $pdfList = workshop_media_kind_files($sessionFiles['PDF'] ?? null);
-        $hasAny = $videoList !== [] || $audioList !== [] || $pdfList !== [];
+        $hasAny = workshop_media_kind_files($sessionFiles['VIDEO'] ?? null) !== []
+            || workshop_media_kind_files($sessionFiles['AUDIO'] ?? null) !== []
+            || workshop_media_kind_files($sessionFiles['PDF'] ?? null) !== [];
       ?>
       <?php if (!$hasAny): ?>
         <p class="muted">برای این روز هنوز فایلی بارگذاری نشده است.</p>
+      <?php else: ?>
+        <?= workshop_path_media_html($sessionFiles, ['user' => $user, 'watermark' => $watermark]) ?>
       <?php endif; ?>
-
-      <?php foreach ($videoList as $item): ?>
-        <div class="wm-video-box">
-          <video
-            controls
-            playsinline
-            preload="metadata"
-            controlsList="nodownload noplaybackrate"
-            disablePictureInPicture
-            oncontextmenu="return false;"
-            src="<?= e(workshop_media_stream_url((string) $item['id'], $user)) ?>"
-          ></video>
-          <div class="wm-overlay" aria-hidden="true">
-            <?php for ($i = 0; $i < 15; $i++): ?>
-              <span><?= e($watermark) ?></span>
-            <?php endfor; ?>
-          </div>
-        </div>
-      <?php endforeach; ?>
-
-      <?php foreach ($audioList as $item): ?>
-        <div class="offline-audio-box" data-audio-id="<?= e((string) $item['id']) ?>">
-          <p class="muted offline-audio-status" id="audio-status-<?= e((string) $item['id']) ?>">برای پخش صوت، دکمه زیر را بزنید.</p>
-          <button type="button" class="btn btn-primary btn-sm audio-play-btn" data-audio-id="<?= e((string) $item['id']) ?>">پخش صوت</button>
-          <audio
-            id="audio-<?= e((string) $item['id']) ?>"
-            class="protected-audio"
-            controls
-            controlsList="nodownload noplaybackrate"
-            preload="none"
-            oncontextmenu="return false;"
-            style="width:100%;margin-top:.5rem;display:none"
-          ></audio>
-          <p class="muted offline-audio-wm">واترمارک: <?= e($watermark) ?> — دانلود صوت غیرفعال است.</p>
-        </div>
-      <?php endforeach; ?>
-
-      <?php foreach ($pdfList as $item): ?>
-        <div class="wm-pdf-box">
-          <div class="wm-pdf-frame">
-            <iframe src="<?= e(workshop_media_stream_url((string) $item['id'], $user)) ?>" title="پی‌دی‌اف جلسه"></iframe>
-            <div class="wm-overlay" aria-hidden="true">
-              <?php for ($i = 0; $i < 12; $i++): ?>
-                <span><?= e($watermark) ?></span>
-              <?php endfor; ?>
-            </div>
-          </div>
-          <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">فقط مشاهده داخل پنل — دانلود بسته است. واترمارک: <?= e($watermark) ?></p>
-        </div>
-      <?php endforeach; ?>
     </article>
   <?php endforeach; ?>
 </div>
@@ -171,58 +127,6 @@ ob_start();
 <?php
 $courseMediaContent = ob_get_clean();
 
-$GLOBALS['pageScripts'] = '
-<script>
-(function(){
-  var audioStreams = ' . json_encode($audioStreams, JSON_UNESCAPED_UNICODE) . ';
-  var blobUrls = [];
-
-  function revokeAllBlobs() {
-    blobUrls.forEach(function(u){ try { URL.revokeObjectURL(u); } catch(e) {} });
-    blobUrls = [];
-  }
-  window.addEventListener("pagehide", revokeAllBlobs);
-
-  document.querySelectorAll(".wm-video-box video, .wm-pdf-frame").forEach(function(v){
-    v.addEventListener("contextmenu", function(e){ e.preventDefault(); });
-    v.addEventListener("dragstart", function(e){ e.preventDefault(); });
-  });
-
-  document.querySelectorAll(".audio-play-btn").forEach(function(btn){
-    btn.addEventListener("click", function(){
-      var id = btn.getAttribute("data-audio-id");
-      var audio = document.getElementById("audio-" + id);
-      var status = document.getElementById("audio-status-" + id);
-      var streamUrl = audioStreams[id];
-      if (!audio || !streamUrl) return;
-      btn.disabled = true;
-      if (status) status.textContent = "در حال آماده‌سازی پخش...";
-      fetch(streamUrl, { credentials: "same-origin", cache: "no-store" })
-        .then(function(res){
-          if (!res.ok) throw new Error("stream");
-          return res.blob();
-        })
-        .then(function(blob){
-          var blobUrl = URL.createObjectURL(blob);
-          blobUrls.push(blobUrl);
-          audio.src = blobUrl;
-          audio.style.display = "block";
-          btn.style.display = "none";
-          if (status) status.textContent = "در حال پخش — فقط برای حساب شما.";
-          return audio.play();
-        })
-        .catch(function(){
-          btn.disabled = false;
-          if (status) status.textContent = "خطا در پخش. صفحه را رفرش کنید.";
-        });
-    });
-  });
-
-  document.querySelectorAll(".protected-audio").forEach(function(audio){
-    audio.addEventListener("contextmenu", function(e){ e.preventDefault(); });
-    audio.addEventListener("dragstart", function(e){ e.preventDefault(); });
-  });
-})();
-</script>';
+$GLOBALS['pageScripts'] = workshop_offline_protect_script($audioStreams, $watermark);
 
 render_patient_page($pageLabel, $courseMediaContent);

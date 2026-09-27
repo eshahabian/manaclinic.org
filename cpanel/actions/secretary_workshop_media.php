@@ -34,9 +34,10 @@ if ($action === 'upload') {
 if ($action === 'delete') {
     $itemId = post('item_id');
     try {
+        $item = workshop_media_get($pdo, $itemId) ?: ['id' => $itemId, 'workshop_id' => $workshopId];
         workshop_media_delete($pdo, $itemId, null);
         $pdo->prepare('UPDATE workshops SET updated_by_user_id=? WHERE id=?')->execute([$user['id'], $workshopId]);
-        staff_log_action($pdo, (string) $user['id'], 'workshop_media_delete', 'workshop', $workshopId);
+        workshop_media_log_secretary_action($pdo, $user, 'workshop_media_delete', $item);
         flash_set('success', 'فایل حذف شد.');
     } catch (RuntimeException $e) {
         flash_set('error', $e->getMessage());

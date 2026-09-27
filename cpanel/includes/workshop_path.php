@@ -212,6 +212,7 @@ function workshop_doctor_path_render(array $board): string
             <div class="workshop-path-card-head">
               <strong><?= e((string) ($step['title'] ?? 'جلسه')) ?></strong>
               <span class="badge"><?= e(workshop_path_state_label($state)) ?></span>
+              <?= workshop_files_badge_html($files) ?>
             </div>
             <?php if (!empty($step['date_fa'])): ?>
               <div class="muted" style="font-size:.85rem;margin-top:.25rem"><?= e((string) $step['date_fa']) ?></div>
@@ -264,12 +265,13 @@ function workshop_doctor_path_render(array $board): string
                         <?= e((string) ($existing['original_name'] ?? 'فایل')) ?>
                         <?php if (!empty($existing['id'])): ?>
                           <a href="<?= e(workshop_media_stream_url((string) $existing['id'])) ?>" target="_blank" rel="noopener">مشاهده</a>
+                          <a href="<?= e(workshop_media_stream_url((string) $existing['id'], null, true)) ?>">دانلود</a>
                         <?php endif; ?>
                         <?php if (!empty($existing['file_size'])): ?>
                           · <?= e(workshop_media_format_size((int) $existing['file_size'])) ?>
                         <?php endif; ?>
                         <?php if ($mediaPost !== '' && !empty($existing['id'])): ?>
-                          <button type="submit" class="btn btn-outline btn-sm" name="delete_media_id" value="<?= e((string) $existing['id']) ?>" formnovalidate onclick="return confirm('این فایل حذف شود؟')">حذف</button>
+                          <button type="submit" class="btn btn-outline btn-sm" name="delete_media_id" value="<?= e((string) $existing['id']) ?>" formnovalidate onclick="return confirm('این فایل حذف شود؟')">حذف فایل</button>
                         <?php endif; ?>
                       </div>
                     <?php endforeach; ?>
@@ -651,6 +653,7 @@ function workshop_path_render(array $ctx, string $mode): string
             <div class="workshop-path-card-head">
               <strong><?= e((string) ($step['title'] ?? 'جلسه')) ?></strong>
               <span class="badge"><?= e(workshop_path_state_label($state)) ?></span>
+              <?= workshop_files_badge_html(is_array($step['files'] ?? null) ? $step['files'] : []) ?>
             </div>
             <?php if (!empty($step['date_fa'])): ?>
               <div class="muted" style="font-size:.85rem;margin-top:.25rem"><?= e((string) $step['date_fa']) ?></div>
@@ -765,7 +768,7 @@ function workshop_path_audio_streams_from_steps(array $steps, array $user): arra
             if ($id === '') {
                 continue;
             }
-            $out[$id] = workshop_media_stream_url($id, $user);
+            $out[$id] = workshop_media_audio_client_pack($id, $user, (string) ($audio['mime_type'] ?? ''));
         }
     }
 
@@ -824,23 +827,32 @@ function workshop_path_media_html(array $files, array $ctx): string
         oncontextmenu="return false;"
         style="width:100%;margin-top:.5rem;display:none"
       ></audio>
-      <p class="muted offline-audio-wm">واترمارک: <?= e($watermark) ?> — دانلود و ضبط صفحه غیرفعال است.</p>
+      <p class="muted offline-audio-wm">هنگام پخش، نام شما گفته می‌شود. فایل صوتی برای دانلود مستقیم ساخته نشده است.</p>
     </div>
   <?php endforeach; ?>
   <?php foreach ($pdfs as $pdf): ?>
-    <?php if (trim((string) ($pdf['original_name'] ?? '')) !== ''): ?>
-      <p class="muted" style="font-size:.8rem;margin:.55rem 0 .2rem"><?= e((string) $pdf['original_name']) ?></p>
-    <?php endif; ?>
+    <?php
+      $pdfId = (string) ($pdf['id'] ?? '');
+      $pdfView = workshop_media_stream_url($pdfId, $user);
+      $pdfDown = workshop_media_stream_url($pdfId, $user, true);
+    ?>
     <div class="wm-pdf-box">
-      <div class="wm-pdf-frame">
-        <iframe src="<?= e(workshop_media_stream_url((string) $pdf['id'], $user)) ?>" title="پی‌دی‌اف جلسه"></iframe>
+      <?php if (trim((string) ($pdf['original_name'] ?? '')) !== ''): ?>
+        <p class="muted" style="font-size:.8rem;margin:.55rem 0 .35rem"><?= e((string) $pdf['original_name']) ?></p>
+      <?php endif; ?>
+      <div class="wm-pdf-actions">
+        <button type="button" class="btn btn-primary btn-sm js-pdf-show" data-src="<?= e($pdfView) ?>">نمایش</button>
+        <a class="btn btn-outline btn-sm" href="<?= e($pdfDown) ?>">دانلود</a>
+      </div>
+      <div class="wm-pdf-frame" hidden>
+        <iframe title="پی‌دی‌اف جلسه"></iframe>
         <div class="wm-overlay" aria-hidden="true">
           <?php for ($i = 0; $i < 12; $i++): ?>
             <span><?= e($watermark) ?></span>
           <?php endfor; ?>
         </div>
       </div>
-      <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">فقط مشاهده داخل پنل — دانلود پی‌دی‌اف بسته است. واترمارک: <?= e($watermark) ?></p>
+      <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">نمایش و دانلود هر دو واترمارک دارند: <?= e($watermark) ?></p>
     </div>
   <?php endforeach; ?>
 </div>
@@ -872,13 +884,19 @@ function workshop_path_attach_media(array $ctx, array $sessionsWithMedia): array
     return $ctx;
 }
 
-function workshop_offline_protect_script(array $audioStreams = []): string
+function workshop_offline_protect_script(array $audioStreams = [], string $watermark = ''): string
 {
     $json = json_encode($audioStreams, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     if (!is_string($json)) {
         $json = '{}';
     }
+    $mark = json_encode($watermark, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+    if (!is_string($mark)) {
+        $mark = '""';
+    }
 
-    return '<script src="' . e(url('/assets/js/workshop-offline-protect.js')) . '?v=20260913a"></script>'
-        . '<script>window.workshopOfflineAudioStreams=' . $json . ';if(window.workshopOfflineProtect){window.workshopOfflineProtect();}</script>';
+    return '<script src="' . e(url('/assets/js/workshop-offline-protect.js')) . '?v=20260928audio"></script>'
+        . '<script>window.workshopOfflineAudioStreams=' . $json
+        . ';window.workshopOfflineWatermark=' . $mark
+        . ';if(window.workshopOfflineProtect){window.workshopOfflineProtect();}</script>';
 }

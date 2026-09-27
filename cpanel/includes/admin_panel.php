@@ -47,6 +47,7 @@ function admin_nav(): array {
         ['href' => '/admin/secretary-messages', 'label' => 'پیام منشی‌ها', 'badge' => function_exists('secretary_to_admin_unread_count') && $pdo instanceof PDO ? secretary_to_admin_unread_count($pdo) : 0],
         ['href' => '/admin/staff-board', 'label' => 'یادداشت مشترک منشی‌ها'],
         ['href' => '/admin/staff-hours', 'label' => 'ساعت کاری منشی‌ها'],
+        ['href' => '/admin/workshop-file-log', 'label' => 'حذف و دانلود فایل کارگاه'],
         ['type' => 'group', 'label' => 'درمانگرها'],
         ['href' => '/doctor/notifications', 'label' => 'اعلان‌ها', 'badge' => $unread, 'badge_tone' => 'new'],
         ['href' => '/doctor/appointments', 'label' => 'نوبت‌های درمانگر'],

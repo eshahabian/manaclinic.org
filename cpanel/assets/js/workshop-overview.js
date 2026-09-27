@@ -107,8 +107,12 @@
       html += '<h3 class="workshop-overview-days-title">روزهای برگزاری</h3><ul class="workshop-overview-days">';
       data.days.forEach(function (day) {
         html += "<li><strong>" + esc(day.title || day.date_fa || "") + "</strong>";
-        if ((data.member || data.staff) && day.files && day.files.length) {
-          html += '<div class="muted" style="font-size:.8rem;margin-top:.2rem">فایل‌ها: ' + esc(day.files.join("، ")) + "</div>";
+        if (data.member || data.staff) {
+          if (day.files && day.files.length) {
+            html += '<div class="muted" style="font-size:.8rem;margin-top:.2rem">فایل این جلسه: ' + esc(day.files.join("، ")) + "</div>";
+          } else if (data.staff) {
+            html += '<div class="muted" style="font-size:.8rem;margin-top:.2rem">فایل این جلسه: ندارد</div>';
+          }
         }
         html += "</li>";
       });
