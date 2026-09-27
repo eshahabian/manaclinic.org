@@ -291,7 +291,30 @@ body.nav-open .site-chrome {
     flex: 0 1 auto;
     justify-content: center;
     margin-inline: 0;
+    gap: .55rem;
+    font-size: .78rem;
+    flex-wrap: nowrap;
+    white-space: nowrap;
   }
+  .header-actions {
+    flex-wrap: nowrap;
+    gap: .35rem;
+  }
+  .header-actions .btn {
+    padding: .35rem .6rem;
+    font-size: .75rem;
+    white-space: nowrap;
+  }
+  .user-name {
+    min-width: 0;
+    max-width: 9.5rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    font-size: .75rem;
+  }
+  .brand { font-size: 1.05rem; }
+  .theme-toggle { width: 2.15rem; height: 2.15rem; }
 }
 
 .btn {
@@ -1510,12 +1533,31 @@ body.home-workshop-locked { overflow: hidden; }
   text-align: start;
 }
 .vc-home-call[hidden] { display: none !important; }
+.lk-controls,
 .vc-home-call .lk-controls {
   display: flex;
-  gap: .5rem;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
   align-items: center;
+  gap: .35rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
 }
+.lk-controls::-webkit-scrollbar,
+.vc-home-call .lk-controls::-webkit-scrollbar { display: none; }
+.lk-controls .btn,
+.vc-home-call .lk-controls .btn {
+  flex: 0 0 auto;
+  font-size: .74rem;
+  padding: .34rem .55rem;
+  white-space: nowrap;
+  line-height: 1.25;
+}
+.vc-home-call .lk-controls .btn {
+  font-size: .68rem;
+  padding: .28rem .42rem;
+}
+.vc-home-call .lk-bg-select { max-width: 6.4rem; }
 .vc-home-call .lk-stage {
   height: auto;
   min-height: 18rem;
@@ -7034,27 +7076,43 @@ html.lk-fs-active body {
   margin: 0;
 }
 .lk-bg-label {
-  font-size: .85rem;
+  font-size: .72rem;
   color: var(--muted);
   white-space: nowrap;
 }
 .lk-bg-select {
-  min-height: 2.4rem;
-  max-width: 11.5rem;
-  padding: .35rem .7rem;
+  min-height: 1.95rem;
+  max-width: 8.5rem;
+  padding: .22rem .45rem;
   border: 1px solid var(--line);
   border-radius: .65rem;
   background: var(--surface);
   color: var(--fg);
-  font: inherit;
+  font-family: inherit;
+  font-size: .72rem;
+  line-height: 1.3;
 }
 .lk-bg-select:disabled {
   opacity: .55;
   cursor: default;
 }
-@media (max-width: 640px) {
-  .lk-bg-wrap { width: 100%; }
-  .lk-bg-select { flex: 1; max-width: none; }
+@media (max-width: 720px) {
+  .lk-bg-wrap { width: auto; flex: 0 0 auto; }
+  .lk-bg-select { flex: 0 0 auto; max-width: 6.6rem; }
+  .lk-controls .btn,
+  .vc-home-call .lk-controls .btn {
+    font-size: .68rem;
+    padding: .3rem .42rem;
+  }
+  [data-livekit-v2] h1 { font-size: 1.35rem; }
+  [data-livekit-v2] .panel { padding: .75rem; }
+  html.is-native-app [data-livekit-v2] .panel,
+  html.is-native-app .vc-home-call { padding-bottom: .85rem; }
+}
+body:has([data-livekit-v2]:not([hidden])) .site-chrome-call,
+body:has([data-livekit-home]:not([hidden])) .site-chrome-call,
+html.is-native-app body:has([data-livekit-v2]:not([hidden])) .site-chrome-call {
+  display: none !important;
 }
 .lk-remotes {
   position: absolute;

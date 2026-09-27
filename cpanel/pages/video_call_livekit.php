@@ -103,7 +103,7 @@ ob_start();
     <?php elseif (!$ready): ?>
       <div class="flash flash-error">سرویس تماس امن موقتاً آماده نیست.</div>
     <?php else: ?>
-      <div class="lk-controls" style="display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
+      <div class="lk-controls">
         <button type="button" class="btn btn-primary" data-lk-connect><?= $answer ? 'ورود به تماس' : 'ورود به تماس' ?></button>
         <button type="button" class="btn btn-outline" data-lk-camera<?= $audioOnly ? ' hidden' : '' ?> disabled>دوربین</button>
         <button type="button" class="btn btn-outline" data-lk-mic disabled>میکروفون</button>
