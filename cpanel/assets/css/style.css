@@ -6925,6 +6925,54 @@ html[data-theme="dark"] .emoji-picker-panel {
   border-radius: 1rem;
   overflow: hidden;
 }
+.lk-stage:fullscreen,
+.lk-stage:-webkit-full-screen,
+.lk-stage.is-fs-fallback {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  min-height: 100%;
+  border-radius: 0;
+  background: #000;
+}
+.lk-stage.is-fs-fallback {
+  position: fixed;
+  inset: 0;
+  z-index: 10050;
+}
+html.lk-fs-active,
+html.lk-fs-active body {
+  overflow: hidden;
+}
+.lk-bg-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: .35rem;
+  margin: 0;
+}
+.lk-bg-label {
+  font-size: .85rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.lk-bg-select {
+  min-height: 2.4rem;
+  max-width: 11.5rem;
+  padding: .35rem .7rem;
+  border: 1px solid var(--line);
+  border-radius: .65rem;
+  background: var(--surface);
+  color: var(--fg);
+  font: inherit;
+}
+.lk-bg-select:disabled {
+  opacity: .55;
+  cursor: default;
+}
+@media (max-width: 640px) {
+  .lk-bg-wrap { width: 100%; }
+  .lk-bg-select { flex: 1; max-width: none; }
+}
 .lk-remotes {
   position: absolute;
   inset: 0;
@@ -6964,6 +7012,11 @@ html[data-theme="dark"] .emoji-picker-panel {
   background: #1a2e28;
 }
 .lk-self:not(:has(video)) { display: none; }
+.lk-record.is-recording {
+  color: #b42318;
+  border-color: #b42318;
+  background: #fdecec;
+}
 .lk-self .lk-tile {
   width: 100%;
   height: 100%;
