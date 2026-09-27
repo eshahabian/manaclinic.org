@@ -144,6 +144,10 @@ function workshop_doctor_path_board(PDO $pdo, array $workshop, array $enrollment
         'offline' => $offline,
         'post_url' => url('/doctor/workshops/doctor-path'),
         'media_post' => url('/doctor/workshop-media'),
+        'user' => current_user() ?: [],
+        'watermark' => function_exists('workshop_media_watermark_for_user')
+            ? workshop_media_watermark_for_user(current_user() ?: [])
+            : '',
     ];
 }
 
@@ -258,6 +262,9 @@ function workshop_doctor_path_render(array $board): string
                     <?php foreach ($existingList as $existing): ?>
                       <div class="muted" style="font-size:.78rem;margin-bottom:.35rem">
                         <?= e((string) ($existing['original_name'] ?? 'فایل')) ?>
+                        <?php if (!empty($existing['id'])): ?>
+                          <a href="<?= e(workshop_media_stream_url((string) $existing['id'])) ?>" target="_blank" rel="noopener">مشاهده</a>
+                        <?php endif; ?>
                         <?php if (!empty($existing['file_size'])): ?>
                           · <?= e(workshop_media_format_size((int) $existing['file_size'])) ?>
                         <?php endif; ?>
@@ -270,6 +277,13 @@ function workshop_doctor_path_render(array $board): string
                   </div>
                 <?php endforeach; ?>
               </div>
+              <?php if (workshop_path_step_has_files($step)): ?>
+                <span class="workshop-path-note-label">مشاهده فایل‌های این جلسه</span>
+                <?= workshop_path_media_html($files, [
+                    'user' => is_array($board['user'] ?? null) ? $board['user'] : (current_user() ?: []),
+                    'watermark' => (string) ($board['watermark'] ?? ''),
+                ]) ?>
+              <?php endif; ?>
 
               <button class="btn btn-primary btn-sm" type="submit">ذخیره این جلسه</button>
             </form>
@@ -428,6 +442,7 @@ function workshop_path_build_steps(array $sessions, array $notesMap, string $wor
             'instructor_note' => $instructorNote,
             'can_write_patient' => $canWritePatient,
             'can_write_instructor' => true,
+            'files' => is_array($session['files'] ?? null) ? $session['files'] : [],
         ];
     }
 
@@ -471,7 +486,7 @@ function workshop_path_sync_sessions(PDO $pdo, array $enrollment): array
             : 'WEEKLY'
     );
 
-    return workshop_sessions_list($pdo, (string) ($enrollment['workshop_id'] ?? ''));
+    return workshop_sessions_with_media($pdo, (string) ($enrollment['workshop_id'] ?? ''));
 }
 
 function workshop_path_context(PDO $pdo, array $enrollment): array
@@ -641,8 +656,17 @@ function workshop_path_render(array $ctx, string $mode): string
               <div class="muted" style="font-size:.85rem;margin-top:.25rem"><?= e((string) $step['date_fa']) ?></div>
             <?php endif; ?>
 
-            <?php if (!empty($ctx['show_media']) && $mode === 'patient'): ?>
-              <?= workshop_path_media_html(is_array($step['files'] ?? null) ? $step['files'] : [], $ctx) ?>
+            <?php
+              $stepFiles = is_array($step['files'] ?? null) ? $step['files'] : [];
+              $stepHasFiles = workshop_path_step_has_files($step);
+            ?>
+            <?php if ($stepHasFiles): ?>
+              <div class="workshop-path-files-view">
+                <span class="workshop-path-note-label">فایل‌های این جلسه</span>
+                <?= workshop_path_media_html($stepFiles, $ctx) ?>
+              </div>
+            <?php elseif ($mode === 'patient' && !empty($ctx['offline'])): ?>
+              <p class="muted workshop-path-locked">برای این جلسه هنوز فایلی بارگذاری نشده است.</p>
             <?php endif; ?>
 
             <?php if ($mode === 'patient'): ?>
@@ -714,6 +738,40 @@ function workshop_path_render(array $ctx, string $mode): string
     return (string) ob_get_clean();
 }
 
+function workshop_path_step_has_files(array $step): bool
+{
+    require_once __DIR__ . '/workshop_media.php';
+    $files = is_array($step['files'] ?? null) ? $step['files'] : [];
+    foreach (['PDF', 'AUDIO', 'VIDEO'] as $kind) {
+        if (workshop_media_kind_files($files[$kind] ?? null) !== []) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+function workshop_path_audio_streams_from_steps(array $steps, array $user): array
+{
+    require_once __DIR__ . '/workshop_media.php';
+    $out = [];
+    foreach ($steps as $step) {
+        if (!is_array($step)) {
+            continue;
+        }
+        $files = is_array($step['files'] ?? null) ? $step['files'] : [];
+        foreach (workshop_media_kind_files($files['AUDIO'] ?? null) as $audio) {
+            $id = (string) ($audio['id'] ?? '');
+            if ($id === '') {
+                continue;
+            }
+            $out[$id] = workshop_media_stream_url($id, $user);
+        }
+    }
+
+    return $out;
+}
+
 function workshop_path_media_html(array $files, array $ctx): string
 {
     $user = is_array($ctx['user'] ?? null) ? $ctx['user'] : [];
@@ -729,6 +787,9 @@ function workshop_path_media_html(array $files, array $ctx): string
     ?>
 <div class="workshop-path-media" data-offline-protect>
   <?php foreach ($videos as $video): ?>
+    <?php if (trim((string) ($video['original_name'] ?? '')) !== ''): ?>
+      <p class="muted" style="font-size:.8rem;margin:.55rem 0 .2rem"><?= e((string) $video['original_name']) ?></p>
+    <?php endif; ?>
     <div class="wm-video-box">
       <video
         controls
@@ -748,6 +809,9 @@ function workshop_path_media_html(array $files, array $ctx): string
     </div>
   <?php endforeach; ?>
   <?php foreach ($audios as $audio): ?>
+    <?php if (trim((string) ($audio['original_name'] ?? '')) !== ''): ?>
+      <p class="muted" style="font-size:.8rem;margin:.55rem 0 .2rem"><?= e((string) $audio['original_name']) ?></p>
+    <?php endif; ?>
     <div class="offline-audio-box" data-audio-id="<?= e((string) $audio['id']) ?>">
       <p class="muted offline-audio-status" id="audio-status-<?= e((string) $audio['id']) ?>">برای پخش صوت، دکمه زیر را بزنید.</p>
       <button type="button" class="btn btn-primary btn-sm audio-play-btn" data-audio-id="<?= e((string) $audio['id']) ?>">پخش صوت</button>
@@ -764,6 +828,9 @@ function workshop_path_media_html(array $files, array $ctx): string
     </div>
   <?php endforeach; ?>
   <?php foreach ($pdfs as $pdf): ?>
+    <?php if (trim((string) ($pdf['original_name'] ?? '')) !== ''): ?>
+      <p class="muted" style="font-size:.8rem;margin:.55rem 0 .2rem"><?= e((string) $pdf['original_name']) ?></p>
+    <?php endif; ?>
     <div class="wm-pdf-box">
       <div class="wm-pdf-frame">
         <iframe src="<?= e(workshop_media_stream_url((string) $pdf['id'], $user)) ?>" title="پی‌دی‌اف جلسه"></iframe>

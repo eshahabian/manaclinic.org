@@ -30,7 +30,8 @@ $workshops = $pdo->query('
     (SELECT COUNT(*) FROM workshop_enrollments e
      WHERE e.workshop_id = w.id AND e.status IN ("PENDING_PAYMENT","CONFIRMED","COMPLETED")) AS enrolled_count,
     (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = "VIDEO") AS video_count,
-    (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = "AUDIO") AS audio_count
+    (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = "AUDIO") AS audio_count,
+    (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = "PDF") AS pdf_count
   FROM workshops w
   JOIN doctor_profiles dp ON dp.id = w.doctor_id
   JOIN users u ON u.id = dp.user_id

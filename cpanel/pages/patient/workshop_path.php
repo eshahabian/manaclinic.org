@@ -33,19 +33,11 @@ $backTab = $archived
 $backUrl = url('/dashboard/workshops/mine?type=' . $backTab);
 $ctx['post_url'] = url('/dashboard/workshops/path-note');
 
-$audioStreams = [];
+$ctx['user'] = $user;
+$ctx['watermark'] = workshop_media_watermark_for_user($user, $pdo);
+$audioStreams = workshop_path_audio_streams_from_steps(is_array($ctx['steps'] ?? null) ? $ctx['steps'] : [], $user);
 $qaHtml = '';
 if ($offline) {
-    $sessions = workshop_sessions_with_media($pdo, (string) ($enrollment['workshop_id'] ?? ''));
-    $ctx = workshop_path_attach_media($ctx, $sessions);
-    $ctx['user'] = $user;
-    $ctx['watermark'] = workshop_media_watermark_for_user($user, $pdo);
-    foreach ($sessions as $session) {
-        $audio = $session['files']['AUDIO'] ?? null;
-        if (is_array($audio) && !empty($audio['id'])) {
-            $audioStreams[(string) $audio['id']] = workshop_media_stream_url((string) $audio['id'], $user);
-        }
-    }
     $qaTab = trim((string) ($_GET['qa'] ?? '')) === 'private' ? 'private' : 'public';
     $workshopId = (string) ($enrollment['workshop_id'] ?? '');
     $pathBase = url('/dashboard/workshops/path?enrollment=' . rawurlencode((string) ($enrollment['id'] ?? '')));
@@ -78,7 +70,7 @@ ob_start();
   <?php if ($offline): ?>
     <p class="muted" style="margin-top:.35rem;line-height:1.7">محتوای دوره همین‌جا در پنل پخش می‌شود — دانلود و ضبط صفحه مجاز نیست. پایین صفحه بخش پرسش و پاسخ است.</p>
   <?php else: ?>
-    <p class="muted" style="margin-top:.35rem;line-height:1.7">هر جلسه یک قدم از مسیر است. بعد از برگزاری همان روز می‌توانید برای خودتان بنویسید. یادداشت درمانگر فقط برای شماست.</p>
+    <p class="muted" style="margin-top:.35rem;line-height:1.7">هر جلسه یک قدم از مسیر است. فایل‌های همان جلسه (پی‌دی‌اف، صوت یا ویدیو) پایین عنوان جلسه دیده می‌شود. بعد از برگزاری همان روز می‌توانید برای خودتان بنویسید. یادداشت درمانگر فقط برای شماست.</p>
   <?php endif; ?>
   <?= workshop_path_render($ctx, 'patient') ?>
   <?= $qaHtml ?>
@@ -87,9 +79,5 @@ ob_start();
 $inner = ob_get_clean();
 $richScript = '<script src="' . e(url('/assets/js/rich-editor.js')) . '?v=20260916e"></script>
 <script>if (window.initRichEditors) { window.initRichEditors(document); }</script>';
-if ($offline) {
-    $GLOBALS['pageScripts'] = $richScript . workshop_offline_protect_script($audioStreams);
-} else {
-    $GLOBALS['pageScripts'] = $richScript;
-}
+$GLOBALS['pageScripts'] = $richScript . ($audioStreams !== [] ? workshop_offline_protect_script($audioStreams) : '');
 render_patient_page(($offline ? 'دوره — ' : 'مسیر دوره — ') . $title, $inner);

@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../includes/doctor_panel.php';
 require_once __DIR__ . '/../../includes/workshops.php';
 require_once __DIR__ . '/../../includes/workshop_path.php';
+require_once __DIR__ . '/../../includes/workshop_media.php';
 require_once __DIR__ . '/../../includes/workshop_qa.php';
 
 $ctxUser = require_doctor_profile($pdo);
@@ -19,6 +20,9 @@ $enrollment = is_array($pathCtx['enrollment'] ?? null) ? $pathCtx['enrollment'] 
 $patientName = trim((string) ($enrollment['patient_name'] ?? 'مراجع'));
 $title = trim((string) ($enrollment['title'] ?? 'کارگاه'));
 $pathCtx['post_url'] = url('/doctor/workshops/path-note');
+$pathCtx['user'] = is_array($ctxUser['user'] ?? null) ? $ctxUser['user'] : (current_user() ?: []);
+$pathCtx['watermark'] = workshop_media_watermark_for_user($pathCtx['user'], $pdo);
+$audioStreams = workshop_path_audio_streams_from_steps(is_array($pathCtx['steps'] ?? null) ? $pathCtx['steps'] : [], $pathCtx['user']);
 
 $GLOBALS['pageRobots'] = 'noindex,nofollow';
 
@@ -39,5 +43,6 @@ ob_start();
 <?php
 $pageScripts = '<script src="' . e(url('/assets/js/workshop-session-media.js')) . '?v=20260928files"></script>
 <script src="' . e(url('/assets/js/rich-editor.js')) . '?v=20260916e"></script>
-<script>if (window.initRichEditors) { window.initRichEditors(document); }</script>';
+<script>if (window.initRichEditors) { window.initRichEditors(document); }</script>'
+    . ($audioStreams !== [] ? workshop_offline_protect_script($audioStreams) : '');
 render_doctor_page('مسیر ' . $patientName, ob_get_clean());

@@ -75,6 +75,7 @@ function workshop_media_allowed_specs(string $kind): array
         return [
             'application/pdf' => 'pdf',
             'application/x-pdf' => 'pdf',
+            'application/octet-stream' => 'pdf',
         ];
     }
     if ($kind === 'AUDIO') {

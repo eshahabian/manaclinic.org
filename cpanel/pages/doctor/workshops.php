@@ -31,7 +31,8 @@ $stmt = $pdo->prepare('
     (SELECT COUNT(*) FROM workshop_enrollments e
      WHERE e.workshop_id = w.id AND e.status IN ("PENDING_PAYMENT","CONFIRMED","COMPLETED")) AS enrolled_count,
     (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = "VIDEO") AS video_count,
-    (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = "AUDIO") AS audio_count
+    (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = "AUDIO") AS audio_count,
+    (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = "PDF") AS pdf_count
   FROM workshops w
   LEFT JOIN users cu ON cu.id = w.created_by_user_id
   WHERE w.doctor_id = ?
@@ -701,6 +702,21 @@ ob_start();
 })();
 </script>
 <script src="<?= e(url('/assets/js/workshop-session-media.js')) ?>?v=20260928files"></script>
+<?php
+$boardAudioStreams = [];
+if ($openDoctorPathId !== '' && isset($doctorPathBoardById[$openDoctorPathId])) {
+    $boardUser = is_array($doctorPathBoardById[$openDoctorPathId]['user'] ?? null)
+        ? $doctorPathBoardById[$openDoctorPathId]['user']
+        : (current_user() ?: []);
+    $boardAudioStreams = workshop_path_audio_streams_from_steps(
+        is_array($doctorPathBoardById[$openDoctorPathId]['steps'] ?? null) ? $doctorPathBoardById[$openDoctorPathId]['steps'] : [],
+        $boardUser
+    );
+}
+if ($boardAudioStreams !== []) {
+    echo workshop_offline_protect_script($boardAudioStreams);
+}
+?>
 <script src="<?= e(url('/assets/js/rich-editor.js')) ?>?v=20260916e"></script>
 <script>
 if (window.initRichEditors) { window.initRichEditors(document); }

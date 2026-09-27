@@ -122,7 +122,7 @@
         html += '<button type="button" class="btn btn-primary btn-sm" style="margin-top:.75rem" data-workshop-go="' + esc(data.editUrl) + '">ویرایش و فایل جلسات</button>';
       }
     } else if (data.member) {
-      html += '<p class="muted" style="margin:.85rem 0 0;font-size:.85rem">عضویت شما تأیید شده است. مسیر هفته‌به‌هفته و فایل هر جلسه را فقط داخل حساب خود ببینید.</p>';
+      html += '<p class="muted" style="margin:.85rem 0 0;font-size:.85rem">عضویت شما تأیید شده است. پی‌دی‌اف، صوت و ویدیوی هر جلسه داخل مسیر دوره، زیر همان جلسه، قابل مشاهده است.</p>';
       if (data.pathUrl) {
         html += '<button type="button" class="btn btn-primary btn-sm" style="margin-top:.75rem;margin-left:.4rem" data-workshop-go="' + esc(data.pathUrl) + '">' + (data.offline ? "ورود به دوره" : "مسیر دوره") + "</button>";
       }

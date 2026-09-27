@@ -82,15 +82,17 @@ ob_start();
         <?php endif; ?>
       </div>
       <?php
-        $sessionFiles = $session['files'] ?? [];
-        $hasAny = ($sessionFiles['PDF'] ?? null) || ($sessionFiles['AUDIO'] ?? null) || ($sessionFiles['VIDEO'] ?? null);
+        $sessionFiles = is_array($session['files'] ?? null) ? $session['files'] : [];
+        $videoList = workshop_media_kind_files($sessionFiles['VIDEO'] ?? null);
+        $audioList = workshop_media_kind_files($sessionFiles['AUDIO'] ?? null);
+        $pdfList = workshop_media_kind_files($sessionFiles['PDF'] ?? null);
+        $hasAny = $videoList !== [] || $audioList !== [] || $pdfList !== [];
       ?>
       <?php if (!$hasAny): ?>
         <p class="muted">برای این روز هنوز فایلی بارگذاری نشده است.</p>
       <?php endif; ?>
 
-      <?php if (!empty($sessionFiles['VIDEO'])): ?>
-        <?php $item = $sessionFiles['VIDEO']; ?>
+      <?php foreach ($videoList as $item): ?>
         <div class="wm-video-box">
           <video
             controls
@@ -107,15 +109,14 @@ ob_start();
             <?php endfor; ?>
           </div>
         </div>
-      <?php endif; ?>
+      <?php endforeach; ?>
 
-      <?php if (!empty($sessionFiles['AUDIO'])): ?>
-        <?php $item = $sessionFiles['AUDIO']; ?>
-        <div class="offline-audio-box" data-audio-id="<?= e($item['id']) ?>">
-          <p class="muted offline-audio-status" id="audio-status-<?= e($item['id']) ?>">برای پخش صوت، دکمه زیر را بزنید.</p>
-          <button type="button" class="btn btn-primary btn-sm audio-play-btn" data-audio-id="<?= e($item['id']) ?>">پخش صوت</button>
+      <?php foreach ($audioList as $item): ?>
+        <div class="offline-audio-box" data-audio-id="<?= e((string) $item['id']) ?>">
+          <p class="muted offline-audio-status" id="audio-status-<?= e((string) $item['id']) ?>">برای پخش صوت، دکمه زیر را بزنید.</p>
+          <button type="button" class="btn btn-primary btn-sm audio-play-btn" data-audio-id="<?= e((string) $item['id']) ?>">پخش صوت</button>
           <audio
-            id="audio-<?= e($item['id']) ?>"
+            id="audio-<?= e((string) $item['id']) ?>"
             class="protected-audio"
             controls
             controlsList="nodownload noplaybackrate"
@@ -125,10 +126,9 @@ ob_start();
           ></audio>
           <p class="muted offline-audio-wm">واترمارک: <?= e($watermark) ?> — دانلود صوت غیرفعال است.</p>
         </div>
-      <?php endif; ?>
+      <?php endforeach; ?>
 
-      <?php if (!empty($sessionFiles['PDF'])): ?>
-        <?php $item = $sessionFiles['PDF']; ?>
+      <?php foreach ($pdfList as $item): ?>
         <div class="wm-pdf-box">
           <div class="wm-pdf-frame">
             <iframe src="<?= e(workshop_media_stream_url((string) $item['id'], $user)) ?>" title="پی‌دی‌اف جلسه"></iframe>
@@ -140,7 +140,7 @@ ob_start();
           </div>
           <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">فقط مشاهده داخل پنل — دانلود بسته است. واترمارک: <?= e($watermark) ?></p>
         </div>
-      <?php endif; ?>
+      <?php endforeach; ?>
     </article>
   <?php endforeach; ?>
 </div>
