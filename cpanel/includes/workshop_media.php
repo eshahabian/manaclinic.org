@@ -937,7 +937,7 @@ function workshop_pdf_actions_html(string $itemId, string $fileName, string $wat
 
 function workshop_pdf_client_stamp_document(string $fileUrl, string $fileName, string $watermark): string
 {
-    $script = e(url('/assets/js/workshop-pdf-view.js') . '?v=20260928ink');
+    $script = e(url('/assets/js/workshop-pdf-view.js') . '?v=20260928edge');
     $name = trim($fileName) !== '' ? $fileName : 'session.pdf';
 
     return '<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="robots" content="noindex"><title>دانلود</title>'

@@ -69,14 +69,20 @@
         return;
       }
       try {
-        if (document.fonts && document.fonts.check("700 48px ManaWatermark")) {
+        if (document.fonts && document.fonts.check("500 16px ManaWatermark")) {
+          warmupFont();
           resolve(true);
           return;
         }
       } catch (e) {}
-      var face = new FontFace("ManaWatermark", "url(" + fontUrl() + ")");
+      var face = new FontFace("ManaWatermark", "url(" + fontUrl() + ")", { weight: "500" });
       face.load().then(function (loaded) {
         document.fonts.add(loaded);
+        warmupFont();
+        if (document.fonts && document.fonts.load) {
+          return document.fonts.load("500 16px ManaWatermark");
+        }
+      }).then(function () {
         resolve(true);
       }).catch(function () {
         resolve(false);
@@ -85,14 +91,23 @@
     return fontLoading;
   }
 
+  function warmupFont() {
+    if (document.getElementById("mana-wm-probe")) return;
+    var probe = document.createElement("span");
+    probe.id = "mana-wm-probe";
+    probe.textContent = "مهر";
+    probe.style.cssText = "position:absolute;left:-9999px;top:0;font:500 16px ManaWatermark,Tahoma,sans-serif";
+    document.body.appendChild(probe);
+  }
+
   function paintMark(ctx, w, h, text) {
     if (!text) return false;
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = "source-over";
-    ctx.direction = "rtl";
-    ctx.font = "700 " + Math.max(22, Math.round(w / 22)) + "px ManaWatermark, Tahoma, sans-serif";
+    ctx.direction = "ltr";
+    ctx.font = "500 " + Math.max(11, Math.round(w / 44)) + "px ManaWatermark, Tahoma, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
     if (ctx.measureText(text).width < 8) {
@@ -101,16 +116,13 @@
     }
     ctx.translate(w / 2, h / 2);
     ctx.rotate(-26 * Math.PI / 180);
-    var stepX = Math.max(320, ctx.measureText(text).width + 90);
-    var stepY = Math.max(120, Math.round(h / 6));
+    var stepX = Math.max(220, ctx.measureText(text).width + 70);
+    var stepY = Math.max(78, Math.round(h / 8));
     var y;
     var x;
-    ctx.lineWidth = Math.max(3, Math.round(w / 280));
-    ctx.strokeStyle = "rgba(255,255,255,0.72)";
-    ctx.fillStyle = "rgba(25,25,25,0.46)";
+    ctx.fillStyle = "rgba(45,45,45,0.32)";
     for (y = -h; y <= h; y += stepY) {
       for (x = -w; x <= w; x += stepX) {
-        ctx.strokeText(text, x, y);
         ctx.fillText(text, x, y);
       }
     }
@@ -120,19 +132,12 @@
 
   function markCanvas(text) {
     var canvas = document.createElement("canvas");
-    var size = 1400;
+    var size = 720;
     canvas.width = size;
     canvas.height = size;
     var ctx = canvas.getContext("2d");
     if (!paintMark(ctx, size, size, text)) return null;
-    var sample = ctx.getImageData(0, 0, size, size).data;
-    var hits = 0;
-    var i;
-    for (i = 3; i < sample.length; i += 64) {
-      if (sample[i] > 12) hits++;
-      if (hits > 40) return canvas;
-    }
-    return null;
+    return canvas;
   }
 
   function setStatus(box, text) {
@@ -162,6 +167,8 @@
     for (i = 1; i <= pdf.numPages; i++) {
       (function (num) {
         chain = chain.then(function () {
+          return new Promise(function (resolve) { setTimeout(resolve, 0); });
+        }).then(function () {
           return pdf.getPage(num).then(function (page) {
             var viewport = page.getViewport({ scale: scale });
             var canvas = document.createElement("canvas");
@@ -235,7 +242,7 @@
   function rasterPdf(buffer, text) {
     var copy = buffer.slice(0);
     return window.pdfjsLib.getDocument({ data: copy }).promise.then(function (pdf) {
-      return renderCanvases(pdf, text, 1.45);
+      return renderCanvases(pdf, text, 1.05);
     }).then(function (pages) {
       return window.PDFLib.PDFDocument.create().then(function (out) {
         var chain = Promise.resolve();
@@ -303,7 +310,7 @@
         if (!window.pdfjsLib) throw new Error("pdfjs");
         return window.pdfjsLib.getDocument({ data: buffer }).promise;
       }).then(function (pdf) {
-        return renderCanvases(pdf, text, 1.35);
+        return renderCanvases(pdf, text, 1);
       }).then(function (pages) {
         if (pagesEl) {
           pagesEl.innerHTML = "";
@@ -313,7 +320,7 @@
             page.canvas.className = "wm-pdf-canvas";
             stack.appendChild(page.canvas);
           });
-          stack.appendChild(inkLayer(text, Math.max(24, pages.length * 10)));
+          stack.appendChild(inkLayer(text, 16));
           pagesEl.appendChild(stack);
           pagesEl.hidden = false;
         }
