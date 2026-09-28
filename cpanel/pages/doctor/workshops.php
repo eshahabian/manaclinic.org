@@ -704,21 +704,22 @@ ob_start();
 <script src="<?= e(url('/assets/js/workshop-session-media.js')) ?>?v=20260928files"></script>
 <?php
 $boardAudioStreams = [];
+$boardUser = current_user() ?: [];
+$boardMark = workshop_media_watermark_for_user($boardUser, $pdo);
 if ($openDoctorPathId !== '' && isset($doctorPathBoardById[$openDoctorPathId])) {
     $boardUser = is_array($doctorPathBoardById[$openDoctorPathId]['user'] ?? null)
         ? $doctorPathBoardById[$openDoctorPathId]['user']
-        : (current_user() ?: []);
+        : $boardUser;
     $boardAudioStreams = workshop_path_audio_streams_from_steps(
         is_array($doctorPathBoardById[$openDoctorPathId]['steps'] ?? null) ? $doctorPathBoardById[$openDoctorPathId]['steps'] : [],
         $boardUser
     );
+    $fromBoard = trim((string) ($doctorPathBoardById[$openDoctorPathId]['watermark'] ?? ''));
+    if ($fromBoard !== '') {
+        $boardMark = $fromBoard;
+    }
 }
-if ($openDoctorPathId !== '' && isset($doctorPathBoardById[$openDoctorPathId])) {
-    echo workshop_offline_protect_script(
-        $boardAudioStreams,
-        (string) ($doctorPathBoardById[$openDoctorPathId]['watermark'] ?? '')
-    );
-}
+echo workshop_offline_protect_script($boardAudioStreams, $boardMark);
 ?>
 <script src="<?= e(url('/assets/js/rich-editor.js')) ?>?v=20260916e"></script>
 <script>

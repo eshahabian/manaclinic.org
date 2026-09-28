@@ -76,12 +76,17 @@ if ($isPpt && (string) ($_GET['preview'] ?? '') === '1') {
     echo workshop_pptx_preview_document($path, $watermark);
     exit;
 }
-if (($item['kind'] ?? '') === 'PDF') {
-    $stamped = workshop_pdf_stamp_temp($path, $watermark);
-    if ($stamped) {
-        $tmpStamp = $stamped;
-        $path = $stamped;
-    }
+if (($item['kind'] ?? '') === 'PDF' && $wantsDownload) {
+    $safeName = basename(str_replace(['"', "\r", "\n"], '', (string) ($item['original_name'] ?? 'file.pdf')));
+    header('Content-Type: text/html; charset=utf-8');
+    header('X-Robots-Tag: noindex, nofollow');
+    header('Cache-Control: private, no-store');
+    echo workshop_pdf_client_stamp_document(
+        workshop_media_stream_url((string) $item['id'], $user, false),
+        $safeName,
+        $watermark
+    );
+    exit;
 }
 if ($isPpt) {
     $stamped = workshop_pptx_stamp_temp($path, $watermark);

@@ -552,4 +552,6 @@ ob_start();
 </script>
 <script src="<?= e(url('/assets/js/workshop-session-media.js')) ?>?v=20260928files"></script>
 <?php
+require_once __DIR__ . '/../../includes/workshop_path.php';
+echo workshop_offline_protect_script([], workshop_media_watermark_for_user($user, $pdo));
 render_secretary_page('کارگاه‌ها', ob_get_clean());

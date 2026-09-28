@@ -269,7 +269,9 @@ function workshop_doctor_path_render(array $board): string
                     <?php foreach ($existingList as $existing): ?>
                       <div class="muted" style="font-size:.78rem;margin:.45rem 0 0">
                         <?= e((string) ($existing['original_name'] ?? 'فایل')) ?>
-                        <?php if (!empty($existing['id'])): ?>
+                        <?php if (!empty($existing['id']) && $kind === 'PDF' && function_exists('workshop_pdf_actions_html')): ?>
+                          <?= workshop_pdf_actions_html((string) $existing['id'], (string) ($existing['original_name'] ?? 'session.pdf'), (string) ($board['watermark'] ?? '')) ?>
+                        <?php elseif (!empty($existing['id'])): ?>
                           <a href="<?= e(workshop_media_stream_url((string) $existing['id'])) ?>" target="_blank" rel="noopener">مشاهده</a>
                           <a href="<?= e(workshop_media_stream_url((string) $existing['id'], null, true)) ?>">دانلود</a>
                         <?php endif; ?>
@@ -931,7 +933,7 @@ function workshop_path_media_html(array $files, array $ctx): string
         <?php if (!$patientPdf): ?>
           <button type="button" class="btn btn-primary btn-sm js-pdf-show">نمایش</button>
         <?php endif; ?>
-        <button type="button" class="btn btn-outline btn-sm js-pdf-download">دانلود</button>
+        <a class="btn btn-outline btn-sm js-pdf-download" href="<?= e(workshop_media_stream_url($pdfId, $user, true)) ?>">دانلود</a>
       </div>
       <p class="muted wm-pdf-status" style="font-size:.8rem;margin:.4rem 0 0"></p>
       <?php if (!$patientPdf): ?>
@@ -981,7 +983,7 @@ function workshop_offline_protect_script(array $audioStreams = [], string $water
     }
 
     return '<script src="' . e(url('/assets/js/workshop-offline-protect.js')) . '?v=20260928speak"></script>'
-        . '<script src="' . e(url('/assets/js/workshop-pdf-view.js')) . '?v=20260928wm"></script>'
+        . '<script src="' . e(url('/assets/js/workshop-pdf-view.js')) . '?v=20260928dl"></script>'
         . '<script>window.workshopOfflineAudioStreams=' . $json
         . ';window.workshopOfflineWatermark=' . $mark
         . ';if(window.workshopOfflineProtect){window.workshopOfflineProtect();}</script>';

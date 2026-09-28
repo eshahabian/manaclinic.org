@@ -5082,6 +5082,8 @@ body.workshop-overview-locked { overflow: hidden; }
 .offline-audio-box { margin-top: .5rem; }
 .offline-audio-wm { font-size: .75rem; margin: .35rem 0 0; line-height: 1.5; }
 .wm-pdf-box { margin-top: .65rem; }
+.wm-pdf-inline { display: inline; margin: 0 .35rem; }
+.wm-pdf-inline .wm-pdf-pages { display: block; margin-top: .4rem; }
 .wm-pdf-actions { display: flex; flex-wrap: wrap; gap: .4rem; margin-top: .35rem; }
 .workshop-session-file-lines {
   margin-top: .85rem;
