@@ -109,6 +109,9 @@ $emptyEnrollments = $emptyEnrollments ?? 'هنوز در کارگاهی از ای
           <?php if ($confirmed && ($e['type'] ?? '') !== 'OFFLINE' && $hasMedia): ?>
             <a class="btn btn-outline btn-sm" href="<?= e(workshop_media_course_url((string) $e['id'])) ?>">مشاهده ضبط جلسات</a>
           <?php endif; ?>
+          <?php if ($confirmed && function_exists('workshop_path_url')): ?>
+            <a class="btn btn-outline btn-sm" href="<?= e(workshop_path_url((string) $e['id']) . '#course-files') ?>">فایل‌های دوره</a>
+          <?php endif; ?>
           <?php if ($canManage && $e['status'] === 'CONFIRMED' && $e['type'] !== 'OFFLINE' && !workshop_refund_allowed($e['starts_at'])): ?>
             <span class="muted enrollment-refund-note">کمتر از ۲۴ ساعت مانده — بازگشت وجه نیست.</span>
           <?php endif; ?>

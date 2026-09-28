@@ -29,9 +29,6 @@ $bundleDelete = static function (array $file) use ($editWorkshopId, $workshopMed
 <div class="panel workshop-bundle-form" style="padding:1rem;background:var(--bg-soft,#f8fafc)">
   <h3 style="margin:0;font-size:.95rem">فایل کلی کارگاه</h3>
   <p class="muted" style="font-size:.85rem;line-height:1.65;margin:.4rem 0 .7rem">یک پی‌دی‌اف یا فایل صوتی برای کل دوره، نه برای یک جلسهٔ خاص. مراجع آن را بالای مسیر دوره می‌بیند.</p>
-  <?php foreach ($bundleCourse as $file): ?>
-    <p class="muted" style="font-size:.8rem;margin:0 0 .35rem"><?= e(workshop_media_kind_label((string) ($file['kind'] ?? ''))) ?> — <?= e((string) ($file['original_name'] ?? 'فایل')) ?><?php $bundleDelete($file); ?></p>
-  <?php endforeach; ?>
   <div class="workshop-session-slots">
     <div class="workshop-session-kind">
       <label class="label">پی‌دی‌اف کل دوره</label>
@@ -42,14 +39,17 @@ $bundleDelete = static function (array $file) use ($editWorkshopId, $workshopMed
       <input class="input js-more-session-file" type="file" name="course_file[AUDIO][]" accept="audio/*,.mp3,.m4a,.wav,.ogg">
     </div>
   </div>
+  <?php foreach ($bundleCourse as $file): ?>
+    <p class="muted" style="font-size:.8rem;margin:.55rem 0 0"><?= e(workshop_media_kind_label((string) ($file['kind'] ?? ''))) ?> — <?= e((string) ($file['original_name'] ?? 'فایل')) ?><?php $bundleDelete($file); ?></p>
+  <?php endforeach; ?>
 </div>
 <div class="panel workshop-bundle-form" style="padding:1rem;background:var(--bg-soft,#f8fafc)">
   <h3 style="margin:0;font-size:.95rem">پاورپوینت کارگاه</h3>
   <p class="muted" style="font-size:.85rem;line-height:1.65;margin:.4rem 0 .7rem">فقط فایل pptx. نام مراجع روی اسلایدها و روی نمایش داخل پنل می‌نشیند.</p>
-  <?php foreach ($bundleSlides as $file): ?>
-    <p class="muted" style="font-size:.8rem;margin:0 0 .35rem"><?= e((string) ($file['original_name'] ?? 'slides.pptx')) ?><?php $bundleDelete($file); ?></p>
-  <?php endforeach; ?>
   <input class="input js-more-session-file" type="file" name="slide_file[]" accept=".pptx,application/vnd.openxmlformats-officedocument.presentationml.presentation">
+  <?php foreach ($bundleSlides as $file): ?>
+    <p class="muted" style="font-size:.8rem;margin:.55rem 0 0"><?= e((string) ($file['original_name'] ?? 'slides.pptx')) ?><?php $bundleDelete($file); ?></p>
+  <?php endforeach; ?>
 </div>
 <div id="field-session-media" class="panel workshop-session-media" style="padding:1rem;background:var(--bg-soft,#f8fafc);border-style:dashed">
   <h3 style="margin:0;font-size:.95rem">فایل هر جلسه</h3>
@@ -71,8 +71,11 @@ $bundleDelete = static function (array $file) use ($editWorkshopId, $workshopMed
             <?php $existingList = function_exists('workshop_media_kind_files') ? workshop_media_kind_files($session['files'][$kind] ?? null) : []; ?>
             <div class="workshop-session-kind">
               <label class="label"><?= e($meta[0]) ?></label>
+              <?php if ($date !== ''): ?>
+                <input class="input js-more-session-file" type="file" name="session_file[<?= e($date) ?>][<?= e($kind) ?>][]" accept="<?= e($meta[1]) ?>">
+              <?php endif; ?>
               <?php foreach ($existingList as $existing): ?>
-                <div class="muted" style="font-size:.78rem;margin-bottom:.35rem">
+                <div class="muted" style="font-size:.78rem;margin:.45rem 0 0">
                   <?= e((string) $existing['original_name']) ?> · <?= e(workshop_media_format_size((int) $existing['file_size'])) ?>
                   <?php if (!empty($existing['id'])): ?>
                     <a href="<?= e(workshop_media_stream_url((string) $existing['id'])) ?>" target="_blank" rel="noopener">مشاهده</a>
@@ -83,9 +86,6 @@ $bundleDelete = static function (array $file) use ($editWorkshopId, $workshopMed
                   <?php endif; ?>
                 </div>
               <?php endforeach; ?>
-              <?php if ($date !== ''): ?>
-                <input class="input js-more-session-file" type="file" name="session_file[<?= e($date) ?>][<?= e($kind) ?>][]" accept="<?= e($meta[1]) ?>">
-              <?php endif; ?>
             </div>
           <?php endforeach; ?>
         </div>

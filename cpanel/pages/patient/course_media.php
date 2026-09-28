@@ -97,12 +97,13 @@ ob_start();
       <?php
         $sessionFiles = is_array($session['files'] ?? null) ? $session['files'] : [];
         $hasAny = workshop_media_kind_files($sessionFiles['VIDEO'] ?? null) !== []
-            || workshop_media_kind_files($sessionFiles['AUDIO'] ?? null) !== [];
+            || workshop_media_kind_files($sessionFiles['AUDIO'] ?? null) !== []
+            || workshop_media_kind_files($sessionFiles['PDF'] ?? null) !== [];
       ?>
       <?php if (!$hasAny): ?>
         <p class="muted">برای این روز هنوز فایلی بارگذاری نشده است.</p>
       <?php else: ?>
-        <?= workshop_path_media_html($sessionFiles, ['user' => $user, 'watermark' => $watermark]) ?>
+        <?= workshop_path_media_html($sessionFiles, ['user' => $user, 'watermark' => $watermark, 'show_pdf' => true]) ?>
       <?php endif; ?>
     </article>
   <?php endforeach; ?>

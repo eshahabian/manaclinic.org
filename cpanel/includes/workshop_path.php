@@ -265,8 +265,9 @@ function workshop_doctor_path_render(array $board): string
                   <?php $existingList = function_exists('workshop_media_kind_files') ? workshop_media_kind_files($files[$kind] ?? null) : []; ?>
                   <div class="workshop-session-kind">
                     <label class="label"><?= e($meta[0]) ?></label>
+                    <input class="input js-more-session-file" type="file" name="path_file[<?= e($kind) ?>][]" accept="<?= e($meta[1]) ?>">
                     <?php foreach ($existingList as $existing): ?>
-                      <div class="muted" style="font-size:.78rem;margin-bottom:.35rem">
+                      <div class="muted" style="font-size:.78rem;margin:.45rem 0 0">
                         <?= e((string) ($existing['original_name'] ?? 'فایل')) ?>
                         <?php if (!empty($existing['id'])): ?>
                           <a href="<?= e(workshop_media_stream_url((string) $existing['id'])) ?>" target="_blank" rel="noopener">مشاهده</a>
@@ -280,7 +281,6 @@ function workshop_doctor_path_render(array $board): string
                         <?php endif; ?>
                       </div>
                     <?php endforeach; ?>
-                    <input class="input js-more-session-file" type="file" name="path_file[<?= e($kind) ?>][]" accept="<?= e($meta[1]) ?>">
                   </div>
                 <?php endforeach; ?>
               </div>
@@ -634,7 +634,7 @@ function workshop_path_render(array $ctx, string $mode): string
 
     ob_start();
     ?>
-<div class="workshop-path-wrap"<?= $workshopId !== '' ? ' data-mention-scope="workshop" data-mention-scope-id="' . e($workshopId) . '"' : '' ?>>
+<div class="workshop-path-wrap" id="course-files"<?= $workshopId !== '' ? ' data-mention-scope="workshop" data-mention-scope-id="' . e($workshopId) . '"' : '' ?>>
   <div class="workshop-path-motivate" role="status">
     <strong><?= $mode === 'doctor' ? 'مسیر این مراجع' : 'مسیر تو در این دوره' ?></strong>
     <?php if ((int) ($progress['total'] ?? 0) > 0): ?>
@@ -673,13 +673,7 @@ function workshop_path_render(array $ctx, string $mode): string
             <div class="workshop-path-card-head">
               <strong><?= e((string) ($step['title'] ?? 'جلسه')) ?></strong>
               <span class="badge"><?= e(workshop_path_state_label($state)) ?></span>
-              <?php
-                $badgeFiles = is_array($step['files'] ?? null) ? $step['files'] : [];
-                if ($mode === 'patient') {
-                    $badgeFiles['PDF'] = [];
-                }
-              ?>
-              <?= workshop_files_badge_html($badgeFiles) ?>
+              <?= workshop_files_badge_html(is_array($step['files'] ?? null) ? $step['files'] : []) ?>
             </div>
             <?php if (!empty($step['date_fa'])): ?>
               <div class="muted" style="font-size:.85rem;margin-top:.25rem"><?= e((string) $step['date_fa']) ?></div>
@@ -687,9 +681,6 @@ function workshop_path_render(array $ctx, string $mode): string
 
             <?php
               $stepFiles = is_array($step['files'] ?? null) ? $step['files'] : [];
-              if ($mode === 'patient') {
-                  $stepFiles['PDF'] = [];
-              }
               $stepHasFiles = false;
               foreach (['PDF', 'AUDIO', 'VIDEO'] as $kindName) {
                   if (workshop_media_kind_files($stepFiles[$kindName] ?? null) !== []) {
@@ -872,9 +863,7 @@ function workshop_path_media_html(array $files, array $ctx): string
     $videos = function_exists('workshop_media_kind_files') ? workshop_media_kind_files($files['VIDEO'] ?? null) : [];
     $audios = function_exists('workshop_media_kind_files') ? workshop_media_kind_files($files['AUDIO'] ?? null) : [];
     $pdfs = function_exists('workshop_media_kind_files') ? workshop_media_kind_files($files['PDF'] ?? null) : [];
-    $showPdf = array_key_exists('show_pdf', $ctx)
-        ? (bool) $ctx['show_pdf']
-        : ((string) ($user['role'] ?? '') !== 'PATIENT');
+    $showPdf = array_key_exists('show_pdf', $ctx) ? (bool) $ctx['show_pdf'] : true;
     if (!$showPdf) {
         $pdfs = [];
     }
