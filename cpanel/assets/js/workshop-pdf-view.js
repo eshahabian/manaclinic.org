@@ -12,18 +12,10 @@
     return root + "assets/vendor/pdfjs/" + file;
   }
 
-  function fontUrl() {
-    var tag = document.querySelector('script[src*="workshop-pdf-view.js"]');
-    var src = tag ? (tag.getAttribute("src") || "") : "";
-    var root = src.replace(/assets\/js\/workshop-pdf-view\.js.*$/, "");
-    return root + "assets/fonts/Vazirmatn-Medium.woff2";
-  }
-
   var PDFJS = vendor("pdf.min.js");
   var PDFJS_WORKER = vendor("pdf.worker.min.js");
   var PDFLIB = vendor("pdf-lib.min.js");
   var loading = null;
-  var fontLoading = null;
 
   function loadScript(src) {
     return new Promise(function (resolve, reject) {
@@ -52,8 +44,17 @@
 
   function ensureLibs(needBuild) {
     if (!loading) {
-      loading = loadScript(PDFJS).then(function () {
-        if (window.pdfjsLib) window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+      loading = fetch(PDFJS_WORKER, { credentials: "same-origin" }).then(function (res) {
+        if (!res.ok) throw new Error("worker");
+        return res.blob();
+      }).then(function (blob) {
+        window.__manaPdfWorker = URL.createObjectURL(new Blob([blob], { type: "text/javascript" }));
+      }).catch(function () {
+        window.__manaPdfWorker = PDFJS_WORKER;
+      }).then(function () {
+        return loadScript(PDFJS);
+      }).then(function () {
+        if (window.pdfjsLib) window.pdfjsLib.GlobalWorkerOptions.workerSrc = window.__manaPdfWorker || PDFJS_WORKER;
       });
     }
     var jobs = [loading];
@@ -61,83 +62,89 @@
     return Promise.all(jobs);
   }
 
-  function ensureMarkFont() {
-    if (fontLoading) return fontLoading;
-    fontLoading = new Promise(function (resolve) {
-      if (!window.FontFace) {
-        resolve(false);
-        return;
-      }
-      try {
-        if (document.fonts && document.fonts.check("500 16px ManaWatermark")) {
-          warmupFont();
-          resolve(true);
-          return;
-        }
-      } catch (e) {}
-      var face = new FontFace("ManaWatermark", "url(" + fontUrl() + ")", { weight: "500" });
-      face.load().then(function (loaded) {
-        document.fonts.add(loaded);
-        warmupFont();
-        if (document.fonts && document.fonts.load) {
-          return document.fonts.load("500 16px ManaWatermark");
-        }
-      }).then(function () {
-        resolve(true);
-      }).catch(function () {
-        resolve(false);
-      });
+  function svgEscape(text) {
+    return String(text).replace(/[&<>"]/g, function (ch) {
+      return { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[ch];
     });
-    return fontLoading;
   }
 
-  function warmupFont() {
-    if (document.getElementById("mana-wm-probe")) return;
-    var probe = document.createElement("span");
-    probe.id = "mana-wm-probe";
-    probe.textContent = "مهر";
-    probe.style.cssText = "position:absolute;left:-9999px;top:0;font:500 16px ManaWatermark,Tahoma,sans-serif";
-    document.body.appendChild(probe);
+  function loadMarkImage(text) {
+    var svg = '<svg xmlns="http://www.w3.org/2000/svg" width="520" height="36">'
+      + '<text x="260" y="24" text-anchor="middle" font-family="Tahoma,Segoe UI,sans-serif" font-size="15" fill="#2a2a2a" fill-opacity="0.34">'
+      + svgEscape(text) + "</text></svg>";
+    return new Promise(function (resolve) {
+      var img = new Image();
+      img.onload = function () { resolve(img); };
+      img.onerror = function () { resolve(null); };
+      img.src = "data:image/svg+xml;charset=utf-8," + encodeURIComponent(svg);
+    });
   }
 
-  function paintMark(ctx, w, h, text) {
-    if (!text) return false;
+  function paintText(ctx, w, h, text) {
     ctx.save();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalAlpha = 1;
     ctx.globalCompositeOperation = "source-over";
     ctx.direction = "ltr";
-    ctx.font = "500 " + Math.max(11, Math.round(w / 44)) + "px ManaWatermark, Tahoma, sans-serif";
+    ctx.font = Math.max(11, Math.round(w / 44)) + "px Tahoma, Segoe UI, sans-serif";
     ctx.textAlign = "center";
     ctx.textBaseline = "middle";
-    if (ctx.measureText(text).width < 8) {
-      ctx.restore();
-      return false;
-    }
+    ctx.fillStyle = "rgba(45,45,45,0.32)";
     ctx.translate(w / 2, h / 2);
-    ctx.rotate(-26 * Math.PI / 180);
-    var stepX = Math.max(220, ctx.measureText(text).width + 70);
-    var stepY = Math.max(78, Math.round(h / 8));
+    ctx.rotate(-24 * Math.PI / 180);
+    var stepX = Math.max(180, ctx.measureText(text).width + 48);
+    var stepY = Math.max(64, Math.round(h / 9));
     var y;
     var x;
-    ctx.fillStyle = "rgba(45,45,45,0.32)";
+    for (y = -h; y <= h; y += stepY) {
+      for (x = -w; x <= w; x += stepX) ctx.fillText(text, x, y);
+    }
+    ctx.restore();
+  }
+
+  function paintMark(ctx, w, h, img, text) {
+    if (!img) {
+      if (!text) return false;
+      paintText(ctx, w, h, text);
+      return true;
+    }
+    ctx.save();
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalAlpha = 1;
+    ctx.globalCompositeOperation = "source-over";
+    var iw = Math.max(90, Math.round(w / 4.4));
+    var ih = Math.max(16, Math.round(iw * (img.height / img.width)));
+    ctx.translate(w / 2, h / 2);
+    ctx.rotate(-24 * Math.PI / 180);
+    var stepX = iw + Math.round(w / 16);
+    var stepY = ih + Math.round(h / 8);
+    var y;
+    var x;
     for (y = -h; y <= h; y += stepY) {
       for (x = -w; x <= w; x += stepX) {
-        ctx.fillText(text, x, y);
+        ctx.drawImage(img, x - iw / 2, y - ih / 2, iw, ih);
       }
     }
     ctx.restore();
     return true;
   }
 
-  function markCanvas(text) {
+  function markCanvas(img, text) {
     var canvas = document.createElement("canvas");
-    var size = 720;
+    var size = 640;
     canvas.width = size;
     canvas.height = size;
     var ctx = canvas.getContext("2d");
-    if (!paintMark(ctx, size, size, text)) return null;
+    if (!paintMark(ctx, size, size, img, text)) return null;
     return canvas;
+  }
+
+  function pngBytes(canvas) {
+    try {
+      return dataUrlToBytes(canvas.toDataURL("image/png"));
+    } catch (e) {
+      return null;
+    }
   }
 
   function setStatus(box, text) {
@@ -160,15 +167,18 @@
     return bytes;
   }
 
-  function renderCanvases(pdf, text, scale) {
+  function openPdf(buffer) {
+    var bytes = new Uint8Array(buffer);
+    return window.pdfjsLib.getDocument({ data: bytes, disableFontFace: true, useSystemFonts: true }).promise;
+  }
+
+  function renderCanvases(pdf, markImg, text, scale) {
     var pages = [];
     var chain = Promise.resolve();
     var i;
     for (i = 1; i <= pdf.numPages; i++) {
       (function (num) {
         chain = chain.then(function () {
-          return new Promise(function (resolve) { setTimeout(resolve, 0); });
-        }).then(function () {
           return pdf.getPage(num).then(function (page) {
             var viewport = page.getViewport({ scale: scale });
             var canvas = document.createElement("canvas");
@@ -176,13 +186,8 @@
             canvas.height = Math.floor(viewport.height);
             var ctx = canvas.getContext("2d");
             return page.render({ canvasContext: ctx, viewport: viewport }).promise.then(function () {
-              var clean = document.createElement("canvas");
-              clean.width = canvas.width;
-              clean.height = canvas.height;
-              var out = clean.getContext("2d");
-              out.drawImage(canvas, 0, 0);
-              paintMark(out, clean.width, clean.height, text);
-              pages.push({ canvas: clean, width: viewport.width / scale, height: viewport.height / scale });
+              paintMark(ctx, canvas.width, canvas.height, markImg, text);
+              pages.push({ canvas: canvas, width: viewport.width / scale, height: viewport.height / scale });
             });
           });
         });
@@ -195,7 +200,7 @@
     var layer = document.createElement("div");
     layer.className = "wm-pdf-ink";
     layer.setAttribute("aria-hidden", "true");
-    var n = count || 24;
+    var n = count || 16;
     var i;
     for (i = 0; i < n; i++) {
       var span = document.createElement("span");
@@ -218,12 +223,16 @@
     setTimeout(function () { URL.revokeObjectURL(url); }, 4000);
   }
 
-  function overlayPdf(buffer, text) {
-    var mark = markCanvas(text);
-    if (!mark || !window.PDFLib) throw new Error("mark");
-    var pngBytes = dataUrlToBytes(mark.toDataURL("image/png"));
+  function overlayPdf(buffer, markImg, text) {
+    var mark = markCanvas(markImg, text);
+    var bytes = mark ? pngBytes(mark) : null;
+    if (!bytes) {
+      mark = markCanvas(null, text);
+      bytes = mark ? pngBytes(mark) : null;
+    }
+    if (!bytes || !window.PDFLib) throw new Error("mark");
     return window.PDFLib.PDFDocument.load(buffer, { ignoreEncryption: true }).then(function (doc) {
-      return doc.embedPng(pngBytes).then(function (img) {
+      return doc.embedPng(bytes).then(function (img) {
         doc.getPages().forEach(function (page) {
           var size = page.getSize();
           var side = Math.max(size.width, size.height) * 1.45;
@@ -239,10 +248,9 @@
     });
   }
 
-  function rasterPdf(buffer, text) {
-    var copy = buffer.slice(0);
-    return window.pdfjsLib.getDocument({ data: copy }).promise.then(function (pdf) {
-      return renderCanvases(pdf, text, 1.05);
+  function rasterPdf(buffer, markImg, text) {
+    return openPdf(buffer.slice(0)).then(function (pdf) {
+      return renderCanvases(pdf, markImg, text, 1);
     }).then(function (pages) {
       return window.PDFLib.PDFDocument.create().then(function (out) {
         var chain = Promise.resolve();
@@ -260,12 +268,10 @@
     });
   }
 
-  function buildDownload(buffer, text) {
+  function buildDownload(buffer, markImg, text) {
     return ensureLibs(true).then(function () {
-      if (!window.PDFLib || !window.pdfjsLib) throw new Error("pdflib");
-      return overlayPdf(buffer, text).catch(function () {
-        return rasterPdf(buffer, text);
-      });
+      if (!window.PDFLib) throw new Error("pdflib");
+      return overlayPdf(buffer, markImg, text);
     });
   }
 
@@ -300,17 +306,18 @@
     }
     var pagesEl = box.querySelector(".wm-pdf-pages");
     box.setAttribute("data-busy", "1");
-    btn.disabled = true;
     setStatus(box, showBtn ? "در حال آماده‌سازی نمایش..." : "در حال ساخت فایل با واترمارک...");
-    ensureMarkFont().then(function () {
-      return fetchBytes(box);
-    }).then(function (buffer) {
-      if (downBtn) return buildDownload(buffer, text);
+    loadMarkImage(text).then(function (markImg) {
+      return fetchBytes(box).then(function (buffer) {
+        return { buffer: buffer, markImg: markImg };
+      });
+    }).then(function (ready) {
+      if (downBtn) return buildDownload(ready.buffer, ready.markImg, text);
       return ensureLibs(false).then(function () {
         if (!window.pdfjsLib) throw new Error("pdfjs");
-        return window.pdfjsLib.getDocument({ data: buffer }).promise;
+        return openPdf(ready.buffer);
       }).then(function (pdf) {
-        return renderCanvases(pdf, text, 1);
+        return renderCanvases(pdf, ready.markImg, text, 1);
       }).then(function (pages) {
         if (pagesEl) {
           pagesEl.innerHTML = "";
@@ -325,14 +332,12 @@
           pagesEl.hidden = false;
         }
         setStatus(box, "");
-        btn.disabled = false;
         box.removeAttribute("data-busy");
       });
     }).then(function (saved) {
       if (!downBtn || !saved) return;
       saveBlob(box, saved);
       setStatus(box, "فایل دانلودی واترمارک دارد.");
-      btn.disabled = false;
       box.removeAttribute("data-busy");
     }).catch(function (err) {
       if (err && err.message === "fetch") {
@@ -342,7 +347,6 @@
       } else {
         setStatus(box, "ساخت فایل با واترمارک ممکن نشد. صفحه را تازه کنید.");
       }
-      btn.disabled = false;
       box.removeAttribute("data-busy");
     });
   });
