@@ -174,7 +174,7 @@
               clean.height = canvas.height;
               var out = clean.getContext("2d");
               out.drawImage(canvas, 0, 0);
-              if (!paintMark(out, clean.width, clean.height, text)) throw new Error("mark");
+              paintMark(out, clean.width, clean.height, text);
               pages.push({ canvas: clean, width: viewport.width / scale, height: viewport.height / scale });
             });
           });
@@ -182,6 +182,20 @@
       })(i);
     }
     return chain.then(function () { return pages; });
+  }
+
+  function inkLayer(text, count) {
+    var layer = document.createElement("div");
+    layer.className = "wm-pdf-ink";
+    layer.setAttribute("aria-hidden", "true");
+    var n = count || 24;
+    var i;
+    for (i = 0; i < n; i++) {
+      var span = document.createElement("span");
+      span.textContent = text;
+      layer.appendChild(span);
+    }
+    return layer;
   }
 
   function saveBlob(box, bytes) {
@@ -293,10 +307,14 @@
       }).then(function (pages) {
         if (pagesEl) {
           pagesEl.innerHTML = "";
+          var stack = document.createElement("div");
+          stack.className = "wm-pdf-stack";
           pages.forEach(function (page) {
             page.canvas.className = "wm-pdf-canvas";
-            pagesEl.appendChild(page.canvas);
+            stack.appendChild(page.canvas);
           });
+          stack.appendChild(inkLayer(text, Math.max(24, pages.length * 10)));
+          pagesEl.appendChild(stack);
           pagesEl.hidden = false;
         }
         setStatus(box, "");
@@ -310,18 +328,7 @@
       btn.disabled = false;
       box.removeAttribute("data-busy");
     }).catch(function (err) {
-      var pagesElFail = box.querySelector(".wm-pdf-pages");
-      var failSrc = box.getAttribute("data-pdf-url") || "";
-      if (showBtn && pagesElFail && failSrc && err && err.message !== "mark") {
-        pagesElFail.innerHTML = "";
-        var frame = document.createElement("iframe");
-        frame.className = "wm-pdf-native";
-        frame.title = "نمایش پی‌دی‌اف";
-        frame.src = failSrc;
-        pagesElFail.appendChild(frame);
-        pagesElFail.hidden = false;
-        setStatus(box, "نمایش ساده فایل باز شد.");
-      } else if (err && err.message === "fetch") {
+      if (err && err.message === "fetch") {
         setStatus(box, "فایل از سرور خوانده نشد.");
       } else if (err && err.message === "mark") {
         setStatus(box, "واترمارک ساخته نشد. صفحه را یک‌بار تازه کنید.");

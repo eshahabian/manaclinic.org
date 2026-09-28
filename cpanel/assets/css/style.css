@@ -5106,6 +5106,8 @@ body.workshop-overview-locked { overflow: hidden; }
   font-size: .86rem;
 }
 .workshop-session-file-block form { margin: 0; }
+.wm-pdf-pages { position: relative; }
+.wm-pdf-stack { position: relative; }
 .wm-pdf-pages canvas,
 .wm-pdf-canvas {
   width: 100%;
@@ -5114,6 +5116,26 @@ body.workshop-overview-locked { overflow: hidden; }
   margin-top: .55rem;
   background: #fff;
   border-radius: .5rem;
+}
+.wm-pdf-ink {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+  display: flex;
+  flex-wrap: wrap;
+  align-content: space-evenly;
+  justify-content: space-evenly;
+  gap: 1.2rem 2rem;
+  overflow: hidden;
+}
+.wm-pdf-ink span {
+  transform: rotate(-22deg);
+  color: rgba(20, 20, 20, .48);
+  font-weight: 800;
+  font-size: clamp(.85rem, 2.1vw, 1.25rem);
+  white-space: nowrap;
+  text-shadow: 0 0 3px #fff, 0 0 1px #fff;
 }
 .wm-pdf-frame {
   position: relative;

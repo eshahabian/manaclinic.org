@@ -925,12 +925,11 @@ function workshop_pdf_actions_html(string $itemId, string $fileName, string $wat
 {
     $user = $user ?? (function_exists('current_user') ? (current_user() ?: []) : []);
     $view = workshop_media_stream_url($itemId, $user);
-    $down = workshop_media_stream_url($itemId, $user, true);
     $name = trim($fileName) !== '' ? $fileName : 'session.pdf';
 
     return '<span class="wm-pdf-box wm-pdf-inline" data-pdf-url="' . e($view) . '" data-pdf-name="' . e($name) . '" data-pdf-mark="' . e($watermark) . '">'
-        . '<a class="btn btn-outline btn-sm js-pdf-show" href="' . e($view) . '">مشاهده</a> '
-        . '<a class="btn btn-outline btn-sm js-pdf-download" href="' . e($down) . '">دانلود</a>'
+        . '<button type="button" class="btn btn-outline btn-sm js-pdf-show">مشاهده</button> '
+        . '<button type="button" class="btn btn-outline btn-sm js-pdf-download">دانلود</button>'
         . '<span class="wm-pdf-status" style="display:block;font-size:.75rem"></span>'
         . '<span class="wm-pdf-pages" hidden></span>'
         . '</span>';
@@ -938,7 +937,7 @@ function workshop_pdf_actions_html(string $itemId, string $fileName, string $wat
 
 function workshop_pdf_client_stamp_document(string $fileUrl, string $fileName, string $watermark): string
 {
-    $script = e(url('/assets/js/workshop-pdf-view.js') . '?v=20260928dl');
+    $script = e(url('/assets/js/workshop-pdf-view.js') . '?v=20260928ink');
     $name = trim($fileName) !== '' ? $fileName : 'session.pdf';
 
     return '<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="robots" content="noindex"><title>دانلود</title>'

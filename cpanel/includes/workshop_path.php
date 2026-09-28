@@ -978,7 +978,7 @@ function workshop_offline_protect_script(array $audioStreams = [], string $water
     }
 
     return '<script src="' . e(url('/assets/js/workshop-offline-protect.js')) . '?v=20260928speak"></script>'
-        . '<script src="' . e(url('/assets/js/workshop-pdf-view.js')) . '?v=20260928dl"></script>'
+        . '<script src="' . e(url('/assets/js/workshop-pdf-view.js')) . '?v=20260928ink"></script>'
         . '<script>window.workshopOfflineAudioStreams=' . $json
         . ';window.workshopOfflineWatermark=' . $mark
         . ';if(window.workshopOfflineProtect){window.workshopOfflineProtect();}</script>';
