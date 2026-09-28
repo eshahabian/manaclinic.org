@@ -57,6 +57,160 @@ function user_remember_password_plain(PDO $pdo, string $userId, string $plain): 
     }
 }
 
+function auth_idle_seconds(): int
+{
+    if (function_exists('staff_idle_seconds')) {
+        return staff_idle_seconds();
+    }
+
+    return 600;
+}
+
+function ensure_auth_session_schema(PDO $pdo): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    try {
+        $has = $pdo->query("SHOW COLUMNS FROM users LIKE 'auth_session_token'")->fetch();
+        if (!$has) {
+            $pdo->exec('ALTER TABLE users ADD COLUMN auth_session_token VARCHAR(64) NULL');
+        }
+    } catch (Throwable $ignored) {
+    }
+    $ready = true;
+}
+
+/** یک نشست برای هر حساب؛ ورود تازه، نشست‌های قبلی را بی‌اعتبار می‌کند */
+function auth_bind_session(PDO $pdo, string $userId): void
+{
+    if ($userId === '') {
+        return;
+    }
+    ensure_auth_session_schema($pdo);
+    try {
+        $token = bin2hex(random_bytes(16));
+        $pdo->prepare('UPDATE users SET auth_session_token=? WHERE id=?')->execute([$token, $userId]);
+        $_SESSION['auth_session_token'] = $token;
+        $_SESSION['last_activity'] = time();
+    } catch (Throwable $ignored) {
+    }
+}
+
+/** فقط اگر همین نشست هنوز صاحب حساب است، توکن را عوض می‌کند تا بعد از خروج دوباره زنده نشود */
+function auth_release_session(PDO $pdo, array $user): void
+{
+    $userId = (string) ($user['id'] ?? '');
+    $sess = (string) ($_SESSION['auth_session_token'] ?? '');
+    if ($userId === '' || $sess === '') {
+        return;
+    }
+    ensure_auth_session_schema($pdo);
+    try {
+        $fresh = bin2hex(random_bytes(16));
+        $pdo->prepare('UPDATE users SET auth_session_token=? WHERE id=? AND auth_session_token=?')
+            ->execute([$fresh, $userId, $sess]);
+    } catch (Throwable $ignored) {
+    }
+}
+
+function auth_drop_local_session(): void
+{
+    unset(
+        $_SESSION['user'],
+        $_SESSION['last_activity'],
+        $_SESSION['auth_session_token'],
+        $_SESSION['staff_shift_id'],
+        $_SESSION['staff_shift_mobile']
+    );
+}
+
+function auth_idle_message(?array $user): string
+{
+    if ($user && function_exists('staff_tracks_presence') && staff_tracks_presence($user)) {
+        return 'به‌خاطر ۱۰ دقیقه بی‌فعالیتی از حساب خارج شدید و ساعت کاری متوقف شد.';
+    }
+
+    return 'به‌خاطر ۱۰ دقیقه بی‌فعالیتی از حساب خارج شدید.';
+}
+
+/** @return 'ok'|'idle'|'replaced' */
+function auth_session_state(PDO $pdo, array $user): string
+{
+    $userId = (string) ($user['id'] ?? '');
+    if ($userId === '') {
+        return 'ok';
+    }
+    ensure_auth_session_schema($pdo);
+    try {
+        $stmt = $pdo->prepare('SELECT auth_session_token FROM users WHERE id=? LIMIT 1');
+        $stmt->execute([$userId]);
+        $dbToken = (string) ($stmt->fetchColumn() ?: '');
+        $sessToken = (string) ($_SESSION['auth_session_token'] ?? '');
+        if ($dbToken === '') {
+            auth_bind_session($pdo, $userId);
+            return 'ok';
+        }
+        if ($sessToken === '' || !hash_equals($dbToken, $sessToken)) {
+            return 'replaced';
+        }
+        $last = (int) ($_SESSION['last_activity'] ?? 0);
+        if ($last <= 0) {
+            $_SESSION['last_activity'] = time();
+            return 'ok';
+        }
+        if ((time() - $last) >= auth_idle_seconds()) {
+            return 'idle';
+        }
+    } catch (Throwable $ignored) {
+        return 'ok';
+    }
+
+    return 'ok';
+}
+
+function auth_reject_session(string $reason): never
+{
+    $user = current_user();
+    $idle = $reason === 'idle';
+    $message = $idle
+        ? auth_idle_message($user)
+        : 'این حساب از مرورگر یا دستگاه دیگری وارد شد و این نشست بسته شد.';
+    flash_set('info', $message);
+    if ($idle) {
+        logout_user('idle');
+    } else {
+        auth_drop_local_session();
+    }
+    $path = (string) ($GLOBALS['path'] ?? '');
+    $asJson = function_exists('request_expects_json') && request_expects_json();
+    if ($asJson || $path === '/session/ping' || $path === '/secretary/heartbeat') {
+        http_response_code(401);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode([
+            'ok' => false,
+            'expired' => $idle,
+            'replaced' => !$idle,
+            'error' => $message,
+        ], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    flash_set('info', $message);
+    redirect('/login');
+}
+
+function auth_guard_request(PDO $pdo, array $user, bool $touch): void
+{
+    $state = auth_session_state($pdo, $user);
+    if ($state === 'idle' || $state === 'replaced') {
+        auth_reject_session($state);
+    }
+    if ($touch) {
+        $_SESSION['last_activity'] = time();
+    }
+}
+
 function login_user(array $user): void
 {
     $_SESSION['user'] = [
@@ -68,9 +222,10 @@ function login_user(array $user): void
         'must_change_password' => (int) ($user['must_change_password'] ?? 0),
         'gender' => ((string) ($user['gender'] ?? '') === 'female') ? 'female' : (((string) ($user['gender'] ?? '') === 'male') ? 'male' : ''),
     ];
-    if (function_exists('staff_tracks_presence') && staff_tracks_presence($user) && function_exists('staff_shift_start')) {
-        global $pdo;
-        if ($pdo instanceof PDO) {
+    global $pdo;
+    if ($pdo instanceof PDO) {
+        auth_bind_session($pdo, (string) $user['id']);
+        if (function_exists('staff_tracks_presence') && staff_tracks_presence($user) && function_exists('staff_shift_start')) {
             staff_shift_start($pdo, (string) $user['id']);
         }
     }
@@ -79,13 +234,16 @@ function login_user(array $user): void
 function logout_user(string $reason = 'logout'): void
 {
     $user = current_user();
-    if ($user && function_exists('staff_tracks_presence') && staff_tracks_presence($user) && function_exists('staff_shift_end')) {
-        global $pdo;
+    global $pdo;
+    if ($reason !== 'replaced' && $user && $pdo instanceof PDO) {
+        auth_release_session($pdo, $user);
+    }
+    if ($reason !== 'replaced' && $user && function_exists('staff_tracks_presence') && staff_tracks_presence($user) && function_exists('staff_shift_end')) {
         if ($pdo instanceof PDO) {
-            staff_shift_end($pdo, (string) $user['id'], $reason);
+            staff_shift_end($pdo, (string) $user['id'], $reason === 'idle' ? 'idle' : 'logout');
         }
     }
-    unset($_SESSION['user'], $_SESSION['last_activity'], $_SESSION['staff_shift_id'], $_SESSION['staff_shift_mobile']);
+    auth_drop_local_session();
 }
 
 function require_login(?array $roles = null): array
@@ -95,19 +253,23 @@ function require_login(?array $roles = null): array
         redirect('/login');
     }
     global $path, $pdo;
-    $isHeartbeat = ($path ?? '') === '/secretary/heartbeat';
+    $isSessionPoll = in_array($path ?? '', ['/secretary/heartbeat', '/session/ping'], true);
+    if ($pdo instanceof PDO) {
+        auth_guard_request($pdo, $user, !$isSessionPoll);
+        $user = current_user() ?? $user;
+    }
     if (function_exists('staff_tracks_presence') && staff_tracks_presence($user) && function_exists('staff_guard_session') && $pdo instanceof PDO) {
-        staff_guard_session($pdo, $user, !$isHeartbeat);
+        staff_guard_session($pdo, $user, !$isSessionPoll);
         $user = current_user() ?? $user;
     }
     if (!empty($user['must_change_password'])) {
-        $allowed = ['/change-password', '/logout', '/secretary/heartbeat', '/secretary/handover/ack', '/secretary/admin-message/ack'];
+        $allowed = ['/change-password', '/logout', '/secretary/heartbeat', '/session/ping', '/secretary/handover/ack', '/secretary/admin-message/ack'];
         if (!in_array($path ?? '', $allowed, true)) {
             redirect('/change-password');
         }
     }
     if (($user['role'] ?? '') === 'DOCTOR' && $pdo instanceof PDO && function_exists('doctor_must_complete_profile') && doctor_must_complete_profile($pdo, $user)) {
-        $profileAllowed = ['/doctor/profile', '/logout', '/change-password'];
+        $profileAllowed = ['/doctor/profile', '/logout', '/change-password', '/session/ping', '/secretary/heartbeat'];
         if (!in_array($path ?? '', $profileAllowed, true)) {
             redirect('/doctor/profile');
         }
@@ -118,7 +280,7 @@ function require_login(?array $roles = null): array
             $adminPending = admin_staff_msg_pending_for($pdo, (string) $user['id']);
             if ($adminPending) {
                 $GLOBALS['adminStaffMsgBlock'] = $adminPending;
-                $adminAllowed = ['/secretary/admin-message/ack', '/logout', '/secretary/heartbeat', '/staff/admin-message-image'];
+                $adminAllowed = ['/secretary/admin-message/ack', '/logout', '/secretary/heartbeat', '/session/ping', '/staff/admin-message-image'];
                 if ($method === 'POST' && !in_array($path ?? '', $adminAllowed, true)) {
                     flash_set('error', 'ابتدا پیام مدیر را بخوانید، تیک بزنید و «خواندم» را بزنید.');
                     redirect('/secretary/profile#admin-site-messages');
@@ -129,7 +291,7 @@ function require_login(?array $roles = null): array
             $pending = handover_pending_for($pdo, (string) $user['id']);
             if ($pending) {
                 $GLOBALS['handoverBlock'] = $pending;
-                $handoverAllowed = ['/secretary/handover/ack', '/logout', '/secretary/heartbeat', '/secretary/admin-message/ack'];
+                $handoverAllowed = ['/secretary/handover/ack', '/logout', '/secretary/heartbeat', '/session/ping', '/secretary/admin-message/ack'];
                 if ($method === 'POST' && !in_array($path ?? '', $handoverAllowed, true)) {
                     flash_set('error', 'ابتدا پیام تحویل شیفت را بخوانید و «خواندم» را بزنید.');
                     redirect('/secretary/messages');

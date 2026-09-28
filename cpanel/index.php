@@ -97,7 +97,7 @@ if ($isHeadRequest) {
     // Keep response headers, drop body (valid HEAD).
     ob_start(static fn (): string => '');
 }
-$isLightRequest = $path === '/video-signal' || $path === '/secretary/heartbeat';
+$isLightRequest = $path === '/video-signal' || $path === '/secretary/heartbeat' || $path === '/session/ping';
 
 if (!$isLightRequest) {
     ensure_doctor_profile_schema($pdo);
@@ -250,6 +250,7 @@ $routes = [
     'POST /secretary/hours' => 'actions/secretary_day_report.php',
     'GET /secretary/profile' => 'pages/secretary/profile.php',
     'POST /secretary/heartbeat' => 'actions/secretary_heartbeat.php',
+    'POST /session/ping' => 'actions/session_ping.php',
     'POST /secretary/receipt' => 'actions/secretary_receipt.php',
     'GET /staff/receipt' => 'actions/staff_receipt_file.php',
 

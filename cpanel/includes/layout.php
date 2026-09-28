@@ -28,6 +28,9 @@ if ($pageBodyClass !== '') {
 if ($colorfulParticles) {
     $bodyAttrs .= ' data-particles="colorful"';
 }
+if ($user) {
+    $bodyAttrs .= ' data-session-guard="1" data-session-ping="' . e(url('/session/ping')) . '" data-logout="' . e(url('/logout')) . '"';
+}
 if ($user && ($user['role'] ?? '') === 'SECRETARY') {
     $bodyAttrs .= ' data-secretary-desk="1" data-heartbeat="' . e(url('/secretary/heartbeat')) . '" data-logout="' . e(url('/logout')) . '"';
 }
@@ -340,8 +343,11 @@ if ($videoWatch):
 <script>window.__VIDEO_CALL_WATCH__ = <?= json_encode($videoWatch, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;</script>
 <script src="<?= e(url('/assets/js/video-call-watch.js')) ?>?v=20260928home"></script>
 <?php endif; ?>
+<?php if ($user): ?>
+<script src="<?= e(url('/assets/js/session-guard.js')) ?>?v=20260928sess"></script>
+<?php endif; ?>
 <?php if ($user && ($user['role'] ?? '') === 'SECRETARY'): ?>
-<script src="<?= e(url('/assets/js/secretary-idle.js')) ?>?v=20260906y"></script>
+<script src="<?= e(url('/assets/js/secretary-idle.js')) ?>?v=20260928sess"></script>
 <?php endif; ?>
 <?php
 $handoverBlock = $GLOBALS['handoverBlock'] ?? null;

@@ -33,6 +33,7 @@ header('Permissions-Policy: camera=(self), microphone=(self), geolocation=()');
 require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/helpers.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/staff_desk.php';
 require_once __DIR__ . '/includes/video_call.php';
 require_once __DIR__ . '/includes/livekit.php';
 

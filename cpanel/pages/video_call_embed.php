@@ -46,7 +46,7 @@ $canRecord = (string) ($user['role'] ?? '') === 'DOCTOR';
 @media(max-width:640px){#localBox{width:29%;height:23%;right:8px;bottom:74px}.iconBtn,.iconBtn img{width:50px;height:50px}#controls{bottom:9px;gap:14px}.smallBtn{width:34px;height:34px}}
 </style>
 </head>
-<body>
+<body data-session-guard="1" data-session-ping="<?= e(url('/session/ping')) ?>" data-logout="<?= e(url('/logout')) ?>">
 <div id="call" data-room="<?= e($roomKey) ?>" data-media="<?= e($media) ?>" data-can-record="<?= $canRecord ? '1' : '0' ?>">
   <div id="remoteGrid"></div>
   <div id="empty">در انتظار ورود طرف مقابل…</div>
@@ -63,6 +63,7 @@ $canRecord = (string) ($user['role'] ?? '') === 'DOCTOR';
     <button type="button" class="iconBtn" id="leave" aria-label="قطع تماس" title="قطع تماس" hidden><img alt="" src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAGAAAABgCAYAAADimHc4AAABhUlEQVR4nO3ZUW7CMBAE0LTqBXonjs2deoT2K1KFqEhke2dTvfeNYLxDErC3DQAAAAAAAADgP3pLBzjj63b7Pvraz/v9EmtrHfLMwF/pWki7UDOH/pdOZbQJUjH4Rx2KiAdIDP5Rsoj31AdvW4/hb1s2R6T5LoN/pvpqKL8COg9/2+rzlRbQffi7ypxlBVxl+LuqvCUFXG34u4rcywu46vB3q/MvLeDqw9+tXEf0fwAL/wes+tYc+Z2e/OyzlhQwewAjC++U5ZmPmW8224zF7u/R9XnU9ha04nIfybRqi2L5vsfZRVfsxXQ6WSvbeDqy6MqNsFd5qrKUPQO634t31buhsYOIxyIShyK/M3Q4HSNgWusdf2Eckc49ZSti9L6eei50yD1cwKzhVZfQJfdQAbOHVlVCp9x2Q8MUEKaAMAWEKSBMAWEKCFNAmALCFBCmgDAFhCkgTAFhQwXMPsmqOhnrlHv4Cpi1mOpjyS65p9yCRkOkzoSvmhsAAAAAAAAAAAAAoJ8fxgit1iqqH/8AAAAASUVORK5CYII="></button>
   </div>
 </div>
+<script src="<?= e(url('/assets/js/session-guard.js')) ?>?v=20260928sess"></script>
 <script src="https://cdn.jsdelivr.net/npm/livekit-client@2.22.3/dist/livekit-client.umd.min.js"></script>
 <script>
 (function(){

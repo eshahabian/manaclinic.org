@@ -34,6 +34,7 @@ header('Permissions-Policy: camera=(self), microphone=(self), geolocation=()');
 require_once __DIR__ . '/includes/db.php';
 require_once __DIR__ . '/includes/helpers.php';
 require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/staff_desk.php';
 require_once __DIR__ . '/includes/view.php';
 require_once __DIR__ . '/includes/notifications.php';
 require_once __DIR__ . '/includes/workshops.php';

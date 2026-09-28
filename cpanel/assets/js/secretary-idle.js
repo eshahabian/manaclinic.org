@@ -2,7 +2,6 @@
   var body = document.body;
   if (!body || body.getAttribute("data-secretary-desk") !== "1") return;
 
-  var idleMs = 10 * 60 * 1000;
   var heartbeatUrl = body.getAttribute("data-heartbeat") || "";
   var logoutUrl = body.getAttribute("data-logout") || "/logout";
   var last = Date.now();
@@ -114,14 +113,16 @@
     window.location.href = logoutUrl + (logoutUrl.indexOf("?") === -1 ? "?" : "&") + "idle=1";
   }
 
+  function goReplacedLogout() {
+    if (ticking) return;
+    ticking = true;
+    window.location.href = logoutUrl + (logoutUrl.indexOf("?") === -1 ? "?" : "&") + "replaced=1";
+  }
+
   setInterval(tickClock, 1000);
   tickClock();
 
   setInterval(function () {
-    if (Date.now() - last >= idleMs) {
-      goIdleLogout();
-      return;
-    }
     if (!heartbeatUrl) return;
     var active = Date.now() - last < 60000 ? "1" : "0";
     var bodyData = "active=" + active;
@@ -133,7 +134,9 @@
     })
       .then(function (r) { return r.json(); })
       .then(function (data) {
-        if (data && data.expired) {
+        if (data && data.replaced) {
+          goReplacedLogout();
+        } else if (data && data.expired) {
           goIdleLogout();
         }
       })

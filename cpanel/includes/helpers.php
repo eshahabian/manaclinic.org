@@ -299,6 +299,7 @@ function request_expects_json(): bool
         '/assistant/chat',
         '/assistant/send',
         '/secretary/heartbeat',
+        '/session/ping',
         '/dashboard/pay',
         '/enroll-workshop',
         '/pay-workshop',

@@ -2,9 +2,24 @@
 declare(strict_types=1);
 
 $idle = isset($_GET['idle']) && $_GET['idle'] === '1';
-logout_user($idle ? 'idle' : 'logout');
+$replaced = isset($_GET['replaced']) && $_GET['replaced'] === '1';
+if ($replaced) {
+    auth_drop_local_session();
+    if (empty($_SESSION['flash'])) {
+        flash_set('info', 'این حساب از مرورگر یا دستگاه دیگری وارد شد و این نشست بسته شد.');
+    }
+    redirect('/login');
+}
+$leaving = current_user();
+if ($leaving) {
+    logout_user($idle ? 'idle' : 'logout');
+}
 if ($idle) {
-    flash_set('info', 'به‌خاطر ۱۰ دقیقه بی‌فعالیتی از حساب خارج شدید و ساعت کاری متوقف شد.');
+    if ($leaving && empty($_SESSION['flash'])) {
+        flash_set('info', auth_idle_message($leaving));
+    } elseif (empty($_SESSION['flash'])) {
+        flash_set('info', 'به‌خاطر ۱۰ دقیقه بی‌فعالیتی از حساب خارج شدید.');
+    }
     redirect('/login');
 }
 redirect('/');

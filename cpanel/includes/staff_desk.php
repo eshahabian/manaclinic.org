@@ -497,9 +497,8 @@ function staff_current_shift(PDO $pdo, string $userId): ?array
 
 function staff_idle_logout(PDO $pdo, array $user): never
 {
-    staff_shift_end($pdo, (string) $user['id'], 'idle');
-    unset($_SESSION['user'], $_SESSION['last_activity'], $_SESSION['staff_shift_id'], $_SESSION['staff_shift_mobile']);
-    flash_set('info', 'به‌خاطر ۱۰ دقیقه بی‌فعالیتی از حساب خارج شدید و ساعت کاری متوقف شد.');
+    logout_user('idle');
+    flash_set('info', auth_idle_message($user));
     redirect('/login');
 }
 
@@ -511,12 +510,6 @@ function staff_guard_session(PDO $pdo, array $user, bool $touch = true): void
         return;
     }
     staff_close_stale_shifts($pdo, $userId);
-    if ($role === 'SECRETARY') {
-        $last = (int) ($_SESSION['last_activity'] ?? 0);
-        if ($last > 0 && (time() - $last) >= staff_idle_seconds()) {
-            staff_idle_logout($pdo, $user);
-        }
-    }
     if ($touch) {
         staff_touch_activity($pdo, $userId);
     }
