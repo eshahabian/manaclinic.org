@@ -1227,6 +1227,31 @@ function workshop_mark_paid_by_staff(PDO $pdo, string $enrollmentId, string $sta
     }
 }
 
+/** درخواست عضویت را برای دکتر عطیه گارسچی هم بفرست، اگر خودش درمانگر همان کارگاه نباشد */
+function workshop_notify_garsichi_request(PDO $pdo, string $title, string $body, string $exceptDoctorProfileId = ''): void
+{
+    require_once __DIR__ . '/notifications.php';
+    try {
+        $stmt = $pdo->query("
+          SELECT u.id AS user_id, dp.id AS profile_id
+          FROM users u
+          JOIN doctor_profiles dp ON dp.user_id = u.id
+          WHERE u.role = 'DOCTOR' AND u.name LIKE '%گارسچی%'
+        ");
+        foreach ($stmt->fetchAll() as $row) {
+            if ($exceptDoctorProfileId !== '' && (string) ($row['profile_id'] ?? '') === $exceptDoctorProfileId) {
+                continue;
+            }
+            $userId = (string) ($row['user_id'] ?? '');
+            if ($userId === '') {
+                continue;
+            }
+            notify_user($pdo, $userId, $title, $body, '/doctor/workshops?tab=requests', 'workshop');
+        }
+    } catch (Throwable $ignored) {
+    }
+}
+
 /** آیا این ثبت‌نام متعلق به کارگاه همین درمانگر است؟ */
 function workshop_enrollment_belongs_to_doctor(PDO $pdo, string $enrollmentId, string $doctorProfileId): bool
 {

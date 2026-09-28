@@ -12,6 +12,39 @@ require_once __DIR__ . '/../../includes/workshop_qa.php';
 $ctx = require_doctor_profile($pdo);
 ensure_workshop_schema($pdo);
 ensure_workshop_media_schema($pdo);
+$canAcceptWorkshopRequests = function_exists('doctor_can_accept_workshop_requests')
+    && doctor_can_accept_workshop_requests($ctx['user'] ?? current_user());
+$pendingWorkshopRequests = [];
+$acceptPatients = [];
+$acceptWorkshops = [];
+if ($canAcceptWorkshopRequests) {
+    $pendingWorkshopRequests = $pdo->query("
+      SELECT e.id, e.status, e.enrolled_at, e.workshop_id,
+             u.name AS patient_name, u.phone AS patient_phone, u.username AS patient_username,
+             w.title AS workshop_title, du.name AS doctor_name
+      FROM workshop_enrollments e
+      JOIN workshops w ON w.id = e.workshop_id
+      JOIN users u ON u.id = e.patient_id
+      JOIN doctor_profiles dp ON dp.id = w.doctor_id
+      JOIN users du ON du.id = dp.user_id
+      WHERE e.status = 'PENDING_PAYMENT'
+      ORDER BY e.enrolled_at DESC
+    ")->fetchAll();
+    $acceptPatients = $pdo->query("
+      SELECT id, name, username
+      FROM users
+      WHERE role = 'PATIENT'
+      ORDER BY name ASC
+    ")->fetchAll();
+    $acceptWorkshops = $pdo->query("
+      SELECT w.id, w.title, w.type, u.name AS doctor_name
+      FROM workshops w
+      " . workshop_active_doctor_join('w') . "
+      JOIN users u ON u.id = dp.user_id
+      WHERE " . workshop_patient_list_sql('w') . "
+      ORDER BY w.starts_at ASC
+    ")->fetchAll();
+}
 
 $editId = trim((string) ($_GET['edit'] ?? ''));
 $editWorkshop = null;
@@ -90,6 +123,8 @@ if ($editWorkshop) {
     $binderInitial = 'new';
 } elseif (in_array($tabParam, ['in-person', 'online', 'offline', 'new', 'archive'], true)) {
     $binderInitial = $tabParam;
+} elseif ($canAcceptWorkshopRequests && $tabParam === 'requests') {
+    $binderInitial = 'requests';
 } elseif ($openDoctorPathId !== '' && isset($doctorPathBoardById[$openDoctorPathId])) {
     $opened = $doctorPathBoardById[$openDoctorPathId]['workshop'] ?? [];
     $binderInitial = (function_exists('workshop_is_archived') && workshop_is_archived($opened))
@@ -170,6 +205,11 @@ ob_start();
     <button type="button" class="binder-tab binder-tab-offline<?= $activeBinder === 'offline' ? ' is-active' : '' ?>" role="tab" data-binder-tab="offline" aria-selected="<?= $activeBinder === 'offline' ? 'true' : 'false' ?>">
       آفلاین <span class="binder-tab-count"><?= count($grouped['offline']) ?></span>
     </button>
+    <?php if ($canAcceptWorkshopRequests): ?>
+    <button type="button" class="binder-tab binder-tab-new<?= $activeBinder === 'requests' ? ' is-active' : '' ?>" role="tab" data-binder-tab="requests" aria-selected="<?= $activeBinder === 'requests' ? 'true' : 'false' ?>">
+      درخواست‌ها <span class="binder-tab-count"><?= count($pendingWorkshopRequests) ?></span>
+    </button>
+    <?php endif; ?>
     <button type="button" class="binder-tab binder-tab-new<?= $activeBinder === 'new' ? ' is-active' : '' ?>" role="tab" data-binder-tab="new" aria-selected="<?= $activeBinder === 'new' ? 'true' : 'false' ?>">
       <?= $editWorkshop ? 'ویرایش کارگاه' : 'کارگاه جدید' ?>
     </button>
@@ -190,6 +230,57 @@ ob_start();
       <?php $workshopList = $grouped['offline']; $workshopEmpty = 'دوره آفلاین فعالی ندارید.'; $workshopRole = 'doctor'; $workshopYmdPrefix = 'doc-off'; $workshopYmdKind = 'manage'; require __DIR__ . '/../../includes/workshop_ymd_list.php'; ?>
       <?php $peerList = $peerGrouped['offline']; require __DIR__ . '/../../includes/workshop_peer_block.php'; ?>
     </section>
+    <?php if ($canAcceptWorkshopRequests): ?>
+    <section class="binder-panel<?= $activeBinder === 'requests' ? ' is-active' : '' ?>" data-binder-panel="requests" role="tabpanel"<?= $activeBinder === 'requests' ? '' : ' hidden' ?>>
+      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem;line-height:1.7">درخواست عضویت هر کارگاه و دوره اینجا می‌آید. با تأیید، مراجع وارد همان کارگاه می‌شود و در «دوره‌های من» او دیده می‌شود.</p>
+      <form class="panel form-stack" method="post" action="<?= e(url('/doctor/workshops')) ?>" style="margin:0 0 1.25rem">
+        <input type="hidden" name="action" value="enroll">
+        <div>
+          <label class="label" for="accept_patient_id">مراجعه‌کننده</label>
+          <select class="input" name="patient_id" id="accept_patient_id" required>
+            <option value="">— انتخاب مراجعه‌کننده —</option>
+            <?php foreach ($acceptPatients as $p): ?>
+              <option value="<?= e((string) $p['id']) ?>"><?= e((string) $p['name']) ?> (<?= e((string) $p['username']) ?>)</option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <div>
+          <label class="label" for="accept_workshop_id">کارگاه یا دوره</label>
+          <select class="input" name="workshop_id" id="accept_workshop_id" required>
+            <option value="">— انتخاب کارگاه —</option>
+            <?php foreach ($acceptWorkshops as $w): ?>
+              <option value="<?= e((string) $w['id']) ?>"><?= e((string) $w['title']) ?> — <?= e((string) ($w['doctor_name'] ?? '')) ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <button class="btn btn-primary" type="submit">وارد کردن به کارگاه</button>
+      </form>
+      <h3 style="margin:0 0 .75rem;font-size:1rem">در انتظار تأیید</h3>
+      <div class="stack">
+        <?php foreach ($pendingWorkshopRequests as $row): ?>
+          <div class="row-between" style="border:1px solid var(--line);border-radius:.75rem;padding:.75rem;background:#fff;gap:.75rem;flex-wrap:wrap">
+            <div>
+              <strong><?= e((string) $row['patient_name']) ?></strong>
+              <?php if (function_exists('can_view_patient_phone') && can_view_patient_phone($ctx['user'] ?? current_user()) && trim((string) ($row['patient_phone'] ?? '')) !== ''): ?>
+                <div class="muted" style="font-size:.85rem"><a href="tel:<?= e((string) $row['patient_phone']) ?>" dir="ltr" style="color:inherit"><?= e((string) $row['patient_phone']) ?></a></div>
+              <?php endif; ?>
+              <div class="muted" style="font-size:.85rem">کارگاه: <?= e((string) $row['workshop_title']) ?></div>
+              <div class="muted" style="font-size:.85rem">درمانگر: <?= e((string) $row['doctor_name']) ?></div>
+              <div class="muted" style="font-size:.8rem;margin-top:.25rem"><?= e(format_fa_datetime((string) $row['enrolled_at'])) ?></div>
+            </div>
+            <form method="post" action="<?= e(url('/doctor/workshops')) ?>" style="margin:0">
+              <input type="hidden" name="action" value="approve_enrollment">
+              <input type="hidden" name="enrollment_id" value="<?= e((string) $row['id']) ?>">
+              <button class="btn btn-primary btn-sm" type="submit">تأیید و ورود به کارگاه</button>
+            </form>
+          </div>
+        <?php endforeach; ?>
+        <?php if (!$pendingWorkshopRequests): ?>
+          <p class="muted">درخواست در انتظاری نیست.</p>
+        <?php endif; ?>
+      </div>
+    </section>
+    <?php endif; ?>
     <section class="binder-panel<?= $activeBinder === 'archive' ? ' is-active' : '' ?>" data-binder-panel="archive" role="tabpanel"<?= $activeBinder === 'archive' ? '' : ' hidden' ?>>
       <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">کارگاه‌هایی که زمانشان تمام شده یا پایان داده شده‌اند، خودکار اینجا می‌آیند.</p>
       <?php $workshopList = $grouped['archive']; $workshopEmpty = 'هنوز کارگاهی در آرشیو نیست.'; $workshopRole = 'doctor'; $workshopYmdPrefix = 'doc-arch'; $workshopYmdKind = 'manage'; require __DIR__ . '/../../includes/workshop_ymd_list.php'; ?>
@@ -446,6 +537,15 @@ ob_start();
 </template>
 
 <script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260906v"></script>
+<?php if ($canAcceptWorkshopRequests): ?>
+<script src="<?= e(url('/assets/js/search-select.js')) ?>?v=20260905a"></script>
+<script>
+if (window.enhanceSearchSelect) {
+  enhanceSearchSelect(document.getElementById("accept_patient_id"), { placeholder: "جستجو یا انتخاب مراجعه‌کننده" });
+  enhanceSearchSelect(document.getElementById("accept_workshop_id"), { placeholder: "جستجو یا انتخاب کارگاه" });
+}
+</script>
+<?php endif; ?>
 <script src="<?= e(url('/assets/js/ymd-cascade.js')) ?>?v=20260910r"></script>
 <script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>

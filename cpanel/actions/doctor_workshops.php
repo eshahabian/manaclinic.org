@@ -13,11 +13,14 @@ $base = '/doctor/workshops';
 $actorUser = $ctx['user'] ?? current_user();
 $staffUserId = (string) ($actorUser['id'] ?? doctor_ctx_user_id($ctx));
 $staffLabel = function_exists('staff_actor_label') ? staff_actor_label($actorUser) : doctor_ctx_user_name($ctx);
+$canAcceptAnyWorkshop = function_exists('doctor_can_accept_workshop_requests')
+    && doctor_can_accept_workshop_requests(is_array($actorUser) ? $actorUser : null);
+$afterAccept = $canAcceptAnyWorkshop ? ($base . '?tab=requests') : $base;
 
 if ($action === 'approve_enrollment') {
     $enrollmentId = post('enrollment_id');
     try {
-        if (!workshop_enrollment_belongs_to_doctor($pdo, $enrollmentId, (string) $ctx['profile']['id'])) {
+        if (!$canAcceptAnyWorkshop && !workshop_enrollment_belongs_to_doctor($pdo, $enrollmentId, (string) $ctx['profile']['id'])) {
             throw new RuntimeException('این ثبت‌نام مربوط به کارگاه شما نیست.');
         }
         workshop_approve_enrollment_by_staff($pdo, $enrollmentId, $staffUserId, $staffLabel);
@@ -28,13 +31,13 @@ if ($action === 'approve_enrollment') {
     } catch (RuntimeException $e) {
         flash_set('error', $e->getMessage());
     }
-    redirect($base);
+    redirect($afterAccept);
 }
 
 if ($action === 'mark_paid') {
     $enrollmentId = post('enrollment_id');
     try {
-        if (!workshop_enrollment_belongs_to_doctor($pdo, $enrollmentId, (string) $ctx['profile']['id'])) {
+        if (!$canAcceptAnyWorkshop && !workshop_enrollment_belongs_to_doctor($pdo, $enrollmentId, (string) $ctx['profile']['id'])) {
             throw new RuntimeException('این ثبت‌نام مربوط به کارگاه شما نیست.');
         }
         workshop_mark_paid_by_staff(
@@ -51,7 +54,28 @@ if ($action === 'mark_paid') {
     } catch (RuntimeException $e) {
         flash_set('error', $e->getMessage());
     }
-    redirect($base);
+    redirect($afterAccept);
+}
+
+if ($action === 'enroll' && $canAcceptAnyWorkshop) {
+    $workshopId = post('workshop_id');
+    $patientId = post('patient_id');
+    try {
+        workshop_enroll_by_staff(
+            $pdo,
+            $workshopId,
+            $patientId,
+            $staffUserId,
+            $staffLabel
+        );
+        if (function_exists('staff_log_action')) {
+            staff_log_action($pdo, $staffUserId, 'workshop_enroll', 'workshop', $workshopId);
+        }
+        flash_set('success', 'مراجعه‌کننده وارد کارگاه شد و در «دوره‌های من» او دیده می‌شود.');
+    } catch (RuntimeException $e) {
+        flash_set('error', $e->getMessage());
+    }
+    redirect($base . '?tab=requests');
 }
 
 if ($action === 'create') {

@@ -218,6 +218,14 @@ function doctor_is_garsichi(?array $user): bool
     return str_contains((string) ($user['name'] ?? ''), 'گارسچی');
 }
 
+/** تأیید درخواست کارگاه و وارد کردن مراجع به دوره: دکتر عطیه گارسچی */
+function doctor_can_accept_workshop_requests(?array $user = null): bool
+{
+    $user = $user ?? (function_exists('current_user') ? current_user() : null);
+
+    return doctor_is_garsichi($user);
+}
+
 /** دسترسی‌های ویژه پنل: دکتر شیوا و دکتر عطیه گارسچی */
 function doctor_has_shiva_access(?array $user): bool
 {

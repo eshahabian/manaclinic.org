@@ -105,6 +105,12 @@ if ($doctorId !== '') {
         'workshop'
     );
 }
+workshop_notify_garsichi_request(
+    $pdo,
+    'درخواست عضویت کارگاه',
+    "«{$patientName}» برای کارگاه «{$title}» ({$when}) درخواست داد. می‌توانید عضویت را تأیید کنید یا او را وارد دوره کنید.",
+    $doctorId
+);
 
 echo json_encode([
     'enrollmentId' => $enrollmentId,
