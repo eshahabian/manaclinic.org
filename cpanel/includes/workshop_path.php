@@ -915,6 +915,7 @@ function workshop_path_media_html(array $files, array $ctx): string
       <p class="muted offline-audio-wm">سه بار در طول صوت، پخش قطع می‌شود و نام شما گفته می‌شود. زمان این سه بار برای هر فایل فرق دارد.</p>
     </div>
   <?php endforeach; ?>
+  <?php $patientPdf = (string) ($user['role'] ?? '') === 'PATIENT'; ?>
   <?php foreach ($pdfs as $pdf): ?>
     <?php $pdfId = (string) ($pdf['id'] ?? ''); ?>
     <div
@@ -927,12 +928,16 @@ function workshop_path_media_html(array $files, array $ctx): string
         <p class="muted" style="font-size:.8rem;margin:.55rem 0 .35rem"><?= e((string) $pdf['original_name']) ?></p>
       <?php endif; ?>
       <div class="wm-pdf-actions">
-        <button type="button" class="btn btn-primary btn-sm js-pdf-show">نمایش</button>
+        <?php if (!$patientPdf): ?>
+          <button type="button" class="btn btn-primary btn-sm js-pdf-show">نمایش</button>
+        <?php endif; ?>
         <button type="button" class="btn btn-outline btn-sm js-pdf-download">دانلود</button>
       </div>
       <p class="muted wm-pdf-status" style="font-size:.8rem;margin:.4rem 0 0"></p>
-      <div class="wm-pdf-pages" hidden></div>
-      <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">نمایش و فایل دانلودی هر دو مهر <?= e($watermark) ?> را دارند.</p>
+      <?php if (!$patientPdf): ?>
+        <div class="wm-pdf-pages" hidden></div>
+      <?php endif; ?>
+      <p class="muted" style="font-size:.75rem;margin:.35rem 0 0"><?= $patientPdf ? 'فایل دانلودی مهر ' . e($watermark) . ' را دارد.' : 'نمایش و فایل دانلودی هر دو مهر ' . e($watermark) . ' را دارند.' ?></p>
     </div>
   <?php endforeach; ?>
 </div>
