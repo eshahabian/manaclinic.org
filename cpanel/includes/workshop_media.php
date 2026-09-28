@@ -1039,9 +1039,20 @@ function workshop_pptx_preview_document(string $srcPath, string $watermark): str
         . '</div>' . $body . '</body></html>';
 }
 
+function workshop_pdf_font_path(): string
+{
+    $path = dirname(__DIR__) . '/assets/fonts/Vazirmatn-Medium.ttf';
+
+    return is_file($path) ? $path : '';
+}
+
 function workshop_pdf_stamp_temp(string $srcPath, string $watermark): ?string
 {
-    if (!class_exists('Imagick') || !is_file($srcPath)) {
+    if (!class_exists('Imagick') || !is_file($srcPath) || trim($watermark) === '') {
+        return null;
+    }
+    $font = workshop_pdf_font_path();
+    if ($font === '') {
         return null;
     }
     try {
@@ -1052,15 +1063,16 @@ function workshop_pdf_stamp_temp(string $srcPath, string $watermark): ?string
             $w = $page->getImageWidth();
             $h = $page->getImageHeight();
             $draw = new ImagickDraw();
-            $draw->setFillColor(new ImagickPixel('rgba(40,40,40,0.22)'));
-            $draw->setFontSize(max(16, (int) ($w / 28)));
+            $draw->setFont($font);
+            if (method_exists($draw, 'setTextEncoding')) {
+                $draw->setTextEncoding('UTF-8');
+            }
+            $draw->setFillColor(new ImagickPixel('rgba(30,30,30,0.38)'));
+            $draw->setFontSize(max(18, (int) ($w / 24)));
             $draw->setGravity(Imagick::GRAVITY_CENTER);
             $page->annotateImage($draw, 0, 0, -28, $watermark);
-            $draw2 = new ImagickDraw();
-            $draw2->setFillColor(new ImagickPixel('rgba(40,40,40,0.18)'));
-            $draw2->setFontSize(max(14, (int) ($w / 34)));
-            $page->annotateImage($draw2, 0, (int) ($h * 0.28), -28, $watermark);
-            $page->annotateImage($draw2, 0, (int) (-$h * 0.28), -28, $watermark);
+            $page->annotateImage($draw, 0, (int) ($h * 0.28), -28, $watermark);
+            $page->annotateImage($draw, 0, (int) (-$h * 0.28), -28, $watermark);
         }
         $im->setImageFormat('pdf');
         $tmp = sys_get_temp_dir() . '/mana_pdf_' . bin2hex(random_bytes(8)) . '.pdf';

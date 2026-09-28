@@ -1,4 +1,6 @@
 Options -Indexes
+AddType font/woff2 .woff2
+AddType font/ttf .ttf
 RewriteEngine On
 
 # Canonical host: https://manaclinic.org (no www)
