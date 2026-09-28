@@ -7,20 +7,24 @@ require_once __DIR__ . '/../../includes/workshop_overview.php';
 require_once __DIR__ . '/../../includes/workshop_path.php';
 
 $path = patient_request_path();
-$view = 'catalog';
+$view = 'ongoing';
 if (str_ends_with($path, '/workshops/requested')) {
     $view = 'requested';
 } elseif (str_ends_with($path, '/workshops/mine')) {
     $view = 'mine';
-}
-
-if ($view === 'catalog') {
-    flash_set('success', 'دوره‌ها و کارگاه‌های جدید را از بخش خدمات ببینید و ثبت‌نام کنید. لینک دوره‌های تازه در پیام‌ها هم می‌آید.');
-    redirect('/services');
+} elseif (str_ends_with($path, '/workshops/new')) {
+    $view = 'new';
+} elseif (str_ends_with($path, '/workshops/ongoing')) {
+    $view = 'ongoing';
+} else {
+    $query = $_GET;
+    unset($query['view']);
+    $suffix = $query ? ('?' . http_build_query($query)) : '';
+    redirect('/dashboard/workshops/ongoing' . $suffix);
 }
 
 $tabParam = trim((string) ($_GET['type'] ?? $_GET['tab'] ?? ''));
-if (!in_array($tabParam, ['in-person', 'online', 'offline', 'archive'], true)) {
+if (!in_array($tabParam, ['in-person', 'online', 'offline', 'archive'], true) || ($view === 'new' && $tabParam === 'archive')) {
     $tabParam = 'in-person';
 }
 
@@ -32,13 +36,20 @@ $enrollByWorkshop = $ws['enrollByWorkshop'];
 $sessionsByWorkshop = $ws['sessionsByWorkshop'] ?? [];
 $binderTabs = $ws['binderTabs'];
 
+if ($view === 'ongoing' || $view === 'new') {
+    $grouped = patient_workshops_for_phase($grouped, $view);
+    $binderTabs = patient_workshop_phase_tabs($view);
+}
+
 $titles = [
-    'catalog' => 'کارگاه‌ها',
+    'ongoing' => 'دوره‌های در حال برگزاری',
+    'new' => 'دوره‌های جدید',
     'requested' => 'دوره‌های درخواست داده‌شده',
     'mine' => 'دوره‌های من',
 ];
 $leads = [
-    'catalog' => 'همه کارگاه‌های منتشرشده را ببینید و اگر خواستید ثبت‌نام کنید. بعد از ثبت‌نام، درخواست به «دوره‌های درخواست داده‌شده» می‌رود و پس از تأیید در «دوره‌های من» دیده می‌شود.',
+    'ongoing' => 'همه کارگاه‌ها و دوره‌هایی که الان در جریان‌اند اینجا هستند. اگر خواستید ثبت‌نام کنید؛ بعد از تأیید در «دوره‌های من» دیده می‌شوند.',
+    'new' => 'دوره‌ها و کارگاه‌هایی که هنوز شروع نشده‌اند اینجا هستند. ثبت‌نام از همین فهرست انجام می‌شود.',
     'requested' => 'کارگاه‌هایی که ثبت‌نام کرده‌اید و هنوز تأیید نشده‌اند اینجا هستند. بعد از تأیید منشی، درمانگر یا مدیر به «دوره‌های من» می‌روند.',
     'mine' => 'کارگاه‌هایی که عضویت‌شان تأیید شده اینجا هستند. مسیر هفته‌به‌هفته و یادداشت جلسه از همین بخش باز می‌شود. دوره آفلاین با تالار گفتگوی همگانی داخل همان پنل پخش می‌شود.',
 ];
@@ -58,7 +69,8 @@ ob_start();
     <?php
       $workshopBinderNested = false;
       $workshopBinderInitial = $tabParam;
-      $workshopBinderMode = $view === 'catalog' ? 'catalog' : $view;
+      $workshopBinderHideArchive = $view === 'new';
+      $workshopBinderMode = ($view === 'ongoing' || $view === 'new') ? 'catalog' : $view;
       require __DIR__ . '/../../includes/patient_workshop_binder.php';
     ?>
   </div>

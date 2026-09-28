@@ -31,6 +31,7 @@ if ($workshopBinderMode === 'requested') {
 } elseif ($workshopBinderMode === 'mine') {
     $enrollmentsByTab = patient_enrollments_filter_status($enrollmentsByTab, ['CONFIRMED', 'COMPLETED']);
 }
+$workshopBinderHideArchive = !empty($workshopBinderHideArchive);
 $workshopBinderInitial = (string) ($workshopBinderInitial ?? 'in-person');
 if (!in_array($workshopBinderInitial, ['in-person', 'online', 'offline', 'archive'], true)) {
     $workshopBinderInitial = 'in-person';
@@ -49,10 +50,12 @@ $tabParam = $workshopBinderInitial;
         <span class="binder-tab-count"><?= $showCatalog ? count($grouped[$id] ?? []) : count($enrollmentsByTab[$id] ?? []) ?></span>
       </button>
     <?php endforeach; ?>
+    <?php if (!$workshopBinderHideArchive): ?>
     <button type="button" class="binder-tab binder-tab-archive<?= $tabParam === 'archive' ? ' is-active' : '' ?>" role="tab" data-binder-tab="archive" data-binder-tone="archive" aria-selected="<?= $tabParam === 'archive' ? 'true' : 'false' ?>">
       آرشیو
       <span class="binder-tab-count"><?= $showCatalog ? count($grouped['archive'] ?? []) : count($enrollmentsByTab['archive'] ?? []) ?></span>
     </button>
+    <?php endif; ?>
   </div>
   <div class="binder-body">
     <?php foreach ($binderTabs as $id => $meta): ?>
@@ -83,6 +86,7 @@ $tabParam = $workshopBinderInitial;
       </section>
     <?php endforeach; ?>
 
+    <?php if (!$workshopBinderHideArchive): ?>
     <section class="binder-panel<?= $tabParam === 'archive' ? ' is-active' : '' ?>" data-binder-panel="archive" role="tabpanel"<?= $tabParam === 'archive' ? '' : ' hidden' ?>>
       <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">کارگاه‌هایی که زمانشان تمام شده اینجا هستند. ثبت‌نام جدید برای آن‌ها ممکن نیست؛ اگر قبلاً ثبت‌نام کرده باشید، محتوا و لینک جلسه را می‌بینید.</p>
       <?php if ($showCatalog): ?>
@@ -107,5 +111,6 @@ $tabParam = $workshopBinderInitial;
       ?>
       <?php endif; ?>
     </section>
+    <?php endif; ?>
   </div>
 </div>

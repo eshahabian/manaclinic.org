@@ -12,4 +12,4 @@ if ($view === 'mine') {
 }
 $type = trim((string) ($_GET['type'] ?? $_GET['tab'] ?? ''));
 $suffix = in_array($type, ['in-person', 'online', 'offline', 'archive'], true) ? ('?type=' . rawurlencode($type)) : '';
-redirect('/dashboard/workshops' . $suffix);
+redirect('/dashboard/workshops/ongoing' . $suffix);

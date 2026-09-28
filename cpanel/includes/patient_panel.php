@@ -29,9 +29,11 @@ function patient_nav(): array
         ['href' => '/dashboard/appointments', 'label' => 'نوبت‌های من'],
         ['href' => '/dashboard/messages', 'label' => 'پیام‌ها', 'badge' => 'messages'],
         [
-            'href' => '/dashboard/workshops/mine',
+            'href' => '/dashboard/workshops/ongoing',
             'label' => 'کارگاه‌ها',
             'children' => [
+                ['href' => '/dashboard/workshops/ongoing', 'label' => 'دوره‌های در حال برگزاری', 'badge' => 'ongoing'],
+                ['href' => '/dashboard/workshops/new', 'label' => 'دوره‌های جدید', 'badge' => 'new'],
                 ['href' => '/dashboard/workshops/requested', 'label' => 'دوره‌های درخواست داده‌شده', 'badge' => 'requested'],
                 ['href' => '/dashboard/workshops/mine', 'label' => 'دوره‌های من', 'badge' => 'mine'],
             ],
@@ -78,7 +80,7 @@ function render_patient_page(string $title, string $innerHtml): void
     global $pdo, $pageScripts, $pageHead;
 
     $nav = patient_nav();
-    $counts = ['available' => 0, 'requested' => 0, 'mine' => 0, 'messages' => 0, 'mentions' => 0];
+    $counts = ['available' => 0, 'requested' => 0, 'mine' => 0, 'ongoing' => 0, 'new' => 0, 'messages' => 0, 'mentions' => 0];
     $user = current_user();
     if ($pdo && $user && ($user['role'] ?? '') === 'PATIENT') {
         $counts = patient_workshop_nav_counts($pdo, (string) $user['id']);
@@ -120,7 +122,11 @@ function render_patient_page(string $title, string $innerHtml): void
               $parentActive = patient_nav_is_active($href, $currentPath, $children === []);
               if ($children) {
                   foreach ($children as $child) {
-                      if (patient_nav_is_active((string) $child['href'], $currentPath, true)) {
+                      $childHref = (string) ($child['href'] ?? '');
+                      if (patient_nav_is_active($childHref, $currentPath, true)) {
+                          $parentActive = true;
+                      }
+                      if ($childHref === '/dashboard/workshops/mine' && str_starts_with($currentPath, '/dashboard/workshops/path')) {
                           $parentActive = true;
                       }
                   }

@@ -363,10 +363,69 @@ function patient_workshop_nav_counts(PDO $pdo, string $patientId): array
       WHERE patient_id = ? AND status IN ("CONFIRMED","COMPLETED")
     ');
     $mine->execute([$patientId]);
+    $ongoing = $pdo->prepare('
+      SELECT COUNT(*) FROM workshops w
+      ' . workshop_active_doctor_join('w') . '
+      WHERE ' . workshop_patient_list_sql('w') . '
+        AND NOT (w.type <> "OFFLINE" AND w.starts_at > NOW())
+    ');
+    $ongoing->execute();
+    $fresh = $pdo->prepare('
+      SELECT COUNT(*) FROM workshops w
+      ' . workshop_active_doctor_join('w') . '
+      WHERE ' . workshop_patient_list_sql('w') . '
+        AND w.type <> "OFFLINE" AND w.starts_at > NOW()
+    ');
+    $fresh->execute();
     return [
         'available' => (int) $available->fetchColumn(),
         'requested' => (int) $requested->fetchColumn(),
         'mine' => (int) $mine->fetchColumn(),
+        'ongoing' => (int) $ongoing->fetchColumn(),
+        'new' => (int) $fresh->fetchColumn(),
+    ];
+}
+
+/** تقسیم فهرست منتشرشده به «در حال برگزاری» و «جدید» (شروع‌نشده) */
+function patient_workshops_for_phase(array $grouped, string $phase): array
+{
+    $wantNew = $phase === 'new';
+    $out = ['in-person' => [], 'online' => [], 'offline' => [], 'archive' => []];
+    foreach (['in-person', 'online', 'offline', 'archive'] as $tab) {
+        foreach ($grouped[$tab] ?? [] as $workshop) {
+            if (!is_array($workshop)) {
+                continue;
+            }
+            $isNew = workshop_promo_phase($workshop) === 'upcoming';
+            if ($wantNew === $isNew) {
+                $out[$tab][] = $workshop;
+            }
+        }
+    }
+
+    return $out;
+}
+
+function patient_workshop_phase_tabs(string $phase): array
+{
+    $ongoing = $phase !== 'new';
+
+    return [
+        'in-person' => [
+            'label' => 'حضوری',
+            'class' => 'binder-tab-in-person',
+            'empty' => $ongoing ? 'کارگاه حضوری در حال برگزاری نیست.' : 'دوره حضوری جدیدی برای ثبت‌نام نیست.',
+        ],
+        'online' => [
+            'label' => 'آنلاین',
+            'class' => 'binder-tab-online',
+            'empty' => $ongoing ? 'کارگاه آنلاین در حال برگزاری نیست.' : 'دوره آنلاین جدیدی برای ثبت‌نام نیست.',
+        ],
+        'offline' => [
+            'label' => 'آفلاین',
+            'class' => 'binder-tab-offline',
+            'empty' => $ongoing ? 'دوره آفلاین در حال برگزاری نیست.' : 'دوره آفلاین جدیدی نیست.',
+        ],
     ];
 }
 
