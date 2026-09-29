@@ -3,12 +3,13 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/admin_panel.php';
 require_once __DIR__ . '/../includes/outreach.php';
-require_login(['ADMIN']);
+require_once __DIR__ . '/../includes/clinic_rooms.php';
+$user = require_login(['ADMIN', 'SECRETARY', 'DOCTOR']);
 csrf_verify();
 
-if (!sms_operator_allowed(current_user())) {
-    flash_set('error', 'این بخش فقط برای مدیر سایت است.');
-    redirect('/admin');
+if (!outreach_user_allowed($user)) {
+    flash_set('error', 'این بخش برای این حساب باز نیست.');
+    redirect(clinic_desk_home($user));
 }
 
 ensure_outreach_schema($pdo);

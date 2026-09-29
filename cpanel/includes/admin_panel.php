@@ -50,7 +50,7 @@ function admin_nav(): array {
     if (!function_exists('sms_operator_allowed') && is_file(__DIR__ . '/outreach.php')) {
         require_once __DIR__ . '/outreach.php';
     }
-    if ($user && function_exists('sms_operator_allowed') && sms_operator_allowed($user)) {
+    if ($user && function_exists('outreach_user_allowed') && outreach_user_allowed($user)) {
         $nav[] = ['href' => '/admin/outreach', 'label' => 'مراجعه‌کنندگان قدیمی'];
     }
     $nav = array_merge($nav, [

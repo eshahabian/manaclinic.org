@@ -7572,7 +7572,20 @@ html.is-native-app body:has([data-livekit-v2]:not([hidden])) .site-chrome-call {
   align-items: flex-start;
   padding-top: .65rem;
   border-top: 1px solid var(--line);
+  flex-wrap: wrap;
 }
+.room-day-item > div:last-child,
+.room-edit {
+  min-width: min(100%, 18rem);
+}
+.room-edit { flex: 1 1 18rem; }
+.room-edit > summary {
+  cursor: pointer;
+  list-style: none;
+  width: fit-content;
+}
+.room-edit > summary::-webkit-details-marker { display: none; }
+.room-edit > form { margin-top: .7rem; }
 .room-book {
   display: flex;
   flex-direction: column;

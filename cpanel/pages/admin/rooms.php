@@ -215,6 +215,104 @@ ob_start();
                   <div class="muted" style="font-size:.78rem">رزرو توسط <?= e((string) ($row['booked_by_name'] ?? '—')) ?> · <?= e(clinic_room_outcome_label($row)) ?></div>
                 </div>
                 <?php if ((strtotime((string) $row['ends_at']) ?: 0) >= time()): ?>
+                  <?php
+                    $editKind = (string) ($row['kind'] ?? '');
+                    $editPurpose = $editKind === 'WORKSHOP' ? 'workshop' : ($editKind === 'APPOINTMENT' ? 'therapy' : 'block');
+                    $editStart = date('H:i', strtotime((string) $row['starts_at']) ?: time());
+                    $editEnd = date('H:i', strtotime((string) $row['ends_at']) ?: time());
+                    $editId = 'room-edit-' . preg_replace('/[^a-zA-Z0-9_-]/', '', (string) $row['id']);
+                    $editPatientId = trim((string) ($row['patient_id'] ?? ''));
+                    if ($editPatientId === '') {
+                        $editPatientId = trim((string) ($row['appt_patient_id'] ?? ''));
+                    }
+                    $editDoctorId = trim((string) ($row['doctor_id'] ?? ''));
+                    if ($editDoctorId === '') {
+                        $editDoctorId = trim((string) ($row['appt_doctor_id'] ?? ''));
+                    }
+                  ?>
+                  <details class="room-edit">
+                    <summary class="btn btn-outline btn-sm">ویرایش</summary>
+                    <form class="room-book" method="post" action="<?= e(url('/admin/rooms')) ?>" data-room-book>
+                      <?= csrf_field() ?>
+                      <input type="hidden" name="action" value="update">
+                      <input type="hidden" name="booking_id" value="<?= e((string) $row['id']) ?>">
+                      <input type="hidden" name="day" value="<?= e($day) ?>">
+                      <label>
+                        <span class="label">اتاق</span>
+                        <select class="input" name="room_no">
+                          <?php foreach (clinic_rooms_numbers() as $editRoom): ?>
+                            <option value="<?= (int) $editRoom ?>" <?= (int) $row['room_no'] === $editRoom ? 'selected' : '' ?>><?= e(clinic_room_label($editRoom)) ?></option>
+                          <?php endforeach; ?>
+                        </select>
+                      </label>
+                      <div class="room-form-grid">
+                        <label>
+                          <span class="label">از ساعت</span>
+                          <input class="input" name="start_time" value="<?= e($editStart) ?>" data-clock list="room-clock-options" inputmode="numeric" autocomplete="off" required>
+                        </label>
+                        <label>
+                          <span class="label">تا ساعت</span>
+                          <input class="input" name="end_time" value="<?= e($editEnd) ?>" data-clock list="room-clock-options" inputmode="numeric" autocomplete="off" required>
+                        </label>
+                      </div>
+                      <label>
+                        <span class="label">نوع</span>
+                        <select class="input" name="purpose" data-purpose>
+                          <option value="therapy" <?= $editPurpose === 'therapy' ? 'selected' : '' ?>>تراپی</option>
+                          <option value="workshop" <?= $editPurpose === 'workshop' ? 'selected' : '' ?>>کارگاه</option>
+                          <option value="block" <?= $editPurpose === 'block' ? 'selected' : '' ?>>سایر</option>
+                        </select>
+                      </label>
+                      <div data-for="therapy" <?= $editPurpose === 'therapy' ? '' : 'hidden' ?>>
+                        <label>
+                          <span class="label">مراجعه‌کننده</span>
+                          <select class="input" name="patient_id" data-search id="<?= e($editId) ?>-patient">
+                            <option value="">انتخاب کنید</option>
+                            <?php foreach ($roomPatients as $patient): ?>
+                              <option value="<?= e((string) $patient['id']) ?>" <?= $editPatientId === (string) $patient['id'] ? 'selected' : '' ?>><?= e((string) $patient['name']) ?></option>
+                            <?php endforeach; ?>
+                          </select>
+                        </label>
+                        <label>
+                          <span class="label">درمانگر</span>
+                          <select class="input" name="doctor_id" data-search id="<?= e($editId) ?>-doctor">
+                            <option value="">انتخاب کنید</option>
+                            <?php foreach ($roomDoctors as $doctor): ?>
+                              <option value="<?= e((string) $doctor['id']) ?>" <?= $editDoctorId === (string) $doctor['id'] ? 'selected' : '' ?>><?= e((string) $doctor['name']) ?></option>
+                            <?php endforeach; ?>
+                          </select>
+                        </label>
+                      </div>
+                      <div data-for="workshop" <?= $editPurpose === 'workshop' ? '' : 'hidden' ?>>
+                        <label>
+                          <span class="label">کارگاه</span>
+                          <select class="input" name="workshop_session_id" data-search id="<?= e($editId) ?>-workshop">
+                            <option value="">انتخاب کنید</option>
+                            <?php foreach ($openWorkshops as $sess): ?>
+                              <option value="<?= e((string) $sess['id']) ?>" <?= (string) ($row['workshop_session_id'] ?? '') === (string) $sess['id'] ? 'selected' : '' ?>><?= e((string) $sess['workshop_title'] . ' · ' . (string) $sess['doctor_name']) ?></option>
+                            <?php endforeach; ?>
+                          </select>
+                        </label>
+                      </div>
+                      <div data-for="block" <?= $editPurpose === 'block' ? '' : 'hidden' ?>>
+                        <label>
+                          <span class="label">عنوان کار</span>
+                          <input class="input" name="block_title" maxlength="255" value="<?= e($editPurpose === 'block' ? (string) ($row['title'] ?? '') : '') ?>">
+                        </label>
+                      </div>
+                      <label>
+                        <span class="label">یادداشت</span>
+                        <input class="input" name="note" maxlength="255" value="<?= e((string) ($row['note'] ?? '')) ?>">
+                      </label>
+                      <?php if (trim((string) ($row['series_id'] ?? '')) !== ''): ?>
+                        <label class="room-repeat">
+                          <input type="checkbox" name="apply_series" value="1">
+                          <span>همین تغییر برای هفته‌های بعدی این تکرار</span>
+                        </label>
+                      <?php endif; ?>
+                      <button type="submit" class="btn btn-primary btn-sm">ذخیره ویرایش</button>
+                    </form>
+                  </details>
                   <form method="post" action="<?= e(url('/admin/rooms')) ?>">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="release">
@@ -451,4 +549,4 @@ ob_start();
 </script>
 <?php
 $GLOBALS['pageHead'] = '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">';
-render_admin_page('اتاق‌ها', ob_get_clean());
+clinic_desk_render_page('اتاق‌ها', ob_get_clean());

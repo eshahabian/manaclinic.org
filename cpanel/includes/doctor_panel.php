@@ -77,6 +77,15 @@ function doctor_nav(): array
         }
     }
 
+    if (!function_exists('clinic_rooms_user_allowed') && is_file(__DIR__ . '/clinic_rooms.php')) {
+        require_once __DIR__ . '/clinic_rooms.php';
+    }
+    $deskUser = current_user();
+    if ($deskUser && function_exists('clinic_rooms_user_allowed') && clinic_rooms_user_allowed($deskUser) && (string) ($deskUser['role'] ?? '') === 'DOCTOR') {
+        $nav[] = ['type' => 'link', 'href' => '/admin/rooms', 'label' => 'اتاق‌ها'];
+        $nav[] = ['type' => 'link', 'href' => '/admin/outreach', 'label' => 'مراجعه‌کنندگان قدیمی'];
+    }
+
     if (doctor_can_view_staff_hours() || doctor_can_message_secretaries()) {
         $nav[] = ['type' => 'group', 'label' => 'منشی‌ها'];
         if (doctor_can_message_secretaries()) {

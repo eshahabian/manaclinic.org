@@ -41,6 +41,15 @@ function sms_operator_usernames(): array
     return ['admin', 'eshahabian'];
 }
 
+function outreach_user_allowed(?array $user): bool
+{
+    if (!function_exists('clinic_rooms_user_allowed') && is_file(__DIR__ . '/clinic_rooms.php')) {
+        require_once __DIR__ . '/clinic_rooms.php';
+    }
+
+    return function_exists('clinic_rooms_user_allowed') && clinic_rooms_user_allowed($user);
+}
+
 function sms_operator_allowed(?array $user): bool
 {
     if (!$user) {

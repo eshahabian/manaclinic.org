@@ -18,6 +18,28 @@ try {
         flash_set('success', $action === 'release_series' ? 'این رزرو و هفته‌های بعدیِ تکرار آزاد شد.' : 'ساعت اتاق آزاد شد.');
         redirect('/admin/rooms?day=' . rawurlencode($day));
     }
+    if ($action === 'update') {
+        $saved = clinic_rooms_update(
+            $pdo,
+            post('booking_id'),
+            (int) post('room_no'),
+            post('purpose'),
+            post('start_time'),
+            post('end_time'),
+            post('patient_id'),
+            post('doctor_id'),
+            post('workshop_session_id'),
+            post('block_title'),
+            post('note'),
+            post('apply_series') === '1'
+        );
+        $count = (int) ($saved['count'] ?? 1);
+        $msg = $count > 1
+            ? 'ویرایش روی ' . to_fa_digits((string) $count) . ' هفتهٔ این تکرار ذخیره شد.'
+            : 'رزرو ویرایش شد.';
+        flash_set('success', $msg);
+        redirect('/admin/rooms?day=' . rawurlencode((string) $saved['day']) . '#room-' . (int) $saved['room']);
+    }
     if ($action === 'assign') {
         $repeatOn = post('repeat_weekly') === '1';
         $repeatWeeks = $repeatOn ? (int) post('repeat_weeks') : 1;

@@ -1,19 +1,64 @@
 <?php
 declare(strict_types=1);
 
-/** رزرو اتاق برای هر دو حساب مدیر: admin و eshahabian. */
+/** اتاق‌ها و مراجعه‌کنندگان قدیمی: ادمین‌ها، هر دو منشی، دکتر شیوا و دکتر عطیه گارسچی. */
 
 function clinic_rooms_user_allowed(?array $user): bool
 {
     if (!$user) {
         return false;
     }
-    if (function_exists('sms_operator_allowed')) {
-        return sms_operator_allowed($user);
+    $role = (string) ($user['role'] ?? '');
+    if ($role === 'ADMIN' || $role === 'SECRETARY') {
+        return true;
     }
-    $name = strtolower(trim((string) ($user['username'] ?? '')));
+    if ($role !== 'DOCTOR') {
+        return false;
+    }
+    if (!function_exists('doctor_has_shiva_access') && is_file(__DIR__ . '/doctor_profile_fields.php')) {
+        require_once __DIR__ . '/doctor_profile_fields.php';
+    }
 
-    return in_array($name, ['admin', 'eshahabian'], true);
+    return function_exists('doctor_has_shiva_access') && doctor_has_shiva_access($user);
+}
+
+function clinic_desk_home(?array $user): string
+{
+    $role = (string) ($user['role'] ?? '');
+    if ($role === 'SECRETARY') {
+        return '/secretary/messages';
+    }
+    if ($role === 'DOCTOR') {
+        return '/doctor/appointments';
+    }
+
+    return '/admin';
+}
+
+function clinic_desk_render_page(string $title, string $innerHtml): void
+{
+    $user = function_exists('current_user') ? current_user() : null;
+    $role = (string) ($user['role'] ?? '');
+    if ($role === 'SECRETARY') {
+        require_once __DIR__ . '/secretary_panel.php';
+        render_secretary_page($title, $innerHtml);
+
+        return;
+    }
+    if ($role === 'DOCTOR' && !(function_exists('is_admin_user') && is_admin_user($user))) {
+        require_once __DIR__ . '/doctor_panel.php';
+        global $pdo;
+        if (!isset($GLOBALS['doctor_ctx']) && $pdo instanceof PDO) {
+            require_doctor_profile($pdo);
+        }
+        render_doctor_page($title, $innerHtml);
+
+        return;
+    }
+    if (!function_exists('render_admin_page')) {
+        require_once __DIR__ . '/admin_panel.php';
+    }
+    render_admin_page($title, $innerHtml);
 }
 
 function clinic_rooms_numbers(): array
@@ -92,10 +137,10 @@ function clinic_rooms_parse_clock(string $raw): ?string
 
 function clinic_rooms_require_user(): array
 {
-    $user = require_login(['ADMIN']);
+    $user = require_login(['ADMIN', 'SECRETARY', 'DOCTOR']);
     if (!clinic_rooms_user_allowed($user)) {
-        flash_set('error', 'رزرو اتاق فعلاً فقط برای این حساب باز است.');
-        redirect('/admin');
+        flash_set('error', 'رزرو اتاق برای این حساب باز نیست.');
+        redirect(clinic_desk_home($user));
     }
 
     return $user;
@@ -239,6 +284,8 @@ function clinic_rooms_select_sql(): string
 {
     return "
       SELECT b.*,
+             a.patient_id AS appt_patient_id,
+             a.doctor_id AS appt_doctor_id,
              COALESCE(pu.name, rpu.name) AS patient_name,
              COALESCE(du.name, rdu.name) AS doctor_name,
              a.status AS appt_status,
@@ -641,6 +688,173 @@ function clinic_rooms_assign(
     }
 
     return ['day' => $day, 'room' => $room, 'weeks' => count($dates)];
+}
+
+function clinic_rooms_update(
+    PDO $pdo,
+    string $bookingId,
+    int $room,
+    string $purpose,
+    string $startRaw,
+    string $endRaw,
+    string $patientId,
+    string $doctorId,
+    string $workshopSessionId,
+    string $blockTitle,
+    string $note,
+    bool $applySeries
+): array {
+    clinic_rooms_ready($pdo);
+    if (!in_array($room, clinic_rooms_numbers(), true)) {
+        throw new RuntimeException('اتاق نامعتبر است.');
+    }
+    $stmt = $pdo->prepare('SELECT * FROM clinic_room_bookings WHERE id=? LIMIT 1');
+    $stmt->execute([$bookingId]);
+    $current = $stmt->fetch();
+    if (!$current) {
+        throw new RuntimeException('رزرو یافت نشد.');
+    }
+    if ((strtotime((string) $current['ends_at']) ?: 0) < time()) {
+        throw new RuntimeException('رزرو گذشته فقط در گزارش می‌ماند و ویرایش نمی‌شود.');
+    }
+
+    $note = mb_substr(trim($note), 0, 255);
+    $startClock = clinic_rooms_parse_clock($startRaw);
+    $endClock = clinic_rooms_parse_clock($endRaw);
+    if ($startClock === null || $endClock === null) {
+        throw new RuntimeException('ساعت شروع و پایان را بنویسید یا از فهرست انتخاب کنید. مثلاً ۸ یا ۱۴:۳۰.');
+    }
+    if (strtotime('2000-01-01 ' . $endClock) <= strtotime('2000-01-01 ' . $startClock)) {
+        throw new RuntimeException('ساعت پایان باید بعد از شروع باشد.');
+    }
+
+    $kind = 'BLOCK';
+    $sessionId = null;
+    $workshopId = null;
+    $title = null;
+    $patientId = trim($patientId);
+    $doctorId = trim($doctorId);
+    $purpose = trim($purpose);
+
+    if ($purpose === 'therapy') {
+        if ($patientId === '' || $doctorId === '') {
+            throw new RuntimeException('برای تراپی، مراجعه‌کننده و درمانگر را انتخاب کنید.');
+        }
+        $patientOk = $pdo->prepare("SELECT id FROM users WHERE id=? AND role='PATIENT' LIMIT 1");
+        $patientOk->execute([$patientId]);
+        if (!$patientOk->fetch()) {
+            throw new RuntimeException('مراجعه‌کننده یافت نشد.');
+        }
+        $doctorOk = $pdo->prepare('SELECT id FROM doctor_profiles WHERE id=? AND is_active=1 AND is_approved=1 LIMIT 1');
+        $doctorOk->execute([$doctorId]);
+        if (!$doctorOk->fetch()) {
+            throw new RuntimeException('درمانگر یافت نشد.');
+        }
+        $kind = 'APPOINTMENT';
+    } elseif ($purpose === 'workshop') {
+        if (!function_exists('ensure_workshop_sessions_schema')) {
+            require_once __DIR__ . '/workshop_sessions.php';
+        }
+        ensure_workshop_sessions_schema($pdo);
+        $sessionId = trim($workshopSessionId);
+        $sessStmt = $pdo->prepare("
+          SELECT ws.id, w.id AS workshop_id, w.title, w.type, w.status
+          FROM workshop_sessions ws
+          JOIN workshops w ON w.id = ws.workshop_id
+          WHERE ws.id = ?
+          LIMIT 1
+        ");
+        $sessStmt->execute([$sessionId]);
+        $sess = $sessStmt->fetch();
+        if (!$sess) {
+            throw new RuntimeException('کارگاه را انتخاب کنید.');
+        }
+        if ((string) ($sess['type'] ?? '') !== 'IN_PERSON' || (string) ($sess['status'] ?? '') === 'CANCELLED') {
+            throw new RuntimeException('این کارگاه برای اتاق حضوری قابل رزرو نیست.');
+        }
+        $kind = 'WORKSHOP';
+        $workshopId = (string) $sess['workshop_id'];
+        $title = (string) ($sess['title'] ?? '');
+        $patientId = '';
+        $doctorId = '';
+    } elseif ($purpose === 'block') {
+        $title = mb_substr(trim($blockTitle), 0, 255);
+        if ($title === '') {
+            throw new RuntimeException('برای سایر، عنوان کار را بنویسید.');
+        }
+        $patientId = '';
+        $doctorId = '';
+    } else {
+        throw new RuntimeException('نوع جلسه را انتخاب کنید: تراپی، کارگاه یا سایر.');
+    }
+
+    $targets = [[
+        'id' => (string) $current['id'],
+        'date' => substr((string) $current['starts_at'], 0, 10),
+    ]];
+    $seriesId = trim((string) ($current['series_id'] ?? ''));
+    if ($applySeries && $seriesId !== '') {
+        $later = $pdo->prepare("
+          SELECT id, starts_at
+          FROM clinic_room_bookings
+          WHERE series_id=? AND starts_at>=? AND ends_at>=NOW()
+          ORDER BY starts_at ASC
+        ");
+        $later->execute([$seriesId, (string) $current['starts_at']]);
+        $targets = [];
+        foreach ($later->fetchAll() as $row) {
+            $targets[] = [
+                'id' => (string) $row['id'],
+                'date' => substr((string) $row['starts_at'], 0, 10),
+            ];
+        }
+        if (!$targets) {
+            throw new RuntimeException('رزرو تکرارشونده‌ای برای ویرایش پیدا نشد.');
+        }
+    }
+
+    $patientStore = $patientId !== '' ? $patientId : null;
+    $doctorStore = $doctorId !== '' ? $doctorId : null;
+    $noteStore = $note !== '' ? $note : null;
+    $blocked = [];
+    foreach ($targets as $target) {
+        $slotStart = $target['date'] . ' ' . $startClock . ':00';
+        $slotEnd = $target['date'] . ' ' . $endClock . ':00';
+        $clash = clinic_rooms_find_clash($pdo, $room, $slotStart, $slotEnd, $target['id']);
+        if ($clash) {
+            $blocked[] = to_jalali_label($target['date']);
+        }
+    }
+    if ($blocked) {
+        throw new RuntimeException(clinic_room_label($room) . ' در این ساعت این روزها پر است: ' . implode('، ', $blocked));
+    }
+
+    $update = $pdo->prepare("
+      UPDATE clinic_room_bookings
+      SET room_no=?, kind=?, workshop_session_id=?, workshop_id=?, patient_id=?, doctor_id=?, starts_at=?, ends_at=?, title=?, note=?
+      WHERE id=?
+    ");
+    foreach ($targets as $target) {
+        $update->execute([
+            $room,
+            $kind,
+            $sessionId,
+            $workshopId,
+            $patientStore,
+            $doctorStore,
+            $target['date'] . ' ' . $startClock . ':00',
+            $target['date'] . ' ' . $endClock . ':00',
+            $title,
+            $noteStore,
+            $target['id'],
+        ]);
+    }
+
+    return [
+        'day' => substr((string) $current['starts_at'], 0, 10),
+        'room' => $room,
+        'count' => count($targets),
+    ];
 }
 
 function clinic_rooms_existing_id(PDO $pdo, ?string $appointmentId, ?string $sessionId): ?string

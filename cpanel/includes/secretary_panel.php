@@ -12,6 +12,8 @@ function secretary_nav(): array
             'badge_tone' => 'new',
         ],
         ['href' => '/secretary/appointments', 'label' => 'نوبت‌ها'],
+        ['href' => '/admin/rooms', 'label' => 'اتاق‌ها'],
+        ['href' => '/admin/outreach', 'label' => 'مراجعه‌کنندگان قدیمی'],
         ['href' => '/secretary/patients', 'label' => 'مراجعه‌کنندگان'],
         ['href' => '/secretary/profile', 'label' => 'پیام مدیر'],
         ['href' => '/secretary/board', 'label' => 'یادداشت مشترک'],
