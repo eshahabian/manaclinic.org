@@ -422,6 +422,7 @@ $pageScripts = '
       .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
       .then(function(res){
         if (!res.ok) { errEl.textContent = res.j.error || "رزرو ناموفق بود"; errEl.style.display="block"; return; }
+        if (res.j.awaitingApproval) { location.href = ' . json_encode(url('/dashboard/appointments?booked=1')) . '; return; }
         if (res.j.paymentUrl) { location.href = res.j.paymentUrl; return; }
         location.href = ' . json_encode(url('/dashboard/appointments?booked=1')) . ';
       })

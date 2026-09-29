@@ -31,6 +31,7 @@ $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/
       ?>
       <?php if ($appointmentItemMode === 'manage'): ?>
         <?php
+          $awaitingApproval = (string) ($a['status'] ?? '') === 'PENDING_APPROVAL';
           $canPayOnline = $appointmentOnlinePayEnabled
               && ($a['status'] ?? '') === 'PENDING_PAYMENT'
               && ($a['pay_status'] ?? '') === 'PENDING';
@@ -71,6 +72,8 @@ $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/
           <div class="patient-appt-row-footer">
             <?php if ($showMana): ?>
               <p class="muted patient-appt-mana-hint">تماس مانا از ۱۵ دقیقه قبل از شروع جلسه فعال می‌شود.</p>
+            <?php elseif ($awaitingApproval): ?>
+              <p class="muted patient-appt-mana-hint">درخواست شما ثبت شد. پس از تأیید منشی، پرداخت در همین صفحه باز می‌شود.</p>
             <?php elseif ($canUploadReceipt): ?>
               <p class="muted patient-appt-mana-hint">فیش را اینجا آپلود کنید یا برای منشی بفرستید؛ بعد از تأیید منشی نوبت ثبت می‌شود.</p>
             <?php endif; ?>

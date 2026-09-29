@@ -62,7 +62,7 @@ if (strtotime($startsAt) <= time()) {
 
 $conflict = $pdo->prepare("
   SELECT id FROM appointments
-  WHERE doctor_id=? AND starts_at=? AND status IN ('PENDING_PAYMENT','CONFIRMED','COMPLETED')
+  WHERE doctor_id=? AND starts_at=? AND status IN ('PENDING_APPROVAL','PENDING_PAYMENT','CONFIRMED','COMPLETED')
 ");
 $conflict->execute([$doctorId, $startsAt]);
 if ($conflict->fetch()) {
@@ -75,11 +75,12 @@ $appointmentId = cuid();
 $paymentId = cuid();
 $amount = (int) $doctor['session_price'];
 
+ensure_appointment_approval_status($pdo);
 $pdo->beginTransaction();
 try {
     ensure_appointment_session_schema($pdo);
     $pdo->prepare('INSERT INTO appointments (id,doctor_id,patient_id,starts_at,ends_at,status,notes,session_mode,created_by_user_id) VALUES (?,?,?,?,?,?,?,?,?)')
-        ->execute([$appointmentId, $doctorId, $user['id'], $startsAt, $endsAt, 'PENDING_PAYMENT', null, $sessionMode, (string) $user['id']]);
+        ->execute([$appointmentId, $doctorId, $user['id'], $startsAt, $endsAt, 'PENDING_APPROVAL', null, $sessionMode, (string) $user['id']]);
     $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,status) VALUES (?,?,?,?)')
         ->execute([$paymentId, $appointmentId, $amount, 'PENDING']);
     $pdo->commit();
@@ -89,36 +90,24 @@ try {
     notify_role(
         $pdo,
         'SECRETARY',
-        'رزرو نوبت جدید',
-        "مراجعه‌کننده «{$patientName}» نوبت رزرو کرد ({$when}) — در انتظار پرداخت.",
-        '/secretary/appointments',
+        'درخواست نوبت جدید',
+        "مراجعه‌کننده «{$patientName}» برای {$when} درخواست نوبت داد. تا تأیید نکنید نمی‌تواند پرداخت کند.",
+        '/secretary/appointments?tab=upcoming',
         'appointment'
     );
     notify_doctor_profile(
         $pdo,
         $doctorId,
-        'رزرو نوبت جدید',
-        "مراجعه‌کننده «{$patientName}» برای {$when} نوبت رزرو کرد (در انتظار پرداخت).",
+        'درخواست نوبت جدید',
+        "مراجعه‌کننده «{$patientName}» برای {$when} درخواست نوبت داد — در انتظار تأیید منشی.",
         '/doctor/appointments',
         'appointment'
     );
 
-    if (!online_payment_enabled($config)) {
-        echo json_encode([
-            'appointmentId' => $appointmentId,
-            'paymentDisabled' => true,
-            'message' => 'نوبت ثبت شد. فیش پرداخت را در «نوبت‌های من» آپلود کنید یا برای منشی بفرستید تا پس از تأیید ثبت شود.',
-        ], JSON_UNESCAPED_UNICODE);
-        exit;
-    }
-
-    $callback = rtrim($config['app_url'], '/') . '/payments/verify';
-    $pay = zarinpal_request($config, $amount, 'پرداخت نوبت مانا کلینیک - ' . $appointmentId, $callback, $user['email'] ?? null);
-    $pdo->prepare('UPDATE payments SET authority=? WHERE id=?')->execute([$pay['authority'], $paymentId]);
-
     echo json_encode([
         'appointmentId' => $appointmentId,
-        'paymentUrl' => $pay['paymentUrl'],
+        'awaitingApproval' => true,
+        'message' => 'درخواست نوبت ثبت شد. پس از تأیید منشی می‌توانید از بخش «نوبت‌های من» پرداخت کنید.',
     ], JSON_UNESCAPED_UNICODE);
 } catch (Throwable $e) {
     $pdo->rollBack();

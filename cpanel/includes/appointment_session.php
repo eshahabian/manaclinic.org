@@ -35,7 +35,30 @@ function ensure_appointment_session_schema(PDO $pdo): void
     } catch (Throwable $ignored) {
     }
 
+    ensure_appointment_approval_status($pdo);
     $ready = true;
+}
+
+/** وضعیت PENDING_APPROVAL را به enum نوبت اضافه می‌کند (رزرو سایت تا تأیید منشی). */
+function ensure_appointment_approval_status(PDO $pdo): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    try {
+        $col = $pdo->query("SHOW COLUMNS FROM appointments LIKE 'status'")->fetch(PDO::FETCH_ASSOC);
+        $type = strtoupper((string) ($col['Type'] ?? ''));
+        if ($type !== '' && !str_contains($type, 'PENDING_APPROVAL')) {
+            $pdo->exec("
+              ALTER TABLE appointments
+              MODIFY COLUMN status ENUM('PENDING_PAYMENT','CONFIRMED','CANCELLED','COMPLETED','PENDING_APPROVAL')
+              NOT NULL DEFAULT 'PENDING_PAYMENT'
+            ");
+        }
+        $ready = true;
+    } catch (Throwable $ignored) {
+    }
 }
 
 function appointment_normalize_session_mode(?string $mode): string

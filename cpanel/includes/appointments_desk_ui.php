@@ -131,7 +131,22 @@ ob_start();
           require __DIR__ . '/secretary_appointment_cards.php';
         ?>
       <?php else: ?>
-        <form method="get" action="<?= e($deskAction) ?>" class="sec-week-doctor-pick" style="display:flex;flex-wrap:wrap;gap:.55rem;align-items:end;margin:0 0 1rem">
+        <?php
+          $pendingApprovalList = array_values(array_filter(
+              $upcoming,
+              static fn (array $row): bool => (string) ($row['status'] ?? '') === 'PENDING_APPROVAL'
+          ));
+        ?>
+        <?php if ($pendingApprovalList): ?>
+          <h2 style="font-size:1.05rem;margin:0 0 .65rem">درخواست‌های سایت — منتظر تأیید شما</h2>
+          <p class="muted" style="margin:0 0 .85rem;font-size:.85rem">تا تأیید نکنید، مراجعه‌کننده نمی‌تواند پرداخت کند. ساعت این درخواست‌ها در جدول نارنجی است.</p>
+          <?php
+            $appointmentList = $pendingApprovalList;
+            $appointmentEmpty = '';
+            require __DIR__ . '/secretary_appointment_cards.php';
+          ?>
+        <?php endif; ?>
+        <form method="get" action="<?= e($deskAction) ?>" class="sec-week-doctor-pick" style="display:flex;flex-wrap:wrap;gap:.55rem;align-items:end;margin:1.25rem 0 1rem">
           <input type="hidden" name="tab" value="upcoming">
           <div style="flex:1;min-width:12rem">
             <label class="label" for="week_doctor_id">درمانگر (جدول هفت‌روزه)</label>
@@ -144,7 +159,7 @@ ob_start();
             </select>
           </div>
         </form>
-        <p class="muted" style="margin:0 0 .85rem;font-size:.85rem">هفت روز آینده · ساعت قرمز = رزرو شده (کلیک برای جزئیات) · ساعت آزاد = کلیک برای رزرو</p>
+        <p class="muted" style="margin:0 0 .85rem;font-size:.85rem">هفت روز آینده · ساعت نارنجی = درخواست سایت، اول تأیید کنید · ساعت قرمز = رزرو شده (کلیک برای جزئیات) · ساعت آزاد = کلیک برای رزرو</p>
         <?php if ($weekDoctorId === ''): ?>
           <p class="muted">درمانگری برای نمایش یافت نشد.</p>
         <?php else: ?>

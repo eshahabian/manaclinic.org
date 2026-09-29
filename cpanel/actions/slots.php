@@ -47,7 +47,7 @@ $nextDate = date('Y-m-d', strtotime($date . ' +1 day') ?: time());
 $takenStmt = $pdo->prepare("
   SELECT starts_at
   FROM appointments
-  WHERE doctor_id=? AND DATE(starts_at) IN (?, ?) AND status IN ('PENDING_PAYMENT','CONFIRMED','COMPLETED')
+  WHERE doctor_id=? AND DATE(starts_at) IN (?, ?) AND status IN ('PENDING_APPROVAL','PENDING_PAYMENT','CONFIRMED','COMPLETED')
 ");
 $takenStmt->execute([$doctorId, $date, $nextDate]);
 $taken = [];

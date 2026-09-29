@@ -43,6 +43,12 @@ if (!$row) {
     exit;
 }
 
+if ((string) ($row['status'] ?? '') === 'PENDING_APPROVAL') {
+    http_response_code(400);
+    echo json_encode(['error' => 'این نوبت هنوز توسط منشی تأیید نشده است.'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 if ($row['status'] !== 'PENDING_PAYMENT' || $row['pay_status'] !== 'PENDING') {
     http_response_code(400);
     echo json_encode(['error' => 'این نوبت قابل پرداخت نیست.'], JSON_UNESCAPED_UNICODE);

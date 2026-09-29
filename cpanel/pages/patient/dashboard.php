@@ -139,6 +139,6 @@ $GLOBALS['pageScripts'] = '
 <script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260904u"></script>
 <script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910s"></script>
 <script src="' . e(url('/assets/js/patient-courses.js')) . '?v=20260906w"></script>
-<script src="' . e(url('/assets/js/patient-book-slots.js')) . '?v=20260917a"></script>'
+<script src="' . e(url('/assets/js/patient-book-slots.js')) . '?v=20260929appr"></script>'
   . booking_terms_script('terms-accept-dash', '.dash-book-btn');
 render_patient_page('پنل مراجعه‌کننده', $dashContent);

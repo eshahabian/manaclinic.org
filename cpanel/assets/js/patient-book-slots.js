@@ -59,6 +59,13 @@
             showMsg(res.j.error || "رزرو ناموفق بود", false);
             return;
           }
+          if (res.j.awaitingApproval) {
+            showMsg(res.j.message || "درخواست نوبت ثبت شد و در انتظار تأیید منشی است.", true);
+            setTimeout(function () {
+              location.href = afterUrl || location.href;
+            }, 900);
+            return;
+          }
           if (res.j.paymentUrl) {
             location.href = res.j.paymentUrl;
             return;

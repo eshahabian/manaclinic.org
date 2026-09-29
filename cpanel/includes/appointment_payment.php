@@ -161,6 +161,186 @@ function staff_confirm_appointment_payment(
     ];
 }
 
+function appointment_awaiting_secretary_approval(array $row): bool
+{
+    return (string) ($row['status'] ?? '') === 'PENDING_APPROVAL';
+}
+
+/**
+ * منشی درخواست رزرو سایت را تأیید می‌کند تا مراجع بتواند پرداخت کند.
+ * پیامک تأیید وقتی پنل پیامک وصل شد از همین نقطه اضافه می‌شود.
+ * @return array{appointment_id:string,patient_name:string,starts_at:string}
+ */
+function staff_approve_appointment_booking(PDO $pdo, string $appointmentId, array $actor): array
+{
+    if (function_exists('ensure_appointment_approval_status')) {
+        ensure_appointment_approval_status($pdo);
+    }
+
+    $stmt = $pdo->prepare("
+      SELECT a.*, pu.name AS patient_name, pu.id AS patient_user_id
+      FROM appointments a
+      JOIN users pu ON pu.id = a.patient_id
+      WHERE a.id = ?
+      LIMIT 1
+    ");
+    $stmt->execute([$appointmentId]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        throw new RuntimeException('نوبت یافت نشد.');
+    }
+    if ((string) ($row['status'] ?? '') !== 'PENDING_APPROVAL') {
+        throw new RuntimeException('این درخواست دیگر در انتظار تأیید نیست.');
+    }
+
+    $updated = $pdo->prepare("UPDATE appointments SET status='PENDING_PAYMENT' WHERE id=? AND status='PENDING_APPROVAL'");
+    $updated->execute([$appointmentId]);
+    if ($updated->rowCount() < 1) {
+        throw new RuntimeException('تأیید درخواست انجام نشد.');
+    }
+
+    $patientName = (string) ($row['patient_name'] ?? 'مراجعه‌کننده');
+    $when = format_fa_datetime((string) ($row['starts_at'] ?? ''));
+    $staffUserId = (string) ($actor['id'] ?? '');
+    $actorLabel = function_exists('staff_actor_label') ? staff_actor_label($actor) : (string) ($actor['name'] ?? 'منشی');
+
+    if (function_exists('staff_log_action')) {
+        staff_log_action($pdo, $staffUserId, 'appointment_approve_booking', 'appointment', $appointmentId, $patientName);
+    }
+
+    notify_user(
+        $pdo,
+        (string) ($row['patient_user_id'] ?? ''),
+        'نوبت تأیید شد — آماده پرداخت',
+        "درخواست نوبت {$when} توسط منشی تأیید شد. از بخش «نوبت‌های من» پرداخت کنید.",
+        '/dashboard/appointments',
+        'appointment',
+        $staffUserId !== '' ? $staffUserId : null
+    );
+    notify_doctor_profile(
+        $pdo,
+        (string) $row['doctor_id'],
+        'درخواست نوبت تأیید شد',
+        "درخواست نوبت «{$patientName}» ({$when}) توسط {$actorLabel} تأیید شد و در انتظار پرداخت است.",
+        '/doctor/appointments?tab=upcoming',
+        'appointment'
+    );
+
+    return [
+        'appointment_id' => $appointmentId,
+        'patient_name' => $patientName,
+        'starts_at' => (string) ($row['starts_at'] ?? ''),
+    ];
+}
+
+/**
+ * منشی درخواست رزرو سایت را رد می‌کند و ساعت را آزاد می‌کند.
+ * @return array{appointment_id:string,patient_name:string,starts_at:string}
+ */
+function staff_reject_appointment_booking(PDO $pdo, string $appointmentId, array $actor, string $note = ''): array
+{
+    if (function_exists('ensure_appointment_approval_status')) {
+        ensure_appointment_approval_status($pdo);
+    }
+
+    $note = trim($note);
+    if ($note === '') {
+        $note = 'درخواست نوبت توسط منشی تأیید نشد.';
+    }
+
+    $stmt = $pdo->prepare("
+      SELECT a.*, pu.name AS patient_name, pu.id AS patient_user_id
+      FROM appointments a
+      JOIN users pu ON pu.id = a.patient_id
+      WHERE a.id = ?
+      LIMIT 1
+    ");
+    $stmt->execute([$appointmentId]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        throw new RuntimeException('نوبت یافت نشد.');
+    }
+    if ((string) ($row['status'] ?? '') !== 'PENDING_APPROVAL') {
+        throw new RuntimeException('این درخواست دیگر در انتظار تأیید نیست.');
+    }
+
+    $pdo->prepare("UPDATE payments SET status='FAILED' WHERE appointment_id=? AND status='PENDING'")
+        ->execute([$appointmentId]);
+    $updated = $pdo->prepare("
+      UPDATE appointments
+      SET status='CANCELLED',
+          cancel_reason='rejected',
+          cancellation_note=?,
+          cancelled_by_user_id=?,
+          cancelled_at=NOW()
+      WHERE id=? AND status='PENDING_APPROVAL'
+    ");
+    $updated->execute([$note, (string) ($actor['id'] ?? ''), $appointmentId]);
+    if ($updated->rowCount() < 1) {
+        throw new RuntimeException('رد درخواست انجام نشد.');
+    }
+
+    $patientName = (string) ($row['patient_name'] ?? 'مراجعه‌کننده');
+    $when = format_fa_datetime((string) ($row['starts_at'] ?? ''));
+    $staffUserId = (string) ($actor['id'] ?? '');
+    $actorLabel = function_exists('staff_actor_label') ? staff_actor_label($actor) : (string) ($actor['name'] ?? 'منشی');
+
+    if (function_exists('staff_log_action')) {
+        staff_log_action($pdo, $staffUserId, 'appointment_reject_booking', 'appointment', $appointmentId, $patientName);
+    }
+
+    notify_user(
+        $pdo,
+        (string) ($row['patient_user_id'] ?? ''),
+        'درخواست نوبت تأیید نشد',
+        "درخواست نوبت {$when} توسط منشی تأیید نشد. در صورت نیاز ساعت دیگری انتخاب کنید.",
+        '/dashboard/appointments',
+        'appointment',
+        $staffUserId !== '' ? $staffUserId : null
+    );
+    notify_doctor_profile(
+        $pdo,
+        (string) $row['doctor_id'],
+        'درخواست نوبت رد شد',
+        "درخواست نوبت «{$patientName}» ({$when}) توسط {$actorLabel} رد شد و ساعت آزاد گردید.",
+        '/doctor/appointments?tab=cancelled',
+        'appointment'
+    );
+
+    return [
+        'appointment_id' => $appointmentId,
+        'patient_name' => $patientName,
+        'starts_at' => (string) ($row['starts_at'] ?? ''),
+    ];
+}
+
+function appointment_approval_actions_html(array $row, string $next): string
+{
+    if (!appointment_awaiting_secretary_approval($row)) {
+        return '';
+    }
+    $id = (string) ($row['id'] ?? '');
+    ob_start();
+    ?>
+    <form method="post" action="<?= e(url('/secretary/appointments')) ?>" style="display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;margin:0">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="approve_booking">
+      <input type="hidden" name="appointment_id" value="<?= e($id) ?>">
+      <input type="hidden" name="next" value="<?= e($next) ?>">
+      <button type="submit" class="btn btn-primary btn-sm" onclick="return confirm('نوبت تأیید شود تا مراجعه‌کننده بتواند پرداخت کند؟');">تأیید و اجازه پرداخت</button>
+    </form>
+    <form method="post" action="<?= e(url('/secretary/appointments')) ?>" style="display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;margin:0">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="reject_booking">
+      <input type="hidden" name="appointment_id" value="<?= e($id) ?>">
+      <input type="hidden" name="next" value="<?= e($next) ?>">
+      <button type="submit" class="btn btn-outline btn-sm" onclick="return confirm('این درخواست رد شود و ساعت دوباره آزاد گردد؟');">رد درخواست</button>
+    </form>
+    <p class="muted" style="font-size:.75rem;margin:0;flex-basis:100%">تا تأیید نکنید، مراجعه‌کننده نمی‌تواند پرداخت کند.</p>
+    <?php
+    return (string) ob_get_clean();
+}
+
 function appointment_payment_awaiting_receipt_review(array $row): bool
 {
     return (string) ($row['status'] ?? '') === 'PENDING_PAYMENT'
@@ -176,6 +356,9 @@ function appointment_payment_can_upload_receipt(array $row): bool
 
 function appointment_pay_status_display(array $row): string
 {
+    if (appointment_awaiting_secretary_approval($row)) {
+        return 'منتظر تأیید منشی';
+    }
     if (appointment_payment_awaiting_receipt_review($row)) {
         return 'فیش ارسال شد — منتظر تأیید منشی';
     }

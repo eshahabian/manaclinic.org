@@ -34,6 +34,40 @@ if ($action === 'set_session_mode') {
     redirect($next);
 }
 
+if ($action === 'approve_booking') {
+    $appointmentId = trim((string) post('appointment_id'));
+    try {
+        $result = staff_approve_appointment_booking($pdo, $appointmentId, $user);
+        if (!str_contains($next, 'tab=')) {
+            $next .= (str_contains($next, '?') ? '&' : '?') . 'tab=upcoming';
+        }
+        flash_set('success', 'درخواست «' . (string) $result['patient_name'] . '» تأیید شد. حالا می‌تواند پرداخت کند.');
+    } catch (Throwable $e) {
+        flash_set('error', $e->getMessage());
+        if (!str_contains($next, 'tab=')) {
+            $next .= (str_contains($next, '?') ? '&' : '?') . 'tab=upcoming';
+        }
+    }
+    redirect($next);
+}
+
+if ($action === 'reject_booking') {
+    $appointmentId = trim((string) post('appointment_id'));
+    try {
+        $result = staff_reject_appointment_booking($pdo, $appointmentId, $user, (string) post('note'));
+        if (!str_contains($next, 'tab=')) {
+            $next .= (str_contains($next, '?') ? '&' : '?') . 'tab=upcoming';
+        }
+        flash_set('success', 'درخواست «' . (string) $result['patient_name'] . '» رد شد و ساعت آزاد گردید.');
+    } catch (Throwable $e) {
+        flash_set('error', $e->getMessage());
+        if (!str_contains($next, 'tab=')) {
+            $next .= (str_contains($next, '?') ? '&' : '?') . 'tab=upcoming';
+        }
+    }
+    redirect($next);
+}
+
 if ($action === 'confirm_payment') {
     $appointmentId = trim((string) post('appointment_id'));
     try {

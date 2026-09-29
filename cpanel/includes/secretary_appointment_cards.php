@@ -22,6 +22,7 @@ $deskNext = $appointmentsDeskNext ?? '/secretary/appointments';
       <?php
         $canConfirmPay = appointment_payment_can_upload_receipt($a);
         $hasReceipt = trim((string) ($a['receipt_path'] ?? '')) !== '';
+        $awaitingApproval = appointment_awaiting_secretary_approval($a);
       ?>
       <div class="panel appt-card">
         <div class="appt-card-top">
@@ -54,6 +55,9 @@ $deskNext = $appointmentsDeskNext ?? '/secretary/appointments';
           <button type="submit" class="btn btn-outline btn-sm">ذخیره</button>
         </form>
         <div class="appt-card-actions">
+          <?php if ($awaitingApproval): ?>
+            <?= appointment_approval_actions_html($a, $deskNext) ?>
+          <?php endif; ?>
           <?= staff_receipt_view_html($a['payment_id'] ?? null, $a['receipt_path'] ?? null, true, $deskNext) ?>
           <?php if ($canConfirmPay): ?>
             <form method="post" action="<?= e(url('/secretary/appointments')) ?>" enctype="multipart/form-data" class="appt-confirm-pay-form" style="display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;margin:0">

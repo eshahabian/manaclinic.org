@@ -15,7 +15,7 @@ $patients = $pdo->query("
   FROM users u
   LEFT JOIN users cu ON cu.id = u.created_by_user_id
   LEFT JOIN appointments a ON a.patient_id = u.id
-    AND a.status IN ('PENDING_PAYMENT','CONFIRMED','COMPLETED')
+    AND a.status IN ('PENDING_APPROVAL','PENDING_PAYMENT','CONFIRMED','COMPLETED')
   WHERE u.role = 'PATIENT'
   GROUP BY u.id, u.name, u.username, u.phone, cu.name, cu.username, cu.role
   ORDER BY u.name ASC

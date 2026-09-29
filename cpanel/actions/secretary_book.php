@@ -56,7 +56,7 @@ $endsAt = date('Y-m-d H:i:s', strtotime($startsAt) + (appointment_slot_minutes()
 
 $conflict = $pdo->prepare("
   SELECT id FROM appointments
-  WHERE doctor_id=? AND starts_at=? AND status IN ('PENDING_PAYMENT','CONFIRMED','COMPLETED')
+  WHERE doctor_id=? AND starts_at=? AND status IN ('PENDING_APPROVAL','PENDING_PAYMENT','CONFIRMED','COMPLETED')
 ");
 $conflict->execute([$doctorId, $startsAt]);
 if ($conflict->fetch()) {

@@ -22,7 +22,7 @@ function secretary_week_booked_map(PDO $pdo, string $doctorId, string $fromYmd, 
       JOIN users u ON u.id = a.patient_id
       LEFT JOIN payments p ON p.appointment_id = a.id
       WHERE a.doctor_id = ?
-        AND a.status IN ('PENDING_PAYMENT','CONFIRMED','COMPLETED')
+        AND a.status IN ('PENDING_APPROVAL','PENDING_PAYMENT','CONFIRMED','COMPLETED')
         AND DATE(a.starts_at) BETWEEN ? AND ?
     ");
     $stmt->execute([$doctorId, $fromYmd, $toYmd]);
@@ -149,6 +149,8 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                       $amount = isset($booking['amount']) ? format_price((int) $booking['amount']) : '';
                       $canConfirmPay = function_exists('appointment_payment_can_upload_receipt')
                           && appointment_payment_can_upload_receipt($booking);
+                      $awaitingApproval = function_exists('appointment_awaiting_secretary_approval')
+                          && appointment_awaiting_secretary_approval($booking);
                       $hasReceipt = trim((string) ($booking['receipt_path'] ?? '')) !== '';
                       $title = trim(
                           (string) ($booking['patient_name'] ?? '')
@@ -162,7 +164,7 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                       <div class="sec-week-hour-wrap">
                         <button
                           type="button"
-                          class="sec-week-hour is-booked"
+                          class="sec-week-hour is-booked<?= $awaitingApproval ? ' is-awaiting' : '' ?>"
                           data-booked="1"
                           data-patient="<?= e((string) ($booking['patient_name'] ?? '')) ?>"
                           data-phone="<?= e((string) ($booking['phone'] ?? '')) ?>"
@@ -175,6 +177,9 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                         ><?= e((string) ($slot['label'] ?? $time)) ?></button>
                         <template class="sec-week-slot-actions">
                           <div class="sec-week-shadow-tools">
+                            <?php if ($awaitingApproval && function_exists('appointment_approval_actions_html')): ?>
+                              <?= appointment_approval_actions_html($booking, $nextUpcoming) ?>
+                            <?php endif; ?>
                             <?= staff_receipt_view_html(
                                 isset($booking['payment_id']) ? (string) $booking['payment_id'] : null,
                                 $hasReceipt ? (string) $booking['receipt_path'] : null,

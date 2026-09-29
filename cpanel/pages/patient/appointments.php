@@ -41,11 +41,7 @@ ob_start();
   </div>
   <?php if ($booked): ?>
     <div class="panel" style="border-color:var(--success);color:var(--success);font-size:.9rem">
-      <?php if ($onlinePayEnabled): ?>
-        نوبت با موفقیت ثبت شد. برای تکمیل، روی «پرداخت آنلاین» کلیک کنید.
-      <?php else: ?>
-        نوبت با موفقیت ثبت شد. فیش پرداخت را آپلود کنید یا برای منشی بفرستید تا پس از تأیید، نوبت ثبت شود.
-      <?php endif; ?>
+      درخواست نوبت ثبت شد و در انتظار تأیید منشی است. پس از تأیید، پرداخت در همین صفحه باز می‌شود.
     </div>
   <?php endif; ?>
   <?php if ($flashSuccess): ?>

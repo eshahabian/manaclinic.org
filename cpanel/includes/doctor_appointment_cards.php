@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/user_cleanup.php';
 require_once __DIR__ . '/appointment_cancel.php';
+if (!function_exists('appointment_pay_status_display') && is_file(__DIR__ . '/appointment_payment.php')) {
+    require_once __DIR__ . '/appointment_payment.php';
+}
 if (!function_exists('appointment_session_mode_badge_html') && is_file(__DIR__ . '/appointment_session.php')) {
     require_once __DIR__ . '/appointment_session.php';
 }
@@ -70,7 +73,7 @@ if (!$appointmentList) {
         <div class="appt-card-meta">
           <span class="badge"><?= e(appointment_row_status_label($a)) ?></span>
           <?php if (!empty($a['amount'])): ?>
-            <div class="muted"><?= e(format_price((int) $a['amount'])) ?> — <?= e(payment_status_label((string) ($a['pay_status'] ?? ''))) ?></div>
+            <div class="muted"><?= e(format_price((int) $a['amount'])) ?> — <?= e(function_exists('appointment_pay_status_display') ? appointment_pay_status_display($a) : payment_status_label((string) ($a['pay_status'] ?? ''))) ?></div>
           <?php endif; ?>
         </div>
       </div>

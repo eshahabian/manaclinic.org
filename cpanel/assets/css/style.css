@@ -3401,6 +3401,15 @@ html[data-theme="dark"] .appt-search-bar {
   background: #be123c;
   box-shadow: 0 6px 18px rgba(190, 18, 60, .28);
 }
+.sec-week-hour.is-awaiting {
+  background: #d97706;
+  color: #fff;
+  border-color: #b45309;
+}
+.sec-week-hour.is-awaiting:hover {
+  background: #b45309;
+  box-shadow: 0 6px 18px rgba(180, 83, 9, .28);
+}
 .sec-week-shadow {
   position: fixed;
   inset: 0;

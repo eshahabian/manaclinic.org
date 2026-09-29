@@ -232,7 +232,7 @@ function doctor_availability_booked_map(PDO $pdo, string $doctorId): array
       FROM appointments a
       JOIN users u ON u.id = a.patient_id
       WHERE a.doctor_id = ?
-        AND a.status IN ('PENDING_PAYMENT','CONFIRMED','COMPLETED')
+        AND a.status IN ('PENDING_APPROVAL','PENDING_PAYMENT','CONFIRMED','COMPLETED')
     ");
     $stmt->execute([$doctorId]);
     $map = [];
@@ -844,7 +844,7 @@ function patient_open_slots_between(PDO $pdo, string $fromYmd, string $toYmd): a
       SELECT doctor_id, DATE(starts_at) AS d, DATE_FORMAT(starts_at, '%H:%i') AS t
       FROM appointments
       WHERE DATE(starts_at) BETWEEN ? AND ?
-        AND status IN ('PENDING_PAYMENT','CONFIRMED','COMPLETED')
+        AND status IN ('PENDING_APPROVAL','PENDING_PAYMENT','CONFIRMED','COMPLETED')
     ");
     $takenEnd = date('Y-m-d', strtotime($toYmd . ' +1 day') ?: time());
     $takenStmt->execute([$fromYmd, $takenEnd]);

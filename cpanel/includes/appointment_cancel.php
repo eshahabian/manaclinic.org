@@ -30,7 +30,7 @@ function appointment_refund_hint(string $startsAt): string
 
 function patient_can_cancel_appointment(string $status): bool
 {
-    return in_array($status, ['PENDING_PAYMENT', 'CONFIRMED'], true);
+    return in_array($status, ['PENDING_APPROVAL', 'PENDING_PAYMENT', 'CONFIRMED'], true);
 }
 
 function cancel_patient_appointment(PDO $pdo, string $appointmentId, string $patientId): array
@@ -70,7 +70,7 @@ function cancel_patient_appointment(PDO $pdo, string $appointmentId, string $pat
         }
     }
 
-    if ($row['status'] === 'PENDING_PAYMENT' && !empty($row['payment_id'])) {
+    if (in_array((string) $row['status'], ['PENDING_APPROVAL', 'PENDING_PAYMENT'], true) && !empty($row['payment_id'])) {
         $pdo->prepare("UPDATE payments SET status='FAILED' WHERE id=? AND status='PENDING'")
             ->execute([$row['payment_id']]);
     }
@@ -121,7 +121,7 @@ function secretary_mark_patient_cancelled(PDO $pdo, string $appointmentId, array
         throw new RuntimeException('این نوبت قابل ثبت کنسلی نیست.');
     }
 
-    if ((string) ($row['status'] ?? '') === 'PENDING_PAYMENT') {
+    if (in_array((string) ($row['status'] ?? ''), ['PENDING_APPROVAL', 'PENDING_PAYMENT'], true)) {
         $pdo->prepare("UPDATE payments SET status='FAILED' WHERE appointment_id=? AND status='PENDING'")
             ->execute([$appointmentId]);
     }
@@ -173,9 +173,12 @@ function appointment_notes_html(array $row): string
     $status = (string) ($row['status'] ?? '');
     $html = '';
     if ($cancel !== '') {
-        $html .= '<div class="appt-note appt-note-cancel"><strong>کنسلی مراجع:</strong> ' . e($cancel) . '</div>';
+        $cancelTitle = $reason === 'rejected' ? 'رد درخواست:' : 'کنسلی مراجع:';
+        $html .= '<div class="appt-note appt-note-cancel"><strong>' . e($cancelTitle) . '</strong> ' . e($cancel) . '</div>';
     } elseif ($status === 'CANCELLED' && $reason === 'patient') {
         $html .= '<div class="appt-note appt-note-cancel">مراجعه‌کننده کنسل کرد.</div>';
+    } elseif ($status === 'CANCELLED' && $reason === 'rejected') {
+        $html .= '<div class="appt-note appt-note-cancel">درخواست توسط منشی رد شد.</div>';
     }
     if ($booking !== '') {
         $html .= '<div class="appt-note"><strong>یادداشت نوبت:</strong> ' . e($booking) . '</div>';

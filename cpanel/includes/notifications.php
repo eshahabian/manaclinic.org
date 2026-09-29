@@ -407,7 +407,7 @@ function secretary_recent_shared_appointments(PDO $pdo, int $limit = 30): array
       JOIN doctor_profiles dp ON dp.id = a.doctor_id
       JOIN users du ON du.id = dp.user_id
       LEFT JOIN users cu ON cu.id = a.created_by_user_id
-      WHERE a.status IN ('PENDING_PAYMENT','CONFIRMED','COMPLETED')
+      WHERE a.status IN ('PENDING_APPROVAL','PENDING_PAYMENT','CONFIRMED','COMPLETED')
       ORDER BY a.starts_at DESC, a.created_at DESC
       LIMIT {$limit}
     ");
