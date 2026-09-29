@@ -48,7 +48,42 @@ function ensure_clinic_rooms_schema(PDO $pdo): void
         INDEX idx_room_wsess (workshop_session_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
+    foreach ([
+        'patient_id' => 'patient_id VARCHAR(32) NULL AFTER workshop_id',
+        'doctor_id' => 'doctor_id VARCHAR(32) NULL AFTER patient_id',
+    ] as $column => $ddl) {
+        try {
+            $has = $pdo->query('SHOW COLUMNS FROM clinic_room_bookings LIKE ' . $pdo->quote($column))->fetch();
+            if (!$has) {
+                $pdo->exec('ALTER TABLE clinic_room_bookings ADD COLUMN ' . $ddl);
+            }
+        } catch (Throwable $ignored) {
+        }
+    }
     $ready = true;
+}
+
+/** «8» یا «۰۸:۳۰» یا «14:00» را به HH:MM تبدیل می‌کند. */
+function clinic_rooms_parse_clock(string $raw): ?string
+{
+    $map = ['۰' => '0', '۱' => '1', '۲' => '2', '۳' => '3', '۴' => '4', '۵' => '5', '۶' => '6', '۷' => '7', '۸' => '8', '۹' => '9', '٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4', '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9'];
+    $raw = strtr(trim($raw), $map);
+    $raw = str_replace(['٫', '.', ' '], [':', ':', ''], $raw);
+    if (preg_match('/^(\d{1,2})$/', $raw, $m)) {
+        $hour = (int) $m[1];
+        if ($hour >= 0 && $hour <= 23) {
+            return sprintf('%02d:00', $hour);
+        }
+    }
+    if (preg_match('/^(\d{1,2}):(\d{2})$/', $raw, $m)) {
+        $hour = (int) $m[1];
+        $minute = (int) $m[2];
+        if ($hour >= 0 && $hour <= 23 && $minute >= 0 && $minute <= 59) {
+            return sprintf('%02d:%02d', $hour, $minute);
+        }
+    }
+
+    return null;
 }
 
 function clinic_rooms_require_user(): array
@@ -141,8 +176,8 @@ function clinic_rooms_select_sql(): string
 {
     return "
       SELECT b.*,
-             pu.name AS patient_name,
-             du.name AS doctor_name,
+             COALESCE(pu.name, rpu.name) AS patient_name,
+             COALESCE(du.name, rdu.name) AS doctor_name,
              a.status AS appt_status,
              a.session_mode,
              ws.title AS session_title,
@@ -158,6 +193,9 @@ function clinic_rooms_select_sql(): string
       LEFT JOIN users pu ON pu.id = a.patient_id
       LEFT JOIN doctor_profiles dp ON dp.id = a.doctor_id
       LEFT JOIN users du ON du.id = dp.user_id
+      LEFT JOIN users rpu ON rpu.id = b.patient_id
+      LEFT JOIN doctor_profiles rdp ON rdp.id = b.doctor_id
+      LEFT JOIN users rdu ON rdu.id = rdp.user_id
       LEFT JOIN workshop_sessions ws ON ws.id = b.workshop_session_id
       LEFT JOIN workshops w ON w.id = COALESCE(b.workshop_id, ws.workshop_id)
       LEFT JOIN doctor_profiles wdp ON wdp.id = w.doctor_id
@@ -173,8 +211,9 @@ function clinic_room_purpose(array $row): string
         $doctor = trim((string) ($row['doctor_name'] ?? ''));
         $patient = trim((string) ($row['patient_name'] ?? ''));
         $who = $doctor !== '' && $patient !== '' ? $doctor . ' با ' . $patient : ($patient !== '' ? $patient : $doctor);
+        $prefix = trim((string) ($row['appointment_id'] ?? '')) === '' ? 'تراپی' : 'نوبت';
 
-        return 'نوبت' . ($who !== '' ? ' · ' . $who : '');
+        return $prefix . ($who !== '' ? ' · ' . $who : '');
     }
     if ($kind === 'WORKSHOP') {
         $title = trim((string) ($row['workshop_title'] ?? $row['title'] ?? ''));
@@ -196,7 +235,12 @@ function clinic_room_was_held(array $row, ?int $now = null): bool
     }
     $kind = (string) ($row['kind'] ?? '');
     if ($kind === 'APPOINTMENT') {
-        return in_array((string) ($row['appt_status'] ?? ''), ['CONFIRMED', 'COMPLETED'], true);
+        $status = (string) ($row['appt_status'] ?? '');
+        if ($status === '') {
+            return true;
+        }
+
+        return in_array($status, ['CONFIRMED', 'COMPLETED'], true);
     }
     if ($kind === 'WORKSHOP') {
         return (string) ($row['workshop_status'] ?? '') !== 'CANCELLED';
@@ -373,8 +417,20 @@ function clinic_rooms_workshop_span(string $sessionDate, string $workshopStart, 
     return [date('Y-m-d H:i:s', $startTs), date('Y-m-d H:i:s', $endTs)];
 }
 
-function clinic_rooms_assign(PDO $pdo, array $actor, int $room, string $target, string $day, string $blockTitle, string $blockStart, string $blockEnd, string $note): array
-{
+function clinic_rooms_assign(
+    PDO $pdo,
+    array $actor,
+    int $room,
+    string $day,
+    string $purpose,
+    string $startRaw,
+    string $endRaw,
+    string $patientId,
+    string $doctorId,
+    string $workshopSessionId,
+    string $blockTitle,
+    string $note
+): array {
     clinic_rooms_ready($pdo);
     if (!in_array($room, clinic_rooms_numbers(), true)) {
         throw new RuntimeException('اتاق نامعتبر است.');
@@ -385,63 +441,50 @@ function clinic_rooms_assign(PDO $pdo, array $actor, int $room, string $target, 
         throw new RuntimeException('حساب شما برای رزرو شناخته نشد.');
     }
 
+    $startClock = clinic_rooms_parse_clock($startRaw);
+    $endClock = clinic_rooms_parse_clock($endRaw);
+    if ($startClock === null || $endClock === null) {
+        throw new RuntimeException('ساعت شروع و پایان را بنویسید یا از فهرست انتخاب کنید. مثلاً ۸ یا ۱۴:۳۰.');
+    }
+    $day = clinic_rooms_parse_day($day);
+    $startsAt = $day . ' ' . $startClock . ':00';
+    $endsAt = $day . ' ' . $endClock . ':00';
+    if (strtotime($endsAt) <= strtotime($startsAt)) {
+        throw new RuntimeException('ساعت پایان باید بعد از شروع باشد.');
+    }
+
     $kind = 'BLOCK';
     $appointmentId = null;
     $sessionId = null;
     $workshopId = null;
     $title = null;
-    $startsAt = '';
-    $endsAt = '';
+    $patientId = trim($patientId);
+    $doctorId = trim($doctorId);
+    $purpose = trim($purpose);
 
-    if ($target === 'block') {
-        $title = mb_substr(trim($blockTitle), 0, 255);
-        if ($title === '') {
-            throw new RuntimeException('برای رزرو سایر، عنوان را بنویسید.');
+    if ($purpose === 'therapy') {
+        if ($patientId === '' || $doctorId === '') {
+            throw new RuntimeException('برای تراپی، مراجعه‌کننده و درمانگر را انتخاب کنید.');
         }
-        if (preg_match('/^(\d{2}:\d{2})/', $blockStart, $startMatch)) {
-            $blockStart = $startMatch[1];
+        $patientOk = $pdo->prepare("SELECT id FROM users WHERE id=? AND role='PATIENT' LIMIT 1");
+        $patientOk->execute([$patientId]);
+        if (!$patientOk->fetch()) {
+            throw new RuntimeException('مراجعه‌کننده یافت نشد.');
         }
-        if (preg_match('/^(\d{2}:\d{2})/', $blockEnd, $endMatch)) {
-            $blockEnd = $endMatch[1];
-        }
-        if (!preg_match('/^\d{2}:\d{2}$/', $blockStart) || !preg_match('/^\d{2}:\d{2}$/', $blockEnd)) {
-            throw new RuntimeException('ساعت شروع و پایان را انتخاب کنید.');
-        }
-        $startsAt = clinic_rooms_parse_day($day) . ' ' . $blockStart . ':00';
-        $endsAt = clinic_rooms_parse_day($day) . ' ' . $blockEnd . ':00';
-        if (strtotime($endsAt) <= strtotime($startsAt)) {
-            throw new RuntimeException('ساعت پایان باید بعد از شروع باشد.');
-        }
-    } elseif (str_starts_with($target, 'a:')) {
-        $appointmentId = substr($target, 2);
-        $stmt = $pdo->prepare("
-          SELECT a.id, a.starts_at, a.ends_at, a.status, a.session_mode
-          FROM appointments a
-          WHERE a.id = ?
-          LIMIT 1
-        ");
-        $stmt->execute([$appointmentId]);
-        $appt = $stmt->fetch();
-        if (!$appt) {
-            throw new RuntimeException('نوبت یافت نشد.');
-        }
-        if ((string) ($appt['session_mode'] ?? '') !== 'IN_PERSON') {
-            throw new RuntimeException('فقط نوبت حضوری اتاق می‌خواهد.');
-        }
-        if (!in_array((string) $appt['status'], ['PENDING_APPROVAL', 'PENDING_PAYMENT', 'CONFIRMED'], true)) {
-            throw new RuntimeException('این نوبت دیگر قابل رزرو اتاق نیست.');
+        $doctorOk = $pdo->prepare('SELECT id FROM doctor_profiles WHERE id=? AND is_active=1 AND is_approved=1 LIMIT 1');
+        $doctorOk->execute([$doctorId]);
+        if (!$doctorOk->fetch()) {
+            throw new RuntimeException('درمانگر یافت نشد.');
         }
         $kind = 'APPOINTMENT';
-        $startsAt = (string) $appt['starts_at'];
-        $endsAt = (string) $appt['ends_at'];
-    } elseif (str_starts_with($target, 'w:')) {
-        $sessionId = substr($target, 2);
+    } elseif ($purpose === 'workshop') {
         if (!function_exists('ensure_workshop_sessions_schema')) {
             require_once __DIR__ . '/workshop_sessions.php';
         }
         ensure_workshop_sessions_schema($pdo);
+        $sessionId = trim($workshopSessionId);
         $stmt = $pdo->prepare("
-          SELECT ws.id, ws.session_date, w.id AS workshop_id, w.title, w.type, w.status, w.starts_at, w.ends_at
+          SELECT ws.id, w.id AS workshop_id, w.title, w.type, w.status
           FROM workshop_sessions ws
           JOIN workshops w ON w.id = ws.workshop_id
           WHERE ws.id = ?
@@ -450,7 +493,7 @@ function clinic_rooms_assign(PDO $pdo, array $actor, int $room, string $target, 
         $stmt->execute([$sessionId]);
         $sess = $stmt->fetch();
         if (!$sess) {
-            throw new RuntimeException('جلسه کارگاه یافت نشد.');
+            throw new RuntimeException('کارگاه را انتخاب کنید.');
         }
         if ((string) ($sess['type'] ?? '') !== 'IN_PERSON' || (string) ($sess['status'] ?? '') === 'CANCELLED') {
             throw new RuntimeException('این کارگاه برای اتاق حضوری قابل رزرو نیست.');
@@ -458,28 +501,40 @@ function clinic_rooms_assign(PDO $pdo, array $actor, int $room, string $target, 
         $kind = 'WORKSHOP';
         $workshopId = (string) $sess['workshop_id'];
         $title = (string) ($sess['title'] ?? '');
-        [$startsAt, $endsAt] = clinic_rooms_workshop_span((string) $sess['session_date'], (string) $sess['starts_at'], (string) $sess['ends_at']);
+        $patientId = '';
+        $doctorId = '';
+    } elseif ($purpose === 'block') {
+        $title = mb_substr(trim($blockTitle), 0, 255);
+        if ($title === '') {
+            throw new RuntimeException('برای سایر، عنوان کار را بنویسید.');
+        }
+        $patientId = '';
+        $doctorId = '';
     } else {
-        throw new RuntimeException('جلسه را انتخاب کنید.');
+        throw new RuntimeException('نوع جلسه را انتخاب کنید: تراپی، کارگاه یا سایر.');
     }
 
-    $existingId = clinic_rooms_existing_id($pdo, $appointmentId, $sessionId);
+    $existingId = $kind === 'WORKSHOP' ? clinic_rooms_existing_id($pdo, null, $sessionId) : null;
     $clash = clinic_rooms_find_clash($pdo, $room, $startsAt, $endsAt, $existingId);
     if ($clash) {
         throw new RuntimeException(clinic_room_label($room) . ' در این ساعت پر است: ' . clinic_room_purpose($clash));
     }
 
+    $patientStore = $patientId !== '' ? $patientId : null;
+    $doctorStore = $doctorId !== '' ? $doctorId : null;
+    $noteStore = $note !== '' ? $note : null;
+
     if ($existingId !== null) {
         $pdo->prepare("
           UPDATE clinic_room_bookings
-          SET room_no=?, kind=?, starts_at=?, ends_at=?, title=?, note=?, booked_by_user_id=?, workshop_id=?
+          SET room_no=?, kind=?, starts_at=?, ends_at=?, title=?, note=?, booked_by_user_id=?, workshop_id=?, patient_id=?, doctor_id=?
           WHERE id=?
-        ")->execute([$room, $kind, $startsAt, $endsAt, $title, $note !== '' ? $note : null, $actorId, $workshopId, $existingId]);
+        ")->execute([$room, $kind, $startsAt, $endsAt, $title, $noteStore, $actorId, $workshopId, $patientStore, $doctorStore, $existingId]);
     } else {
         $pdo->prepare("
           INSERT INTO clinic_room_bookings
-            (id, room_no, kind, appointment_id, workshop_session_id, workshop_id, starts_at, ends_at, title, note, booked_by_user_id)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?)
+            (id, room_no, kind, appointment_id, workshop_session_id, workshop_id, patient_id, doctor_id, starts_at, ends_at, title, note, booked_by_user_id)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
         ")->execute([
             cuid(),
             $room,
@@ -487,10 +542,12 @@ function clinic_rooms_assign(PDO $pdo, array $actor, int $room, string $target, 
             $appointmentId,
             $sessionId,
             $workshopId,
+            $patientStore,
+            $doctorStore,
             $startsAt,
             $endsAt,
             $title,
-            $note !== '' ? $note : null,
+            $noteStore,
             $actorId,
         ]);
     }

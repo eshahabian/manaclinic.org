@@ -21,11 +21,14 @@ try {
             $pdo,
             $user,
             (int) post('room_no'),
-            post('target'),
             $day,
+            post('purpose'),
+            post('start_time'),
+            post('end_time'),
+            post('patient_id'),
+            post('doctor_id'),
+            post('workshop_session_id'),
             post('block_title'),
-            post('block_start'),
-            post('block_end'),
             post('note')
         );
         flash_set('success', clinic_room_label((int) $saved['room']) . ' برای این جلسه رزرو شد.');

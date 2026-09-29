@@ -7468,6 +7468,12 @@ html.is-native-app body:has([data-livekit-v2]:not([hidden])) .site-chrome-call {
   padding-top: .65rem;
   border-top: 1px solid var(--line);
 }
+.room-book {
+  display: flex;
+  flex-direction: column;
+  gap: .65rem;
+}
+.room-book .label { display: block; margin-bottom: .25rem; }
 .room-form-grid {
   display: grid;
   gap: .75rem;

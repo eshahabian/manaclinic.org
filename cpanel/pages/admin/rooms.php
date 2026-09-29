@@ -21,10 +21,23 @@ foreach ($dayBookings as $row) {
         $byRoom[$roomNo][] = $row;
     }
 }
-$hours = clinic_rooms_hour_range($dayBookings);
 $assignments = clinic_rooms_active_assignments($pdo);
-$openAppointments = clinic_rooms_open_appointments($pdo);
 $openWorkshops = clinic_rooms_open_workshop_sessions($pdo);
+$roomPatients = $pdo->query("SELECT id, name, phone FROM users WHERE role='PATIENT' ORDER BY name ASC")->fetchAll();
+$roomDoctors = $pdo->query("
+  SELECT dp.id, u.name, dp.specialty
+  FROM doctor_profiles dp
+  JOIN users u ON u.id = dp.user_id
+  WHERE dp.is_active = 1 AND dp.is_approved = 1
+  ORDER BY u.name ASC
+")->fetchAll();
+$clockChoices = [];
+for ($h = 6; $h <= 22; $h++) {
+    $clockChoices[] = sprintf('%02d:00', $h);
+    if ($h < 22) {
+        $clockChoices[] = sprintf('%02d:30', $h);
+    }
+}
 $past = clinic_rooms_past($pdo);
 
 $pastByRoom = [];
@@ -76,7 +89,7 @@ ob_start();
 <div class="stack room-desk">
   <div>
     <h1>اتاق‌های کلینیک</h1>
-    <p class="muted" style="margin:.35rem 0 0">اتاق ۱، ۲ و ۳. هر نوبت حضوری یا جلسه کارگاه یک اتاق می‌گیرد. ساعت‌های پر و خالی همین روز را ببینید.</p>
+    <p class="muted" style="margin:.35rem 0 0">روی هر اتاق ساعت را بنویسید یا از فهرست انتخاب کنید. بعد نوع جلسه را مشخص کنید و برای همان شخص یا کارگاه رزرو کنید. ساعت از قبل پر نمی‌شود.</p>
   </div>
 
   <div class="room-daybar">
@@ -94,36 +107,90 @@ ob_start();
     <?php endforeach; ?>
   </div>
 
+  <datalist id="room-clock-options">
+    <?php foreach ($clockChoices as $clock): ?>
+      <option value="<?= e($clock) ?>"></option>
+    <?php endforeach; ?>
+  </datalist>
+
   <div class="grid-3 room-grid">
     <?php foreach (clinic_rooms_numbers() as $roomNo): ?>
-      <?php
-        $rows = $byRoom[$roomNo];
-        $seen = [];
-      ?>
+      <?php $rows = $byRoom[$roomNo]; ?>
       <section class="panel room-col room-col-<?= (int) $roomNo ?>" id="room-<?= (int) $roomNo ?>">
         <h2><?= e(clinic_room_label($roomNo)) ?></h2>
-        <p class="muted" style="margin:0 0 .75rem;font-size:.85rem"><?= e(to_fa_digits((string) count($rows))) ?> رزرو در این روز</p>
-        <div class="room-hours">
-          <?php foreach ($hours as $hour): ?>
-            <?php
-              $hit = clinic_rooms_booking_at_hour($rows, $day, $hour);
-              $hid = $hit ? (string) ($hit['id'] ?? '') : '';
-              $continued = $hid !== '' && isset($seen[$hid]);
-              if ($hid !== '') {
-                  $seen[$hid] = true;
-              }
-              $clock = to_fa_digits(sprintf('%02d:00', $hour));
-            ?>
-            <div class="room-hour<?= $hit ? ' is-busy' : ' is-free' ?>">
-              <span class="room-hour-time"><?= e($clock) ?></span>
-              <?php if ($hit): ?>
-                <span class="room-hour-use"><?= e($continued ? 'ادامه · ' . clinic_room_purpose($hit) : clinic_room_purpose($hit)) ?></span>
-              <?php else: ?>
-                <span class="room-hour-use muted">آزاد</span>
-              <?php endif; ?>
-            </div>
-          <?php endforeach; ?>
-        </div>
+        <p class="muted" style="margin:0 0 .75rem;font-size:.85rem"><?= $rows ? e(to_fa_digits((string) count($rows))) . ' رزرو در این روز' : 'در این روز هنوز رزروی نیست' ?></p>
+
+        <form class="room-book" method="post" action="<?= e(url('/admin/rooms')) ?>" data-room-book>
+          <?= csrf_field() ?>
+          <input type="hidden" name="action" value="assign">
+          <input type="hidden" name="day" value="<?= e($day) ?>">
+          <input type="hidden" name="room_no" value="<?= (int) $roomNo ?>">
+          <label>
+            <span class="label">از ساعت</span>
+            <input class="input" name="start_time" data-clock list="room-clock-options" inputmode="numeric" autocomplete="off" placeholder="بنویسید یا انتخاب کنید" required>
+          </label>
+          <label>
+            <span class="label">تا ساعت</span>
+            <input class="input" name="end_time" data-clock list="room-clock-options" inputmode="numeric" autocomplete="off" placeholder="بنویسید یا انتخاب کنید" required>
+          </label>
+          <label>
+            <span class="label">این ساعت برای چیست؟</span>
+            <select class="input" name="purpose" data-purpose required>
+              <option value="">انتخاب کنید</option>
+              <option value="therapy">تراپی</option>
+              <option value="workshop">کارگاه</option>
+              <option value="block">سایر</option>
+            </select>
+          </label>
+          <div data-for="therapy" hidden>
+            <label>
+              <span class="label">مراجعه‌کننده</span>
+              <select class="input" name="patient_id" data-search id="room-<?= (int) $roomNo ?>-patient">
+                <option value="">جستجو یا انتخاب مراجعه‌کننده</option>
+                <?php foreach ($roomPatients as $person): ?>
+                  <option value="<?= e((string) $person['id']) ?>" data-search="<?= e((string) $person['name'] . ' ' . (string) ($person['phone'] ?? '')) ?>"><?= e((string) $person['name']) ?><?= !empty($person['phone']) ? ' — ' . e((string) $person['phone']) : '' ?></option>
+                <?php endforeach; ?>
+              </select>
+            </label>
+            <label>
+              <span class="label">درمانگر</span>
+              <select class="input" name="doctor_id" data-search id="room-<?= (int) $roomNo ?>-doctor">
+                <option value="">جستجو یا انتخاب درمانگر</option>
+                <?php foreach ($roomDoctors as $doctor): ?>
+                  <option value="<?= e((string) $doctor['id']) ?>"><?= e((string) $doctor['name']) ?><?= !empty($doctor['specialty']) ? ' — ' . e((string) $doctor['specialty']) : '' ?></option>
+                <?php endforeach; ?>
+              </select>
+            </label>
+          </div>
+          <div data-for="workshop" hidden>
+            <label>
+              <span class="label">کارگاه</span>
+              <select class="input" name="workshop_session_id" data-search id="room-<?= (int) $roomNo ?>-workshop">
+                <option value="">جستجو یا انتخاب کارگاه</option>
+                <?php foreach ($openWorkshops as $sess): ?>
+                  <?php
+                    $key = 'w:' . (string) $sess['id'];
+                    $where = isset($assignments[$key]) ? ' — الان ' . clinic_room_label((int) $assignments[$key]) : '';
+                    $label = (string) $sess['workshop_title'] . ' · ' . (string) $sess['doctor_name'] . ' · ' . format_fa_datetime((string) $sess['span_start']) . $where;
+                  ?>
+                  <option value="<?= e((string) $sess['id']) ?>"><?= e($label) ?></option>
+                <?php endforeach; ?>
+              </select>
+            </label>
+          </div>
+          <div data-for="block" hidden>
+            <label>
+              <span class="label">عنوان کار</span>
+              <input class="input" name="block_title" maxlength="255" placeholder="مثلاً جلسه تیم">
+            </label>
+          </div>
+          <label>
+            <span class="label">یادداشت (اختیاری)</span>
+            <input class="input" name="note" maxlength="255">
+          </label>
+          <button type="submit" class="btn btn-primary btn-sm">رزرو <?= e(clinic_room_label($roomNo)) ?></button>
+        </form>
+
         <?php if ($rows): ?>
           <div class="room-day-list">
             <?php foreach ($rows as $row): ?>
@@ -149,74 +216,6 @@ ob_start();
       </section>
     <?php endforeach; ?>
   </div>
-
-  <form class="panel form-stack" method="post" action="<?= e(url('/admin/rooms')) ?>" id="room-book-form">
-    <?= csrf_field() ?>
-    <input type="hidden" name="action" value="assign">
-    <input type="hidden" name="day" value="<?= e($day) ?>">
-    <h2 style="margin:0">رزرو برای جلسهٔ پیش‌رو</h2>
-    <p class="muted" style="margin:0;font-size:.85rem">نوبت حضوری و جلسه کارگاه ساعت خودشان را دارند. «سایر» برای همین روزی است که بالا انتخاب کرده‌اید. اگر همان جلسه قبلاً اتاق داشته باشد، به اتاق جدید منتقل می‌شود.</p>
-    <div class="room-form-grid">
-      <label>
-        <span class="label">اتاق</span>
-        <select class="input" name="room_no" required>
-          <?php foreach (clinic_rooms_numbers() as $roomNo): ?>
-            <option value="<?= (int) $roomNo ?>"><?= e(clinic_room_label($roomNo)) ?></option>
-          <?php endforeach; ?>
-        </select>
-      </label>
-      <label>
-        <span class="label">جلسه</span>
-        <select class="input" name="target" id="room-target" required>
-          <option value="">انتخاب کنید</option>
-          <optgroup label="نوبت حضوری">
-            <?php foreach ($openAppointments as $appt): ?>
-              <?php
-                $key = 'a:' . (string) $appt['id'];
-                $where = isset($assignments[$key]) ? ' — الان ' . clinic_room_label((int) $assignments[$key]) : '';
-                $label = format_fa_datetime((string) $appt['starts_at']) . ' · ' . (string) $appt['doctor_name'] . ' با ' . (string) $appt['patient_name'] . $where;
-              ?>
-              <option value="<?= e($key) ?>"><?= e($label) ?></option>
-            <?php endforeach; ?>
-          </optgroup>
-          <optgroup label="کارگاه حضوری">
-            <?php foreach ($openWorkshops as $sess): ?>
-              <?php
-                $key = 'w:' . (string) $sess['id'];
-                $where = isset($assignments[$key]) ? ' — الان ' . clinic_room_label((int) $assignments[$key]) : '';
-                $label = format_fa_datetime((string) $sess['span_start']) . ' · ' . (string) $sess['workshop_title'] . ' · ' . (string) $sess['doctor_name'] . $where;
-              ?>
-              <option value="<?= e($key) ?>"><?= e($label) ?></option>
-            <?php endforeach; ?>
-          </optgroup>
-          <option value="block">سایر — جلسه یا کاری که نوبت ثبت‌شده ندارد</option>
-        </select>
-      </label>
-    </div>
-    <div id="room-block-fields" hidden>
-      <label>
-        <span class="label">عنوان</span>
-        <input class="input" name="block_title" maxlength="255" placeholder="مثلاً جلسه تیم یا مصاحبه">
-      </label>
-      <div class="room-form-grid">
-        <label>
-          <span class="label">از ساعت</span>
-          <input class="input" type="time" name="block_start" value="09:00">
-        </label>
-        <label>
-          <span class="label">تا ساعت</span>
-          <input class="input" type="time" name="block_end" value="11:00">
-        </label>
-      </div>
-    </div>
-    <label>
-      <span class="label">یادداشت (اختیاری)</span>
-      <input class="input" name="note" maxlength="255">
-    </label>
-    <div>
-      <button type="submit" class="btn btn-primary">ثبت رزرو</button>
-    </div>
-  </form>
 
   <section class="panel" id="room-report">
     <h2 style="margin-top:0">خروجی گذشته</h2>
@@ -279,7 +278,7 @@ ob_start();
           <div class="room-report-row">
             <span><?= e(clinic_room_label((int) ($row['room_no'] ?? 0))) ?></span>
             <span><?= e(format_fa_datetime((string) $row['starts_at'])) ?></span>
-            <span><?= e($kind === 'WORKSHOP' ? 'کارگاه' : ($kind === 'APPOINTMENT' ? 'نوبت' : 'سایر')) ?></span>
+            <span><?= e($kind === 'WORKSHOP' ? 'کارگاه' : ($kind === 'APPOINTMENT' ? (trim((string) ($row['appointment_id'] ?? '')) === '' ? 'تراپی' : 'نوبت') : 'سایر')) ?></span>
             <span><?= e($doctor !== '' ? $doctor : '—') ?></span>
             <span><?= e($with !== '' ? $with : '—') ?></span>
             <span><?= e((string) ($row['booked_by_name'] ?? '—')) ?></span>
@@ -289,14 +288,92 @@ ob_start();
     <?php endif; ?>
   </section>
 </div>
+<script src="<?= e(url('/assets/js/search-select.js')) ?>?v=20260929rooms"></script>
 <script>
 (function () {
-  var sel = document.getElementById("room-target");
-  var block = document.getElementById("room-block-fields");
-  if (!sel || !block) return;
-  function sync() { block.hidden = sel.value !== "block"; }
-  sel.addEventListener("change", sync);
-  sync();
+  var clocks = [];
+  var dataList = document.getElementById("room-clock-options");
+  if (dataList) {
+    clocks = Array.prototype.map.call(dataList.options, function (opt) { return opt.value; });
+  }
+  function normClock(value) {
+    return String(value || "")
+      .replace(/[۰-۹]/g, function (d) { return String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)); })
+      .replace(/[٠-٩]/g, function (d) { return String("٠١٢٣٤٥٦٧٨٩".indexOf(d)); })
+      .replace(/\s/g, "");
+  }
+  document.querySelectorAll("[data-clock]").forEach(function (input) {
+    var wrap = document.createElement("div");
+    wrap.className = "search-select";
+    input.parentNode.insertBefore(wrap, input);
+    wrap.appendChild(input);
+    input.classList.add("search-select-input");
+    input.setAttribute("role", "combobox");
+    input.setAttribute("aria-expanded", "false");
+    input.setAttribute("autocomplete", "off");
+    var list = document.createElement("ul");
+    list.className = "search-select-list";
+    list.hidden = true;
+    wrap.appendChild(list);
+    function close() {
+      list.hidden = true;
+      input.setAttribute("aria-expanded", "false");
+      wrap.classList.remove("is-open");
+    }
+    function open() {
+      var q = normClock(input.value);
+      list.innerHTML = "";
+      clocks.forEach(function (value) {
+        if (q && normClock(value).indexOf(q) === -1 && value.indexOf(q) === -1) return;
+        var li = document.createElement("li");
+        li.className = "search-select-option";
+        li.textContent = value;
+        li.addEventListener("mousedown", function (e) {
+          e.preventDefault();
+          input.value = value;
+          close();
+        });
+        list.appendChild(li);
+      });
+      if (!list.children.length) {
+        var empty = document.createElement("li");
+        empty.className = "search-select-empty";
+        empty.textContent = "همین متن ثبت می‌شود";
+        list.appendChild(empty);
+      }
+      list.hidden = false;
+      input.setAttribute("aria-expanded", "true");
+      wrap.classList.add("is-open");
+    }
+    input.addEventListener("focus", open);
+    input.addEventListener("click", open);
+    input.addEventListener("input", open);
+    input.addEventListener("blur", function () { window.setTimeout(close, 120); });
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Escape") close();
+    });
+  });
+
+  document.querySelectorAll("[data-room-book]").forEach(function (form) {
+    var purpose = form.querySelector("[data-purpose]");
+    function sync() {
+      var value = purpose ? purpose.value : "";
+      form.querySelectorAll("[data-for]").forEach(function (box) {
+        var on = box.getAttribute("data-for") === value;
+        box.hidden = !on;
+        box.querySelectorAll("input, select, textarea").forEach(function (field) {
+          field.disabled = !on;
+        });
+      });
+    }
+    if (purpose) purpose.addEventListener("change", sync);
+    if (window.enhanceSearchSelect) {
+      form.querySelectorAll("select[data-search]").forEach(function (sel) {
+        enhanceSearchSelect(sel);
+      });
+    }
+    sync();
+  });
 })();
 </script>
 <?php
