@@ -26,12 +26,12 @@ foreach ($dayBookings as $row) {
 }
 $assignments = clinic_rooms_active_assignments($pdo);
 $openWorkshops = clinic_rooms_open_workshop_sessions($pdo);
-$roomPatients = $pdo->query("SELECT id, name, phone FROM users WHERE role='PATIENT' ORDER BY name ASC")->fetchAll();
+$roomPatients = $pdo->query("SELECT id, name, phone FROM users WHERE role='PATIENT' AND is_disabled = 0 ORDER BY name ASC")->fetchAll();
 $roomDoctors = $pdo->query("
   SELECT dp.id, u.name, dp.specialty
   FROM doctor_profiles dp
   JOIN users u ON u.id = dp.user_id
-  WHERE dp.is_active = 1 AND dp.is_approved = 1
+  WHERE dp.is_active = 1 AND dp.is_approved = 1 AND u.is_disabled = 0
   ORDER BY u.name ASC
 ")->fetchAll();
 $clockChoices = [];

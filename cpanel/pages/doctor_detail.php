@@ -9,7 +9,7 @@ $stmt = $pdo->prepare("
   SELECT dp.*, u.name, u.email
   FROM doctor_profiles dp
   JOIN users u ON u.id = dp.user_id
-  WHERE dp.id = ? AND dp.is_active = 1 AND dp.is_approved = 1
+  WHERE dp.id = ? AND dp.is_active = 1 AND dp.is_approved = 1 AND u.is_disabled = 0
 ");
 $stmt->execute([$id]);
 $doctor = $stmt->fetch();

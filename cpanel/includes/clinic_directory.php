@@ -16,7 +16,7 @@ function clinic_public_doctors(PDO $pdo): array
       SELECT dp.*, u.name
       FROM doctor_profiles dp
       JOIN users u ON u.id = dp.user_id
-      WHERE dp.is_active = 1 AND dp.is_approved = 1
+      WHERE dp.is_active = 1 AND dp.is_approved = 1 AND u.is_disabled = 0
       ORDER BY CASE WHEN u.name LIKE '%گرانمایه%' THEN 0 ELSE 1 END, dp.created_at ASC
     ")->fetchAll() ?: [];
 

@@ -11,7 +11,7 @@ $patients = $pdo->query("
   FROM users u
   LEFT JOIN doctor_profiles dp ON dp.id = u.preferred_doctor_id
   LEFT JOIN users du ON du.id = dp.user_id
-  WHERE u.role='PATIENT'
+  WHERE u.role='PATIENT' AND u.is_disabled = 0
   ORDER BY u.name ASC
 ")->fetchAll();
 $doctors = secretary_active_doctors($pdo);

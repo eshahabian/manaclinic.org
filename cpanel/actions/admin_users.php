@@ -105,6 +105,41 @@ if ($action === 'update_profile') {
     redirect('/admin/users');
 }
 
+if ($action === 'toggle_disabled') {
+    $actor = current_user();
+    if (!user_disable_actor_allowed($actor)) {
+        flash_set('error', 'غیرفعال‌کردن حساب فقط برای مدیر سایت است.');
+        redirect('/admin/users');
+    }
+    ensure_users_disabled_schema($pdo);
+    $id = post('user_id');
+    if ($id === '' || ($actor && (string) ($actor['id'] ?? '') === $id)) {
+        flash_set('error', 'این حساب را نمی‌توان غیرفعال کرد.');
+        redirect('/admin/users');
+    }
+    $row = $pdo->prepare('SELECT id, name, username, role, is_disabled FROM users WHERE id=? LIMIT 1');
+    $row->execute([$id]);
+    $target = $row->fetch();
+    if (!$target) {
+        flash_set('error', 'کاربر یافت نشد.');
+        redirect('/admin/users');
+    }
+    if (strcasecmp((string) ($target['username'] ?? ''), 'eshahabian') === 0) {
+        flash_set('error', 'این حساب را نمی‌توان غیرفعال کرد.');
+        redirect('/admin/users');
+    }
+    $next = (int) ($target['is_disabled'] ?? 0) === 1 ? 0 : 1;
+    $pdo->prepare('UPDATE users SET is_disabled=? WHERE id=?')->execute([$next, $id]);
+    if ((string) ($target['role'] ?? '') === 'DOCTOR') {
+        try {
+            $pdo->prepare('UPDATE doctor_profiles SET is_active=? WHERE user_id=?')->execute([$next ? 0 : 1, $id]);
+        } catch (Throwable $ignored) {
+        }
+    }
+    flash_set('success', $next ? 'حساب «' . $target['name'] . '» غیرفعال شد.' : 'حساب «' . $target['name'] . '» دوباره فعال شد.');
+    redirect('/admin/users');
+}
+
 if ($action === 'delete_user') {
     $id = post('user_id');
     if ($id === '') {

@@ -17,6 +17,11 @@ if (!$user || $password === '' || !password_verify($password, $user['password_ha
     redirect('/login');
 }
 
+if (user_account_is_disabled($pdo, (string) $user['id'])) {
+    flash_set('error', 'این حساب غیرفعال شده است.');
+    redirect('/login');
+}
+
 if ($user['role'] === 'DOCTOR') {
     $dp = $pdo->prepare('SELECT is_approved, is_active FROM doctor_profiles WHERE user_id=? LIMIT 1');
     $dp->execute([$user['id']]);

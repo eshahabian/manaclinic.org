@@ -127,6 +127,12 @@ if (!$isLightRequest) {
         ensure_admin_staff_messages_schema($pdo);
     }
     purge_dummy_clinic_bookings($pdo);
+    if (function_exists('ensure_users_disabled_schema')) {
+        ensure_users_disabled_schema($pdo);
+    }
+    if (function_exists('purge_removed_user_traces')) {
+        purge_removed_user_traces($pdo);
+    }
 }
 
 if (strtoupper((string) $method) === 'POST') {

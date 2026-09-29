@@ -6,13 +6,14 @@ require_once __DIR__ . '/../../includes/secretary_patient.php';
 require_login(['ADMIN']);
 
 ensure_users_password_plain_schema($pdo);
+ensure_users_disabled_schema($pdo);
 if (function_exists('users_backfill_created_by')) {
     users_backfill_created_by($pdo);
 } elseif (function_exists('ensure_staff_desk_schema')) {
     ensure_staff_desk_schema($pdo);
 }
 $users = $pdo->query("
-  SELECT u.id, u.username, u.name, u.role, u.created_at, u.password_plain,
+  SELECT u.id, u.username, u.name, u.role, u.created_at, u.password_plain, u.is_disabled,
          cu.name AS created_by_name, cu.username AS created_by_username, cu.role AS created_by_role
   FROM users u
   LEFT JOIN users cu ON cu.id = u.created_by_user_id
@@ -141,7 +142,12 @@ ob_start();
           $editId = 'admin-edit-' . preg_replace('/[^a-zA-Z0-9_-]/', '', $uid);
         ?>
         <tr>
-          <td><?= e($u['name']) ?></td>
+          <td>
+            <?= e($u['name']) ?>
+            <?php if (!empty($u['is_disabled'])): ?>
+              <span class="muted" style="font-size:.8rem"> — غیرفعال</span>
+            <?php endif; ?>
+          </td>
           <td dir="ltr"><?= e((string) $u['username']) ?></td>
           <td><?= e(role_label($u['role'])) ?></td>
           <td style="font-size:.85rem"><?= e($creator) ?></td>
@@ -162,8 +168,22 @@ ob_start();
                 <button type="button" class="admin-ops-btn" data-admin-panel="pass" aria-expanded="false" aria-controls="<?= e($editId) ?>-pass">
                   رمز
                 </button>
+                <?php
+                  $me = current_user();
+                  $canDisable = user_disable_actor_allowed($me)
+                    && strcasecmp((string) ($u['username'] ?? ''), 'eshahabian') !== 0
+                    && (string) ($me['id'] ?? '') !== $uid;
+                ?>
+                <?php if ($canDisable): ?>
+                  <form method="post" action="<?= e(url('/admin/users')) ?>" class="admin-ops-delete">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="toggle_disabled">
+                    <input type="hidden" name="user_id" value="<?= e($uid) ?>">
+                    <button type="submit" class="admin-ops-btn"><?= !empty($u['is_disabled']) ? 'فعال' : 'غیرفعال' ?></button>
+                  </form>
+                <?php endif; ?>
                 <?php if ($u['role'] !== 'ADMIN'): ?>
-                  <form method="post" action="<?= e(url('/admin/users')) ?>" class="admin-ops-delete" onsubmit="return confirm('این کاربر و نوبت‌هایش حذف شود؟');">
+                  <form method="post" action="<?= e(url('/admin/users')) ?>" class="admin-ops-delete" onsubmit="return confirm('این کاربر و همه داده‌هایش از سایت و دیتابیس حذف شود؟');">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="delete_user">
                     <input type="hidden" name="user_id" value="<?= e($uid) ?>">

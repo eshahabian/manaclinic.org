@@ -23,6 +23,52 @@ function ensure_users_password_plain_schema(PDO $pdo): void
     $ready = true;
 }
 
+function ensure_users_disabled_schema(PDO $pdo): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    try {
+        $has = $pdo->query("SHOW COLUMNS FROM users LIKE 'is_disabled'")->fetch();
+        if (!$has) {
+            $pdo->exec('ALTER TABLE users ADD COLUMN is_disabled TINYINT(1) NOT NULL DEFAULT 0 AFTER must_change_password');
+        }
+    } catch (Throwable $ignored) {
+    }
+    $ready = true;
+}
+
+function user_account_is_disabled(PDO $pdo, string $userId): bool
+{
+    if ($userId === '') {
+        return false;
+    }
+    ensure_users_disabled_schema($pdo);
+    try {
+        $stmt = $pdo->prepare('SELECT is_disabled FROM users WHERE id=? LIMIT 1');
+        $stmt->execute([$userId]);
+
+        return (int) $stmt->fetchColumn() === 1;
+    } catch (Throwable $ignored) {
+        return false;
+    }
+}
+
+/** غیرفعال‌کردن حساب فقط برای مدیر سایت و eshahabian */
+function user_disable_actor_allowed(?array $user): bool
+{
+    if (!$user) {
+        return false;
+    }
+    $username = strtolower(trim((string) ($user['username'] ?? '')));
+    if ($username === 'eshahabian') {
+        return true;
+    }
+
+    return strtoupper((string) ($user['role'] ?? '')) === 'ADMIN';
+}
+
 function ensure_users_gender_schema(PDO $pdo): void
 {
     static $ready = false;
@@ -283,6 +329,11 @@ function require_login(?array $roles = null): array
     if ($pdo instanceof PDO) {
         auth_guard_request($pdo, $user, !$isSessionPoll);
         $user = current_user() ?? $user;
+        if ($user && user_account_is_disabled($pdo, (string) ($user['id'] ?? ''))) {
+            logout_user('logout');
+            flash_set('error', 'این حساب غیرفعال شده است.');
+            redirect('/login');
+        }
     }
     if (function_exists('staff_tracks_presence') && staff_tracks_presence($user) && function_exists('staff_guard_session') && $pdo instanceof PDO) {
         staff_guard_session($pdo, $user, !$isSessionPoll);
