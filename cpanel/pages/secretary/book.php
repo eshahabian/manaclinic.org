@@ -637,14 +637,26 @@ $secretaryBookScripts = '
     selectDate(btn.getAttribute("data-avail-day"));
   });
 
+  document.addEventListener("focusin", function(ev){
+    if (ev.target && ev.target.getAttribute && ev.target.getAttribute("data-jdp") !== null) {
+      window.__manaJdpInput = ev.target;
+    }
+  });
   jalaliDatepicker.startWatch({
-    selector: "#sec-date-view",
+    selector: "[data-jdp]",
     time: false,
     hideAfterChange: true,
+    showTodayBtn: true,
+    showEmptyBtn: true,
     autoReadOnlyInput: true,
     persianDigits: true,
-    zIndex: 99999,
-    dayRendering: function(dayOptions){
+    zIndex: 100000,
+    container: "body",
+    dayRendering: function(dayOptions, input){
+      var field = (input && input.id) ? input : window.__manaJdpInput;
+      if (!field || field.id !== "sec-date-view") {
+        return {};
+      }
       if (!doctorEl.value) {
         return { isValid: false };
       }

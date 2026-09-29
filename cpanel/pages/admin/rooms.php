@@ -7,17 +7,10 @@ require_once __DIR__ . '/../../includes/clinic_rooms.php';
 clinic_rooms_require_user();
 
 $day = clinic_rooms_parse_day((string) ($_GET['day'] ?? ''));
-$monthPreview = clinic_rooms_month_board($day);
-$monthRows = clinic_rooms_between($pdo, (string) $monthPreview['range_start'], (string) $monthPreview['range_end']);
-$monthCounts = [];
-foreach ($monthRows as $monthRow) {
-    $monthKey = substr((string) ($monthRow['starts_at'] ?? ''), 0, 10);
-    if ($monthKey !== '') {
-        $monthCounts[$monthKey] = ($monthCounts[$monthKey] ?? 0) + 1;
-    }
-}
-$monthBoard = clinic_rooms_month_board($day, $monthCounts);
 $week = clinic_rooms_week_days($day);
+[$roomGy, $roomGm, $roomGd] = array_map('intval', explode('-', $day));
+[$roomJy, $roomJm, $roomJd] = gregorian_to_jalali($roomGy, $roomGm, $roomGd);
+$roomJalali = sprintf('%04d/%02d/%02d', $roomJy, $roomJm, $roomJd);
 $dayStart = $day . ' 00:00:00';
 $dayEnd = date('Y-m-d H:i:s', strtotime($day . ' +1 day') ?: time());
 $dayBookings = clinic_rooms_between($pdo, $dayStart, $dayEnd);
@@ -100,38 +93,21 @@ ob_start();
     <p class="muted" style="margin:.35rem 0 0">روی هر اتاق ساعت را بنویسید یا از فهرست انتخاب کنید. بعد نوع جلسه را مشخص کنید و برای همان شخص یا کارگاه رزرو کنید. ساعت از قبل پر نمی‌شود.</p>
   </div>
 
-  <section class="panel room-month">
-    <div class="room-month-head">
-      <a class="btn btn-outline btn-sm" href="<?= e(url('/admin/rooms?day=' . $monthBoard['prev_day'])) ?>">ماه قبل</a>
-      <div>
-        <strong><?= e((string) $monthBoard['title']) ?></strong>
-        <div class="muted" style="font-size:.85rem;margin-top:.2rem">روز انتخاب‌شده: <?= e($weekdayName !== '' ? $weekdayName . ' ' : '') ?><?= e((string) ($dayParts['label'] ?? $day)) ?></div>
-      </div>
-      <a class="btn btn-outline btn-sm" href="<?= e(url('/admin/rooms?day=' . $monthBoard['next_day'])) ?>">ماه بعد</a>
-      <a class="btn btn-outline btn-sm" href="<?= e(url('/admin/rooms?day=' . date('Y-m-d'))) ?>">امروز</a>
-    </div>
-    <div class="room-month-grid" role="grid" aria-label="<?= e((string) $monthBoard['title']) ?>">
-      <?php foreach ($monthBoard['weekday_names'] as $weekName): ?>
-        <div class="room-month-wd"><?= e($weekName) ?></div>
-      <?php endforeach; ?>
-      <?php foreach ($monthBoard['weeks'] as $weekRow): ?>
-        <?php foreach ($weekRow as $cell): ?>
-          <?php if ($cell === null): ?>
-            <span class="room-month-day is-empty"></span>
-          <?php else: ?>
-            <a
-              class="room-month-day<?= !empty($cell['selected']) ? ' is-on' : '' ?><?= !empty($cell['today']) ? ' is-today' : '' ?>"
-              href="<?= e(url('/admin/rooms?day=' . $cell['date'])) ?>"
-            >
-              <span><?= e((string) $cell['jd_fa']) ?></span>
-              <?php if ((int) $cell['count'] > 0): ?>
-                <i><?= e(to_fa_digits((string) $cell['count'])) ?></i>
-              <?php endif; ?>
-            </a>
-          <?php endif; ?>
-        <?php endforeach; ?>
-      <?php endforeach; ?>
-    </div>
+  <section class="panel room-date">
+    <label class="label" for="room-day-view">تاریخ رزرو</label>
+    <input
+      class="input"
+      type="text"
+      id="room-day-view"
+      data-jdp
+      data-jdp-only-date
+      readonly
+      autocomplete="off"
+      placeholder="کلیک کنید تا تقویم باز شود"
+      style="cursor:pointer;max-width:18rem"
+      value="<?= e($roomJalali) ?>"
+    >
+    <p class="muted" style="margin:.55rem 0 0;font-size:.9rem">روز انتخاب‌شده: <?= e($weekdayName !== '' ? $weekdayName . ' ' : '') ?><?= e((string) ($dayParts['label'] ?? $day)) ?></p>
   </section>
 
   <datalist id="room-clock-options">
@@ -335,9 +311,48 @@ ob_start();
     <?php endif; ?>
   </section>
 </div>
+<script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
 <script src="<?= e(url('/assets/js/search-select.js')) ?>?v=20260929rooms"></script>
 <script>
 (function () {
+  var roomBase = <?= json_encode(url('/admin/rooms'), JSON_UNESCAPED_UNICODE) ?>;
+  var currentDay = <?= json_encode($day) ?>;
+  function faToEn(str){
+    return String(str || "").replace(/[۰-۹]/g, function (d) { return String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)); });
+  }
+  function pad(n){ return (n < 10 ? "0" : "") + n; }
+  var dayView = document.getElementById("room-day-view");
+  if (dayView && typeof jalaliDatepicker !== "undefined") {
+    jalaliDatepicker.startWatch({
+      selector: "#room-day-view",
+      time: false,
+      hideAfterChange: true,
+      showTodayBtn: true,
+      showEmptyBtn: true,
+      autoReadOnlyInput: true,
+      persianDigits: true,
+      zIndex: 100000,
+      container: "body"
+    });
+    dayView.addEventListener("jdp:change", function () {
+      var t = faToEn(dayView.value).replace(/-/g, "/").trim();
+      if (t === "") {
+        if (currentDay !== <?= json_encode(date('Y-m-d')) ?>) {
+          window.location.href = roomBase;
+        }
+        return;
+      }
+      var p = t.split("/");
+      if (p.length !== 3 || typeof jalaali === "undefined") return;
+      var g = jalaali.toGregorian(parseInt(p[0], 10), parseInt(p[1], 10), parseInt(p[2], 10));
+      var key = g.gy + "-" + pad(g.gm) + "-" + pad(g.gd);
+      if (key !== currentDay) {
+        window.location.href = roomBase + "?day=" + key;
+      }
+    });
+  }
+
   var clocks = [];
   var dataList = document.getElementById("room-clock-options");
   if (dataList) {
@@ -435,4 +450,5 @@ ob_start();
 })();
 </script>
 <?php
+$GLOBALS['pageHead'] = '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">';
 render_admin_page('اتاق‌ها', ob_get_clean());

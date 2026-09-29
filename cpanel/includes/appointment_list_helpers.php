@@ -68,6 +68,24 @@ function appointment_list_apply_search(
     }));
 }
 
+/** @param list<array<string,mixed>> $rows @return list<string> */
+function appointment_search_name_choices(array $rows): array
+{
+    $names = [];
+    foreach ($rows as $row) {
+        foreach (['patient_name', 'doctor_name'] as $key) {
+            $name = trim((string) ($row[$key] ?? ''));
+            if ($name !== '') {
+                $names[$name] = $name;
+            }
+        }
+    }
+    $list = array_values($names);
+    sort($list, SORT_STRING);
+
+    return $list;
+}
+
 /**
  * فرم جستجوی نام + تاریخ (شمسی نمایشی / میلادی مخفی)
  */
@@ -79,7 +97,8 @@ function appointment_search_form_html(
     string $searchJalali,
     bool $filterActive,
     string $idSuffix,
-    string $namePlaceholder = 'نام مراجعه‌کننده…'
+    string $namePlaceholder = 'نام مراجعه‌کننده…',
+    array $nameChoices = []
 ): string {
     $clearUrl = $actionUrl . (str_contains($actionUrl, '?') ? '&' : '?') . 'tab=' . rawurlencode($tab);
     ob_start();
@@ -89,13 +108,14 @@ function appointment_search_form_html(
       <div class="appt-search-field">
         <label class="label" for="appt_search_q_<?= e($idSuffix) ?>">جستجو با نام</label>
         <input
-          class="input"
+          class="input appt-search-name"
           type="search"
           id="appt_search_q_<?= e($idSuffix) ?>"
           name="q"
           value="<?= e($searchQ) ?>"
           placeholder="<?= e($namePlaceholder) ?>"
           autocomplete="off"
+          data-names="<?= e(json_encode(array_values($nameChoices ?? []), JSON_UNESCAPED_UNICODE)) ?>"
         >
       </div>
       <div class="appt-search-field">
@@ -147,24 +167,72 @@ function appointment_search_datepicker_script(array $suffixes): string
       var g = jalaali.toGregorian(parseInt(p[0],10), parseInt(p[1],10), parseInt(p[2],10));
       hidden.value = g.gy + "-" + pad(g.gm) + "-" + pad(g.gd);
     }
-    if (typeof jalaliDatepicker !== "undefined") {
-      jalaliDatepicker.startWatch({
-        selector: "#" + viewId,
-        time: false,
-        hideAfterChange: true,
-        showTodayBtn: true,
-        showEmptyBtn: true
-      });
-    }
-    view.addEventListener("jdp:change", syncDay);
+    var form = document.getElementById(formId);
+    var initial = view.value;
+    view.addEventListener("jdp:change", function(){
+      syncDay();
+      if (form && view.value !== initial) form.submit();
+    });
     view.addEventListener("change", syncDay);
     syncDay();
-    var form = document.getElementById(formId);
     if (form) form.addEventListener("submit", function(){ syncDay(); });
   }
   suffixes.forEach(function(sfx){
     bindDay("appt_search_day_view_" + sfx, "appt_search_day_" + sfx, "appt-search-" + sfx);
   });
+  function normName(s){
+    return String(s || "").replace(/ي/g, "ی").replace(/ك/g, "ک").replace(/ة/g, "ه").replace(/\s+/g, " ").trim().toLowerCase();
+  }
+  document.querySelectorAll(".appt-search-name").forEach(function(input){
+    var names = [];
+    try { names = JSON.parse(input.getAttribute("data-names") || "[]"); } catch (e) { names = []; }
+    if (!names.length) return;
+    var field = input.parentNode;
+    if (field) field.style.position = "relative";
+    var list = document.createElement("ul");
+    list.className = "appt-name-suggest";
+    list.hidden = true;
+    field.appendChild(list);
+    function close(){ list.hidden = true; if (field) field.classList.remove("is-suggesting"); }
+    function open(){
+      var q = normName(input.value);
+      list.innerHTML = "";
+      if (!q) { close(); return; }
+      var shown = 0;
+      names.forEach(function(name){
+        if (shown >= 8) return;
+        if (normName(name).indexOf(q) === -1) return;
+        var li = document.createElement("li");
+        li.textContent = name;
+        li.addEventListener("mousedown", function(ev){
+          ev.preventDefault();
+          input.value = name;
+          close();
+          if (input.form) input.form.submit();
+        });
+        list.appendChild(li);
+        shown += 1;
+      });
+      list.hidden = shown === 0;
+      if (field) field.classList.toggle("is-suggesting", shown > 0);
+    }
+    input.addEventListener("input", open);
+    input.addEventListener("focus", open);
+    input.addEventListener("blur", function(){ window.setTimeout(close, 150); });
+  });
+  if (typeof jalaliDatepicker !== "undefined" && !document.getElementById("sec-date-view")) {
+    jalaliDatepicker.startWatch({
+      selector: "[data-jdp]",
+      time: false,
+      hideAfterChange: true,
+      showTodayBtn: true,
+      showEmptyBtn: true,
+      autoReadOnlyInput: true,
+      persianDigits: true,
+      zIndex: 100000,
+      container: "body"
+    });
+  }
 })();
 </script>';
 }

@@ -137,7 +137,7 @@ ob_start();
   </div>
   <div class="binder-body">
     <section class="binder-panel<?= $binderInitial === 'upcoming' ? ' is-active' : '' ?>" data-binder-panel="upcoming" role="tabpanel"<?= $binderInitial === 'upcoming' ? '' : ' hidden' ?>>
-      <?= appointment_search_form_html($deskAction, 'upcoming', $searchQ, $searchDay, $searchJalali, $filterActive, 'up', $namePlaceholder) ?>
+      <?= appointment_search_form_html($deskAction, 'upcoming', $searchQ, $searchDay, $searchJalali, $filterActive, 'up', $namePlaceholder, appointment_search_name_choices($upcoming)) ?>
       <?php if ($filterActive): ?>
         <p class="muted" style="margin:0 0 .85rem;font-size:.85rem">
           نتیجه: <?= e($filterHint) ?> — <?= to_fa_digits((string) count($upcomingFiltered)) ?> نوبت
@@ -152,7 +152,7 @@ ob_start();
     </section>
     <section class="binder-panel<?= $binderInitial === 'done' ? ' is-active' : '' ?>" data-binder-panel="done" role="tabpanel"<?= $binderInitial === 'done' ? '' : ' hidden' ?>>
       <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">نوبت‌های برگزارشده یا گذشته.</p>
-      <?= appointment_search_form_html($deskAction, 'done', $searchQ, $searchDay, $searchJalali, $filterActive, 'dn', $namePlaceholder) ?>
+      <?= appointment_search_form_html($deskAction, 'done', $searchQ, $searchDay, $searchJalali, $filterActive, 'dn', $namePlaceholder, appointment_search_name_choices($done)) ?>
       <?php if ($filterActive): ?>
         <p class="muted" style="margin:0 0 .85rem;font-size:.85rem">
           نتیجه: <?= e($filterHint) ?> — <?= to_fa_digits((string) count($doneFiltered)) ?> نوبت
@@ -167,7 +167,7 @@ ob_start();
     </section>
     <section class="binder-panel<?= $binderInitial === 'cancelled' ? ' is-active' : '' ?>" data-binder-panel="cancelled" role="tabpanel"<?= $binderInitial === 'cancelled' ? '' : ' hidden' ?>>
       <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">نوبت‌هایی که لغو شده‌اند (توسط مراجع، درمانگر یا سیستم).</p>
-      <?= appointment_search_form_html($deskAction, 'cancelled', $searchQ, $searchDay, $searchJalali, $filterActive, 'cn', $namePlaceholder) ?>
+      <?= appointment_search_form_html($deskAction, 'cancelled', $searchQ, $searchDay, $searchJalali, $filterActive, 'cn', $namePlaceholder, appointment_search_name_choices($cancelled)) ?>
       <?php if ($filterActive): ?>
         <p class="muted" style="margin:0 0 .85rem;font-size:.85rem">
           نتیجه: <?= e($filterHint) ?> — <?= to_fa_digits((string) count($cancelledFiltered)) ?> نوبت
