@@ -133,8 +133,19 @@ ob_start();
 </div>
 <?php endif; ?>
 
-<div class="panel" style="padding:0;overflow:auto;margin-top:1rem">
-  <table class="table">
+<div class="panel admin-users-board" style="padding:0;margin-top:1rem">
+  <table class="table admin-users-table">
+    <colgroup>
+      <col class="admin-users-col-name">
+      <col class="admin-users-col-user">
+      <col class="admin-users-col-role">
+      <col class="admin-users-col-by">
+      <col class="admin-users-col-pass">
+      <col class="admin-users-col-date">
+      <col class="admin-users-col-date">
+      <col class="admin-users-col-date">
+      <col class="admin-users-col-ops">
+    </colgroup>
     <thead>
       <tr>
         <th>نام</th>

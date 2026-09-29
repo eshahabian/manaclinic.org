@@ -3178,6 +3178,40 @@ jdp-container, .jdp-container, .jdp-overlay {
 .table { width: 100%; border-collapse: collapse; font-size: .9rem; }
 .table th, .table td { padding: .75rem 1rem; border-top: 1px solid var(--line); text-align: right; }
 .table thead { background: var(--bg-soft); color: var(--muted); }
+.panel-layout:has(.admin-users-board) {
+  width: calc(100% - 1.25rem);
+  max-width: none;
+}
+.admin-users-board {
+  max-width: 100%;
+  overflow: hidden;
+}
+.admin-users-table {
+  table-layout: fixed;
+  width: 100%;
+}
+.admin-users-col-name { width: 11%; }
+.admin-users-col-user { width: 10%; }
+.admin-users-col-role { width: 9%; }
+.admin-users-col-by { width: 12%; }
+.admin-users-col-pass { width: 8%; }
+.admin-users-col-date { width: 10%; }
+.admin-users-col-ops { width: 20%; }
+.admin-users-table th,
+.admin-users-table td {
+  text-align: center;
+  vertical-align: middle;
+  padding: .7rem .4rem;
+  overflow-wrap: anywhere;
+}
+.admin-users-table .admin-user-ops {
+  width: auto;
+  min-width: 0;
+}
+.admin-users-table .admin-ops-bar {
+  flex-wrap: wrap;
+  justify-content: center;
+}
 
 .whitespace-pre { white-space: pre-wrap; }
 .stack { display: grid; gap: .75rem; }
