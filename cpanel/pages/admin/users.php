@@ -22,6 +22,7 @@ $users = $pdo->query("
 $cleanupTargets = find_cleanup_test_users($pdo);
 $appointmentCount = (int) $pdo->query('SELECT COUNT(*) FROM appointments')->fetchColumn();
 $patients = array_values(array_filter($users, static fn($u) => $u['role'] === 'PATIENT'));
+$doctorCount = count(array_filter($users, static fn($u) => ($u['role'] ?? '') === 'DOCTOR'));
 
 ob_start();
 ?>
@@ -29,6 +30,17 @@ ob_start();
 <p class="muted" style="margin-top:.35rem;line-height:1.8">
   ستون «رمز فعلی» فقط برای ادمین است. رمزهایی که از این به‌بعد ثبت یا عوض شوند اینجا دیده می‌شوند؛ رمزهای خیلی قدیمی که قبل از این قابلیت ذخیره نشده‌اند قابل بازیابی نیستند.
 </p>
+
+<div class="grid-2" style="margin-top:1rem">
+  <div class="panel" style="margin:0">
+    <div class="muted">مراجعه‌کننده</div>
+    <strong style="font-size:1.7rem;line-height:1.4"><?= e(to_fa_digits((string) count($patients))) ?></strong>
+  </div>
+  <div class="panel" style="margin:0">
+    <div class="muted">درمانگر</div>
+    <strong style="font-size:1.7rem;line-height:1.4"><?= e(to_fa_digits((string) $doctorCount)) ?></strong>
+  </div>
+</div>
 
 <div class="panel" style="margin-top:1rem">
   <h2 style="margin:0 0 .5rem;font-size:1rem">تغییر رمز هر کاربر</h2>
