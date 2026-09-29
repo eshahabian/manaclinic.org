@@ -34,9 +34,17 @@ function admin_nav(): array {
             'badge_tone' => 'new',
         ],
         ['href' => '/admin/users', 'label' => 'کاربران'],
+    ];
+    if (!function_exists('sms_operator_allowed') && is_file(__DIR__ . '/outreach.php')) {
+        require_once __DIR__ . '/outreach.php';
+    }
+    if ($user && function_exists('sms_operator_allowed') && sms_operator_allowed($user)) {
+        $nav[] = ['href' => '/admin/outreach', 'label' => 'مراجعه‌کنندگان قدیمی'];
+    }
+    $nav = array_merge($nav, [
         ['href' => '/admin/doctors', 'label' => 'درمانگرها', 'badge' => admin_pending_doctor_count()],
         ['href' => '/admin/appointments', 'label' => 'نوبت‌ها'],
-    ];
+    ]);
     if ($user && function_exists('clinic_rooms_user_allowed') && clinic_rooms_user_allowed($user)) {
         $nav[] = ['href' => '/admin/rooms', 'label' => 'اتاق‌ها'];
     }

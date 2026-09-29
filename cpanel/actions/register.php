@@ -118,6 +118,9 @@ if ($role === 'DOCTOR') {
 
 $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,preferred_doctor_id,must_change_password) VALUES (?,?,?,?,?,?,?,?,0)')
     ->execute([$id, $username, $name, $email, $phone, password_hash($password, PASSWORD_DEFAULT), 'PATIENT', null]);
+if (function_exists('outreach_link_user_by_phone')) {
+    outreach_link_user_by_phone($pdo, $phone, $id);
+}
 user_remember_password_plain($pdo, $id, $password);
 try {
     $pdo->prepare('UPDATE users SET gender=? WHERE id=?')->execute([$gender, $id]);

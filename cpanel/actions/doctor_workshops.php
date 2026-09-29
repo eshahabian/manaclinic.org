@@ -87,6 +87,7 @@ if ($action === 'create') {
     }
 
     $id = cuid();
+    $queueOutreach = false;
     try {
         $pdo->beginTransaction();
         $pdo->prepare('
@@ -121,9 +122,17 @@ if ($action === 'create') {
         workshop_store_banner_from_request($pdo, $id);
 
         db_commit($pdo);
+        $queueOutreach = !empty($_POST['notify_outreach']);
     } catch (Throwable $e) {
         if (!workshop_save_caught($pdo, $e)) {
             redirect('/doctor/workshops');
+        }
+    }
+
+    if ($queueOutreach && function_exists('outreach_queue_workshop')) {
+        try {
+            outreach_queue_workshop($pdo, (string) $data['title'], (string) $data['starts_at']);
+        } catch (Throwable $ignored) {
         }
     }
 

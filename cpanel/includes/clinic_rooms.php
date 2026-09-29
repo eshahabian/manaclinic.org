@@ -1,16 +1,19 @@
 <?php
 declare(strict_types=1);
 
-/** رزرو سه اتاق کلینیک — فعلاً فقط برای کاربر eshahabian. */
+/** رزرو اتاق برای هر دو حساب مدیر: admin و eshahabian. */
 
 function clinic_rooms_user_allowed(?array $user): bool
 {
     if (!$user) {
         return false;
     }
+    if (function_exists('sms_operator_allowed')) {
+        return sms_operator_allowed($user);
+    }
     $name = strtolower(trim((string) ($user['username'] ?? '')));
 
-    return $name === 'eshahabian';
+    return in_array($name, ['admin', 'eshahabian'], true);
 }
 
 function clinic_rooms_numbers(): array

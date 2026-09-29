@@ -2,18 +2,23 @@
 declare(strict_types=1);
 require_once __DIR__ . '/../../includes/admin_panel.php';
 require_once __DIR__ . '/../../includes/user_cleanup.php';
+require_once __DIR__ . '/../../includes/outreach.php';
 require_once __DIR__ . '/../../includes/secretary_patient.php';
 require_login(['ADMIN']);
 
 ensure_users_password_plain_schema($pdo);
 ensure_users_disabled_schema($pdo);
+if (function_exists('ensure_outreach_schema')) {
+    ensure_outreach_schema($pdo);
+}
+$lastTherapy = function_exists('patient_last_therapy_map') ? patient_last_therapy_map($pdo) : [];
 if (function_exists('users_backfill_created_by')) {
     users_backfill_created_by($pdo);
 } elseif (function_exists('ensure_staff_desk_schema')) {
     ensure_staff_desk_schema($pdo);
 }
 $users = $pdo->query("
-  SELECT u.id, u.username, u.name, u.role, u.created_at, u.password_plain, u.is_disabled,
+  SELECT u.id, u.username, u.name, u.role, u.created_at, u.last_login_at, u.password_plain, u.is_disabled,
          cu.name AS created_by_name, cu.username AS created_by_username, cu.role AS created_by_role
   FROM users u
   LEFT JOIN users cu ON cu.id = u.created_by_user_id
@@ -138,6 +143,8 @@ ob_start();
         <th>ثبت توسط</th>
         <th>رمز فعلی</th>
         <th>عضویت</th>
+        <th>آخرین ورود</th>
+        <th>آخرین تراپی</th>
         <th>عملیات</th>
       </tr>
     </thead>
@@ -171,6 +178,14 @@ ob_start();
             <?php endif; ?>
           </td>
           <td><?= e(format_fa_datetime($u['created_at'])) ?></td>
+          <td><?= !empty($u['last_login_at']) ? e(format_fa_datetime((string) $u['last_login_at'])) : '—' ?></td>
+          <td>
+            <?php if (($u['role'] ?? '') === 'PATIENT' && !empty($lastTherapy[$uid])): ?>
+              <?= e(format_fa_datetime((string) $lastTherapy[$uid])) ?>
+            <?php else: ?>
+              —
+            <?php endif; ?>
+          </td>
           <td class="admin-user-ops">
             <div class="admin-ops" data-admin-ops>
               <div class="admin-ops-bar" role="group" aria-label="عملیات کاربر">

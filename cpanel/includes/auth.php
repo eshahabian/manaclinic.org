@@ -293,6 +293,9 @@ function login_user(array $user): void
         'gender' => ((string) ($user['gender'] ?? '') === 'female') ? 'female' : (((string) ($user['gender'] ?? '') === 'male') ? 'male' : ''),
     ];
     if ($pdo instanceof PDO) {
+        if (function_exists('user_touch_last_login')) {
+            user_touch_last_login($pdo, (string) $user['id']);
+        }
         auth_bind_session($pdo, (string) $user['id']);
         if (function_exists('staff_tracks_presence') && staff_tracks_presence($user) && function_exists('staff_shift_start')) {
             staff_shift_start($pdo, (string) $user['id']);

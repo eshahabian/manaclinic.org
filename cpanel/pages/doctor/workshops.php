@@ -413,6 +413,12 @@ ob_start();
       <span class="muted">کارگاه جدید در بخش خدمات اعلام می‌شود و برای مراجعه‌کنندگان در پیام‌ها هم لینک ثبت‌نام می‌آید؛ بعد از درخواست و تأیید، به «دوره‌های من» می‌رود.</span>
     <?php endif; ?>
   </label>
+  <?php if (!$editWorkshop): ?>
+    <label style="display:flex;gap:.5rem;align-items:flex-start;font-size:.9rem;line-height:1.7">
+      <input type="checkbox" name="notify_outreach" value="1">
+      <span>به فهرست مراجعه‌کنندگان قدیمی هم برای این کارگاه پیامک در صف گذاشته شود. تا آماده شدن پنل پیامک ارسال نمی‌شود.</span>
+    </label>
+  <?php endif; ?>
   <button class="btn btn-primary" type="submit"><?= e($formSubmit) ?></button>
 </form>
 

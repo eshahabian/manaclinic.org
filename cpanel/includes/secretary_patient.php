@@ -71,6 +71,9 @@ function secretary_create_patient_from_post(PDO $pdo, array $actor, array $opts 
             $actorId,
         ]);
     user_remember_password_plain($pdo, $patientId, $newPassword);
+    if (function_exists('outreach_link_user_by_phone')) {
+        outreach_link_user_by_phone($pdo, $newPhone, $patientId);
+    }
 
     if (function_exists('ensure_wallet')) {
         ensure_wallet($pdo, $patientId);

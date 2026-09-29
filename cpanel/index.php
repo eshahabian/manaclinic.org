@@ -63,6 +63,7 @@ require_once __DIR__ . '/includes/admin_staff_messages.php';
 require_once __DIR__ . '/includes/secretary_to_admin.php';
 require_once __DIR__ . '/includes/staff_board.php';
 require_once __DIR__ . '/includes/user_cleanup.php';
+require_once __DIR__ . '/includes/outreach.php';
 require_once __DIR__ . '/includes/seo.php';
 require_once __DIR__ . '/includes/doctor_profile_fields.php';
 require_once __DIR__ . '/includes/clinic_directory.php';
@@ -132,6 +133,9 @@ if (!$isLightRequest) {
     }
     if (function_exists('purge_removed_user_traces')) {
         purge_removed_user_traces($pdo);
+    }
+    if (function_exists('outreach_scan_quiet_patients')) {
+        outreach_scan_quiet_patients($pdo);
     }
 }
 
@@ -312,6 +316,8 @@ $routes = [
     'POST /admin/doctors' => 'actions/admin_doctors.php',
     'GET /admin/users' => 'pages/admin/users.php',
     'POST /admin/users' => 'actions/admin_users.php',
+    'GET /admin/outreach' => 'pages/admin/outreach.php',
+    'POST /admin/outreach' => 'actions/admin_outreach.php',
     'GET /admin/articles' => 'pages/admin/articles.php',
     'POST /admin/articles' => 'actions/admin_articles.php',
     'GET /admin/appointments' => 'pages/admin/appointments.php',

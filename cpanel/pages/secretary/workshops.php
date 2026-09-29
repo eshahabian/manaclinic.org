@@ -355,6 +355,12 @@ ob_start();
     <label class="label">یادداشت</label>
     <textarea class="input" name="notes" rows="2" data-emoji-field><?= e((string) ($formData['notes'] ?? '')) ?></textarea>
   </div>
+  <?php if (!$editWorkshop): ?>
+    <label style="display:flex;gap:.5rem;align-items:flex-start;font-size:.9rem;line-height:1.7">
+      <input type="checkbox" name="notify_outreach" value="1">
+      <span>به فهرست مراجعه‌کنندگان قدیمی هم برای این کارگاه پیامک در صف گذاشته شود. تا آماده شدن پنل پیامک ارسال نمی‌شود.</span>
+    </label>
+  <?php endif; ?>
   <button class="btn btn-primary" type="submit"><?= e($formSubmit) ?></button>
 </form>
       </div>

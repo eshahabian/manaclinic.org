@@ -41,6 +41,7 @@ if ($action === 'create') {
     }
 
     $id = cuid();
+    $queueOutreach = false;
     try {
         $pdo->beginTransaction();
         $pdo->prepare('
@@ -77,9 +78,17 @@ if ($action === 'create') {
             ->execute([$user['id'], $user['id'], $id]);
         db_commit($pdo);
         staff_log_action($pdo, (string) $user['id'], 'workshop_create', 'workshop', $id);
+        $queueOutreach = !empty($_POST['notify_outreach']);
     } catch (Throwable $e) {
         if (!workshop_save_caught($pdo, $e)) {
             redirect($base);
+        }
+    }
+
+    if ($queueOutreach && function_exists('outreach_queue_workshop')) {
+        try {
+            outreach_queue_workshop($pdo, (string) $data['title'], (string) $data['starts_at']);
+        } catch (Throwable $ignored) {
         }
     }
 
