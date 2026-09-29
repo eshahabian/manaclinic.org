@@ -3,6 +3,9 @@ declare(strict_types=1);
 
 function zarinpal_request(array $config, int $amountToman, string $description, string $callbackUrl, ?string $email = null): array
 {
+    if (function_exists('clinic_gateway_config')) {
+        $config = clinic_gateway_config($config);
+    }
     $merchant = $config['zarinpal_merchant_id'];
     $sandbox = !empty($config['zarinpal_sandbox']);
     $base = $sandbox
@@ -44,6 +47,9 @@ function zarinpal_request(array $config, int $amountToman, string $description, 
 
 function zarinpal_verify(array $config, string $authority, int $amountToman): array
 {
+    if (function_exists('clinic_gateway_config')) {
+        $config = clinic_gateway_config($config);
+    }
     if (str_starts_with($authority, 'DEV')) {
         return ['ok' => true, 'refId' => (string) time()];
     }

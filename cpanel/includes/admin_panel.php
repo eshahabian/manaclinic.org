@@ -1,6 +1,19 @@
 <?php
 declare(strict_types=1);
 
+function admin_disabled_user_count(): int
+{
+    global $pdo;
+    if (!$pdo instanceof PDO) {
+        return 0;
+    }
+    try {
+        return (int) $pdo->query('SELECT COUNT(*) FROM users WHERE is_disabled=1')->fetchColumn();
+    } catch (Throwable $ignored) {
+        return 0;
+    }
+}
+
 function admin_pending_doctor_count(): int
 {
     global $pdo;
@@ -33,7 +46,6 @@ function admin_nav(): array {
             'badge' => function_exists('consult_request_new_count') ? consult_request_new_count() : 0,
             'badge_tone' => 'new',
         ],
-        ['href' => '/admin/users', 'label' => 'کاربران'],
     ];
     if (!function_exists('sms_operator_allowed') && is_file(__DIR__ . '/outreach.php')) {
         require_once __DIR__ . '/outreach.php';
@@ -75,10 +87,23 @@ function admin_nav(): array {
         ['href' => '/admin/articles', 'label' => 'مقالات'],
         ['href' => '/doctor/articles', 'label' => 'مقالات درمانگر'],
         ['href' => '/doctor/workshops', 'label' => 'کارگاه‌ها'],
-        ['type' => 'group', 'label' => 'تنظیمات'],
-        ['href' => '/admin/mail', 'label' => 'ایمیل و SMTP'],
-        ['href' => '/change-password', 'label' => 'تغییر رمز عبور'],
     ]);
+    $siteAdmin = $user && function_exists('sms_operator_allowed') && sms_operator_allowed($user);
+    if ($siteAdmin) {
+        $nav[] = ['type' => 'group', 'label' => 'مدیریت'];
+        $nav[] = ['href' => '/admin/messengers', 'label' => 'دسترسی پیام رسان'];
+        $nav[] = ['href' => '/admin/users', 'label' => 'مدیریت کاربران'];
+        $nav[] = ['href' => '/admin/users-disabled', 'label' => 'کاربران غیر فعال شده', 'badge' => admin_disabled_user_count()];
+        $nav[] = ['href' => '/admin/mail', 'label' => 'ایمیل و SMTP'];
+        $nav[] = ['href' => '/admin/sms-test', 'label' => 'تست پیامک'];
+        $nav[] = ['href' => '/admin/sms-notify', 'label' => 'پیامک اطلاع رسانی'];
+        $nav[] = ['href' => '/admin/sms-broadcast', 'label' => 'پیامک همگانی'];
+        $nav[] = ['href' => '/admin/gateway', 'label' => 'درگاه پرداخت'];
+        $nav[] = ['href' => '/change-password', 'label' => 'تغییر رمز عبور'];
+    } else {
+        $nav[] = ['type' => 'group', 'label' => 'تنظیمات'];
+        $nav[] = ['href' => '/change-password', 'label' => 'تغییر رمز عبور'];
+    }
     $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link() : null;
     if ($videoLink) {
         // بعد از «خلاصه» داخل گروه اصلی
@@ -110,6 +135,8 @@ function render_admin_page(string $title, string $innerHtml): void {
                     $active = $currentPath === $href || str_ends_with($currentPath, '/admin');
                 } elseif ($href === '/doctor') {
                     $active = $currentPath === $href || str_ends_with($currentPath, '/doctor');
+                } elseif (in_array($href, ['/admin/users', '/admin/users-disabled'], true)) {
+                    $active = $currentPath === $href || str_ends_with($currentPath, $href);
                 } else {
                     $active = str_contains($currentPath, $href);
                 }

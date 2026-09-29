@@ -71,6 +71,7 @@ require_once __DIR__ . '/includes/service_page_helpers.php';
 require_once __DIR__ . '/includes/video_call.php';
 require_once __DIR__ . '/includes/patient_journal.php';
 require_once __DIR__ . '/includes/mail.php';
+require_once __DIR__ . '/includes/clinic_manage.php';
 require_once __DIR__ . '/includes/mentions.php';
 require_once __DIR__ . '/includes/consult_requests.php';
 
@@ -316,6 +317,17 @@ $routes = [
     'POST /admin/doctors' => 'actions/admin_doctors.php',
     'GET /admin/users' => 'pages/admin/users.php',
     'POST /admin/users' => 'actions/admin_users.php',
+    'GET /admin/users-disabled' => 'pages/admin/users.php',
+    'GET /admin/messengers' => 'pages/admin/messengers.php',
+    'POST /admin/messengers' => 'actions/admin_manage.php',
+    'GET /admin/sms-test' => 'pages/admin/sms_test.php',
+    'POST /admin/sms-test' => 'actions/admin_manage.php',
+    'GET /admin/sms-notify' => 'pages/admin/sms_notify.php',
+    'POST /admin/sms-notify' => 'actions/admin_manage.php',
+    'GET /admin/sms-broadcast' => 'pages/admin/sms_broadcast.php',
+    'POST /admin/sms-broadcast' => 'actions/admin_manage.php',
+    'GET /admin/gateway' => 'pages/admin/gateway.php',
+    'POST /admin/gateway' => 'actions/admin_manage.php',
     'GET /admin/outreach' => 'pages/admin/outreach.php',
     'POST /admin/outreach' => 'actions/admin_outreach.php',
     'GET /admin/articles' => 'pages/admin/articles.php',

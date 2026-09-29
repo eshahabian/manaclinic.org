@@ -13,6 +13,29 @@ function sms_panel_enabled(): bool
 }
 
 /** همین دو حساب ادمین منو و ابزار پیامک را مثل هم می‌بینند. */
+function require_site_admin(): void
+{
+    require_login(['ADMIN']);
+    $user = current_user();
+    if (!$user || !sms_operator_allowed($user)) {
+        flash_set('error', 'این بخش فقط برای مدیر سایت است.');
+        redirect('/admin');
+    }
+}
+
+function sms_notify_kind_enabled(PDO $pdo, string $kind): bool
+{
+    if (!function_exists('mail_setting_get')) {
+        return $kind !== 'approval';
+    }
+    $value = mail_setting_get($pdo, 'sms_notify_' . $kind, '');
+    if ($value === '1' || $value === '0') {
+        return $value === '1';
+    }
+
+    return $kind !== 'approval';
+}
+
 function sms_operator_usernames(): array
 {
     return ['admin', 'eshahabian'];
@@ -199,8 +222,63 @@ function outreach_queue_message(PDO $pdo, string $body, string $kind = 'manual')
     return $count;
 }
 
+/** @return list<array<string,mixed>> */
+function sms_recent(PDO $pdo, string $kind, int $limit = 20): array
+{
+    ensure_outreach_schema($pdo);
+    $limit = max(1, min(50, $limit));
+    $stmt = $pdo->prepare('SELECT phone, body, status, created_at FROM sms_outbox WHERE kind=? ORDER BY created_at DESC LIMIT ' . $limit);
+    $stmt->execute([$kind]);
+
+    return $stmt->fetchAll() ?: [];
+}
+
+function sms_broadcast_queue(PDO $pdo, string $audience, string $body): int
+{
+    ensure_outreach_schema($pdo);
+    $phones = [];
+    $roles = [];
+    if ($audience === 'patients' || $audience === 'everyone') {
+        $roles[] = 'PATIENT';
+    }
+    if ($audience === 'doctors' || $audience === 'everyone') {
+        $roles[] = 'DOCTOR';
+    }
+    if ($audience === 'secretaries' || $audience === 'everyone') {
+        $roles[] = 'SECRETARY';
+    }
+    foreach ($roles as $role) {
+        $stmt = $pdo->prepare('SELECT phone FROM users WHERE role=? AND is_disabled=0');
+        $stmt->execute([$role]);
+        foreach ($stmt->fetchAll() as $row) {
+            $phone = normalize_phone((string) ($row['phone'] ?? ''));
+            if ($phone !== '' && is_valid_phone($phone)) {
+                $phones[$phone] = true;
+            }
+        }
+    }
+    if ($audience === 'outreach' || $audience === 'everyone') {
+        foreach (outreach_contacts($pdo) as $row) {
+            $phone = normalize_phone((string) ($row['phone'] ?? ''));
+            if ($phone !== '' && is_valid_phone($phone)) {
+                $phones[$phone] = true;
+            }
+        }
+    }
+    $count = 0;
+    foreach (array_keys($phones) as $phone) {
+        sms_queue($pdo, $phone, $body, 'broadcast');
+        $count++;
+    }
+
+    return $count;
+}
+
 function outreach_queue_workshop(PDO $pdo, string $title, string $startsAt): int
 {
+    if (!sms_notify_kind_enabled($pdo, 'workshop')) {
+        return 0;
+    }
     $when = function_exists('format_fa_datetime') ? format_fa_datetime($startsAt) : $startsAt;
     $body = 'مانا کلینیک: کارگاه «' . trim($title) . '» از ' . $when . ' برگزار می‌شود. برای ثبت‌نام به سایت کلینیک سر بزنید.';
 
@@ -364,7 +442,9 @@ function outreach_scan_quiet_patients(PDO $pdo): void
             if (function_exists('notify_user')) {
                 notify_user($pdo, (string) $person['id'], 'مراجعه‌کننده بی‌خبر', $text, $link, 'other', null, 'personal');
             }
-            sms_queue($pdo, (string) ($person['phone'] ?? ''), 'مانا کلینیک: ' . $text, 'quiet');
+            if (sms_notify_kind_enabled($pdo, 'quiet')) {
+                sms_queue($pdo, (string) ($person['phone'] ?? ''), 'مانا کلینیک: ' . $text, 'quiet');
+            }
         }
 
         $mark = $pdo->prepare('

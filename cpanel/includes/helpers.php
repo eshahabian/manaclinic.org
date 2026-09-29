@@ -180,6 +180,14 @@ function role_label(string $role): string
 
 function online_payment_enabled(array $config): bool
 {
+    global $pdo;
+    if ($pdo instanceof PDO && function_exists('mail_setting_get')) {
+        $online = mail_setting_get($pdo, 'gateway_online', '');
+        if ($online === '1' || $online === '0') {
+            return $online === '1';
+        }
+    }
+
     return !empty($config['online_payment_enabled']);
 }
 

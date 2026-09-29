@@ -2,7 +2,8 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/mail.php';
-require_login(['ADMIN']);
+require_once __DIR__ . '/../includes/outreach.php';
+require_site_admin();
 
 $action = post('action');
 ensure_mail_schema($pdo);

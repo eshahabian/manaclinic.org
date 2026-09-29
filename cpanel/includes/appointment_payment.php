@@ -178,7 +178,7 @@ function staff_approve_appointment_booking(PDO $pdo, string $appointmentId, arra
     }
 
     $stmt = $pdo->prepare("
-      SELECT a.*, pu.name AS patient_name, pu.id AS patient_user_id
+      SELECT a.*, pu.name AS patient_name, pu.id AS patient_user_id, pu.phone AS patient_phone
       FROM appointments a
       JOIN users pu ON pu.id = a.patient_id
       WHERE a.id = ?
@@ -225,6 +225,15 @@ function staff_approve_appointment_booking(PDO $pdo, string $appointmentId, arra
         '/doctor/appointments?tab=upcoming',
         'appointment'
     );
+
+    if (function_exists('sms_notify_kind_enabled') && sms_notify_kind_enabled($pdo, 'approval') && function_exists('sms_queue')) {
+        sms_queue(
+            $pdo,
+            (string) ($row['patient_phone'] ?? ''),
+            'مانا کلینیک: درخواست نوبت شما تأیید شد. برای پرداخت وارد سایت شوید.',
+            'approval'
+        );
+    }
 
     return [
         'appointment_id' => $appointmentId,

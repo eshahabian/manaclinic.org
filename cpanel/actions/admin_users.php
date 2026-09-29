@@ -2,7 +2,8 @@
 declare(strict_types=1);
 require_once __DIR__ . '/../includes/admin_panel.php';
 require_once __DIR__ . '/../includes/user_cleanup.php';
-require_login(['ADMIN']);
+require_once __DIR__ . '/../includes/outreach.php';
+require_site_admin();
 csrf_verify();
 
 $action = post('action');
@@ -136,8 +137,9 @@ if ($action === 'toggle_disabled') {
         } catch (Throwable $ignored) {
         }
     }
-    flash_set('success', $next ? 'حساب «' . $target['name'] . '» غیرفعال شد.' : 'حساب «' . $target['name'] . '» دوباره فعال شد.');
-    redirect('/admin/users');
+    flash_set('success', $next ? 'حساب «' . $target['name'] . '» غیرفعال شد و در «کاربران غیر فعال شده» دیده می‌شود.' : 'حساب «' . $target['name'] . '» دوباره فعال شد.');
+    $back = function_exists('safe_next_path') ? safe_next_path((string) ($_POST['return_to'] ?? '')) : null;
+    redirect($back === '/admin/users-disabled' ? '/admin/users-disabled' : '/admin/users');
 }
 
 if ($action === 'delete_user') {

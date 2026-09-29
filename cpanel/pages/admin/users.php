@@ -4,7 +4,7 @@ require_once __DIR__ . '/../../includes/admin_panel.php';
 require_once __DIR__ . '/../../includes/user_cleanup.php';
 require_once __DIR__ . '/../../includes/outreach.php';
 require_once __DIR__ . '/../../includes/secretary_patient.php';
-require_login(['ADMIN']);
+require_site_admin();
 
 ensure_users_password_plain_schema($pdo);
 ensure_users_disabled_schema($pdo);
@@ -24,6 +24,10 @@ $users = $pdo->query("
   LEFT JOIN users cu ON cu.id = u.created_by_user_id
   ORDER BY u.created_at DESC
 ")->fetchAll();
+$usersDisabledPage = str_ends_with((string) ($GLOBALS['path'] ?? ''), '/admin/users-disabled');
+if ($usersDisabledPage) {
+    $users = array_values(array_filter($users, static fn($u) => (int) ($u['is_disabled'] ?? 0) === 1));
+}
 $cleanupTargets = find_cleanup_test_users($pdo);
 $appointmentCount = (int) $pdo->query('SELECT COUNT(*) FROM appointments')->fetchColumn();
 $patients = array_values(array_filter($users, static fn($u) => $u['role'] === 'PATIENT'));
@@ -31,9 +35,14 @@ $doctorCount = count(array_filter($users, static fn($u) => ($u['role'] ?? '') ==
 
 ob_start();
 ?>
-<h1>کاربران و رمز عبور</h1>
+<h1><?= $usersDisabledPage ? 'کاربران غیر فعال شده' : 'مدیریت کاربران' ?></h1>
 <p class="muted" style="margin-top:.35rem;line-height:1.8">
-  ستون «رمز فعلی» فقط برای ادمین است. رمزهایی که از این به‌بعد ثبت یا عوض شوند اینجا دیده می‌شوند؛ رمزهای خیلی قدیمی که قبل از این قابلیت ذخیره نشده‌اند قابل بازیابی نیستند.
+  <?php if ($usersDisabledPage): ?>
+    هر حسابی که غیرفعال شود اینجا می‌آید. ورودش بسته است و درمانگر غیرفعال از فهرست عمومی حذف می‌شود. با «فعال» دوباره برمی‌گردد.
+  <?php else: ?>
+    ستون «رمز فعلی» فقط برای ادمین است. رمزهایی که از این به‌بعد ثبت یا عوض شوند اینجا دیده می‌شوند؛ رمزهای خیلی قدیمی که قبل از این قابلیت ذخیره نشده‌اند قابل بازیابی نیستند.
+    حساب غیرفعال در «کاربران غیر فعال شده» هم دیده می‌شود.
+  <?php endif; ?>
 </p>
 
 <div class="grid-2" style="margin-top:1rem">
@@ -47,6 +56,7 @@ ob_start();
   </div>
 </div>
 
+<?php if (!$usersDisabledPage): ?>
 <div class="panel" style="margin-top:1rem">
   <h2 style="margin:0 0 .5rem;font-size:1rem">تغییر رمز هر کاربر</h2>
   <p class="muted" style="font-size:.9rem;line-height:1.8;margin:0 0 .75rem">
@@ -131,6 +141,7 @@ ob_start();
     <button type="submit" class="btn btn-danger">حذف انتخاب‌شده‌ها</button>
   </form>
 </div>
+<?php endif; ?>
 <?php endif; ?>
 
 <div class="panel admin-users-board" style="padding:0;margin-top:1rem">
@@ -217,6 +228,7 @@ ob_start();
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="toggle_disabled">
                     <input type="hidden" name="user_id" value="<?= e($uid) ?>">
+                    <input type="hidden" name="return_to" value="<?= e($usersDisabledPage ? '/admin/users-disabled' : '/admin/users') ?>">
                     <button type="submit" class="admin-ops-btn"><?= !empty($u['is_disabled']) ? 'فعال' : 'غیرفعال' ?></button>
                   </form>
                 <?php endif; ?>
@@ -265,6 +277,9 @@ ob_start();
           </td>
         </tr>
       <?php endforeach; ?>
+      <?php if (!$users): ?>
+        <tr><td colspan="9" class="muted" style="text-align:center;padding:1.2rem"><?= $usersDisabledPage ? 'کاربر غیرفعالی نیست.' : 'کاربری ثبت نشده است.' ?></td></tr>
+      <?php endif; ?>
     </tbody>
   </table>
 </div>
@@ -304,4 +319,4 @@ ob_start();
 })();
 </script>
 <?php
-render_admin_page('کاربران و رمز عبور', ob_get_clean());
+render_admin_page($usersDisabledPage ? 'کاربران غیر فعال شده' : 'مدیریت کاربران', ob_get_clean());
