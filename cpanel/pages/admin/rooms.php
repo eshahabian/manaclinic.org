@@ -7,6 +7,16 @@ require_once __DIR__ . '/../../includes/clinic_rooms.php';
 clinic_rooms_require_user();
 
 $day = clinic_rooms_parse_day((string) ($_GET['day'] ?? ''));
+$monthPreview = clinic_rooms_month_board($day);
+$monthRows = clinic_rooms_between($pdo, (string) $monthPreview['range_start'], (string) $monthPreview['range_end']);
+$monthCounts = [];
+foreach ($monthRows as $monthRow) {
+    $monthKey = substr((string) ($monthRow['starts_at'] ?? ''), 0, 10);
+    if ($monthKey !== '') {
+        $monthCounts[$monthKey] = ($monthCounts[$monthKey] ?? 0) + 1;
+    }
+}
+$monthBoard = clinic_rooms_month_board($day, $monthCounts);
 $week = clinic_rooms_week_days($day);
 $dayStart = $day . ' 00:00:00';
 $dayEnd = date('Y-m-d H:i:s', strtotime($day . ' +1 day') ?: time());
@@ -74,8 +84,6 @@ foreach ($heldRows as $row) {
 }
 $workshopPatients = clinic_rooms_workshop_patient_names($pdo, $workshopIds);
 
-$prevDay = date('Y-m-d', strtotime($day . ' -1 day') ?: time());
-$nextDay = date('Y-m-d', strtotime($day . ' +1 day') ?: time());
 $dayParts = jalali_day_parts($day . ' 12:00:00') ?: ['label' => $day];
 $weekdayName = '';
 foreach ($week as $item) {
@@ -92,20 +100,39 @@ ob_start();
     <p class="muted" style="margin:.35rem 0 0">روی هر اتاق ساعت را بنویسید یا از فهرست انتخاب کنید. بعد نوع جلسه را مشخص کنید و برای همان شخص یا کارگاه رزرو کنید. ساعت از قبل پر نمی‌شود.</p>
   </div>
 
-  <div class="room-daybar">
-    <a class="btn btn-outline btn-sm" href="<?= e(url('/admin/rooms?day=' . $prevDay)) ?>">روز قبل</a>
-    <strong><?= e($weekdayName !== '' ? $weekdayName . ' · ' : '') ?><?= e((string) ($dayParts['label'] ?? $day)) ?></strong>
-    <a class="btn btn-outline btn-sm" href="<?= e(url('/admin/rooms?day=' . $nextDay)) ?>">روز بعد</a>
-    <a class="btn btn-outline btn-sm" href="<?= e(url('/admin/rooms?day=' . date('Y-m-d'))) ?>">امروز</a>
-  </div>
-  <div class="room-week">
-    <?php foreach ($week as $item): ?>
-      <a class="room-week-day<?= $item['date'] === $day ? ' is-on' : '' ?>" href="<?= e(url('/admin/rooms?day=' . $item['date'])) ?>">
-        <span><?= e((string) $item['weekday']) ?></span>
-        <strong><?= e((string) $item['label']) ?></strong>
-      </a>
-    <?php endforeach; ?>
-  </div>
+  <section class="panel room-month">
+    <div class="room-month-head">
+      <a class="btn btn-outline btn-sm" href="<?= e(url('/admin/rooms?day=' . $monthBoard['prev_day'])) ?>">ماه قبل</a>
+      <div>
+        <strong><?= e((string) $monthBoard['title']) ?></strong>
+        <div class="muted" style="font-size:.85rem;margin-top:.2rem">روز انتخاب‌شده: <?= e($weekdayName !== '' ? $weekdayName . ' ' : '') ?><?= e((string) ($dayParts['label'] ?? $day)) ?></div>
+      </div>
+      <a class="btn btn-outline btn-sm" href="<?= e(url('/admin/rooms?day=' . $monthBoard['next_day'])) ?>">ماه بعد</a>
+      <a class="btn btn-outline btn-sm" href="<?= e(url('/admin/rooms?day=' . date('Y-m-d'))) ?>">امروز</a>
+    </div>
+    <div class="room-month-grid" role="grid" aria-label="<?= e((string) $monthBoard['title']) ?>">
+      <?php foreach ($monthBoard['weekday_names'] as $weekName): ?>
+        <div class="room-month-wd"><?= e($weekName) ?></div>
+      <?php endforeach; ?>
+      <?php foreach ($monthBoard['weeks'] as $weekRow): ?>
+        <?php foreach ($weekRow as $cell): ?>
+          <?php if ($cell === null): ?>
+            <span class="room-month-day is-empty"></span>
+          <?php else: ?>
+            <a
+              class="room-month-day<?= !empty($cell['selected']) ? ' is-on' : '' ?><?= !empty($cell['today']) ? ' is-today' : '' ?>"
+              href="<?= e(url('/admin/rooms?day=' . $cell['date'])) ?>"
+            >
+              <span><?= e((string) $cell['jd_fa']) ?></span>
+              <?php if ((int) $cell['count'] > 0): ?>
+                <i><?= e(to_fa_digits((string) $cell['count'])) ?></i>
+              <?php endif; ?>
+            </a>
+          <?php endif; ?>
+        <?php endforeach; ?>
+      <?php endforeach; ?>
+    </div>
+  </section>
 
   <datalist id="room-clock-options">
     <?php foreach ($clockChoices as $clock): ?>
@@ -184,6 +211,17 @@ ob_start();
               <input class="input" name="block_title" maxlength="255" placeholder="مثلاً جلسه تیم">
             </label>
           </div>
+          <label class="room-repeat">
+            <input type="checkbox" name="repeat_weekly" value="1" data-repeat>
+            <span>تکرار هر هفته، همین روز (<?= e($weekdayName !== '' ? $weekdayName : 'این روز') ?>)</span>
+          </label>
+          <div data-repeat-fields hidden>
+            <label>
+              <span class="label">چند هفته پشت‌سرهم</span>
+              <input class="input" name="repeat_weeks" inputmode="numeric" autocomplete="off" placeholder="مثلاً ۸" disabled>
+            </label>
+            <p class="muted" style="margin:0;font-size:.78rem">از همین روز، هر ۷ روز یک‌بار. مثلاً اگر دوشنبه باشد و ۸ بنویسید، هشت دوشنبهٔ بعد ساعت ۹ تا ۱۲ رزرو می‌شود.</p>
+          </div>
           <label>
             <span class="label">یادداشت (اختیاری)</span>
             <input class="input" name="note" maxlength="255">
@@ -208,6 +246,15 @@ ob_start();
                     <input type="hidden" name="day" value="<?= e($day) ?>">
                     <button type="submit" class="btn btn-outline btn-sm" onclick="return confirm('این رزرو لغو و ساعت آزاد شود؟');">آزاد کردن</button>
                   </form>
+                  <?php if (trim((string) ($row['series_id'] ?? '')) !== ''): ?>
+                    <form method="post" action="<?= e(url('/admin/rooms')) ?>">
+                      <?= csrf_field() ?>
+                      <input type="hidden" name="action" value="release_series">
+                      <input type="hidden" name="booking_id" value="<?= e((string) $row['id']) ?>">
+                      <input type="hidden" name="day" value="<?= e($day) ?>">
+                      <button type="submit" class="btn btn-outline btn-sm" onclick="return confirm('این هفته و هفته‌های بعدیِ همین تکرار آزاد شود؟');">آزاد کردن تکرار</button>
+                    </form>
+                  <?php endif; ?>
                 <?php endif; ?>
               </div>
             <?php endforeach; ?>
@@ -366,6 +413,17 @@ ob_start();
         });
       });
     }
+    var repeat = form.querySelector("[data-repeat]");
+    var repeatBox = form.querySelector("[data-repeat-fields]");
+    function syncRepeat() {
+      var on = !!(repeat && repeat.checked);
+      if (repeatBox) {
+        repeatBox.hidden = !on;
+        repeatBox.querySelectorAll("input").forEach(function (field) { field.disabled = !on; });
+      }
+    }
+    if (repeat) repeat.addEventListener("change", syncRepeat);
+    syncRepeat();
     if (purpose) purpose.addEventListener("change", sync);
     if (window.enhanceSearchSelect) {
       form.querySelectorAll("select[data-search]").forEach(function (sel) {

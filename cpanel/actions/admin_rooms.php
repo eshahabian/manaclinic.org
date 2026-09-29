@@ -11,12 +11,19 @@ $action = post('action');
 $day = clinic_rooms_parse_day(post('day'));
 
 try {
-    if ($action === 'release') {
-        $day = clinic_rooms_release($pdo, post('booking_id'));
-        flash_set('success', 'ساعت اتاق آزاد شد.');
+    if ($action === 'release' || $action === 'release_series') {
+        $day = $action === 'release_series'
+            ? clinic_rooms_release_series($pdo, post('booking_id'))
+            : clinic_rooms_release($pdo, post('booking_id'));
+        flash_set('success', $action === 'release_series' ? 'این رزرو و هفته‌های بعدیِ تکرار آزاد شد.' : 'ساعت اتاق آزاد شد.');
         redirect('/admin/rooms?day=' . rawurlencode($day));
     }
     if ($action === 'assign') {
+        $repeatOn = post('repeat_weekly') === '1';
+        $repeatWeeks = $repeatOn ? (int) post('repeat_weeks') : 1;
+        if ($repeatOn && $repeatWeeks < 2) {
+            throw new RuntimeException('برای تکرار هفتگی حداقل ۲ هفته بنویسید.');
+        }
         $saved = clinic_rooms_assign(
             $pdo,
             $user,
@@ -29,9 +36,15 @@ try {
             post('doctor_id'),
             post('workshop_session_id'),
             post('block_title'),
-            post('note')
+            post('note'),
+            $repeatWeeks
         );
-        flash_set('success', clinic_room_label((int) $saved['room']) . ' برای این جلسه رزرو شد.');
+        $weeks = (int) ($saved['weeks'] ?? 1);
+        $msg = clinic_room_label((int) $saved['room']) . ' برای این جلسه رزرو شد.';
+        if ($weeks > 1) {
+            $msg = clinic_room_label((int) $saved['room']) . ' برای ' . to_fa_digits((string) $weeks) . ' هفتهٔ پشت‌سرهم رزرو شد.';
+        }
+        flash_set('success', $msg);
         redirect('/admin/rooms?day=' . rawurlencode((string) $saved['day']) . '#room-' . (int) $saved['room']);
     }
     flash_set('error', 'درخواست نامعتبر است.');

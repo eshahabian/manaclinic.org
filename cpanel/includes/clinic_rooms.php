@@ -51,6 +51,7 @@ function ensure_clinic_rooms_schema(PDO $pdo): void
     foreach ([
         'patient_id' => 'patient_id VARCHAR(32) NULL AFTER workshop_id',
         'doctor_id' => 'doctor_id VARCHAR(32) NULL AFTER patient_id',
+        'series_id' => 'series_id VARCHAR(32) NULL AFTER booked_by_user_id',
     ] as $column => $ddl) {
         try {
             $has = $pdo->query('SHOW COLUMNS FROM clinic_room_bookings LIKE ' . $pdo->quote($column))->fetch();
@@ -95,6 +96,65 @@ function clinic_rooms_require_user(): array
     }
 
     return $user;
+}
+
+/**
+ * تقویم یک ماه شمسی، از شنبه. روز انتخاب‌شده داخل همین ماه است.
+ *
+ * @param array<string, int> $countsByDay
+ * @return array{title:string,weekday_names:list<string>,weeks:list<list<array<string,mixed>|null>>,prev_day:string,next_day:string}
+ */
+function clinic_rooms_month_board(string $selectedYmd, array $countsByDay = []): array
+{
+    $selectedYmd = clinic_rooms_parse_day($selectedYmd);
+    $ts = strtotime($selectedYmd . ' 12:00:00') ?: time();
+    [$jy, $jm, $jd] = gregorian_to_jalali((int) date('Y', $ts), (int) date('n', $ts), (int) date('j', $ts));
+    $len = jalali_month_length($jy, $jm);
+    $months = jalali_month_names();
+    $weekNames = function_exists('doctor_weekdays_sat_first') ? array_values(doctor_weekdays_sat_first()) : ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه'];
+    $firstG = jalali_ymd($jy, $jm, 1);
+    $phpW = (int) date('w', strtotime($firstG . ' 12:00:00') ?: time());
+    $lead = ($phpW + 1) % 7;
+    $today = date('Y-m-d');
+    $cells = [];
+    for ($i = 0; $i < $lead; $i++) {
+        $cells[] = null;
+    }
+    for ($d = 1; $d <= $len; $d++) {
+        $g = jalali_ymd($jy, $jm, $d);
+        $cells[] = [
+            'date' => $g,
+            'jd_fa' => to_fa_digits((string) $d),
+            'selected' => $g === $selectedYmd,
+            'today' => $g === $today,
+            'count' => (int) ($countsByDay[$g] ?? 0),
+        ];
+    }
+    while (count($cells) % 7 !== 0) {
+        $cells[] = null;
+    }
+    $prevJm = $jm - 1;
+    $prevJy = $jy;
+    if ($prevJm < 1) {
+        $prevJm = 12;
+        $prevJy--;
+    }
+    $nextJm = $jm + 1;
+    $nextJy = $jy;
+    if ($nextJm > 12) {
+        $nextJm = 1;
+        $nextJy++;
+    }
+
+    return [
+        'title' => ($months[$jm] ?? '') . ' ' . to_fa_digits((string) $jy),
+        'weekday_names' => $weekNames,
+        'weeks' => array_chunk($cells, 7),
+        'prev_day' => jalali_ymd($prevJy, $prevJm, min($jd, jalali_month_length($prevJy, $prevJm))),
+        'next_day' => jalali_ymd($nextJy, $nextJm, min($jd, jalali_month_length($nextJy, $nextJm))),
+        'range_start' => $firstG . ' 00:00:00',
+        'range_end' => date('Y-m-d H:i:s', strtotime(jalali_ymd($jy, $jm, $len) . ' +1 day') ?: time()),
+    ];
 }
 
 /** شنبه تا جمعهٔ هفته‌ای که این روز داخل آن است. */
@@ -429,7 +489,8 @@ function clinic_rooms_assign(
     string $doctorId,
     string $workshopSessionId,
     string $blockTitle,
-    string $note
+    string $note,
+    int $repeatWeeks = 1
 ): array {
     clinic_rooms_ready($pdo);
     if (!in_array($room, clinic_rooms_numbers(), true)) {
@@ -514,45 +575,69 @@ function clinic_rooms_assign(
         throw new RuntimeException('نوع جلسه را انتخاب کنید: تراپی، کارگاه یا سایر.');
     }
 
-    $existingId = $kind === 'WORKSHOP' ? clinic_rooms_existing_id($pdo, null, $sessionId) : null;
-    $clash = clinic_rooms_find_clash($pdo, $room, $startsAt, $endsAt, $existingId);
-    if ($clash) {
-        throw new RuntimeException(clinic_room_label($room) . ' در این ساعت پر است: ' . clinic_room_purpose($clash));
+    if ($repeatWeeks < 1) {
+        throw new RuntimeException('برای تکرار هفتگی، تعداد هفته را بنویسید. مثلاً ۸.');
+    }
+    if ($repeatWeeks > 24) {
+        throw new RuntimeException('تکرار هفتگی حداکثر ۲۴ هفته است.');
+    }
+
+    $dates = [$day];
+    for ($i = 1; $i < $repeatWeeks; $i++) {
+        $dates[] = date('Y-m-d', strtotime($day . ' +' . ($i * 7) . ' days') ?: time());
     }
 
     $patientStore = $patientId !== '' ? $patientId : null;
     $doctorStore = $doctorId !== '' ? $doctorId : null;
     $noteStore = $note !== '' ? $note : null;
+    $existingId = ($repeatWeeks === 1 && $kind === 'WORKSHOP') ? clinic_rooms_existing_id($pdo, null, $sessionId) : null;
+    $blocked = [];
+    foreach ($dates as $date) {
+        $slotStart = $date . ' ' . $startClock . ':00';
+        $slotEnd = $date . ' ' . $endClock . ':00';
+        $clash = clinic_rooms_find_clash($pdo, $room, $slotStart, $slotEnd, $existingId);
+        if ($clash) {
+            $blocked[] = to_jalali_label($date);
+        }
+    }
+    if ($blocked) {
+        throw new RuntimeException(clinic_room_label($room) . ' در این ساعت این روزها پر است: ' . implode('، ', $blocked));
+    }
 
+    $seriesId = $repeatWeeks > 1 ? cuid() : null;
     if ($existingId !== null) {
         $pdo->prepare("
           UPDATE clinic_room_bookings
-          SET room_no=?, kind=?, starts_at=?, ends_at=?, title=?, note=?, booked_by_user_id=?, workshop_id=?, patient_id=?, doctor_id=?
+          SET room_no=?, kind=?, starts_at=?, ends_at=?, title=?, note=?, booked_by_user_id=?, workshop_id=?, patient_id=?, doctor_id=?, series_id=NULL
           WHERE id=?
         ")->execute([$room, $kind, $startsAt, $endsAt, $title, $noteStore, $actorId, $workshopId, $patientStore, $doctorStore, $existingId]);
     } else {
-        $pdo->prepare("
+        $insert = $pdo->prepare("
           INSERT INTO clinic_room_bookings
-            (id, room_no, kind, appointment_id, workshop_session_id, workshop_id, patient_id, doctor_id, starts_at, ends_at, title, note, booked_by_user_id)
-          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?)
-        ")->execute([
-            cuid(),
-            $room,
-            $kind,
-            $appointmentId,
-            $sessionId,
-            $workshopId,
-            $patientStore,
-            $doctorStore,
-            $startsAt,
-            $endsAt,
-            $title,
-            $noteStore,
-            $actorId,
-        ]);
+            (id, room_no, kind, appointment_id, workshop_session_id, workshop_id, patient_id, doctor_id, starts_at, ends_at, title, note, booked_by_user_id, series_id)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        ");
+        foreach ($dates as $date) {
+            $insert->execute([
+                cuid(),
+                $room,
+                $kind,
+                $appointmentId,
+                $sessionId,
+                $workshopId,
+                $patientStore,
+                $doctorStore,
+                $date . ' ' . $startClock . ':00',
+                $date . ' ' . $endClock . ':00',
+                $title,
+                $noteStore,
+                $actorId,
+                $seriesId,
+            ]);
+        }
     }
 
-    return ['day' => substr($startsAt, 0, 10), 'room' => $room];
+    return ['day' => $day, 'room' => $room, 'weeks' => count($dates)];
 }
 
 function clinic_rooms_existing_id(PDO $pdo, ?string $appointmentId, ?string $sessionId): ?string
@@ -606,6 +691,28 @@ function clinic_rooms_release(PDO $pdo, string $bookingId): string
         throw new RuntimeException('رزرو گذشته برای گزارش می‌ماند و حذف نمی‌شود.');
     }
     $pdo->prepare('DELETE FROM clinic_room_bookings WHERE id=?')->execute([$bookingId]);
+
+    return substr((string) $row['starts_at'], 0, 10);
+}
+
+/** این رزرو و هفته‌های بعدیِ همان تکرار را حذف می‌کند. */
+function clinic_rooms_release_series(PDO $pdo, string $bookingId): string
+{
+    clinic_rooms_ready($pdo);
+    $stmt = $pdo->prepare('SELECT id, starts_at, ends_at, series_id FROM clinic_room_bookings WHERE id=? LIMIT 1');
+    $stmt->execute([$bookingId]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        throw new RuntimeException('رزرو یافت نشد.');
+    }
+    $seriesId = trim((string) ($row['series_id'] ?? ''));
+    if ($seriesId === '') {
+        return clinic_rooms_release($pdo, $bookingId);
+    }
+    $pdo->prepare("
+      DELETE FROM clinic_room_bookings
+      WHERE series_id=? AND starts_at >= ? AND ends_at >= NOW()
+    ")->execute([$seriesId, (string) $row['starts_at']]);
 
     return substr((string) $row['starts_at'], 0, 10);
 }

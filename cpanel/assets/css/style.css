@@ -7418,12 +7418,57 @@ html.is-native-app body:has([data-livekit-v2]:not([hidden])) .site-chrome-call {
   }
 }
 
+.room-month-head,
 .room-daybar,
 .room-week {
   display: flex;
   flex-wrap: wrap;
   gap: .5rem;
   align-items: center;
+}
+.room-month-head { justify-content: space-between; margin-bottom: .85rem; }
+.room-month-grid {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: .35rem;
+}
+.room-month-wd {
+  text-align: center;
+  font-size: .72rem;
+  color: var(--muted);
+}
+.room-month-day {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: .05rem;
+  min-height: 2.7rem;
+  border: 1px solid var(--line);
+  border-radius: .65rem;
+  text-decoration: none;
+  color: inherit;
+  font-weight: 700;
+}
+.room-month-day i {
+  font-style: normal;
+  font-size: .68rem;
+  font-weight: 600;
+  color: var(--primary, #1f7a4c);
+}
+.room-month-day.is-empty { border-color: transparent; }
+.room-month-day.is-today:not(.is-on) { border-color: var(--primary, #1f7a4c); }
+.room-month-day.is-on {
+  background: var(--primary, #1f7a4c);
+  color: #fff;
+  border-color: transparent;
+}
+.room-month-day.is-on i { color: #fff; }
+.room-repeat {
+  display: flex;
+  gap: .45rem;
+  align-items: flex-start;
+  font-size: .88rem;
 }
 .room-week-day {
   display: flex;
