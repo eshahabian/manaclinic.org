@@ -77,33 +77,7 @@ ob_start();
 <?php endif; ?>
 
 <section class="container-page section">
-      <div class="home-specialists-block">
-        <div class="section-head">
-          <div>
-            <h2>متخصصان ما</h2>
-            <p class="muted">از مسئله‌ات شروع کن یا مستقیم درمانگر را ببین</p>
-          </div>
-        </div>
-        <div class="dir-filter-chips issue-home-chips">
-          <?php foreach (array_slice(clinic_issue_topics(), 0, 8, true) as $issueKey => $issueRow): ?>
-            <a class="dir-chip" href="<?= e(url('/issues/' . $issueKey)) ?>"><?= e($issueRow['label']) ?></a>
-          <?php endforeach; ?>
-          <a class="dir-chip" href="<?= e(url('/doctors')) ?>">همه متخصصان</a>
-        </div>
-        <div class="doctors-showcase">
-          <?php foreach ($doctors as $doc): ?>
-            <?= doctor_card_html($doc) ?>
-          <?php endforeach; ?>
-          <?php if (!$doctors): ?><p class="muted">هنوز متخصصی ثبت نشده است.</p><?php endif; ?>
-        </div>
-        <?php if ($doctors): ?>
-          <div class="articles-footer-link">
-            <a class="articles-all-link" href="<?= e(url('/doctors')) ?>">مشاهده همه</a>
-          </div>
-        <?php endif; ?>
-      </div>
-
-      <section class="home-workshop-banners" id="home-workshop-banners" aria-labelledby="home-workshop-heading">
+      <section class="home-workshop-banners" id="home-workshop-banners" aria-labelledby="home-workshop-heading" style="margin-top:0">
         <div class="section-head">
           <div>
             <h2 id="home-workshop-heading">دوره‌ها و کارگاه‌ها</h2>
@@ -210,6 +184,32 @@ ob_start();
         <?php if ($articles): ?>
           <div class="articles-footer-link">
             <a class="articles-all-link" href="<?= e(url('/articles')) ?>">همه مقالات</a>
+          </div>
+        <?php endif; ?>
+      </div>
+
+      <div class="home-specialists-block" style="margin-top:3rem">
+        <div class="section-head">
+          <div>
+            <h2>متخصصان ما</h2>
+            <p class="muted">از مسئله‌ات شروع کن یا مستقیم درمانگر را ببین</p>
+          </div>
+        </div>
+        <div class="dir-filter-chips issue-home-chips">
+          <?php foreach (array_slice(clinic_issue_topics(), 0, 8, true) as $issueKey => $issueRow): ?>
+            <a class="dir-chip" href="<?= e(url('/issues/' . $issueKey)) ?>"><?= e($issueRow['label']) ?></a>
+          <?php endforeach; ?>
+          <a class="dir-chip" href="<?= e(url('/doctors')) ?>">همه متخصصان</a>
+        </div>
+        <div class="doctors-showcase">
+          <?php foreach ($doctors as $doc): ?>
+            <?= doctor_card_html($doc) ?>
+          <?php endforeach; ?>
+          <?php if (!$doctors): ?><p class="muted">هنوز متخصصی ثبت نشده است.</p><?php endif; ?>
+        </div>
+        <?php if ($doctors): ?>
+          <div class="articles-footer-link">
+            <a class="articles-all-link" href="<?= e(url('/doctors')) ?>">مشاهده همه</a>
           </div>
         <?php endif; ?>
       </div>
