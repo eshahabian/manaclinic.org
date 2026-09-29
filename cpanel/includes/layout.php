@@ -58,7 +58,7 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260928edge">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260929nav">
   <?php
     // آزمایش سبک حس روان‌تر — برای خاموش کردن: false
     $manaAppleFeelLight = true;
