@@ -18,6 +18,9 @@ function admin_nav(): array {
     $unread = 0;
     global $pdo;
     $user = current_user();
+    if (!function_exists('clinic_rooms_user_allowed') && is_file(__DIR__ . '/clinic_rooms.php')) {
+        require_once __DIR__ . '/clinic_rooms.php';
+    }
     if ($pdo instanceof PDO && $user && function_exists('count_unread_notifications')) {
         $unread = count_unread_notifications($pdo, (string) ($user['id'] ?? ''));
     }
@@ -33,8 +36,13 @@ function admin_nav(): array {
         ['href' => '/admin/users', 'label' => 'کاربران'],
         ['href' => '/admin/doctors', 'label' => 'درمانگرها', 'badge' => admin_pending_doctor_count()],
         ['href' => '/admin/appointments', 'label' => 'نوبت‌ها'],
-        ['href' => '/admin/staff-messages', 'label' => 'پیام‌ها'],
     ];
+    if ($user && function_exists('clinic_rooms_user_allowed') && clinic_rooms_user_allowed($user)) {
+        $nav[] = ['href' => '/admin/rooms', 'label' => 'اتاق‌ها'];
+    }
+    $nav = array_merge($nav, [
+        ['href' => '/admin/staff-messages', 'label' => 'پیام‌ها'],
+    ]);
     if (function_exists('mentions_nav_item')) {
         $mentionNav = mentions_nav_item($pdo, $user);
         if ($mentionNav) {

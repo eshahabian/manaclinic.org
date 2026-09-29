@@ -7418,4 +7418,85 @@ html.is-native-app body:has([data-livekit-v2]:not([hidden])) .site-chrome-call {
   }
 }
 
+.room-daybar,
+.room-week {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .5rem;
+  align-items: center;
+}
+.room-week-day {
+  display: flex;
+  flex-direction: column;
+  gap: .15rem;
+  min-width: 5.5rem;
+  padding: .45rem .65rem;
+  border: 1px solid var(--line);
+  border-radius: .7rem;
+  text-decoration: none;
+  color: inherit;
+  background: transparent;
+}
+.room-week-day.is-on {
+  border-color: var(--primary, #1f7a4c);
+  background: rgba(31, 122, 76, .08);
+}
+.room-week-day span { font-size: .75rem; color: var(--muted); }
+.room-col h2 { margin: 0 0 .25rem; font-size: 1.05rem; }
+.room-col-1 { border-top: 3px solid #0f766e; }
+.room-col-2 { border-top: 3px solid #d97706; }
+.room-col-3 { border-top: 3px solid #be123c; }
+.room-hours { display: flex; flex-direction: column; gap: .28rem; }
+.room-hour {
+  display: grid;
+  grid-template-columns: 3.2rem 1fr;
+  gap: .45rem;
+  align-items: start;
+  padding: .28rem .4rem;
+  border-radius: .45rem;
+  font-size: .8rem;
+}
+.room-hour.is-free { background: rgba(31, 122, 76, .06); }
+.room-hour.is-busy { background: rgba(190, 18, 60, .08); }
+.room-hour-time { font-weight: 700; }
+.room-day-list { display: flex; flex-direction: column; gap: .65rem; margin-top: .9rem; }
+.room-day-item {
+  display: flex;
+  justify-content: space-between;
+  gap: .6rem;
+  align-items: flex-start;
+  padding-top: .65rem;
+  border-top: 1px solid var(--line);
+}
+.room-form-grid {
+  display: grid;
+  gap: .75rem;
+}
+@media (min-width: 768px) {
+  .room-form-grid { grid-template-columns: 10rem 1fr; }
+}
+.room-stat {
+  padding: .75rem .85rem;
+  border: 1px solid var(--line);
+  border-radius: .75rem;
+}
+.room-people { margin: .4rem 0 0; padding: 0 1.1rem; }
+.room-report-table { display: flex; flex-direction: column; gap: .35rem; margin-top: .6rem; }
+.room-report-head,
+.room-report-row {
+  display: grid;
+  grid-template-columns: .7fr 1.3fr .7fr 1fr 1.4fr .9fr;
+  gap: .45rem;
+  font-size: .82rem;
+}
+.room-report-head { font-weight: 700; color: var(--muted); }
+.room-report-row {
+  padding: .45rem 0;
+  border-top: 1px solid var(--line);
+}
+@media (max-width: 900px) {
+  .room-report-head { display: none; }
+  .room-report-row { grid-template-columns: 1fr 1fr; }
+}
+
 
