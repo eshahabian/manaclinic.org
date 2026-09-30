@@ -479,27 +479,32 @@ select option {
   grid-template-columns: 1fr;
 }
 .doctors-showcase {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  align-items: stretch;
-  gap: 1.15rem;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 1rem;
   width: 100%;
 }
 .doctors-showcase .doctor-card {
-  flex: 0 1 18.5rem;
-  width: min(100%, 18.5rem);
-  max-width: 18.5rem;
+  width: 100%;
+  max-width: none;
   min-height: 0;
-  padding: 1.35rem 1.1rem 1.35rem;
-}
-.doctors-showcase .doctor-card-photo,
-.doctors-showcase .doctor-card .avatar {
-  width: 100px;
-  height: 100px;
 }
 .doctors-showcase .doctor-card-cta {
   margin-top: auto;
+}
+@media (min-width: 768px) {
+  .doctors-showcase {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: center;
+    align-items: stretch;
+  }
+  .doctors-showcase .doctor-card {
+    /* همان عرض یک ستون صفحهٔ متخصصان */
+    flex: 0 1 calc((100% - 2rem) / 3);
+    width: calc((100% - 2rem) / 3);
+    max-width: calc((100% - 2rem) / 3);
+  }
 }
 @media (min-width: 768px) {
   .articles-showcase {
