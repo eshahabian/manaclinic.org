@@ -487,16 +487,16 @@ select option {
   width: 100%;
 }
 .doctors-showcase .doctor-card {
-  flex: 1 1 18rem;
-  width: min(100%, 22rem);
-  max-width: 22rem;
-  min-height: 26rem;
-  padding: 1.55rem 1.25rem 1.45rem;
+  flex: 0 1 18.5rem;
+  width: min(100%, 18.5rem);
+  max-width: 18.5rem;
+  min-height: 0;
+  padding: 1.35rem 1.1rem 1.35rem;
 }
 .doctors-showcase .doctor-card-photo,
 .doctors-showcase .doctor-card .avatar {
-  width: 108px;
-  height: 108px;
+  width: 100px;
+  height: 100px;
 }
 .doctors-showcase .doctor-card-cta {
   margin-top: auto;
