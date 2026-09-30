@@ -224,6 +224,7 @@ $routes = [
     'GET /dashboard/wallet' => 'pages/patient/wallet.php',
     'GET /dashboard/profile' => 'pages/patient/profile.php',
     'POST /dashboard/profile' => 'actions/patient_profile.php',
+    'POST /account/avatar' => 'actions/user_avatar.php',
     'POST /dashboard/care-notes' => 'actions/patient_care_note.php',
     'GET /dashboard/session-note' => 'pages/patient/session_shared_note.php',
     'POST /dashboard/session-note' => 'actions/appointment_shared_note.php',

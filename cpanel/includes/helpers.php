@@ -318,6 +318,7 @@ function request_expects_json(): bool
         '/cancel-enrollment',
         '/cancel-appointment',
         '/video-signal',
+        '/account/avatar',
     ], true);
 }
 

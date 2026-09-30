@@ -17,6 +17,11 @@ $pageScripts = $GLOBALS['pageScripts'] ?? ($pageScripts ?? '');
 $content = $GLOBALS['content'] ?? ($content ?? '');
 
 $user = current_user();
+$pdoRef = $GLOBALS['pdo'] ?? ($pdo ?? null);
+if ($user && $pdoRef instanceof PDO) {
+    require_once __DIR__ . '/user_avatar.php';
+    $user = user_hydrate_session_avatar($pdoRef, $user);
+}
 $panelHref = panel_href_for($user);
 $flash = flash_get();
 $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'eshahabian') === 0;
@@ -34,6 +39,20 @@ if ($user) {
 if ($user && ($user['role'] ?? '') === 'SECRETARY') {
     $bodyAttrs .= ' data-secretary-desk="1" data-heartbeat="' . e(url('/secretary/heartbeat')) . '" data-logout="' . e(url('/logout')) . '"';
 }
+$lookAvatarSrc = '';
+$lookAvatarInitial = 'م';
+$lookAvatarCanUpload = false;
+if ($user) {
+    if (!function_exists('user_avatar_src')) {
+        require_once __DIR__ . '/user_avatar.php';
+    }
+    $lookAvatarSrc = user_avatar_src((string) ($user['avatar_url'] ?? ''));
+    if ($lookAvatarSrc !== '') {
+        $lookAvatarSrc = url($lookAvatarSrc);
+    }
+    $lookAvatarInitial = user_avatar_initial((string) ($user['name'] ?? ''));
+    $lookAvatarCanUpload = true;
+}
 ?>
 <!DOCTYPE html>
 <html lang="fa" dir="rtl" translate="no">
@@ -48,6 +67,18 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
       if (t === "dark" || t === "light") {
         document.documentElement.setAttribute("data-theme", t);
       }
+      var lookRaw = localStorage.getItem("mana-look");
+      if (lookRaw) {
+        var look = JSON.parse(lookRaw);
+        if (look && typeof look === "object") {
+          if (look.theme === "dark" || look.theme === "light") {
+            document.documentElement.setAttribute("data-theme", look.theme);
+          }
+          if (look.accent) document.documentElement.setAttribute("data-accent", look.accent);
+          if (look.text) document.documentElement.setAttribute("data-text", look.text);
+          if (look.ui) document.documentElement.setAttribute("data-ui", look.ui);
+        }
+      }
       if (/ManaClinicApp/i.test(navigator.userAgent || "")) {
         document.documentElement.classList.add("is-native-app");
       }
@@ -58,7 +89,8 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260930rooms2">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260930look1">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/mana-look.css')) ?>?v=20260930a">
   <?php
     // آزمایش سبک حس روان‌تر — برای خاموش کردن: false
     $manaAppleFeelLight = true;
@@ -124,6 +156,24 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
           <img class="brand-logo" src="<?= e(url('/assets/img/logo.png')) ?>" width="36" height="36" alt="">
           <span class="brand-text">مانا کلینیک</span>
         </a>
+        <button
+          type="button"
+          class="header-avatar"
+          id="mana-look-open"
+          aria-haspopup="dialog"
+          aria-controls="mana-look-screen"
+          aria-label="شخصی‌سازی ظاهر"
+          data-avatar-url="<?= e($lookAvatarSrc) ?>"
+          data-avatar-initial="<?= e($lookAvatarInitial) ?>"
+          data-can-upload="<?= $lookAvatarCanUpload ? '1' : '0' ?>"
+          data-avatar-post="<?= e(url('/account/avatar')) ?>"
+        >
+          <?php if ($lookAvatarSrc !== ''): ?>
+            <img src="<?= e($lookAvatarSrc) ?>" alt="" width="36" height="36">
+          <?php else: ?>
+            <span class="header-avatar-letter" aria-hidden="true"><?= e($lookAvatarInitial) ?></span>
+          <?php endif; ?>
+        </button>
       </div>
       <nav class="nav-links" id="site-nav">
         <a href="<?= e(url('/')) ?>">صفحه اصلی</a>
@@ -307,6 +357,141 @@ if ($user && ($user['role'] ?? '') === 'SECRETARY') {
     </div>
   </footer>
 </div>
+<div id="mana-look-screen" class="mana-look" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="mana-look-title">
+  <div class="mana-look-panel">
+    <div class="mana-look-view is-active" data-look-view="hub">
+      <header class="mana-look-top">
+        <button type="button" class="mana-look-back" data-look-close aria-label="بستن">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div class="mana-look-heading">
+          <h2 id="mana-look-title">تنظیمات</h2>
+          <p class="mana-look-sub">ظاهر اپ را مال خودت کن</p>
+        </div>
+      </header>
+      <div class="mana-look-body">
+        <div class="mana-look-avatar-card" data-look-avatar-block>
+          <button type="button" class="mana-look-avatar-btn" data-look-avatar-pick aria-label="تغییر عکس پروفایل">
+            <span class="mana-look-avatar-face" data-look-avatar-face></span>
+            <span class="mana-look-avatar-cam" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8h3l2-2h6l2 2h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+            </span>
+          </button>
+          <input type="file" accept="image/jpeg,image/png,image/webp" data-look-avatar-file hidden>
+          <div class="mana-look-avatar-meta">
+            <strong data-look-avatar-name><?= e((string) ($user['name'] ?? 'مهمان')) ?></strong>
+            <p class="muted" data-look-avatar-hint><?= $lookAvatarCanUpload ? 'برای عوض کردن عکس، روی تصویر بزن' : 'با ورود می‌توانید عکس پروفایل بگذارید' ?></p>
+            <?php if ($lookAvatarCanUpload): ?>
+              <button type="button" class="mana-look-link" data-look-avatar-remove hidden>حذف عکس</button>
+            <?php endif; ?>
+          </div>
+        </div>
+
+        <button type="button" class="mana-look-dark-card" data-look-toggle-theme>
+          <span class="mana-look-icon-box" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4 7 7 0 0 0 20 14.5z"/></svg>
+          </span>
+          <span class="mana-look-dark-copy">
+            <strong>حالت شب</strong>
+            <small data-look-theme-hint>راحت‌تر برای چشم در شب</small>
+          </span>
+          <span class="mana-look-switch" data-look-theme-switch aria-hidden="true"><span class="mana-look-switch-knob"></span></span>
+        </button>
+
+        <p class="mana-look-section-label">شخصی‌سازی</p>
+        <button type="button" class="mana-look-row" data-look-goto="appearance">
+          <span class="mana-look-icon-box" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/><path d="M5 16l.8 2.2L8 19l-2.2.8L5 22l-.8-2.2L2 19l2.2-.8L5 16z"/></svg>
+          </span>
+          <span class="mana-look-row-copy">
+            <strong>ظاهر</strong>
+            <small data-look-summary>مانا · متن پیش‌فرض · گرد</small>
+          </span>
+          <span class="mana-look-chevron" aria-hidden="true">‹</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="mana-look-view" data-look-view="appearance" hidden>
+      <header class="mana-look-top">
+        <button type="button" class="mana-look-back" data-look-goto="hub" aria-label="بازگشت">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div class="mana-look-heading">
+          <h2>ظاهر</h2>
+        </div>
+      </header>
+      <div class="mana-look-body">
+        <button type="button" class="mana-look-dark-card" data-look-toggle-theme>
+          <span class="mana-look-icon-box" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4 7 7 0 0 0 20 14.5z"/></svg>
+          </span>
+          <span class="mana-look-dark-copy">
+            <strong>حالت شب</strong>
+            <small data-look-theme-hint>راحت‌تر برای چشم در شب</small>
+          </span>
+          <span class="mana-look-switch" data-look-theme-switch aria-hidden="true"><span class="mana-look-switch-knob"></span></span>
+        </button>
+
+        <div class="mana-look-block">
+          <div class="mana-look-block-head">
+            <span>رنگ تم</span>
+            <strong data-look-accent-label>مانا</strong>
+          </div>
+          <div class="mana-look-swatches" role="listbox" aria-label="رنگ تم">
+            <button type="button" class="mana-look-swatch is-mana" data-look-accent="mana" aria-label="مانا" title="مانا"></button>
+            <button type="button" class="mana-look-swatch is-violet" data-look-accent="violet" aria-label="بنفش" title="بنفش"></button>
+            <button type="button" class="mana-look-swatch is-blue" data-look-accent="blue" aria-label="آبی" title="آبی"></button>
+            <button type="button" class="mana-look-swatch is-pink" data-look-accent="pink" aria-label="صورتی" title="صورتی"></button>
+            <button type="button" class="mana-look-swatch is-orange" data-look-accent="orange" aria-label="نارنجی" title="نارنجی"></button>
+          </div>
+        </div>
+
+        <div class="mana-look-block">
+          <div class="mana-look-block-head">
+            <span>اندازه متن</span>
+            <strong data-look-text-label>پیش‌فرض</strong>
+          </div>
+          <div class="mana-look-text-sizes" role="listbox" aria-label="اندازه متن">
+            <button type="button" class="mana-look-aa" data-look-text="default" style="font-size:.85rem" aria-label="پیش‌فرض">Aa</button>
+            <button type="button" class="mana-look-aa" data-look-text="medium" style="font-size:1rem" aria-label="متوسط">Aa</button>
+            <button type="button" class="mana-look-aa" data-look-text="large" style="font-size:1.15rem" aria-label="بزرگ">Aa</button>
+            <button type="button" class="mana-look-aa" data-look-text="xlarge" style="font-size:1.35rem" aria-label="خیلی بزرگ">Aa</button>
+          </div>
+        </div>
+
+        <div class="mana-look-block">
+          <div class="mana-look-block-head">
+            <span>سبک رابط</span>
+            <strong data-look-ui-label>گرد</strong>
+          </div>
+          <div class="mana-look-ui-styles" role="listbox" aria-label="سبک رابط">
+            <button type="button" class="mana-look-ui-card" data-look-ui="rounded">
+              <span class="mana-look-ui-preview is-rounded" aria-hidden="true"></span>
+              <span>گرد</span>
+            </button>
+            <button type="button" class="mana-look-ui-card" data-look-ui="soft">
+              <span class="mana-look-ui-preview is-soft" aria-hidden="true"></span>
+              <span>نرم</span>
+            </button>
+            <button type="button" class="mana-look-ui-card" data-look-ui="crisp">
+              <span class="mana-look-ui-preview is-crisp" aria-hidden="true"></span>
+              <span>تیز</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="mana-look-bar" data-look-bar hidden>
+      <span class="mana-look-changes"><span class="mana-look-dot" aria-hidden="true"></span> <span data-look-change-count>۰ تغییر</span></span>
+      <div class="mana-look-bar-actions">
+        <button type="button" class="mana-look-discard" data-look-discard>صرف‌نظر</button>
+        <button type="button" class="mana-look-review" data-look-review>مرور</button>
+      </div>
+    </footer>
+  </div>
+</div>
 <div class="site-chrome" aria-label="میانبرهای صفحه">
   <a
     class="site-chrome-btn site-chrome-call"
@@ -336,7 +521,8 @@ $overviewJs = __DIR__ . '/../assets/js/workshop-overview.js';
 <script src="<?= e(url('/assets/js/particles.js')) ?>?v=20260904t"></script>
 <script src="<?= e(url('/assets/js/password-field.js')) ?>?v=20260908a"></script>
 <script src="<?= e(url('/assets/js/mobile-nav.js')) ?>?v=20260922a"></script>
-<script src="<?= e(url('/assets/js/site-chrome.js')) ?>?v=20260909b"></script>
+<script src="<?= e(url('/assets/js/site-chrome.js')) ?>?v=20260930look"></script>
+<script src="<?= e(url('/assets/js/mana-look.js')) ?>?v=20260930a"></script>
 <script src="<?= e(url('/assets/js/emoji-picker.js')) ?>?v=20260916e"></script>
 <?php if ($user): ?>
 <script>

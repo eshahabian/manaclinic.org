@@ -283,6 +283,24 @@ function login_user(array $user): void
     if ($pdo instanceof PDO) {
         $user = auth_grant_named_roles($pdo, $user);
     }
+    $avatarUrl = '';
+    if ($pdo instanceof PDO) {
+        if (!function_exists('ensure_users_avatar_schema')) {
+            require_once __DIR__ . '/user_avatar.php';
+        }
+        ensure_users_avatar_schema($pdo);
+        $avatarUrl = function_exists('user_avatar_src')
+            ? user_avatar_src((string) ($user['avatar_url'] ?? ''))
+            : trim((string) ($user['avatar_url'] ?? ''));
+        if ($avatarUrl === '' && !empty($user['id'])) {
+            try {
+                $av = $pdo->prepare('SELECT avatar_url FROM users WHERE id=? LIMIT 1');
+                $av->execute([(string) $user['id']]);
+                $avatarUrl = user_avatar_src((string) ($av->fetchColumn() ?: ''));
+            } catch (Throwable $ignored) {
+            }
+        }
+    }
     $_SESSION['user'] = [
         'id' => $user['id'],
         'name' => $user['name'],
@@ -291,6 +309,7 @@ function login_user(array $user): void
         'role' => $user['role'],
         'must_change_password' => (int) ($user['must_change_password'] ?? 0),
         'gender' => ((string) ($user['gender'] ?? '') === 'female') ? 'female' : (((string) ($user['gender'] ?? '') === 'male') ? 'male' : ''),
+        'avatar_url' => $avatarUrl,
     ];
     if ($pdo instanceof PDO) {
         if (function_exists('user_touch_last_login')) {

@@ -30,21 +30,11 @@ $pageKeywords = 'مانا کلینیک, روانشناس سعادت آباد, ر
 require_once dirname(__DIR__) . '/includes/daily_quotes.php';
 $dailyQuote = daily_quote_for_date();
 $workshopBanners = function_exists('workshop_home_banners') ? workshop_home_banners($pdo) : [];
-$heroSlides = [
-    url('/assets/img/hero.png'),
-    url('/assets/img/slide-1.png'),
-    url('/assets/img/slide-2.png'),
-    url('/assets/img/slide-3.png'),
-    url('/assets/img/slide-4.png'),
-];
+$heroImage = url('/assets/img/hero.png');
 ob_start();
 ?>
-<section class="hero-surface" id="hero-slideshow" aria-label="اسلایدشو صفحه اصلی">
-  <div class="hero-slides">
-    <?php foreach ($heroSlides as $i => $src): ?>
-      <div class="hero-slide<?= $i === 0 ? ' is-active' : '' ?>" style="background-image:url('<?= e($src) ?>')" role="img" aria-hidden="<?= $i === 0 ? 'false' : 'true' ?>"></div>
-    <?php endforeach; ?>
-  </div>
+<section class="hero-surface" aria-label="مانا کلینیک">
+  <div class="hero-bg" style="background-image:url('<?= e($heroImage) ?>')" role="img" aria-hidden="true"></div>
   <div class="hero-overlay" aria-hidden="true"></div>
   <div class="container-page hero-inner">
     <p class="eyebrow">مانا کلینیک</p>
@@ -57,11 +47,6 @@ ob_start();
       <a class="btn btn-ghost" href="<?= e(url('/issues')) ?>">از مسئله شروع کن</a>
       <a class="btn btn-ghost" href="<?= e(url('/articles')) ?>">خواندن مقالات</a>
     </div>
-  </div>
-  <div class="hero-dots" role="tablist" aria-label="انتخاب اسلاید">
-    <?php foreach ($heroSlides as $i => $_): ?>
-      <button type="button" class="hero-dot<?= $i === 0 ? ' is-active' : '' ?>" data-slide="<?= $i ?>" aria-label="اسلاید <?= $i + 1 ?>"></button>
-    <?php endforeach; ?>
   </div>
 </section>
 
@@ -216,51 +201,5 @@ ob_start();
 </section>
 <?php
 $content = ob_get_clean();
-$pageScripts = '
-<script src="' . e(url('/assets/js/home-workshop-banners.js')) . '?v=20260908k"></script>
-<script>
-(function(){
-  var root = document.getElementById("hero-slideshow");
-  if (!root) return;
-  var slides = Array.prototype.slice.call(root.querySelectorAll(".hero-slide"));
-  var dots = Array.prototype.slice.call(root.querySelectorAll(".hero-dot"));
-  if (slides.length < 2) return;
-  var i = 0;
-  var timer = null;
-
-  function go(n){
-    slides[i].classList.remove("is-active");
-    slides[i].setAttribute("aria-hidden", "true");
-    if (dots[i]) dots[i].classList.remove("is-active");
-    i = (n + slides.length) % slides.length;
-    slides[i].classList.add("is-active");
-    slides[i].setAttribute("aria-hidden", "false");
-    if (dots[i]) dots[i].classList.add("is-active");
-  }
-
-  function next(){ go(i + 1); }
-
-  function start(){
-    stop();
-    timer = setInterval(next, 5500);
-  }
-  function stop(){
-    if (timer) clearInterval(timer);
-    timer = null;
-  }
-
-  dots.forEach(function(dot){
-    dot.addEventListener("click", function(){
-      var n = parseInt(dot.getAttribute("data-slide"), 10) || 0;
-      go(n);
-      start();
-    });
-  });
-
-  root.addEventListener("mouseenter", stop);
-  root.addEventListener("mouseleave", start);
-  start();
-})();
-</script>
-';
+$pageScripts = '<script src="' . e(url('/assets/js/home-workshop-banners.js')) . '?v=20260908k"></script>';
 require __DIR__ . '/../includes/layout.php';

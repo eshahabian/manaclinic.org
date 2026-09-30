@@ -77,6 +77,14 @@ function db_ensure_schema(PDO $pdo): void
     }
 
     try {
+        $has = $pdo->query("SHOW COLUMNS FROM users LIKE 'avatar_url'")->fetch();
+        if (!$has) {
+            $pdo->exec('ALTER TABLE users ADD COLUMN avatar_url VARCHAR(255) NULL AFTER phone');
+        }
+    } catch (Throwable $ignored) {
+    }
+
+    try {
         ensure_name_transliterations_schema($pdo);
     } catch (Throwable $ignored) {
     }

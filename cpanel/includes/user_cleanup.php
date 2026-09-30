@@ -310,6 +310,7 @@ function delete_user_attached_rows(PDO $pdo, array $user): void
     }
 
     user_cleanup_unlink_column($pdo, 'SELECT avatar_url FROM doctor_profiles WHERE user_id=?', [$userId], 'avatar_url');
+    user_cleanup_unlink_column($pdo, 'SELECT avatar_url FROM users WHERE id=?', [$userId], 'avatar_url');
     user_cleanup_unlink_column($pdo, 'SELECT photo_path FROM patient_journal_entries WHERE patient_id=?', [$userId], 'photo_path');
     if ($appointmentIds) {
         $marks = implode(',', array_fill(0, count($appointmentIds), '?'));

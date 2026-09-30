@@ -13,6 +13,11 @@
     html.setAttribute("data-theme", next);
     try {
       localStorage.setItem(KEY, next);
+      var lookRaw = localStorage.getItem("mana-look");
+      var look = lookRaw ? JSON.parse(lookRaw) : {};
+      if (!look || typeof look !== "object") look = {};
+      look.theme = next;
+      localStorage.setItem("mana-look", JSON.stringify(look));
     } catch (err) {}
     if (themeBtn) {
       themeBtn.setAttribute("aria-label", next === "dark" ? "حالت روز" : "حالت شب");

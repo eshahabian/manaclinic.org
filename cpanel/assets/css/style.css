@@ -688,26 +688,13 @@ select option {
   overflow: hidden;
   background: #134437;
 }
-.hero-slides {
+.hero-bg {
   position: absolute;
   inset: 0;
   z-index: 0;
-}
-.hero-slide {
-  position: absolute;
-  inset: 0;
   background-position: center;
   background-size: cover;
   background-repeat: no-repeat;
-  opacity: 0;
-  transform: scale(1.04);
-  transition: opacity 1.1s ease, transform 6s ease;
-  will-change: opacity, transform;
-}
-.hero-slide.is-active {
-  opacity: 1;
-  transform: scale(1);
-  z-index: 1;
 }
 .hero-overlay {
   position: absolute;
@@ -724,30 +711,6 @@ select option {
   padding: 7rem 0 4rem;
 }
 .hero-actions { display: flex; flex-wrap: wrap; gap: .75rem; margin-top: 2rem; }
-.hero-dots {
-  position: absolute;
-  z-index: 4;
-  left: 50%;
-  bottom: 1.25rem;
-  transform: translateX(-50%);
-  display: flex;
-  gap: .45rem;
-  align-items: center;
-}
-.hero-dot {
-  width: .55rem;
-  height: .55rem;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,.7);
-  background: transparent;
-  padding: 0;
-  cursor: pointer;
-  transition: background .2s ease, width .2s ease;
-}
-.hero-dot.is-active {
-  background: #fff;
-  width: 1.35rem;
-}
 .btn-ghost { border: 1px solid rgba(255,255,255,.4); background: rgba(255,255,255,.1); color: #fff; }
 
 .home-daily-quote {
