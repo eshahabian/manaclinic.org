@@ -487,7 +487,8 @@ select option {
 .doctors-showcase .doctor-card {
   width: 100%;
   max-width: none;
-  min-height: 0;
+  height: auto;
+  align-self: stretch;
 }
 .doctors-showcase .doctor-card-cta {
   margin-top: auto;
@@ -500,10 +501,12 @@ select option {
     align-items: stretch;
   }
   .doctors-showcase .doctor-card {
-    /* همان عرض یک ستون صفحهٔ متخصصان */
-    flex: 0 1 calc((100% - 2rem) / 3);
+    /* همان عرض یک ستون صفحهٔ متخصصان؛ ارتفاع برابر بلندترین کاشی (عطیه) */
+    flex: 0 0 calc((100% - 2rem) / 3);
     width: calc((100% - 2rem) / 3);
     max-width: calc((100% - 2rem) / 3);
+    height: auto;
+    align-self: stretch;
   }
 }
 @media (min-width: 768px) {
