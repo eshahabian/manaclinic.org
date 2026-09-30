@@ -483,18 +483,27 @@ select option {
   flex-wrap: wrap;
   justify-content: center;
   align-items: stretch;
-  gap: .85rem;
+  gap: 1.15rem;
   width: 100%;
+}
+.doctors-showcase .doctor-card {
+  flex: 1 1 18rem;
+  width: min(100%, 22rem);
+  max-width: 22rem;
+  min-height: 26rem;
+  padding: 1.55rem 1.25rem 1.45rem;
+}
+.doctors-showcase .doctor-card-photo,
+.doctors-showcase .doctor-card .avatar {
+  width: 108px;
+  height: 108px;
+}
+.doctors-showcase .doctor-card-cta {
+  margin-top: auto;
 }
 @media (min-width: 768px) {
   .articles-showcase {
     grid-template-columns: repeat(3, minmax(0, 1fr));
-  }
-  .doctors-showcase .doctor-card {
-    /* عرض هر کاشی ≈ ۲/۳ ستون قبلی؛ گروه از وسط چیده می‌شود */
-    flex: 0 1 calc((66.666% - 1.7rem) / 3);
-    width: calc((66.666% - 1.7rem) / 3);
-    max-width: calc((66.666% - 1.7rem) / 3);
   }
 }
 .article-card {
