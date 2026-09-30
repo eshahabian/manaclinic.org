@@ -90,7 +90,7 @@ if ($user) {
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20260930look1">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/mana-look.css')) ?>?v=20260930a">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/mana-look.css')) ?>?v=20260930b">
   <?php
     // آزمایش سبک حس روان‌تر — برای خاموش کردن: false
     $manaAppleFeelLight = true;

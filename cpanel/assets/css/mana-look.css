@@ -97,7 +97,7 @@ html[data-ui="crisp"] .panel {
 }
 
 .header-avatar {
-  display: inline-flex;
+  display: none;
   align-items: center;
   justify-content: center;
   width: 2.25rem;
@@ -131,6 +131,10 @@ html[data-ui="crisp"] .panel {
   outline: none;
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--look-accent, var(--primary)) 28%, transparent);
 }
+@media (max-width: 1199px) {
+  .header-avatar { display: inline-flex; }
+}
+html.is-native-app .header-avatar { display: inline-flex; }
 
 .mana-look {
   position: fixed;
