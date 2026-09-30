@@ -40,12 +40,15 @@ function admin_nav(): array {
     $nav = [
         ['type' => 'group', 'label' => 'اصلی'],
         ['href' => '/admin', 'label' => 'خلاصه'],
-        [
-            'href' => '/admin/consult-requests',
-            'label' => 'درخواست مشاوره',
-            'badge' => function_exists('consult_request_new_count') ? consult_request_new_count() : 0,
-            'badge_tone' => 'new',
-        ],
+    ];
+    if ($user && strcasecmp(trim((string) ($user['username'] ?? '')), 'eshahabian') === 0) {
+        $nav[] = ['href' => '/dashboard/path', 'label' => 'اتاق ذهن'];
+    }
+    $nav[] = [
+        'href' => '/admin/consult-requests',
+        'label' => 'درخواست مشاوره',
+        'badge' => function_exists('consult_request_new_count') ? consult_request_new_count() : 0,
+        'badge_tone' => 'new',
     ];
     if (!function_exists('sms_operator_allowed') && is_file(__DIR__ . '/outreach.php')) {
         require_once __DIR__ . '/outreach.php';

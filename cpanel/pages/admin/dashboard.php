@@ -14,6 +14,9 @@ ob_start();
 ?>
 <h1>داشبورد مدیریت</h1>
 <p class="muted">نمای کلی وضعیت مانا کلینیک</p>
+<?php if (strcasecmp(trim((string) ((current_user()['username'] ?? ''))), 'eshahabian') === 0): ?>
+  <p style="margin:.85rem 0 0"><a class="btn btn-primary btn-sm" href="<?= e(url('/dashboard/path')) ?>">اتاق ذهن</a></p>
+<?php endif; ?>
 <div class="grid-3" style="margin-top:1.5rem">
   <div class="panel"><div class="muted" style="font-size:.85rem">کاربران</div><div style="font-size:1.6rem;font-weight:700;margin-top:.35rem"><?= $users ?></div></div>
   <div class="panel"><div class="muted" style="font-size:.85rem">درمانگرهای فعال</div><div style="font-size:1.6rem;font-weight:700;margin-top:.35rem"><?= e(to_fa_digits((string) $doctors)) ?></div></div>

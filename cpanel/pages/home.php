@@ -44,7 +44,6 @@ ob_start();
     </p>
     <div class="hero-actions">
       <a class="btn btn-accent" href="<?= e(url('/doctors')) ?>">رزرو نوبت</a>
-      <a class="btn btn-ghost" href="<?= e(url('/issues')) ?>">از مسئله شروع کن</a>
       <a class="btn btn-ghost" href="<?= e(url('/articles')) ?>">خواندن مقالات</a>
     </div>
   </div>
