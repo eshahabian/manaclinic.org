@@ -10,6 +10,16 @@ function doctor_ctx_user_id(array $ctx): string
     return (string) ($ctx['user']['id'] ?? '');
 }
 
+/** صندوق اعلان: مدیر اعلان‌های خودش را می‌بیند؛ درمانگر اعلان‌های حساب خودش را. */
+function doctor_notification_user_id(array $ctx): string
+{
+    if (!empty($ctx['admin_mode'])) {
+        return (string) ($ctx['user']['id'] ?? '');
+    }
+
+    return doctor_ctx_user_id($ctx);
+}
+
 function doctor_ctx_user_name(array $ctx): string
 {
     if (!empty($ctx['admin_mode'])) {

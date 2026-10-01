@@ -5,7 +5,7 @@ require_once __DIR__ . '/../../includes/doctor_panel.php';
 require_once __DIR__ . '/../../includes/assistant.php';
 
 $ctx = require_doctor_profile($pdo);
-$userId = doctor_ctx_user_id($ctx);
+$userId = doctor_notification_user_id($ctx);
 ensure_assistant_schema($pdo);
 
 $kind = trim((string) ($_GET['kind'] ?? 'assistant'));

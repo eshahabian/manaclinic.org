@@ -7,7 +7,7 @@ require_once __DIR__ . '/../../includes/workshops.php';
 
 $ctx = require_doctor_profile($pdo);
 $doctorId = (string) $ctx['profile']['id'];
-$userId = doctor_ctx_user_id($ctx);
+$userId = doctor_notification_user_id($ctx);
 
 ensure_assistant_schema($pdo);
 ensure_workshop_schema($pdo);
