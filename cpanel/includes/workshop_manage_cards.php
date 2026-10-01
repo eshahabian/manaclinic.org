@@ -149,6 +149,7 @@ $doctorPathBoardById = $doctorPathBoardById ?? [];
               <?php
                 $enrollmentList = $workshopEnrollmentsById[$wid] ?? [];
                 $enrollmentDeskAction = url($workshopPostBase);
+                $enrollmentDeskPeopleOnly = $workshopRole === 'doctor';
                 require __DIR__ . '/workshop_enrollment_desk.php';
               ?>
             <?php endif; ?>

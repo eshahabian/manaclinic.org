@@ -342,6 +342,9 @@ function staff_close_stale_shifts(PDO $pdo, ?string $userId = null): void
             $roleStmt = $pdo->prepare('SELECT role FROM users WHERE id=? LIMIT 1');
             $roleStmt->execute([$userId]);
             $role = (string) ($roleStmt->fetchColumn() ?: '');
+            if ($role === 'SECRETARY') {
+                return;
+            }
             $idle = staff_shift_idle_seconds_for_role($role);
             $pdo->prepare("
               UPDATE staff_shifts
@@ -357,11 +360,9 @@ function staff_close_stale_shifts(PDO $pdo, ?string $userId = null): void
           JOIN users u ON u.id = s.user_id
           SET s.ended_at = s.last_seen_at, s.end_reason = 'idle'
           WHERE s.ended_at IS NULL
-            AND (
-              (u.role = 'DOCTOR' AND s.last_seen_at < DATE_SUB(NOW(), INTERVAL ? SECOND))
-              OR (IFNULL(u.role, '') <> 'DOCTOR' AND s.last_seen_at < DATE_SUB(NOW(), INTERVAL ? SECOND))
-            )
-        ")->execute([DOCTOR_SHIFT_IDLE_SECONDS, staff_idle_seconds()]);
+            AND u.role = 'DOCTOR'
+            AND s.last_seen_at < DATE_SUB(NOW(), INTERVAL ? SECOND)
+        ")->execute([DOCTOR_SHIFT_IDLE_SECONDS]);
     } catch (Throwable $ignored) {
     }
 }
@@ -1115,57 +1116,34 @@ function staff_hours_export_rows(PDO $pdo, ?string $who = null): array
             }
             $gdate = (string) ($day['date'] ?? '');
             $jalali = $gdate !== '' ? to_jalali_label($gdate) : '';
-            $daySplit = staff_day_presence_seconds_split($day['items'] ?? []);
+            $items = is_array($day['items'] ?? null) ? $day['items'] : [];
+            if ($items === []) {
+                continue;
+            }
+            $daySplit = staff_day_presence_seconds_split($items);
+            $meta = staff_day_presence_meta($items);
             $daySeconds = (int) ($daySplit['total'] ?? 0);
             $dayRegular = (int) ($daySplit['regular'] ?? 0);
             $dayOvertime = (int) ($daySplit['overtime'] ?? 0);
-            foreach (($day['items'] ?? []) as $i => $row) {
-                if (!is_array($row)) {
-                    continue;
-                }
-                $part = staff_shift_seconds_split($row);
-                $sec = (int) $part['total'];
-                $out[] = [
-                    'tab_id' => $tabId,
-                    'kind' => (string) ($block['kind'] ?? 'secretary'),
-                    'role' => $roleLabel,
-                    'label' => $label,
-                    'username' => $username,
-                    'date' => $jalali,
-                    'gregorian' => $gdate,
-                    'entry' => $i + 1,
-                    'started_at' => (string) ($row['started_at'] ?? ''),
-                    'ended_at' => (string) ($row['ended_at'] ?? ''),
-                    'duration' => staff_format_duration($sec),
-                    'regular' => staff_format_duration((int) $part['regular']),
-                    'overtime' => staff_format_duration((int) $part['overtime']),
-                    'seconds' => $sec,
-                    'reason' => staff_shift_reason_label($row['end_reason'] ?? null),
-                    'device' => staff_device_label(staff_shift_is_mobile($row)),
-                    'day_total' => '',
-                ];
-            }
-            if (($day['items'] ?? []) !== []) {
-                $out[] = [
-                    'tab_id' => $tabId,
-                    'kind' => (string) ($block['kind'] ?? 'secretary'),
-                    'role' => $roleLabel,
-                    'label' => $label,
-                    'username' => $username,
-                    'date' => $jalali,
-                    'gregorian' => $gdate,
-                    'entry' => '',
-                    'started_at' => '',
-                    'ended_at' => '',
-                    'duration' => staff_format_duration($daySeconds),
-                    'regular' => staff_format_duration($dayRegular),
-                    'overtime' => staff_format_duration($dayOvertime),
-                    'seconds' => $daySeconds,
-                    'reason' => 'جمع روز',
-                    'device' => '',
-                    'day_total' => staff_format_duration($daySeconds),
-                ];
-            }
+            $out[] = [
+                'tab_id' => $tabId,
+                'kind' => (string) ($block['kind'] ?? 'secretary'),
+                'role' => $roleLabel,
+                'label' => $label,
+                'username' => $username,
+                'date' => $jalali,
+                'gregorian' => $gdate,
+                'entry' => '',
+                'started_at' => (string) ($meta['first_in'] ?? ''),
+                'ended_at' => !empty($meta['open']) ? '' : (string) ($meta['last_out'] ?? ''),
+                'duration' => staff_format_duration($daySeconds),
+                'regular' => staff_format_duration($dayRegular),
+                'overtime' => staff_format_duration($dayOvertime),
+                'seconds' => $daySeconds,
+                'reason' => !empty($meta['open']) ? 'در حال کار' : 'خروج',
+                'device' => '',
+                'day_total' => staff_format_duration($daySeconds),
+            ];
         }
     }
     return $out;

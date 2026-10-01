@@ -107,12 +107,6 @@
     }
   }
 
-  function goIdleLogout() {
-    if (ticking) return;
-    ticking = true;
-    window.location.href = logoutUrl + (logoutUrl.indexOf("?") === -1 ? "?" : "&") + "idle=1";
-  }
-
   function goReplacedLogout() {
     if (ticking) return;
     ticking = true;
@@ -136,8 +130,6 @@
       .then(function (data) {
         if (data && data.replaced) {
           goReplacedLogout();
-        } else if (data && data.expired) {
-          goIdleLogout();
         }
       })
       .catch(function () {});

@@ -52,7 +52,7 @@ if ($kind === 'workshop') {
         $payment['ref_id'] = $verified['refId'] ?? null;
         confirm_workshop_payment($pdo, $payment);
         $pdo->commit();
-        flash_set('success', 'پرداخت ثبت شد. تا تأیید عضویت توسط منشی، درمانگر یا مدیر در «دوره‌های درخواست داده‌شده» می‌ماند.');
+        flash_set('success', 'پرداخت ثبت شد. تا تأیید عضویت توسط منشی در «دوره‌های درخواست داده‌شده» می‌ماند.');
         redirect('/dashboard/workshops/requested');
     } catch (Throwable $e) {
         $pdo->rollBack();

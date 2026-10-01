@@ -100,7 +100,7 @@ if ($doctorId !== '') {
         $pdo,
         $doctorId,
         'درخواست عضویت کارگاه',
-        "«{$patientName}» برای کارگاه «{$title}» ({$when}) درخواست داد. در انتظار تأیید عضویت است.",
+        "«{$patientName}» برای کارگاه «{$title}» ({$when}) درخواست داد. تأیید با منشی است؛ شما فقط نام افراد را می‌بینید.",
         '/doctor/workshops',
         'workshop'
     );
@@ -108,13 +108,13 @@ if ($doctorId !== '') {
 workshop_notify_garsichi_request(
     $pdo,
     'درخواست عضویت کارگاه',
-    "«{$patientName}» برای کارگاه «{$title}» ({$when}) درخواست داد. می‌توانید عضویت را تأیید کنید یا او را وارد دوره کنید.",
+    "«{$patientName}» برای کارگاه «{$title}» ({$when}) درخواست داد. تأیید عضویت با منشی است.",
     $doctorId
 );
 
 echo json_encode([
     'enrollmentId' => $enrollmentId,
-    'message' => 'درخواست ثبت شد و به «دوره‌های درخواست داده‌شده» رفت. بعد از تأیید منشی، درمانگر یا مدیر در «دوره‌های من» دیده می‌شود.',
+    'message' => 'درخواست ثبت شد و به «دوره‌های درخواست داده‌شده» رفت. بعد از تأیید منشی در «دوره‌های من» دیده می‌شود.',
     'needsPayment' => $needsPayment,
     'redirect' => url('/dashboard/workshops/requested'),
 ], JSON_UNESCAPED_UNICODE);

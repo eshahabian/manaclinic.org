@@ -1652,6 +1652,51 @@ function workshop_group_for_tabs(array $workshops): array
  *   cancelUrl: string
  * }
  */
+/**
+ * نام اعضای تأییدشدهٔ کارگاه‌ها. فقط برای کارگاه‌هایی که بیننده خودش عضو آن‌هاست صدا زده می‌شود.
+ *
+ * @param list<string> $workshopIds
+ * @return array<string, list<string>>
+ */
+function workshop_member_names_grouped(PDO $pdo, array $workshopIds): array
+{
+    $ids = [];
+    foreach ($workshopIds as $id) {
+        $id = trim((string) $id);
+        if ($id !== '') {
+            $ids[$id] = $id;
+        }
+    }
+    $ids = array_values($ids);
+    if ($ids === []) {
+        return [];
+    }
+    $marks = implode(',', array_fill(0, count($ids), '?'));
+    $stmt = $pdo->prepare("
+      SELECT e.workshop_id, u.name
+      FROM workshop_enrollments e
+      JOIN users u ON u.id = e.patient_id
+      WHERE e.workshop_id IN ($marks)
+        AND e.status IN ('CONFIRMED','COMPLETED')
+      ORDER BY u.name ASC
+    ");
+    $stmt->execute($ids);
+    $grouped = [];
+    foreach ($stmt->fetchAll() as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $wid = (string) ($row['workshop_id'] ?? '');
+        $name = trim((string) ($row['name'] ?? ''));
+        if ($wid === '' || $name === '') {
+            continue;
+        }
+        $grouped[$wid][] = $name;
+    }
+
+    return $grouped;
+}
+
 function patient_workshop_tab_data(PDO $pdo, string $patientId): array
 {
     require_once __DIR__ . '/workshop_media.php';
@@ -1664,6 +1709,7 @@ function patient_workshop_tab_data(PDO $pdo, string $patientId): array
 
     $published = $pdo->query("
       SELECT w.*, u.name AS doctor_name,
+        (SELECT COUNT(*) FROM workshop_enrollments e WHERE e.workshop_id = w.id AND e.status IN ('CONFIRMED','COMPLETED')) AS member_count,
         (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = 'VIDEO') AS video_count,
         (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = 'AUDIO') AS audio_count,
         (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = 'PDF') AS pdf_count
@@ -1694,12 +1740,17 @@ function patient_workshop_tab_data(PDO $pdo, string $patientId): array
     $myEnrollments = $mine->fetchAll();
 
     $enrollByWorkshop = [];
+    $memberWorkshopIds = [];
     foreach ($myEnrollments as $row) {
         $wid = (string) ($row['workshop_id'] ?? '');
         if ($wid !== '' && !isset($enrollByWorkshop[$wid])) {
             $enrollByWorkshop[$wid] = $row;
         }
+        if ($wid !== '' && in_array((string) ($row['status'] ?? ''), ['CONFIRMED', 'COMPLETED'], true)) {
+            $memberWorkshopIds[$wid] = $wid;
+        }
     }
+    $memberNamesByWorkshop = workshop_member_names_grouped($pdo, array_values($memberWorkshopIds));
 
     $visible = [];
     foreach ($published as $workshop) {
@@ -1743,6 +1794,7 @@ function patient_workshop_tab_data(PDO $pdo, string $patientId): array
         'grouped' => $grouped,
         'enrollmentsByTab' => $enrollmentsByTab,
         'enrollByWorkshop' => $enrollByWorkshop,
+        'memberNamesByWorkshop' => $memberNamesByWorkshop,
         'sessionsByWorkshop' => $sessionsByWorkshop,
         'binderTabs' => [
             'in-person' => ['label' => 'حضوری', 'class' => 'binder-tab-in-person', 'empty' => 'کارگاه حضوری فعالی برای ثبت‌نام نیست.'],

@@ -23,6 +23,14 @@ $emptyAvailable = $emptyAvailable ?? 'کارگاه فعالی برای ثبت‌
         $overview = function_exists('workshop_overview_payload')
           ? workshop_overview_payload($w, $enr, $sessions, $canSeeFiles, $canSeeFiles && $enr ? workshop_media_course_url((string) $enr['id']) : null)
           : [];
+        $memberCount = (int) ($w['member_count'] ?? 0);
+        $overview['memberCount'] = $memberCount;
+        $memberNames = ($canSeeFiles && isset($memberNamesByWorkshop) && is_array($memberNamesByWorkshop))
+          ? ($memberNamesByWorkshop[(string) ($w['id'] ?? '')] ?? [])
+          : [];
+        if ($canSeeFiles) {
+            $overview['approvedPeople'] = is_array($memberNames) ? $memberNames : [];
+        }
       ?>
       <article class="workshop-binder-card<?= $archiveView ? ' is-archived' : '' ?>">
         <div class="workshop-card-row">
@@ -48,6 +56,11 @@ $emptyAvailable = $emptyAvailable ?? 'کارگاه فعالی برای ثبت‌
               <?php endif; ?>
             </div>
             <div class="muted" style="font-size:.85rem;margin-top:.25rem"><?= e(format_price((int) $w['price'])) ?></div>
+            <?php if ($canSeeFiles && $memberNames): ?>
+              <div style="font-size:.85rem;margin-top:.45rem"><strong>اعضا:</strong> <?= e(implode('، ', $memberNames)) ?></div>
+            <?php else: ?>
+              <div class="muted" style="font-size:.85rem;margin-top:.45rem"><?= e(to_fa_digits((string) $memberCount)) ?> نفر عضو</div>
+            <?php endif; ?>
             <?php if (!empty($w['items_to_bring'])): ?>
               <div style="font-size:.8rem;margin-top:.35rem"><strong>همراه داشته باشید:</strong> <?= e((string) $w['items_to_bring']) ?></div>
             <?php endif; ?>

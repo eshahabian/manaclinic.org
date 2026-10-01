@@ -31,6 +31,9 @@ $emptyEnrollments = $emptyEnrollments ?? 'هنوز در کارگاهی از ای
         if ($confirmed && function_exists('workshop_path_url')) {
             $overview['pathUrl'] = workshop_path_url((string) ($e['id'] ?? ''));
         }
+        if ($canSeeFiles && isset($memberNamesByWorkshop) && is_array($memberNamesByWorkshop)) {
+            $overview['approvedPeople'] = $memberNamesByWorkshop[(string) ($e['workshop_id'] ?? '')] ?? [];
+        }
       ?>
       <div class="enrollment-card">
         <div class="enrollment-card-main" data-workshop-open role="button" tabindex="0">
@@ -70,7 +73,7 @@ $emptyEnrollments = $emptyEnrollments ?? 'هنوز در کارگاهی از ای
           <?php if ($e['status'] === 'PENDING_PAYMENT'): ?>
             <p class="muted" style="font-size:.8rem;margin:0 0 .35rem;line-height:1.55">
               <?php if ($payStatus === 'PAID'): ?>
-                پرداخت ثبت شد — منتظر تأیید عضویت منشی، درمانگر یا مدیر هستید.
+                پرداخت ثبت شد — منتظر تأیید عضویت منشی هستید.
               <?php else: ?>
                 درخواست ثبت شده و منتظر تأیید عضویت است<?= $needsPay ? '؛ در صورت نیاز می‌توانید همین‌جا پرداخت کنید' : '' ?>.
               <?php endif; ?>

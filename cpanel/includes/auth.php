@@ -206,7 +206,8 @@ function auth_session_state(PDO $pdo, array $user): string
             $_SESSION['last_activity'] = time();
             return 'ok';
         }
-        if ((time() - $last) >= auth_idle_seconds()) {
+        $role = (string) ($user['role'] ?? '');
+        if ($role !== 'SECRETARY' && (time() - $last) >= auth_idle_seconds()) {
             return 'idle';
         }
     } catch (Throwable $ignored) {

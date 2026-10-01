@@ -126,6 +126,9 @@
         html += '<button type="button" class="btn btn-primary btn-sm" style="margin-top:.75rem" data-workshop-go="' + esc(data.editUrl) + '">ویرایش و فایل جلسات</button>';
       }
     } else if (data.member) {
+      if (Array.isArray(data.approvedPeople)) {
+        html += renderPeopleGroup("اعضای کارگاه", data.approvedPeople);
+      }
       html += '<p class="muted" style="margin:.85rem 0 0;font-size:.85rem">عضویت شما تأیید شده است. پی‌دی‌اف، صوت و ویدیوی هر جلسه داخل مسیر دوره، زیر همان جلسه، قابل مشاهده است.</p>';
       if (data.pathUrl) {
         html += '<button type="button" class="btn btn-primary btn-sm" style="margin-top:.75rem;margin-left:.4rem" data-workshop-go="' + esc(data.pathUrl) + '">' + (data.offline ? "ورود به دوره" : "مسیر دوره") + "</button>";
@@ -134,8 +137,14 @@
         html += '<button type="button" class="btn btn-outline btn-sm" style="margin-top:.75rem" data-workshop-go="' + esc(data.mediaUrl) + '">مشاهده فایل جلسات</button>';
       }
     } else if (data.pending) {
-      html += '<p class="muted" style="margin:.9rem 0 0">درخواست عضویت ثبت شده. بعد از تأیید منشی، درمانگر یا مدیر، فایل‌ها برای شما باز می‌شود.</p>';
+      if (typeof data.memberCount === "number") {
+        html += '<p style="margin:.9rem 0 0"><strong>تعداد اعضا:</strong> ' + esc(String(data.memberCount).replace(/[0-9]/g, function (d) { return "۰۱۲۳۴۵۶۷۸۹"[d]; })) + " نفر</p>";
+      }
+      html += '<p class="muted" style="margin:.9rem 0 0">درخواست عضویت ثبت شده. بعد از تأیید منشی، فایل‌ها برای شما باز می‌شود.</p>';
     } else {
+      if (typeof data.memberCount === "number") {
+        html += '<p style="margin:.9rem 0 0"><strong>تعداد اعضا:</strong> ' + esc(String(data.memberCount).replace(/[0-9]/g, function (d) { return "۰۱۲۳۴۵۶۷۸۹"[d]; })) + " نفر</p>";
+      }
       html += '<p class="muted" style="margin:.9rem 0 0">فایل جلسات فقط بعد از عضویت و تأیید نمایش داده می‌شود.</p>';
     }
     bodyEl.innerHTML = html;

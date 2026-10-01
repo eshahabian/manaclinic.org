@@ -6,34 +6,15 @@ if (!$peerList) {
     return;
 }
 ?>
-<h3 class="binder-sub">کارگاه‌های سایر درمانگران</h3>
-<p class="muted" style="font-size:.85rem;margin:.2rem 0 .65rem">کارگاه‌های منتشرشده که در بخش خدمات اعلام می‌شوند و مراجعه‌کنندگان از پیام‌ها هم مطلع می‌شوند.</p>
+<h3 class="binder-sub">کارگاه‌های دیگر</h3>
+<p class="muted" style="font-size:.85rem;margin:.2rem 0 .65rem">چون عضو این کارگاه‌ها نیستید، فقط تعداد اعضا دیده می‌شود.</p>
 <div class="stack">
   <?php foreach ($peerList as $peer): ?>
-    <?php
-      $peerSessions = $sessionsByWorkshop[(string) ($peer['id'] ?? '')] ?? [];
-      $peerOverview = function_exists('workshop_overview_payload')
-        ? workshop_overview_payload($peer, ['status' => 'CONFIRMED'], $peerSessions, true, null)
-        : [];
-      $peerOverview['staff'] = true;
-    ?>
-    <article class="workshop-binder-card workshop-binder-card--peer" data-workshop-open role="button" tabindex="0">
-      <?= function_exists('workshop_overview_data_script') ? workshop_overview_data_script($peerOverview) : '' ?>
-      <strong><?= e($peer['title']) ?></strong>
-      <span class="badge" style="margin-right:.5rem"><?= e(workshop_type_label($peer['type'])) ?></span>
-      <?php if ($peer['type'] !== 'OFFLINE'): ?>
-        <span class="badge" style="margin-right:.35rem"><?= e(workshop_session_interval_label((string) ($peer['session_interval'] ?? 'DAILY'))) ?></span>
-      <?php endif; ?>
-      <div class="muted" style="font-size:.75rem;margin-top:.35rem">برای دیدن کلیات کلیک کنید</div>
-      <div class="muted" style="font-size:.85rem;margin-top:.35rem">درمانگر: <?= e($peer['doctor_name']) ?></div>
-      <div class="muted" style="font-size:.85rem;margin-top:.25rem">
-        <?php if ($peer['type'] === 'OFFLINE'): ?>
-          دوره آفلاین
-        <?php else: ?>
-          <?= e(format_workshop_datetime_fa($peer['starts_at'])) ?> — <?= e(format_workshop_datetime_fa($peer['ends_at'])) ?>
-        <?php endif; ?>
-        · <?= e(format_price((int)$peer['price'])) ?>
-        · <?= !empty($peer['enrollment_open']) ? 'ثبت‌نام باز' : 'ثبت‌نام بسته' ?>
+    <?php if (!is_array($peer)) { continue; } ?>
+    <article class="workshop-binder-card workshop-binder-card--peer">
+      <strong><?= e((string) ($peer['title'] ?? 'کارگاه')) ?></strong>
+      <div class="muted" style="font-size:.9rem;margin-top:.35rem">
+        <?= e(to_fa_digits((string) (int) ($peer['enrolled_count'] ?? 0))) ?> نفر عضو
       </div>
     </article>
   <?php endforeach; ?>

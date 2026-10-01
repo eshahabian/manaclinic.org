@@ -2,6 +2,7 @@
   var body = document.body;
   if (!body || body.getAttribute("data-session-guard") !== "1") return;
 
+  var noIdle = body.getAttribute("data-no-idle") === "1";
   var idleMs = 10 * 60 * 1000;
   var pingUrl = body.getAttribute("data-session-ping") || "";
   var logoutUrl = body.getAttribute("data-logout") || "/logout";
@@ -46,7 +47,7 @@
     if (leaving) return;
     if (inLiveCall()) bump();
     if (!pingUrl) {
-      if (Date.now() - last >= idleMs) goIdle();
+      if (!noIdle && Date.now() - last >= idleMs) goIdle();
       return;
     }
     var active = Date.now() - last < 60000 ? "1" : "0";
@@ -65,7 +66,7 @@
       .then(function (data) {
         if (!data) return;
         if (data.replaced) goReplaced();
-        else if (data.expired) goIdle();
+        else if (!noIdle && data.expired) goIdle();
       })
       .catch(function () {});
   }

@@ -49,7 +49,7 @@ function staff_hours_render_live_devices(array $people): string
   <div class="row-between" style="align-items:flex-start;gap:.75rem;flex-wrap:wrap">
     <div>
       <strong>وضعیت دستگاه منشی‌ها (الان)</strong>
-      <p class="muted" style="margin:.25rem 0 0;font-size:.85rem">زمان آنلاین هر منشی و اینکه با موبایل است یا لپ‌تاپ. در سابقه هر روز هم جمع لپ‌تاپ و موبایل جداست.</p>
+      <p class="muted" style="margin:.25rem 0 0;font-size:.85rem">اولین ورود امروز، آخرین خروج، و مدت حضور از همان ورود تا خروج. دستگاه فعلی هم مشخص است.</p>
     </div>
   </div>
   <ul class="staff-mobile-live-list">
@@ -57,25 +57,32 @@ function staff_hours_render_live_devices(array $people): string
       <?php
         $label = (string) ($block['label'] ?? staff_hours_person_word($block));
         $open = is_array($block['open'] ?? null) ? $block['open'] : null;
+        $todayRows = function_exists('staff_hours_shift_rows')
+            ? staff_hours_shift_rows($block['today_rows'] ?? [])
+            : [];
+        $meta = function_exists('staff_day_presence_meta') ? staff_day_presence_meta($todayRows) : ['first_in' => null, 'last_out' => null, 'open' => false];
+        $span = function_exists('staff_day_presence_seconds_split') ? staff_day_presence_seconds_split($todayRows) : ['total' => 0];
         $mobile = $open && function_exists('staff_shift_is_mobile') && staff_shift_is_mobile($open);
+        $firstIn = trim((string) ($meta['first_in'] ?? ''));
+        $lastOut = trim((string) ($meta['last_out'] ?? ''));
       ?>
       <li class="staff-mobile-live-item<?= $mobile ? ' is-mobile' : ($open ? ' is-desktop' : ' is-offline') ?>">
         <span class="staff-mobile-live-name"><?= e($label) ?></span>
         <?php if ($open && $mobile): ?>
           <span class="staff-mobile-live-status">آنلاین با موبایل</span>
-          <span class="staff-mobile-live-meta">
-            از <?= e(format_fa_datetime((string) ($open['started_at'] ?? ''))) ?>
-            · <?= e(staff_format_duration(staff_shift_seconds($open))) ?>
-          </span>
         <?php elseif ($open): ?>
           <span class="staff-mobile-live-status">آنلاین با لپ‌تاپ</span>
-          <span class="staff-mobile-live-meta">
-            از <?= e(format_fa_datetime((string) ($open['started_at'] ?? ''))) ?>
-            · <?= e(staff_format_duration(staff_shift_seconds($open))) ?>
-          </span>
         <?php else: ?>
           <span class="staff-mobile-live-status">آفلاین</span>
-          <span class="staff-mobile-live-meta muted">الان وارد نیست</span>
+        <?php endif; ?>
+        <?php if ($firstIn !== ''): ?>
+          <span class="staff-mobile-live-meta">
+            ورود <?= e(format_fa_datetime($firstIn)) ?>
+            · خروج <?= $open ? 'الان' : ($lastOut !== '' ? e(format_fa_datetime($lastOut)) : '—') ?>
+            · <?= e(staff_format_duration((int) ($span['total'] ?? 0))) ?>
+          </span>
+        <?php else: ?>
+          <span class="staff-mobile-live-meta muted">امروز ورودی نیست</span>
         <?php endif; ?>
       </li>
     <?php endforeach; ?>
@@ -155,7 +162,7 @@ function staff_hours_render(array $slots, array $opts = []): string
     ob_start();
     ?>
 <h1>ساعت کاری منشی‌ها</h1>
-<p class="muted">ساعت عادی از ۹ صبح تا ۸ شب است؛ خارج از این بازه اضافه‌کار حساب می‌شود. برای هر روز فقط ساعت اولین ورود، آخرین خروج، و اضافه‌کار دیده می‌شود. تب هر منشی و هر درمانگر جداست.</p>
+<p class="muted">ساعت عادی از ۹ صبح تا ۸ شب است؛ خارج از این بازه اضافه‌کار حساب می‌شود. برای هر روز ساعت اولین ورود، آخرین خروج، و مدت همین بازه دیده می‌شود. تب هر منشی و هر درمانگر جداست.</p>
 
 <?= staff_hours_render_live_devices($people) ?>
 
@@ -226,7 +233,7 @@ function staff_hours_render_self(array $block, array $opts = []): string
     $title = (string) ($opts['title'] ?? 'ساعت کاری من');
     $intro = (string) ($opts['intro'] ?? '');
     if ($intro === '') {
-        $intro = 'ساعت عادی از ۹ صبح تا ۸ شب است؛ خارج از این بازه اضافه‌کار حساب می‌شود. برای هر روز ساعت اولین ورود، آخرین خروج، و اضافه‌کار دیده می‌شود.';
+        $intro = 'ساعت عادی از ۹ صبح تا ۸ شب است؛ خارج از این بازه اضافه‌کار حساب می‌شود. برای هر روز ساعت اولین ورود، آخرین خروج، و مدت حضور از همان ورود تا خروج دیده می‌شود.';
     }
     $todayRows = staff_hours_day_rows($block, $today, $today);
     $open = is_array($block['open'] ?? null) ? $block['open'] : null;
@@ -495,10 +502,11 @@ function staff_hours_render_day_presence(array $rows, array $opts = []): string
           <span class="staff-presence-value"><?= e($outClock) ?></span>
         </div>
         <div class="staff-presence-stat">
-          <span class="staff-presence-label">اضافه‌کار</span>
-          <span class="staff-presence-value"><?= e(staff_format_duration((int) ($split['overtime'] ?? 0))) ?></span>
+          <span class="staff-presence-label">مدت حضور</span>
+          <span class="staff-presence-value"><?= e(staff_format_duration((int) ($split['total'] ?? 0))) ?></span>
         </div>
       </div>
+      <p class="muted" style="margin:.55rem 0 0;font-size:.8rem"><?= e(staff_format_split_line($split, true)) ?></p>
     </div>
     <?php
     return (string) ob_get_clean();
@@ -636,8 +644,8 @@ function staff_hours_render_month_tile(array $block, array $month, string $today
             <span class="staff-presence-value"><?= e(to_fa_digits((string) $presentDays)) ?> روز</span>
           </div>
           <div class="staff-presence-stat">
-            <span class="staff-presence-label">اضافه‌کار</span>
-            <span class="staff-presence-value"><?= e(staff_format_duration((int) ($split['overtime'] ?? 0))) ?></span>
+            <span class="staff-presence-label">مدت حضور</span>
+            <span class="staff-presence-value"><?= e(staff_format_duration((int) ($split['total'] ?? 0))) ?></span>
           </div>
         </div>
         <details class="staff-presence-more">
@@ -697,13 +705,11 @@ function staff_hours_send_export(PDO $pdo, int|string|null $who = null): void
         'نام',
         'نام کاربری',
         'تاریخ شمسی',
-        'شماره ورود',
-        'ورود',
-        'خروج',
-        'مدت',
+        'اولین ورود',
+        'آخرین خروج',
+        'مدت حضور',
         'ساعت عادی',
         'اضافه‌کاری',
-        'دستگاه',
         'توضیح',
     ]);
     foreach ($rows as $row) {
@@ -712,13 +718,11 @@ function staff_hours_send_export(PDO $pdo, int|string|null $who = null): void
             (string) ($row['label'] ?? ''),
             (string) ($row['username'] ?? ''),
             (string) ($row['date'] ?? ''),
-            $row['entry'] !== '' ? to_fa_digits((string) $row['entry']) : '',
             (string) ($row['started_at'] ?? ''),
             (string) ($row['ended_at'] ?? ''),
             (string) ($row['duration'] ?? ''),
             (string) ($row['regular'] ?? ''),
             (string) ($row['overtime'] ?? ''),
-            (string) ($row['device'] ?? ''),
             (string) ($row['reason'] ?? ''),
         ]);
     }

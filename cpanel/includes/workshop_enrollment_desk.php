@@ -5,9 +5,30 @@ declare(strict_types=1);
 $enrollmentList = $enrollmentList ?? [];
 $enrollmentDeskAction = $enrollmentDeskAction ?? url('/secretary/workshops');
 $enrollmentReceiptKind = $enrollmentReceiptKind ?? 'workshop';
+$enrollmentDeskPeopleOnly = !empty($enrollmentDeskPeopleOnly);
 ?>
 <?php if (!$enrollmentList): ?>
   <p class="muted" style="margin:.75rem 0 0;font-size:.85rem">هنوز کسی در این کارگاه ثبت‌نام نکرده است.</p>
+<?php elseif ($enrollmentDeskPeopleOnly): ?>
+  <div class="workshop-enroll-desk">
+    <h3 class="workshop-enroll-desk-title">افراد کارگاه</h3>
+    <p class="muted" style="font-size:.8rem;margin:0 0 .65rem">تأیید عضویت با منشی است. اینجا فقط نام افراد و وضعیت‌شان دیده می‌شود.</p>
+    <?php foreach ($enrollmentList as $enr): ?>
+      <?php
+        if (!is_array($enr)) {
+            continue;
+        }
+        $status = (string) ($enr['status'] ?? '');
+        $statusLabel = in_array($status, ['CONFIRMED', 'COMPLETED'], true)
+            ? 'عضو'
+            : ($status === 'PENDING_PAYMENT' ? 'منتظر تأیید منشی' : enrollment_status_label($status));
+      ?>
+      <div class="workshop-enroll-desk-row">
+        <strong><?= e((string) ($enr['patient_name'] ?? '')) ?></strong>
+        <span class="badge"><?= e($statusLabel) ?></span>
+      </div>
+    <?php endforeach; ?>
+  </div>
 <?php else: ?>
   <div class="workshop-enroll-desk">
     <h3 class="workshop-enroll-desk-title">ثبت‌نام‌شده‌ها</h3>
