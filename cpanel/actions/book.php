@@ -54,6 +54,9 @@ if (!in_array($time, $valid, true)) {
 
 $startsAt = appointment_slot_starts_at($date, $time);
 $endsAt = date('Y-m-d H:i:s', strtotime($startsAt) + (appointment_slot_minutes() * 60));
+if (function_exists('appointment_expire_unpaid_holds')) {
+    appointment_expire_unpaid_holds($pdo);
+}
 if (strtotime($startsAt) <= time()) {
     http_response_code(400);
     echo json_encode(['error' => 'این زمان گذشته است.']);
@@ -75,12 +78,11 @@ $appointmentId = cuid();
 $paymentId = cuid();
 $amount = (int) $doctor['session_price'];
 
-ensure_appointment_approval_status($pdo);
+ensure_appointment_session_schema($pdo);
 $pdo->beginTransaction();
 try {
-    ensure_appointment_session_schema($pdo);
-    $pdo->prepare('INSERT INTO appointments (id,doctor_id,patient_id,starts_at,ends_at,status,notes,session_mode,created_by_user_id) VALUES (?,?,?,?,?,?,?,?,?)')
-        ->execute([$appointmentId, $doctorId, $user['id'], $startsAt, $endsAt, 'PENDING_APPROVAL', null, $sessionMode, (string) $user['id']]);
+    $pdo->prepare('INSERT INTO appointments (id,doctor_id,patient_id,starts_at,ends_at,status,notes,session_mode,created_by_user_id,requested_at) VALUES (?,?,?,?,?,?,?,?,?,NOW())')
+        ->execute([$appointmentId, $doctorId, $user['id'], $startsAt, $endsAt, 'PENDING_PAYMENT', null, $sessionMode, (string) $user['id']]);
     $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,status) VALUES (?,?,?,?)')
         ->execute([$paymentId, $appointmentId, $amount, 'PENDING']);
     $pdo->commit();
@@ -90,16 +92,16 @@ try {
     notify_role(
         $pdo,
         'SECRETARY',
-        'درخواست نوبت جدید',
-        "مراجعه‌کننده «{$patientName}» برای {$when} درخواست نوبت داد. تا تأیید نکنید نمی‌تواند پرداخت کند.",
-        '/secretary/appointments?tab=upcoming',
+        'درخواست وقت جدید',
+        "مراجعه‌کننده «{$patientName}» برای {$when} درخواست وقت داد. در لیست رزرو است؛ حتی بدون پرداخت آنلاین می‌توانید بررسی کنید و با «پرداخت شده» رزرو کنید.",
+        '/secretary/appointments?tab=reservations',
         'appointment'
     );
     notify_doctor_profile(
         $pdo,
         $doctorId,
         'درخواست نوبت جدید',
-        "مراجعه‌کننده «{$patientName}» برای {$when} درخواست نوبت داد — در انتظار تأیید منشی.",
+        "مراجعه‌کننده «{$patientName}» برای {$when} درخواست وقت داد. تا تأیید پرداخت منشی، رزرو نهایی نیست.",
         '/doctor/appointments',
         'appointment'
     );
@@ -107,7 +109,7 @@ try {
     echo json_encode([
         'appointmentId' => $appointmentId,
         'awaitingApproval' => true,
-        'message' => 'درخواست نوبت ثبت شد. پس از تأیید منشی می‌توانید از بخش «نوبت‌های من» پرداخت کنید.',
+        'message' => 'درخواست شما ارسال شد و در حال بررسی است. تا یک ساعت این وقت برای شما می‌ماند. وقتی منشی پرداخت را تأیید کند، نوبت رزرو می‌شود.',
     ], JSON_UNESCAPED_UNICODE);
 } catch (Throwable $e) {
     $pdo->rollBack();

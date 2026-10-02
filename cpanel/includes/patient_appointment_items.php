@@ -60,7 +60,7 @@ $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/
               </div>
             </div>
             <div class="patient-appt-row-meta">
-              <span class="badge"><?= e(appointment_status_label((string) $a['status'])) ?></span>
+              <span class="badge"><?= e(appointment_row_status_label($a)) ?></span>
               <?php if (!empty($a['amount'])): ?>
                 <div class="muted" style="margin-top:.45rem">
                   <?= e(format_price((int) $a['amount'])) ?> — <?= e($payLabel) ?>
@@ -70,12 +70,15 @@ $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/
             </div>
           </div>
           <div class="patient-appt-row-footer">
+            <?php if (function_exists('appointment_patient_phase_html')): ?>
+              <?= appointment_patient_phase_html($a) ?>
+            <?php endif; ?>
             <?php if ($showMana): ?>
               <p class="muted patient-appt-mana-hint">تماس مانا از ۱۵ دقیقه قبل از شروع جلسه فعال می‌شود.</p>
-            <?php elseif ($awaitingApproval): ?>
-              <p class="muted patient-appt-mana-hint">درخواست شما ثبت شد. پس از تأیید منشی، پرداخت در همین صفحه باز می‌شود.</p>
+            <?php elseif ($awaitingApproval || ($a['status'] ?? '') === 'PENDING_PAYMENT'): ?>
+              <p class="muted patient-appt-mana-hint">درخواست ارسال شده و در حال بررسی است. تا یک ساعت این وقت برای شما می‌ماند. پس از «پرداخت شده» توسط منشی، نوبت رزرو می‌شود.</p>
             <?php elseif ($canUploadReceipt): ?>
-              <p class="muted patient-appt-mana-hint">فیش را اینجا آپلود کنید یا برای منشی بفرستید؛ بعد از تأیید منشی نوبت ثبت می‌شود.</p>
+              <p class="muted patient-appt-mana-hint">فیش را اینجا آپلود کنید یا برای منشی بفرستید؛ بعد از تأیید منشی نوبت رزرو می‌شود.</p>
             <?php endif; ?>
             <div class="patient-appt-row-btns">
               <?php if ($showMana): ?>
@@ -133,7 +136,7 @@ $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/
               <a class="btn btn-outline btn-sm" href="<?= e($noteUrl) ?>">یادداشت جلسه</a>
             </div>
           </div>
-          <span class="badge"><?= e(appointment_status_label((string) $a['status'])) ?></span>
+          <span class="badge"><?= e(function_exists('appointment_row_status_label') ? appointment_row_status_label($a) : appointment_status_label((string) $a['status'])) ?></span>
         </div>
       <?php endif; ?>
     <?php endforeach; ?>

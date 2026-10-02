@@ -9,6 +9,9 @@ require_once __DIR__ . '/../../includes/appointment_session.php';
 if (function_exists('appointment_restore_auto_cancelled_unpaid')) {
     appointment_restore_auto_cancelled_unpaid($pdo);
 }
+if (function_exists('appointment_expire_unpaid_holds')) {
+    appointment_expire_unpaid_holds($pdo);
+}
 
 $stmt = $pdo->prepare("
   SELECT a.*, u.name AS doctor_name, dp.specialty, p.id AS payment_id, p.amount, p.status AS pay_status, p.ref_id, p.receipt_path
@@ -41,7 +44,7 @@ ob_start();
   </div>
   <?php if ($booked): ?>
     <div class="panel" style="border-color:var(--success);color:var(--success);font-size:.9rem">
-      درخواست نوبت ثبت شد و در انتظار تأیید منشی است. پس از تأیید، پرداخت در همین صفحه باز می‌شود.
+      درخواست شما ارسال شد و در حال بررسی است. تا یک ساعت این وقت برای شما می‌ماند. وقتی منشی پرداخت را تأیید کند، نوبت رزرو می‌شود.
     </div>
   <?php endif; ?>
   <?php if ($flashSuccess): ?>

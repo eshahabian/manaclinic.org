@@ -5,6 +5,14 @@ require_once __DIR__ . '/appointment_list_helpers.php';
 require_once __DIR__ . '/secretary_week_grid.php';
 require_once __DIR__ . '/secretary_patient.php';
 require_once __DIR__ . '/availability.php';
+require_once __DIR__ . '/appointment_session.php';
+
+if (function_exists('appointment_restore_auto_cancelled_unpaid')) {
+    appointment_restore_auto_cancelled_unpaid($pdo);
+}
+if (function_exists('appointment_expire_unpaid_holds')) {
+    appointment_expire_unpaid_holds($pdo);
+}
 
 /** میز نوبت مشترک منشی و ادمین */
 $rows = $pdo->query("
@@ -44,33 +52,35 @@ if ($searchDay !== '') {
 $filterHint = implode(' · ', $filterHintParts);
 
 $upcoming = [];
+$reservations = [];
 $done = [];
 $cancelled = [];
 $now = time();
-if (function_exists('appointment_restore_auto_cancelled_unpaid')) {
-    appointment_restore_auto_cancelled_unpaid($pdo);
-}
 foreach ($rows as $row) {
     $status = (string) ($row['status'] ?? '');
     $start = strtotime((string) ($row['starts_at'] ?? '')) ?: 0;
     if ($status === 'CANCELLED') {
         $cancelled[] = $row;
+    } elseif (in_array($status, ['PENDING_APPROVAL', 'PENDING_PAYMENT'], true) && $start >= $now) {
+        $reservations[] = $row;
     } elseif ($status === 'COMPLETED' || $start < $now) {
         $done[] = $row;
     } else {
         $upcoming[] = $row;
     }
 }
+usort($reservations, static fn(array $a, array $b): int => strcmp((string) ($a['requested_at'] ?? $a['created_at'] ?? ''), (string) ($b['requested_at'] ?? $b['created_at'] ?? '')));
 usort($upcoming, static fn(array $a, array $b): int => strcmp((string) $a['starts_at'], (string) $b['starts_at']));
 usort($done, static fn(array $a, array $b): int => strcmp((string) $b['starts_at'], (string) $a['starts_at']));
 usort($cancelled, static fn(array $a, array $b): int => strcmp((string) $b['starts_at'], (string) $a['starts_at']));
 
+$reservationsFiltered = appointment_list_apply_search($reservations, $searchQ, $searchDay);
 $upcomingFiltered = appointment_list_apply_search($upcoming, $searchQ, $searchDay);
 $doneFiltered = appointment_list_apply_search($done, $searchQ, $searchDay);
 $cancelledFiltered = appointment_list_apply_search($cancelled, $searchQ, $searchDay);
 
 $tabParam = trim((string) ($_GET['tab'] ?? ''));
-$binderInitial = in_array($tabParam, ['new', 'upcoming', 'done', 'cancelled'], true) ? $tabParam : 'upcoming';
+$binderInitial = in_array($tabParam, ['new', 'reservations', 'upcoming', 'done', 'cancelled'], true) ? $tabParam : 'upcoming';
 
 $doctors = secretary_active_doctors($pdo);
 $weekDoctorId = trim((string) ($_GET['doctor_id'] ?? ''));
@@ -89,7 +99,7 @@ ob_start();
 ?>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
 <h1>نوبت‌ها</h1>
-<p class="muted" style="margin-top:.35rem;font-size:.9rem">نوبت جدید را از تب صورتی ثبت کنید. در پیش‌رو جدول هفت‌روزه را ببینید؛ در انجام‌شده و لغو شده با نام یا تاریخ جستجو کنید.</p>
+<p class="muted" style="margin-top:.35rem;font-size:.9rem">نوبت جدید را از تب صورتی ثبت کنید. درخواست‌های مراجعه‌کننده در «لیست رزرو» جدا هستند و تا یک ساعت نگه داشته می‌شوند. پیش‌رو فقط نوبت‌های رزروشده است.</p>
 <?php if (!empty($appointmentsDeskAdminTools)): ?>
   <div class="appt-toolbar">
     <form method="post" action="<?= e(url('/admin/appointments')) ?>" onsubmit="return confirm('همه نوبت‌ها برای همیشه حذف شوند؟');">
@@ -105,6 +115,9 @@ ob_start();
     <button type="button" class="binder-tab binder-tab-new<?= $binderInitial === 'new' ? ' is-active' : '' ?>" role="tab" data-binder-tab="new" data-binder-tone="new" aria-selected="<?= $binderInitial === 'new' ? 'true' : 'false' ?>">
       نوبت جدید
     </button>
+    <button type="button" class="binder-tab binder-tab-reservations<?= $binderInitial === 'reservations' ? ' is-active' : '' ?>" role="tab" data-binder-tab="reservations" data-binder-tone="reservations" aria-selected="<?= $binderInitial === 'reservations' ? 'true' : 'false' ?>">
+      لیست رزرو <span class="binder-tab-count"><?= count($filterActive ? $reservationsFiltered : $reservations) ?></span>
+    </button>
     <button type="button" class="binder-tab binder-tab-appts<?= $binderInitial === 'upcoming' ? ' is-active' : '' ?>" role="tab" data-binder-tab="upcoming" data-binder-tone="appts" aria-selected="<?= $binderInitial === 'upcoming' ? 'true' : 'false' ?>">
       نوبت‌های پیش‌رو <span class="binder-tab-count"><?= count($filterActive ? $upcomingFiltered : $upcoming) ?></span>
     </button>
@@ -119,6 +132,20 @@ ob_start();
     <section class="binder-panel<?= $binderInitial === 'new' ? ' is-active' : '' ?>" data-binder-panel="new" role="tabpanel"<?= $binderInitial === 'new' ? '' : ' hidden' ?>>
       <?= $secretaryBookFormHtml ?? '' ?>
     </section>
+    <section class="binder-panel<?= $binderInitial === 'reservations' ? ' is-active' : '' ?>" data-binder-panel="reservations" role="tabpanel"<?= $binderInitial === 'reservations' ? '' : ' hidden' ?>>
+      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">درخواست وقت مراجعه‌کننده اینجاست، جدا از نوبت‌های قطعی. می‌توانید بدون پرداخت آنلاین تأیید کنید، فیش بگذارید، یادداشت بنویسید، و حتی بدون فیش دکمه «پرداخت شده» را بزنید. اگر تا یک ساعت «پرداخت شده» زده نشود، وقت آزاد می‌شود. زمان درخواست و زمان تأیید ثبت می‌شود.</p>
+      <?= appointment_search_form_html($deskAction, 'reservations', $searchQ, $searchDay, $searchJalali, $filterActive, 'rs', 'نام مراجعه‌کننده یا درمانگر…', appointment_search_name_choices($reservations)) ?>
+      <?php
+        $appointmentList = $filterActive ? $reservationsFiltered : $reservations;
+        $appointmentEmpty = 'درخواست رزروی در انتظار نیست.';
+        $appointmentsDeskNext = ($appointmentsDeskNext ?? '/secretary/appointments');
+        $holdNext = $appointmentsDeskNext . (str_contains($appointmentsDeskNext, '?') ? '&' : '?') . 'tab=reservations';
+        $savedDeskNext = $appointmentsDeskNext;
+        $appointmentsDeskNext = $holdNext;
+        require __DIR__ . '/secretary_appointment_cards.php';
+        $appointmentsDeskNext = $savedDeskNext;
+      ?>
+    </section>
     <section class="binder-panel<?= $binderInitial === 'upcoming' ? ' is-active' : '' ?>" data-binder-panel="upcoming" role="tabpanel"<?= $binderInitial === 'upcoming' ? '' : ' hidden' ?>>
       <?= appointment_search_form_html($deskAction, 'upcoming', $searchQ, $searchDay, $searchJalali, $filterActive, 'up', 'نام مراجعه‌کننده یا درمانگر…', appointment_search_name_choices($upcoming)) ?>
       <?php if ($filterActive): ?>
@@ -131,21 +158,6 @@ ob_start();
           require __DIR__ . '/secretary_appointment_cards.php';
         ?>
       <?php else: ?>
-        <?php
-          $pendingApprovalList = array_values(array_filter(
-              $upcoming,
-              static fn (array $row): bool => (string) ($row['status'] ?? '') === 'PENDING_APPROVAL'
-          ));
-        ?>
-        <?php if ($pendingApprovalList): ?>
-          <h2 style="font-size:1.05rem;margin:0 0 .65rem">درخواست‌های سایت — منتظر تأیید شما</h2>
-          <p class="muted" style="margin:0 0 .85rem;font-size:.85rem">تا تأیید نکنید، مراجعه‌کننده نمی‌تواند پرداخت کند. ساعت این درخواست‌ها در جدول نارنجی است.</p>
-          <?php
-            $appointmentList = $pendingApprovalList;
-            $appointmentEmpty = '';
-            require __DIR__ . '/secretary_appointment_cards.php';
-          ?>
-        <?php endif; ?>
         <form method="get" action="<?= e($deskAction) ?>" class="sec-week-doctor-pick" style="display:flex;flex-wrap:wrap;gap:.55rem;align-items:end;margin:1.25rem 0 1rem">
           <input type="hidden" name="tab" value="upcoming">
           <div style="flex:1;min-width:12rem">
@@ -159,7 +171,7 @@ ob_start();
             </select>
           </div>
         </form>
-        <p class="muted" style="margin:0 0 .85rem;font-size:.85rem">هفت روز آینده · ساعت نارنجی = درخواست سایت، اول تأیید کنید · ساعت قرمز = رزرو شده (کلیک برای جزئیات) · ساعت آزاد = کلیک برای رزرو</p>
+        <p class="muted" style="margin:0 0 .85rem;font-size:.85rem">هفت روز آینده · ساعت نارنجی = رزرو موقت (در لیست رزرو) · ساعت قرمز = رزرو شده · ساعت آزاد = کلیک برای رزرو</p>
         <?php if ($weekDoctorId === ''): ?>
           <p class="muted">درمانگری برای نمایش یافت نشد.</p>
         <?php else: ?>

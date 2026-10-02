@@ -19,6 +19,10 @@ if ($doctorId === '' || $date === '') {
 }
 
 appointment_expire_stale_pending_payments($pdo, $doctorId);
+if (function_exists('appointment_expire_unpaid_holds') || is_file(__DIR__ . '/../includes/appointment_session.php')) {
+    require_once __DIR__ . '/../includes/appointment_session.php';
+    appointment_expire_unpaid_holds($pdo);
+}
 
 $stmt = $pdo->prepare('SELECT * FROM availabilities WHERE doctor_id=? AND date=? LIMIT 1');
 $stmt->execute([$doctorId, $date]);

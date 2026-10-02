@@ -8,12 +8,7 @@ require_once __DIR__ . '/../../includes/appointment_list_helpers.php';
 
 $ctx = require_doctor_profile($pdo);
 $doctorId = (string) ($ctx['profile']['id'] ?? '');
-
-/** دکتر شیوا و دکتر عطیه گارسچی (و پنل ادمین روی همان حساب): همه نوبت‌ها؛ بقیه فقط نوبت‌های خودشان */
-$seeAllAppointments = doctor_has_shiva_access([
-    'name' => (string) ($ctx['profile']['name'] ?? ($ctx['user']['name'] ?? '')),
-    'username' => (string) ($ctx['user']['username'] ?? ''),
-]) || doctor_has_shiva_access($ctx['user'] ?? null);
+$seeAllAppointments = false;
 
 $searchQ = trim((string) ($_GET['q'] ?? ''));
 $searchDay = trim((string) ($_GET['day'] ?? ''));
@@ -27,6 +22,14 @@ if ($searchDay !== '') {
         [$jy, $jm, $jd] = gregorian_to_jalali($gy, $gm, $gd);
         $searchJalali = $jy . '/' . $jm . '/' . $jd;
     }
+}
+
+require_once __DIR__ . '/../../includes/appointment_session.php';
+if (function_exists('appointment_restore_auto_cancelled_unpaid')) {
+    appointment_restore_auto_cancelled_unpaid($pdo);
+}
+if (function_exists('appointment_expire_unpaid_holds')) {
+    appointment_expire_unpaid_holds($pdo);
 }
 
 $sql = "
@@ -55,9 +58,6 @@ $upcoming = [];
 $done = [];
 $cancelled = [];
 $now = time();
-if (function_exists('appointment_restore_auto_cancelled_unpaid')) {
-    appointment_restore_auto_cancelled_unpaid($pdo);
-}
 foreach ($rows as $row) {
     $status = (string) ($row['status'] ?? '');
     $start = strtotime((string) ($row['starts_at'] ?? '')) ?: 0;

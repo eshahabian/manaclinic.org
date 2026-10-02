@@ -96,8 +96,17 @@ if (empty($verified['ok'])) {
 
 $pdo->prepare("UPDATE payments SET status='PAID', ref_id=? WHERE id=?")
     ->execute([$verified['refId'] ?? null, $payment['id']]);
-$pdo->prepare("UPDATE appointments SET status='CONFIRMED' WHERE id=?")
-    ->execute([$payment['appointment_id']]);
+if (is_file(__DIR__ . '/../includes/appointment_session.php')) {
+    require_once __DIR__ . '/../includes/appointment_session.php';
+    ensure_appointment_hold_columns($pdo);
+}
+$pdo->prepare("
+  UPDATE appointments
+  SET status='PENDING_PAYMENT',
+      reviewed_at=COALESCE(reviewed_at, NOW()),
+      requested_at=COALESCE(requested_at, created_at)
+  WHERE id=? AND status IN ('PENDING_APPROVAL','PENDING_PAYMENT')
+")->execute([$payment['appointment_id']]);
 
 $appStmt = $pdo->prepare("
   SELECT a.starts_at, a.doctor_id, u.name AS patient_name
@@ -114,20 +123,20 @@ if ($appInfo) {
     notify_role(
         $pdo,
         'SECRETARY',
-        'تأیید نوبت پس از پرداخت',
-        "نوبت «{$patientName}» برای {$when} پرداخت و تأیید شد.",
-        '/secretary/appointments',
+        'پرداخت آنلاین نوبت',
+        "نوبت «{$patientName}» برای {$when} آنلاین پرداخت شد. از لیست رزرو «پرداخت شده» را بزنید تا وقت رزرو شود.",
+        '/secretary/appointments?tab=reservations',
         'appointment'
     );
     notify_doctor_profile(
         $pdo,
         (string) $appInfo['doctor_id'],
-        'تأیید نوبت',
-        "نوبت «{$patientName}» برای {$when} پرداخت و تأیید شد.",
+        'پرداخت آنلاین نوبت',
+        "نوبت «{$patientName}» برای {$when} آنلاین پرداخت شد و هنوز منتظر تأیید منشی است.",
         '/doctor/appointments',
         'appointment'
     );
 }
 
-flash_set('success', 'پرداخت با موفقیت انجام شد و نوبت تأیید شد.');
+flash_set('success', 'پرداخت ثبت شد و درخواست در حال بررسی است. پس از تأیید منشی، نوبت رزرو می‌شود.');
 redirect('/dashboard/appointments');

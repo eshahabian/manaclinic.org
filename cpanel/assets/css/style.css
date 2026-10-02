@@ -3716,6 +3716,7 @@ html[data-theme="dark"] .sec-week-day {
 .binder-tab-cancelled { background-color: #e8d5d5; color: #5a2020; }
 .binder-tab-cancelled.is-active { color: #b33a3a; }
 .binder-tab-appts { background-color: #bfe8cc; color: #0f3d28; }
+.binder-tab-reservations { background-color: #ffe08a; color: #5a3b00; }
 .binder-tab-workshops { background-color: #c5e4f7; color: #16352c; }
 .binder-tab-in-person.is-active { color: #2a7ab8; }
 .binder-tab-online.is-active { color: #1a8f8a; }
@@ -3723,6 +3724,11 @@ html[data-theme="dark"] .sec-week-day {
 .binder-tab-new.is-active { color: #c43a86; }
 .binder-tab-archive.is-active { color: #c45f12; }
 .binder-tab-appts.is-active { color: #2e9a5c; }
+.binder-tab-reservations.is-active { color: #b08910; }
+.appt-phases { list-style: none; margin: .55rem 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: .35rem; font-size: .78rem; }
+.appt-phases li { padding: .15rem .5rem; border-radius: 999px; background: #f3f4f6; color: #6b7280; }
+.appt-phases li.is-done { background: #e8f6ee; color: #0f3d28; }
+.appt-phases li.is-current { background: #fff4d6; color: #7a4b00; font-weight: 700; }
 .binder-tab-workshops.is-active { color: #2a7ab8; }
 .binder-tab-count {
   display: inline-flex;

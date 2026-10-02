@@ -141,11 +141,14 @@ function appointment_status_label(string $status, ?string $cancelReason = null):
     if ($status === 'CANCELLED' && $cancelReason === 'rejected') {
         return 'رد شده توسط منشی';
     }
+    if ($status === 'CANCELLED' && $cancelReason === 'unpaid_timeout') {
+        return 'لغو — مهلت یک‌ساعته پرداخت';
+    }
 
     return match ($status) {
-        'PENDING_APPROVAL' => 'در انتظار تأیید منشی',
-        'PENDING_PAYMENT' => 'در انتظار پرداخت',
-        'CONFIRMED' => 'تأیید شده',
+        'PENDING_APPROVAL' => 'ارسال درخواست',
+        'PENDING_PAYMENT' => 'در حال بررسی',
+        'CONFIRMED' => 'رزرو شده',
         'CANCELLED' => 'لغو شده',
         'COMPLETED' => 'انجام شده',
         default => $status,

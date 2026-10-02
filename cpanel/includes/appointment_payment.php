@@ -50,7 +50,7 @@ function patient_upload_appointment_receipt(PDO $pdo, string $appointmentId, str
         'SECRETARY',
         'فیش پرداخت نوبت',
         "مراجعه‌کننده «{$patientName}» برای نوبت {$when} (درمانگر: {$row['doctor_name']}) فیش آپلود کرد. پس از بررسی، پرداخت را تأیید کنید.",
-        '/secretary/appointments?tab=upcoming',
+        '/secretary/appointments?tab=reservations',
         'appointment',
         $patientId
     );
@@ -84,7 +84,8 @@ function staff_confirm_appointment_payment(
     PDO $pdo,
     string $appointmentId,
     array $actor,
-    array $file = []
+    array $file = [],
+    string $note = ''
 ): array {
     $stmt = $pdo->prepare("
       SELECT a.*, p.id AS payment_id, p.status AS pay_status, p.receipt_path, p.amount,
@@ -100,18 +101,20 @@ function staff_confirm_appointment_payment(
     if (!$row) {
         throw new RuntimeException('نوبت یافت نشد.');
     }
-    if ((string) ($row['status'] ?? '') !== 'PENDING_PAYMENT') {
+    $holdStatus = (string) ($row['status'] ?? '');
+    if (!in_array($holdStatus, ['PENDING_APPROVAL', 'PENDING_PAYMENT'], true)) {
         throw new RuntimeException('این نوبت قابل تأیید پرداخت نیست.');
     }
-    if ((string) ($row['pay_status'] ?? '') === 'PAID') {
-        throw new RuntimeException('پرداخت این نوبت قبلاً ثبت شده است.');
-    }
+    $alreadyPaid = (string) ($row['pay_status'] ?? '') === 'PAID';
 
     $paymentId = (string) $row['payment_id'];
     $staffUserId = (string) ($actor['id'] ?? '');
     $hasFile = (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE);
 
-    if ($hasFile) {
+    if ($alreadyPaid && !$hasFile) {
+        $pdo->prepare('UPDATE payments SET recorded_by_user_id=? WHERE id=?')
+            ->execute([$staffUserId, $paymentId]);
+    } elseif ($hasFile) {
         $relative = staff_save_receipt($file, $paymentId);
         if (!empty($row['receipt_path'])) {
             $old = staff_receipt_abs((string) $row['receipt_path']);
@@ -119,14 +122,42 @@ function staff_confirm_appointment_payment(
                 @unlink($old);
             }
         }
-        $pdo->prepare('UPDATE payments SET receipt_path=?, status=?, ref_id=?, recorded_by_user_id=? WHERE id=?')
-            ->execute([$relative, 'PAID', 'SECRETARY', $staffUserId, $paymentId]);
+        if ($alreadyPaid) {
+            $pdo->prepare('UPDATE payments SET receipt_path=?, recorded_by_user_id=? WHERE id=?')
+                ->execute([$relative, $staffUserId, $paymentId]);
+        } else {
+            $pdo->prepare('UPDATE payments SET receipt_path=?, status=?, ref_id=?, recorded_by_user_id=? WHERE id=?')
+                ->execute([$relative, 'PAID', 'SECRETARY', $staffUserId, $paymentId]);
+        }
     } else {
         $pdo->prepare('UPDATE payments SET status=?, ref_id=COALESCE(NULLIF(ref_id,\'\'),\'SECRETARY\'), recorded_by_user_id=? WHERE id=?')
             ->execute(['PAID', $staffUserId, $paymentId]);
     }
 
-    $pdo->prepare("UPDATE appointments SET status='CONFIRMED' WHERE id=?")->execute([$appointmentId]);
+    if (function_exists('ensure_appointment_hold_columns')) {
+        ensure_appointment_hold_columns($pdo);
+    }
+    $note = trim($note);
+    if ($note !== '') {
+        $pdo->prepare("
+          UPDATE appointments
+          SET status='CONFIRMED',
+              payment_confirmed_at=NOW(),
+              reviewed_at=COALESCE(reviewed_at, NOW()),
+              requested_at=COALESCE(requested_at, created_at),
+              staff_payment_note=?
+          WHERE id=?
+        ")->execute([$note, $appointmentId]);
+    } else {
+        $pdo->prepare("
+          UPDATE appointments
+          SET status='CONFIRMED',
+              payment_confirmed_at=NOW(),
+              reviewed_at=COALESCE(reviewed_at, NOW()),
+              requested_at=COALESCE(requested_at, created_at)
+          WHERE id=?
+        ")->execute([$appointmentId]);
+    }
 
     $patientName = (string) ($row['patient_name'] ?? 'مراجعه‌کننده');
     $when = format_fa_datetime((string) ($row['starts_at'] ?? ''));
@@ -139,8 +170,8 @@ function staff_confirm_appointment_payment(
     notify_user(
         $pdo,
         (string) ($row['patient_user_id'] ?? ''),
-        'نوبت تأیید شد',
-        "پرداخت نوبت {$when} تأیید شد و نوبت شما ثبت گردید.",
+        'نوبت رزرو شد',
+        "پرداخت نوبت {$when} تأیید شد و وقت شما رزرو گردید.",
         '/dashboard/appointments',
         'appointment',
         $staffUserId !== '' ? $staffUserId : null
@@ -149,7 +180,7 @@ function staff_confirm_appointment_payment(
         $pdo,
         (string) $row['doctor_id'],
         'نوبت تأیید شد',
-        "پرداخت نوبت «{$patientName}» ({$when}) توسط {$actorLabel} تأیید و ثبت شد.",
+        "پرداخت نوبت «{$patientName}» ({$when}) توسط {$actorLabel} تأیید شد و وقت رزرو گردید.",
         '/doctor/appointments?tab=upcoming',
         'appointment'
     );
@@ -193,7 +224,16 @@ function staff_approve_appointment_booking(PDO $pdo, string $appointmentId, arra
         throw new RuntimeException('این درخواست دیگر در انتظار تأیید نیست.');
     }
 
-    $updated = $pdo->prepare("UPDATE appointments SET status='PENDING_PAYMENT' WHERE id=? AND status='PENDING_APPROVAL'");
+    if (function_exists('ensure_appointment_hold_columns')) {
+        ensure_appointment_hold_columns($pdo);
+    }
+    $updated = $pdo->prepare("
+      UPDATE appointments
+      SET status='PENDING_PAYMENT',
+          reviewed_at=NOW(),
+          requested_at=COALESCE(requested_at, created_at)
+      WHERE id=? AND status='PENDING_APPROVAL'
+    ");
     $updated->execute([$appointmentId]);
     if ($updated->rowCount() < 1) {
         throw new RuntimeException('تأیید درخواست انجام نشد.');
@@ -211,8 +251,8 @@ function staff_approve_appointment_booking(PDO $pdo, string $appointmentId, arra
     notify_user(
         $pdo,
         (string) ($row['patient_user_id'] ?? ''),
-        'نوبت تأیید شد — آماده پرداخت',
-        "درخواست نوبت {$when} توسط منشی تأیید شد. از بخش «نوبت‌های من» پرداخت کنید.",
+        'درخواست نوبت در حال بررسی است',
+        "درخواست نوبت {$when} بدون پرداخت آنلاین پذیرفته شد و در حال بررسی است. تا تأیید پرداخت توسط منشی، رزرو نهایی نمی‌شود.",
         '/dashboard/appointments',
         'appointment',
         $staffUserId !== '' ? $staffUserId : null
@@ -221,7 +261,7 @@ function staff_approve_appointment_booking(PDO $pdo, string $appointmentId, arra
         $pdo,
         (string) $row['doctor_id'],
         'درخواست نوبت تأیید شد',
-        "درخواست نوبت «{$patientName}» ({$when}) توسط {$actorLabel} تأیید شد و در انتظار پرداخت است.",
+        "درخواست نوبت «{$patientName}» ({$when}) توسط {$actorLabel} بدون پرداخت پذیرفته شد و در حال بررسی است.",
         '/doctor/appointments?tab=upcoming',
         'appointment'
     );
@@ -269,8 +309,8 @@ function staff_reject_appointment_booking(PDO $pdo, string $appointmentId, array
     if (!$row) {
         throw new RuntimeException('نوبت یافت نشد.');
     }
-    if ((string) ($row['status'] ?? '') !== 'PENDING_APPROVAL') {
-        throw new RuntimeException('این درخواست دیگر در انتظار تأیید نیست.');
+    if (!in_array((string) ($row['status'] ?? ''), ['PENDING_APPROVAL', 'PENDING_PAYMENT'], true)) {
+        throw new RuntimeException('این درخواست دیگر در انتظار بررسی نیست.');
     }
 
     $pdo->prepare("UPDATE payments SET status='FAILED' WHERE appointment_id=? AND status='PENDING'")
@@ -282,7 +322,7 @@ function staff_reject_appointment_booking(PDO $pdo, string $appointmentId, array
           cancellation_note=?,
           cancelled_by_user_id=?,
           cancelled_at=NOW()
-      WHERE id=? AND status='PENDING_APPROVAL'
+      WHERE id=? AND status IN ('PENDING_APPROVAL','PENDING_PAYMENT')
     ");
     $updated->execute([$note, (string) ($actor['id'] ?? ''), $appointmentId]);
     if ($updated->rowCount() < 1) {
@@ -336,16 +376,10 @@ function appointment_approval_actions_html(array $row, string $next): string
       <input type="hidden" name="action" value="approve_booking">
       <input type="hidden" name="appointment_id" value="<?= e($id) ?>">
       <input type="hidden" name="next" value="<?= e($next) ?>">
-      <button type="submit" class="btn btn-primary btn-sm" onclick="return confirm('نوبت تأیید شود تا مراجعه‌کننده بتواند پرداخت کند؟');">تأیید و اجازه پرداخت</button>
+      <button type="submit" class="btn btn-outline btn-sm" onclick="return confirm('درخواست بدون پرداخت پذیرفته شود و در حال بررسی بماند؟');">تأیید بدون پرداخت</button>
     </form>
-    <form method="post" action="<?= e(url('/secretary/appointments')) ?>" style="display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;margin:0">
-      <?= csrf_field() ?>
-      <input type="hidden" name="action" value="reject_booking">
-      <input type="hidden" name="appointment_id" value="<?= e($id) ?>">
-      <input type="hidden" name="next" value="<?= e($next) ?>">
-      <button type="submit" class="btn btn-outline btn-sm" onclick="return confirm('این درخواست رد شود و ساعت دوباره آزاد گردد؟');">رد درخواست</button>
-    </form>
-    <p class="muted" style="font-size:.75rem;margin:0;flex-basis:100%">تا تأیید نکنید، مراجعه‌کننده نمی‌تواند پرداخت کند.</p>
+    <?= appointment_hold_reject_form_html($row, $next) ?>
+    <p class="muted" style="font-size:.75rem;margin:0;flex-basis:100%">تأیید بدون پرداخت فقط درخواست را در حال بررسی نگه می‌دارد. رزرو وقتی است که «پرداخت شده» را بزنید.</p>
     <?php
     return (string) ob_get_clean();
 }
@@ -365,12 +399,138 @@ function appointment_payment_can_upload_receipt(array $row): bool
 
 function appointment_pay_status_display(array $row): string
 {
-    if (appointment_awaiting_secretary_approval($row)) {
-        return 'منتظر تأیید منشی';
-    }
     if (appointment_payment_awaiting_receipt_review($row)) {
         return 'فیش ارسال شد — منتظر تأیید منشی';
     }
+    if (appointment_awaiting_secretary_approval($row)) {
+        return 'ارسال درخواست — پرداخت هنوز تأیید نشده';
+    }
+    if ((string) ($row['status'] ?? '') === 'PENDING_PAYMENT' && (string) ($row['pay_status'] ?? '') !== 'PAID') {
+        return 'در حال بررسی — پرداخت هنوز تأیید نشده';
+    }
 
     return payment_status_label((string) ($row['pay_status'] ?? ''));
+}
+
+function appointment_staff_can_mark_paid(array $row): bool
+{
+    return in_array((string) ($row['status'] ?? ''), ['PENDING_APPROVAL', 'PENDING_PAYMENT'], true);
+}
+
+function appointment_hold_requested_at(array $row): string
+{
+    $requested = trim((string) ($row['requested_at'] ?? ''));
+    if ($requested !== '') {
+        return $requested;
+    }
+
+    return trim((string) ($row['created_at'] ?? ''));
+}
+
+function appointment_hold_times_html(array $row): string
+{
+    $requested = trim((string) ($row['requested_at'] ?? ''));
+    $confirmed = trim((string) ($row['payment_confirmed_at'] ?? ''));
+    $reviewed = trim((string) ($row['reviewed_at'] ?? ''));
+    if ($requested === '' && $confirmed === '' && $reviewed === '') {
+        return '';
+    }
+    $parts = [];
+    if ($requested !== '') {
+        $parts[] = 'درخواست: ' . format_fa_datetime($requested);
+    }
+    if ($reviewed !== '' && $confirmed === '') {
+        $parts[] = 'بررسی منشی: ' . format_fa_datetime($reviewed);
+    }
+    if ($confirmed !== '') {
+        $parts[] = 'تأیید پرداخت: ' . format_fa_datetime($confirmed);
+    }
+
+    return '<div class="appt-hold-times muted" style="font-size:.8rem;margin-top:.35rem">' . e(implode(' · ', $parts)) . '</div>';
+}
+
+function appointment_patient_phase_html(array $row): string
+{
+    $status = (string) ($row['status'] ?? '');
+    $requestedRaw = trim((string) ($row['requested_at'] ?? ''));
+    $confirmed = trim((string) ($row['payment_confirmed_at'] ?? ''));
+    $reserved = in_array($status, ['CONFIRMED', 'COMPLETED'], true);
+    $isHold = in_array($status, ['PENDING_APPROVAL', 'PENDING_PAYMENT'], true);
+    if (!$isHold && !($reserved && ($requestedRaw !== '' || $confirmed !== ''))) {
+        return '';
+    }
+    $requested = $requestedRaw !== '' ? $requestedRaw : appointment_hold_requested_at($row);
+    $reviewing = $status === 'PENDING_PAYMENT' || $reserved;
+    $sent = $requested !== '' || $status === 'PENDING_APPROVAL' || $reviewing;
+    $items = [
+        [$sent, $status === 'PENDING_APPROVAL' && !$reviewing, 'ارسال درخواست', $requested !== '' ? format_fa_time($requested) : ''],
+        [$reviewing, $status === 'PENDING_PAYMENT', 'در حال بررسی', ''],
+        [$reserved, false, 'رزرو شده', $confirmed !== '' ? format_fa_time($confirmed) : ''],
+    ];
+    $html = '<ol class="appt-phases">';
+    foreach ($items as [$done, $current, $label, $time]) {
+        $cls = $done ? 'is-done' : ($current ? 'is-current' : '');
+        if (!$done && $current) {
+            $cls = 'is-current';
+        } elseif ($done && $current) {
+            $cls = 'is-current';
+        } elseif ($done) {
+            $cls = 'is-done';
+        }
+        $text = $label . ($time !== '' ? ' · ' . $time : '');
+        $html .= '<li class="' . e($cls) . '">' . e($text) . '</li>';
+    }
+    $html .= '</ol>';
+
+    return $html;
+}
+
+function appointment_hold_reject_form_html(array $row, string $next): string
+{
+    if (!appointment_staff_can_mark_paid($row) && !appointment_awaiting_secretary_approval($row)) {
+        return '';
+    }
+    if (!in_array((string) ($row['status'] ?? ''), ['PENDING_APPROVAL', 'PENDING_PAYMENT'], true)) {
+        return '';
+    }
+    $id = (string) ($row['id'] ?? '');
+    ob_start();
+    ?>
+    <form method="post" action="<?= e(url('/secretary/appointments')) ?>" style="display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;margin:0">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="reject_booking">
+      <input type="hidden" name="appointment_id" value="<?= e($id) ?>">
+      <input type="hidden" name="next" value="<?= e($next) ?>">
+      <button type="submit" class="btn btn-outline btn-sm" onclick="return confirm('این درخواست رد شود و ساعت دوباره آزاد گردد؟');">رد درخواست</button>
+    </form>
+    <?php
+    return (string) ob_get_clean();
+}
+
+function appointment_staff_mark_paid_form_html(array $row, string $next): string
+{
+    if (!appointment_staff_can_mark_paid($row)) {
+        return '';
+    }
+    $id = (string) ($row['id'] ?? '');
+    ob_start();
+    ?>
+    <form method="post" action="<?= e(url('/secretary/appointments')) ?>" enctype="multipart/form-data" class="appt-confirm-pay-form" style="display:flex;flex-wrap:wrap;gap:.45rem;align-items:end;margin:0;flex-basis:100%">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="confirm_payment">
+      <input type="hidden" name="appointment_id" value="<?= e($id) ?>">
+      <input type="hidden" name="next" value="<?= e($next) ?>">
+      <label style="flex:1;min-width:12rem;margin:0">
+        <span class="label" style="font-size:.75rem">یادداشت منشی</span>
+        <textarea class="input" name="note" rows="2" placeholder="مثلاً کارت‌به‌کارت شد، یا پرداخت نقدی در کلینیک"><?= e(trim((string) ($row['staff_payment_note'] ?? ''))) ?></textarea>
+      </label>
+      <label class="btn btn-outline btn-sm staff-receipt-pick" title="اختیاری">
+        فیش پرداخت (اختیاری)
+        <input type="file" name="receipt" accept="image/jpeg,image/png,image/webp,application/pdf">
+      </label>
+      <button type="submit" class="btn btn-primary btn-sm" onclick="return confirm('پرداخت شده ثبت شود و این وقت رزرو گردد؟');">پرداخت شده</button>
+    </form>
+    <p class="muted" style="font-size:.75rem;margin:0;flex-basis:100%">بدون آپلود فیش هم می‌توانید «پرداخت شده» را بزنید. اگر تا یک ساعت زده نشود، این وقت برای مراجعه‌کننده آزاد می‌شود.</p>
+    <?php
+    return (string) ob_get_clean();
 }

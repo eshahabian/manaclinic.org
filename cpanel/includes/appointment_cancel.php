@@ -173,15 +173,28 @@ function appointment_notes_html(array $row): string
     $status = (string) ($row['status'] ?? '');
     $html = '';
     if ($cancel !== '') {
-        $cancelTitle = $reason === 'rejected' ? 'رد درخواست:' : 'کنسلی مراجع:';
+        $cancelTitle = match ($reason) {
+            'rejected' => 'رد درخواست:',
+            'unpaid_timeout' => 'لغو مهلت:',
+            default => 'کنسلی مراجع:',
+        };
         $html .= '<div class="appt-note appt-note-cancel"><strong>' . e($cancelTitle) . '</strong> ' . e($cancel) . '</div>';
     } elseif ($status === 'CANCELLED' && $reason === 'patient') {
         $html .= '<div class="appt-note appt-note-cancel">مراجعه‌کننده کنسل کرد.</div>';
     } elseif ($status === 'CANCELLED' && $reason === 'rejected') {
         $html .= '<div class="appt-note appt-note-cancel">درخواست توسط منشی رد شد.</div>';
+    } elseif ($status === 'CANCELLED' && $reason === 'unpaid_timeout') {
+        $html .= '<div class="appt-note appt-note-cancel">مهلت یک‌ساعته تمام شد و پرداخت تأیید نشد.</div>';
     }
     if ($booking !== '') {
         $html .= '<div class="appt-note"><strong>یادداشت نوبت:</strong> ' . e($booking) . '</div>';
+    }
+    $staffNote = trim((string) ($row['staff_payment_note'] ?? ''));
+    if ($staffNote !== '') {
+        $html .= '<div class="appt-note"><strong>یادداشت منشی:</strong> ' . e($staffNote) . '</div>';
+    }
+    if (function_exists('appointment_hold_times_html')) {
+        $html .= appointment_hold_times_html($row);
     }
 
     return $html;

@@ -20,9 +20,11 @@ $deskNext = $appointmentsDeskNext ?? '/secretary/appointments';
   <div class="stack">
     <?php foreach ($appointmentList as $a): ?>
       <?php
-        $canConfirmPay = appointment_payment_can_upload_receipt($a);
-        $hasReceipt = trim((string) ($a['receipt_path'] ?? '')) !== '';
+        $canConfirmPay = function_exists('appointment_staff_can_mark_paid')
+            ? appointment_staff_can_mark_paid($a)
+            : appointment_payment_can_upload_receipt($a);
         $awaitingApproval = appointment_awaiting_secretary_approval($a);
+        $openHold = function_exists('appointment_is_open_hold') && appointment_is_open_hold($a);
       ?>
       <div class="panel appt-card">
         <div class="appt-card-top">
@@ -41,7 +43,10 @@ $deskNext = $appointmentsDeskNext ?? '/secretary/appointments';
             <?php endif; ?>
           </div>
         </div>
-        <?= appointment_notes_html($a) ?>
+            <?= appointment_notes_html($a) ?>
+            <?php if (function_exists('appointment_patient_phase_html')): ?>
+              <?= appointment_patient_phase_html($a) ?>
+            <?php endif; ?>
         <form class="appt-mode-form" method="post" action="<?= e(url('/secretary/appointments')) ?>" style="display:flex;flex-wrap:wrap;gap:.4rem;align-items:center">
           <?= csrf_field() ?>
           <input type="hidden" name="action" value="set_session_mode">
@@ -57,25 +62,12 @@ $deskNext = $appointmentsDeskNext ?? '/secretary/appointments';
         <div class="appt-card-actions">
           <?php if ($awaitingApproval): ?>
             <?= appointment_approval_actions_html($a, $deskNext) ?>
+          <?php elseif ($openHold && function_exists('appointment_hold_reject_form_html')): ?>
+            <?= appointment_hold_reject_form_html($a, $deskNext) ?>
           <?php endif; ?>
           <?= staff_receipt_view_html($a['payment_id'] ?? null, $a['receipt_path'] ?? null, true, $deskNext) ?>
-          <?php if ($canConfirmPay): ?>
-            <form method="post" action="<?= e(url('/secretary/appointments')) ?>" enctype="multipart/form-data" class="appt-confirm-pay-form" style="display:flex;flex-wrap:wrap;gap:.4rem;align-items:center;margin:0">
-              <?= csrf_field() ?>
-              <input type="hidden" name="action" value="confirm_payment">
-              <input type="hidden" name="appointment_id" value="<?= e((string) ($a['id'] ?? '')) ?>">
-              <input type="hidden" name="next" value="<?= e($deskNext) ?>">
-              <label class="btn btn-outline btn-sm staff-receipt-pick" title="اختیاری — اگر فیش روی موبایل آمده، خالی بگذارید">
-                فیش (اختیاری)
-                <input type="file" name="receipt" accept="image/jpeg,image/png,image/webp,application/pdf">
-              </label>
-              <button type="submit" class="btn btn-primary btn-sm" onclick="return confirm('پرداخت تأیید و نوبت ثبت شود؟');">
-                <?= $hasReceipt ? 'تأیید فیش و ثبت نوبت' : 'تأیید پرداخت و ثبت نوبت' ?>
-              </button>
-            </form>
-            <?php if (!$hasReceipt): ?>
-              <p class="muted" style="font-size:.75rem;margin:0;flex-basis:100%">اگر فیش مستقیم به موبایل منشی ارسال شده، بدون آپلود هم می‌توانید تأیید کنید.</p>
-            <?php endif; ?>
+          <?php if ($canConfirmPay && function_exists('appointment_staff_mark_paid_form_html')): ?>
+            <?= appointment_staff_mark_paid_form_html($a, $deskNext) ?>
           <?php endif; ?>
           <?= secretary_patient_cancel_form((string) ($a['id'] ?? ''), (string) ($a['status'] ?? ''), $deskNext) ?>
           <?= admin_appointment_delete_form((string) ($a['id'] ?? ''), $deskNext) ?>

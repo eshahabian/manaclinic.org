@@ -41,7 +41,7 @@ if ($action === 'approve_booking') {
         if (!str_contains($next, 'tab=')) {
             $next .= (str_contains($next, '?') ? '&' : '?') . 'tab=upcoming';
         }
-        flash_set('success', 'درخواست «' . (string) $result['patient_name'] . '» تأیید شد. حالا می‌تواند پرداخت کند.');
+        flash_set('success', 'درخواست «' . (string) $result['patient_name'] . '» بدون پرداخت پذیرفته شد و در حال بررسی ماند. با «پرداخت شده» رزرو می‌شود.');
     } catch (Throwable $e) {
         flash_set('error', $e->getMessage());
         if (!str_contains($next, 'tab=')) {
@@ -71,11 +71,11 @@ if ($action === 'reject_booking') {
 if ($action === 'confirm_payment') {
     $appointmentId = trim((string) post('appointment_id'));
     try {
-        $result = staff_confirm_appointment_payment($pdo, $appointmentId, $user, $_FILES['receipt'] ?? []);
+        $result = staff_confirm_appointment_payment($pdo, $appointmentId, $user, $_FILES['receipt'] ?? [], (string) post('note'));
         if (!str_contains($next, 'tab=')) {
             $next .= (str_contains($next, '?') ? '&' : '?') . 'tab=upcoming';
         }
-        flash_set('success', 'پرداخت «' . (string) $result['patient_name'] . '» تأیید و نوبت ثبت شد.');
+        flash_set('success', 'پرداخت «' . (string) $result['patient_name'] . '» ثبت شد و وقت رزرو گردید.');
     } catch (Throwable $e) {
         flash_set('error', $e->getMessage());
         if (!str_contains($next, 'tab=')) {

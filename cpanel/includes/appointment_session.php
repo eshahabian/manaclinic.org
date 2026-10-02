@@ -36,7 +36,113 @@ function ensure_appointment_session_schema(PDO $pdo): void
     }
 
     ensure_appointment_approval_status($pdo);
+    ensure_appointment_hold_columns($pdo);
     $ready = true;
+}
+
+/** زمان درخواست، تأیید پرداخت، و یادداشت منشی روی نوبت. */
+function ensure_appointment_hold_columns(PDO $pdo): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $adds = [
+        'requested_at' => 'ALTER TABLE appointments ADD COLUMN requested_at DATETIME NULL',
+        'reviewed_at' => 'ALTER TABLE appointments ADD COLUMN reviewed_at DATETIME NULL',
+        'payment_confirmed_at' => 'ALTER TABLE appointments ADD COLUMN payment_confirmed_at DATETIME NULL',
+        'staff_payment_note' => 'ALTER TABLE appointments ADD COLUMN staff_payment_note TEXT NULL',
+    ];
+    foreach ($adds as $name => $sql) {
+        try {
+            $has = $pdo->query('SHOW COLUMNS FROM appointments LIKE ' . $pdo->quote($name))->fetch();
+            if (!$has) {
+                $pdo->exec($sql);
+            }
+        } catch (Throwable $ignored) {
+        }
+    }
+    $ready = true;
+}
+
+function appointment_hold_seconds(): int
+{
+    return 3600;
+}
+
+function appointment_is_open_hold(array $row): bool
+{
+    return in_array((string) ($row['status'] ?? ''), ['PENDING_APPROVAL', 'PENDING_PAYMENT'], true);
+}
+
+/**
+ * رزرو موقت پرداخت‌نشده بعد از یک ساعت لغو می‌شود.
+ * لغوهای قدیمی بدون اعلان پاک می‌شوند تا صفحه اول سیل نوتیفیکیشن نسازد.
+ */
+function appointment_expire_unpaid_holds(PDO $pdo): int
+{
+    ensure_appointment_hold_columns($pdo);
+    $seconds = appointment_hold_seconds();
+    try {
+        $stmt = $pdo->query("
+          SELECT a.id, a.patient_id, a.starts_at, a.requested_at, a.created_at
+          FROM appointments a
+          LEFT JOIN payments p ON p.appointment_id = a.id
+          WHERE a.status IN ('PENDING_APPROVAL','PENDING_PAYMENT')
+            AND (p.id IS NULL OR p.status <> 'PAID')
+            AND COALESCE(a.requested_at, a.created_at) < DATE_SUB(NOW(), INTERVAL {$seconds} SECOND)
+        ");
+        $rows = $stmt ? $stmt->fetchAll() : [];
+    } catch (Throwable $ignored) {
+        return 0;
+    }
+    if (!$rows) {
+        return 0;
+    }
+
+    $note = 'مهلت یک‌ساعته تمام شد و چون پرداخت تأیید نشده بود، این وقت آزاد شد.';
+    $n = 0;
+    $now = time();
+    foreach ($rows as $row) {
+        $id = (string) ($row['id'] ?? '');
+        if ($id === '') {
+            continue;
+        }
+        try {
+            $pdo->prepare("UPDATE payments SET status='FAILED' WHERE appointment_id=? AND status='PENDING'")
+                ->execute([$id]);
+            $updated = $pdo->prepare("
+              UPDATE appointments
+              SET status='CANCELLED',
+                  cancel_reason='unpaid_timeout',
+                  cancellation_note=?,
+                  cancelled_at=NOW()
+              WHERE id=? AND status IN ('PENDING_APPROVAL','PENDING_PAYMENT')
+            ");
+            $updated->execute([$note, $id]);
+            if ($updated->rowCount() < 1) {
+                continue;
+            }
+            $n++;
+            $requested = strtotime((string) ($row['requested_at'] ?: $row['created_at'] ?? '')) ?: 0;
+            if ($requested > 0 && ($now - $requested) < 7200 && function_exists('notify_user')) {
+                $when = function_exists('format_fa_datetime')
+                    ? format_fa_datetime((string) ($row['starts_at'] ?? ''))
+                    : (string) ($row['starts_at'] ?? '');
+                notify_user(
+                    $pdo,
+                    (string) ($row['patient_id'] ?? ''),
+                    'رزرو موقت لغو شد',
+                    "وقت {$when} چون تا یک ساعت پرداختش تأیید نشد، آزاد گردید. در صورت نیاز دوباره درخواست دهید.",
+                    '/dashboard/appointments',
+                    'appointment'
+                );
+            }
+        } catch (Throwable $ignored) {
+        }
+    }
+
+    return $n;
 }
 
 /** وضعیت PENDING_APPROVAL را به enum نوبت اضافه می‌کند (رزرو سایت تا تأیید منشی). */
@@ -228,8 +334,6 @@ function appointment_shared_note_load_context(PDO $pdo, array $user, string $app
     } elseif ($role === 'DOCTOR' && $uid === (string) ($row['doctor_user_id'] ?? '')) {
         $allowed = true;
     } elseif ($role === 'ADMIN') {
-        $allowed = true;
-    } elseif ($role === 'DOCTOR' && function_exists('doctor_has_shiva_access') && doctor_has_shiva_access($user)) {
         $allowed = true;
     }
 
