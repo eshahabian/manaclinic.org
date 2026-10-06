@@ -96,6 +96,12 @@ function doctor_nav(): array
         if (doctor_can_view_staff_hours()) {
             $nav[] = ['type' => 'link', 'href' => '/doctor/staff-hours', 'label' => 'ساعت کاری منشی‌ها'];
         }
+        if (!function_exists('secretary_daily_tasks_can_review') && is_file(__DIR__ . '/secretary_daily_tasks.php')) {
+            require_once __DIR__ . '/secretary_daily_tasks.php';
+        }
+        if (function_exists('secretary_daily_tasks_can_review') && secretary_daily_tasks_can_review()) {
+            $nav[] = ['type' => 'link', 'href' => '/doctor/secretary-tasks', 'label' => 'کارهای روزانه منشی'];
+        }
     }
 
     $nav = array_merge($nav, [

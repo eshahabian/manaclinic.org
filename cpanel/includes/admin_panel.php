@@ -108,6 +108,23 @@ function admin_nav(): array {
         $nav[] = ['type' => 'group', 'label' => 'تنظیمات'];
         $nav[] = ['href' => '/change-password', 'label' => 'تغییر رمز عبور'];
     }
+    if (!function_exists('secretary_daily_tasks_can_review') && is_file(__DIR__ . '/secretary_daily_tasks.php')) {
+        require_once __DIR__ . '/secretary_daily_tasks.php';
+    }
+    if ($user && function_exists('secretary_daily_tasks_can_review') && secretary_daily_tasks_can_review($user)) {
+        $taskLink = ['href' => '/admin/secretary-tasks', 'label' => 'کارهای روزانه منشی'];
+        $inserted = false;
+        foreach ($nav as $i => $item) {
+            if (($item['href'] ?? '') === '/admin/staff-hours') {
+                array_splice($nav, $i + 1, 0, [$taskLink]);
+                $inserted = true;
+                break;
+            }
+        }
+        if (!$inserted) {
+            $nav[] = $taskLink;
+        }
+    }
     $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link() : null;
     if ($videoLink) {
         // بعد از «خلاصه» داخل گروه اصلی

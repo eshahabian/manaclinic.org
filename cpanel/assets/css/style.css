@@ -1975,6 +1975,15 @@ body.home-workshop-locked { overflow: hidden; }
   clip-path: inset(50%);
   white-space: nowrap;
 }
+.sec-daily-meta { display: flex; flex-wrap: wrap; gap: .8rem 1.4rem; }
+.sec-daily-meta div { display: flex; flex-direction: column; gap: .15rem; font-size: .92rem; }
+.sec-daily-list { list-style: none; margin: .4rem 0 0; padding: 0; display: grid; gap: .45rem; }
+.sec-daily-item { border: 1px solid var(--line); border-radius: .75rem; padding: .65rem .75rem; }
+.sec-daily-item.is-done { background: #e8f6ee; border-color: #b7e0c6; }
+.sec-daily-item form, .sec-daily-item label { display: flex; gap: .55rem; align-items: flex-start; margin: 0; cursor: pointer; line-height: 1.7; }
+.sec-daily-item input[type="checkbox"] { margin-top: .35rem; width: 1.05rem; height: 1.05rem; flex: none; }
+.sec-daily-item small { display: block; margin-top: .25rem; }
+html[data-theme="dark"] .sec-daily-item.is-done { background: #1c3a30; border-color: #2f6b52; }
 .consult-list {
   display: grid;
   gap: .75rem;
