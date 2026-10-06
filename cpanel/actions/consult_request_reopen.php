@@ -13,8 +13,11 @@ ensure_consult_requests_schema($pdo);
 
 $id = post('id');
 if ($id !== '' && preg_match('/^[a-f0-9]{24}$/', $id)) {
-    $pdo->prepare("UPDATE consult_requests SET status='new', seen_at=NULL WHERE id=? AND status='done'")
-        ->execute([$id]);
+    $pdo->prepare("
+      UPDATE consult_requests
+      SET status='new', seen_at=NULL
+      WHERE id=? AND LOWER(TRIM(status)) <> 'new'
+    ")->execute([$id]);
 }
 
 $back = consult_safe_return(post('next', consult_panel_path($user)));

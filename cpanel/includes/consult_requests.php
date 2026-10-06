@@ -22,6 +22,13 @@ function ensure_consult_requests_schema(PDO $pdo): void
     $ready = true;
 }
 
+function consult_request_is_open(array $row): bool
+{
+    $status = strtolower(trim((string) ($row['status'] ?? '')));
+
+    return $status === '' || $status === 'new';
+}
+
 function consult_request_new_count(): int
 {
     $db = $GLOBALS['pdo'] ?? null;
@@ -30,7 +37,10 @@ function consult_request_new_count(): int
     }
     try {
         ensure_consult_requests_schema($db);
-        return (int) $db->query("SELECT COUNT(*) FROM consult_requests WHERE status='new'")->fetchColumn();
+        return (int) $db->query("
+          SELECT COUNT(*) FROM consult_requests
+          WHERE status IS NULL OR TRIM(status) = '' OR LOWER(TRIM(status)) = 'new'
+        ")->fetchColumn();
     } catch (Throwable $e) {
         return 0;
     }
