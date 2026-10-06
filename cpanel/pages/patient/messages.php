@@ -6,8 +6,14 @@ require_once __DIR__ . '/../../includes/patient_panel.php';
 
 $patientId = (string) $user['id'];
 ensure_notifications_table($pdo);
+require_once __DIR__ . '/../../includes/mentions.php';
+$msgTab = trim((string) ($_GET['tab'] ?? 'inbox'));
+if ($msgTab !== 'mentions') {
+    $msgTab = 'inbox';
+}
 $notifications = fetch_notifications($pdo, $patientId, 100);
 $unreadCount = count_unread_notifications($pdo, $patientId);
+$mentionCount = mentions_unread_count($pdo, $patientId);
 
 ob_start();
 ?>
@@ -17,12 +23,18 @@ ob_start();
       <h1>پیام‌ها</h1>
       <p class="muted" style="margin:.35rem 0 0">پیام‌های کلینیک را اینجا می‌خوانید.<?= $unreadCount ? ' · ' . to_fa_digits((string) $unreadCount) . ' خوانده‌نشده' : '' ?></p>
     </div>
+    <?php if ($msgTab !== 'mentions'): ?>
     <form method="post" action="<?= e(url('/dashboard/messages/read')) ?>" style="margin:0">
       <?= csrf_field() ?>
       <input type="hidden" name="mark_all" value="1">
       <button type="submit" class="btn btn-outline btn-sm"<?= $unreadCount > 0 ? '' : ' disabled' ?>>خواندن همه</button>
     </form>
+    <?php endif; ?>
   </div>
+  <?= messages_mentions_tabs_html('/dashboard/messages', '/dashboard/messages?tab=mentions', $msgTab === 'mentions', $mentionCount) ?>
+  <?php if ($msgTab === 'mentions'): ?>
+    <?= mentions_inbox_html($pdo, $patientId, 'PATIENT') ?>
+  <?php else: ?>
 
   <?php if (!$notifications): ?>
     <p class="muted">هنوز پیامی برایتان نرسیده است.</p>
@@ -62,6 +74,7 @@ ob_start();
         </article>
       <?php endforeach; ?>
     </div>
+  <?php endif; ?>
   <?php endif; ?>
 </div>
 <?php

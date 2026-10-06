@@ -507,7 +507,7 @@ function render_secretary_messages_panel(
     $split = secretary_split_notifications($items);
     $appointmentNotifs = $split['appointment'];
     $workshopNotifs = $split['workshop'];
-    $activeTab = in_array($activeTab, ['workshop', 'patients'], true) ? $activeTab : 'appointment';
+    $activeTab = in_array($activeTab, ['workshop', 'patients', 'mentions'], true) ? $activeTab : 'appointment';
     $base = str_starts_with($pagePath, '/secretary') ? $pagePath : '/secretary/messages';
     $unread = secretary_unread_desk_count($items);
     $peers = $colleague['peers'] ?? [];
@@ -544,10 +544,22 @@ function render_secretary_messages_panel(
             ارسال به مراجع
             <span class="panel-subtab-count"><?= count($patients) ?></span>
           </a>
+          <a class="panel-subtab<?= $activeTab === 'mentions' ? ' is-active' : '' ?>" href="<?= e(url($base . '?msg=mentions')) ?>#secretary-messages">
+            منشن‌ها
+            <?php
+              $mentionCount = 0;
+              if (function_exists('mentions_unread_count') && ($GLOBALS['pdo'] ?? null) instanceof PDO && current_user()) {
+                  $mentionCount = mentions_unread_count($GLOBALS['pdo'], (string) (current_user()['id'] ?? ''));
+              }
+            ?>
+            <?php if ($mentionCount > 0): ?>
+              <span class="panel-subtab-count"><?= e(to_fa_digits((string) $mentionCount)) ?></span>
+            <?php endif; ?>
+          </a>
           <a class="panel-subtab" href="<?= e(url('/secretary/colleague-messages')) ?>">پیام همکار</a>
           <a class="panel-subtab" href="<?= e(url('/secretary/profile')) ?>">پیام مدیر</a>
         </nav>
-        <?php if ($activeTab !== 'patients'): ?>
+        <?php if ($activeTab !== 'patients' && $activeTab !== 'mentions'): ?>
         <form method="post" action="<?= e($markReadUrl) ?>" class="panel-subtabs-action" style="margin:0">
           <?= csrf_field() ?>
           <input type="hidden" name="mark_all" value="1">
@@ -556,7 +568,7 @@ function render_secretary_messages_panel(
         </form>
         <?php endif; ?>
       </div>
-      <?php if ($activeTab !== 'patients'): ?>
+      <?php if ($activeTab !== 'patients' && $activeTab !== 'mentions'): ?>
       <p class="muted" style="margin:0;font-size:.85rem;line-height:1.7">
         هر نوبت یا ثبت‌نام کارگاه را همه منشی‌ها می‌بینند تا وقت تکراری ثبت نشود.
         ✓ رسید · ✓✓ خوانده شد
@@ -608,6 +620,13 @@ function render_secretary_messages_panel(
             </div>
           <?php endforeach; ?>
         <?php endif; ?>
+      <?php elseif ($activeTab === 'mentions'): ?>
+        <?php
+          $mentionUser = current_user();
+          if (function_exists('mentions_inbox_html') && ($GLOBALS['pdo'] ?? null) instanceof PDO && $mentionUser) {
+              echo mentions_inbox_html($GLOBALS['pdo'], (string) ($mentionUser['id'] ?? ''), 'SECRETARY');
+          }
+        ?>
       <?php elseif ($activeTab === 'patients'): ?>
         <p class="muted" style="margin:0;font-size:.85rem;line-height:1.8">
           پیام شخصی برای یک مراجع، یا همگانی برای همه. مثلاً تبریک، کنسلی جلسه، یا تخفیف.

@@ -64,14 +64,15 @@ function admin_nav(): array {
         $nav[] = ['href' => '/admin/rooms', 'label' => 'اتاق‌ها'];
     }
     $nav = array_merge($nav, [
-        ['href' => '/admin/staff-messages', 'label' => 'پیام‌ها'],
+        [
+            'href' => '/admin/staff-messages',
+            'label' => 'پیام‌ها',
+            'badge' => (function_exists('mentions_unread_count') && $pdo instanceof PDO && $user)
+                ? mentions_unread_count($pdo, (string) ($user['id'] ?? ''))
+                : 0,
+            'badge_tone' => 'new',
+        ],
     ]);
-    if (function_exists('mentions_nav_item')) {
-        $mentionNav = mentions_nav_item($pdo, $user);
-        if ($mentionNav) {
-            $nav[] = $mentionNav;
-        }
-    }
     $nav = array_merge($nav, [
         ['type' => 'group', 'label' => 'منشی‌ها'],
         ['href' => '/secretary/messages', 'label' => 'پنل منشی'],

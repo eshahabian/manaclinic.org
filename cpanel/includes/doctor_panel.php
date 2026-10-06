@@ -79,14 +79,6 @@ function doctor_nav(): array
         $nav[] = ['type' => 'group', 'label' => 'اصلی'];
         $nav[] = $consultLink;
     }
-    if (function_exists('mentions_nav_item')) {
-        $mentionNav = mentions_nav_item($pdo instanceof PDO ? $pdo : null, current_user());
-        if ($mentionNav) {
-            $mentionNav['type'] = 'link';
-            $nav[] = $mentionNav;
-        }
-    }
-
     if (!function_exists('clinic_rooms_user_allowed') && is_file(__DIR__ . '/clinic_rooms.php')) {
         require_once __DIR__ . '/clinic_rooms.php';
     }
@@ -121,7 +113,15 @@ function doctor_nav(): array
         ['type' => 'link', 'href' => '/doctor/appointment-history', 'label' => 'تاریخچه نوبت‌ها'],
         // پرونده در منو مخفی است؛ مسیر /doctor/patients همچنان کار می‌کند
         ['type' => 'link', 'href' => '/doctor/patients', 'label' => 'پرونده مراجعه‌کنندگان', 'hidden' => true],
-        ['type' => 'link', 'href' => '/doctor/staff-messages', 'label' => 'پیام‌ها'],
+        [
+            'type' => 'link',
+            'href' => '/doctor/staff-messages',
+            'label' => 'پیام‌ها',
+            'badge' => (function_exists('mentions_unread_count') && $pdo instanceof PDO && current_user())
+                ? mentions_unread_count($pdo, (string) (current_user()['id'] ?? ''))
+                : 0,
+            'badge_tone' => 'new',
+        ],
         ['type' => 'link', 'href' => '/doctor/profile', 'label' => 'پروفایل حرفه‌ای'],
         ['type' => 'group', 'label' => 'محتوا'],
         ['type' => 'link', 'href' => '/doctor/articles', 'label' => 'مقالات'],

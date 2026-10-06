@@ -4,7 +4,14 @@ declare(strict_types=1);
 function secretary_nav(): array
 {
     $nav = [
-        ['href' => '/secretary/messages', 'label' => 'پیام‌ها'],
+        [
+            'href' => '/secretary/messages',
+            'label' => 'پیام‌ها',
+            'badge' => (function_exists('mentions_unread_count') && ($GLOBALS['pdo'] ?? null) instanceof PDO && current_user())
+                ? mentions_unread_count($GLOBALS['pdo'], (string) (current_user()['id'] ?? ''))
+                : 0,
+            'badge_tone' => 'new',
+        ],
         [
             'href' => '/secretary/consult-requests',
             'label' => 'درخواست مشاوره',
@@ -23,23 +30,9 @@ function secretary_nav(): array
         ['href' => '/secretary/workshops', 'label' => 'کارگاه‌ها'],
         ['href' => '/change-password', 'label' => 'تغییر رمز عبور'],
     ];
-    if (function_exists('mentions_nav_item')) {
-        $mentionNav = mentions_nav_item();
-        if ($mentionNav) {
-            array_splice($nav, 1, 0, [$mentionNav]);
-        }
-    }
     $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link() : null;
     if ($videoLink) {
-        // بعد از «پیام‌ها» (و منشن در صورت وجود)
-        $idx = 1;
-        foreach ($nav as $i => $item) {
-            if (($item['label'] ?? '') === 'منشن‌ها') {
-                $idx = $i + 1;
-                break;
-            }
-        }
-        array_splice($nav, $idx, 0, [$videoLink]);
+        array_splice($nav, 1, 0, [$videoLink]);
     }
 
     return $nav;

@@ -42,23 +42,6 @@ function patient_nav(): array
         ['href' => '/dashboard/wallet', 'label' => 'کیف پول'],
         ['href' => '/dashboard/profile', 'label' => 'پروفایل'],
     ]);
-    if (function_exists('mentions_nav_item')) {
-        $mentionNav = mentions_nav_item();
-        if ($mentionNav) {
-            $after = 3;
-            foreach ($nav as $i => $item) {
-                if (($item['href'] ?? '') === '/dashboard/messages') {
-                    $after = $i + 1;
-                    break;
-                }
-            }
-            array_splice($nav, $after, 0, [[
-                'href' => $mentionNav['href'],
-                'label' => $mentionNav['label'],
-                'badge' => 'mentions',
-            ]]);
-        }
-    }
     // تماس مانا از منوی مراجعه‌کننده حذف شده؛ فقط روی نوبت آنلاین (۱۵ دقیقه قبل) دیده می‌شود.
 
     return $nav;
@@ -90,6 +73,7 @@ function render_patient_page(string $title, string $innerHtml): void
         }
         if (function_exists('mentions_unread_count')) {
             $counts['mentions'] = mentions_unread_count($pdo, (string) $user['id']);
+            $counts['messages'] += $counts['mentions'];
         }
     }
     $currentPath = patient_request_path();

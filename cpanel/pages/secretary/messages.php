@@ -13,7 +13,7 @@ if ($msgTab === 'colleague') {
 if ($msgTab === 'admin') {
     redirect('/secretary/profile#admin-site-messages');
 }
-if (!in_array($msgTab, ['appointment', 'workshop', 'patients'], true)) {
+if (!in_array($msgTab, ['appointment', 'workshop', 'patients', 'mentions'], true)) {
     $msgTab = 'appointment';
 }
 
@@ -52,5 +52,6 @@ $titles = [
     'workshop' => 'پیام‌های کارگاه',
     'patients' => 'ارسال به مراجع',
     'appointment' => 'پیام‌های نوبت',
+    'mentions' => 'منشن‌ها',
 ];
 render_secretary_page($titles[$msgTab] ?? 'پیام‌ها', ob_get_clean());
