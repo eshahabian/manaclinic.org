@@ -220,134 +220,75 @@ function secretary_daily_tasks_html(
     string $postUrl,
     bool $startOpen = false
 ): string {
+    unset($startOpen);
     $states = secretary_daily_task_states($pdo, (string) ($secretary['id'] ?? ''), $ymd);
     $progress = secretary_daily_task_progress($states);
     $name = trim((string) ($secretary['name'] ?? ''));
     if ($name === '') {
         $name = (string) ($secretary['username'] ?? 'منشی');
     }
-    $shadowId = 'sec-task-' . substr(md5((string) ($secretary['id'] ?? '') . '|' . $ymd), 0, 12);
     $doneLabel = to_fa_digits((string) $progress['done']) . ' از ' . to_fa_digits((string) $progress['total']);
     $dateLabel = secretary_daily_task_date_label($ymd);
-    static $scripted = false;
+    static $styled = false;
     ob_start();
-    if (!$scripted) {
-        $scripted = true;
+    if (!$styled) {
+        $styled = true;
         ?>
     <style>
-      .sec-task-overlay{position:fixed;top:0;right:0;bottom:0;left:0;width:100%;height:100vh;max-height:100vh;z-index:5000;overflow:hidden;background:rgba(15,23,42,.62);box-sizing:border-box;direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif}
-      .sec-task-scroll{height:100%;max-height:100vh;overflow-x:hidden;overflow-y:auto;padding:24px 16px;box-sizing:border-box;-webkit-overflow-scrolling:touch}
-      .sec-task-overlay[hidden]{display:none !important}
-      .sec-task-card{width:min(720px,100%);height:auto;max-height:none;overflow:visible;margin:0 auto;border-radius:16px;background:var(--card,#fff);color:var(--fg,#1a2e28);border:1px solid var(--line,#d5e0da);box-shadow:0 18px 50px rgba(15,23,42,.28);direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif}
-      .sec-task-head{padding:16px 16px 10px 44px;border-bottom:1px solid var(--line,#d5e0da);direction:rtl;text-align:right}
-      .sec-task-head h2{margin:0 0 10px;font-size:1.12rem;font-family:Vazirmatn,Tahoma,sans-serif;text-align:right}
-      .sec-task-field{display:block;margin:0 0 8px;text-align:right}
-      .sec-task-field span{display:block;font-size:.78rem;color:var(--muted,#5a6f66);font-family:Vazirmatn,Tahoma,sans-serif}
-      .sec-task-field strong{display:block;font-weight:700;line-height:1.5;font-family:Vazirmatn,Tahoma,sans-serif}
-      .sec-task-body{height:auto;max-height:none;overflow:visible;padding:12px 16px 16px;direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif}
-      .sec-task-row{display:block;margin:0 0 8px;padding:8px 10px;border:1px solid var(--line,#d5e0da);border-radius:10px;line-height:1.75;background:var(--bg,#f7f5f0);text-align:right;direction:rtl}
-      .sec-task-row.is-done{background:#e8f6ee;border-color:#b7e0c6}
-      html[data-theme="dark"] .sec-task-row.is-done{background:#1c3a30;border-color:#2f6b52}
-      .sec-task-row form,.sec-task-row label{display:flex;flex-direction:row;gap:8px;align-items:flex-start;margin:0;width:100%;cursor:pointer;direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif}
-      .sec-task-row input{margin-top:.35rem;width:1.05rem;height:1.05rem;flex:none}
-      .sec-task-row b{flex:none;min-width:1.6rem;font-family:Vazirmatn,Tahoma,sans-serif}
-      .sec-task-row span{flex:1;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif}
-      .sec-task-x{position:absolute;top:8px;left:8px;width:2rem;height:2rem;border:0;border-radius:999px;background:transparent;font-size:1.4rem;line-height:1;cursor:pointer;color:var(--muted,#5a6f66);font-family:Vazirmatn,Tahoma,sans-serif}
+      .daylist{position:relative;z-index:1;margin-top:1rem;box-shadow:0 18px 44px rgba(26,46,40,.14);direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif}
+      .daylist-meta{display:grid;gap:.75rem;margin:0 0 1rem}
+      .daylist-meta span{display:block;font-size:.78rem;color:var(--muted)}
+      .daylist-meta strong{display:block;font-size:1rem;line-height:1.6}
+      .daylist-row{display:block;margin:0 0 .45rem;padding:.7rem .8rem;border:1px solid var(--line);border-radius:.8rem;background:var(--bg);direction:rtl;text-align:right;line-height:1.8}
+      .daylist-row.is-done{background:#e8f6ee;border-color:#b7e0c6}
+      html[data-theme="dark"] .daylist-row.is-done{background:#1c3a30;border-color:#2f6b52}
+      .daylist-row form,.daylist-row label{display:flex;flex-direction:row;gap:.55rem;align-items:flex-start;margin:0;width:100%;cursor:pointer;direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif}
+      .daylist-row input{margin-top:.4rem;width:1.05rem;height:1.05rem;flex:none}
+      .daylist-row b{flex:none;min-width:1.7rem}
+      .daylist-row em{flex:1;font-style:normal;text-align:right}
+      .daylist-row small{display:block;margin:.2rem 0 0 1.7rem}
     </style>
-    <script>
-    (function(){
-      if (window.__secTaskShadow) return;
-      window.__secTaskShadow = true;
-      function placeAll(){
-        document.querySelectorAll(".sec-task-overlay").forEach(function(el){
-          if (el.parentNode !== document.body) document.body.appendChild(el);
-        });
-      }
-      if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", placeAll);
-      else placeAll();
-      document.addEventListener("click", function(e){
-        var open = e.target.closest ? e.target.closest("[data-sec-task-open]") : null;
-          if (open) {
-          var el = document.getElementById(open.getAttribute("data-sec-task-open"));
-          if (el) {
-            if (el.parentNode !== document.body) document.body.appendChild(el);
-            el.hidden = false;
-          }
-          return;
-        }
-        var close = e.target.closest ? e.target.closest("[data-sec-task-close]") : null;
-        if (close) {
-          var root = close.closest(".sec-task-overlay");
-          if (root) root.hidden = true;
-          return;
-        }
-        if (e.target.classList && e.target.classList.contains("sec-task-overlay")) e.target.hidden = true;
-      });
-      document.addEventListener("keydown", function(e){
-        if (e.key !== "Escape") return;
-        document.querySelectorAll(".sec-task-overlay:not([hidden])").forEach(function(el){ el.hidden = true; });
-      });
-    })();
-    </script>
         <?php
     }
     ?>
-    <article class="panel">
-      <div style="display:flex;flex-wrap:wrap;gap:.8rem 1.25rem;align-items:center;justify-content:space-between">
-        <div style="display:grid;gap:.2rem">
-          <strong><?= e($name) ?></strong>
-          <span class="muted" style="display:block;font-size:.88rem"><?= e($dateLabel) ?></span>
-          <span style="display:block;font-size:.9rem">انجام‌شده: <?= e($doneLabel) ?></span>
-        </div>
-        <button type="button" class="btn btn-primary btn-sm" data-sec-task-open="<?= e($shadowId) ?>">باز کردن فهرست</button>
+    <section class="panel daylist">
+      <div class="daylist-meta">
+        <div><span>نام و نام خانوادگی</span><strong><?= e($name) ?></strong></div>
+        <div><span>روز و تاریخ</span><strong><?= e($dateLabel) ?></strong></div>
+        <div><span>انجام‌شده</span><strong><?= e($doneLabel) ?></strong></div>
       </div>
-    </article>
-    <div class="sec-task-overlay" id="<?= e($shadowId) ?>" dir="rtl"<?= $startOpen ? '' : ' hidden' ?> style="position:fixed;top:0;right:0;bottom:0;left:0;width:100%;height:100vh;max-height:100vh;overflow:hidden;z-index:5000;background:rgba(15,23,42,.62);direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif">
-      <div class="sec-task-scroll" style="height:100%;max-height:100vh;overflow-y:auto;overflow-x:hidden;padding:24px 16px;box-sizing:border-box">
-      <div class="sec-task-card" role="dialog" aria-modal="true" aria-label="لیست انجام کارهای روزانه" dir="rtl" style="position:relative;height:auto;max-height:none;overflow:visible;margin:0 auto;background:var(--card,#fff)">
-        <button type="button" class="sec-task-x" data-sec-task-close aria-label="بستن">×</button>
-        <div class="sec-task-head">
-          <h2>لیست انجام کارهای روزانه</h2>
-          <div class="sec-task-field"><span>نام و نام خانوادگی</span><strong><?= e($name) ?></strong></div>
-          <div class="sec-task-field"><span>روز و تاریخ</span><strong><?= e($dateLabel) ?></strong></div>
-          <div class="sec-task-field"><span>انجام‌شده</span><strong><?= e($doneLabel) ?></strong></div>
+      <?php $n = 0; foreach (secretary_daily_task_catalog() as $key => $label): ?>
+        <?php
+          $n++;
+          $checked = !empty($states[$key]['done']);
+          $doneAt = (string) ($states[$key]['done_at'] ?? '');
+        ?>
+        <div class="daylist-row<?= $checked ? ' is-done' : '' ?>">
+          <?php if ($editable): ?>
+            <form method="post" action="<?= e($postUrl) ?>">
+              <?= csrf_field() ?>
+              <input type="hidden" name="task_date" value="<?= e($ymd) ?>">
+              <input type="hidden" name="task_key" value="<?= e($key) ?>">
+              <input type="hidden" name="done" value="0">
+              <label>
+                <input type="checkbox" name="done" value="1"<?= $checked ? ' checked' : '' ?> onchange="this.form.submit()">
+                <b><?= e(to_fa_digits((string) $n)) ?></b>
+                <em><?= e($label) ?></em>
+              </label>
+            </form>
+          <?php else: ?>
+            <label>
+              <input type="checkbox" disabled<?= $checked ? ' checked' : '' ?>>
+              <b><?= e(to_fa_digits((string) $n)) ?></b>
+              <em><?= e($label) ?></em>
+            </label>
+          <?php endif; ?>
+          <?php if ($checked && $doneAt !== ''): ?>
+            <small class="muted">انجام شد · <?= e(format_fa_time($doneAt)) ?></small>
+          <?php endif; ?>
         </div>
-        <div class="sec-task-body" dir="rtl" style="height:auto;max-height:none;overflow:visible">
-          <?php $n = 0; foreach (secretary_daily_task_catalog() as $key => $label): ?>
-            <?php
-              $n++;
-              $checked = !empty($states[$key]['done']);
-              $doneAt = (string) ($states[$key]['done_at'] ?? '');
-            ?>
-            <div class="sec-task-row<?= $checked ? ' is-done' : '' ?>">
-              <?php if ($editable): ?>
-                <form method="post" action="<?= e($postUrl) ?>">
-                  <?= csrf_field() ?>
-                  <input type="hidden" name="task_date" value="<?= e($ymd) ?>">
-                  <input type="hidden" name="task_key" value="<?= e($key) ?>">
-                  <input type="hidden" name="done" value="0">
-                  <label>
-                    <input type="checkbox" name="done" value="1"<?= $checked ? ' checked' : '' ?> onchange="this.form.submit()">
-                    <b><?= e(to_fa_digits((string) $n)) ?></b>
-                    <span><?= e($label) ?></span>
-                  </label>
-                </form>
-              <?php else: ?>
-                <label>
-                  <input type="checkbox" disabled<?= $checked ? ' checked' : '' ?>>
-                  <b><?= e(to_fa_digits((string) $n)) ?></b>
-                  <span><?= e($label) ?></span>
-                </label>
-              <?php endif; ?>
-              <?php if ($checked && $doneAt !== ''): ?>
-                <small class="muted" style="display:block;margin-top:.2rem">انجام شد · <?= e(format_fa_time($doneAt)) ?></small>
-              <?php endif; ?>
-            </div>
-          <?php endforeach; ?>
-        </div>
-      </div>
-      </div>
-    </div>
+      <?php endforeach; ?>
+    </section>
     <?php
     return (string) ob_get_clean();
 }
