@@ -217,7 +217,8 @@ function secretary_daily_tasks_html(
     array $secretary,
     string $ymd,
     bool $editable,
-    string $postUrl
+    string $postUrl,
+    bool $startOpen = false
 ): string {
     $states = secretary_daily_task_states($pdo, (string) ($secretary['id'] ?? ''), $ymd);
     $progress = secretary_daily_task_progress($states);
@@ -225,47 +226,109 @@ function secretary_daily_tasks_html(
     if ($name === '') {
         $name = (string) ($secretary['username'] ?? 'منشی');
     }
+    $shadowId = 'sec-daily-' . substr(md5((string) ($secretary['id'] ?? '') . '|' . $ymd), 0, 12);
+    $doneLabel = to_fa_digits((string) $progress['done']) . ' از ' . to_fa_digits((string) $progress['total']);
+    $dateLabel = secretary_daily_task_date_label($ymd);
+    static $scripted = false;
     ob_start();
     ?>
-    <section class="panel stack sec-daily-sheet">
-      <h2 style="margin:0;font-size:1.15rem">لیست انجام کارهای روزانه</h2>
-      <div class="sec-daily-meta">
-        <div><span class="muted">نام و نام خانوادگی</span><strong><?= e($name) ?></strong></div>
-        <div><span class="muted">روز و تاریخ</span><strong><?= e(secretary_daily_task_date_label($ymd)) ?></strong></div>
-        <div><span class="muted">انجام‌شده</span><strong><?= e(to_fa_digits((string) $progress['done'])) ?> از <?= e(to_fa_digits((string) $progress['total'])) ?></strong></div>
+    <article class="panel sec-daily-launcher">
+      <div style="display:flex;flex-wrap:wrap;gap:.8rem 1.25rem;align-items:center;justify-content:space-between">
+        <div style="display:grid;gap:.2rem">
+          <strong><?= e($name) ?></strong>
+          <span class="muted" style="font-size:.88rem"><?= e($dateLabel) ?></span>
+          <span style="font-size:.9rem">انجام‌شده: <?= e($doneLabel) ?></span>
+        </div>
+        <button type="button" class="btn btn-primary btn-sm" data-sec-daily-open="<?= e($shadowId) ?>">باز کردن فهرست</button>
       </div>
-      <ol class="sec-daily-list">
-        <?php $n = 0; foreach (secretary_daily_task_catalog() as $key => $label): ?>
-          <?php
-            $n++;
-            $checked = !empty($states[$key]['done']);
-            $doneAt = (string) ($states[$key]['done_at'] ?? '');
-          ?>
-          <li class="sec-daily-item<?= $checked ? ' is-done' : '' ?>">
-            <?php if ($editable): ?>
-              <form method="post" action="<?= e($postUrl) ?>">
-                <?= csrf_field() ?>
-                <input type="hidden" name="task_date" value="<?= e($ymd) ?>">
-                <input type="hidden" name="task_key" value="<?= e($key) ?>">
-                <input type="hidden" name="done" value="0">
+    </article>
+    <div class="sec-daily-shadow" id="<?= e($shadowId) ?>"<?= $startOpen ? '' : ' hidden' ?>>
+      <div class="sec-daily-shadow-card" role="dialog" aria-modal="true" aria-label="لیست انجام کارهای روزانه">
+        <button type="button" class="sec-daily-shadow-close" data-sec-daily-close aria-label="بستن">×</button>
+        <h2 style="margin:0 1.5rem 0 0;font-size:1.12rem">لیست انجام کارهای روزانه</h2>
+        <dl class="sec-daily-meta">
+          <div>
+            <dt>نام و نام خانوادگی</dt>
+            <dd><?= e($name) ?></dd>
+          </div>
+          <div>
+            <dt>روز و تاریخ</dt>
+            <dd><?= e($dateLabel) ?></dd>
+          </div>
+          <div>
+            <dt>انجام‌شده</dt>
+            <dd><?= e($doneLabel) ?></dd>
+          </div>
+        </dl>
+        <div class="sec-daily-scroll">
+          <?php $n = 0; foreach (secretary_daily_task_catalog() as $key => $label): ?>
+            <?php
+              $n++;
+              $checked = !empty($states[$key]['done']);
+              $doneAt = (string) ($states[$key]['done_at'] ?? '');
+            ?>
+            <div class="sec-daily-item<?= $checked ? ' is-done' : '' ?>">
+              <?php if ($editable): ?>
+                <form method="post" action="<?= e($postUrl) ?>">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="task_date" value="<?= e($ymd) ?>">
+                  <input type="hidden" name="task_key" value="<?= e($key) ?>">
+                  <input type="hidden" name="done" value="0">
+                  <label>
+                    <input type="checkbox" name="done" value="1"<?= $checked ? ' checked' : '' ?> onchange="this.form.submit()">
+                    <b><?= e(to_fa_digits((string) $n)) ?></b>
+                    <span><?= e($label) ?></span>
+                  </label>
+                </form>
+              <?php else: ?>
                 <label>
-                  <input type="checkbox" name="done" value="1"<?= $checked ? ' checked' : '' ?> onchange="this.form.submit()">
-                  <span><?= e(to_fa_digits((string) $n) . '. ' . $label) ?></span>
+                  <input type="checkbox" disabled<?= $checked ? ' checked' : '' ?>>
+                  <b><?= e(to_fa_digits((string) $n)) ?></b>
+                  <span><?= e($label) ?></span>
                 </label>
-              </form>
-            <?php else: ?>
-              <label>
-                <input type="checkbox" disabled<?= $checked ? ' checked' : '' ?>>
-                <span><?= e(to_fa_digits((string) $n) . '. ' . $label) ?></span>
-              </label>
-            <?php endif; ?>
-            <?php if ($checked && $doneAt !== ''): ?>
-              <small class="muted">انجام شد · <?= e(format_fa_time($doneAt)) ?></small>
-            <?php endif; ?>
-          </li>
-        <?php endforeach; ?>
-      </ol>
-    </section>
+              <?php endif; ?>
+              <?php if ($checked && $doneAt !== ''): ?>
+                <small class="muted">انجام شد · <?= e(format_fa_time($doneAt)) ?></small>
+              <?php endif; ?>
+            </div>
+          <?php endforeach; ?>
+        </div>
+      </div>
+    </div>
+    <?php if (!$scripted): ?>
+      <?php $scripted = true; ?>
+      <script>
+      (function(){
+        if (window.__secDailyShadow) return;
+        window.__secDailyShadow = true;
+        function lock(on){ document.body.style.overflow = on ? 'hidden' : ''; }
+        document.querySelectorAll('.sec-daily-shadow:not([hidden])').forEach(function(){ lock(true); });
+        document.addEventListener('click', function(e){
+          var open = e.target.closest ? e.target.closest('[data-sec-daily-open]') : null;
+          if (open) {
+            var el = document.getElementById(open.getAttribute('data-sec-daily-open'));
+            if (el) { el.hidden = false; lock(true); }
+            return;
+          }
+          var close = e.target.closest ? e.target.closest('[data-sec-daily-close]') : null;
+          if (close) {
+            var root = close.closest('.sec-daily-shadow');
+            if (root) { root.hidden = true; lock(false); }
+            return;
+          }
+          if (e.target.classList && e.target.classList.contains('sec-daily-shadow')) {
+            e.target.hidden = true;
+            lock(false);
+          }
+        });
+        document.addEventListener('keydown', function(e){
+          if (e.key !== 'Escape') return;
+          document.querySelectorAll('.sec-daily-shadow:not([hidden])').forEach(function(el){ el.hidden = true; });
+          lock(false);
+        });
+      })();
+      </script>
+    <?php endif; ?>
     <?php
     return (string) ob_get_clean();
 }
