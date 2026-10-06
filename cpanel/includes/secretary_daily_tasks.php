@@ -235,7 +235,8 @@ function secretary_daily_tasks_html(
         $scripted = true;
         ?>
     <style>
-      .sec-task-overlay{position:fixed;inset:0;z-index:400;overflow:auto;padding:24px 16px;background:rgba(15,23,42,.45);box-sizing:border-box;direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif}
+      .sec-task-overlay{position:fixed;top:0;right:0;bottom:0;left:0;width:100%;height:100vh;max-height:100vh;z-index:5000;overflow:hidden;background:rgba(15,23,42,.62);box-sizing:border-box;direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif}
+      .sec-task-scroll{height:100%;max-height:100vh;overflow-x:hidden;overflow-y:auto;padding:24px 16px;box-sizing:border-box;-webkit-overflow-scrolling:touch}
       .sec-task-overlay[hidden]{display:none !important}
       .sec-task-card{width:min(720px,100%);height:auto;max-height:none;overflow:visible;margin:0 auto;border-radius:16px;background:var(--card,#fff);color:var(--fg,#1a2e28);border:1px solid var(--line,#d5e0da);box-shadow:0 18px 50px rgba(15,23,42,.28);direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif}
       .sec-task-head{padding:16px 16px 10px 44px;border-bottom:1px solid var(--line,#d5e0da);direction:rtl;text-align:right}
@@ -301,8 +302,9 @@ function secretary_daily_tasks_html(
         <button type="button" class="btn btn-primary btn-sm" data-sec-task-open="<?= e($shadowId) ?>">باز کردن فهرست</button>
       </div>
     </article>
-    <div class="sec-task-overlay" id="<?= e($shadowId) ?>" dir="rtl"<?= $startOpen ? '' : ' hidden' ?> style="position:fixed;inset:0;z-index:400;overflow:auto;height:auto;max-height:none;background:rgba(15,23,42,.45);padding:24px 16px;direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif">
-      <div class="sec-task-card" role="dialog" aria-modal="true" aria-label="لیست انجام کارهای روزانه" dir="rtl" style="position:relative;height:auto;max-height:none;overflow:visible;background:var(--card,#fff)">
+    <div class="sec-task-overlay" id="<?= e($shadowId) ?>" dir="rtl"<?= $startOpen ? '' : ' hidden' ?> style="position:fixed;top:0;right:0;bottom:0;left:0;width:100%;height:100vh;max-height:100vh;overflow:hidden;z-index:5000;background:rgba(15,23,42,.62);direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif">
+      <div class="sec-task-scroll" style="height:100%;max-height:100vh;overflow-y:auto;overflow-x:hidden;padding:24px 16px;box-sizing:border-box">
+      <div class="sec-task-card" role="dialog" aria-modal="true" aria-label="لیست انجام کارهای روزانه" dir="rtl" style="position:relative;height:auto;max-height:none;overflow:visible;margin:0 auto;background:var(--card,#fff)">
         <button type="button" class="sec-task-x" data-sec-task-close aria-label="بستن">×</button>
         <div class="sec-task-head">
           <h2>لیست انجام کارهای روزانه</h2>
@@ -343,6 +345,7 @@ function secretary_daily_tasks_html(
             </div>
           <?php endforeach; ?>
         </div>
+      </div>
       </div>
     </div>
     <?php
