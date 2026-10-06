@@ -174,6 +174,7 @@ $routes = [
     'GET /contact' => 'pages/contact.php',
     'POST /consult-request' => 'actions/consult_request.php',
     'POST /consult-requests/done' => 'actions/consult_request_done.php',
+    'POST /consult-requests/reopen' => 'actions/consult_request_reopen.php',
     'GET /assistant' => 'pages/assistant.php',
     'POST /assistant/chat' => 'actions/assistant_chat.php',
     'POST /assistant/send' => 'actions/assistant_send.php',

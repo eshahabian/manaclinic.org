@@ -38,7 +38,7 @@ ob_start();
       <article class="panel consult-card<?= $isNew ? ' is-new' : '' ?>">
         <header class="consult-card-head">
           <strong><?= e($name !== '' ? $name : 'بدون نام') ?></strong>
-          <?php if ($isNew): ?><span class="consult-badge">جدید</span><?php else: ?><span class="muted">پیگیری شد</span><?php endif; ?>
+          <?php if ($isNew): ?><span class="consult-badge">پیگیری نشده</span><?php else: ?><span class="muted">پیگیری شد</span><?php endif; ?>
           <time class="muted"><?= e(format_fa_datetime((string) ($row['created_at'] ?? ''))) ?></time>
         </header>
         <a class="consult-phone" href="tel:<?= e($phone) ?>" dir="ltr"><?= e(to_fa_digits($phone)) ?></a>
@@ -49,6 +49,13 @@ ob_start();
             <input type="hidden" name="id" value="<?= e((string) $row['id']) ?>">
             <input type="hidden" name="next" value="<?= e($back) ?>">
             <button type="submit" class="btn btn-outline btn-sm">تماس گرفته شد</button>
+          </form>
+        <?php else: ?>
+          <form method="post" action="<?= e(url('/consult-requests/reopen')) ?>">
+            <?= csrf_field() ?>
+            <input type="hidden" name="id" value="<?= e((string) $row['id']) ?>">
+            <input type="hidden" name="next" value="<?= e($back) ?>">
+            <button type="submit" class="btn btn-outline btn-sm">پیگیری نشده</button>
           </form>
         <?php endif; ?>
       </article>
