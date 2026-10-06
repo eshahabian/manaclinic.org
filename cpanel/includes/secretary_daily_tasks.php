@@ -235,22 +235,29 @@ function secretary_daily_tasks_html(
         $scripted = true;
         ?>
     <style>
-      .sec-task-overlay{position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(15,23,42,.5);box-sizing:border-box}
+      body.sec-task-open{overflow:hidden !important}
+      .sec-task-overlay{position:fixed;inset:0;z-index:400;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(16,24,22,.82);backdrop-filter:blur(3px);box-sizing:border-box;direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif}
       .sec-task-overlay[hidden]{display:none !important}
-      .sec-task-card{width:min(720px,100%);max-height:calc(100dvh - 32px);display:flex;flex-direction:column;overflow:hidden;border-radius:16px;background:var(--card,#fff);color:var(--fg,#14221c);box-shadow:0 18px 50px rgba(15,23,42,.28)}
-      .sec-task-head{flex:none;padding:16px 44px 8px 16px;border-bottom:1px solid var(--line,#e5e7eb)}
-      .sec-task-head h2{margin:0 0 10px;font-size:1.12rem}
-      .sec-task-field{display:block;margin:0 0 8px}
-      .sec-task-field span{display:block;font-size:.78rem;color:var(--muted,#6b7280)}
-      .sec-task-field strong{display:block;font-weight:700;line-height:1.5}
-      .sec-task-body{flex:1 1 auto;min-height:0;overflow-y:scroll;padding:12px 16px 16px;-webkit-overflow-scrolling:touch}
-      .sec-task-row{display:flex;gap:8px;align-items:flex-start;margin:0 0 8px;padding:8px 10px;border:1px solid var(--line,#e5e7eb);border-radius:10px;line-height:1.7}
+      .sec-task-card{width:min(720px,100%);height:min(92dvh,860px);max-height:92dvh;display:flex;flex-direction:column;overflow:hidden;border-radius:16px;background:#fff;color:#1a2e28;box-shadow:0 18px 50px rgba(15,23,42,.28);direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif}
+      html[data-theme="dark"] .sec-task-card{background:#17211e;color:#e7f0ec}
+      .sec-task-head{flex:0 0 auto;padding:16px 16px 10px 44px;border-bottom:1px solid #d5e0da;background:#fff;direction:rtl;text-align:right}
+      html[data-theme="dark"] .sec-task-head{background:#17211e;border-bottom-color:#2c4039}
+      .sec-task-head h2{margin:0 0 10px;font-size:1.12rem;font-family:Vazirmatn,Tahoma,sans-serif;text-align:right}
+      .sec-task-field{display:block;margin:0 0 8px;text-align:right}
+      .sec-task-field span{display:block;font-size:.78rem;color:#5a6f66;font-family:Vazirmatn,Tahoma,sans-serif}
+      .sec-task-field strong{display:block;font-weight:700;line-height:1.5;font-family:Vazirmatn,Tahoma,sans-serif}
+      .sec-task-body{flex:1 1 0px;min-height:0;height:0;overflow-x:hidden;overflow-y:scroll;padding:12px 8px 24px 12px;direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif;-webkit-overflow-scrolling:touch;overscroll-behavior:contain;scrollbar-width:thin;scrollbar-color:#1b5e4b #e8efe9}
+      .sec-task-body::-webkit-scrollbar{width:10px}
+      .sec-task-body::-webkit-scrollbar-thumb{background:#1b5e4b;border-radius:8px}
+      .sec-task-row{display:block;margin:0 0 8px;padding:8px 10px;border:1px solid #d5e0da;border-radius:10px;line-height:1.75;background:#fff;text-align:right;direction:rtl}
+      html[data-theme="dark"] .sec-task-row{background:#1c2824;border-color:#2c4039}
       .sec-task-row.is-done{background:#e8f6ee;border-color:#b7e0c6}
       html[data-theme="dark"] .sec-task-row.is-done{background:#1c3a30;border-color:#2f6b52}
-      .sec-task-row form,.sec-task-row label{display:flex;gap:8px;align-items:flex-start;margin:0;width:100%;cursor:pointer}
+      .sec-task-row form,.sec-task-row label{display:flex;flex-direction:row;gap:8px;align-items:flex-start;margin:0;width:100%;cursor:pointer;direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif}
       .sec-task-row input{margin-top:.35rem;width:1.05rem;height:1.05rem;flex:none}
-      .sec-task-row b{flex:none;min-width:1.6rem}
-      .sec-task-x{position:absolute;top:8px;left:8px;width:2rem;height:2rem;border:0;border-radius:999px;background:transparent;font-size:1.4rem;line-height:1;cursor:pointer;color:var(--muted,#6b7280)}
+      .sec-task-row b{flex:none;min-width:1.6rem;font-family:Vazirmatn,Tahoma,sans-serif}
+      .sec-task-row span{flex:1;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif}
+      .sec-task-x{position:absolute;top:8px;left:8px;width:2rem;height:2rem;border:0;border-radius:999px;background:transparent;font-size:1.4rem;line-height:1;cursor:pointer;color:#5a6f66;font-family:Vazirmatn,Tahoma,sans-serif}
     </style>
     <script>
     (function(){
@@ -260,6 +267,8 @@ function secretary_daily_tasks_html(
         document.querySelectorAll(".sec-task-overlay").forEach(function(el){
           if (el.parentNode !== document.body) document.body.appendChild(el);
         });
+        var open = document.querySelector(".sec-task-overlay:not([hidden])");
+        document.body.classList.toggle("sec-task-open", !!open);
       }
       if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", placeAll);
       else placeAll();
@@ -270,6 +279,7 @@ function secretary_daily_tasks_html(
           if (el) {
             if (el.parentNode !== document.body) document.body.appendChild(el);
             el.hidden = false;
+            document.body.classList.add("sec-task-open");
           }
           return;
         }
@@ -277,13 +287,18 @@ function secretary_daily_tasks_html(
         if (close) {
           var root = close.closest(".sec-task-overlay");
           if (root) root.hidden = true;
+          document.body.classList.remove("sec-task-open");
           return;
         }
-        if (e.target.classList && e.target.classList.contains("sec-task-overlay")) e.target.hidden = true;
+        if (e.target.classList && e.target.classList.contains("sec-task-overlay")) {
+          e.target.hidden = true;
+          document.body.classList.remove("sec-task-open");
+        }
       });
       document.addEventListener("keydown", function(e){
         if (e.key !== "Escape") return;
         document.querySelectorAll(".sec-task-overlay:not([hidden])").forEach(function(el){ el.hidden = true; });
+        document.body.classList.remove("sec-task-open");
       });
     })();
     </script>
@@ -300,8 +315,8 @@ function secretary_daily_tasks_html(
         <button type="button" class="btn btn-primary btn-sm" data-sec-task-open="<?= e($shadowId) ?>">باز کردن فهرست</button>
       </div>
     </article>
-    <div class="sec-task-overlay" id="<?= e($shadowId) ?>"<?= $startOpen ? '' : ' hidden' ?>>
-      <div class="sec-task-card" role="dialog" aria-modal="true" aria-label="لیست انجام کارهای روزانه" style="position:relative">
+    <div class="sec-task-overlay" id="<?= e($shadowId) ?>" dir="rtl"<?= $startOpen ? '' : ' hidden' ?>>
+      <div class="sec-task-card" role="dialog" aria-modal="true" aria-label="لیست انجام کارهای روزانه" dir="rtl" style="position:relative">
         <button type="button" class="sec-task-x" data-sec-task-close aria-label="بستن">×</button>
         <div class="sec-task-head">
           <h2>لیست انجام کارهای روزانه</h2>
@@ -309,7 +324,7 @@ function secretary_daily_tasks_html(
           <div class="sec-task-field"><span>روز و تاریخ</span><strong><?= e($dateLabel) ?></strong></div>
           <div class="sec-task-field"><span>انجام‌شده</span><strong><?= e($doneLabel) ?></strong></div>
         </div>
-        <div class="sec-task-body" style="max-height:calc(100dvh - 230px);overflow-y:auto">
+        <div class="sec-task-body" dir="rtl">
           <?php $n = 0; foreach (secretary_daily_task_catalog() as $key => $label): ?>
             <?php
               $n++;
