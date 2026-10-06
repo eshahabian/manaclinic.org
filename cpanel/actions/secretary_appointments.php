@@ -71,11 +71,17 @@ if ($action === 'reject_booking') {
 if ($action === 'confirm_payment') {
     $appointmentId = trim((string) post('appointment_id'));
     try {
-        $result = staff_confirm_appointment_payment($pdo, $appointmentId, $user, $_FILES['receipt'] ?? [], (string) post('note'));
+        if (post('pay_choice') === 'unpaid') {
+            $result = staff_confirm_appointment_unpaid($pdo, $appointmentId, $user, (string) post('note'));
+            $flash = 'وقت «' . (string) $result['patient_name'] . '» رزرو شد و ' . format_price((int) $result['amount']) . ' از کیف پولش کسر شد.';
+        } else {
+            $result = staff_confirm_appointment_payment($pdo, $appointmentId, $user, $_FILES['receipt'] ?? [], (string) post('note'));
+            $flash = 'پرداخت «' . (string) $result['patient_name'] . '» ثبت شد و وقت رزرو گردید.';
+        }
         if (!str_contains($next, 'tab=')) {
             $next .= (str_contains($next, '?') ? '&' : '?') . 'tab=upcoming';
         }
-        flash_set('success', 'پرداخت «' . (string) $result['patient_name'] . '» ثبت شد و وقت رزرو گردید.');
+        flash_set('success', $flash);
     } catch (Throwable $e) {
         flash_set('error', $e->getMessage());
         if (!str_contains($next, 'tab=')) {

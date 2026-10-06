@@ -35,7 +35,7 @@ if (function_exists('appointment_expire_unpaid_holds')) {
 $sql = "
   SELECT a.*, u.name AS patient_name, u.phone, u.email,
          du.name AS doctor_name,
-         p.id AS payment_id, p.amount, p.status AS pay_status, p.receipt_path,
+         p.id AS payment_id, p.amount, p.status AS pay_status, p.receipt_path, p.ref_id,
          cu.name AS actor_name, cu.username AS actor_username, cu.role AS actor_role
   FROM appointments a
   JOIN users u ON u.id = a.patient_id

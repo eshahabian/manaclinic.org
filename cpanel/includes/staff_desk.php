@@ -747,6 +747,7 @@ function staff_action_label(string $action): string
         'workshop_enroll' => 'ثبت ورودی کارگاه',
         'workshop_mark_paid' => 'ثبت پرداخت کارگاه با فیش',
         'appointment_confirm_payment' => 'تأیید پرداخت و ثبت نوبت',
+        'appointment_confirm_unpaid' => 'رزرو نوبت با کسر از کیف پول',
         'appointment_approve_booking' => 'تأیید درخواست نوبت برای پرداخت',
         'appointment_reject_booking' => 'رد درخواست نوبت',
         'workshop_create' => 'ایجاد کارگاه',

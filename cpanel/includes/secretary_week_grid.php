@@ -21,7 +21,7 @@ function secretary_week_booked_map(PDO $pdo, string $doctorId, string $fromYmd, 
       SELECT a.id, a.starts_at, a.ends_at, a.status, a.session_mode,
              a.created_at, a.requested_at, a.reviewed_at, a.payment_confirmed_at, a.staff_payment_note,
              u.id AS patient_id, u.name AS patient_name, u.phone,
-             p.id AS payment_id, p.status AS pay_status, p.amount, p.receipt_path
+             p.id AS payment_id, p.status AS pay_status, p.amount, p.receipt_path, p.ref_id
       FROM appointments a
       JOIN users u ON u.id = a.patient_id
       LEFT JOIN payments p ON p.appointment_id = a.id

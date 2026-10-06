@@ -192,6 +192,149 @@ function staff_confirm_appointment_payment(
     ];
 }
 
+/**
+ * منشی وقت را رزرو می‌کند ولی پرداخت نقدی/فیش نشده است.
+ * حق مشاوره از کیف پول مراجع کم می‌شود و موجودی می‌تواند منفی شود.
+ * @return array{appointment_id:string,patient_name:string,starts_at:string,amount:int,balance_after:int}
+ */
+function staff_confirm_appointment_unpaid(
+    PDO $pdo,
+    string $appointmentId,
+    array $actor,
+    string $note = ''
+): array {
+    if (!function_exists('wallet_debit_balance_allow_negative')) {
+        require_once __DIR__ . '/wallet.php';
+    }
+    if (function_exists('ensure_appointment_hold_columns')) {
+        ensure_appointment_hold_columns($pdo);
+    }
+    ensure_wallet_schema($pdo);
+
+    $stmt = $pdo->prepare("
+      SELECT a.*, p.id AS payment_id, p.status AS pay_status, p.amount,
+             pu.name AS patient_name, pu.id AS patient_user_id,
+             dp.session_price
+      FROM appointments a
+      JOIN payments p ON p.appointment_id = a.id
+      JOIN users pu ON pu.id = a.patient_id
+      JOIN doctor_profiles dp ON dp.id = a.doctor_id
+      WHERE a.id = ?
+      LIMIT 1
+    ");
+    $stmt->execute([$appointmentId]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        throw new RuntimeException('نوبت یافت نشد.');
+    }
+    if (!in_array((string) ($row['status'] ?? ''), ['PENDING_APPROVAL', 'PENDING_PAYMENT'], true)) {
+        throw new RuntimeException('این نوبت دیگر قابل ثبت به‌صورت پرداخت‌نشده نیست.');
+    }
+    if ((string) ($row['pay_status'] ?? '') === 'PAID') {
+        throw new RuntimeException('پرداخت این نوبت قبلاً ثبت شده است.');
+    }
+
+    $amount = (int) ($row['amount'] ?? 0);
+    if ($amount <= 0) {
+        $amount = (int) ($row['session_price'] ?? 0);
+    }
+    if ($amount <= 0) {
+        throw new RuntimeException('حق مشاوره این درمانگر مشخص نیست.');
+    }
+
+    $patientUserId = (string) ($row['patient_user_id'] ?? '');
+    $patientName = (string) ($row['patient_name'] ?? 'مراجعه‌کننده');
+    $when = format_fa_datetime((string) ($row['starts_at'] ?? ''));
+    $staffUserId = (string) ($actor['id'] ?? '');
+    $note = trim($note);
+    $paymentId = (string) $row['payment_id'];
+    ensure_wallet($pdo, $patientUserId);
+
+    $pdo->beginTransaction();
+    try {
+        $balanceAfter = wallet_debit_balance_allow_negative(
+            $pdo,
+            $patientUserId,
+            $amount,
+            'appointment',
+            $appointmentId,
+            'حق مشاوره پرداخت‌نشده — نوبت ' . $when
+        );
+        $payUpdated = $pdo->prepare("
+          UPDATE payments
+          SET ref_id='WALLET_DEBT',
+              recorded_by_user_id=?
+          WHERE id=? AND status='PENDING'
+        ");
+        $payUpdated->execute([$staffUserId, $paymentId]);
+        if ($payUpdated->rowCount() < 1) {
+            throw new RuntimeException('ثبت پرداخت‌نشده انجام نشد.');
+        }
+        if ($note !== '') {
+            $updated = $pdo->prepare("
+              UPDATE appointments
+              SET status='CONFIRMED',
+                  payment_confirmed_at=NOW(),
+                  reviewed_at=COALESCE(reviewed_at, NOW()),
+                  requested_at=COALESCE(requested_at, created_at),
+                  staff_payment_note=?
+              WHERE id=? AND status IN ('PENDING_APPROVAL','PENDING_PAYMENT')
+            ");
+            $updated->execute([$note, $appointmentId]);
+        } else {
+            $updated = $pdo->prepare("
+              UPDATE appointments
+              SET status='CONFIRMED',
+                  payment_confirmed_at=NOW(),
+                  reviewed_at=COALESCE(reviewed_at, NOW()),
+                  requested_at=COALESCE(requested_at, created_at)
+              WHERE id=? AND status IN ('PENDING_APPROVAL','PENDING_PAYMENT')
+            ");
+            $updated->execute([$appointmentId]);
+        }
+        if ($updated->rowCount() < 1) {
+            throw new RuntimeException('رزرو نوبت انجام نشد.');
+        }
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+
+    $actorLabel = function_exists('staff_actor_label') ? staff_actor_label($actor) : (string) ($actor['name'] ?? 'منشی');
+    if (function_exists('staff_log_action')) {
+        staff_log_action($pdo, $staffUserId, 'appointment_confirm_unpaid', 'appointment', $appointmentId, $patientName);
+    }
+
+    notify_user(
+        $pdo,
+        $patientUserId,
+        'نوبت رزرو شد — پرداخت نشده',
+        'وقت ' . $when . ' رزرو شد. ' . format_price($amount) . ' حق مشاوره از کیف پول شما کسر شد. موجودی می‌تواند منفی باشد.',
+        '/dashboard/wallet',
+        'appointment',
+        $staffUserId !== '' ? $staffUserId : null
+    );
+    notify_doctor_profile(
+        $pdo,
+        (string) $row['doctor_id'],
+        'نوبت رزرو شد',
+        'نوبت «' . $patientName . '» (' . $when . ') توسط ' . $actorLabel . ' رزرو شد. پرداخت نشده و حق مشاوره از کیف پول مراجع کسر شده است.',
+        '/doctor/appointments?tab=upcoming',
+        'appointment'
+    );
+
+    return [
+        'appointment_id' => $appointmentId,
+        'patient_name' => $patientName,
+        'starts_at' => (string) ($row['starts_at'] ?? ''),
+        'amount' => $amount,
+        'balance_after' => $balanceAfter,
+    ];
+}
+
 function appointment_awaiting_secretary_approval(array $row): bool
 {
     return (string) ($row['status'] ?? '') === 'PENDING_APPROVAL';
@@ -408,6 +551,9 @@ function appointment_pay_status_display(array $row): string
     if ((string) ($row['status'] ?? '') === 'PENDING_PAYMENT' && (string) ($row['pay_status'] ?? '') !== 'PAID') {
         return 'در حال بررسی — پرداخت هنوز تأیید نشده';
     }
+    if ((string) ($row['ref_id'] ?? '') === 'WALLET_DEBT' && (string) ($row['pay_status'] ?? '') !== 'PAID') {
+        return 'پرداخت نشده — کسر از کیف پول';
+    }
 
     return payment_status_label((string) ($row['pay_status'] ?? ''));
 }
@@ -513,6 +659,10 @@ function appointment_staff_mark_paid_form_html(array $row, string $next): string
         return '';
     }
     $id = (string) ($row['id'] ?? '');
+    $fee = (int) ($row['amount'] ?? 0);
+    if ($fee <= 0) {
+        $fee = (int) ($row['session_price'] ?? 0);
+    }
     ob_start();
     ?>
     <form method="post" action="<?= e(url('/secretary/appointments')) ?>" enctype="multipart/form-data" class="appt-confirm-pay-form" style="display:flex;flex-wrap:wrap;gap:.45rem;align-items:end;margin:0;flex-basis:100%">
@@ -528,9 +678,10 @@ function appointment_staff_mark_paid_form_html(array $row, string $next): string
         فیش پرداخت (اختیاری)
         <input type="file" name="receipt" accept="image/jpeg,image/png,image/webp,application/pdf">
       </label>
-      <button type="submit" class="btn btn-primary btn-sm" onclick="return confirm('پرداخت شده ثبت شود و این وقت رزرو گردد؟');">پرداخت شده</button>
+      <button type="submit" class="btn btn-primary btn-sm" name="pay_choice" value="paid" onclick="return confirm('پرداخت شده ثبت شود و این وقت رزرو گردد؟');">پرداخت شده</button>
+      <button type="submit" class="btn btn-outline btn-sm" name="pay_choice" value="unpaid" onclick="return confirm(<?= json_encode('پرداخت نشده: ' . format_price($fee) . ' حق مشاوره از کیف پول مراجع کم شود؟ موجودی می‌تواند منفی شود و وقت رزرو می‌گردد.', JSON_UNESCAPED_UNICODE) ?>);">پرداخت نشده</button>
     </form>
-    <p class="muted" style="font-size:.75rem;margin:0;flex-basis:100%">بدون آپلود فیش هم می‌توانید «پرداخت شده» را بزنید. اگر تا یک ساعت زده نشود، این وقت برای مراجعه‌کننده آزاد می‌شود.</p>
+    <p class="muted" style="font-size:.75rem;margin:0;flex-basis:100%">بدون فیش هم «پرداخت شده» را می‌توانید بزنید. «پرداخت نشده» وقت را رزرو می‌کند و حق مشاوره را از کیف پول کم می‌کند، حتی اگر موجودی منفی شود.</p>
     <?php
     return (string) ob_get_clean();
 }

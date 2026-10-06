@@ -17,7 +17,7 @@ if (function_exists('appointment_expire_unpaid_holds')) {
 /** میز نوبت مشترک منشی و ادمین */
 $rows = $pdo->query("
   SELECT a.*, pu.name AS patient_name, pu.phone, du.name AS doctor_name,
-         p.id AS payment_id, p.status AS pay_status, p.amount, p.receipt_path,
+         p.id AS payment_id, p.status AS pay_status, p.amount, p.receipt_path, p.ref_id,
          cu.name AS actor_name, cu.username AS actor_username, cu.role AS actor_role
   FROM appointments a
   JOIN users pu ON pu.id = a.patient_id
@@ -133,7 +133,7 @@ ob_start();
       <?= $secretaryBookFormHtml ?? '' ?>
     </section>
     <section class="binder-panel<?= $binderInitial === 'reservations' ? ' is-active' : '' ?>" data-binder-panel="reservations" role="tabpanel"<?= $binderInitial === 'reservations' ? '' : ' hidden' ?>>
-      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">درخواست وقت مراجعه‌کننده اینجاست، جدا از نوبت‌های قطعی. می‌توانید بدون پرداخت آنلاین تأیید کنید، فیش بگذارید، یادداشت بنویسید، و حتی بدون فیش دکمه «پرداخت شده» را بزنید. اگر تا یک ساعت «پرداخت شده» زده نشود، وقت آزاد می‌شود. زمان درخواست و زمان تأیید ثبت می‌شود.</p>
+      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">درخواست وقت مراجعه‌کننده اینجاست، جدا از نوبت‌های قطعی. «پرداخت شده» را با یا بدون فیش بزنید. «پرداخت نشده» وقت را رزرو می‌کند و حق مشاوره را از کیف پول مراجع کم می‌کند، حتی اگر موجودی منفی شود. اگر هیچ‌کدام تا یک ساعت زده نشود، وقت آزاد می‌شود.</p>
       <?= appointment_search_form_html($deskAction, 'reservations', $searchQ, $searchDay, $searchJalali, $filterActive, 'rs', 'نام مراجعه‌کننده یا درمانگر…', appointment_search_name_choices($reservations)) ?>
       <?php
         $appointmentList = $filterActive ? $reservationsFiltered : $reservations;

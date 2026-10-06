@@ -95,6 +95,29 @@ function wallet_log_tx(
     ]);
 }
 
+/**
+ * کسر از کیف پول حتی اگر موجودی کافی نباشد (بدهی؛ موجودی منفی می‌شود).
+ */
+function wallet_debit_balance_allow_negative(
+    PDO $pdo,
+    string $userId,
+    int $amount,
+    string $referenceType,
+    string $referenceId,
+    string $description
+): int {
+    if ($amount <= 0) {
+        return 0;
+    }
+    $wallet = wallet_for_update($pdo, $userId);
+    $balanceAfter = (int) $wallet['balance'] - $amount;
+    $heldAfter = (int) $wallet['held_balance'];
+    $pdo->prepare('UPDATE wallets SET balance = ? WHERE id = ?')->execute([$balanceAfter, $wallet['id']]);
+    wallet_log_tx($pdo, $wallet['id'], 'PAYMENT', -$amount, $balanceAfter, $heldAfter, $referenceType, $referenceId, $description);
+
+    return $balanceAfter;
+}
+
 /** پرداخت مراجعه‌کننده — از موجودی قابل برداشت */
 function wallet_debit_balance(
     PDO $pdo,
