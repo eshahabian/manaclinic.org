@@ -21,23 +21,19 @@ ob_start();
 <ul style="list-style:none;margin:1rem 0 0;padding:0">
   <?php foreach (secretary_daily_task_catalog() as $key => $label): ?>
     <?php $checked = !empty($states[$key]['done']); ?>
-    <li style="margin:0 0 .55rem;line-height:1.9">
+    <li style="margin:0 0 .7rem;line-height:1.9;text-align:right">
       <?php if ($editable): ?>
-        <form class="daytask-form" method="post" action="<?= e($postUrl) ?>" style="margin:0">
+        <form class="daytask-form" method="post" action="<?= e($postUrl) ?>" style="margin:0;text-align:right">
           <?= csrf_field() ?>
           <input type="hidden" name="task_date" value="<?= e($today) ?>">
           <input type="hidden" name="task_key" value="<?= e($key) ?>">
           <input type="hidden" name="done" value="0">
-          <label style="display:flex;gap:.55rem;align-items:flex-start;justify-content:flex-start;width:fit-content;max-width:100%">
-            <input type="checkbox" name="done" value="1" style="margin-top:.45rem;width:18px;height:18px;flex:none"<?= $checked ? ' checked' : '' ?>>
-            <span><?= e($label) ?></span>
-          </label>
+          <input type="checkbox" name="done" value="1" style="display:inline-block;width:18px;height:18px;margin:0 .4rem 0 0;vertical-align:middle"<?= $checked ? ' checked' : '' ?>>
+          <?= e($label) ?>
         </form>
       <?php else: ?>
-        <label style="display:flex;gap:.55rem;align-items:flex-start;width:fit-content;max-width:100%">
-          <input type="checkbox" disabled style="margin-top:.45rem;width:18px;height:18px;flex:none"<?= $checked ? ' checked' : '' ?>>
-          <span><?= e($label) ?></span>
-        </label>
+        <input type="checkbox" disabled style="display:inline-block;width:18px;height:18px;margin:0 .4rem 0 0;vertical-align:middle"<?= $checked ? ' checked' : '' ?>>
+        <?= e($label) ?>
       <?php endif; ?>
     </li>
   <?php endforeach; ?>
