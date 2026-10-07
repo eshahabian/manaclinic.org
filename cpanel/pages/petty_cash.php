@@ -101,14 +101,19 @@ ob_start();
   <input type="hidden" name="jy" value="<?= (int) $range['year'] ?>">
   <input type="hidden" name="jm" value="<?= (int) $range['month'] ?>">
   <p style="margin:0;font-weight:600">هزینه</p>
-  <div>
-    <label class="label" for="petty-item">قلم هزینه</label>
-    <input class="input" id="petty-item" name="item_name" required placeholder="مثلاً دستمال کاغذی">
+  <div id="petty-lines" style="display:grid;gap:.65rem">
+    <div class="petty-line" style="display:grid;grid-template-columns:minmax(0,1.6fr) minmax(7.5rem,.9fr);gap:.5rem;align-items:end">
+      <div>
+        <label class="label" for="petty-item">قلم هزینه</label>
+        <input class="input" id="petty-item" name="item_name[]" required maxlength="120" placeholder="مثلاً دستمال کاغذی">
+      </div>
+      <div>
+        <label class="label" for="petty-out-amount">مبلغ</label>
+        <input class="input" id="petty-out-amount" name="amount[]" inputmode="numeric" required placeholder="تومان">
+      </div>
+    </div>
   </div>
-  <div>
-    <label class="label" for="petty-out-amount">مبلغ</label>
-    <input class="input" id="petty-out-amount" name="amount" inputmode="numeric" required placeholder="تومان">
-  </div>
+  <button class="btn btn-outline" type="button" id="petty-add-line" aria-label="قلم بعدی" style="justify-self:start;min-width:2.75rem;font-size:1.35rem;line-height:1;padding:.45rem .8rem">+</button>
   <?= petty_cash_date_fields((int) $todayY, (int) $todayM, (int) $todayD) ?>
   <div>
     <label class="label" for="petty-receipt">رسید</label>
@@ -157,6 +162,27 @@ ob_start();
     <?php endforeach; ?>
   <?php endif; ?>
 </div>
+<script>
+(function () {
+  var box = document.getElementById('petty-lines');
+  var add = document.getElementById('petty-add-line');
+  if (!box || !add) return;
+  add.addEventListener('click', function () {
+    if (box.querySelectorAll('.petty-line').length >= 30) return;
+    var row = document.createElement('div');
+    row.className = 'petty-line';
+    row.style.cssText = 'display:grid;grid-template-columns:minmax(0,1.6fr) minmax(7.5rem,.9fr) auto;gap:.5rem;align-items:center';
+    row.innerHTML = '<input class="input" name="item_name[]" maxlength="120" placeholder="قلم بعدی" aria-label="قلم هزینه">'
+      + '<input class="input" name="amount[]" inputmode="numeric" placeholder="تومان" aria-label="مبلغ">'
+      + '<button type="button" class="btn btn-outline" aria-label="حذف این قلم" style="min-width:2.75rem;font-size:1.2rem;line-height:1;padding:.45rem .7rem">×</button>';
+    var remove = row.querySelector('button');
+    if (remove) remove.addEventListener('click', function () { row.remove(); });
+    box.appendChild(row);
+    var field = row.querySelector('input');
+    if (field) field.focus();
+  });
+})();
+</script>
 <?php
 $html = ob_get_clean();
 if ($role === 'DOCTOR') {
