@@ -265,8 +265,7 @@ function secretary_daily_tasks_html(
         $booted = true;
         ?>
     <style>
-      [data-dayshadow]{display:none}
-      [data-dayshadow].is-open{position:fixed;top:0;right:0;bottom:0;left:0;z-index:5000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(26,46,40,.55);direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif;box-sizing:border-box}
+      [data-dayshadow-live]{position:fixed;top:0;right:0;bottom:0;left:0;z-index:5000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(26,46,40,.55);direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif;box-sizing:border-box}
       [data-dayshadow] *{box-sizing:border-box}
       .dayshadow-card{width:min(42rem,100%);max-height:calc(100vh - 32px);display:flex;flex-direction:column;overflow:hidden;background:#fff;color:#1a2e28;border:1px solid #d5e0da;border-radius:16px;direction:rtl;text-align:right;position:relative;box-shadow:0 18px 50px rgba(26,46,40,.28)}
       .dayshadow-x{position:absolute;top:8px;left:8px;width:36px;height:36px;border:0;border-radius:999px;background:transparent;font-size:24px;line-height:1;cursor:pointer;color:#5a6f66}
@@ -290,36 +289,30 @@ function secretary_daily_tasks_html(
     (function(){
       if (window.__dayshadow) return;
       window.__dayshadow = true;
-      function placeAll(){
-        document.querySelectorAll("[data-dayshadow]").forEach(function(el){
-          if (el.parentNode !== document.body) document.body.appendChild(el);
-        });
-      }
+      function closeLive(root){ if (root && root.parentNode) root.parentNode.removeChild(root); }
       document.addEventListener("click", function(e){
         var open = e.target.closest ? e.target.closest("[data-dayshadow-open]") : null;
         if (open) {
           if (e.preventDefault) e.preventDefault();
-          var el = document.getElementById(open.getAttribute("data-dayshadow-open"));
-          if (!el) return;
-          if (el.parentNode !== document.body) document.body.appendChild(el);
-          el.hidden = false;
-          el.style.display = "flex";
-          el.classList.add("is-open");
-          var sc = el.querySelector(".dayshadow-scroll");
-          if (sc) sc.scrollTop = 0;
+          var id = open.getAttribute("data-dayshadow-open");
+          var live = document.getElementById(id + "-live");
+          if (live) { closeLive(live); return; }
+          var tpl = document.getElementById(id);
+          if (!tpl) return;
+          live = document.createElement("div");
+          live.id = id + "-live";
+          live.setAttribute("data-dayshadow-live", "1");
+          live.style.cssText = "position:fixed;top:0;right:0;bottom:0;left:0;z-index:5000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(26,46,40,.55);direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif";
+          if (tpl.content) live.appendChild(tpl.content.cloneNode(true));
+          document.body.appendChild(live);
           return;
         }
         var close = e.target.closest ? e.target.closest("[data-dayshadow-close]") : null;
         if (close) {
-          var root = close.closest("[data-dayshadow]");
-          if (root) { root.classList.remove("is-open"); root.hidden = true; root.style.display = "none"; }
+          closeLive(close.closest("[data-dayshadow-live]"));
           return;
         }
-        if (e.target && e.target.hasAttribute && e.target.hasAttribute("data-dayshadow")) {
-          e.target.classList.remove("is-open");
-          e.target.hidden = true;
-          e.target.style.display = "none";
-        }
+        if (e.target && e.target.getAttribute && e.target.getAttribute("data-dayshadow-live")) closeLive(e.target);
       });
       document.addEventListener("change", function(e){
         var input = e.target;
@@ -333,8 +326,6 @@ function secretary_daily_tasks_html(
           .then(function(){ if (row) row.classList.toggle("is-done", !!input.checked); })
           .catch(function(){ input.checked = !input.checked; });
       });
-      if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", placeAll);
-      else placeAll();
     })();
     </script>
         <?php
@@ -352,7 +343,7 @@ function secretary_daily_tasks_html(
       </div>
     </article>
     <?php endif; ?>
-    <div data-dayshadow id="<?= e($shadowId) ?>" dir="rtl" hidden style="display:none">
+    <template id="<?= e($shadowId) ?>">
       <div class="dayshadow-card" role="dialog" aria-modal="true" aria-label="لیست انجام کارهای روزانه" dir="rtl">
         <button type="button" class="dayshadow-x" data-dayshadow-close aria-label="بستن">×</button>
         <div class="dayshadow-head">
@@ -410,13 +401,7 @@ function secretary_daily_tasks_html(
           <p style="margin:8px 0 0;text-align:center;color:#5a6f66;font-size:.85rem">پایان فهرست · <?= e($totalCount) ?> کار</p>
         </div>
       </div>
-    </div>
-    <script>
-    (function(){
-      var el = document.getElementById(<?= json_encode($shadowId) ?>);
-      if (el && el.parentNode !== document.body) document.body.appendChild(el);
-    })();
-    </script>
+    </template>
     <?php
     return (string) ob_get_clean();
 }
