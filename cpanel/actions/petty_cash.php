@@ -12,10 +12,10 @@ if (!petty_cash_user_allowed($user)) {
 }
 
 $role = (string) ($user['role'] ?? '');
-$base = $role === 'SECRETARY' ? '/secretary/petty-cash' : '/doctor/petty-cash';
+$cashPath = $role === 'SECRETARY' ? '/secretary/petty-cash' : '/doctor/petty-cash';
 $jy = (int) post('jy');
 $jm = (int) post('jm');
-$back = $base . '?jy=' . $jy . '&jm=' . $jm;
+$back = $cashPath . '?jy=' . $jy . '&jm=' . $jm;
 csrf_verify();
 
 $kind = post('action') === 'in' ? 'IN' : (post('action') === 'out' ? 'OUT' : '');

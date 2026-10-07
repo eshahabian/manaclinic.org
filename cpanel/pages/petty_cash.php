@@ -11,12 +11,12 @@ if (!petty_cash_user_allowed($user)) {
 }
 
 $role = (string) ($user['role'] ?? '');
-$base = $role === 'SECRETARY' ? '/secretary/petty-cash' : '/doctor/petty-cash';
-$path = (string) ($GLOBALS['path'] ?? '');
-if ($role === 'SECRETARY' && !str_contains($path, '/secretary/')) {
+$cashPath = $role === 'SECRETARY' ? '/secretary/petty-cash' : '/doctor/petty-cash';
+$requestPath = (string) ($GLOBALS['path'] ?? '');
+if ($role === 'SECRETARY' && !str_contains($requestPath, '/secretary/')) {
     redirect('/secretary/petty-cash');
 }
-if ($role === 'DOCTOR' && !str_contains($path, '/doctor/')) {
+if ($role === 'DOCTOR' && !str_contains($requestPath, '/doctor/')) {
     redirect('/doctor/petty-cash');
 }
 if ($role === 'DOCTOR') {
@@ -56,7 +56,7 @@ ob_start();
 </div>
 <p class="muted" style="margin:.75rem 0 0">مانده این ماه: <?= e(format_price($report['in'] - $report['out'])) ?></p>
 
-<form class="panel form-stack" method="get" action="<?= e(url($base)) ?>" style="margin-top:1rem">
+<form class="panel form-stack" method="get" action="<?= e(url($cashPath)) ?>" style="margin-top:1rem">
   <p style="margin:0;font-weight:600">ماه گزارش</p>
   <div>
     <label class="label" for="petty-view-year">سال</label>
@@ -77,7 +77,7 @@ ob_start();
   <button class="btn btn-outline" type="submit" style="justify-self:start">نمایش این ماه</button>
 </form>
 
-<form class="panel form-stack" method="post" action="<?= e(url($base)) ?>" style="margin-top:1rem">
+<form class="panel form-stack" method="post" action="<?= e(url($cashPath)) ?>" style="margin-top:1rem">
   <?= csrf_field() ?>
   <input type="hidden" name="action" value="in">
   <input type="hidden" name="jy" value="<?= (int) $range['year'] ?>">
@@ -95,7 +95,7 @@ ob_start();
   <button class="btn btn-primary" type="submit" style="justify-self:start">ثبت ورودی</button>
 </form>
 
-<form class="panel form-stack" method="post" action="<?= e(url($base)) ?>" enctype="multipart/form-data" style="margin-top:1rem">
+<form class="panel form-stack" method="post" action="<?= e(url($cashPath)) ?>" enctype="multipart/form-data" style="margin-top:1rem">
   <?= csrf_field() ?>
   <input type="hidden" name="action" value="out">
   <input type="hidden" name="jy" value="<?= (int) $range['year'] ?>">
@@ -112,7 +112,9 @@ ob_start();
   <?= petty_cash_date_fields((int) $todayY, (int) $todayM, (int) $todayD) ?>
   <div>
     <label class="label" for="petty-receipt">رسید</label>
-    <input id="petty-receipt" type="file" name="receipt" accept="image/jpeg,image/png,image/webp,application/pdf">
+    <input id="petty-receipt" type="file" name="receipt" accept="image/jpeg,image/png,image/webp,application/pdf" hidden onchange="var n=document.getElementById('petty-receipt-name'); if(n) n.textContent=this.files&&this.files[0]?this.files[0].name:'رسیدی انتخاب نشده';">
+    <label class="btn btn-outline" for="petty-receipt" style="justify-self:start;cursor:pointer">انتخاب فایل رسید</label>
+    <span class="muted" id="petty-receipt-name">رسیدی انتخاب نشده</span>
   </div>
   <div>
     <label class="label" for="petty-out-note">توضیح</label>
