@@ -1,8 +1,19 @@
 <?php
 declare(strict_types=1);
 
+function secretary_is_daily_task_user(?array $user = null): bool
+{
+    $user = $user ?? (function_exists('current_user') ? current_user() : null);
+    $username = strtolower(trim((string) ($user['username'] ?? '')));
+
+    return in_array($username, ['secretary1', 'secretary2'], true);
+}
+
 function secretary_nav(): array
 {
+    $dailyTasks = secretary_is_daily_task_user()
+        ? ['href' => '#', 'label' => 'کارهای روزانه', 'shadow' => 'sec-day-tasks']
+        : ['href' => '/secretary/daily-tasks', 'label' => 'کارهای روزانه'];
     $nav = [
         [
             'href' => '/secretary/messages',
@@ -25,7 +36,7 @@ function secretary_nav(): array
         ['href' => '/secretary/profile', 'label' => 'پیام مدیر'],
         ['href' => '/secretary/board', 'label' => 'یادداشت مشترک'],
         ['href' => '/secretary/hours', 'label' => 'ساعت کاری'],
-        ['href' => '/secretary/daily-tasks', 'label' => 'کارهای روزانه'],
+        $dailyTasks,
         ['href' => '/secretary/colleague-messages', 'label' => 'پیام همکار'],
         ['href' => '/secretary/articles', 'label' => 'مقالات'],
         ['href' => '/secretary/workshops', 'label' => 'کارگاه‌ها'],
@@ -223,9 +234,14 @@ function render_secretary_page(string $title, string $innerHtml): void
             $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
             foreach ($nav as $item):
               $href = (string) ($item['href'] ?? '');
-              $active = $href !== '' && str_contains($currentPath, $href);
+              $shadow = (string) ($item['shadow'] ?? '');
+              $active = $shadow === '' && $href !== '' && $href !== '#' && str_contains($currentPath, $href);
           ?>
+            <?php if ($shadow !== ''): ?>
+            <a href="#" data-dayshadow-open="<?= e($shadow) ?>" onclick="event.preventDefault()">
+            <?php else: ?>
             <a class="<?= $active ? 'is-active' : '' ?>" href="<?= e(url($href)) ?>">
+            <?php endif; ?>
               <span class="side-nav-link-main">
                 <?php if (!empty($item['icon'])): ?>
                   <img class="side-nav-call-logo" src="<?= e((string) $item['icon']) ?>" alt="" width="22" height="22">
@@ -252,5 +268,41 @@ function render_secretary_page(string $title, string $innerHtml): void
     </div>
     <?php
     $content = ob_get_clean();
+    $pageScripts = secretary_panel_dayshadow_scripts($pdo, $user, (string) ($pageScripts ?? ''));
+    $GLOBALS['pageScripts'] = $pageScripts;
     require __DIR__ . '/layout.php';
+}
+
+function secretary_panel_dayshadow_scripts($pdo, ?array $user, string $scripts): string
+{
+    if (!$user || !$pdo instanceof PDO || !secretary_is_daily_task_user($user)) {
+        return $scripts;
+    }
+    try {
+        if (!function_exists('secretary_daily_tasks_html')) {
+            require_once __DIR__ . '/secretary_daily_tasks.php';
+        }
+        if (!function_exists('secretary_daily_tasks_html') || !function_exists('secretary_daily_task_can_edit')) {
+            return $scripts;
+        }
+        $ref = new ReflectionFunction('secretary_daily_tasks_html');
+        if ($ref->getNumberOfParameters() < 8) {
+            return $scripts;
+        }
+        $taskId = (string) ($user['id'] ?? '');
+        $taskDay = date('Y-m-d');
+
+        return $scripts . secretary_daily_tasks_html(
+            $pdo,
+            $user,
+            $taskDay,
+            secretary_daily_task_can_edit($pdo, $taskId, $taskDay, true),
+            url('/secretary/daily-tasks'),
+            false,
+            false,
+            'sec-day-tasks'
+        );
+    } catch (Throwable $e) {
+        return $scripts;
+    }
 }

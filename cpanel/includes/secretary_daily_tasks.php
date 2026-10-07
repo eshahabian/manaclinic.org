@@ -314,7 +314,7 @@ function secretary_daily_tasks_html(
           return;
         }
         if (e.target && e.target.getAttribute && e.target.getAttribute("data-dayshadow-live")) closeLive(e.target);
-      });
+      }, true);
       document.addEventListener("change", function(e){
         var input = e.target;
         if (!input || !input.form || !input.form.classList || !input.form.classList.contains("daytask-form")) return;
