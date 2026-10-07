@@ -29,6 +29,7 @@ if (preg_match('#^/app/chat/([a-f0-9]{24})/receipts$#', $path, $m)) {
         echo json_encode([
             'ok' => true,
             'states' => staff_app_own_receipts($pdo, $m[1], $userId),
+            'seen' => staff_app_seen_map($pdo, $m[1]),
         ], JSON_UNESCAPED_UNICODE);
     } catch (Throwable $e) {
         http_response_code(500);
@@ -81,13 +82,62 @@ if ($method === 'POST' && ($path === '/app/chat' || preg_match('#^/app/chat/([a-
             throw new RuntimeException('اتاق مشخص نیست.');
         }
         $back = '/app/chat/' . $roomId;
-        staff_app_send_message($pdo, $user, $roomId, post('body'), $_FILES['file'] ?? null);
+        $ajax = post('ajax') === '1';
+        $form = post('form');
+        if ($form === 'delete') {
+            staff_app_delete_message($pdo, $user, $roomId, post('message_id'));
+            if ($ajax) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok' => true], JSON_UNESCAPED_UNICODE);
+                exit;
+            }
+            flash_set('success', 'پیام حذف شد.');
+            redirect($back);
+        }
+        if ($form === 'pin') {
+            staff_app_pin_message($pdo, $user, $roomId, post('message_id'));
+            if ($ajax) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok' => true], JSON_UNESCAPED_UNICODE);
+                exit;
+            }
+            redirect($back);
+        }
+        if ($form === 'react') {
+            $counts = staff_app_toggle_reaction($pdo, $user, $roomId, post('message_id'), post('emoji'));
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok' => true, 'counts' => $counts, 'emoji' => post('emoji')], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        if ($form === 'forward') {
+            staff_app_forward_message($pdo, $user, $roomId, post('target_room'), post('message_id'));
+            if ($ajax) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok' => true], JSON_UNESCAPED_UNICODE);
+                exit;
+            }
+            flash_set('success', 'پیام هدایت شد.');
+            redirect($back);
+        }
+        staff_app_send_message($pdo, $user, $roomId, post('body'), $_FILES['file'] ?? null, post('reply_to'));
         redirect($back);
     } catch (RuntimeException $e) {
+        if (post('ajax') === '1') {
+            http_response_code(400);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok' => false, 'error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
         flash_set('error', $e->getMessage());
         redirect($back);
     } catch (Throwable $e) {
         error_log('staff app chat: ' . $e->getMessage());
+        if (post('ajax') === '1') {
+            http_response_code(500);
+            header('Content-Type: application/json; charset=utf-8');
+            echo json_encode(['ok' => false, 'error' => 'انجام نشد.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
         flash_set('error', 'پیام فرستاده نشد.');
         redirect($back);
     }
@@ -602,11 +652,49 @@ if ($section === 'chat') {
             staff_app_mark_read($pdo, $userId, $roomId);
             $messages = staff_app_messages($pdo, $roomId);
             $states = staff_app_own_receipts($pdo, $roomId, $userId);
+            $seenMap = staff_app_seen_map($pdo, $roomId);
+            $messageIds = array_map(static fn(array $row): string => (string) $row['id'], $messages);
+            [$reactCounts, $reactMine] = staff_app_reaction_maps($pdo, $messageIds, $userId);
+            $memberStmt = $pdo->prepare('SELECT COUNT(*) FROM staff_app_members WHERE room_id = ?');
+            $memberStmt->execute([$roomId]);
+            $isGroup = !empty($room['is_general']) || (int) $memberStmt->fetchColumn() > 2;
+            $pinned = staff_app_pinned_message($pdo, $roomId);
+            $pinnedId = (string) ($pinned['id'] ?? '');
+            $pinText = trim(preg_replace('/\s+/u', ' ', (string) ($pinned['body'] ?? '')) ?? '');
+            if ($pinned && $pinText === '') {
+                $pinText = 'فایل';
+            }
+            if (mb_strlen($pinText) > 80) {
+                $pinText = mb_substr($pinText, 0, 80) . '…';
+            }
+            $forwardRooms = [];
+            foreach (staff_app_rooms_for($pdo, $userId) as $forwardRoom) {
+                if ((string) ($forwardRoom['id'] ?? '') === $roomId) {
+                    continue;
+                }
+                $forwardRooms[] = [
+                    'id' => (string) $forwardRoom['id'],
+                    'title' => (string) ($forwardRoom['title'] ?? 'اتاق'),
+                ];
+            }
+            $chatConfig = json_encode([
+                'post' => url('/app/chat'),
+                'chatBase' => url('/app/chat'),
+                'roomId' => $roomId,
+                'receipts' => url('/app/chat/' . $roomId . '/receipts'),
+                'rooms' => $forwardRooms,
+            ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
             ob_start();
             ?>
             <p style="margin:0 0 8px"><a href="<?= e(url('/app/chat')) ?>">همه چت‌ها</a></p>
             <h1><?= e((string) ($room['title'] ?? 'چت')) ?></h1>
-            <div class="sapp-chat" id="sapp-thread">
+            <?php if ($pinned): ?>
+              <a class="sapp-pin" href="#m-<?= e($pinnedId) ?>">
+                <strong>سنجاق‌شده · <?= e((string) ($pinned['name'] ?? '')) ?></strong>
+                <span><?= e($pinText) ?></span>
+              </a>
+            <?php endif; ?>
+            <div class="sapp-chat<?= $isGroup ? ' is-group' : '' ?>" id="sapp-thread" data-group="<?= $isGroup ? '1' : '0' ?>" data-pinned="<?= e($pinnedId) ?>">
               <?php if ($messages === []): ?>
                 <p class="sapp-chat-empty">هنوز پیامی نیست.</p>
               <?php endif; ?>
@@ -614,17 +702,48 @@ if ($section === 'chat') {
                 <?php
                   $mine = (string) ($message['user_id'] ?? '') === $userId;
                   $msgId = (string) ($message['id'] ?? '');
+                  $senderName = trim((string) ($message['name'] ?? ''));
+                  if ($senderName === '') {
+                      $senderName = 'کاربر';
+                  }
+                  $bodyText = trim((string) ($message['body'] ?? ''));
+                  $fileMeta = [];
+                  foreach ($message['files'] ?? [] as $file) {
+                      $fileMeta[] = [
+                          'url' => url('/app/file/' . (string) $file['id']),
+                          'name' => (string) ($file['original_name'] ?? 'فایل'),
+                          'mime' => (string) ($file['mime'] ?? ''),
+                      ];
+                  }
+                  $attrFlags = JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT;
+                  $replyToId = (string) ($message['reply_to'] ?? '');
+                  $replyName = trim((string) ($message['reply_name'] ?? ''));
+                  $replyText = trim(preg_replace('/\s+/u', ' ', (string) ($message['reply_body'] ?? '')) ?? '');
+                  if (mb_strlen($replyText) > 80) {
+                      $replyText = mb_substr($replyText, 0, 80) . '…';
+                  }
+                  $forwardFrom = trim((string) ($message['forward_from'] ?? ''));
+                  $mineEmoji = (string) ($reactMine[$msgId] ?? '');
                 ?>
-                <article class="sapp-msg<?= $mine ? ' is-mine' : ' is-theirs' ?>">
+                <article class="sapp-msg<?= $mine ? ' is-mine' : ' is-theirs' ?>" id="m-<?= e($msgId) ?>" data-mine="<?= $mine ? '1' : '0' ?>" data-name="<?= e($senderName) ?>" data-body="<?= e($bodyText) ?>" data-seen="<?= json_encode($seenMap[$msgId] ?? [], $attrFlags) ?>" data-files="<?= json_encode($fileMeta, $attrFlags) ?>">
                   <?php if (!$mine): ?>
-                    <span class="sapp-msg-name"><?= e((string) ($message['name'] ?? '')) ?></span>
+                    <span class="sapp-msg-name"><?= e($senderName) ?></span>
                   <?php endif; ?>
-                  <?php if (trim((string) ($message['body'] ?? '')) !== ''): ?>
-                    <p><?= e((string) $message['body']) ?></p>
+                  <?php if ($forwardFrom !== ''): ?>
+                    <span class="sapp-forward">هدایت‌شده از <?= e($forwardFrom) ?></span>
                   <?php endif; ?>
-                  <?php foreach ($message['files'] ?? [] as $file): ?>
+                  <?php if ($replyToId !== ''): ?>
+                    <a class="sapp-quote" href="#m-<?= e($replyToId) ?>">
+                      <strong><?= e($replyName !== '' ? $replyName : 'پیام') ?></strong>
+                      <span><?= e($replyText !== '' ? $replyText : 'پیام حذف‌شده') ?></span>
+                    </a>
+                  <?php endif; ?>
+                  <?php if ($bodyText !== ''): ?>
+                    <p><?= e($bodyText) ?></p>
+                  <?php endif; ?>
+                  <?php foreach ($message['files'] ?? [] as $index => $file): ?>
                     <?php
-                      $fileUrl = url('/app/file/' . (string) $file['id']);
+                      $fileUrl = (string) ($fileMeta[$index]['url'] ?? '');
                       $mime = (string) ($file['mime'] ?? '');
                     ?>
                     <?php if (str_starts_with($mime, 'image/')): ?>
@@ -633,6 +752,11 @@ if ($section === 'chat') {
                       <p><a href="<?= e($fileUrl) ?>"><?= e((string) ($file['original_name'] ?? 'فایل')) ?></a></p>
                     <?php endif; ?>
                   <?php endforeach; ?>
+                  <div class="sapp-reacts" data-mine="<?= e($mineEmoji) ?>">
+                    <?php foreach ($reactCounts[$msgId] ?? [] as $emoji => $count): ?>
+                      <span class="sapp-react-chip<?= (string) $emoji === $mineEmoji ? ' is-mine' : '' ?>"><?= e((string) $emoji) ?> <?= e(to_fa_digits((string) (int) $count)) ?></span>
+                    <?php endforeach; ?>
+                  </div>
                   <div class="sapp-msg-meta">
                     <time><?= e(format_fa_time((string) ($message['created_at'] ?? ''))) ?></time>
                     <?php if ($mine): ?>
@@ -646,6 +770,14 @@ if ($section === 'chat') {
               <?= csrf_field() ?>
               <input type="hidden" name="form" value="send">
               <input type="hidden" name="room_id" value="<?= e($roomId) ?>">
+              <div class="sapp-reply" id="sapp-reply" hidden>
+                <input type="hidden" name="reply_to" id="sapp-reply-id" value="">
+                <div>
+                  <strong id="sapp-reply-who"></strong>
+                  <span id="sapp-reply-snippet"></span>
+                </div>
+                <button type="button" id="sapp-reply-x" aria-label="لغو پاسخ">×</button>
+              </div>
               <label class="sapp-file" title="فایل">
                 <input id="chat-file" name="file" type="file" aria-label="فایل">
                 <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m21 12-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8L13.2 4.2a3.5 3.5 0 0 1 5 5L9.6 17.8a1.5 1.5 0 0 1-2.1-2.1l7.4-7.4"/></svg>
@@ -653,34 +785,45 @@ if ($section === 'chat') {
               <textarea class="input" id="chat-body" name="body" rows="1" maxlength="4000" placeholder="پیام"></textarea>
               <button class="sapp-send" type="submit" aria-label="ارسال">➤</button>
             </form>
+            <div id="sapp-hold" hidden>
+              <button type="button" class="sapp-hold-back" id="sapp-hold-back" aria-label="بستن"></button>
+              <div class="sapp-hold-pop" id="sapp-hold-pop">
+                <div class="sapp-hold-emojis">
+                  <?php foreach (staff_app_allowed_reactions() as $emoji): ?>
+                    <button type="button" data-emoji="<?= e($emoji) ?>"><?= e($emoji) ?></button>
+                  <?php endforeach; ?>
+                </div>
+                <div class="sapp-hold-menu" id="sapp-hold-menu">
+                  <button type="button" class="sapp-hold-item" data-act="seen" id="sapp-hold-seen">
+                    <svg viewBox="0 0 20 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M1.4 8.2 4.6 11.4 11 4.6"/><path d="M6.2 8.2 9.4 11.4 15.8 4.6"/></svg>
+                    <span id="sapp-hold-seen-label">دیده شد</span>
+                    <span class="sapp-hold-faces" id="sapp-hold-seen-faces"></span>
+                  </button>
+                  <div class="sapp-hold-people" id="sapp-hold-people" hidden></div>
+                  <button type="button" class="sapp-hold-item" data-act="reply"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 8 4 12l5 4"/><path d="M4 12h10a6 6 0 0 1 6 6"/></svg><span>پاسخ</span></button>
+                  <button type="button" class="sapp-hold-item" data-act="copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg><span>کپی</span></button>
+                  <button type="button" class="sapp-hold-item" data-act="save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 4v10"/><path d="m8 10 4 4 4-4"/><path d="M5 19h14"/></svg><span>ذخیره فایل</span></button>
+                  <button type="button" class="sapp-hold-item" data-act="pin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 4 1 6-4 4v1h12v-1l-4-4 1-6"/><path d="M12 15v5"/></svg><span>سنجاق</span></button>
+                  <button type="button" class="sapp-hold-item" data-act="link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.1.1l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.1-.1l-2 2a5 5 0 0 0 7.1 7.1l1.1-1.1"/></svg><span>کپی لینک</span></button>
+                  <button type="button" class="sapp-hold-item" data-act="forward"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M15 8h5v5"/><path d="M20 8 12 16a6 6 0 0 1-8.5 0"/></svg><span>هدایت</span></button>
+                  <button type="button" class="sapp-hold-item is-danger is-split" data-act="delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M8 7l1 13h6l1-13"/></svg><span>حذف</span></button>
+                  <button type="button" class="sapp-hold-item is-split" data-act="select"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="m8.5 12.2 2.2 2.2 4.8-5"/></svg><span>انتخاب</span></button>
+                </div>
+                <div class="sapp-hold-menu" id="sapp-hold-forward" hidden>
+                  <p class="sapp-hold-forward-title">هدایت به</p>
+                  <div id="sapp-hold-rooms"></div>
+                </div>
+              </div>
+            </div>
+            <div class="sapp-selectbar" id="sapp-selectbar" hidden>
+              <button type="button" id="sapp-select-copy">کپی</button>
+              <button type="button" class="is-danger" id="sapp-select-delete">حذف</button>
+              <button type="button" id="sapp-select-cancel">لغو</button>
+            </div>
+            <script type="application/json" id="sapp-chat-config"><?= $chatConfig ?></script>
             <?php
             $html = ob_get_clean();
-            $receiptUrl = json_encode(url('/app/chat/' . $roomId . '/receipts'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
-            $GLOBALS['pageScripts'] = '<script>
-              (function () {
-                var thread = document.getElementById("sapp-thread");
-                if (thread) thread.scrollIntoView({block:"end"});
-                var url = ' . $receiptUrl . ';
-                function paint(states) {
-                  Object.keys(states || {}).forEach(function (id) {
-                    var el = document.querySelector("[data-ticks=\\"" + id + "\\"]");
-                    if (!el) return;
-                    el.className = "sapp-ticks is-" + states[id];
-                    el.setAttribute("aria-label", states[id] === "read" ? "دیده شد" : (states[id] === "delivered" ? "رسید" : "ارسال شد"));
-                    if (states[id] !== "sent" && el.querySelectorAll("path").length < 2) {
-                      el.innerHTML = "<svg viewBox=\\"0 0 20 16\\" aria-hidden=\\"true\\"><path d=\\"M1.4 8.2 4.6 11.4 11 4.6\\" fill=\\"none\\" stroke=\\"currentColor\\" stroke-width=\\"1.6\\" stroke-linecap=\\"round\\" stroke-linejoin=\\"round\\"/><path d=\\"M6.2 8.2 9.4 11.4 15.8 4.6\\" fill=\\"none\\" stroke=\\"currentColor\\" stroke-width=\\"1.6\\" stroke-linecap=\\"round\\" stroke-linejoin=\\"round\\"/></svg>";
-                    }
-                  });
-                }
-                setInterval(function () {
-                  if (document.hidden) return;
-                  fetch(url, {headers: {Accept: "application/json"}, credentials: "same-origin"})
-                    .then(function (res) { return res.ok ? res.json() : null; })
-                    .then(function (data) { if (data && data.states) paint(data.states); })
-                    .catch(function () {});
-                }, 4000);
-              })();
-            </script>';
+            $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/staff-chat.js')) . '?v=20261008hold"></script>';
         } else {
             $rooms = staff_app_rooms_for($pdo, $userId);
             $people = staff_app_people($pdo);

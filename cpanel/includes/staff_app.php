@@ -108,7 +108,30 @@ function staff_app_ensure_schema(PDO $pdo): void
         PRIMARY KEY (user_id, room_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
+    $pdo->exec("
+      CREATE TABLE IF NOT EXISTS staff_app_reactions (
+        message_id VARCHAR(32) NOT NULL,
+        user_id VARCHAR(32) NOT NULL,
+        emoji VARCHAR(32) NOT NULL,
+        PRIMARY KEY (message_id, user_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
+    staff_app_add_column($pdo, 'staff_app_messages', 'reply_to', 'VARCHAR(32) NULL');
+    staff_app_add_column($pdo, 'staff_app_messages', 'forward_from', 'VARCHAR(80) NULL');
+    staff_app_add_column($pdo, 'staff_app_rooms', 'pinned_message_id', 'VARCHAR(32) NULL');
     $ready = true;
+}
+
+function staff_app_add_column(PDO $pdo, string $table, string $column, string $definition): void
+{
+    if (!preg_match('/^[a-z_]+$/', $table) || !preg_match('/^[a-z_]+$/', $column)) {
+        return;
+    }
+    try {
+        $pdo->query('SELECT `' . $column . '` FROM `' . $table . '` LIMIT 0');
+    } catch (Throwable $e) {
+        $pdo->exec('ALTER TABLE `' . $table . '` ADD COLUMN `' . $column . '` ' . $definition);
+    }
 }
 
 function staff_app_upload_dir(): string
@@ -332,13 +355,233 @@ function staff_app_ticks_html(string $state, string $messageId = ''): string
     return '<span class="sapp-ticks is-' . $state . '"' . $attr . ' aria-label="' . $label . '">' . ($state === 'sent' ? $one : $two) . '</span>';
 }
 
+/** @return array<string, list<array{name:string,role:string}>> */
+function staff_app_seen_map(PDO $pdo, string $roomId): array
+{
+    $stmt = $pdo->prepare("
+      SELECT m.id AS message_id, u.name, u.username, u.role
+      FROM staff_app_messages m
+      JOIN staff_app_members mem ON mem.room_id = m.room_id AND mem.user_id <> m.user_id
+      JOIN staff_app_reads r ON r.room_id = m.room_id AND r.user_id = mem.user_id AND r.read_at >= m.created_at
+      JOIN users u ON u.id = mem.user_id
+      WHERE m.room_id = ?
+      ORDER BY r.read_at ASC
+    ");
+    $stmt->execute([$roomId]);
+    $map = [];
+    foreach ($stmt->fetchAll() ?: [] as $row) {
+        $name = trim((string) ($row['name'] ?? ''));
+        if ($name === '') {
+            $name = trim((string) ($row['username'] ?? ''));
+        }
+        $map[(string) $row['message_id']][] = [
+            'name' => $name !== '' ? $name : 'کاربر',
+            'role' => staff_app_role_label((string) ($row['role'] ?? '')),
+        ];
+    }
+
+    return $map;
+}
+
+/** @return array{0: array<string, array<string, int>>, 1: array<string, string>} */
+function staff_app_reaction_maps(PDO $pdo, array $messageIds, string $userId): array
+{
+    $messageIds = array_values(array_filter(array_map('strval', $messageIds)));
+    if ($messageIds === []) {
+        return [[], []];
+    }
+    $marks = implode(',', array_fill(0, count($messageIds), '?'));
+    $counts = [];
+    $stmt = $pdo->prepare("SELECT message_id, emoji, COUNT(*) AS total FROM staff_app_reactions WHERE message_id IN ($marks) GROUP BY message_id, emoji");
+    $stmt->execute($messageIds);
+    foreach ($stmt->fetchAll() ?: [] as $row) {
+        $counts[(string) $row['message_id']][(string) $row['emoji']] = (int) $row['total'];
+    }
+    $mine = [];
+    $own = $pdo->prepare("SELECT message_id, emoji FROM staff_app_reactions WHERE user_id = ? AND message_id IN ($marks)");
+    $own->execute(array_merge([$userId], $messageIds));
+    foreach ($own->fetchAll() ?: [] as $row) {
+        $mine[(string) $row['message_id']] = (string) $row['emoji'];
+    }
+
+    return [$counts, $mine];
+}
+
+function staff_app_message_for_member(PDO $pdo, string $messageId, string $roomId, string $userId): ?array
+{
+    $stmt = $pdo->prepare("
+      SELECT m.*
+      FROM staff_app_messages m
+      JOIN staff_app_members mem ON mem.room_id = m.room_id AND mem.user_id = ?
+      WHERE m.id = ? AND m.room_id = ?
+      LIMIT 1
+    ");
+    $stmt->execute([$userId, $messageId, $roomId]);
+    $row = $stmt->fetch();
+
+    return $row ?: null;
+}
+
+function staff_app_delete_message(PDO $pdo, array $user, string $roomId, string $messageId): void
+{
+    $userId = (string) ($user['id'] ?? '');
+    $message = staff_app_message_for_member($pdo, $messageId, $roomId, $userId);
+    if (!$message) {
+        throw new RuntimeException('این پیام پیدا نشد.');
+    }
+    if ((string) ($message['user_id'] ?? '') !== $userId) {
+        throw new RuntimeException('فقط پیام خودتان را می‌توانید حذف کنید.');
+    }
+    $files = $pdo->prepare('SELECT stored_name FROM staff_app_files WHERE message_id = ?');
+    $files->execute([$messageId]);
+    $stored = array_map(static fn(array $row): string => (string) $row['stored_name'], $files->fetchAll() ?: []);
+    $pdo->beginTransaction();
+    try {
+        $pdo->prepare('DELETE FROM staff_app_reactions WHERE message_id = ?')->execute([$messageId]);
+        $pdo->prepare('DELETE FROM staff_app_files WHERE message_id = ?')->execute([$messageId]);
+        $pdo->prepare('UPDATE staff_app_messages SET reply_to = NULL WHERE reply_to = ?')->execute([$messageId]);
+        $pdo->prepare('UPDATE staff_app_rooms SET pinned_message_id = NULL WHERE id = ? AND pinned_message_id = ?')->execute([$roomId, $messageId]);
+        $pdo->prepare('DELETE FROM staff_app_messages WHERE id = ? AND user_id = ?')->execute([$messageId, $userId]);
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+    foreach ($stored as $name) {
+        if (!preg_match('/^[a-f0-9]{32}\.[a-z0-9]{1,5}$/', $name)) {
+            continue;
+        }
+        $left = $pdo->prepare('SELECT COUNT(*) FROM staff_app_files WHERE stored_name = ?');
+        $left->execute([$name]);
+        if ((int) $left->fetchColumn() === 0) {
+            @unlink(staff_app_upload_dir() . '/' . $name);
+        }
+    }
+}
+
+function staff_app_pin_message(PDO $pdo, array $user, string $roomId, string $messageId): void
+{
+    $userId = (string) ($user['id'] ?? '');
+    if (!staff_app_room_for_member($pdo, $roomId, $userId)) {
+        throw new RuntimeException('به این اتاق دسترسی ندارید.');
+    }
+    $current = $pdo->prepare('SELECT pinned_message_id FROM staff_app_rooms WHERE id = ?');
+    $current->execute([$roomId]);
+    $pinned = (string) ($current->fetchColumn() ?: '');
+    if ($pinned === $messageId) {
+        $pdo->prepare('UPDATE staff_app_rooms SET pinned_message_id = NULL WHERE id = ?')->execute([$roomId]);
+
+        return;
+    }
+    if (!staff_app_message_for_member($pdo, $messageId, $roomId, $userId)) {
+        throw new RuntimeException('این پیام پیدا نشد.');
+    }
+    $pdo->prepare('UPDATE staff_app_rooms SET pinned_message_id = ? WHERE id = ?')->execute([$messageId, $roomId]);
+}
+
+function staff_app_allowed_reactions(): array
+{
+    return ['😂', '❤️', '👍', '😍', '🙏', '👎', '🔥'];
+}
+
+/** @return array<string, int> */
+function staff_app_toggle_reaction(PDO $pdo, array $user, string $roomId, string $messageId, string $emoji): array
+{
+    $userId = (string) ($user['id'] ?? '');
+    if (!in_array($emoji, staff_app_allowed_reactions(), true)) {
+        throw new RuntimeException('این واکنش مجاز نیست.');
+    }
+    if (!staff_app_message_for_member($pdo, $messageId, $roomId, $userId)) {
+        throw new RuntimeException('این پیام پیدا نشد.');
+    }
+    $current = $pdo->prepare('SELECT emoji FROM staff_app_reactions WHERE message_id = ? AND user_id = ?');
+    $current->execute([$messageId, $userId]);
+    $have = (string) ($current->fetchColumn() ?: '');
+    if ($have === $emoji) {
+        $pdo->prepare('DELETE FROM staff_app_reactions WHERE message_id = ? AND user_id = ?')->execute([$messageId, $userId]);
+    } else {
+        $pdo->prepare("
+          INSERT INTO staff_app_reactions (message_id, user_id, emoji) VALUES (?,?,?)
+          ON DUPLICATE KEY UPDATE emoji = VALUES(emoji)
+        ")->execute([$messageId, $userId, $emoji]);
+    }
+    $counts = $pdo->prepare('SELECT emoji, COUNT(*) AS total FROM staff_app_reactions WHERE message_id = ? GROUP BY emoji');
+    $counts->execute([$messageId]);
+    $out = [];
+    foreach ($counts->fetchAll() ?: [] as $row) {
+        $out[(string) $row['emoji']] = (int) $row['total'];
+    }
+
+    return $out;
+}
+
+function staff_app_forward_message(PDO $pdo, array $user, string $fromRoom, string $toRoom, string $messageId): void
+{
+    $userId = (string) ($user['id'] ?? '');
+    $message = staff_app_message_for_member($pdo, $messageId, $fromRoom, $userId);
+    if (!$message || !staff_app_room_for_member($pdo, $toRoom, $userId)) {
+        throw new RuntimeException('این پیام را نمی‌توان هدایت کرد.');
+    }
+    $sender = $pdo->prepare('SELECT name, username FROM users WHERE id = ?');
+    $sender->execute([(string) ($message['user_id'] ?? '')]);
+    $who = $sender->fetch() ?: [];
+    $fromName = trim((string) ($who['name'] ?? ''));
+    if ($fromName === '') {
+        $fromName = trim((string) ($who['username'] ?? 'کاربر'));
+    }
+    if (mb_strlen($fromName) > 80) {
+        $fromName = mb_substr($fromName, 0, 80);
+    }
+    $files = $pdo->prepare('SELECT stored_name, original_name, mime, size FROM staff_app_files WHERE message_id = ?');
+    $files->execute([$messageId]);
+    $fileRows = $files->fetchAll() ?: [];
+    $newId = cuid();
+    $pdo->beginTransaction();
+    try {
+        $pdo->prepare('INSERT INTO staff_app_messages (id, room_id, user_id, body, forward_from) VALUES (?,?,?,?,?)')
+            ->execute([$newId, $toRoom, $userId, (string) ($message['body'] ?? ''), $fromName]);
+        $add = $pdo->prepare('INSERT INTO staff_app_files (id, message_id, stored_name, original_name, mime, size) VALUES (?,?,?,?,?,?)');
+        foreach ($fileRows as $file) {
+            $add->execute([cuid(), $newId, $file['stored_name'], $file['original_name'], $file['mime'], $file['size']]);
+        }
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+    staff_app_mark_read($pdo, $userId, $toRoom);
+}
+
+function staff_app_pinned_message(PDO $pdo, string $roomId): ?array
+{
+    $stmt = $pdo->prepare("
+      SELECT m.id, m.body, u.name
+      FROM staff_app_rooms r
+      JOIN staff_app_messages m ON m.id = r.pinned_message_id
+      JOIN users u ON u.id = m.user_id
+      WHERE r.id = ?
+      LIMIT 1
+    ");
+    $stmt->execute([$roomId]);
+    $row = $stmt->fetch();
+
+    return $row ?: null;
+}
+
 /** @return list<array<string, mixed>> */
 function staff_app_messages(PDO $pdo, string $roomId): array
 {
     $stmt = $pdo->prepare("
-      SELECT m.id, m.body, m.created_at, m.user_id, u.name, u.role
+      SELECT m.id, m.body, m.created_at, m.user_id, m.reply_to, m.forward_from,
+             u.name, u.role, rm.body AS reply_body, ru.name AS reply_name
       FROM staff_app_messages m
       JOIN users u ON u.id = m.user_id
+      LEFT JOIN staff_app_messages rm ON rm.id = m.reply_to
+      LEFT JOIN users ru ON ru.id = rm.user_id
       WHERE m.room_id = ?
       ORDER BY m.created_at DESC
       LIMIT 150
@@ -521,7 +764,7 @@ function staff_app_store_upload(array $file): ?array
     ];
 }
 
-function staff_app_send_message(PDO $pdo, array $user, string $roomId, string $body, ?array $file): void
+function staff_app_send_message(PDO $pdo, array $user, string $roomId, string $body, ?array $file, string $replyTo = ''): void
 {
     $room = staff_app_room_for_member($pdo, $roomId, (string) ($user['id'] ?? ''));
     if (!$room) {
@@ -538,11 +781,15 @@ function staff_app_send_message(PDO $pdo, array $user, string $roomId, string $b
     if ($body === '' && $stored === null) {
         throw new RuntimeException('متن یا فایل را بفرستید.');
     }
+    $replyId = null;
+    if (preg_match('/^[a-f0-9]{24}$/', $replyTo) && staff_app_message_for_member($pdo, $replyTo, $roomId, (string) ($user['id'] ?? ''))) {
+        $replyId = $replyTo;
+    }
     $messageId = cuid();
     $pdo->beginTransaction();
     try {
-        $pdo->prepare('INSERT INTO staff_app_messages (id, room_id, user_id, body) VALUES (?,?,?,?)')
-            ->execute([$messageId, $roomId, (string) $user['id'], $body]);
+        $pdo->prepare('INSERT INTO staff_app_messages (id, room_id, user_id, body, reply_to) VALUES (?,?,?,?,?)')
+            ->execute([$messageId, $roomId, (string) $user['id'], $body, $replyId]);
         if ($stored) {
             $pdo->prepare('INSERT INTO staff_app_files (id, message_id, stored_name, original_name, mime, size) VALUES (?,?,?,?,?,?)')
                 ->execute([cuid(), $messageId, $stored['stored_name'], $stored['original_name'], $stored['mime'], $stored['size']]);
@@ -581,7 +828,7 @@ function staff_app_output_file(PDO $pdo, array $user, string $fileId): never
         exit;
     }
     $mime = (string) ($file['mime'] ?? 'application/octet-stream');
-    $inline = str_starts_with($mime, 'image/') || $mime === 'application/pdf';
+    $inline = !isset($_GET['download']) && (str_starts_with($mime, 'image/') || $mime === 'application/pdf');
     $name = (string) ($file['original_name'] ?? 'file');
     header('Content-Type: ' . $mime);
     header('Content-Length: ' . (string) filesize($path));
@@ -804,6 +1051,48 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-group summary{cursor:pointer;font-weight:800}
     .sapp-check{display:flex;gap:10px;align-items:center;min-height:44px;margin:0 0 6px}
     .sapp-check input{width:22px;height:22px;flex:none}
+    .sapp-msg{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+    .sapp-pin{display:block;margin:0 0 8px;padding:8px 10px;border-radius:12px;background:#fff;border-inline-start:3px solid #1a9a8a;color:inherit;text-decoration:none}
+    .sapp-pin strong{display:block;color:#1a9a8a;font-size:.78rem}
+    .sapp-pin span{display:block;color:#667781;font-size:.84rem}
+    .sapp-quote{display:block;margin-bottom:4px;padding:4px 8px;border-radius:8px;background:rgba(0,0,0,.06);border-inline-start:3px solid #1a9a8a;color:inherit;text-decoration:none;font-size:.82rem}
+    .sapp-quote strong{display:block;color:#1a9a8a}
+    .sapp-forward{display:block;margin-bottom:2px;color:#1a9a8a;font-size:.75rem;font-weight:800}
+    .sapp-reacts{display:flex;flex-wrap:wrap;gap:4px;margin-top:4px}
+    .sapp-reacts:empty{display:none}
+    .sapp-react-chip{border-radius:999px;background:rgba(255,255,255,.75);padding:1px 7px;font-size:.78rem}
+    .sapp-msg.is-mine .sapp-react-chip.is-mine{background:#b7ebc6}
+    .sapp-chat.is-selecting .sapp-msg{cursor:pointer}
+    .sapp-msg.is-picked{box-shadow:0 0 0 2px #1a9a8a}
+    .sapp-compose{flex-wrap:wrap}
+    .sapp-reply{flex:1 0 100%;display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;background:#fff;border-inline-start:3px solid #1a9a8a}
+    .sapp-reply[hidden]{display:none}
+    .sapp-reply strong{display:block;color:#1a9a8a;font-size:.78rem}
+    .sapp-reply span{display:block;max-width:16rem;overflow:hidden;color:#667781;font-size:.8rem;white-space:nowrap;text-overflow:ellipsis}
+    .sapp-reply button{border:0;background:transparent;color:#667781;font-size:1.3rem;line-height:1}
+    #sapp-hold[hidden],.sapp-hold-people[hidden],#sapp-hold-forward[hidden],#sapp-selectbar[hidden],.sapp-hold-item[hidden]{display:none !important}
+    .sapp-hold-back{position:fixed;inset:0;z-index:80;border:0;padding:0;background:rgba(0,0,0,.28)}
+    .sapp-hold-pop{position:fixed;z-index:81;display:flex;flex-direction:column;gap:8px;width:min(17.5rem,calc(100vw - 20px));max-height:calc(100vh - 16px);overflow:auto}
+    .sapp-hold-emojis{display:flex;justify-content:space-between;gap:2px;padding:6px 8px;border-radius:999px;background:#2c2c2e}
+    .sapp-hold-emojis button{border:0;background:transparent;font-size:1.25rem;line-height:1;padding:4px}
+    .sapp-hold-emojis button.is-on{background:rgba(255,255,255,.16);border-radius:999px}
+    .sapp-hold-menu{overflow:hidden;padding:4px 0;border-radius:16px;background:#1c1c1e;color:#fff}
+    .sapp-hold-item{display:flex;align-items:center;gap:10px;width:100%;min-height:44px;padding:8px 14px;border:0;background:transparent;color:inherit;font:inherit;text-align:right}
+    .sapp-hold-item svg{width:18px;height:18px;flex:none}
+    .sapp-hold-item.is-danger{color:#ff6b6b}
+    .sapp-hold-item.is-split{box-shadow:inset 0 1px 0 rgba(255,255,255,.12)}
+    .sapp-hold-faces{display:flex;margin-inline-start:auto}
+    .sapp-hold-faces i,.sapp-seen-av{display:inline-flex;align-items:center;justify-content:center;border-radius:999px;background:#3a3a3c;font-style:normal}
+    .sapp-hold-faces i{width:22px;height:22px;margin-inline-start:-6px;border:1px solid #1c1c1e;font-size:.68rem}
+    .sapp-hold-people{max-height:11rem;overflow:auto;border-radius:14px;background:#1c1c1e;color:#fff}
+    .sapp-seen-row{display:flex;align-items:center;gap:8px;padding:8px 12px}
+    .sapp-seen-av{width:28px;height:28px;flex:none;font-size:.8rem}
+    .sapp-seen-row small{color:#aaa}
+    .sapp-seen-check{margin-inline-start:auto;color:#1fa855;font-weight:800}
+    .sapp-hold-forward-title{margin:0;padding:10px 14px 4px;color:#aaa;font-size:.78rem}
+    .sapp-selectbar{position:fixed;right:16px;left:16px;bottom:calc(76px + env(safe-area-inset-bottom));z-index:40;display:flex;gap:8px}
+    .sapp-selectbar button{flex:1;min-height:44px;border:0;border-radius:12px;background:#1c1c1e;color:#fff;font:inherit;font-weight:800}
+    .sapp-selectbar .is-danger{background:#c44747}
     body.sapp{padding:0}
   </style>
 </head>
