@@ -315,6 +315,56 @@ function secretary_daily_tasks_html(
         }
         if (e.target && e.target.getAttribute && e.target.getAttribute("data-dayshadow-live")) closeLive(e.target);
       }, true);
+      function daytaskFa(n){
+        return String(n).replace(/\d/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹"[d]; });
+      }
+      function daytaskApply(row, checked, timeText){
+        if (row) row.classList.toggle("is-done", !!checked);
+        var time = row ? row.querySelector(".daytask-time") : null;
+        if (!time) return;
+        if (checked && timeText) {
+          time.hidden = false;
+          time.textContent = "ساعت تیک: " + timeText;
+        } else {
+          time.hidden = true;
+          time.textContent = "";
+        }
+      }
+      function daytaskSync(form, checked, timeText){
+        var keyEl = form.querySelector('input[name="task_key"]');
+        var key = keyEl ? keyEl.value : "";
+        var live = form.closest("[data-dayshadow-live]");
+        var rootId = live && live.id ? live.id.replace(/-live$/, "") : "";
+        var tpl = rootId ? document.getElementById(rootId) : null;
+        if (tpl && tpl.content && key) {
+          var forms = tpl.content.querySelectorAll("form.daytask-form");
+          for (var i = 0; i < forms.length; i++) {
+            var k = forms[i].querySelector('input[name="task_key"]');
+            if (!k || k.value !== key) continue;
+            var box = forms[i].querySelector('input[type="checkbox"]');
+            if (box) box.checked = !!checked;
+            daytaskApply(forms[i].closest(".dayshadow-row"), checked, timeText);
+            break;
+          }
+        }
+        var scope = live || form.closest(".dayshadow-card") || document;
+        var count = scope.querySelectorAll('.daytask-form input[type="checkbox"]:checked').length;
+        var label = daytaskFa(count);
+        var nodes = scope.querySelectorAll("[data-daytask-done]");
+        for (var n = 0; n < nodes.length; n++) nodes[n].textContent = label;
+        if (tpl && tpl.content) {
+          var tplNodes = tpl.content.querySelectorAll("[data-daytask-done]");
+          for (var t = 0; t < tplNodes.length; t++) tplNodes[t].textContent = label;
+        }
+        if (rootId) {
+          var opener = document.querySelector('[data-dayshadow-open="' + rootId + '"]');
+          var card = opener ? opener.closest("article") : null;
+          if (card) {
+            var cardNodes = card.querySelectorAll("[data-daytask-done]");
+            for (var c = 0; c < cardNodes.length; c++) cardNodes[c].textContent = label;
+          }
+        }
+      }
       document.addEventListener("change", function(e){
         var input = e.target;
         if (!input || !input.form || !input.form.classList || !input.form.classList.contains("daytask-form")) return;
@@ -325,17 +375,9 @@ function secretary_daily_tasks_html(
         fetch(form.action, {method:"POST", body:data, credentials:"same-origin", headers:{"X-Requested-With":"XMLHttpRequest","Accept":"application/json"}})
           .then(function(r){ if (!r.ok) throw new Error(); return r.json(); })
           .then(function(res){
-            if (row) row.classList.toggle("is-done", !!input.checked);
-            var time = row ? row.querySelector(".daytask-time") : null;
-            if (time) {
-              if (input.checked && res && res.time) {
-                time.hidden = false;
-                time.textContent = "ساعت تیک: " + res.time;
-              } else {
-                time.hidden = true;
-                time.textContent = "";
-              }
-            }
+            var timeText = (input.checked && res && res.time) ? res.time : "";
+            daytaskApply(row, !!input.checked, timeText);
+            daytaskSync(form, !!input.checked, timeText);
           })
           .catch(function(){ input.checked = !input.checked; });
       });
@@ -350,7 +392,7 @@ function secretary_daily_tasks_html(
         <div>
           <strong><?= e($name) ?></strong>
           <span class="muted" style="display:block"><?= e($dateLabel) ?></span>
-          <span style="display:block">انجام‌شده: <?= e($doneCount) ?> · همهٔ کارها: <?= e($totalCount) ?></span>
+          <span style="display:block">انجام‌شده: <span data-daytask-done><?= e($doneCount) ?></span> · همهٔ کارها: <?= e($totalCount) ?></span>
         </div>
         <button type="button" class="btn btn-primary btn-sm" data-dayshadow-open="<?= e($shadowId) ?>">باز کردن فهرست</button>
       </div>
@@ -374,7 +416,7 @@ function secretary_daily_tasks_html(
           <dl class="dayshadow-meta">
             <div><dt>نام و نام خانوادگی</dt><dd><?= e($name) ?></dd></div>
             <div><dt>روز و تاریخ</dt><dd><?= e($dateLabel) ?></dd></div>
-            <div><dt>انجام‌شده</dt><dd><?= e($doneCount) ?></dd></div>
+            <div><dt>انجام‌شده</dt><dd data-daytask-done><?= e($doneCount) ?></dd></div>
             <div><dt>تعداد کارها</dt><dd><?= e($totalCount) ?></dd></div>
           </dl>
         </div>
