@@ -41,7 +41,7 @@ ob_start();
   <p class="muted" style="margin-top:1rem">برای این روز حضوری در کلینیک ثبت نشده است.</p>
 <?php else: ?>
   <div style="margin-top:1rem">
-    <?= secretary_daily_tasks_html($pdo, $user, $requested, $editable && $present, url('/secretary/daily-tasks')) ?>
+    <?= secretary_daily_tasks_html($pdo, $user, $requested, $editable && $present, url('/secretary/daily-tasks'), true) ?>
   </div>
 <?php endif; ?>
 <?php
