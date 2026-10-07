@@ -128,6 +128,24 @@ function secretary_active_doctors(PDO $pdo): array
     ")->fetchAll();
 }
 
+/** مراجعه‌کننده‌های قابل انتخاب برای نوبت؛ حساب عماد شهابیان مدیر است و جدا اضافه می‌شود. */
+function secretary_bookable_patients(PDO $pdo): array
+{
+    return $pdo->query("
+      SELECT u.id, u.name, u.username, u.phone, u.preferred_doctor_id, du.name AS doctor_name
+      FROM users u
+      LEFT JOIN doctor_profiles dp ON dp.id = u.preferred_doctor_id
+      LEFT JOIN users du ON du.id = dp.user_id
+      WHERE u.is_disabled = 0
+        AND (
+          u.role = 'PATIENT'
+          OR LOWER(u.username) = 'eshahabian'
+          OR (u.name LIKE '%عماد%' AND u.name LIKE '%شهابیان%')
+        )
+      ORDER BY u.name ASC
+    ")->fetchAll() ?: [];
+}
+
 /**
  * برای کاربران قدیمی که created_by خالی است، از لاگ منشی و اولین نوبت/ثبت‌نام پر می‌کند.
  */

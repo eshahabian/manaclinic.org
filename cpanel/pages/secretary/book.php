@@ -6,14 +6,7 @@ if (empty($secretaryBookEmbedded)) {
     redirect('/secretary/appointments?tab=new');
 }
 
-$patients = $pdo->query("
-  SELECT u.id, u.name, u.username, u.phone, u.preferred_doctor_id, du.name AS doctor_name
-  FROM users u
-  LEFT JOIN doctor_profiles dp ON dp.id = u.preferred_doctor_id
-  LEFT JOIN users du ON du.id = dp.user_id
-  WHERE u.role='PATIENT' AND u.is_disabled = 0
-  ORDER BY u.name ASC
-")->fetchAll();
+$patients = secretary_bookable_patients($pdo);
 $doctors = secretary_active_doctors($pdo);
 $nameDict = build_name_transliterations_client_map($pdo);
 

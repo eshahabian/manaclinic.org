@@ -10,7 +10,10 @@ try {
     session_complaint_create(
         $pdo,
         (string) ($user['id'] ?? ''),
-        trim((string) post('appointment_id')),
+        trim((string) post('patient_id')),
+        trim((string) post('doctor_id')),
+        trim((string) str_replace('T', ' ', post('session_at'))),
+        (string) post('reason'),
         (string) post('body')
     );
 } catch (RuntimeException $e) {
