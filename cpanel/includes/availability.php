@@ -152,6 +152,25 @@ function appointment_slot_minutes(): int
     return 60;
 }
 
+/** آخرین روزی که از امروز می‌شود نوبت گرفت: دو هفته بعد. */
+function appointment_booking_horizon_end(?string $fromYmd = null): string
+{
+    $from = ($fromYmd !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fromYmd)) ? $fromYmd : date('Y-m-d');
+
+    return date('Y-m-d', strtotime($from . ' +14 days') ?: time());
+}
+
+function appointment_date_within_horizon(string $ymd): bool
+{
+    $ymd = substr($ymd, 0, 10);
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymd)) {
+        return false;
+    }
+    $today = date('Y-m-d');
+
+    return $ymd >= $today && $ymd <= appointment_booking_horizon_end($today);
+}
+
 function appointment_hour_to_time(int $hour): string
 {
     return sprintf('%02d:00', $hour);
@@ -828,6 +847,13 @@ function patient_open_slots_between(PDO $pdo, string $fromYmd, string $toYmd): a
 {
     ensure_availability_schema($pdo);
     appointment_expire_stale_pending_payments($pdo);
+    $horizonEnd = appointment_booking_horizon_end();
+    if ($toYmd > $horizonEnd) {
+        $toYmd = $horizonEnd;
+    }
+    if ($fromYmd > $toYmd) {
+        return [];
+    }
 
     $stmt = $pdo->prepare("
       SELECT av.*, u.name AS doctor_name, dp.specialty, dp.session_price
@@ -857,7 +883,16 @@ function patient_open_slots_between(PDO $pdo, string $fromYmd, string $toYmd): a
     $out = [];
     foreach ($rows as $availability) {
         $doctorId = (string) ($availability['doctor_id'] ?? '');
-        $date = (string) ($availability['date'] ?? '');
+        $date = substr((string) ($availability['date'] ?? ''), 0, 10);
+        if (!appointment_date_within_horizon($date)) {
+            continue;
+        }
+        if (!function_exists('therapist_date_is_closed')) {
+            require_once __DIR__ . '/therapist_presence.php';
+        }
+        if (therapist_date_is_closed($pdo, $doctorId, $date)) {
+            continue;
+        }
         foreach (appointment_availability_hours($availability) as $hour) {
             $startsAt = appointment_slot_starts_at($date, $hour);
             $slot = appointment_hour_to_time($hour);

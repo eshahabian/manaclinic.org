@@ -38,18 +38,25 @@ require_once __DIR__ . '/../../includes/availability.php';
 ensure_availability_schema($pdo);
 
 $availByDoctor = [];
-$stmt = $pdo->query("
+$stmt = $pdo->prepare("
   SELECT doctor_id, DATE_FORMAT(`date`, '%Y-%m-%d') AS d, available_hours
   FROM availabilities
-  WHERE `date` >= CURDATE()
+  WHERE `date` >= CURDATE() AND `date` <= ?
   ORDER BY `date` ASC
 ");
+$stmt->execute([appointment_booking_horizon_end()]);
 foreach ($stmt->fetchAll() as $row) {
     $d = (string) ($row['d'] ?? '');
     if ($d === '') {
         continue;
     }
     if (appointment_hours_decode((string) ($row['available_hours'] ?? '')) === []) {
+        continue;
+    }
+    if (!function_exists('therapist_date_is_closed')) {
+        require_once __DIR__ . '/../../includes/therapist_presence.php';
+    }
+    if (therapist_date_is_closed($pdo, (string) $row['doctor_id'], $d)) {
         continue;
     }
     $availByDoctor[(string) $row['doctor_id']][] = $d;

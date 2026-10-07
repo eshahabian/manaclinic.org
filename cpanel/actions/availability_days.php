@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/availability.php';
+require_once __DIR__ . '/../includes/therapist_presence.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -17,10 +18,10 @@ if ($doctorId === '') {
 $stmt = $pdo->prepare("
   SELECT DATE_FORMAT(`date`, '%Y-%m-%d') AS d, available_hours
   FROM availabilities
-  WHERE doctor_id = ? AND `date` >= (CURDATE() - INTERVAL 1 DAY)
+  WHERE doctor_id = ? AND `date` >= CURDATE() AND `date` <= ?
   ORDER BY `date` ASC
 ");
-$stmt->execute([$doctorId]);
+$stmt->execute([$doctorId, appointment_booking_horizon_end()]);
 
 $days = [];
 $hoursByDate = [];
@@ -31,6 +32,9 @@ foreach ($stmt->fetchAll() as $row) {
     }
     $hours = appointment_hours_decode($row['available_hours'] ?? null);
     if ($hours === []) {
+        continue;
+    }
+    if (!appointment_date_within_horizon($d) || therapist_date_is_closed($pdo, $doctorId, $d)) {
         continue;
     }
     $days[] = $d;

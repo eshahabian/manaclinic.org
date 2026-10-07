@@ -19,6 +19,20 @@ if ($doctorId === '' || $date === '' || $time === '') {
     flash_set('error', 'اطلاعات نوبت ناقص است.');
     redirect('/secretary/appointments?tab=new');
 }
+if (!function_exists('appointment_date_within_horizon')) {
+    require_once __DIR__ . '/../includes/availability.php';
+}
+if (!appointment_date_within_horizon($date)) {
+    flash_set('error', 'نوبت فقط تا دو هفته آینده قابل ثبت است.');
+    redirect('/secretary/appointments?tab=new');
+}
+if (!function_exists('therapist_date_is_closed')) {
+    require_once __DIR__ . '/../includes/therapist_presence.php';
+}
+if (therapist_date_is_closed($pdo, $doctorId, $date)) {
+    flash_set('error', 'در این تاریخ درمانگر حضور ندارد.');
+    redirect('/secretary/appointments?tab=new');
+}
 
 if ($patientId === '') {
     $created = secretary_create_patient_from_post($pdo, $user, ['fallback_doctor_id' => $doctorId]);

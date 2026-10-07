@@ -104,7 +104,7 @@ function doctor_nav(): array
         }
     }
 
-    $nav = array_merge($nav, [
+    $tail = [
         ['type' => 'group', 'label' => 'درمانگرها'],
         ['type' => 'link', 'href' => '/doctor/path', 'label' => 'اتاق ذهن'],
         [
@@ -115,6 +115,18 @@ function doctor_nav(): array
             'badge_tone' => 'new',
         ],
         ['type' => 'link', 'href' => '/doctor/appointments', 'label' => 'نوبت‌ها'],
+        ['type' => 'link', 'href' => '/doctor/payouts', 'label' => 'پرداخت‌ها'],
+    ];
+    if (!function_exists('petty_cash_user_allowed')) {
+        require_once __DIR__ . '/petty_cash.php';
+    }
+    if (!function_exists('doctor_has_shiva_access') && is_file(__DIR__ . '/doctor_profile_fields.php')) {
+        require_once __DIR__ . '/doctor_profile_fields.php';
+    }
+    if (petty_cash_user_allowed()) {
+        $tail[] = ['type' => 'link', 'href' => '/doctor/petty-cash', 'label' => 'تنخواه'];
+    }
+    $tail = array_merge($tail, [
         ['type' => 'link', 'href' => '/doctor/availability', 'label' => 'روزهای خالی'],
         ['type' => 'link', 'href' => '/doctor/appointment-history', 'label' => 'تاریخچه نوبت‌ها'],
         // پرونده در منو مخفی است؛ مسیر /doctor/patients همچنان کار می‌کند
@@ -136,7 +148,7 @@ function doctor_nav(): array
         ['type' => 'link', 'href' => '/change-password', 'label' => 'تغییر رمز عبور'],
     ]);
 
-    return $nav;
+    return array_merge($nav, $tail);
 }
 
 /** پروفایل کاری درمانگر را می‌سازد یا فیلدهای خالی را پر می‌کند */

@@ -21,8 +21,8 @@ if (!$doctor) {
     exit;
 }
 
-$av = $pdo->prepare('SELECT date, available_hours FROM availabilities WHERE doctor_id = ? AND date >= CURDATE() ORDER BY date ASC');
-$av->execute([$doctor['id']]);
+$av = $pdo->prepare('SELECT date, available_hours FROM availabilities WHERE doctor_id = ? AND date >= CURDATE() AND date <= ? ORDER BY date ASC');
+$av->execute([$doctor['id'], function_exists('appointment_booking_horizon_end') ? appointment_booking_horizon_end() : date('Y-m-d', strtotime('+14 days'))]);
 $dates = [];
 foreach ($av->fetchAll() as $avRow) {
     if (!is_array($avRow)) {
@@ -33,6 +33,14 @@ foreach ($av->fetchAll() as $avRow) {
     }
     $d = substr((string) ($avRow['date'] ?? ''), 0, 10);
     if ($d !== '') {
+        if (function_exists('therapist_date_is_closed') || is_file(__DIR__ . '/../includes/therapist_presence.php')) {
+            if (!function_exists('therapist_date_is_closed')) {
+                require_once __DIR__ . '/../includes/therapist_presence.php';
+            }
+            if (therapist_date_is_closed($pdo, (string) $doctor['id'], $d)) {
+                continue;
+            }
+        }
         $dates[] = $d;
     }
 }

@@ -26,6 +26,19 @@ if ($doctorId === '' || $date === '' || $time === '') {
     echo json_encode(['error' => 'اطلاعات ناقص است.']);
     exit;
 }
+if (!appointment_date_within_horizon($date)) {
+    http_response_code(400);
+    echo json_encode(['error' => 'نوبت فقط تا دو هفته آینده باز است.']);
+    exit;
+}
+if (!function_exists('therapist_date_is_closed')) {
+    require_once __DIR__ . '/../includes/therapist_presence.php';
+}
+if (therapist_date_is_closed($pdo, $doctorId, $date)) {
+    http_response_code(400);
+    echo json_encode(['error' => 'در این تاریخ درمانگر حضور ندارد.']);
+    exit;
+}
 
 $doc = $pdo->prepare('SELECT * FROM doctor_profiles WHERE id=? AND is_active=1 AND is_approved=1');
 $doc->execute([$doctorId]);

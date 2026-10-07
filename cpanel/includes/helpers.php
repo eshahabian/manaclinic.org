@@ -1546,6 +1546,51 @@ function jalali_ymd(int $jy, int $jm, int $jd): string
     return sprintf('%04d-%02d-%02d', $gy, $gm, $gd);
 }
 
+/** تاریخ شمسی یا میلادی را به Y-m-d میلادی برمی‌گرداند. */
+function parse_user_date(string $raw): ?string
+{
+    $raw = strtr(trim($raw), [
+        '۰' => '0', '۱' => '1', '۲' => '2', '۳' => '3', '۴' => '4',
+        '۵' => '5', '۶' => '6', '۷' => '7', '۸' => '8', '۹' => '9',
+        '٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4',
+        '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9',
+    ]);
+    $raw = str_replace(['/', '.'], '-', $raw);
+    if (!preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})$/', $raw, $m)) {
+        return null;
+    }
+    $year = (int) $m[1];
+    $month = (int) $m[2];
+    $day = (int) $m[3];
+    if ($year >= 1200 && $year < 1700) {
+        if ($month < 1 || $month > 12 || $day < 1 || $day > 31) {
+            return null;
+        }
+        [$year, $month, $day] = jalali_to_gregorian($year, $month, $day);
+    }
+    if (!checkdate($month, $day, $year)) {
+        return null;
+    }
+
+    return sprintf('%04d-%02d-%02d', $year, $month, $day);
+}
+
+function parse_user_money(string $raw): int
+{
+    $raw = strtr(trim($raw), [
+        '۰' => '0', '۱' => '1', '۲' => '2', '۳' => '3', '۴' => '4',
+        '۵' => '5', '۶' => '6', '۷' => '7', '۸' => '8', '۹' => '9',
+        '٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4',
+        '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9',
+    ]);
+    $raw = preg_replace('/[^\d]/', '', $raw) ?? '';
+    if ($raw === '') {
+        return 0;
+    }
+
+    return (int) $raw;
+}
+
 /** بازه میلادی از اول ماه جاری شمسی تا آخر اسفند همان سال */
 function jalali_remaining_year_gregorian_range(): array
 {

@@ -17,6 +17,25 @@ if ($doctorId === '' || $date === '') {
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
+if (!appointment_date_within_horizon($date)) {
+    echo json_encode([
+        'slots' => [],
+        'reason' => 'horizon',
+        'message' => 'نوبت فقط تا دو هفته آینده باز است',
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+if (!function_exists('therapist_date_is_closed')) {
+    require_once __DIR__ . '/../includes/therapist_presence.php';
+}
+if (therapist_date_is_closed($pdo, $doctorId, $date)) {
+    echo json_encode([
+        'slots' => [],
+        'reason' => 'closed',
+        'message' => 'در این تاریخ درمانگر حضور ندارد',
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
 
 appointment_expire_stale_pending_payments($pdo, $doctorId);
 if (function_exists('appointment_expire_unpaid_holds') || is_file(__DIR__ . '/../includes/appointment_session.php')) {

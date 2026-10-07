@@ -97,6 +97,22 @@ function db_ensure_schema(PDO $pdo): void
     } catch (Throwable $ignored) {
     }
 
+    try {
+        if (!function_exists('ensure_therapist_presence_schema')) {
+            require_once __DIR__ . '/therapist_presence.php';
+        }
+        ensure_therapist_presence_schema($pdo);
+        if (!function_exists('ensure_therapist_payouts_schema')) {
+            require_once __DIR__ . '/therapist_payouts.php';
+        }
+        ensure_therapist_payouts_schema($pdo);
+        if (!function_exists('ensure_petty_cash_schema')) {
+            require_once __DIR__ . '/petty_cash.php';
+        }
+        ensure_petty_cash_schema($pdo);
+    } catch (Throwable $ignored) {
+    }
+
     if (function_exists('ensure_staff_desk_schema')) {
         try {
             ensure_staff_desk_schema($pdo);
