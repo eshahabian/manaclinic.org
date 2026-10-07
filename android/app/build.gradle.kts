@@ -12,6 +12,21 @@ android {
         targetSdk = 35
         versionCode = 2
         versionName = "1.1.0"
+        buildConfigField("String", "START_URL", "\"https://manaclinic.org\"")
+        buildConfigField("boolean", "STAFF_ONLY", "false")
+    }
+
+    flavorDimensions += "audience"
+    productFlavors {
+        create("public") {
+            dimension = "audience"
+        }
+        create("staff") {
+            dimension = "audience"
+            applicationId = "org.manaclinic.staff"
+            buildConfigField("String", "START_URL", "\"https://manaclinic.org/app\"")
+            buildConfigField("boolean", "STAFF_ONLY", "true")
+        }
     }
 
     buildTypes {

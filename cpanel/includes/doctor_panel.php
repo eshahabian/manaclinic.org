@@ -62,7 +62,9 @@ function doctor_nav(): array
         $unread = count_unread_notifications($pdo, $userId);
     }
 
-    $nav = [];
+    $nav = [
+        ['type' => 'link', 'href' => '/app', 'label' => 'برنامه داخلی'],
+    ];
     $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link(true) : null;
     $consultLink = [
         'type' => 'link',

@@ -480,6 +480,11 @@ if (preg_match('#^/doctor/patients/([a-zA-Z0-9_-]+)/highlight$#', $path, $m) && 
     exit;
 }
 
+if ($path === '/app' || str_starts_with($path, '/app/')) {
+    require __DIR__ . '/pages/staff_app.php';
+    exit;
+}
+
 if (isset($routes[$key])) {
     require __DIR__ . '/' . $routes[$key];
     exit;

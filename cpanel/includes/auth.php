@@ -345,6 +345,7 @@ function require_login(?array $roles = null): array
         redirect('/login');
     }
     global $path, $pdo;
+    $onStaffApp = str_starts_with((string) ($path ?? ''), '/app');
     if ($pdo instanceof PDO) {
         $user = auth_grant_named_roles($pdo, $user);
     }
@@ -376,7 +377,7 @@ function require_login(?array $roles = null): array
         if (function_exists('secretary_daily_tasks_can_review') && secretary_daily_tasks_can_review($user)) {
             $profileAllowed[] = '/doctor/secretary-tasks';
         }
-        if (!in_array($path ?? '', $profileAllowed, true)) {
+        if (!$onStaffApp && !in_array($path ?? '', $profileAllowed, true)) {
             redirect('/doctor/profile');
         }
     }
@@ -387,7 +388,7 @@ function require_login(?array $roles = null): array
             if ($adminPending) {
                 $GLOBALS['adminStaffMsgBlock'] = $adminPending;
                 $adminAllowed = ['/secretary/admin-message/ack', '/logout', '/secretary/heartbeat', '/session/ping', '/staff/admin-message-image'];
-                if ($method === 'POST' && !in_array($path ?? '', $adminAllowed, true)) {
+                if ($method === 'POST' && !$onStaffApp && !in_array($path ?? '', $adminAllowed, true)) {
                     flash_set('error', 'ابتدا پیام مدیر را بخوانید، تیک بزنید و «خواندم» را بزنید.');
                     redirect('/secretary/profile#admin-site-messages');
                 }
@@ -398,7 +399,7 @@ function require_login(?array $roles = null): array
             if ($pending) {
                 $GLOBALS['handoverBlock'] = $pending;
                 $handoverAllowed = ['/secretary/handover/ack', '/logout', '/secretary/heartbeat', '/session/ping', '/secretary/admin-message/ack'];
-                if ($method === 'POST' && !in_array($path ?? '', $handoverAllowed, true)) {
+                if ($method === 'POST' && !$onStaffApp && !in_array($path ?? '', $handoverAllowed, true)) {
                     flash_set('error', 'ابتدا پیام تحویل شیفت را بخوانید و «خواندم» را بزنید.');
                     redirect('/secretary/messages');
                 }

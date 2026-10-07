@@ -4,6 +4,7 @@ declare(strict_types=1);
 function secretary_nav(): array
 {
     $nav = [
+        ['href' => '/app', 'label' => 'برنامه داخلی'],
         [
             'href' => '/secretary/messages',
             'label' => 'پیام‌ها',

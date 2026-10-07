@@ -149,11 +149,10 @@ function session_complaint_parse_when(string $raw): string
 }
 
 /** @return list<array<string, mixed>> */
-function session_complaint_list(PDO $pdo): array
+function session_complaint_list(PDO $pdo, ?string $doctorProfileId = null): array
 {
     ensure_session_complaints_schema($pdo);
-
-    return $pdo->query("
+    $sql = "
       SELECT c.id, c.body, c.reason, c.created_at,
              COALESCE(c.session_at, a.starts_at) AS session_at,
              p.name AS patient_name,
@@ -165,7 +164,15 @@ function session_complaint_list(PDO $pdo): array
       JOIN users d ON d.id = dp.user_id
       JOIN users s ON s.id = c.created_by
       LEFT JOIN appointments a ON a.id = c.appointment_id
-      ORDER BY c.created_at DESC
-      LIMIT 80
-    ")->fetchAll() ?: [];
+    ";
+    $params = [];
+    if ($doctorProfileId !== null && $doctorProfileId !== '') {
+        $sql .= ' WHERE c.doctor_id = ?';
+        $params[] = $doctorProfileId;
+    }
+    $sql .= ' ORDER BY c.created_at DESC LIMIT 80';
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+
+    return $stmt->fetchAll() ?: [];
 }

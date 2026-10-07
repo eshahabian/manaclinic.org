@@ -104,7 +104,7 @@ class MainActivity : ComponentActivity() {
         if (savedInstanceState != null) {
             webView.restoreState(savedInstanceState)
         } else {
-            webView.loadUrl(ClinicInfo.SITE_URL)
+            webView.loadUrl(BuildConfig.START_URL)
         }
     }
 
@@ -141,6 +141,20 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun clinicHost(uri: Uri): Boolean {
+        val host = uri.host?.lowercase() ?: return false
+        return host == "manaclinic.org" || host.endsWith(".manaclinic.org")
+    }
+
+    private fun staffPathAllowed(uri: Uri): Boolean {
+        val path = uri.path ?: return false
+        return path == "/app" || path.startsWith("/app/")
+            || path == "/login" || path.startsWith("/login/")
+            || path == "/logout"
+            || path == "/change-password"
+            || path.startsWith("/assets/")
+    }
+
     private fun stayInApp(uri: Uri): Boolean {
         val scheme = uri.scheme?.lowercase() ?: return false
         if (scheme != "http" && scheme != "https") return false
@@ -158,6 +172,12 @@ class MainActivity : ComponentActivity() {
         override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
             if (!request.isForMainFrame) return false
             val uri = request.url
+            if (BuildConfig.STAFF_ONLY) {
+                if (clinicHost(uri) && staffPathAllowed(uri)) return false
+                if (clinicHost(uri)) return true
+                openOutside(uri)
+                return true
+            }
             if (stayInApp(uri)) return false
             openOutside(uri)
             return true
