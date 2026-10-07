@@ -22,7 +22,7 @@ if ((string) ($_GET['part'] ?? '') === '1') {
 
 $userId = (string) ($user['id'] ?? '');
 $today = date('Y-m-d');
-render_secretary_page('کارهای روزانه', secretary_daily_tasks_page_html(
+render_secretary_page('کارهای روزانه', secretary_daily_tasks_html(
     $pdo,
     $user,
     $today,
