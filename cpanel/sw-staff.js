@@ -16,5 +16,11 @@ self.addEventListener('fetch', function (event) {
   if (request.cache === 'only-if-cached' && request.mode !== 'same-origin') {
     return;
   }
-  event.respondWith(fetch(request));
+  if (request.mode === 'navigate') {
+    event.respondWith(fetch(request.url, { cache: 'no-store', credentials: 'include', redirect: 'follow' }));
+    return;
+  }
+  event.respondWith(fetch(request, { cache: 'no-store' }).catch(function () {
+    return fetch(request);
+  }));
 });

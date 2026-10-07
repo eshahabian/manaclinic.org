@@ -440,23 +440,173 @@
     });
   });
 
+  function buildMessage(msg) {
+    var article = document.createElement("article");
+    article.className = "sapp-msg " + (msg.mine ? "is-mine" : "is-theirs");
+    article.id = "m-" + msg.id;
+    article.setAttribute("data-created", msg.created || "");
+    article.setAttribute("data-mine", msg.mine ? "1" : "0");
+    article.setAttribute("data-name", msg.name || "");
+    article.setAttribute("data-body", msg.body || "");
+    article.setAttribute("data-seen", "[]");
+    article.setAttribute("data-files", JSON.stringify(msg.files || []));
+    if (!msg.mine) {
+      var who = document.createElement("span");
+      who.className = "sapp-msg-name";
+      who.textContent = msg.name || "";
+      article.appendChild(who);
+    }
+    if (msg.forward) {
+      var forwarded = document.createElement("span");
+      forwarded.className = "sapp-forward";
+      forwarded.textContent = "هدایت‌شده از " + msg.forward;
+      article.appendChild(forwarded);
+    }
+    if (msg.replyTo) {
+      var quote = document.createElement("a");
+      quote.className = "sapp-quote";
+      quote.href = "#m-" + msg.replyTo;
+      var quoteName = document.createElement("strong");
+      quoteName.textContent = msg.replyName || "پیام";
+      var quoteText = document.createElement("span");
+      quoteText.textContent = msg.replyText || "پیام";
+      quote.appendChild(quoteName);
+      quote.appendChild(quoteText);
+      article.appendChild(quote);
+    }
+    if (msg.body) {
+      var body = document.createElement("p");
+      body.textContent = msg.body;
+      article.appendChild(body);
+    }
+    (msg.files || []).forEach(function (file) {
+      var href = String(file.url || "");
+      if (!href) return;
+      if (String(file.mime || "").indexOf("image/") === 0) {
+        var link = document.createElement("a");
+        link.href = href;
+        var image = document.createElement("img");
+        image.src = href;
+        image.alt = file.name || "فایل";
+        link.appendChild(image);
+        article.appendChild(link);
+      } else {
+        var line = document.createElement("p");
+        var fileLink = document.createElement("a");
+        fileLink.href = href;
+        fileLink.textContent = file.name || "فایل";
+        line.appendChild(fileLink);
+        article.appendChild(line);
+      }
+    });
+    var reacts = document.createElement("div");
+    reacts.className = "sapp-reacts";
+    reacts.setAttribute("data-mine", "");
+    article.appendChild(reacts);
+    var meta = document.createElement("div");
+    meta.className = "sapp-msg-meta";
+    var time = document.createElement("time");
+    time.textContent = msg.time || "";
+    meta.appendChild(time);
+    if (msg.mine) {
+      var ticks = document.createElement("span");
+      ticks.className = "sapp-ticks is-sent";
+      ticks.setAttribute("data-ticks", msg.id);
+      ticks.setAttribute("aria-label", "ارسال شد");
+      ticks.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 8.2 6.4 11.4 12.8 4.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+      meta.appendChild(ticks);
+    }
+    article.appendChild(meta);
+    return article;
+  }
+
+  function appendMessages(list) {
+    if (!list || !list.length) return;
+    var empty = thread.querySelector(".sapp-chat-empty");
+    var stick = window.innerHeight + window.scrollY >= document.body.scrollHeight - 140;
+    var added = false;
+    list.forEach(function (msg) {
+      if (!msg || !msg.id || document.getElementById("m-" + msg.id)) return;
+      if (empty) {
+        empty.remove();
+        empty = null;
+      }
+      thread.appendChild(buildMessage(msg));
+      added = true;
+    });
+    if (added && stick) window.scrollTo(0, document.body.scrollHeight);
+  }
+
+  function pullLive() {
+    if (!config.receipts || document.hidden) return;
+    var nodes = thread.querySelectorAll(".sapp-msg");
+    var last = nodes.length ? nodes[nodes.length - 1] : null;
+    var since = last ? (last.getAttribute("data-created") || "") : "1970-01-01 00:00:00";
+    var after = last && last.id.indexOf("m-") === 0 ? last.id.slice(2) : "";
+    if (!since) return;
+    var live = config.receipts + "?since=" + encodeURIComponent(since) + "&after=" + encodeURIComponent(after);
+    fetch(live, { cache: "no-store", credentials: "same-origin", headers: { Accept: "application/json" } })
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (data) {
+        if (!data) return;
+        appendMessages(data.messages || []);
+        if (data.states) paintTicks(data.states);
+        Object.keys(data.seen || {}).forEach(function (id) {
+          var article = document.getElementById("m-" + id);
+          if (!article) return;
+          article.setAttribute("data-seen", JSON.stringify(data.seen[id]));
+          if (current && current.id === article.id) fillSeen(article);
+        });
+      })
+      .catch(function () {});
+  }
+
+  var compose = document.querySelector(".sapp-compose");
+  if (compose) {
+    compose.addEventListener("submit", function (event) {
+      event.preventDefault();
+      var button = compose.querySelector(".sapp-send");
+      if (button) button.disabled = true;
+      var body = new FormData(compose);
+      body.set("ajax", "1");
+      fetch(compose.action, {
+        method: "POST",
+        body: body,
+        credentials: "same-origin",
+        cache: "no-store",
+        headers: { Accept: "application/json", "X-Requested-With": "XMLHttpRequest" }
+      }).then(function (res) {
+        return res.json().catch(function () { return {}; }).then(function (data) {
+          if (!res.ok || !data.ok) {
+            throw new Error((data && data.error) || "پیام فرستاده نشد.");
+          }
+          return data;
+        });
+      }).then(function (data) {
+        if (data.message) appendMessages([data.message]);
+        var field = document.getElementById("chat-body");
+        if (field) field.value = "";
+        var file = document.getElementById("chat-file");
+        if (file) file.value = "";
+        var replyId = document.getElementById("sapp-reply-id");
+        if (replyId) replyId.value = "";
+        if (replyBox) replyBox.hidden = true;
+        window.scrollTo(0, document.body.scrollHeight);
+      }).catch(function (err) {
+        window.alert(err.message || "پیام فرستاده نشد.");
+      }).then(function () {
+        if (button) button.disabled = false;
+      });
+    });
+  }
+
   if (config.receipts) {
-    setInterval(function () {
-      if (document.hidden) return;
-      fetch(config.receipts, { headers: { Accept: "application/json" }, credentials: "same-origin" })
-        .then(function (res) { return res.ok ? res.json() : null; })
-        .then(function (data) {
-          if (!data) return;
-          if (data.states) paintTicks(data.states);
-          Object.keys(data.seen || {}).forEach(function (id) {
-            var article = document.getElementById("m-" + id);
-            if (!article) return;
-            article.setAttribute("data-seen", JSON.stringify(data.seen[id]));
-            if (current && current.id === article.id) fillSeen(article);
-          });
-        })
-        .catch(function () {});
-    }, 4000);
+    setInterval(pullLive, 2000);
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden) pullLive();
+    });
+    window.addEventListener("focus", pullLive);
+    window.addEventListener("pageshow", pullLive);
   }
 
   if (window.location.hash) {

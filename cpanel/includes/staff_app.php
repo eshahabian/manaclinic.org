@@ -607,6 +607,107 @@ function staff_app_messages(PDO $pdo, string $roomId): array
     return $rows;
 }
 
+/** @return list<array<string, mixed>> */
+function staff_app_live_messages(PDO $pdo, string $roomId, string $userId, string $since, string $afterId = ''): array
+{
+    if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $since)) {
+        return [];
+    }
+    if (!preg_match('/^[a-f0-9]{24}$/', $afterId)) {
+        $afterId = '';
+    }
+    $stmt = $pdo->prepare("
+      SELECT m.id, m.body, m.created_at, m.user_id, m.reply_to, m.forward_from,
+             u.name, rm.body AS reply_body, ru.name AS reply_name
+      FROM staff_app_messages m
+      JOIN users u ON u.id = m.user_id
+      LEFT JOIN staff_app_messages rm ON rm.id = m.reply_to
+      LEFT JOIN users ru ON ru.id = rm.user_id
+      WHERE m.room_id = ?
+        AND (m.created_at > ? OR (m.created_at = ? AND m.id <> ?))
+      ORDER BY m.created_at ASC
+      LIMIT 40
+    ");
+    $stmt->execute([$roomId, $since, $since, $afterId]);
+
+    return staff_app_message_cards($pdo, $userId, $stmt->fetchAll() ?: []);
+}
+
+function staff_app_message_card(PDO $pdo, string $roomId, string $userId, string $messageId): ?array
+{
+    $stmt = $pdo->prepare("
+      SELECT m.id, m.body, m.created_at, m.user_id, m.reply_to, m.forward_from,
+             u.name, rm.body AS reply_body, ru.name AS reply_name
+      FROM staff_app_messages m
+      JOIN users u ON u.id = m.user_id
+      LEFT JOIN staff_app_messages rm ON rm.id = m.reply_to
+      LEFT JOIN users ru ON ru.id = rm.user_id
+      WHERE m.room_id = ? AND m.id = ?
+      LIMIT 1
+    ");
+    $stmt->execute([$roomId, $messageId]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        return null;
+    }
+    $cards = staff_app_message_cards($pdo, $userId, [$row]);
+
+    return $cards[0] ?? null;
+}
+
+/** @param list<array<string, mixed>> $rows
+ *  @return list<array<string, mixed>>
+ */
+function staff_app_message_cards(PDO $pdo, string $userId, array $rows): array
+{
+    if ($rows === []) {
+        return [];
+    }
+    $ids = array_map(static fn(array $row): string => (string) $row['id'], $rows);
+    $marks = implode(',', array_fill(0, count($ids), '?'));
+    $files = $pdo->prepare('SELECT id, message_id, original_name, mime FROM staff_app_files WHERE message_id IN (' . $marks . ')');
+    $files->execute($ids);
+    $byMessage = [];
+    foreach ($files->fetchAll() ?: [] as $file) {
+        $byMessage[(string) $file['message_id']][] = $file;
+    }
+    $cards = [];
+    foreach ($rows as $row) {
+        $name = trim((string) ($row['name'] ?? ''));
+        if ($name === '') {
+            $name = 'کاربر';
+        }
+        $replyTo = (string) ($row['reply_to'] ?? '');
+        $replyText = trim(preg_replace('/\s+/u', ' ', (string) ($row['reply_body'] ?? '')) ?? '');
+        if (mb_strlen($replyText) > 80) {
+            $replyText = mb_substr($replyText, 0, 80) . '…';
+        }
+        $fileCards = [];
+        foreach ($byMessage[(string) $row['id']] ?? [] as $file) {
+            $fileCards[] = [
+                'url' => url('/app/file/' . (string) $file['id']),
+                'name' => (string) ($file['original_name'] ?? 'فایل'),
+                'mime' => (string) ($file['mime'] ?? ''),
+            ];
+        }
+        $cards[] = [
+            'id' => (string) $row['id'],
+            'mine' => (string) ($row['user_id'] ?? '') === $userId,
+            'name' => $name,
+            'body' => (string) ($row['body'] ?? ''),
+            'time' => format_fa_time((string) ($row['created_at'] ?? '')),
+            'created' => (string) ($row['created_at'] ?? ''),
+            'forward' => trim((string) ($row['forward_from'] ?? '')),
+            'replyTo' => $replyTo,
+            'replyName' => trim((string) ($row['reply_name'] ?? '')),
+            'replyText' => $replyTo !== '' ? ($replyText !== '' ? $replyText : 'پیام حذف‌شده') : '',
+            'files' => $fileCards,
+        ];
+    }
+
+    return $cards;
+}
+
 function staff_app_create_room(PDO $pdo, array $user, string $title, array $memberIds): string
 {
     $title = trim($title);
@@ -764,7 +865,7 @@ function staff_app_store_upload(array $file): ?array
     ];
 }
 
-function staff_app_send_message(PDO $pdo, array $user, string $roomId, string $body, ?array $file, string $replyTo = ''): void
+function staff_app_send_message(PDO $pdo, array $user, string $roomId, string $body, ?array $file, string $replyTo = ''): string
 {
     $room = staff_app_room_for_member($pdo, $roomId, (string) ($user['id'] ?? ''));
     if (!$room) {
@@ -805,6 +906,8 @@ function staff_app_send_message(PDO $pdo, array $user, string $roomId, string $b
         throw $e;
     }
     staff_app_mark_read($pdo, (string) $user['id'], $roomId);
+
+    return $messageId;
 }
 
 function staff_app_output_file(PDO $pdo, array $user, string $fileId): never
@@ -968,6 +1071,8 @@ function staff_app_render(string $active, string $title, string $description, st
     }
     $navKey = $active === 'chat' ? 'chat' : ($active === 'profile' ? 'profile' : 'home');
     header('X-Robots-Tag: noindex, nofollow');
+    header('Cache-Control: no-store, no-cache, must-revalidate');
+    header('Pragma: no-cache');
     ?>
 <!DOCTYPE html>
 <html lang="fa" dir="rtl">
