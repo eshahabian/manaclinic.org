@@ -27,5 +27,6 @@ render_secretary_page('کارهای روزانه', secretary_daily_tasks_html(
     $user,
     $today,
     secretary_daily_task_can_edit($pdo, $userId, $today, true),
-    url('/secretary/daily-tasks')
+    url('/secretary/daily-tasks'),
+    true
 ));

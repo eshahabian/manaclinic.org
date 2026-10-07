@@ -270,7 +270,7 @@ function secretary_daily_tasks_html(
     <style>
       [data-dayshadow-live]{position:fixed;top:0;right:0;bottom:0;left:0;z-index:5000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(26,46,40,.55);direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif;box-sizing:border-box}
       [data-dayshadow] *{box-sizing:border-box}
-      .dayshadow-card{width:min(42rem,100%);max-height:calc(100vh - 32px);display:flex;flex-direction:column;overflow:hidden;background:#fff;color:#1a2e28;border:1px solid #d5e0da;border-radius:16px;direction:rtl;text-align:right;position:relative;box-shadow:0 18px 50px rgba(26,46,40,.28)}
+      .dayshadow-card{width:min(42rem,100%);max-width:42rem;max-height:calc(100vh - 32px);display:flex;flex-direction:column;overflow:hidden;background:#fff;color:#1a2e28;border:1px solid #d5e0da;border-radius:16px;direction:rtl;text-align:right;position:relative;box-shadow:0 18px 50px rgba(26,46,40,.28)}
       .dayshadow-x{position:absolute;top:8px;left:8px;width:36px;height:36px;border:0;border-radius:999px;background:transparent;font-size:24px;line-height:1;cursor:pointer;color:#5a6f66}
       .dayshadow-head{padding:16px 18px 10px 48px;border-bottom:1px solid #d5e0da;direction:rtl;text-align:right}
       .dayshadow-head h2{margin:0 0 12px;font-size:1.15rem;font-family:Vazirmatn,Tahoma,sans-serif}
@@ -416,113 +416,22 @@ function secretary_daily_tasks_html(
         </div>
       </div>
     </template>
+    <?php if ($startOpen): ?>
+    <script>
+    document.addEventListener("DOMContentLoaded", function(){
+      var btn = document.querySelector("[data-dayshadow-open=\"<?= e($shadowId) ?>\"]");
+      if (btn) btn.click();
+    });
+    </script>
+    <?php endif; ?>
     <?php
     return (string) ob_get_clean();
 }
 
 function secretary_daily_tasks_page_html(PDO $pdo, array $secretary, string $ymd, bool $editable, string $postUrl): string
 {
-    $states = secretary_daily_task_states($pdo, (string) ($secretary['id'] ?? ''), $ymd);
-    $progress = secretary_daily_task_progress($states);
-    $name = trim((string) ($secretary['name'] ?? ''));
-    if ($name === '') {
-        $name = (string) ($secretary['username'] ?? 'منشی');
-    }
-    $doneCount = to_fa_digits((string) $progress['done']);
-    $totalCount = to_fa_digits((string) $progress['total']);
-    $dateLabel = secretary_daily_task_date_label($ymd);
-    ob_start();
-    ?>
-    <h1>کارهای روزانه</h1>
-    <style>
-      #daytasks-page{direction:rtl;text-align:right;width:100%;max-width:100%;margin-top:1rem;box-sizing:border-box}
-      #daytasks-page *{box-sizing:border-box}
-      #daytasks-page h2{margin:0 0 14px;font-size:1.1rem;font-weight:800;line-height:1.4}
-      #daytasks-page .daytasks-meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0 0 16px}
-      #daytasks-page .daytasks-meta div{min-width:0;background:#f7f5f0;border:1px solid #d5e0da;border-radius:12px;padding:10px 12px}
-      #daytasks-page .daytasks-meta span{display:block;color:#5a6f66;font-size:.78rem;font-weight:500}
-      #daytasks-page .daytasks-meta strong{display:block;margin-top:4px;font-size:.95rem;line-height:1.6}
-      #daytasks-page .daytask-row{margin:0 0 8px;padding:12px;border:1px solid #d5e0da;border-radius:12px;background:#f7f5f0}
-      #daytasks-page .daytask-row.is-done{background:#e8f6ee;border-color:#b7e0c6}
-      #daytasks-page form,#daytasks-page label{display:flex;flex-direction:row;direction:rtl;align-items:flex-start;gap:10px;margin:0;width:100%;cursor:pointer;text-align:right}
-      #daytasks-page input[type="checkbox"]{width:18px;height:18px;margin:4px 0 0;flex:none}
-      #daytasks-page .daytask-num{flex:none;min-width:1.6rem;font-weight:800;line-height:1.7}
-      #daytasks-page .daytask-text{flex:1;min-width:0;line-height:1.85}
-      #daytasks-page .daytask-time{display:block;margin-top:4px;color:#1f6b45;font-size:.82rem;font-weight:700}
-      @media (max-width:700px){#daytasks-page .daytasks-meta{grid-template-columns:1fr}}
-    </style>
-    <div class="panel stack" id="daytasks-page">
-      <h2>لیست انجام کارهای روزانه</h2>
-      <div class="daytasks-meta">
-        <div><span>نام و نام خانوادگی</span><strong><?= e($name) ?></strong></div>
-        <div><span>روز و تاریخ</span><strong><?= e($dateLabel) ?></strong></div>
-        <div><span>انجام‌شده</span><strong><span id="daytasks-page-done"><?= e($doneCount) ?></span> از <?= e($totalCount) ?></strong></div>
-      </div>
-      <?php $n = 0; foreach (secretary_daily_task_catalog() as $key => $label): ?>
-        <?php
-          $n++;
-          $checked = !empty($states[$key]['done']);
-          $doneAt = (string) ($states[$key]['done_at'] ?? '');
-          $timeLabel = ($checked && $doneAt !== '') ? format_fa_time($doneAt) : '';
-        ?>
-        <div class="daytask-row<?= $checked ? ' is-done' : '' ?>">
-          <?php if ($editable): ?>
-            <form class="daytask-form" method="post" action="<?= e($postUrl) ?>" onsubmit="return false">
-              <?= csrf_field() ?>
-              <input type="hidden" name="task_date" value="<?= e($ymd) ?>">
-              <input type="hidden" name="task_key" value="<?= e($key) ?>">
-              <input type="hidden" name="done" value="0">
-              <label>
-                <input type="checkbox" name="done" value="1"<?= $checked ? ' checked' : '' ?>>
-                <b class="daytask-num"><?= e(to_fa_digits((string) $n)) ?></b>
-                <span class="daytask-text"><?= e($label) ?><small class="daytask-time" style="<?= $timeLabel === '' ? 'display:none' : '' ?>"><?= $timeLabel !== '' ? 'ساعت تیک: ' . e($timeLabel) : '' ?></small></span>
-              </label>
-            </form>
-          <?php else: ?>
-            <label>
-              <input type="checkbox" disabled<?= $checked ? ' checked' : '' ?>>
-              <b class="daytask-num"><?= e(to_fa_digits((string) $n)) ?></b>
-              <span class="daytask-text"><?= e($label) ?><?php if ($timeLabel !== ''): ?><small class="daytask-time">ساعت تیک: <?= e($timeLabel) ?></small><?php endif; ?></span>
-            </label>
-          <?php endif; ?>
-        </div>
-      <?php endforeach; ?>
-    </div>
-    <script>
-    (function(){
-      var root = document.getElementById("daytasks-page");
-      if (!root) return;
-      function faDigits(n){
-        return String(n).replace(/\d/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹"[d]; });
-      }
-      root.addEventListener("change", function(e){
-        var input = e.target;
-        if (!input || !input.form || !input.form.classList.contains("daytask-form")) return;
-        var form = input.form;
-        var data = new FormData(form);
-        data.set("done", input.checked ? "1" : "0");
-        var row = form.closest(".daytask-row");
-        var time = form.querySelector(".daytask-time");
-        fetch(form.action, {method:"POST", body:data, credentials:"same-origin", headers:{"X-Requested-With":"XMLHttpRequest","Accept":"application/json"}})
-          .then(function(r){ if (!r.ok) throw new Error(); return r.json(); })
-          .then(function(res){
-            var on = !!input.checked && !!(res && res.time);
-            if (row) row.classList.toggle("is-done", on);
-            if (time) {
-              time.style.display = on ? "block" : "none";
-              time.textContent = on ? "ساعت تیک: " + res.time : "";
-            }
-            var count = document.getElementById("daytasks-page-done");
-            if (count) count.textContent = faDigits(root.querySelectorAll('.daytask-form input[type="checkbox"]:checked').length);
-          })
-          .catch(function(){ input.checked = !input.checked; });
-      });
-    })();
-    </script>
-    <?php
-    return (string) ob_get_clean();
+    return secretary_daily_tasks_html($pdo, $secretary, $ymd, $editable, $postUrl, true);
 }
-
 function secretary_daily_tasks_fragment(PDO $pdo, array $secretary, string $ymd, bool $editable, string $postUrl): string
 {
     $states = secretary_daily_task_states($pdo, (string) ($secretary['id'] ?? ''), $ymd);

@@ -251,14 +251,6 @@ function render_secretary_page(string $title, string $innerHtml): void
       <div class="panel-main"><?= $innerHtml ?></div>
     </div>
     <?php
-    $bufferLevel = ob_get_level();
-    try {
-        echo secretary_panel_daytasks_box($pdo, is_array($user) ? $user : null);
-    } catch (Throwable $e) {
-        while (ob_get_level() > $bufferLevel) {
-            ob_end_clean();
-        }
-    }
     $content = ob_get_clean();
     require __DIR__ . '/layout.php';
 }
