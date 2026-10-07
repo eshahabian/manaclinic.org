@@ -23,7 +23,7 @@ if (!secretary_daily_task_can_edit($pdo, $userId, $ymd, true) || ($ymd !== date(
 
 $ajax = strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest';
 try {
-    secretary_daily_task_set($pdo, $userId, $ymd, $key, $done);
+    $doneAt = secretary_daily_task_set($pdo, $userId, $ymd, $key, $done);
 } catch (Throwable $e) {
     if ($ajax) {
         http_response_code(400);
@@ -37,7 +37,11 @@ try {
 
 if ($ajax) {
     header('Content-Type: application/json; charset=utf-8');
-    echo json_encode(['ok' => true], JSON_UNESCAPED_UNICODE);
+    echo json_encode([
+        'ok' => true,
+        'done' => $done,
+        'time' => ($done && is_string($doneAt) && $doneAt !== '') ? format_fa_time($doneAt) : '',
+    ], JSON_UNESCAPED_UNICODE);
     exit;
 }
 

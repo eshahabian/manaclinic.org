@@ -165,23 +165,26 @@ function secretary_daily_task_states(PDO $pdo, string $userId, string $ymd): arr
     return $out;
 }
 
-function secretary_daily_task_set(PDO $pdo, string $userId, string $ymd, string $taskKey, bool $done): void
+function secretary_daily_task_set(PDO $pdo, string $userId, string $ymd, string $taskKey, bool $done): ?string
 {
     ensure_secretary_daily_tasks_schema($pdo);
     if (!isset(secretary_daily_task_catalog()[$taskKey])) {
         throw new RuntimeException('این مورد در فهرست نیست.');
     }
+    $doneAt = $done ? date('Y-m-d H:i:s') : null;
     $existing = $pdo->prepare('SELECT id FROM secretary_daily_tasks WHERE user_id=? AND task_date=? AND task_key=? LIMIT 1');
     $existing->execute([$userId, $ymd, $taskKey]);
     $id = (string) ($existing->fetchColumn() ?: '');
     if ($id === '') {
         $pdo->prepare('INSERT INTO secretary_daily_tasks (id, user_id, task_date, task_key, done, done_at) VALUES (?,?,?,?,?,?)')
-            ->execute([cuid(), $userId, $ymd, $taskKey, $done ? 1 : 0, $done ? date('Y-m-d H:i:s') : null]);
+            ->execute([cuid(), $userId, $ymd, $taskKey, $done ? 1 : 0, $doneAt]);
 
-        return;
+        return $doneAt;
     }
     $pdo->prepare('UPDATE secretary_daily_tasks SET done=?, done_at=? WHERE id=?')
-        ->execute([$done ? 1 : 0, $done ? date('Y-m-d H:i:s') : null, $id]);
+        ->execute([$done ? 1 : 0, $doneAt, $id]);
+
+    return $doneAt;
 }
 
 function secretary_daily_task_progress(array $states): array
@@ -282,7 +285,8 @@ function secretary_daily_tasks_html(
       .dayshadow-row input{margin-top:6px;width:18px;height:18px;flex:none}
       .dayshadow-row b{flex:none;min-width:1.7rem}
       .dayshadow-row span{flex:1;text-align:right}
-      .dayshadow-row small{display:block;margin-top:4px;color:#5a6f66;font-size:.78rem}
+      .dayshadow-row small{display:block;margin:6px 26px 0 0;color:#1f6b45;font-size:.82rem;font-weight:700}
+      .dayshadow-row small[hidden]{display:none}
       @media (max-width:640px){.dayshadow-meta{grid-template-columns:1fr}}
     </style>
     <script>
@@ -323,7 +327,19 @@ function secretary_daily_tasks_html(
         var row = form.closest(".dayshadow-row");
         fetch(form.action, {method:"POST", body:data, credentials:"same-origin", headers:{"X-Requested-With":"XMLHttpRequest","Accept":"application/json"}})
           .then(function(r){ if (!r.ok) throw new Error(); return r.json(); })
-          .then(function(){ if (row) row.classList.toggle("is-done", !!input.checked); })
+          .then(function(res){
+            if (row) row.classList.toggle("is-done", !!input.checked);
+            var time = row ? row.querySelector(".daytask-time") : null;
+            if (time) {
+              if (input.checked && res && res.time) {
+                time.hidden = false;
+                time.textContent = "ساعت تیک: " + res.time;
+              } else {
+                time.hidden = true;
+                time.textContent = "";
+              }
+            }
+          })
           .catch(function(){ input.checked = !input.checked; });
       });
     })();
@@ -393,9 +409,7 @@ function secretary_daily_tasks_html(
                   <span><?= e($label) ?></span>
                 </label>
               <?php endif; ?>
-              <?php if ($checked && $doneAt !== ''): ?>
-                <small>انجام شد · <?= e(format_fa_time($doneAt)) ?></small>
-              <?php endif; ?>
+              <small class="daytask-time"<?= ($checked && $doneAt !== '') ? '' : ' hidden' ?>><?= ($checked && $doneAt !== '') ? 'ساعت تیک: ' . e(format_fa_time($doneAt)) : '' ?></small>
             </div>
           <?php endforeach; ?>
           <p style="margin:8px 0 0;text-align:center;color:#5a6f66;font-size:.85rem">پایان فهرست · <?= e($totalCount) ?> کار</p>
@@ -426,6 +440,8 @@ function secretary_daily_tasks_fragment(PDO $pdo, array $secretary, string $ymd,
       <?php
         $n++;
         $checked = !empty($states[$key]['done']);
+        $doneAt = (string) ($states[$key]['done_at'] ?? '');
+        $timeLabel = ($checked && $doneAt !== '') ? format_fa_time($doneAt) : '';
       ?>
       <div class="dayshadow-row<?= $checked ? ' is-done' : '' ?>" style="margin:0 0 8px;padding:10px 12px;border:1px solid #d5e0da;border-radius:12px;background:<?= $checked ? '#e8f6ee' : '#f7f5f0' ?>;line-height:1.75">
         <?php if ($editable): ?>
@@ -436,15 +452,21 @@ function secretary_daily_tasks_fragment(PDO $pdo, array $secretary, string $ymd,
             <input type="hidden" name="done" value="0">
             <label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer">
               <input type="checkbox" name="done" value="1"<?= $checked ? ' checked' : '' ?>>
-              <b><?= e(to_fa_digits((string) $n)) ?></b>
-              <span><?= e($label) ?></span>
+              <span>
+                <b><?= e(to_fa_digits((string) $n)) ?></b>
+                <?= e($label) ?>
+                <small class="daytask-time" style="display:<?= $timeLabel === '' ? 'none' : 'block' ?>;margin-top:4px;color:#1f6b45;font-weight:700"><?= $timeLabel !== '' ? 'ساعت تیک: ' . e($timeLabel) : '' ?></small>
+              </span>
             </label>
           </form>
         <?php else: ?>
           <label style="display:flex;gap:8px;align-items:flex-start">
             <input type="checkbox" disabled<?= $checked ? ' checked' : '' ?>>
-            <b><?= e(to_fa_digits((string) $n)) ?></b>
-            <span><?= e($label) ?></span>
+            <span>
+              <b><?= e(to_fa_digits((string) $n)) ?></b>
+              <?= e($label) ?>
+              <?php if ($timeLabel !== ''): ?><small class="daytask-time" style="display:block;margin-top:4px;color:#1f6b45;font-weight:700">ساعت تیک: <?= e($timeLabel) ?></small><?php endif; ?>
+            </span>
           </label>
         <?php endif; ?>
       </div>
