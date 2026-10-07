@@ -104,6 +104,62 @@ if ($method === 'POST' && $path === '/app/checklist') {
     redirect($back);
 }
 
+if ($method === 'POST' && $path === '/app/appointments') {
+    if ($role !== 'SECRETARY') {
+        flash_set('error', 'ثبت وقت با منشی است.');
+        redirect('/app/appointments');
+    }
+    require __DIR__ . '/../actions/secretary_book.php';
+    exit;
+}
+
+if ($method === 'POST' && $path === '/app/rooms') {
+    csrf_verify();
+    if ($role !== 'SECRETARY') {
+        flash_set('error', 'رزرو اتاق با منشی است.');
+        redirect('/app/rooms');
+    }
+    require_once __DIR__ . '/../includes/clinic_rooms.php';
+    $day = clinic_rooms_parse_day(post('day'));
+    try {
+        if (post('action') === 'release') {
+            $day = clinic_rooms_release($pdo, post('booking_id'));
+            flash_set('success', 'ساعت اتاق آزاد شد.');
+        } else {
+            $repeatOn = post('repeat_weekly') === '1';
+            $repeatWeeks = $repeatOn ? (int) post('repeat_weeks') : 1;
+            if ($repeatOn && $repeatWeeks < 2) {
+                throw new RuntimeException('برای تکرار هفتگی حداقل ۲ هفته بنویسید.');
+            }
+            $saved = clinic_rooms_assign(
+                $pdo,
+                $user,
+                (int) post('room_no'),
+                $day,
+                post('purpose'),
+                post('start_time'),
+                post('end_time'),
+                post('patient_id'),
+                post('doctor_id'),
+                post('workshop_session_id'),
+                post('block_title'),
+                post('note'),
+                $repeatWeeks
+            );
+            $weeks = (int) ($saved['weeks'] ?? 1);
+            $msg = clinic_room_label((int) ($saved['room'] ?? 0)) . ' رزرو شد.';
+            if ($weeks > 1) {
+                $msg = clinic_room_label((int) ($saved['room'] ?? 0)) . ' برای ' . to_fa_digits((string) $weeks) . ' هفته رزرو شد.';
+            }
+            flash_set('success', $msg);
+            $day = (string) ($saved['day'] ?? $day);
+        }
+    } catch (Throwable $e) {
+        flash_set('error', $e->getMessage());
+    }
+    redirect('/app/rooms?day=' . rawurlencode($day));
+}
+
 if ($method === 'POST' && $path === '/app/complaints') {
     require_once __DIR__ . '/../includes/session_complaints.php';
     csrf_verify();
@@ -218,6 +274,15 @@ if ($section === 'home') {
 }
 
 if ($section === 'appointments') {
+    $bookForm = '';
+    if ($role === 'SECRETARY') {
+        $secretaryBookEmbedded = true;
+        $secretaryBookNext = '/app/appointments';
+        require __DIR__ . '/secretary/book.php';
+        $bookForm = (string) ($secretaryBookFormHtml ?? '');
+        $GLOBALS['pageHead'] = '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">';
+        $GLOBALS['pageScripts'] = (string) ($secretaryBookScripts ?? '');
+    }
     $rows = [];
     $error = '';
     try {
@@ -233,8 +298,14 @@ if ($section === 'appointments') {
     }
     ob_start();
     ?>
-    <h1>وقت‌ها</h1>
-    <p class="muted"><?= $role === 'DOCTOR' ? 'وقت‌های خودتان تا ده روز آینده.' : 'وقت‌های کلینیک تا ده روز آینده.' ?></p>
+    <?php if ($bookForm !== ''): ?>
+      <h1>ثبت وقت</h1>
+      <?= $bookForm ?>
+      <h2 class="sapp-day">وقت‌های ده روز آینده</h2>
+    <?php else: ?>
+      <h1>وقت‌ها</h1>
+      <p class="muted">وقت‌های خودتان تا ده روز آینده.</p>
+    <?php endif; ?>
     <?php if ($error !== ''): ?>
       <p><?= e($error) ?></p>
     <?php elseif ($grouped === []): ?>
@@ -263,10 +334,33 @@ if ($section === 'appointments') {
 }
 
 if ($section === 'rooms') {
+    if (!function_exists('clinic_rooms_between')) {
+        require_once __DIR__ . '/../includes/clinic_rooms.php';
+    }
+    $roomDay = function_exists('clinic_rooms_parse_day') ? clinic_rooms_parse_day((string) ($_GET['day'] ?? '')) : date('Y-m-d');
+    $roomPrev = date('Y-m-d', strtotime($roomDay . ' -1 day') ?: time());
+    $roomNext = date('Y-m-d', strtotime($roomDay . ' +1 day') ?: time());
+    [$roomGy, $roomGm, $roomGd] = array_map('intval', explode('-', $roomDay));
+    [$roomJy, $roomJm, $roomJd] = gregorian_to_jalali($roomGy, $roomGm, $roomGd);
+    $roomJalali = sprintf('%04d/%02d/%02d', $roomJy, $roomJm, $roomJd);
     $rows = [];
     $error = '';
+    $roomPatients = [];
+    $roomDoctors = [];
+    $openWorkshops = [];
     try {
-        $rows = staff_app_room_board($pdo);
+        $rows = clinic_rooms_between($pdo, $roomDay . ' 00:00:00', date('Y-m-d H:i:s', strtotime($roomDay . ' +1 day') ?: time()));
+        if ($role === 'SECRETARY') {
+            $roomPatients = $pdo->query("SELECT id, name, phone FROM users WHERE role='PATIENT' AND COALESCE(is_disabled,0)=0 ORDER BY name ASC")->fetchAll() ?: [];
+            $roomDoctors = $pdo->query("
+              SELECT dp.id, u.name, dp.specialty
+              FROM doctor_profiles dp
+              JOIN users u ON u.id = dp.user_id
+              WHERE dp.is_active = 1 AND dp.is_approved = 1 AND COALESCE(u.is_disabled,0)=0
+              ORDER BY u.name ASC
+            ")->fetchAll() ?: [];
+            $openWorkshops = clinic_rooms_open_workshop_sessions($pdo);
+        }
     } catch (Throwable $e) {
         error_log('staff app rooms: ' . $e->getMessage());
         $error = 'بارگذاری اتاق‌ها الان ممکن نیست.';
@@ -283,17 +377,91 @@ if ($section === 'rooms') {
         }
         $byRoom[$number][] = $row;
     }
+    $clockChoices = [];
+    for ($hour = 8; $hour <= 21; $hour++) {
+        $clockChoices[] = sprintf('%02d:00', $hour);
+        if ($hour < 21) {
+            $clockChoices[] = sprintf('%02d:30', $hour);
+        }
+    }
+    if ($role === 'SECRETARY') {
+        $GLOBALS['pageHead'] = '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">';
+        $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/search-select.js')) . '?v=20261007cmp"></script>'
+            . '<script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>'
+            . '<script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>'
+            . '<script>
+(function(){
+  function faToEn(v){return String(v||"").replace(/[۰-۹]/g,function(d){return "۰۱۲۳۴۵۶۷۸۹".indexOf(d);}).replace(/[٠-٩]/g,function(d){return "٠١٢٣٤٥٦٧٨٩".indexOf(d);});}
+  function pad(n){return (n<10?"0":"")+n;}
+  var dayView=document.getElementById("room-day-view");
+  var current=' . json_encode($roomDay) . ';
+  var base=' . json_encode(url('/app/rooms')) . ';
+  if(dayView&&window.jalaliDatepicker){
+    jalaliDatepicker.startWatch({selector:"#room-day-view",time:false,hideAfterChange:true,showTodayBtn:true,showEmptyBtn:false,autoReadOnlyInput:true,persianDigits:true,zIndex:100000,container:"body"});
+    dayView.addEventListener("jdp:change",function(){
+      var t=faToEn(dayView.value).replace(/-/g,"/").trim();
+      var p=t.split("/");
+      if(p.length!==3||!window.jalaali) return;
+      var g=jalaali.toGregorian(parseInt(p[0],10),parseInt(p[1],10),parseInt(p[2],10));
+      var key=g.gy+"-"+pad(g.gm)+"-"+pad(g.gd);
+      if(key!==current) location.href=base+"?day="+key;
+    });
+  }
+  document.querySelectorAll("[data-room-book]").forEach(function(form){
+    var purpose=form.querySelector("[data-purpose]");
+    function sync(){
+      var value=purpose?purpose.value:"";
+      form.querySelectorAll("[data-for]").forEach(function(box){
+        var on=box.getAttribute("data-for")===value;
+        box.hidden=!on;
+        box.querySelectorAll("input,select,textarea").forEach(function(field){field.disabled=!on;});
+      });
+    }
+    var repeat=form.querySelector("[data-repeat]");
+    var repeatBox=form.querySelector("[data-repeat-fields]");
+    function syncRepeat(){
+      var on=!!(repeat&&repeat.checked);
+      if(repeatBox){
+        repeatBox.hidden=!on;
+        repeatBox.querySelectorAll("input").forEach(function(field){field.disabled=!on;});
+      }
+    }
+    if(purpose) purpose.addEventListener("change",sync);
+    if(repeat) repeat.addEventListener("change",syncRepeat);
+    if(window.enhanceSearchSelect){
+      form.querySelectorAll("select[data-search]").forEach(function(sel){enhanceSearchSelect(sel);});
+    }
+    sync();
+    syncRepeat();
+  });
+})();
+</script>';
+    }
     ob_start();
     ?>
     <h1>شرایط اتاق‌ها</h1>
-    <p class="muted">هفت روز پیش‌رو. وضعیت هر رزرو: الان، رزرو شده، یا تمام شده.</p>
+    <p class="muted"><?= $role === 'SECRETARY' ? 'روز را انتخاب کنید، ساعت را بنویسید و اتاق را رزرو کنید.' : 'وضعیت اتاق‌ها در روز انتخاب‌شده.' ?></p>
+    <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin:.75rem 0">
+      <a class="btn btn-outline btn-sm" href="<?= e(url('/app/rooms?day=' . rawurlencode($roomPrev))) ?>">روز قبل</a>
+      <strong><?= e(to_jalali_label($roomDay)) ?></strong>
+      <a class="btn btn-outline btn-sm" href="<?= e(url('/app/rooms?day=' . rawurlencode($roomNext))) ?>">روز بعد</a>
+    </div>
+    <?php if ($role === 'SECRETARY'): ?>
+      <label class="label" for="room-day-view">تاریخ رزرو</label>
+      <input class="input" id="room-day-view" type="text" data-jdp data-jdp-only-date readonly autocomplete="off" value="<?= e($roomJalali) ?>" style="max-width:16rem;cursor:pointer">
+    <?php endif; ?>
     <?php if ($error !== ''): ?>
       <p><?= e($error) ?></p>
     <?php else: ?>
+      <datalist id="room-clock-options">
+        <?php foreach ($clockChoices as $clock): ?>
+          <option value="<?= e($clock) ?>"></option>
+        <?php endforeach; ?>
+      </datalist>
       <?php foreach ($byRoom as $number => $items): ?>
         <h2 class="sapp-day"><?= e(function_exists('clinic_room_label') ? clinic_room_label((int) $number) : ('اتاق ' . to_fa_digits((string) $number))) ?></h2>
         <?php if ($items === []): ?>
-          <p class="muted">رزروی ثبت نشده است.</p>
+          <p class="muted">در این روز رزروی نیست.</p>
         <?php else: ?>
           <div class="sapp-list">
             <?php foreach ($items as $row): ?>
@@ -302,15 +470,82 @@ if ($section === 'rooms') {
                 $start = strtotime((string) ($row['starts_at'] ?? '')) ?: 0;
                 $end = strtotime((string) ($row['ends_at'] ?? '')) ?: 0;
                 $state = ($now >= $start && $now < $end) ? 'الان' : ($start > $now ? 'رزرو شده' : 'تمام شده');
-                $purpose = function_exists('clinic_room_purpose') ? clinic_room_purpose($row) : trim((string) ($row['title'] ?? ''));
+                $purposeText = function_exists('clinic_room_purpose') ? clinic_room_purpose($row) : trim((string) ($row['title'] ?? ''));
               ?>
               <article class="sapp-row">
                 <strong><?= e($state) ?> · <?= e(format_fa_time((string) $row['starts_at'])) ?> تا <?= e(format_fa_time((string) $row['ends_at'])) ?></strong>
-                <div><?= e($purpose !== '' ? $purpose : 'بدون توضیح') ?></div>
-                <small><?= e(to_jalali_label(substr((string) ($row['starts_at'] ?? ''), 0, 10))) ?></small>
+                <div><?= e($purposeText !== '' ? $purposeText : 'بدون توضیح') ?></div>
+                <?php if ($role === 'SECRETARY' && $end >= $now): ?>
+                  <form method="post" action="<?= e(url('/app/rooms')) ?>" style="margin:.55rem 0 0">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="release">
+                    <input type="hidden" name="day" value="<?= e($roomDay) ?>">
+                    <input type="hidden" name="booking_id" value="<?= e((string) ($row['id'] ?? '')) ?>">
+                    <button class="btn btn-outline btn-sm" type="submit">آزاد کردن این ساعت</button>
+                  </form>
+                <?php endif; ?>
               </article>
             <?php endforeach; ?>
           </div>
+        <?php endif; ?>
+        <?php if ($role === 'SECRETARY' && $error === ''): ?>
+          <form class="sapp-compose panel" method="post" action="<?= e(url('/app/rooms')) ?>" data-room-book>
+            <?= csrf_field() ?>
+            <input type="hidden" name="action" value="assign">
+            <input type="hidden" name="day" value="<?= e($roomDay) ?>">
+            <input type="hidden" name="room_no" value="<?= (int) $number ?>">
+            <strong>رزرو <?= e(function_exists('clinic_room_label') ? clinic_room_label((int) $number) : '') ?></strong>
+            <label class="label">از ساعت<input class="input" name="start_time" list="room-clock-options" inputmode="decimal" autocomplete="off" placeholder="مثلاً ۹ یا ۱۴:۳۰" required></label>
+            <label class="label">تا ساعت<input class="input" name="end_time" list="room-clock-options" inputmode="decimal" autocomplete="off" placeholder="مثلاً ۱۰:۳۰" required></label>
+            <label class="label">برای چیست؟
+              <select class="input" name="purpose" data-purpose required>
+                <option value="">انتخاب کنید</option>
+                <option value="therapy">تراپی</option>
+                <option value="workshop">کارگاه</option>
+                <option value="block">سایر</option>
+              </select>
+            </label>
+            <div data-for="therapy" hidden>
+              <label class="label">مراجعه‌کننده
+                <select class="input" name="patient_id" data-search>
+                  <option value="">انتخاب مراجعه‌کننده</option>
+                  <?php foreach ($roomPatients as $person): ?>
+                    <option value="<?= e((string) $person['id']) ?>"><?= e((string) $person['name']) ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </label>
+              <label class="label">درمانگر
+                <select class="input" name="doctor_id" data-search>
+                  <option value="">انتخاب درمانگر</option>
+                  <?php foreach ($roomDoctors as $doctor): ?>
+                    <option value="<?= e((string) $doctor['id']) ?>"><?= e((string) $doctor['name']) ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </label>
+            </div>
+            <div data-for="workshop" hidden>
+              <label class="label">کارگاه
+                <select class="input" name="workshop_session_id" data-search>
+                  <option value="">انتخاب کارگاه</option>
+                  <?php foreach ($openWorkshops as $sess): ?>
+                    <option value="<?= e((string) $sess['id']) ?>"><?= e((string) ($sess['workshop_title'] ?? 'کارگاه')) ?> · <?= e((string) ($sess['doctor_name'] ?? '')) ?></option>
+                  <?php endforeach; ?>
+                </select>
+              </label>
+            </div>
+            <div data-for="block" hidden>
+              <label class="label">عنوان<input class="input" name="block_title" maxlength="255" placeholder="مثلاً جلسه تیم"></label>
+            </div>
+            <label class="label">یادداشت<input class="input" name="note" maxlength="255"></label>
+            <label style="display:flex;gap:8px;align-items:center">
+              <input type="checkbox" name="repeat_weekly" value="1" data-repeat>
+              <span>تکرار هر هفته</span>
+            </label>
+            <div data-repeat-fields hidden>
+              <label class="label">چند هفته<input class="input" name="repeat_weeks" inputmode="numeric" placeholder="مثلاً ۸" disabled></label>
+            </div>
+            <button class="btn btn-primary" type="submit">رزرو اتاق</button>
+          </form>
         <?php endif; ?>
       <?php endforeach; ?>
     <?php endif; ?>

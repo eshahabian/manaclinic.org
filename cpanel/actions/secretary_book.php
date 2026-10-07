@@ -5,6 +5,13 @@ $user = require_login(['SECRETARY']);
 csrf_verify();
 $actorId = (string) $user['id'];
 $actorName = staff_actor_label($user);
+$appNext = safe_next_path(post('next'));
+if ($appNext === null || !str_starts_with($appNext, '/app')) {
+    $appNext = '';
+}
+$bookRedirect = static function (string $fallback) use ($appNext): never {
+    redirect($appNext !== '' ? $appNext : $fallback);
+};
 
 $patientId = post('patient_id');
 $doctorId = post('doctor_id');
@@ -17,28 +24,28 @@ $sessionMode = function_exists('appointment_normalize_session_mode')
 
 if ($doctorId === '' || $date === '' || $time === '') {
     flash_set('error', 'اطلاعات نوبت ناقص است.');
-    redirect('/secretary/appointments?tab=new');
+    $bookRedirect('/secretary/appointments?tab=new');
 }
 if (!function_exists('appointment_date_within_horizon')) {
     require_once __DIR__ . '/../includes/availability.php';
 }
 if (!appointment_date_within_horizon($date)) {
     flash_set('error', 'نوبت فقط تا دو هفته آینده قابل ثبت است.');
-    redirect('/secretary/appointments?tab=new');
+    $bookRedirect('/secretary/appointments?tab=new');
 }
 if (!function_exists('therapist_date_is_closed')) {
     require_once __DIR__ . '/../includes/therapist_presence.php';
 }
 if (therapist_date_is_closed($pdo, $doctorId, $date)) {
     flash_set('error', 'در این تاریخ درمانگر حضور ندارد.');
-    redirect('/secretary/appointments?tab=new');
+    $bookRedirect('/secretary/appointments?tab=new');
 }
 
 if ($patientId === '') {
     $created = secretary_create_patient_from_post($pdo, $user, ['fallback_doctor_id' => $doctorId]);
     if (empty($created['ok'])) {
         flash_set('error', (string) ($created['error'] ?? 'ثبت مراجعه‌کننده ممکن نشد.'));
-        redirect('/secretary/appointments?tab=new');
+        $bookRedirect('/secretary/appointments?tab=new');
     }
     $patientId = (string) $created['id'];
 }
@@ -48,7 +55,7 @@ $doc->execute([$doctorId]);
 $doctor = $doc->fetch();
 if (!$doctor) {
     flash_set('error', 'دکتر یافت نشد.');
-    redirect('/secretary/appointments?tab=new');
+    $bookRedirect('/secretary/appointments?tab=new');
 }
 
 $av = $pdo->prepare('SELECT * FROM availabilities WHERE doctor_id=? AND date=?');
@@ -56,13 +63,13 @@ $av->execute([$doctorId, $date]);
 $availability = $av->fetch();
 if (!$availability) {
     flash_set('error', 'این روز برای دکتر خالی نیست.');
-    redirect('/secretary/appointments?tab=new');
+    $bookRedirect('/secretary/appointments?tab=new');
 }
 
 $valid = appointment_slots_from_availability($availability);
 if (!in_array($time, $valid, true)) {
     flash_set('error', 'ساعت نامعتبر است.');
-    redirect('/secretary/appointments?tab=new');
+    $bookRedirect('/secretary/appointments?tab=new');
 }
 
 $startsAt = appointment_slot_starts_at($date, $time);
@@ -75,7 +82,7 @@ $conflict = $pdo->prepare("
 $conflict->execute([$doctorId, $startsAt]);
 if ($conflict->fetch()) {
     flash_set('error', 'این ساعت قبلاً رزرو شده است.');
-    redirect('/secretary/appointments?tab=new');
+    $bookRedirect('/secretary/appointments?tab=new');
 }
 
 $appointmentId = cuid();
@@ -121,10 +128,10 @@ try {
 
     flash_set('success', 'نوبت با موفقیت ثبت و تأیید شد.');
     $desk = is_admin_user($user) ? '/admin/appointments' : '/secretary/appointments';
-    redirect($desk . '?tab=upcoming&booked=1');
+    $bookRedirect($desk . '?tab=upcoming&booked=1');
 } catch (Throwable $e) {
     $pdo->rollBack();
     flash_set('error', 'خطا در ثبت نوبت: ' . $e->getMessage());
     $desk = is_admin_user($user) ? '/admin/appointments' : '/secretary/appointments';
-    redirect($desk . '?tab=new');
+    $bookRedirect($desk . '?tab=new');
 }

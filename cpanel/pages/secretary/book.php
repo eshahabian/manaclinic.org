@@ -66,8 +66,11 @@ ob_start();
 ?>
 <p class="muted" style="margin:0 0 1rem">ابتدا دکتر را انتخاب کنید؛ فقط روزهایی که دکتر وقت خالی گذاشته قابل انتخاب هستند.</p>
 
-<form class="panel form-stack" method="post" action="<?= e(url('/secretary/book')) ?>" id="secretary-book-form" style="margin-top:0" enctype="multipart/form-data">
+<form class="panel form-stack" method="post" action="<?= e(url((!empty($secretaryBookNext) && is_string($secretaryBookNext) && str_starts_with($secretaryBookNext, '/app')) ? $secretaryBookNext : '/secretary/book')) ?>" id="secretary-book-form" style="margin-top:0" enctype="multipart/form-data">
   <?= csrf_field() ?>
+  <?php if (!empty($secretaryBookNext) && is_string($secretaryBookNext) && str_starts_with($secretaryBookNext, '/app')): ?>
+    <input type="hidden" name="next" value="<?= e($secretaryBookNext) ?>">
+  <?php endif; ?>
   <?php if ($slotPrefillActive): ?>
     <p class="muted" style="margin:0 0 1rem;font-size:.9rem">
       از جدول هفت‌روزه انتخاب شد<?= $preDateJalali !== '' ? ' · تاریخ ' . e(to_fa_digits($preDateJalali)) : '' ?><?= $preTime !== '' ? ' · ساعت ' . e(to_fa_digits(preg_replace('/:00$/', '', $preTime) ?: $preTime)) : '' ?>.
