@@ -20,7 +20,10 @@ csrf_verify();
 
 $kind = post('action') === 'in' ? 'IN' : (post('action') === 'out' ? 'OUT' : '');
 $amount = parse_user_money((string) post('amount'));
-$date = parse_user_date((string) post('entry_date'));
+$date = petty_cash_parse_parts((int) post('entry_jy'), (int) post('entry_jm'), (int) post('entry_jd'));
+if ($date === null) {
+    $date = parse_user_date((string) post('entry_date'));
+}
 $note = trim((string) post('note'));
 $item = trim((string) post('item_name'));
 if ($kind === '' || $amount <= 0 || $date === null) {

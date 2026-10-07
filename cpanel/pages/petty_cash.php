@@ -29,153 +29,134 @@ if ($role === 'DOCTOR') {
 
 ensure_petty_cash_schema($pdo);
 $meta = jalali_current_month_meta();
-$jy = (int) ($_GET['jy'] ?? ($meta['year'] ?? 0));
-$jm = (int) ($_GET['jm'] ?? ($meta['month'] ?? 1));
+[$todayY, $todayM, $todayD] = gregorian_to_jalali((int) date('Y'), (int) date('n'), (int) date('j'));
+$jy = (int) ($_GET['jy'] ?? ($meta['year'] ?? $todayY));
+$jm = (int) ($_GET['jm'] ?? ($meta['month'] ?? $todayM));
 $range = petty_cash_month_range($jy, $jm);
 $report = petty_cash_month_report($pdo, $range['start'], $range['end']);
-$monthQuery = 'jy=' . $range['year'] . '&jm=' . $range['month'];
+$viewYears = [];
+for ($y = (int) $todayY - 1; $y <= (int) $todayY + 1; $y++) {
+    $viewYears[] = $y;
+}
 
 ob_start();
 ?>
 <h1>تنخواه</h1>
-<p class="muted">مبلغ ورودی و هزینه‌ها اینجا می‌ماند. آخر ماه جمع هر قلم، مثل دستمال کاغذی، همین‌جا دیده می‌شود.</p>
+<p class="muted">مبلغ ورودی و هزینه‌ها اینجا می‌ماند. آخر ماه جمع هر قلم، مثل دستمال کاغذی، در همین صفحه است.</p>
 
 <div class="grid-2" style="margin-top:1rem">
   <div class="panel" style="margin:0">
     <div class="muted">ورودی <?= e($range['label']) ?></div>
-    <strong style="font-size:1.3rem"><?= e(format_price($report['in'])) ?></strong>
+    <strong style="font-size:1.3rem;line-height:1.6"><?= e(format_price($report['in'])) ?></strong>
   </div>
   <div class="panel" style="margin:0">
     <div class="muted">هزینه <?= e($range['label']) ?></div>
-    <strong style="font-size:1.3rem"><?= e(format_price($report['out'])) ?></strong>
+    <strong style="font-size:1.3rem;line-height:1.6"><?= e(format_price($report['out'])) ?></strong>
   </div>
 </div>
 <p class="muted" style="margin:.75rem 0 0">مانده این ماه: <?= e(format_price($report['in'] - $report['out'])) ?></p>
 
 <form class="panel form-stack" method="get" action="<?= e(url($base)) ?>" style="margin-top:1rem">
-  <div style="display:grid;grid-template-columns:1fr 1fr auto;gap:.5rem;align-items:end">
-    <label>
-      <span class="label">سال</span>
-      <input class="input" name="jy" inputmode="numeric" value="<?= e((string) $range['year']) ?>" required>
-    </label>
-    <label>
-      <span class="label">ماه</span>
-      <input class="input" name="jm" inputmode="numeric" value="<?= e((string) $range['month']) ?>" required>
-    </label>
-    <button class="btn btn-outline" type="submit">این ماه</button>
+  <p style="margin:0;font-weight:600">ماه گزارش</p>
+  <div>
+    <label class="label" for="petty-view-year">سال</label>
+    <select class="input" id="petty-view-year" name="jy">
+      <?php foreach ($viewYears as $y): ?>
+        <option value="<?= (int) $y ?>"<?= (int) $y === (int) $range['year'] ? ' selected' : '' ?>><?= e(to_fa_digits((string) $y)) ?></option>
+      <?php endforeach; ?>
+    </select>
   </div>
+  <div>
+    <label class="label" for="petty-view-month">ماه</label>
+    <select class="input" id="petty-view-month" name="jm">
+      <?php for ($m = 1; $m <= 12; $m++): ?>
+        <option value="<?= $m ?>"<?= $m === (int) $range['month'] ? ' selected' : '' ?>><?= e(petty_cash_month_name($m)) ?></option>
+      <?php endfor; ?>
+    </select>
+  </div>
+  <button class="btn btn-outline" type="submit" style="justify-self:start">نمایش این ماه</button>
+</form>
+
+<form class="panel form-stack" method="post" action="<?= e(url($base)) ?>" style="margin-top:1rem">
+  <?= csrf_field() ?>
+  <input type="hidden" name="action" value="in">
+  <input type="hidden" name="jy" value="<?= (int) $range['year'] ?>">
+  <input type="hidden" name="jm" value="<?= (int) $range['month'] ?>">
+  <p style="margin:0;font-weight:600">مبلغ ورودی</p>
+  <div>
+    <label class="label" for="petty-in-amount">مبلغ</label>
+    <input class="input" id="petty-in-amount" name="amount" inputmode="numeric" required placeholder="تومان">
+  </div>
+  <?= petty_cash_date_fields((int) $todayY, (int) $todayM, (int) $todayD) ?>
+  <div>
+    <label class="label" for="petty-in-note">توضیح</label>
+    <input class="input" id="petty-in-note" name="note" placeholder="اختیاری">
+  </div>
+  <button class="btn btn-primary" type="submit" style="justify-self:start">ثبت ورودی</button>
+</form>
+
+<form class="panel form-stack" method="post" action="<?= e(url($base)) ?>" enctype="multipart/form-data" style="margin-top:1rem">
+  <?= csrf_field() ?>
+  <input type="hidden" name="action" value="out">
+  <input type="hidden" name="jy" value="<?= (int) $range['year'] ?>">
+  <input type="hidden" name="jm" value="<?= (int) $range['month'] ?>">
+  <p style="margin:0;font-weight:600">هزینه</p>
+  <div>
+    <label class="label" for="petty-item">قلم هزینه</label>
+    <input class="input" id="petty-item" name="item_name" required placeholder="مثلاً دستمال کاغذی">
+  </div>
+  <div>
+    <label class="label" for="petty-out-amount">مبلغ</label>
+    <input class="input" id="petty-out-amount" name="amount" inputmode="numeric" required placeholder="تومان">
+  </div>
+  <?= petty_cash_date_fields((int) $todayY, (int) $todayM, (int) $todayD) ?>
+  <div>
+    <label class="label" for="petty-receipt">رسید</label>
+    <input id="petty-receipt" type="file" name="receipt" accept="image/jpeg,image/png,image/webp,application/pdf">
+  </div>
+  <div>
+    <label class="label" for="petty-out-note">توضیح</label>
+    <input class="input" id="petty-out-note" name="note" placeholder="اختیاری">
+  </div>
+  <button class="btn btn-primary" type="submit" style="justify-self:start">ثبت هزینه</button>
 </form>
 
 <div class="panel" style="margin-top:1rem">
-  <h2 style="margin:0 0 .75rem;font-size:1rem">مبلغ ورودی</h2>
-  <form class="form-stack" method="post" action="<?= e(url($base)) ?>">
-    <?= csrf_field() ?>
-    <input type="hidden" name="action" value="in">
-    <input type="hidden" name="jy" value="<?= (int) $range['year'] ?>">
-    <input type="hidden" name="jm" value="<?= (int) $range['month'] ?>">
-    <div>
-      <label class="label" for="petty-in-amount">مبلغ</label>
-      <input class="input" id="petty-in-amount" name="amount" inputmode="numeric" required placeholder="تومان">
-    </div>
-    <div>
-      <label class="label" for="petty-in-date">تاریخ</label>
-      <input class="input" id="petty-in-date" name="entry_date" type="text" data-jdp data-jdp-only-date autocomplete="off" readonly required placeholder="تاریخ شمسی" style="cursor:pointer">
-    </div>
-    <div>
-      <label class="label" for="petty-in-note">توضیح</label>
-      <input class="input" id="petty-in-note" name="note" placeholder="اختیاری">
-    </div>
-    <button class="btn btn-primary" type="submit">ثبت ورودی</button>
-  </form>
-</div>
-
-<div class="panel" style="margin-top:1rem">
-  <h2 style="margin:0 0 .75rem;font-size:1rem">هزینه</h2>
-  <form class="form-stack" method="post" action="<?= e(url($base)) ?>" enctype="multipart/form-data">
-    <?= csrf_field() ?>
-    <input type="hidden" name="action" value="out">
-    <input type="hidden" name="jy" value="<?= (int) $range['year'] ?>">
-    <input type="hidden" name="jm" value="<?= (int) $range['month'] ?>">
-    <div>
-      <label class="label" for="petty-item">قلم هزینه</label>
-      <input class="input" id="petty-item" name="item_name" required placeholder="مثلاً دستمال کاغذی">
-    </div>
-    <div>
-      <label class="label" for="petty-out-amount">مبلغ</label>
-      <input class="input" id="petty-out-amount" name="amount" inputmode="numeric" required placeholder="تومان">
-    </div>
-    <div>
-      <label class="label" for="petty-out-date">تاریخ</label>
-      <input class="input" id="petty-out-date" name="entry_date" type="text" data-jdp data-jdp-only-date autocomplete="off" readonly required placeholder="تاریخ شمسی" style="cursor:pointer">
-    </div>
-    <div>
-      <label class="label" for="petty-receipt">رسید</label>
-      <input class="input" id="petty-receipt" type="file" name="receipt" accept="image/jpeg,image/png,image/webp,application/pdf">
-    </div>
-    <div>
-      <label class="label" for="petty-out-note">توضیح</label>
-      <input class="input" id="petty-out-note" name="note" placeholder="اختیاری">
-    </div>
-    <button class="btn btn-primary" type="submit">ثبت هزینه</button>
-  </form>
-</div>
-
-<div class="panel" style="margin-top:1rem;overflow:auto">
   <h2 style="margin:0 0 .75rem;font-size:1rem">جمع قلم‌ها در <?= e($range['label']) ?></h2>
   <?php if (!$report['items']): ?>
     <p class="muted" style="margin:0">هزینه‌ای در این ماه نیست.</p>
   <?php else: ?>
-    <table class="table">
-      <thead><tr><th>قلم</th><th>تعداد</th><th>جمع</th></tr></thead>
-      <tbody>
-        <?php foreach ($report['items'] as $item): ?>
-          <tr>
-            <td><?= e((string) $item['item_name']) ?></td>
-            <td><?= e(to_fa_digits((string) (int) $item['n'])) ?></td>
-            <td><?= e(format_price((int) $item['total'])) ?></td>
-          </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
+    <?php foreach ($report['items'] as $item): ?>
+      <p style="margin:.35rem 0">
+        <?= e((string) $item['item_name']) ?>
+        <span class="muted">· <?= e(to_fa_digits((string) (int) $item['n'])) ?> بار · <?= e(format_price((int) $item['total'])) ?></span>
+      </p>
+    <?php endforeach; ?>
   <?php endif; ?>
 </div>
 
-<div class="panel" style="margin-top:1rem;overflow:auto">
+<div class="panel" style="margin-top:1rem">
   <h2 style="margin:0 0 .75rem;font-size:1rem">ریز <?= e($range['label']) ?></h2>
   <?php if (!$report['entries']): ?>
     <p class="muted" style="margin:0">موردی ثبت نشده است.</p>
   <?php else: ?>
-    <table class="table">
-      <thead><tr><th>تاریخ</th><th>نوع</th><th>قلم</th><th>مبلغ</th><th>ثبت</th><th>رسید</th></tr></thead>
-      <tbody>
-        <?php foreach ($report['entries'] as $entry): ?>
-          <tr>
-            <td><?= e(to_jalali_label(substr((string) $entry['entry_date'], 0, 10))) ?></td>
-            <td><?= ($entry['kind'] ?? '') === 'IN' ? 'ورودی' : 'هزینه' ?></td>
-            <td><?= e((string) ($entry['item_name'] !== '' ? $entry['item_name'] : '—')) ?></td>
-            <td><?= e(format_price((int) $entry['amount'])) ?></td>
-            <td><?= e((string) $entry['created_by_name']) ?></td>
-            <td>
-              <?php if (!empty($entry['receipt_path'])): ?>
-                <a href="<?= e(url('/petty-cash/receipt?id=' . rawurlencode((string) $entry['id']))) ?>" target="_blank" rel="noopener">رسید</a>
-              <?php else: ?>
-                —
-              <?php endif; ?>
-            </td>
-          </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
+    <?php foreach ($report['entries'] as $entry): ?>
+      <p style="margin:.55rem 0;line-height:1.7">
+        <strong><?= ($entry['kind'] ?? '') === 'IN' ? 'ورودی' : e((string) $entry['item_name']) ?></strong>
+        · <?= e(format_price((int) $entry['amount'])) ?>
+        <span class="muted">
+          · <?= e(to_jalali_label(substr((string) $entry['entry_date'], 0, 10))) ?>
+          · <?= e((string) $entry['created_by_name']) ?>
+          <?php if (!empty($entry['receipt_path'])): ?>
+            · <a href="<?= e(url('/petty-cash/receipt?id=' . rawurlencode((string) $entry['id']))) ?>" target="_blank" rel="noopener">رسید</a>
+          <?php endif; ?>
+        </span>
+      </p>
+    <?php endforeach; ?>
   <?php endif; ?>
 </div>
 <?php
 $html = ob_get_clean();
-$GLOBALS['pageHead'] = '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">';
-$GLOBALS['pageScripts'] = '<script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script><script>
-if (window.jalaliDatepicker) {
-  jalaliDatepicker.startWatch({ selector: "[data-jdp]", time: false, hideAfterChange: true, showTodayBtn: true, autoReadOnlyInput: true, persianDigits: true, zIndex: 100000, container: "body" });
-}
-</script>';
 if ($role === 'DOCTOR') {
     render_doctor_page('تنخواه', $html);
 } else {
