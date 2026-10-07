@@ -131,6 +131,11 @@ function secretary_active_doctors(PDO $pdo): array
 /** مراجعه‌کننده‌های قابل انتخاب برای نوبت؛ حساب عماد شهابیان مدیر است و جدا اضافه می‌شود. */
 function secretary_bookable_patients(PDO $pdo): array
 {
+    if (!function_exists('ensure_user_referral_schema')) {
+        require_once __DIR__ . '/user_referral.php';
+    }
+    ensure_user_referral_schema($pdo);
+
     return $pdo->query("
       SELECT u.id, u.name, u.username, u.phone, u.preferred_doctor_id, u.referral_source, du.name AS doctor_name
       FROM users u

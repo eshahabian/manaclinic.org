@@ -7,13 +7,22 @@ require_once __DIR__ . '/../../includes/session_complaints.php';
 
 require_login(['SECRETARY']);
 
+$patients = [];
+$doctors = [];
+$complaints = [];
 try {
     $patients = secretary_bookable_patients($pdo);
-    $doctors = secretary_active_doctors($pdo);
-    $complaints = session_complaint_list($pdo);
 } catch (Throwable $e) {
     $patients = [];
+}
+try {
+    $doctors = secretary_active_doctors($pdo);
+} catch (Throwable $e) {
     $doctors = [];
+}
+try {
+    $complaints = session_complaint_list($pdo);
+} catch (Throwable $e) {
     $complaints = [];
 }
 
@@ -30,7 +39,17 @@ ob_start();
       <select class="input" id="complaint-patient" name="patient_id" required>
         <option value="">انتخاب مراجعه‌کننده</option>
         <?php foreach ($patients as $row): ?>
-          <option value="<?= e((string) $row['id']) ?>"><?= e((string) $row['name']) ?></option>
+          <?php
+            $pname = trim((string) ($row['name'] ?? ''));
+            $uname = trim((string) ($row['username'] ?? ''));
+            $phone = trim((string) ($row['phone'] ?? ''));
+            $label = $pname !== '' ? $pname : $uname;
+            if ($uname !== '' && $uname !== $label) {
+                $label .= ' (' . $uname . ')';
+            }
+            $search = trim($pname . ' ' . $uname . ' ' . $phone);
+          ?>
+          <option value="<?= e((string) $row['id']) ?>" data-search="<?= e($search) ?>"><?= e($label) ?></option>
         <?php endforeach; ?>
       </select>
     </div>
@@ -39,13 +58,24 @@ ob_start();
       <select class="input" id="complaint-doctor" name="doctor_id" required>
         <option value="">انتخاب درمانگر</option>
         <?php foreach ($doctors as $row): ?>
-          <option value="<?= e((string) $row['id']) ?>"><?= e((string) $row['name']) ?></option>
+          <?php
+            $dname = trim((string) ($row['name'] ?? ''));
+            $spec = trim((string) ($row['specialty'] ?? ''));
+            $dlabel = $dname !== '' ? $dname : 'درمانگر';
+            if ($spec !== '') {
+                $dlabel .= ' — ' . $spec;
+            }
+          ?>
+          <option value="<?= e((string) $row['id']) ?>" data-search="<?= e(trim($dname . ' ' . $spec)) ?>"><?= e($dlabel) ?></option>
         <?php endforeach; ?>
       </select>
     </div>
     <div>
-      <label class="label" for="complaint-session">زمان انجام جلسه</label>
-      <input class="input" id="complaint-session" type="datetime-local" name="session_at" required>
+      <label class="label" for="complaint-session-date">زمان انجام جلسه</label>
+      <div style="display:grid;grid-template-columns:minmax(0,1fr) 8.5rem;gap:.5rem">
+        <input class="input" id="complaint-session-date" name="session_date" type="text" data-jdp data-jdp-only-date autocomplete="off" readonly required placeholder="تاریخ شمسی" style="cursor:pointer">
+        <input class="input" id="complaint-session-time" name="session_time" type="time" required dir="ltr" aria-label="ساعت جلسه">
+      </div>
     </div>
     <div>
       <label class="label" for="complaint-reason">علت</label>
@@ -71,8 +101,8 @@ ob_start();
   <?php else: ?>
     <?php foreach ($complaints as $row): ?>
       <article class="panel" style="margin-top:.75rem">
-        <strong><?= e((string) $row['patient_name']) ?></strong>
-        <span class="muted"> · <?= e((string) $row['doctor_name']) ?></span>
+        <strong><?= e((string) ($row['patient_name'] ?? '')) ?></strong>
+        <span class="muted"> · <?= e((string) ($row['doctor_name'] ?? '')) ?></span>
         <p class="muted" style="margin:.35rem 0 0;font-size:.85rem">
           <?php if (!empty($row['session_at'])): ?>
             جلسه <?= e(format_fa_datetime((string) $row['session_at'])) ?> ·
@@ -88,4 +118,27 @@ ob_start();
   <?php endif; ?>
 </div>
 <?php
+$GLOBALS['pageHead'] = '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">';
+$GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/search-select.js')) . '?v=20261007cmp"></script>'
+    . '<script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>'
+    . '<script>
+(function(){
+  ["complaint-patient","complaint-doctor","complaint-reason"].forEach(function(id){
+    var el = document.getElementById(id);
+    if (el && window.enhanceSearchSelect) enhanceSearchSelect(el);
+  });
+  if (!window.jalaliDatepicker) return;
+  jalaliDatepicker.startWatch({
+    selector: "#complaint-session-date",
+    time: false,
+    hideAfterChange: true,
+    showTodayBtn: true,
+    showEmptyBtn: true,
+    autoReadOnlyInput: true,
+    persianDigits: true,
+    zIndex: 100000,
+    container: "body"
+  });
+})();
+</script>';
 render_secretary_page('شکایت از درمانگر', ob_get_clean());

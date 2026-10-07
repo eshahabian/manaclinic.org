@@ -12,7 +12,7 @@ try {
         (string) ($user['id'] ?? ''),
         trim((string) post('patient_id')),
         trim((string) post('doctor_id')),
-        trim((string) str_replace('T', ' ', post('session_at'))),
+        trim(trim((string) post('session_date')) . ' ' . trim((string) post('session_time'))),
         (string) post('reason'),
         (string) post('body')
     );

@@ -72,6 +72,7 @@ function session_complaint_create(
     if (mb_strlen($body) > 4000) {
         throw new RuntimeException('توضیحات طولانی است.');
     }
+    $sessionAt = session_complaint_parse_when($sessionAt);
     $sessionTs = strtotime($sessionAt);
     if ($sessionTs === false) {
         throw new RuntimeException('زمان جلسه معتبر نیست.');
@@ -108,6 +109,43 @@ function session_complaint_create(
         $body,
         $secretaryId,
     ]);
+}
+
+function session_complaint_parse_when(string $raw): string
+{
+    $raw = strtr(trim($raw), [
+        '۰' => '0', '۱' => '1', '۲' => '2', '۳' => '3', '۴' => '4',
+        '۵' => '5', '۶' => '6', '۷' => '7', '۸' => '8', '۹' => '9',
+        '٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4',
+        '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9',
+    ]);
+    $raw = str_replace(['/', 'T', '،'], ['-', ' ', ' '], $raw);
+    $raw = preg_replace('/\s+/', ' ', $raw) ?? $raw;
+    if (!preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})(?: (\d{1,2}):(\d{2})(?::(\d{2}))?)?$/', $raw, $m)) {
+        throw new RuntimeException('زمان جلسه معتبر نیست.');
+    }
+    $year = (int) $m[1];
+    $month = (int) $m[2];
+    $day = (int) $m[3];
+    if (!isset($m[4], $m[5]) || $m[4] === '' || $m[5] === '') {
+        throw new RuntimeException('ساعت جلسه را انتخاب کنید.');
+    }
+    $hour = (int) $m[4];
+    $minute = (int) $m[5];
+    if ($hour > 23 || $minute > 59) {
+        throw new RuntimeException('ساعت جلسه معتبر نیست.');
+    }
+    if ($year >= 1200 && $year < 1700) {
+        if ($month < 1 || $month > 12 || $day < 1 || $day > 31) {
+            throw new RuntimeException('زمان جلسه معتبر نیست.');
+        }
+        [$year, $month, $day] = jalali_to_gregorian($year, $month, $day);
+    }
+    if (!checkdate($month, $day, $year)) {
+        throw new RuntimeException('زمان جلسه معتبر نیست.');
+    }
+
+    return sprintf('%04d-%02d-%02d %02d:%02d:00', $year, $month, $day, $hour, $minute);
 }
 
 /** @return list<array<string, mixed>> */
