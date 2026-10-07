@@ -258,10 +258,7 @@ function secretary_daily_tasks_html(
     if (str_contains($returnPath, 'daily-tasks')) {
         $returnPath = '/secretary/messages';
     }
-    $presence = $showCard ? [] : secretary_presence_days($pdo, (string) ($secretary['id'] ?? ''));
-    if (!$showCard && !in_array(date('Y-m-d'), $presence, true)) {
-        array_unshift($presence, date('Y-m-d'));
-    }
+    $presence = [];
     static $booted = false;
     ob_start();
     if (!$booted) {
