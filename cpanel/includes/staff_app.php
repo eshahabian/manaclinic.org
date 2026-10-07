@@ -116,10 +116,67 @@ function staff_app_ensure_schema(PDO $pdo): void
         PRIMARY KEY (message_id, user_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
+    $pdo->exec("
+      CREATE TABLE IF NOT EXISTS staff_app_presence (
+        user_id VARCHAR(32) NOT NULL PRIMARY KEY,
+        seen_at DATETIME NOT NULL,
+        INDEX idx_staff_app_presence_seen (seen_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
     staff_app_add_column($pdo, 'staff_app_messages', 'reply_to', 'VARCHAR(32) NULL');
     staff_app_add_column($pdo, 'staff_app_messages', 'forward_from', 'VARCHAR(80) NULL');
     staff_app_add_column($pdo, 'staff_app_rooms', 'pinned_message_id', 'VARCHAR(32) NULL');
     $ready = true;
+}
+
+function staff_app_touch_presence(PDO $pdo, string $userId): void
+{
+    if ($userId === '') {
+        return;
+    }
+    staff_app_ensure_schema($pdo);
+    $pdo->prepare('
+      INSERT INTO staff_app_presence (user_id, seen_at) VALUES (?, NOW())
+      ON DUPLICATE KEY UPDATE seen_at = NOW()
+    ')->execute([$userId]);
+}
+
+/** @return list<string> */
+function staff_app_online_ids(PDO $pdo, int $seconds = 90): array
+{
+    staff_app_ensure_schema($pdo);
+    $stmt = $pdo->prepare('
+      SELECT user_id FROM staff_app_presence
+      WHERE seen_at >= DATE_SUB(NOW(), INTERVAL ? SECOND)
+    ');
+    $stmt->execute([max(30, $seconds)]);
+    $ids = [];
+    foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) ?: [] as $id) {
+        $id = (string) $id;
+        if ($id !== '') {
+            $ids[] = $id;
+        }
+    }
+
+    return $ids;
+}
+
+/** @return array<string, list<string>> */
+function staff_app_peer_map(PDO $pdo, string $userId): array
+{
+    $stmt = $pdo->prepare('
+      SELECT m.room_id, m.user_id
+      FROM staff_app_members m
+      JOIN staff_app_members mine ON mine.room_id = m.room_id AND mine.user_id = ?
+      WHERE m.user_id <> ?
+    ');
+    $stmt->execute([$userId, $userId]);
+    $map = [];
+    foreach ($stmt->fetchAll() ?: [] as $row) {
+        $map[(string) $row['room_id']][] = (string) $row['user_id'];
+    }
+
+    return $map;
 }
 
 function staff_app_add_column(PDO $pdo, string $table, string $column, string $definition): void
@@ -1104,7 +1161,128 @@ function staff_app_pwa_script(): string
         . 'if(!ios||standalone||seen)return;box.hidden=false;'
         . 'var close=document.getElementById("sapp-install-x");'
         . 'if(close)close.addEventListener("click",function(){box.hidden=true;try{localStorage.setItem("sapp-ios-install","1");}catch(e){}});'
-        . '})();</script>';
+        . '})();</script>'
+        . staff_app_client_script();
+}
+
+function staff_app_client_script(): string
+{
+    return <<<'HTML'
+<script>
+(function () {
+  var body = document.body;
+  if (!body) return;
+  var presenceUrl = body.getAttribute("data-presence") || "";
+  var chatUrl = body.getAttribute("data-chat") || "/app/chat";
+  var notifyBox = document.getElementById("sapp-notify");
+  var notifyText = document.getElementById("sapp-notify-text");
+  var yes = document.getElementById("sapp-notify-yes");
+  var no = document.getElementById("sapp-notify-no");
+  var ios = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
+  var standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
+  var mobile = window.matchMedia("(max-width: 900px)").matches || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
+  var lastUnread = null;
+
+  function paintOnline(ids) {
+    var on = {};
+    (ids || []).forEach(function (id) { on[id] = 1; });
+    document.querySelectorAll(".sapp-dot").forEach(function (dot) {
+      var list = (dot.getAttribute("data-online") || "").split(",");
+      var lit = false;
+      var i;
+      for (i = 0; i < list.length; i++) {
+        if (list[i] && on[list[i]]) lit = true;
+      }
+      dot.hidden = !lit;
+    });
+  }
+
+  function showChatNote(title, bodyText) {
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    if (!document.hidden) return;
+    try {
+      var note = new Notification(title || "مانا کارکنان", {
+        body: bodyText || "پیام تازه در چت دارید.",
+        tag: "sapp-chat",
+        lang: "fa"
+      });
+      note.onclick = function () {
+        window.focus();
+        if (chatUrl) window.location.href = chatUrl;
+        note.close();
+      };
+    } catch (err) {}
+  }
+
+  window.sappShowChatNote = showChatNote;
+
+  function watchUnread(count) {
+    count = Number(count) || 0;
+    if (lastUnread !== null && count > lastUnread) {
+      showChatNote("مانا کارکنان", "پیام تازه در چت دارید.");
+    }
+    lastUnread = count;
+  }
+
+  function pullPresence() {
+    if (!presenceUrl) return;
+    fetch(presenceUrl + "?t=" + Date.now(), { cache: "no-store", credentials: "same-origin", headers: { Accept: "application/json" } })
+      .then(function (res) { return res.ok ? res.json() : null; })
+      .then(function (data) {
+        if (!data || !data.ok) return;
+        paintOnline(data.online || []);
+        watchUnread(data.unread);
+      })
+      .catch(function () {});
+  }
+
+  if (presenceUrl) {
+    pullPresence();
+    setInterval(pullPresence, 20000);
+    document.addEventListener("visibilitychange", function () {
+      if (!document.hidden) pullPresence();
+    });
+  }
+
+  if (!notifyBox || !mobile) return;
+  var asked = false;
+  try { asked = sessionStorage.getItem("sapp-notify-later") === "1"; } catch (err) {}
+  if (asked) return;
+  if (typeof Notification === "undefined") {
+    if (ios && !standalone && notifyText) {
+      notifyText.textContent = "برای اعلان پیام، برنامه را به صفحهٔ اصلی اضافه کنید و دوباره وارد شوید.";
+      notifyBox.hidden = false;
+      if (yes) {
+        yes.textContent = "راهنمای نصب";
+        yes.addEventListener("click", function () {
+          var install = document.getElementById("sapp-install");
+          if (install) install.hidden = false;
+        });
+      }
+    }
+    return;
+  }
+  if (Notification.permission === "granted" || Notification.permission === "denied") return;
+  notifyBox.hidden = false;
+  if (no) no.addEventListener("click", function () {
+    notifyBox.hidden = true;
+    try { sessionStorage.setItem("sapp-notify-later", "1"); } catch (err) {}
+  });
+  if (yes) yes.addEventListener("click", function () {
+    if (ios && !standalone) {
+      var install = document.getElementById("sapp-install");
+      if (install) install.hidden = false;
+      if (notifyText) notifyText.textContent = "اول برنامه را به صفحهٔ اصلی اضافه کنید. بعد از باز کردن آن، اجازه اعلان را بدهید.";
+      return;
+    }
+    Notification.requestPermission().then(function (result) {
+      notifyBox.hidden = true;
+      if (result === "granted") pullPresence();
+    }).catch(function () {});
+  });
+})();
+</script>
+HTML;
 }
 
 function staff_app_render(string $active, string $title, string $description, string $html, bool $locked = false): void
@@ -1143,6 +1321,13 @@ function staff_app_render(string $active, string $title, string $description, st
         $avatarInitial = user_avatar_initial($name !== '' ? $name : 'م');
     }
     $navKey = $active === 'chat' ? 'chat' : ($active === 'profile' ? 'profile' : 'home');
+    if (!$locked && $user && $pdo instanceof PDO) {
+        try {
+            staff_app_touch_presence($pdo, (string) ($user['id'] ?? ''));
+        } catch (Throwable $e) {
+            error_log('staff app presence: ' . $e->getMessage());
+        }
+    }
     header('X-Robots-Tag: noindex, nofollow');
     header('Cache-Control: no-store, no-cache, must-revalidate');
     header('Pragma: no-cache');
@@ -1231,6 +1416,17 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-ticks.is-read{color:#1fa855}
     .sapp-msg img{display:block;max-width:min(100%,16rem);margin-top:6px;border-radius:8px}
     .sapp-person{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:52px;margin:0 0 8px;padding:10px 12px;border:1px solid #e6eeea;border-radius:14px;background:#fff;color:#1c3d36;font:inherit;font-weight:700;text-align:right;cursor:pointer}
+    .sapp-person-name{display:inline-flex;align-items:center;gap:.35rem;min-width:0}
+    .sapp-dot{display:inline-block;width:.55rem;height:.55rem;border-radius:999px;background:#1fa855;box-shadow:0 0 0 .18rem rgba(31,168,85,.22);flex:none;vertical-align:middle}
+    .sapp-dot[hidden]{display:none !important}
+    .sapp-thread-title{display:flex;align-items:center;gap:.4rem}
+    .sapp-row strong{display:flex;align-items:center;gap:.35rem}
+    .sapp-notify{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;width:min(32rem,calc(100% - 1.5rem));margin:.2rem auto .4rem;padding:.7rem .85rem;border-radius:14px;background:#e7f6f3;color:#1c3d36}
+    .sapp-notify[hidden]{display:none !important}
+    .sapp-notify p{margin:0;flex:1 1 12rem;font-size:.92rem;line-height:1.55}
+    .sapp-notify button{border:0;border-radius:999px;min-height:2.4rem;padding:0 .9rem;font:inherit;font-weight:800;cursor:pointer}
+    .sapp-notify-yes{background:#1a9a8a;color:#fff}
+    .sapp-notify-no{background:transparent;color:#5d746c}
     .sapp-person small{color:#8aa099;font-weight:600}
     .sapp-compose{display:flex;align-items:flex-end;gap:.5rem;margin-top:.6rem}
     .sapp-compose textarea.input{width:auto;flex:1;min-width:0;min-height:2.75rem;max-height:8rem;border-radius:1.1rem;font-size:1rem}
@@ -1291,7 +1487,7 @@ function staff_app_render(string $active, string $title, string $description, st
     body.sapp{padding:0}
   </style>
 </head>
-<body class="sapp<?= !empty($GLOBALS['staffBodyClass']) ? ' ' . e((string) $GLOBALS['staffBodyClass']) : '' ?>"<?= $user ? ' data-session-guard="1" data-session-ping="' . e(url('/session/ping')) . '" data-logout="' . e(url('/logout')) . '"' : '' ?><?= $isSecretary ? ' data-secretary-desk="1" data-no-idle="1" data-heartbeat="' . e(url('/secretary/heartbeat')) . '"' : '' ?>>
+<body class="sapp<?= !empty($GLOBALS['staffBodyClass']) ? ' ' . e((string) $GLOBALS['staffBodyClass']) : '' ?>"<?= $user ? ' data-session-guard="1" data-session-ping="' . e(url('/session/ping')) . '" data-logout="' . e(url('/logout')) . '"' : '' ?><?= ($user && !$locked) ? ' data-presence="' . e(url('/app/presence')) . '" data-chat="' . e(url('/app/chat')) . '"' : '' ?><?= $isSecretary ? ' data-secretary-desk="1" data-no-idle="1" data-heartbeat="' . e(url('/secretary/heartbeat')) . '"' : '' ?>>
   <header class="sapp-top">
     <a class="sapp-brand" href="<?= e(url('/app')) ?>">
       <img src="<?= e(url('/assets/img/logo.png')) ?>" alt="" width="36" height="36">
@@ -1312,6 +1508,13 @@ function staff_app_render(string $active, string $title, string $description, st
       </div>
     <?php endif; ?>
   </header>
+  <?php if ($user && !$locked): ?>
+  <div class="sapp-notify" id="sapp-notify" hidden>
+    <p id="sapp-notify-text">برای خبردار شدن از پیام تازه، اجازه اعلان را بدهید.</p>
+    <button type="button" class="sapp-notify-yes" id="sapp-notify-yes">اجازه می‌دهم</button>
+    <button type="button" class="sapp-notify-no" id="sapp-notify-no">بعداً</button>
+  </div>
+  <?php endif; ?>
   <div class="sapp-install" id="sapp-install" hidden>
     <p><strong>نصب روی آیفون</strong> دکمه اشتراک‌گذاری را بزنید و «افزودن به صفحهٔ اصلی» را انتخاب کنید. آیفون مثل اندروید خودش پنجره نصب نشان نمی‌دهد.</p>
     <button type="button" id="sapp-install-x">فهمیدم</button>

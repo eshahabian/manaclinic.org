@@ -595,6 +595,10 @@
       }
       thread.appendChild(buildMessage(msg));
       added = true;
+      if (!msg.mine && !msg.pending && window.sappShowChatNote) {
+        var noteText = msg.body ? String(msg.body) : "فایل تازه";
+        window.sappShowChatNote(msg.name || "مانا کارکنان", noteText);
+      }
     });
     if (added && stick) window.scrollTo(0, document.body.scrollHeight);
   }

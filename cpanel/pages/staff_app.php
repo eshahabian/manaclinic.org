@@ -11,6 +11,27 @@ $userId = (string) ($user['id'] ?? '');
 $role = (string) ($user['role'] ?? '');
 $name = trim((string) ($user['name'] ?? ''));
 
+if ($path === '/app/presence') {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+    try {
+        staff_app_touch_presence($pdo, $userId);
+        $online = array_values(array_filter(
+            staff_app_online_ids($pdo),
+            static fn(string $id): bool => $id !== $userId
+        ));
+        echo json_encode([
+            'ok' => true,
+            'online' => $online,
+            'unread' => staff_app_unread_count($pdo, $userId),
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $e) {
+        http_response_code(500);
+        echo json_encode(['ok' => false, 'online' => [], 'unread' => 0], JSON_UNESCAPED_UNICODE);
+    }
+    exit;
+}
+
 if (preg_match('#^/app/chat/([a-f0-9]{24})/receipts$#', $path, $m)) {
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store');
@@ -28,6 +49,7 @@ if (preg_match('#^/app/chat/([a-f0-9]{24})/receipts$#', $path, $m)) {
         $after = trim((string) ($_GET['after'] ?? ''));
         $live = staff_app_live_messages($pdo, $m[1], $userId, $after);
         staff_app_mark_read($pdo, $userId, $m[1]);
+        staff_app_touch_presence($pdo, $userId);
         $reactions = staff_app_reaction_overview($pdo, $m[1], $userId);
         echo json_encode([
             'ok' => true,
@@ -673,9 +695,16 @@ if ($section === 'chat') {
             $seenMap = staff_app_seen_map($pdo, $roomId);
             $messageIds = array_map(static fn(array $row): string => (string) $row['id'], $messages);
             [$reactCounts, $reactMine] = staff_app_reaction_maps($pdo, $messageIds, $userId);
-            $memberStmt = $pdo->prepare('SELECT COUNT(*) FROM staff_app_members WHERE room_id = ?');
-            $memberStmt->execute([$roomId]);
-            $isGroup = !empty($room['is_general']) || (int) $memberStmt->fetchColumn() > 2;
+            $memberStmt = $pdo->prepare('SELECT user_id FROM staff_app_members WHERE room_id = ? AND user_id <> ?');
+            $memberStmt->execute([$roomId, $userId]);
+            $peerIds = [];
+            foreach ($memberStmt->fetchAll(PDO::FETCH_COLUMN) ?: [] as $peerId) {
+                $peerId = (string) $peerId;
+                if ($peerId !== '') {
+                    $peerIds[] = $peerId;
+                }
+            }
+            $isGroup = !empty($room['is_general']) || count($peerIds) > 1;
             $pinned = staff_app_pinned_message($pdo, $roomId);
             $pinnedId = (string) ($pinned['id'] ?? '');
             $pinText = trim(preg_replace('/\s+/u', ' ', (string) ($pinned['body'] ?? '')) ?? '');
@@ -705,7 +734,7 @@ if ($section === 'chat') {
             ob_start();
             ?>
             <p style="margin:0 0 8px"><a href="<?= e(url('/app/chat')) ?>">همه چت‌ها</a></p>
-            <h1><?= e((string) ($room['title'] ?? 'چت')) ?></h1>
+            <h1 class="sapp-thread-title"><i class="sapp-dot" data-online="<?= e(implode(',', $peerIds)) ?>" hidden></i><span><?= e((string) ($room['title'] ?? 'چت')) ?></span></h1>
             <?php if ($pinned): ?>
               <a class="sapp-pin" href="#m-<?= e($pinnedId) ?>">
                 <strong>سنجاق‌شده · <?= e((string) ($pinned['name'] ?? '')) ?></strong>
@@ -843,10 +872,11 @@ if ($section === 'chat') {
             <script type="application/json" id="sapp-chat-config"><?= $chatConfig ?></script>
             <?php
             $html = ob_get_clean();
-            $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/staff-chat.js')) . '?v=20261008live"></script>';
+            $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/staff-chat.js')) . '?v=20261008note"></script>';
         } else {
             $rooms = staff_app_rooms_for($pdo, $userId);
             $people = staff_app_people($pdo);
+            $peerMap = staff_app_peer_map($pdo, $userId);
             ob_start();
             ?>
             <h1>چت</h1>
@@ -854,7 +884,7 @@ if ($section === 'chat') {
             <div class="sapp-list">
               <?php foreach ($rooms as $room): ?>
                 <a class="sapp-row" href="<?= e(url('/app/chat/' . (string) $room['id'])) ?>" style="text-decoration:none;color:inherit">
-                  <strong><?= e((string) ($room['title'] ?? 'اتاق')) ?></strong>
+                  <strong><i class="sapp-dot" data-online="<?= e(implode(',', $peerMap[(string) $room['id']] ?? [])) ?>" hidden></i><?= e((string) ($room['title'] ?? 'اتاق')) ?></strong>
                   <small><?= !empty($room['is_general']) ? 'همه درمانگرها و منشی‌ها' : 'گفتگوی خصوصی' ?> · <?= e(to_fa_digits((string) (int) ($room['message_count'] ?? 0))) ?> پیام</small>
                 </a>
               <?php endforeach; ?>
@@ -870,7 +900,7 @@ if ($section === 'chat') {
                 <input type="hidden" name="form" value="create">
                 <input type="hidden" name="member_id" value="<?= e((string) $person['id']) ?>">
                 <button class="sapp-person" type="submit">
-                  <span><?= e($personName) ?></span>
+                  <span class="sapp-person-name"><i class="sapp-dot" data-online="<?= e((string) $person['id']) ?>" hidden></i><?= e($personName) ?></span>
                   <small><?= e(staff_app_role_label((string) ($person['role'] ?? ''))) ?></small>
                 </button>
               </form>
@@ -889,7 +919,7 @@ if ($section === 'chat') {
                   <?php if ((string) ($person['id'] ?? '') === $userId) { continue; } ?>
                   <label class="sapp-check">
                     <input type="checkbox" name="member_ids[]" value="<?= e((string) $person['id']) ?>">
-                    <span><?= e(trim((string) ($person['name'] ?? '')) !== '' ? (string) $person['name'] : (string) ($person['username'] ?? '')) ?></span>
+                    <span class="sapp-person-name"><i class="sapp-dot" data-online="<?= e((string) $person['id']) ?>" hidden></i><?= e(trim((string) ($person['name'] ?? '')) !== '' ? (string) $person['name'] : (string) ($person['username'] ?? '')) ?></span>
                   </label>
                 <?php endforeach; ?>
                 <button class="btn btn-primary" type="submit">ساخت گروه</button>
