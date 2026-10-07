@@ -25,7 +25,7 @@ function secretary_nav(): array
         ['href' => '/secretary/profile', 'label' => 'پیام مدیر'],
         ['href' => '/secretary/board', 'label' => 'یادداشت مشترک'],
         ['href' => '/secretary/hours', 'label' => 'ساعت کاری'],
-        ['href' => '/secretary/daily-tasks', 'label' => 'کارهای روزانه'],
+        ['shadow' => 'sec-day-tasks', 'label' => 'کارهای روزانه'],
         ['href' => '/secretary/colleague-messages', 'label' => 'پیام همکار'],
         ['href' => '/secretary/articles', 'label' => 'مقالات'],
         ['href' => '/secretary/workshops', 'label' => 'کارگاه‌ها'],
@@ -69,9 +69,14 @@ function render_secretary_page(string $title, string $innerHtml): void
             $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
             foreach ($nav as $item):
               $href = (string) ($item['href'] ?? '');
-              $active = $href !== '' && str_contains($currentPath, $href);
+              $shadow = (string) ($item['shadow'] ?? '');
+              $active = $shadow === '' && $href !== '' && str_contains($currentPath, $href);
           ?>
+            <?php if ($shadow !== ''): ?>
+            <a href="#" data-dayshadow-open="<?= e($shadow) ?>">
+            <?php else: ?>
             <a class="<?= $active ? 'is-active' : '' ?>" href="<?= e(url($href)) ?>">
+            <?php endif; ?>
               <span class="side-nav-link-main">
                 <?php if (!empty($item['icon'])): ?>
                   <img class="side-nav-call-logo" src="<?= e((string) $item['icon']) ?>" alt="" width="22" height="22">
@@ -97,6 +102,13 @@ function render_secretary_page(string $title, string $innerHtml): void
       <div class="panel-main"><?= $innerHtml ?></div>
     </div>
     <?php
+    if ($user && $pdo instanceof PDO && (string) ($user['role'] ?? '') === 'SECRETARY') {
+        require_once __DIR__ . '/secretary_daily_tasks.php';
+        $taskDate = secretary_daily_task_requested_date($pdo, (string) ($user['id'] ?? ''));
+        $taskOpen = (string) ($_GET['open_tasks'] ?? '') === '1';
+        $taskEditable = secretary_daily_task_can_edit($pdo, (string) $user['id'], $taskDate, true);
+        echo secretary_daily_tasks_html($pdo, $user, $taskDate, $taskEditable, url('/secretary/daily-tasks'), $taskOpen, false, 'sec-day-tasks');
+    }
     $content = ob_get_clean();
     require __DIR__ . '/layout.php';
 }

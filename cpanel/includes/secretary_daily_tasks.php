@@ -212,13 +212,30 @@ function secretary_daily_task_secretaries(PDO $pdo): array
     }
 }
 
+function secretary_daily_task_requested_date(PDO $pdo, string $userId): string
+{
+    $today = date('Y-m-d');
+    $requested = trim((string) ($_GET['task_date'] ?? $_GET['date'] ?? $today));
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $requested) || $requested > $today) {
+        return $today;
+    }
+    $presence = secretary_presence_days($pdo, $userId);
+    if (!in_array($requested, $presence, true) && $requested !== $today) {
+        return $today;
+    }
+
+    return $requested;
+}
+
 function secretary_daily_tasks_html(
     PDO $pdo,
     array $secretary,
     string $ymd,
     bool $editable,
     string $postUrl,
-    bool $startOpen = false
+    bool $startOpen = false,
+    bool $showCard = true,
+    string $shadowIdOverride = ''
 ): string {
     $states = secretary_daily_task_states($pdo, (string) ($secretary['id'] ?? ''), $ymd);
     $progress = secretary_daily_task_progress($states);
@@ -230,17 +247,28 @@ function secretary_daily_tasks_html(
     $doneCount = to_fa_digits((string) $progress['done']);
     $totalCount = to_fa_digits((string) $total);
     $dateLabel = secretary_daily_task_date_label($ymd);
-    $shadowId = 'dayshadow-' . substr(md5((string) ($secretary['id'] ?? '') . '|' . $ymd), 0, 12);
+    $shadowId = $shadowIdOverride !== ''
+        ? $shadowIdOverride
+        : 'dayshadow-' . substr(md5((string) ($secretary['id'] ?? '') . '|' . $ymd), 0, 12);
+    $returnPath = parse_url($_SERVER['REQUEST_URI'] ?? '/secretary/messages', PHP_URL_PATH);
+    $returnPath = is_string($returnPath) ? $returnPath : '/secretary/messages';
+    if (str_contains($returnPath, 'daily-tasks')) {
+        $returnPath = '/secretary/messages';
+    }
+    $presence = $showCard ? [] : secretary_presence_days($pdo, (string) ($secretary['id'] ?? ''));
+    if (!$showCard && !in_array(date('Y-m-d'), $presence, true)) {
+        array_unshift($presence, date('Y-m-d'));
+    }
     static $booted = false;
     ob_start();
     if (!$booted) {
         $booted = true;
         ?>
     <style>
-      [data-dayshadow]{position:fixed;inset:0;z-index:5000;overflow-x:hidden;overflow-y:auto;padding:24px 16px 48px;background:#f7f5f0;direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif;box-sizing:border-box}
+      [data-dayshadow]{position:fixed;top:0;right:0;bottom:0;left:0;z-index:5000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(26,46,40,.55);direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif;box-sizing:border-box}
       [data-dayshadow][hidden]{display:none !important}
       [data-dayshadow] *{box-sizing:border-box}
-      .dayshadow-card{width:min(42rem,100%);height:auto;max-height:none;overflow:visible;margin:0 auto;background:#fff;color:#1a2e28;border:1px solid #d5e0da;border-radius:16px;direction:rtl;text-align:right;position:relative;box-shadow:0 18px 50px rgba(26,46,40,.18)}
+      .dayshadow-card{width:min(42rem,100%);max-height:calc(100vh - 32px);display:flex;flex-direction:column;overflow:hidden;background:#fff;color:#1a2e28;border:1px solid #d5e0da;border-radius:16px;direction:rtl;text-align:right;position:relative;box-shadow:0 18px 50px rgba(26,46,40,.28)}
       .dayshadow-x{position:absolute;top:8px;left:8px;width:36px;height:36px;border:0;border-radius:999px;background:transparent;font-size:24px;line-height:1;cursor:pointer;color:#5a6f66}
       .dayshadow-head{padding:16px 18px 10px 48px;border-bottom:1px solid #d5e0da;direction:rtl;text-align:right}
       .dayshadow-head h2{margin:0 0 12px;font-size:1.15rem;font-family:Vazirmatn,Tahoma,sans-serif}
@@ -248,7 +276,7 @@ function secretary_daily_tasks_html(
       .dayshadow-meta div{min-width:0}
       .dayshadow-meta dt{margin:0;font-size:.78rem;color:#5a6f66;font-weight:500}
       .dayshadow-meta dd{margin:4px 0 0;font-weight:700;line-height:1.55}
-      .dayshadow-scroll{height:auto;max-height:none;overflow:visible;padding:12px 14px 20px;direction:rtl;text-align:right}
+      .dayshadow-scroll{overflow-x:hidden;overflow-y:auto;max-height:calc(100vh - 220px);padding:12px 14px 20px;direction:rtl;text-align:right}
       .dayshadow-row{display:block;margin:0 0 8px;padding:10px 12px;border:1px solid #d5e0da;border-radius:12px;background:#f7f5f0;direction:rtl;text-align:right;line-height:1.75}
       .dayshadow-row.is-done{background:#e8f6ee;border-color:#b7e0c6}
       .dayshadow-row form,.dayshadow-row label{display:flex;direction:rtl;text-align:right;gap:8px;align-items:flex-start;margin:0;width:100%;cursor:pointer;font-family:Vazirmatn,Tahoma,sans-serif}
@@ -270,6 +298,7 @@ function secretary_daily_tasks_html(
       document.addEventListener("click", function(e){
         var open = e.target.closest ? e.target.closest("[data-dayshadow-open]") : null;
         if (open) {
+          if (e.preventDefault) e.preventDefault();
           var el = document.getElementById(open.getAttribute("data-dayshadow-open"));
           if (el) { placeAll(); el.hidden = false; el.scrollTop = 0; }
           return;
@@ -291,6 +320,7 @@ function secretary_daily_tasks_html(
         <?php
     }
     ?>
+    <?php if ($showCard): ?>
     <article class="panel" style="margin-top:1rem;direction:rtl;text-align:right">
       <div style="display:flex;flex-wrap:wrap;gap:12px;align-items:center;justify-content:space-between;direction:rtl">
         <div>
@@ -301,11 +331,22 @@ function secretary_daily_tasks_html(
         <button type="button" class="btn btn-primary btn-sm" data-dayshadow-open="<?= e($shadowId) ?>">باز کردن فهرست</button>
       </div>
     </article>
+    <?php endif; ?>
     <div data-dayshadow id="<?= e($shadowId) ?>" dir="rtl"<?= $startOpen ? '' : ' hidden' ?>>
       <div class="dayshadow-card" role="dialog" aria-modal="true" aria-label="لیست انجام کارهای روزانه" dir="rtl">
         <button type="button" class="dayshadow-x" data-dayshadow-close aria-label="بستن">×</button>
         <div class="dayshadow-head">
           <h2>لیست انجام کارهای روزانه</h2>
+          <?php if (!$showCard && count($presence) > 1): ?>
+            <form method="get" action="" style="margin:0 0 10px">
+              <input type="hidden" name="open_tasks" value="1">
+              <select class="input" name="task_date" onchange="this.form.submit()" style="max-width:16rem">
+                <?php foreach ($presence as $day): ?>
+                  <option value="<?= e($day) ?>"<?= $day === $ymd ? ' selected' : '' ?>><?= e(secretary_daily_task_date_label($day)) ?></option>
+                <?php endforeach; ?>
+              </select>
+            </form>
+          <?php endif; ?>
           <dl class="dayshadow-meta">
             <div><dt>نام و نام خانوادگی</dt><dd><?= e($name) ?></dd></div>
             <div><dt>روز و تاریخ</dt><dd><?= e($dateLabel) ?></dd></div>
@@ -326,6 +367,7 @@ function secretary_daily_tasks_html(
                   <?= csrf_field() ?>
                   <input type="hidden" name="task_date" value="<?= e($ymd) ?>">
                   <input type="hidden" name="task_key" value="<?= e($key) ?>">
+                  <input type="hidden" name="return_to" value="<?= e($returnPath) ?>">
                   <input type="hidden" name="done" value="0">
                   <label>
                     <input type="checkbox" name="done" value="1"<?= $checked ? ' checked' : '' ?> onchange="this.form.submit()">
