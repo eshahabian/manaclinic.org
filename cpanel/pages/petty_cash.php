@@ -148,17 +148,27 @@ ob_start();
     <p class="muted" style="margin:0">موردی ثبت نشده است.</p>
   <?php else: ?>
     <?php foreach ($report['entries'] as $entry): ?>
-      <p style="margin:.55rem 0;line-height:1.7">
-        <strong><?= ($entry['kind'] ?? '') === 'IN' ? 'ورودی' : e((string) $entry['item_name']) ?></strong>
-        · <?= e(format_price((int) $entry['amount'])) ?>
-        <span class="muted">
-          · <?= e(to_jalali_label(substr((string) $entry['entry_date'], 0, 10))) ?>
-          · <?= e((string) $entry['created_by_name']) ?>
-          <?php if (!empty($entry['receipt_path'])): ?>
-            · <a href="<?= e(url('/petty-cash/receipt?id=' . rawurlencode((string) $entry['id']))) ?>" target="_blank" rel="noopener">رسید</a>
-          <?php endif; ?>
-        </span>
-      </p>
+      <div style="display:flex;gap:.75rem;align-items:flex-start;justify-content:space-between;margin:.55rem 0">
+        <p style="margin:0;line-height:1.7">
+          <strong><?= ($entry['kind'] ?? '') === 'IN' ? 'ورودی' : e((string) $entry['item_name']) ?></strong>
+          · <?= e(format_price((int) $entry['amount'])) ?>
+          <span class="muted">
+            · <?= e(to_jalali_label(substr((string) $entry['entry_date'], 0, 10))) ?>
+            · <?= e((string) $entry['created_by_name']) ?>
+            <?php if (!empty($entry['receipt_path'])): ?>
+              · <a href="<?= e(url('/petty-cash/receipt?id=' . rawurlencode((string) $entry['id']))) ?>" target="_blank" rel="noopener">رسید</a>
+            <?php endif; ?>
+          </span>
+        </p>
+        <form method="post" action="<?= e(url($cashPath)) ?>" onsubmit="return confirm('این مورد از تنخواه حذف شود؟')">
+          <?= csrf_field() ?>
+          <input type="hidden" name="action" value="delete">
+          <input type="hidden" name="id" value="<?= e((string) $entry['id']) ?>">
+          <input type="hidden" name="jy" value="<?= (int) $range['year'] ?>">
+          <input type="hidden" name="jm" value="<?= (int) $range['month'] ?>">
+          <button class="btn btn-outline" type="submit" style="padding:.35rem .7rem">حذف</button>
+        </form>
+      </div>
     <?php endforeach; ?>
   <?php endif; ?>
 </div>

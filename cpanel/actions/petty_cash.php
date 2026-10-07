@@ -18,6 +18,36 @@ $jm = (int) post('jm');
 $back = $cashPath . '?jy=' . $jy . '&jm=' . $jm;
 csrf_verify();
 
+if (post('action') === 'delete') {
+    $id = trim((string) post('id'));
+    if (!preg_match('/^[a-zA-Z0-9_-]{8,40}$/', $id)) {
+        flash_set('error', 'این مورد برای حذف پیدا نشد.');
+        redirect($back);
+    }
+    ensure_petty_cash_schema($pdo);
+    $stmt = $pdo->prepare('SELECT receipt_path FROM petty_cash_entries WHERE id=?');
+    $stmt->execute([$id]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        flash_set('error', 'این مورد دیگر در تنخواه نیست.');
+        redirect($back);
+    }
+    $pdo->prepare('DELETE FROM petty_cash_entries WHERE id=?')->execute([$id]);
+    $receipt = trim((string) ($row['receipt_path'] ?? ''));
+    if ($receipt !== '') {
+        $left = $pdo->prepare('SELECT COUNT(*) FROM petty_cash_entries WHERE receipt_path=?');
+        $left->execute([$receipt]);
+        if ((int) $left->fetchColumn() === 0) {
+            $abs = staff_receipt_abs($receipt);
+            if (is_file($abs)) {
+                unlink($abs);
+            }
+        }
+    }
+    flash_set('success', 'مورد از تنخواه حذف شد.');
+    redirect($back);
+}
+
 $kind = post('action') === 'in' ? 'IN' : (post('action') === 'out' ? 'OUT' : '');
 $date = petty_cash_parse_parts((int) post('entry_jy'), (int) post('entry_jm'), (int) post('entry_jd'));
 if ($date === null) {
