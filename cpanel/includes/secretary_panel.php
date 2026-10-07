@@ -39,6 +39,143 @@ function secretary_nav(): array
     return $nav;
 }
 
+function secretary_panel_daytasks_box($pdo, ?array $user): string
+{
+    if (!$user || !$pdo instanceof PDO || (string) ($user['role'] ?? '') !== 'SECRETARY') {
+        return '';
+    }
+    if (!function_exists('secretary_daily_task_catalog')) {
+        require_once __DIR__ . '/secretary_daily_tasks.php';
+    }
+    if (!function_exists('secretary_daily_task_catalog')) {
+        return '';
+    }
+
+    $ymd = date('Y-m-d');
+    $userId = (string) ($user['id'] ?? '');
+    $states = [];
+    try {
+        if (function_exists('secretary_daily_task_states')) {
+            $states = secretary_daily_task_states($pdo, $userId, $ymd);
+        }
+    } catch (Throwable $e) {
+        $states = [];
+    }
+    $editable = true;
+    try {
+        if (function_exists('secretary_daily_task_can_edit')) {
+            $editable = secretary_daily_task_can_edit($pdo, $userId, $ymd, true);
+        }
+    } catch (Throwable $e) {
+        $editable = true;
+    }
+
+    $name = trim((string) ($user['name'] ?? ''));
+    if ($name === '') {
+        $name = (string) ($user['username'] ?? 'منشی');
+    }
+    $done = 0;
+    $catalog = secretary_daily_task_catalog();
+    foreach ($catalog as $key => $_label) {
+        if (!empty($states[$key]['done'])) {
+            $done++;
+        }
+    }
+    $dateLabel = function_exists('secretary_daily_task_date_label') ? secretary_daily_task_date_label($ymd) : $ymd;
+    $postUrl = url('/secretary/daily-tasks');
+
+    ob_start();
+    ?>
+    <div id="daytasks-live" hidden style="display:none !important">
+      <div id="daytasks-card" style="position:relative;width:min(42rem,100%);max-height:calc(100vh - 32px);overflow:auto;background:#fff;color:#1a2e28;border-radius:16px;padding:18px 18px 20px;direction:rtl;text-align:right;box-shadow:0 18px 50px rgba(26,46,40,.28)">
+        <button type="button" data-daytasks-close aria-label="بستن" style="position:absolute;top:8px;left:8px;width:36px;height:36px;border:0;background:transparent;font-size:24px;line-height:1;cursor:pointer">×</button>
+        <h2 style="margin:0 0 12px;font-size:1.15rem">لیست انجام کارهای روزانه</h2>
+        <p style="margin:0 0 12px;line-height:1.7"><b><?= e($name) ?></b><br><?= e($dateLabel) ?><br>انجام‌شده <?= e(to_fa_digits((string) $done)) ?> از <?= e(to_fa_digits((string) count($catalog))) ?></p>
+        <?php $n = 0; foreach ($catalog as $key => $label): ?>
+          <?php $n++; $checked = !empty($states[$key]['done']); ?>
+          <div class="dayshadow-row" style="margin:0 0 8px;padding:10px 12px;border:1px solid #d5e0da;border-radius:12px;background:<?= $checked ? '#e8f6ee' : '#f7f5f0' ?>;line-height:1.75">
+            <?php if ($editable): ?>
+              <form class="daytask-form" method="post" action="<?= e($postUrl) ?>" onsubmit="return false" style="margin:0">
+                <?= csrf_field() ?>
+                <input type="hidden" name="task_date" value="<?= e($ymd) ?>">
+                <input type="hidden" name="task_key" value="<?= e($key) ?>">
+                <input type="hidden" name="done" value="0">
+                <label style="display:flex;flex-direction:row;gap:8px;align-items:flex-start;cursor:pointer">
+                  <input type="checkbox" name="done" value="1"<?= $checked ? ' checked' : '' ?>>
+                  <b><?= e(to_fa_digits((string) $n)) ?></b>
+                  <span><?= e($label) ?></span>
+                </label>
+              </form>
+            <?php else: ?>
+              <label style="display:flex;flex-direction:row;gap:8px;align-items:flex-start">
+                <input type="checkbox" disabled<?= $checked ? ' checked' : '' ?>>
+                <b><?= e(to_fa_digits((string) $n)) ?></b>
+                <span><?= e($label) ?></span>
+              </label>
+            <?php endif; ?>
+          </div>
+        <?php endforeach; ?>
+      </div>
+    </div>
+    <script>
+    (function(){
+      if (window.__daytasksNav) return;
+      window.__daytasksNav = true;
+      var box = document.getElementById("daytasks-live");
+      var card = document.getElementById("daytasks-card");
+      function hideBox(){
+        if (!box) return;
+        box.hidden = true;
+        box.style.setProperty("display", "none", "important");
+      }
+      function showBox(){
+        if (!box) return;
+        if (box.parentNode !== document.body) document.body.appendChild(box);
+        box.hidden = false;
+        box.style.setProperty("display", "flex", "important");
+        box.style.setProperty("position", "fixed", "important");
+        box.style.setProperty("top", "0", "important");
+        box.style.setProperty("right", "0", "important");
+        box.style.setProperty("bottom", "0", "important");
+        box.style.setProperty("left", "0", "important");
+        box.style.setProperty("z-index", "5000", "important");
+        box.style.setProperty("align-items", "center", "important");
+        box.style.setProperty("justify-content", "center", "important");
+        box.style.setProperty("padding", "16px", "important");
+        box.style.setProperty("background", "rgba(26,46,40,.55)", "important");
+        box.style.setProperty("direction", "rtl", "important");
+      }
+      if (card) card.addEventListener("click", function(ev){
+        var shut = ev.target.closest ? ev.target.closest("[data-daytasks-close]") : null;
+        if (shut) { hideBox(); return; }
+        ev.stopPropagation();
+      });
+      document.addEventListener("click", function(e){
+        var open = e.target.closest ? e.target.closest("[data-daytasks-open]") : null;
+        if (open) {
+          if (e.preventDefault) e.preventDefault();
+          if (box && box.style.display === "flex") hideBox();
+          else showBox();
+          return;
+        }
+        if (e.target === box) hideBox();
+      });
+      document.addEventListener("change", function(e){
+        var input = e.target;
+        if (!input || !input.form || !input.form.classList || !input.form.classList.contains("daytask-form")) return;
+        var form = input.form;
+        var data = new FormData(form);
+        data.set("done", input.checked ? "1" : "0");
+        fetch(form.action, {method:"POST", body:data, credentials:"same-origin", headers:{"X-Requested-With":"XMLHttpRequest","Accept":"application/json"}})
+          .then(function(r){ if (!r.ok) throw new Error(); return r.json(); })
+          .catch(function(){ input.checked = !input.checked; });
+      });
+    })();
+    </script>
+    <?php
+    return (string) ob_get_clean();
+}
+
 function render_secretary_page(string $title, string $innerHtml): void
 {
     global $pageScripts, $pageHead, $pdo;
@@ -101,76 +238,15 @@ function render_secretary_page(string $title, string $innerHtml): void
       </aside>
       <div class="panel-main"><?= $innerHtml ?></div>
     </div>
-    <?php if ($user && $pdo instanceof PDO && (string) ($user['role'] ?? '') === 'SECRETARY'): ?>
     <?php
-        require_once __DIR__ . '/secretary_daily_tasks.php';
-        $taskDate = date('Y-m-d');
-        $taskUserId = (string) ($user['id'] ?? '');
-    ?>
-    <div id="daytasks-live" style="display:none !important">
-      <div id="daytasks-card" style="position:relative;width:min(42rem,100%);max-height:calc(100vh - 32px);overflow:auto;background:#fff;color:#1a2e28;border-radius:16px;padding:18px 18px 20px;direction:rtl;text-align:right;box-shadow:0 18px 50px rgba(26,46,40,.28)">
-        <?= secretary_daily_tasks_fragment($pdo, $user, $taskDate, secretary_daily_task_can_edit($pdo, $taskUserId, $taskDate, true), url('/secretary/daily-tasks')) ?>
-      </div>
-    </div>
-    <script>
-    (function(){
-      if (window.__daytasksNav) return;
-      window.__daytasksNav = true;
-      var box = document.getElementById("daytasks-live");
-      var card = document.getElementById("daytasks-card");
-      if (card) card.addEventListener("click", function(ev){
-        var shut = ev.target.closest ? ev.target.closest("[data-daytasks-close]") : null;
-        if (shut) { hideBox(); return; }
-        ev.stopPropagation();
-      });
-      function hideBox(){
-        if (!box) return;
-        box.style.setProperty("display", "none", "important");
-      }
-      function showBox(){
-        if (!box) return;
-        if (box.parentNode !== document.body) document.body.appendChild(box);
-        box.style.setProperty("display", "flex", "important");
-        box.style.setProperty("position", "fixed", "important");
-        box.style.setProperty("top", "0", "important");
-        box.style.setProperty("right", "0", "important");
-        box.style.setProperty("bottom", "0", "important");
-        box.style.setProperty("left", "0", "important");
-        box.style.setProperty("z-index", "5000", "important");
-        box.style.setProperty("align-items", "center", "important");
-        box.style.setProperty("justify-content", "center", "important");
-        box.style.setProperty("padding", "16px", "important");
-        box.style.setProperty("background", "rgba(26,46,40,.55)", "important");
-        box.style.setProperty("direction", "rtl", "important");
-      }
-      document.addEventListener("click", function(e){
-        var open = e.target.closest ? e.target.closest("[data-daytasks-open]") : null;
-        if (open) {
-          if (e.preventDefault) e.preventDefault();
-          if (box && box.style.display === "flex") hideBox();
-          else showBox();
-          return;
+    $bufferLevel = ob_get_level();
+    try {
+        echo secretary_panel_daytasks_box($pdo, is_array($user) ? $user : null);
+    } catch (Throwable $e) {
+        while (ob_get_level() > $bufferLevel) {
+            ob_end_clean();
         }
-        if (e.target === box) hideBox();
-        var shut = e.target.closest ? e.target.closest("[data-daytasks-close]") : null;
-        if (shut) hideBox();
-      });
-      document.addEventListener("change", function(e){
-        var input = e.target;
-        if (!input || !input.form || !input.form.classList || !input.form.classList.contains("daytask-form")) return;
-        var form = input.form;
-        var data = new FormData(form);
-        data.set("done", input.checked ? "1" : "0");
-        var row = form.closest(".dayshadow-row");
-        fetch(form.action, {method:"POST", body:data, credentials:"same-origin", headers:{"X-Requested-With":"XMLHttpRequest","Accept":"application/json"}})
-          .then(function(r){ if (!r.ok) throw new Error(); return r.json(); })
-          .then(function(){ if (row) row.classList.toggle("is-done", !!input.checked); })
-          .catch(function(){ input.checked = !input.checked; });
-      });
-    })();
-    </script>
-    <?php endif; ?>
-    <?php
+    }
     $content = ob_get_clean();
     require __DIR__ . '/layout.php';
 }
