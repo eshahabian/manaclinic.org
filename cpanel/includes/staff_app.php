@@ -517,6 +517,21 @@ function staff_app_render(string $active, string $title, string $description, st
     $name = trim((string) ($user['name'] ?? ''));
     $role = (string) ($user['role'] ?? '');
     $isSecretary = $role === 'SECRETARY';
+    $avatarSrc = '';
+    $avatarInitial = 'م';
+    if ($user && !$locked && $pdo instanceof PDO) {
+        if (!function_exists('user_hydrate_session_avatar')) {
+            require_once __DIR__ . '/user_avatar.php';
+        }
+        $fresh = user_hydrate_session_avatar($pdo, $user);
+        if (is_array($fresh)) {
+            $user = $fresh;
+            $name = trim((string) ($user['name'] ?? $name));
+        }
+        $avatarSrc = user_avatar_src((string) ($user['avatar_url'] ?? ''));
+        $avatarInitial = user_avatar_initial($name !== '' ? $name : 'م');
+    }
+    $navKey = $active === 'chat' ? 'chat' : ($active === 'profile' ? 'profile' : 'home');
     header('X-Robots-Tag: noindex, nofollow');
     ?>
 <!DOCTYPE html>
@@ -532,29 +547,50 @@ function staff_app_render(string $active, string $title, string $description, st
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20261008staff">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20261008staff2">
   <?php if (!empty($GLOBALS['pageHead'])): ?>
     <?= $GLOBALS['pageHead'] ?>
   <?php endif; ?>
   <style>
-    body.sapp{margin:0;background:var(--bg);color:var(--fg);font-family:Vazirmatn,Tahoma,sans-serif}
-    .sapp-top{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;background:var(--header-bg);border-bottom:1px solid var(--line);backdrop-filter:blur(12px)}
-    .sapp-brand{display:flex;align-items:center;gap:8px;font-weight:800;color:inherit;text-decoration:none}
-    .sapp-brand img{width:32px;height:32px;border-radius:8px}
-    .sapp-user{display:flex;align-items:center;gap:8px;min-width:0}
-    .sapp-user span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:9rem;color:var(--muted);font-size:.85rem}
-    .sapp-main{max-width:52rem;margin:0 auto;padding:16px 16px 128px}
-    .sapp-main h1{margin:0 0 .35rem;font-size:1.35rem}
-    .sapp-flash{margin:0 0 12px;padding:10px 12px;border-radius:12px;background:var(--bg-soft)}
-    .sapp-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-top:14px}
-    .sapp-card{display:flex;flex-direction:column;gap:4px;padding:14px;border:1px solid var(--line);border-radius:16px;background:var(--card);text-decoration:none;color:inherit}
-    .sapp-card strong{font-size:1.02rem}
-    .sapp-card span{color:var(--muted);font-size:.82rem;line-height:1.6}
-    .sapp-nav{position:fixed;right:0;left:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(3,1fr);gap:4px;padding:8px 8px calc(8px + env(safe-area-inset-bottom));background:var(--header-bg);border-top:1px solid var(--line)}
-    .sapp-nav a{display:flex;align-items:center;justify-content:center;gap:4px;min-height:40px;border-radius:12px;text-decoration:none;color:var(--fg);font-size:.82rem;font-weight:700}
-    .sapp-nav a.is-active{background:var(--primary);color:#fff}
-    .sapp-badge{display:inline-flex;min-width:1.2rem;height:1.2rem;padding:0 4px;border-radius:999px;background:#b33a3a;color:#fff;font-size:.72rem;align-items:center;justify-content:center}
-    .sapp-nav a.is-active .sapp-badge{background:#fff;color:var(--primary)}
+    body.sapp{margin:0;background:#f3f6f4;color:#1c3d36;font-family:Vazirmatn,Tahoma,sans-serif}
+    .sapp-top{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px 8px;background:#f3f6f4;direction:ltr}
+    .sapp-grid,.sapp-nav{direction:ltr}
+    .sapp-brand{display:flex;align-items:center;gap:8px;color:#1c3d36;text-decoration:none;font-weight:800;font-size:1.05rem}
+    .sapp-brand img{width:36px;height:36px;border-radius:12px;background:#128f84;object-fit:cover}
+    .sapp-tools{display:flex;align-items:center;gap:8px}
+    .sapp-avatar{width:38px;height:38px;border-radius:999px;background:#e7eeeb;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;color:#1c3d36;font-weight:800;border:2px solid #fff;box-shadow:0 2px 8px rgba(20,60,50,.08);text-decoration:none}
+    .sapp-avatar img{width:100%;height:100%;object-fit:cover;display:block}
+    .sapp-logout{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:0 14px;border-radius:999px;background:#1a9a8a;color:#fff;text-decoration:none;font-weight:800;font-size:.92rem}
+    .sapp-main{max-width:32rem;margin:0 auto;padding:8px 16px 132px}
+    .sapp-hello h1{margin:8px 0 2px;font-size:1.28rem;font-weight:800;line-height:1.45;color:#1c3d36}
+    .sapp-hello p{margin:0 0 14px;color:#8aa099;font-size:.92rem}
+    .sapp-main h1{margin:0 0 .35rem;font-size:1.28rem;color:#1c3d36}
+    .sapp-flash{margin:0 0 12px;padding:10px 12px;border-radius:12px;background:#e7f6f3}
+    .sapp-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+    .sapp-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:148px;padding:16px 10px;border-radius:22px;background:#fff;text-decoration:none;color:#1c3d36;box-shadow:0 10px 28px rgba(28,70,58,.06)}
+    .sapp-tile strong{font-size:1.02rem;font-weight:800}
+    .sapp-tile em{font-style:normal;color:#9aaba4;font-size:.78rem}
+    .sapp-ico{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center}
+    .sapp-ico svg{width:28px;height:28px}
+    .sapp-ico-blue{background:#e7f3fb;color:#3d8fd4}
+    .sapp-ico-green{background:#e7f6ee;color:#3aaa78}
+    .sapp-ico-purple{background:#f3eefb;color:#8b72d6}
+    .sapp-ico-amber{background:#fff4e8;color:#e0a15a}
+    .sapp-ico-pink{background:#fdeef3;color:#e07a9a}
+    .sapp-ico-red{background:#fdeeee;color:#e07070}
+    .sapp-nav{position:fixed;right:0;left:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(3,1fr);padding:6px 8px calc(8px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid #e6eeea}
+    .sapp-nav a{display:flex;flex-direction:column;align-items:center;gap:1px;text-decoration:none;color:#8aa099;font-size:.78rem;font-weight:700}
+    .sapp-nav a.is-active{color:#159688}
+    .sapp-nav-ico{width:46px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:14px}
+    .sapp-nav a.is-active .sapp-nav-ico{background:#e7f6f3}
+    .sapp-nav svg{width:22px;height:22px}
+    .sapp-badge{position:absolute;top:2px;left:50%;transform:translateX(-18px);min-width:1.1rem;height:1.1rem;padding:0 4px;border-radius:999px;background:#e07070;color:#fff;font-size:.68rem;display:inline-flex;align-items:center;justify-content:center}
+    .sapp-nav a{position:relative}
+    .sapp-fab{position:fixed;z-index:31;right:18px;bottom:calc(76px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:8px;color:#1c3d36;text-decoration:none;font-weight:800;font-size:.92rem}
+    .sapp-fab-btn{width:54px;height:54px;border-radius:999px;background:#1a9a8a;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 22px rgba(26,154,138,.35)}
+    .sapp-fab-btn svg{width:26px;height:26px}
+    .sapp-profile{display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:18px;padding:22px 16px;border-radius:22px;background:#fff;box-shadow:0 10px 28px rgba(28,70,58,.06)}
+    .sapp-profile .sapp-avatar{width:72px;height:72px;font-size:1.6rem}
     .sapp-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
     .sapp-row{padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
     .sapp-row small{display:block;margin-top:4px;color:var(--muted)}
@@ -564,22 +600,28 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-msg.is-mine{background:var(--card);border:1px solid var(--primary)}
     .sapp-msg img{display:block;max-width:min(100%,18rem);margin-top:8px;border-radius:10px}
     .sapp-compose{display:flex;flex-direction:column;gap:8px;margin-top:12px}
-    @media (max-width:720px){.sapp-grid{grid-template-columns:1fr}}
+    body.sapp{padding:0}
   </style>
 </head>
 <body class="sapp"<?= $user ? ' data-session-guard="1" data-session-ping="' . e(url('/session/ping')) . '" data-logout="' . e(url('/logout')) . '"' : '' ?><?= $isSecretary ? ' data-secretary-desk="1" data-no-idle="1" data-heartbeat="' . e(url('/secretary/heartbeat')) . '"' : '' ?>>
   <header class="sapp-top">
     <a class="sapp-brand" href="<?= e(url('/app')) ?>">
-      <img src="<?= e(url('/assets/img/logo.png')) ?>" alt="" width="32" height="32">
-      مانا کارکنان
+      <img src="<?= e(url('/assets/img/logo.png')) ?>" alt="" width="36" height="36">
+      Mana Staff
     </a>
-    <?php if ($user && !$locked): ?>
-      <div class="sapp-user">
-        <span><?= e($name !== '' ? $name : staff_app_role_label($role)) ?></span>
-        <a class="btn btn-outline btn-sm" href="<?= e(url('/logout')) ?>">خروج</a>
+    <?php if ($user): ?>
+      <div class="sapp-tools">
+        <?php if (!$locked): ?>
+          <a class="sapp-avatar" href="<?= e(url('/app/profile')) ?>" aria-label="پروفایل">
+            <?php if ($avatarSrc !== ''): ?>
+              <img src="<?= e(url($avatarSrc)) ?>" alt="" width="38" height="38">
+            <?php else: ?>
+              <?= e($avatarInitial) ?>
+            <?php endif; ?>
+          </a>
+        <?php endif; ?>
+        <a class="sapp-logout" href="<?= e(url('/logout')) ?>">خروج</a>
       </div>
-    <?php elseif ($user): ?>
-      <a class="btn btn-outline btn-sm" href="<?= e(url('/logout')) ?>">خروج</a>
     <?php endif; ?>
   </header>
   <main class="sapp-main">
@@ -588,17 +630,29 @@ function staff_app_render(string $active, string $title, string $description, st
     <?php endif; ?>
     <?= $html ?>
   </main>
+  <?php if (!$locked && $active === 'home'): ?>
+    <a class="sapp-fab" href="<?= e(url('/app/chat')) ?>#sapp-new-chat">
+      <span class="sapp-fab-btn" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17.5 4 20V6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8A2.5 2.5 0 0 1 17.5 17H7z"/><path d="M8 9h8M8 12.5h5"/></svg>
+      </span>
+      <span>چت جدید</span>
+    </a>
+  <?php endif; ?>
   <?php if (!$locked): ?>
     <nav class="sapp-nav" aria-label="بخش‌های برنامه">
-      <?php foreach (staff_app_sections() as $key => $item): ?>
-        <?php if ($key === 'home') { continue; } ?>
-        <a class="<?= $active === $key ? 'is-active' : '' ?>" href="<?= e(url((string) $item['href'])) ?>">
-          <?= e((string) $item['label']) ?>
-          <?php if ($key === 'chat' && $unread > 0): ?>
-            <span class="sapp-badge"><?= e(to_fa_digits((string) $unread)) ?></span>
-          <?php endif; ?>
-        </a>
-      <?php endforeach; ?>
+      <a class="<?= $navKey === 'home' ? 'is-active' : '' ?>" href="<?= e(url('/app')) ?>">
+        <span class="sapp-nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5z"/></svg></span>
+        خانه
+      </a>
+      <a class="<?= $navKey === 'chat' ? 'is-active' : '' ?>" href="<?= e(url('/app/chat')) ?>">
+        <span class="sapp-nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17.5 4 20V6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8A2.5 2.5 0 0 1 17.5 17H7z"/></svg></span>
+        گفتگو
+        <?php if ($unread > 0): ?><span class="sapp-badge"><?= e(to_fa_digits((string) $unread)) ?></span><?php endif; ?>
+      </a>
+      <a class="<?= $navKey === 'profile' ? 'is-active' : '' ?>" href="<?= e(url('/app/profile')) ?>">
+        <span class="sapp-nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5.5 19.2a6.5 6.5 0 0 1 13 0"/></svg></span>
+        پروفایل
+      </a>
     </nav>
   <?php endif; ?>
   <?php if ($user): ?>

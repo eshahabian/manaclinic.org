@@ -9,6 +9,7 @@ $path = (string) ($GLOBALS['path'] ?? '/app');
 $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 $userId = (string) ($user['id'] ?? '');
 $role = (string) ($user['role'] ?? '');
+$name = trim((string) ($user['name'] ?? ''));
 
 if (preg_match('#^/app/file/([a-f0-9]{24})$#', $path, $m)) {
     if ($method !== 'GET') {
@@ -150,6 +151,7 @@ $section = match ($path) {
     '/app/hours' => 'hours',
     '/app/checklist' => 'checklist',
     '/app/complaints' => 'complaints',
+    '/app/profile' => 'profile',
     default => '',
 };
 
@@ -167,32 +169,51 @@ $descriptions = [
     'hours' => 'ساعت ورود و خروج منشی‌های مانا کلینیک و مدت حضور هر روز.',
     'checklist' => 'چک‌لیست کارهای روزانه منشی‌ها در کلینیک مانا.',
     'complaints' => 'ثبت و دیدن شکایت مراجع از جلسه درمانگر در برنامه داخلی مانا.',
+    'profile' => 'پروفایل درمانگر یا منشی در برنامه داخلی مانا کلینیک.',
 ];
 
 if ($section === 'home') {
-    $unread = staff_app_unread_count($pdo, $userId);
-    $cards = [
-        ['/app/appointments', 'وقت‌ها', 'نوبت‌های امروز و روزهای پیش‌رو'],
-        ['/app/rooms', 'شرایط اتاق‌ها', 'کدام اتاق الان پر است و بعدی کیست'],
-        ['/app/chat', 'چت', $unread > 0 ? to_fa_digits((string) $unread) . ' پیام تازه' : 'چت کلی یا اتاق جدا، همراه فایل'],
-        ['/app/hours', 'ساعت کار منشی‌ها', 'ورود، خروج و مدت حضور'],
-        ['/app/checklist', 'چک‌لیست منشی‌ها', 'کارهای روزانه و تیک انجام'],
-        ['/app/complaints', 'شکایت‌ها', 'شکایت مراجع از جلسه'],
-    ];
+    $hello = $name !== '' ? $name : staff_app_role_label($role);
     ob_start();
     ?>
-    <h1>برنامه داخلی</h1>
-    <p class="muted">فقط برای درمانگرها و منشی‌ها. همین شش بخش اینجاست.</p>
+    <div class="sapp-hello">
+      <h1>خوش آمدید، <?= e($hello) ?></h1>
+      <p>داشبورد مدیریتی</p>
+    </div>
     <div class="sapp-grid">
-      <?php foreach ($cards as $card): ?>
-        <a class="sapp-card" href="<?= e(url($card[0])) ?>">
-          <strong><?= e($card[1]) ?></strong>
-          <span><?= e($card[2]) ?></span>
-        </a>
-      <?php endforeach; ?>
+      <a class="sapp-tile" href="<?= e(url('/app/appointments')) ?>">
+        <span class="sapp-ico sapp-ico-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3.5V7M16 3.5V7M4 10h16"/></svg></span>
+        <strong>وقت‌ها</strong>
+        <em>Daily Schedule</em>
+      </a>
+      <a class="sapp-tile" href="<?= e(url('/app/rooms')) ?>">
+        <span class="sapp-ico sapp-ico-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 20V6.5A2.5 2.5 0 0 1 8.5 4H18v16"/><path d="M6 20h12"/><path d="M10 12h.01"/></svg></span>
+        <strong>شرایط اتاق‌ها</strong>
+        <em>Availability</em>
+      </a>
+      <a class="sapp-tile" href="<?= e(url('/app/chat')) ?>">
+        <span class="sapp-ico sapp-ico-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16.5 4 19V7.2A2.2 2.2 0 0 1 6.2 5h7.2A2.2 2.2 0 0 1 15.6 7.2V12a2.2 2.2 0 0 1-2.2 2.2H6z"/><path d="M10 16.2h5.6A2.2 2.2 0 0 0 17.8 14V9.2L20 11.2V17a2 2 0 0 1-2 2h-6.2"/></svg></span>
+        <strong>چت کلینیک</strong>
+        <em>Team Messaging</em>
+      </a>
+      <a class="sapp-tile" href="<?= e(url('/app/hours')) ?>">
+        <span class="sapp-ico sapp-ico-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4.2l2.6 1.6"/><path d="M16.5 16.8l1.2 1.2"/></svg></span>
+        <strong>ساعت کاری</strong>
+        <em>Shifts &amp; Records</em>
+      </a>
+      <a class="sapp-tile" href="<?= e(url('/app/checklist')) ?>">
+        <span class="sapp-ico sapp-ico-pink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="16" rx="3"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg></span>
+        <strong>چک‌لیست</strong>
+        <em>Daily Tasks</em>
+      </a>
+      <a class="sapp-tile" href="<?= e(url('/app/complaints')) ?>">
+        <span class="sapp-ico sapp-ico-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5 20 19H4L12 4.5z"/><path d="M12 10v4.2"/><path d="M12 16.8h.01"/></svg></span>
+        <strong>شکایات</strong>
+        <em>Feedback</em>
+      </a>
     </div>
     <?php
-    staff_app_render('home', 'برنامه داخلی', $descriptions['home'], ob_get_clean());
+    staff_app_render('home', 'Mana Staff', $descriptions['home'], ob_get_clean());
     exit;
 }
 
@@ -370,7 +391,7 @@ if ($section === 'chat') {
                 </a>
               <?php endforeach; ?>
             </div>
-            <form class="sapp-compose panel" method="post" action="<?= e(url('/app/chat')) ?>">
+            <form class="sapp-compose panel" id="sapp-new-chat" method="post" action="<?= e(url('/app/chat')) ?>">
               <?= csrf_field() ?>
               <input type="hidden" name="form" value="create">
               <h2 style="margin:0;font-size:1.05rem">اتاق تازه</h2>
@@ -470,6 +491,23 @@ if ($section === 'checklist') {
     <?php endforeach; ?>
     <?php
     staff_app_render('checklist', 'چک‌لیست منشی‌ها', $descriptions['checklist'], ob_get_clean());
+    exit;
+}
+
+if ($section === 'profile') {
+    $hello = $name !== '' ? $name : staff_app_role_label($role);
+    ob_start();
+    ?>
+    <div class="sapp-hello">
+      <h1><?= e($hello) ?></h1>
+      <p><?= e(staff_app_role_label($role)) ?></p>
+    </div>
+    <div class="sapp-profile">
+      <p style="margin:0;font-weight:800">همین حساب برای وقت‌ها، اتاق‌ها، چت، ساعت کار، چک‌لیست و شکایات است.</p>
+      <a class="sapp-logout" href="<?= e(url('/logout')) ?>">خروج</a>
+    </div>
+    <?php
+    staff_app_render('profile', 'پروفایل', $descriptions['profile'], ob_get_clean());
     exit;
 }
 
