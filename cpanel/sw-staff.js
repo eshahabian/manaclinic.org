@@ -1,5 +1,6 @@
-/* Staff app service worker. Network-only so Chrome can install the app.
-   Authenticated HTML is not cached. */
+/* Staff app service worker. Network-only so the installed app can open.
+   Do not pass a second options object to fetch(request): that throws and
+   blanks every page this worker controls. */
 self.addEventListener('install', function (event) {
   event.waitUntil(self.skipWaiting());
 });
@@ -16,11 +17,5 @@ self.addEventListener('fetch', function (event) {
   if (request.cache === 'only-if-cached' && request.mode !== 'same-origin') {
     return;
   }
-  if (request.mode === 'navigate') {
-    event.respondWith(fetch(request.url, { cache: 'no-store', credentials: 'include', redirect: 'follow' }));
-    return;
-  }
-  event.respondWith(fetch(request, { cache: 'no-store' }).catch(function () {
-    return fetch(request);
-  }));
+  event.respondWith(fetch(request));
 });
