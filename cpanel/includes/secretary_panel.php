@@ -86,10 +86,10 @@ function secretary_panel_daytasks_box($pdo, ?array $user): string
 
     ob_start();
     ?>
-    <div id="daytasks-live" hidden style="display:none !important">
-      <div id="daytasks-card" style="position:relative;width:min(42rem,100%);max-height:calc(100vh - 32px);overflow:auto;background:#fff;color:#1a2e28;border-radius:16px;padding:18px 18px 20px;direction:rtl;text-align:right;box-shadow:0 18px 50px rgba(26,46,40,.28)">
-        <button type="button" data-daytasks-close aria-label="بستن" style="position:absolute;top:8px;left:8px;width:36px;height:36px;border:0;background:transparent;font-size:24px;line-height:1;cursor:pointer">×</button>
-        <h2 style="margin:0 0 12px;font-size:1.15rem">لیست انجام کارهای روزانه</h2>
+    <style>#daytasks-live::backdrop{background:rgba(26,46,40,.55)}</style>
+    <dialog id="daytasks-live" style="width:min(42rem,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;margin:auto;border:0;border-radius:16px;padding:18px 18px 20px;background:#fff;color:#1a2e28;direction:rtl;text-align:right;box-shadow:0 18px 50px rgba(26,46,40,.28)">
+        <button type="button" aria-label="بستن" onclick="document.getElementById('daytasks-live').close()" style="position:absolute;top:8px;left:8px;width:36px;height:36px;border:0;background:transparent;font-size:24px;line-height:1;cursor:pointer">×</button>
+        <h2 style="margin:0 28px 12px 0;font-size:1.15rem">لیست انجام کارهای روزانه</h2>
         <p style="margin:0 0 12px;line-height:1.7"><b><?= e($name) ?></b><br><?= e($dateLabel) ?><br>انجام‌شده <?= e(to_fa_digits((string) $done)) ?> از <?= e(to_fa_digits((string) count($catalog))) ?></p>
         <?php $n = 0; foreach ($catalog as $key => $label): ?>
           <?php $n++; $checked = !empty($states[$key]['done']); ?>
@@ -115,51 +115,17 @@ function secretary_panel_daytasks_box($pdo, ?array $user): string
             <?php endif; ?>
           </div>
         <?php endforeach; ?>
-      </div>
-    </div>
+    </dialog>
     <script>
     (function(){
-      if (window.__daytasksNav) return;
-      window.__daytasksNav = true;
       var box = document.getElementById("daytasks-live");
-      var card = document.getElementById("daytasks-card");
-      function hideBox(){
-        if (!box) return;
-        box.hidden = true;
-        box.style.setProperty("display", "none", "important");
+      if (box && !box.dataset.bound) {
+        box.dataset.bound = "1";
+        box.addEventListener("click", function(e){
+          var r = box.getBoundingClientRect();
+          if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) box.close();
+        });
       }
-      function showBox(){
-        if (!box) return;
-        if (box.parentNode !== document.body) document.body.appendChild(box);
-        box.hidden = false;
-        box.style.setProperty("display", "flex", "important");
-        box.style.setProperty("position", "fixed", "important");
-        box.style.setProperty("top", "0", "important");
-        box.style.setProperty("right", "0", "important");
-        box.style.setProperty("bottom", "0", "important");
-        box.style.setProperty("left", "0", "important");
-        box.style.setProperty("z-index", "5000", "important");
-        box.style.setProperty("align-items", "center", "important");
-        box.style.setProperty("justify-content", "center", "important");
-        box.style.setProperty("padding", "16px", "important");
-        box.style.setProperty("background", "rgba(26,46,40,.55)", "important");
-        box.style.setProperty("direction", "rtl", "important");
-      }
-      if (card) card.addEventListener("click", function(ev){
-        var shut = ev.target.closest ? ev.target.closest("[data-daytasks-close]") : null;
-        if (shut) { hideBox(); return; }
-        ev.stopPropagation();
-      });
-      document.addEventListener("click", function(e){
-        var open = e.target.closest ? e.target.closest("[data-daytasks-open]") : null;
-        if (open) {
-          if (e.preventDefault) e.preventDefault();
-          if (box && box.style.display === "flex") hideBox();
-          else showBox();
-          return;
-        }
-        if (e.target === box) hideBox();
-      });
       document.addEventListener("change", function(e){
         var input = e.target;
         if (!input || !input.form || !input.form.classList || !input.form.classList.contains("daytask-form")) return;
@@ -210,7 +176,7 @@ function render_secretary_page(string $title, string $innerHtml): void
               $active = !$tasks && $href !== '' && str_contains($currentPath, $href);
           ?>
             <?php if ($tasks): ?>
-            <a href="#" data-daytasks-open="1">
+            <a href="#" onclick="event.preventDefault();var d=document.getElementById('daytasks-live');if(!d)return false;if(d.parentNode!==document.body)document.body.appendChild(d);if(d.open)d.close();else d.showModal();return false;">
             <?php else: ?>
             <a class="<?= $active ? 'is-active' : '' ?>" href="<?= e(url($href)) ?>">
             <?php endif; ?>
