@@ -427,7 +427,101 @@ function secretary_daily_tasks_html(
 
 function secretary_daily_tasks_page_html(PDO $pdo, array $secretary, string $ymd, bool $editable, string $postUrl): string
 {
-    return secretary_daily_tasks_html($pdo, $secretary, $ymd, $editable, $postUrl, true);
+    return secretary_daily_tasks_sheet_html($pdo, $secretary, $ymd, $editable, $postUrl);
+}
+
+function secretary_daily_tasks_sheet_html(PDO $pdo, array $secretary, string $ymd, bool $editable, string $postUrl): string
+{
+    try {
+        $states = secretary_daily_task_states($pdo, (string) ($secretary['id'] ?? ''), $ymd);
+    } catch (Throwable $e) {
+        $states = [];
+    }
+    $progress = secretary_daily_task_progress($states);
+    $name = trim((string) ($secretary['name'] ?? ''));
+    if ($name === '') {
+        $name = (string) ($secretary['username'] ?? 'منشی');
+    }
+    $doneCount = to_fa_digits((string) $progress['done']);
+    $totalCount = to_fa_digits((string) $progress['total']);
+    $dateLabel = secretary_daily_task_date_label($ymd);
+    ob_start();
+    ?>
+    <div style="max-width:42rem;margin:0 auto;background:#fff;color:#1a2e28;border:1px solid #d5e0da;border-radius:16px;box-shadow:0 18px 50px rgba(26,46,40,.18);direction:rtl;text-align:right;overflow:hidden">
+      <div style="padding:16px 18px 10px;border-bottom:1px solid #d5e0da">
+        <h1 style="margin:0 0 12px;font-size:1.15rem">لیست انجام کارهای روزانه</h1>
+        <p style="margin:0;line-height:1.7"><b><?= e($name) ?></b><br><?= e($dateLabel) ?><br>انجام‌شده <span id="day-sheet-done"><?= e($doneCount) ?></span> از <?= e($totalCount) ?></p>
+      </div>
+      <div style="padding:12px 14px 20px">
+        <?php $n = 0; foreach (secretary_daily_task_catalog() as $key => $label): ?>
+          <?php
+            $n++;
+            $checked = !empty($states[$key]['done']);
+            $doneAt = (string) ($states[$key]['done_at'] ?? '');
+            $timeLabel = ($checked && $doneAt !== '') ? format_fa_time($doneAt) : '';
+          ?>
+          <div data-day-row style="margin:0 0 8px;padding:10px 12px;border:1px solid <?= $checked ? '#b7e0c6' : '#d5e0da' ?>;border-radius:12px;background:<?= $checked ? '#e8f6ee' : '#f7f5f0' ?>;line-height:1.75">
+            <?php if ($editable): ?>
+              <form class="daytask-form" method="post" action="<?= e($postUrl) ?>" onsubmit="return false" style="margin:0">
+                <?= csrf_field() ?>
+                <input type="hidden" name="task_date" value="<?= e($ymd) ?>">
+                <input type="hidden" name="task_key" value="<?= e($key) ?>">
+                <input type="hidden" name="done" value="0">
+                <label style="display:flex;gap:10px;align-items:flex-start;cursor:pointer">
+                  <input type="checkbox" name="done" value="1" style="margin-top:6px;width:18px;height:18px;flex:none"<?= $checked ? ' checked' : '' ?>>
+                  <span style="flex:1;min-width:0">
+                    <span style="display:block"><b><?= e(to_fa_digits((string) $n)) ?></b> <?= e($label) ?></span>
+                    <small class="daytask-time" style="display:<?= $timeLabel === '' ? 'none' : 'block' ?>;margin-top:4px;color:#1f6b45;font-size:.82rem;font-weight:700"><?= $timeLabel !== '' ? 'ساعت تیک: ' . e($timeLabel) : '' ?></small>
+                  </span>
+                </label>
+              </form>
+            <?php else: ?>
+              <label style="display:flex;gap:10px;align-items:flex-start">
+                <input type="checkbox" disabled style="margin-top:6px;width:18px;height:18px;flex:none"<?= $checked ? ' checked' : '' ?>>
+                <span style="flex:1;min-width:0">
+                  <span style="display:block"><b><?= e(to_fa_digits((string) $n)) ?></b> <?= e($label) ?></span>
+                  <?php if ($timeLabel !== ''): ?><small style="display:block;margin-top:4px;color:#1f6b45;font-size:.82rem;font-weight:700">ساعت تیک: <?= e($timeLabel) ?></small><?php endif; ?>
+                </span>
+              </label>
+            <?php endif; ?>
+          </div>
+        <?php endforeach; ?>
+      </div>
+    </div>
+    <?php if ($editable): ?>
+    <script>
+    (function(){
+      function faDigits(n){ return String(n).replace(/\d/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹"[d]; }); }
+      document.addEventListener("change", function(e){
+        var input = e.target;
+        if (!input || !input.form || !input.form.classList || !input.form.classList.contains("daytask-form")) return;
+        var form = input.form;
+        var data = new FormData(form);
+        data.set("done", input.checked ? "1" : "0");
+        var row = form.closest("[data-day-row]");
+        var time = form.querySelector(".daytask-time");
+        fetch(form.action, {method:"POST", body:data, credentials:"same-origin", headers:{"X-Requested-With":"XMLHttpRequest","Accept":"application/json"}})
+          .then(function(r){ if (!r.ok) throw new Error(); return r.json(); })
+          .then(function(res){
+            var on = !!input.checked && !!(res && res.time);
+            if (row) {
+              row.style.background = on ? "#e8f6ee" : "#f7f5f0";
+              row.style.borderColor = on ? "#b7e0c6" : "#d5e0da";
+            }
+            if (time) {
+              time.style.display = on ? "block" : "none";
+              time.textContent = on ? "ساعت تیک: " + res.time : "";
+            }
+            var count = document.getElementById("day-sheet-done");
+            if (count) count.textContent = faDigits(document.querySelectorAll('.daytask-form input[type="checkbox"]:checked').length);
+          })
+          .catch(function(){ input.checked = !input.checked; });
+      });
+    })();
+    </script>
+    <?php endif; ?>
+    <?php
+    return (string) ob_get_clean();
 }
 function secretary_daily_tasks_fragment(PDO $pdo, array $secretary, string $ymd, bool $editable, string $postUrl): string
 {
