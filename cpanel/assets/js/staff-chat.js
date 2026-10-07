@@ -684,10 +684,48 @@
     window.addEventListener("pageshow", pullLive);
   }
 
+  document.body.classList.add("is-thread");
+  var typeField = document.getElementById("chat-body");
+
+  function stickThread() {
+    if (thread) thread.scrollTop = thread.scrollHeight;
+  }
+
+  function syncKeyboard() {
+    var vv = window.visualViewport;
+    var focused = typeField && document.activeElement === typeField;
+    var keyboard = 0;
+    if (vv) {
+      keyboard = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
+      document.body.style.top = vv.offsetTop + "px";
+      document.body.style.height = vv.height + "px";
+    }
+    var typing = !!(focused || keyboard > 80);
+    document.body.classList.toggle("is-typing", typing);
+    if (typing) stickThread();
+  }
+
+  if (window.visualViewport) {
+    window.visualViewport.addEventListener("resize", syncKeyboard);
+    window.visualViewport.addEventListener("scroll", syncKeyboard);
+  }
+  if (typeField) {
+    typeField.addEventListener("focus", function () {
+      document.body.classList.add("is-typing");
+      setTimeout(syncKeyboard, 40);
+      setTimeout(syncKeyboard, 280);
+    });
+    typeField.addEventListener("blur", function () {
+      setTimeout(syncKeyboard, 120);
+    });
+  }
+  window.addEventListener("resize", syncKeyboard);
+  syncKeyboard();
+
   if (window.location.hash) {
     var target = document.getElementById(window.location.hash.slice(1));
-    if (target) target.scrollIntoView({ block: "center" });
+    if (target && thread) thread.scrollTop = target.offsetTop;
   } else {
-    window.scrollTo(0, document.body.scrollHeight);
+    stickThread();
   }
 })();

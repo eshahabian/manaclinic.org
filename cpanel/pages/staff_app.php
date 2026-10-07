@@ -841,7 +841,7 @@ if ($section === 'chat') {
             <script type="application/json" id="sapp-chat-config"><?= $chatConfig ?></script>
             <?php
             $html = ob_get_clean();
-            $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/staff-chat.js')) . '?v=20261008live3"></script>';
+            $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/staff-chat.js')) . '?v=20261008kb"></script>';
         } else {
             $rooms = staff_app_rooms_for($pdo, $userId);
             $people = staff_app_people($pdo);
@@ -899,6 +899,9 @@ if ($section === 'chat') {
     } catch (Throwable $e) {
         error_log('staff app chat page: ' . $e->getMessage());
         $html = '<h1>چت</h1><p>چت الان باز نمی‌شود. یک‌بار دیگر صفحه را باز کنید.</p>';
+    }
+    if ($roomId !== '') {
+        $GLOBALS['staffBodyClass'] = 'is-thread';
     }
     staff_app_render('chat', 'چت کارکنان', $descriptions['chat'], $html);
     exit;

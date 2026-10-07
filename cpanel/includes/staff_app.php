@@ -1144,7 +1144,7 @@ function staff_app_render(string $active, string $title, string $description, st
 <html lang="fa" dir="rtl">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
   <?= staff_app_pwa_head() ?>
   <?= seo_render_head() ?>
@@ -1200,6 +1200,13 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-row small{display:block;margin-top:4px;color:var(--muted)}
     .sapp-day{margin:16px 0 0;font-size:1rem}
     .sapp-chat{display:flex;flex-direction:column;gap:6px;margin-top:12px;padding:12px 10px;border-radius:18px;background:#efe7dc;min-height:46vh}
+    body.sapp.is-thread{position:fixed;left:0;right:0;top:0;display:flex;flex-direction:column;width:100%;height:100dvh;overflow:hidden}
+    body.sapp.is-thread .sapp-main{flex:1;min-height:0;display:flex;flex-direction:column;width:100%;max-width:32rem;margin:0 auto;padding:8px 12px 0;overflow:hidden;box-sizing:border-box}
+    body.sapp.is-thread .sapp-chat{flex:1;min-height:0;margin-top:8px;overflow:auto}
+    body.sapp.is-thread .sapp-compose{flex:none;margin:0;padding:8px 0 calc(8px + env(safe-area-inset-bottom));background:#f3f6f4}
+    body.sapp.is-thread .sapp-nav{position:static;flex:none}
+    body.sapp.is-typing .sapp-nav{display:none}
+    body.sapp.is-typing .sapp-compose{padding-bottom:8px;border-top:1px solid #e6eeea}
     .sapp-chat-empty{margin:auto;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,.72);color:#667781;font-size:.86rem}
     .sapp-msg{width:fit-content;max-width:82%;padding:6px 8px 4px;border-radius:12px;box-shadow:0 1px 1px rgba(0,0,0,.08)}
     .sapp-msg.is-mine{margin-left:auto;margin-right:0;background:#d9fdd3;border-top-right-radius:4px}
@@ -1268,7 +1275,7 @@ function staff_app_render(string $active, string $title, string $description, st
     body.sapp{padding:0}
   </style>
 </head>
-<body class="sapp"<?= $user ? ' data-session-guard="1" data-session-ping="' . e(url('/session/ping')) . '" data-logout="' . e(url('/logout')) . '"' : '' ?><?= $isSecretary ? ' data-secretary-desk="1" data-no-idle="1" data-heartbeat="' . e(url('/secretary/heartbeat')) . '"' : '' ?>>
+<body class="sapp<?= !empty($GLOBALS['staffBodyClass']) ? ' ' . e((string) $GLOBALS['staffBodyClass']) : '' ?>"<?= $user ? ' data-session-guard="1" data-session-ping="' . e(url('/session/ping')) . '" data-logout="' . e(url('/logout')) . '"' : '' ?><?= $isSecretary ? ' data-secretary-desk="1" data-no-idle="1" data-heartbeat="' . e(url('/secretary/heartbeat')) . '"' : '' ?>>
   <header class="sapp-top">
     <a class="sapp-brand" href="<?= e(url('/app')) ?>">
       <img src="<?= e(url('/assets/img/logo.png')) ?>" alt="" width="36" height="36">
