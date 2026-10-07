@@ -25,7 +25,7 @@ function secretary_nav(): array
         ['href' => '/secretary/profile', 'label' => 'پیام مدیر'],
         ['href' => '/secretary/board', 'label' => 'یادداشت مشترک'],
         ['href' => '/secretary/hours', 'label' => 'ساعت کاری'],
-        ['tasks' => true, 'label' => 'کارهای روزانه'],
+        ['href' => '/secretary/daily-tasks', 'label' => 'کارهای روزانه'],
         ['href' => '/secretary/colleague-messages', 'label' => 'پیام همکار'],
         ['href' => '/secretary/articles', 'label' => 'مقالات'],
         ['href' => '/secretary/workshops', 'label' => 'کارگاه‌ها'],
@@ -83,8 +83,7 @@ function secretary_panel_daytasks_box($pdo, ?array $user): string
     }
     $dateLabel = function_exists('secretary_daily_task_date_label') ? secretary_daily_task_date_label($ymd) : $ymd;
     $postUrl = url('/secretary/daily-tasks');
-    $requestPath = (string) (parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '');
-    $forceOpen = str_contains($requestPath, '/secretary/daily-tasks');
+    $forceOpen = false;
 
     ob_start();
     ?>
@@ -224,14 +223,9 @@ function render_secretary_page(string $title, string $innerHtml): void
             $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
             foreach ($nav as $item):
               $href = (string) ($item['href'] ?? '');
-              $tasks = !empty($item['tasks']);
-              $active = !$tasks && $href !== '' && str_contains($currentPath, $href);
+              $active = $href !== '' && str_contains($currentPath, $href);
           ?>
-            <?php if ($tasks): ?>
-            <a href="<?= e(url('/secretary/daily-tasks')) ?>" onclick="if(window.openDayTasks){event.preventDefault();openDayTasks();return false;}">
-            <?php else: ?>
             <a class="<?= $active ? 'is-active' : '' ?>" href="<?= e(url($href)) ?>">
-            <?php endif; ?>
               <span class="side-nav-link-main">
                 <?php if (!empty($item['icon'])): ?>
                   <img class="side-nav-call-logo" src="<?= e((string) $item['icon']) ?>" alt="" width="22" height="22">

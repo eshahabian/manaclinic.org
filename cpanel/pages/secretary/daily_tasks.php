@@ -20,4 +20,12 @@ if ((string) ($_GET['part'] ?? '') === '1') {
     exit;
 }
 
-render_secretary_page('کارهای روزانه', '<p class="muted" style="margin:0">فهرست کارهای روزانه باز است. اگر پنجره را بستی، دوباره از منو بازش کن.</p>');
+$userId = (string) ($user['id'] ?? '');
+$today = date('Y-m-d');
+render_secretary_page('کارهای روزانه', secretary_daily_tasks_page_html(
+    $pdo,
+    $user,
+    $today,
+    secretary_daily_task_can_edit($pdo, $userId, $today, true),
+    url('/secretary/daily-tasks')
+));
