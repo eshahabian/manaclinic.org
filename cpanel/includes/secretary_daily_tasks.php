@@ -270,7 +270,7 @@ function secretary_daily_tasks_html(
     <style>
       [data-dayshadow-live]{position:fixed;top:0;right:0;bottom:0;left:0;z-index:5000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(26,46,40,.55);direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif;box-sizing:border-box}
       [data-dayshadow] *{box-sizing:border-box}
-      .dayshadow-card{width:min(42rem,100%);max-width:42rem;max-height:calc(100vh - 32px);display:flex;flex-direction:column;overflow:hidden;background:#fff;color:#1a2e28;border:1px solid #d5e0da;border-radius:16px;direction:rtl;text-align:right;position:relative;box-shadow:0 18px 50px rgba(26,46,40,.28)}
+      .dayshadow-card{width:min(42rem,calc(100vw - 32px)) !important;max-width:42rem !important;max-height:calc(100vh - 32px);display:flex;flex-direction:column;overflow:hidden;background:#fff;color:#1a2e28;border:1px solid #d5e0da;border-radius:16px;direction:rtl;text-align:right;position:relative;box-shadow:0 18px 50px rgba(26,46,40,.28)}
       .dayshadow-x{position:absolute;top:8px;left:8px;width:36px;height:36px;border:0;border-radius:999px;background:transparent;font-size:24px;line-height:1;cursor:pointer;color:#5a6f66}
       .dayshadow-head{padding:16px 18px 10px 48px;border-bottom:1px solid #d5e0da;direction:rtl;text-align:right}
       .dayshadow-head h2{margin:0 0 12px;font-size:1.15rem;font-family:Vazirmatn,Tahoma,sans-serif}
