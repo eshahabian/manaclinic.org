@@ -100,6 +100,14 @@ function staff_app_ensure_schema(PDO $pdo): void
         PRIMARY KEY (user_id, room_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
+    $pdo->exec("
+      CREATE TABLE IF NOT EXISTS staff_app_receipts (
+        user_id VARCHAR(32) NOT NULL,
+        room_id VARCHAR(32) NOT NULL,
+        delivered_at DATETIME NOT NULL,
+        PRIMARY KEY (user_id, room_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
     $ready = true;
 }
 
@@ -216,6 +224,112 @@ function staff_app_mark_read(PDO $pdo, string $userId, string $roomId): void
       VALUES (?, ?, NOW())
       ON DUPLICATE KEY UPDATE read_at = NOW()
     ")->execute([$userId, $roomId]);
+    staff_app_mark_delivered($pdo, $userId, $roomId);
+}
+
+function staff_app_mark_delivered(PDO $pdo, string $userId, string $roomId): void
+{
+    if ($userId === '' || $roomId === '') {
+        return;
+    }
+    $pdo->prepare("
+      INSERT INTO staff_app_receipts (user_id, room_id, delivered_at)
+      VALUES (?, ?, NOW())
+      ON DUPLICATE KEY UPDATE delivered_at = NOW()
+    ")->execute([$userId, $roomId]);
+}
+
+function staff_app_mark_delivered_all(PDO $pdo, string $userId): void
+{
+    if ($userId === '' || !staff_app_ready($pdo)) {
+        return;
+    }
+    try {
+        $pdo->prepare("
+          INSERT INTO staff_app_receipts (user_id, room_id, delivered_at)
+          SELECT ?, room_id, NOW() FROM staff_app_members WHERE user_id = ?
+          ON DUPLICATE KEY UPDATE delivered_at = NOW()
+        ")->execute([$userId, $userId]);
+    } catch (Throwable $e) {
+    }
+}
+
+function staff_app_direct_room(PDO $pdo, string $userId, string $otherId): ?string
+{
+    $stmt = $pdo->prepare("
+      SELECT r.id
+      FROM staff_app_rooms r
+      JOIN staff_app_members a ON a.room_id = r.id AND a.user_id = ?
+      JOIN staff_app_members b ON b.room_id = r.id AND b.user_id = ?
+      WHERE r.is_general = 0
+        AND (SELECT COUNT(*) FROM staff_app_members m WHERE m.room_id = r.id) = 2
+      LIMIT 1
+    ");
+    $stmt->execute([$userId, $otherId]);
+    $id = $stmt->fetchColumn();
+
+    return $id ? (string) $id : null;
+}
+
+/** وضعیت تیک پیام‌های خود کاربر: sent، delivered، read */
+function staff_app_own_receipts(PDO $pdo, string $roomId, string $userId): array
+{
+    $members = $pdo->prepare('SELECT user_id FROM staff_app_members WHERE room_id = ? AND user_id <> ?');
+    $members->execute([$roomId, $userId]);
+    $others = array_map(static fn(array $row): string => (string) $row['user_id'], $members->fetchAll() ?: []);
+    $delivered = [];
+    $reads = [];
+    if ($others !== []) {
+        $marks = implode(',', array_fill(0, count($others), '?'));
+        $del = $pdo->prepare("SELECT user_id, delivered_at FROM staff_app_receipts WHERE room_id = ? AND user_id IN ($marks)");
+        $del->execute(array_merge([$roomId], $others));
+        foreach ($del->fetchAll() ?: [] as $row) {
+            $delivered[(string) $row['user_id']] = strtotime((string) $row['delivered_at']) ?: 0;
+        }
+        $read = $pdo->prepare("SELECT user_id, read_at FROM staff_app_reads WHERE room_id = ? AND user_id IN ($marks)");
+        $read->execute(array_merge([$roomId], $others));
+        foreach ($read->fetchAll() ?: [] as $row) {
+            $reads[(string) $row['user_id']] = strtotime((string) $row['read_at']) ?: 0;
+        }
+    }
+    $msgs = $pdo->prepare('SELECT id, created_at FROM staff_app_messages WHERE room_id = ? AND user_id = ? ORDER BY created_at ASC');
+    $msgs->execute([$roomId, $userId]);
+    $states = [];
+    foreach ($msgs->fetchAll() ?: [] as $row) {
+        $at = strtotime((string) $row['created_at']) ?: 0;
+        $state = 'sent';
+        if ($others !== []) {
+            $allDelivered = true;
+            $allRead = true;
+            foreach ($others as $otherId) {
+                if (($delivered[$otherId] ?? 0) < $at) {
+                    $allDelivered = false;
+                }
+                if (($reads[$otherId] ?? 0) < $at) {
+                    $allRead = false;
+                }
+            }
+            if ($allRead) {
+                $state = 'read';
+            } elseif ($allDelivered) {
+                $state = 'delivered';
+            }
+        }
+        $states[(string) $row['id']] = $state;
+    }
+
+    return $states;
+}
+
+function staff_app_ticks_html(string $state, string $messageId = ''): string
+{
+    $state = in_array($state, ['sent', 'delivered', 'read'], true) ? $state : 'sent';
+    $one = '<svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.2 8.2 6.4 11.4 12.8 4.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    $two = '<svg viewBox="0 0 20 16" aria-hidden="true"><path d="M1.4 8.2 4.6 11.4 11 4.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/><path d="M6.2 8.2 9.4 11.4 15.8 4.6" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>';
+    $label = $state === 'read' ? 'دیده شد' : ($state === 'delivered' ? 'رسید' : 'ارسال شد');
+    $attr = $messageId !== '' ? ' data-ticks="' . e($messageId) . '"' : '';
+
+    return '<span class="sapp-ticks is-' . $state . '"' . $attr . ' aria-label="' . $label . '">' . ($state === 'sent' ? $one : $two) . '</span>';
 }
 
 /** @return list<array<string, mixed>> */
@@ -253,26 +367,69 @@ function staff_app_messages(PDO $pdo, string $roomId): array
 function staff_app_create_room(PDO $pdo, array $user, string $title, array $memberIds): string
 {
     $title = trim($title);
-    if ($title === '') {
-        throw new RuntimeException('برای اتاق یک نام بنویسید.');
-    }
-    if (mb_strlen($title) > 80) {
-        throw new RuntimeException('نام اتاق طولانی است.');
-    }
     $people = [];
     foreach (staff_app_people($pdo) as $person) {
-        $people[(string) $person['id']] = $person;
+        $people['id:' . trim((string) $person['id'])] = $person;
     }
     $userId = (string) ($user['id'] ?? '');
     $chosen = [];
     foreach ($memberIds as $memberId) {
         $memberId = trim((string) $memberId);
-        if ($memberId !== '' && $memberId !== $userId && isset($people[$memberId])) {
+        if ($memberId === '' || $memberId === $userId) {
+            continue;
+        }
+        if (isset($people['id:' . $memberId])) {
             $chosen[$memberId] = $memberId;
         }
     }
     if ($chosen === []) {
-        throw new RuntimeException('حداقل یک درمانگر یا منشی دیگر را برای اتاق انتخاب کنید.');
+        $clean = [];
+        foreach ($memberIds as $memberId) {
+            $memberId = trim((string) $memberId);
+            if ($memberId !== '' && $memberId !== $userId) {
+                $clean[$memberId] = $memberId;
+            }
+        }
+        if ($clean !== []) {
+            $marks = implode(',', array_fill(0, count($clean), '?'));
+            $found = $pdo->prepare("
+              SELECT id, name, username
+              FROM users
+              WHERE id IN ($marks) AND role IN ('DOCTOR','SECRETARY') AND COALESCE(is_disabled,0)=0
+            ");
+            $found->execute(array_values($clean));
+            foreach ($found->fetchAll() ?: [] as $row) {
+                $id = trim((string) ($row['id'] ?? ''));
+                if ($id === '' || $id === $userId) {
+                    continue;
+                }
+                $people['id:' . $id] = $row;
+                $chosen[$id] = $id;
+            }
+        }
+    }
+    if ($chosen === []) {
+        throw new RuntimeException('یک نفر را از فهرست انتخاب کنید.');
+    }
+    if (count($chosen) === 1) {
+        $otherId = (string) array_key_first($chosen);
+        $existing = staff_app_direct_room($pdo, $userId, $otherId);
+        if ($existing !== null) {
+            return $existing;
+        }
+        if ($title === '') {
+            $other = $people['id:' . $otherId] ?? [];
+            $title = trim((string) ($other['name'] ?? ''));
+            if ($title === '') {
+                $title = trim((string) ($other['username'] ?? 'گفتگو'));
+            }
+        }
+    }
+    if ($title === '') {
+        throw new RuntimeException('برای اتاق گروهی یک نام بنویسید.');
+    }
+    if (mb_strlen($title) > 80) {
+        throw new RuntimeException('نام اتاق طولانی است.');
     }
     $roomId = cuid();
     $pdo->beginTransaction();
@@ -540,7 +697,9 @@ function staff_app_render(string $active, string $title, string $description, st
     $GLOBALS['pageKeywords'] = 'برنامه داخلی مانا کلینیک, درمانگر, منشی';
     $unread = 0;
     if (!$locked && $user && $pdo instanceof PDO) {
-        $unread = staff_app_unread_count($pdo, (string) ($user['id'] ?? ''));
+        $uid = (string) ($user['id'] ?? '');
+        staff_app_mark_delivered_all($pdo, $uid);
+        $unread = staff_app_unread_count($pdo, $uid);
     }
     $flash = function_exists('flash_get') ? flash_get() : null;
     $name = trim((string) ($user['name'] ?? ''));
@@ -622,11 +781,29 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-row{padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
     .sapp-row small{display:block;margin-top:4px;color:var(--muted)}
     .sapp-day{margin:16px 0 0;font-size:1rem}
-    .sapp-chat{display:flex;flex-direction:column;gap:8px;margin-top:12px}
-    .sapp-msg{padding:10px 12px;border-radius:14px;background:var(--bg-soft)}
-    .sapp-msg.is-mine{background:var(--card);border:1px solid var(--primary)}
-    .sapp-msg img{display:block;max-width:min(100%,18rem);margin-top:8px;border-radius:10px}
-    .sapp-compose{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+    .sapp-chat{display:flex;flex-direction:column;gap:6px;margin-top:12px;padding:12px 10px;border-radius:18px;background:#efe7dc;min-height:46vh}
+    .sapp-chat-empty{margin:auto;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,.72);color:#667781;font-size:.86rem}
+    .sapp-msg{width:fit-content;max-width:82%;padding:6px 8px 4px;border-radius:12px;box-shadow:0 1px 1px rgba(0,0,0,.08)}
+    .sapp-msg.is-mine{margin-left:auto;margin-right:0;background:#d9fdd3;border-top-right-radius:4px}
+    .sapp-msg.is-theirs{margin-right:auto;margin-left:0;background:#fff;border-top-left-radius:4px}
+    .sapp-msg-name{display:block;margin-bottom:2px;color:#1a9a8a;font-size:.78rem;font-weight:800}
+    .sapp-msg p{margin:0;white-space:pre-wrap;line-height:1.55}
+    .sapp-msg-meta{display:flex;align-items:center;justify-content:flex-end;gap:3px;margin-top:2px;color:#667781;font-size:.72rem;line-height:1}
+    .sapp-ticks{display:inline-flex;color:#8696a0}
+    .sapp-ticks svg{width:16px;height:14px;display:block}
+    .sapp-ticks.is-read{color:#1fa855}
+    .sapp-msg img{display:block;max-width:min(100%,16rem);margin-top:6px;border-radius:8px}
+    .sapp-person{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:52px;margin:0 0 8px;padding:10px 12px;border:1px solid #e6eeea;border-radius:14px;background:#fff;color:#1c3d36;font:inherit;font-weight:700;text-align:right;cursor:pointer}
+    .sapp-person small{color:#8aa099;font-weight:600}
+    .sapp-compose{display:flex;align-items:flex-end;gap:8px;margin-top:10px}
+    .sapp-compose textarea.input{width:auto;flex:1;min-height:44px;max-height:8rem;border-radius:18px}
+    .sapp-file{position:relative;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:999px;background:#fff;color:#1a9a8a;cursor:pointer;flex:none}
+    .sapp-file input{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+    .sapp-send{flex:none;width:44px;height:44px;border:0;border-radius:999px;background:#1a9a8a;color:#fff;font-weight:800;font-size:1.05rem}
+    .sapp-group{margin-top:16px}
+    .sapp-group summary{cursor:pointer;font-weight:800}
+    .sapp-check{display:flex;gap:10px;align-items:center;min-height:44px;margin:0 0 6px}
+    .sapp-check input{width:22px;height:22px;flex:none}
     body.sapp{padding:0}
   </style>
 </head>

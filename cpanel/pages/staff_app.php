@@ -11,6 +11,32 @@ $userId = (string) ($user['id'] ?? '');
 $role = (string) ($user['role'] ?? '');
 $name = trim((string) ($user['name'] ?? ''));
 
+if (preg_match('#^/app/chat/([a-f0-9]{24})/receipts$#', $path, $m)) {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+    if ($method !== 'GET') {
+        http_response_code(405);
+        echo json_encode(['ok' => false], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    try {
+        if (!staff_app_ready($pdo) || !staff_app_room_for_member($pdo, $m[1], $userId)) {
+            http_response_code(404);
+            echo json_encode(['ok' => false], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        staff_app_mark_read($pdo, $userId, $m[1]);
+        echo json_encode([
+            'ok' => true,
+            'states' => staff_app_own_receipts($pdo, $m[1], $userId),
+        ], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $e) {
+        http_response_code(500);
+        echo json_encode(['ok' => false], JSON_UNESCAPED_UNICODE);
+    }
+    exit;
+}
+
 if (preg_match('#^/app/file/([a-f0-9]{24})$#', $path, $m)) {
     if ($method !== 'GET') {
         http_response_code(405);
@@ -35,9 +61,16 @@ if ($method === 'POST' && ($path === '/app/chat' || preg_match('#^/app/chat/([a-
     $back = '/app/chat';
     try {
         if (post('form') === 'create') {
-            $members = $_POST['members'] ?? [];
+            $members = $_POST['members'] ?? $_POST['member_ids'] ?? [];
+            if (is_string($members)) {
+                $members = preg_split('/\s*,\s*/', trim($members)) ?: [];
+            }
             if (!is_array($members)) {
                 $members = [];
+            }
+            $single = trim((string) ($_POST['member_id'] ?? ''));
+            if ($single !== '') {
+                $members[] = $single;
             }
             $roomId = staff_app_create_room($pdo, $user, post('title'), $members);
             flash_set('success', 'اتاق چت ساخته شد.');
@@ -568,22 +601,26 @@ if ($section === 'chat') {
             }
             staff_app_mark_read($pdo, $userId, $roomId);
             $messages = staff_app_messages($pdo, $roomId);
+            $states = staff_app_own_receipts($pdo, $roomId, $userId);
             ob_start();
             ?>
             <p style="margin:0 0 8px"><a href="<?= e(url('/app/chat')) ?>">همه چت‌ها</a></p>
             <h1><?= e((string) ($room['title'] ?? 'چت')) ?></h1>
-            <p class="muted"><?= !empty($room['is_general']) ? 'چت کلی درمانگرها و منشی‌ها.' : 'فقط اعضای همین اتاق این گفتگو را می‌بینند.' ?></p>
-            <div class="sapp-chat">
+            <div class="sapp-chat" id="sapp-thread">
               <?php if ($messages === []): ?>
-                <p class="muted">هنوز پیامی نیست.</p>
+                <p class="sapp-chat-empty">هنوز پیامی نیست.</p>
               <?php endif; ?>
               <?php foreach ($messages as $message): ?>
-                <?php $mine = (string) ($message['user_id'] ?? '') === $userId; ?>
-                <article class="sapp-msg<?= $mine ? ' is-mine' : '' ?>">
-                  <strong><?= e((string) ($message['name'] ?? '')) ?></strong>
-                  <small class="muted"> · <?= e(staff_app_role_label((string) ($message['role'] ?? ''))) ?> · <?= e(format_fa_datetime((string) ($message['created_at'] ?? ''))) ?></small>
+                <?php
+                  $mine = (string) ($message['user_id'] ?? '') === $userId;
+                  $msgId = (string) ($message['id'] ?? '');
+                ?>
+                <article class="sapp-msg<?= $mine ? ' is-mine' : ' is-theirs' ?>">
+                  <?php if (!$mine): ?>
+                    <span class="sapp-msg-name"><?= e((string) ($message['name'] ?? '')) ?></span>
+                  <?php endif; ?>
                   <?php if (trim((string) ($message['body'] ?? '')) !== ''): ?>
-                    <p style="margin:.45rem 0 0;white-space:pre-wrap"><?= e((string) $message['body']) ?></p>
+                    <p><?= e((string) $message['body']) ?></p>
                   <?php endif; ?>
                   <?php foreach ($message['files'] ?? [] as $file): ?>
                     <?php
@@ -593,55 +630,108 @@ if ($section === 'chat') {
                     <?php if (str_starts_with($mime, 'image/')): ?>
                       <a href="<?= e($fileUrl) ?>"><img src="<?= e($fileUrl) ?>" alt="<?= e((string) ($file['original_name'] ?? 'فایل')) ?>"></a>
                     <?php else: ?>
-                      <p style="margin:.45rem 0 0"><a href="<?= e($fileUrl) ?>"><?= e((string) ($file['original_name'] ?? 'فایل')) ?></a></p>
+                      <p><a href="<?= e($fileUrl) ?>"><?= e((string) ($file['original_name'] ?? 'فایل')) ?></a></p>
                     <?php endif; ?>
                   <?php endforeach; ?>
+                  <div class="sapp-msg-meta">
+                    <time><?= e(format_fa_time((string) ($message['created_at'] ?? ''))) ?></time>
+                    <?php if ($mine): ?>
+                      <?= staff_app_ticks_html((string) ($states[$msgId] ?? 'sent'), $msgId) ?>
+                    <?php endif; ?>
+                  </div>
                 </article>
               <?php endforeach; ?>
             </div>
-            <form class="sapp-compose panel" method="post" action="<?= e(url('/app/chat')) ?>" enctype="multipart/form-data">
+            <form class="sapp-compose" method="post" action="<?= e(url('/app/chat')) ?>" enctype="multipart/form-data">
               <?= csrf_field() ?>
               <input type="hidden" name="form" value="send">
               <input type="hidden" name="room_id" value="<?= e($roomId) ?>">
-              <label class="label" for="chat-body">پیام</label>
-              <textarea class="input" id="chat-body" name="body" rows="3" maxlength="4000" placeholder="متن پیام"></textarea>
-              <label class="label" for="chat-file">فایل</label>
-              <input class="input" id="chat-file" name="file" type="file">
-              <button class="btn btn-primary" type="submit">ارسال</button>
+              <label class="sapp-file" title="فایل">
+                <input id="chat-file" name="file" type="file" aria-label="فایل">
+                <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m21 12-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8L13.2 4.2a3.5 3.5 0 0 1 5 5L9.6 17.8a1.5 1.5 0 0 1-2.1-2.1l7.4-7.4"/></svg>
+              </label>
+              <textarea class="input" id="chat-body" name="body" rows="1" maxlength="4000" placeholder="پیام"></textarea>
+              <button class="sapp-send" type="submit" aria-label="ارسال">➤</button>
             </form>
             <?php
             $html = ob_get_clean();
+            $receiptUrl = json_encode(url('/app/chat/' . $roomId . '/receipts'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
+            $GLOBALS['pageScripts'] = '<script>
+              (function () {
+                var thread = document.getElementById("sapp-thread");
+                if (thread) thread.scrollIntoView({block:"end"});
+                var url = ' . $receiptUrl . ';
+                function paint(states) {
+                  Object.keys(states || {}).forEach(function (id) {
+                    var el = document.querySelector("[data-ticks=\\"" + id + "\\"]");
+                    if (!el) return;
+                    el.className = "sapp-ticks is-" + states[id];
+                    el.setAttribute("aria-label", states[id] === "read" ? "دیده شد" : (states[id] === "delivered" ? "رسید" : "ارسال شد"));
+                    if (states[id] !== "sent" && el.querySelectorAll("path").length < 2) {
+                      el.innerHTML = "<svg viewBox=\\"0 0 20 16\\" aria-hidden=\\"true\\"><path d=\\"M1.4 8.2 4.6 11.4 11 4.6\\" fill=\\"none\\" stroke=\\"currentColor\\" stroke-width=\\"1.6\\" stroke-linecap=\\"round\\" stroke-linejoin=\\"round\\"/><path d=\\"M6.2 8.2 9.4 11.4 15.8 4.6\\" fill=\\"none\\" stroke=\\"currentColor\\" stroke-width=\\"1.6\\" stroke-linecap=\\"round\\" stroke-linejoin=\\"round\\"/></svg>";
+                    }
+                  });
+                }
+                setInterval(function () {
+                  if (document.hidden) return;
+                  fetch(url, {headers: {Accept: "application/json"}, credentials: "same-origin"})
+                    .then(function (res) { return res.ok ? res.json() : null; })
+                    .then(function (data) { if (data && data.states) paint(data.states); })
+                    .catch(function () {});
+                }, 4000);
+              })();
+            </script>';
         } else {
             $rooms = staff_app_rooms_for($pdo, $userId);
             $people = staff_app_people($pdo);
             ob_start();
             ?>
             <h1>چت</h1>
-            <p class="muted">چت کلی بین همه درمانگرها و منشی‌هاست. برای جمع کوچک‌تر اتاق جدا بسازید. در هر دو می‌شود فایل فرستاد.</p>
+            <p class="muted">چت کلی برای همه است. برای حرف زدن با یک نفر، اسمش را بزنید.</p>
             <div class="sapp-list">
               <?php foreach ($rooms as $room): ?>
                 <a class="sapp-row" href="<?= e(url('/app/chat/' . (string) $room['id'])) ?>" style="text-decoration:none;color:inherit">
                   <strong><?= e((string) ($room['title'] ?? 'اتاق')) ?></strong>
-                  <small><?= !empty($room['is_general']) ? 'همه درمانگرها و منشی‌ها' : 'اتاق خصوصی' ?> · <?= e(to_fa_digits((string) (int) ($room['message_count'] ?? 0))) ?> پیام</small>
+                  <small><?= !empty($room['is_general']) ? 'همه درمانگرها و منشی‌ها' : 'گفتگوی خصوصی' ?> · <?= e(to_fa_digits((string) (int) ($room['message_count'] ?? 0))) ?> پیام</small>
                 </a>
               <?php endforeach; ?>
             </div>
-            <form class="sapp-compose panel" id="sapp-new-chat" method="post" action="<?= e(url('/app/chat')) ?>">
-              <?= csrf_field() ?>
-              <input type="hidden" name="form" value="create">
-              <h2 style="margin:0;font-size:1.05rem">اتاق تازه</h2>
-              <label class="label" for="room-title">نام اتاق</label>
-              <input class="input" id="room-title" name="title" maxlength="80" required placeholder="مثلاً شیفت عصر">
-              <p class="label" style="margin-bottom:.35rem">اعضا</p>
-              <?php foreach ($people as $person): ?>
-                <?php if ((string) ($person['id'] ?? '') === $userId) { continue; } ?>
-                <label style="display:flex;gap:8px;align-items:flex-start;margin:0 0 6px">
-                  <input type="checkbox" name="members[]" value="<?= e((string) $person['id']) ?>">
-                  <span><?= e(trim((string) ($person['name'] ?? '')) !== '' ? (string) $person['name'] : (string) ($person['username'] ?? '')) ?> · <?= e(staff_app_role_label((string) ($person['role'] ?? ''))) ?></span>
-                </label>
-              <?php endforeach; ?>
-              <button class="btn btn-primary" type="submit">ساخت اتاق</button>
-            </form>
+            <h2 id="sapp-new-chat" style="margin:18px 0 8px;font-size:1.05rem">شروع گفتگو</h2>
+            <?php $shown = 0; ?>
+            <?php foreach ($people as $person): ?>
+              <?php if ((string) ($person['id'] ?? '') === $userId) { continue; } ?>
+              <?php $shown++; ?>
+              <?php $personName = trim((string) ($person['name'] ?? '')) !== '' ? (string) $person['name'] : (string) ($person['username'] ?? ''); ?>
+              <form method="post" action="<?= e(url('/app/chat')) ?>">
+                <?= csrf_field() ?>
+                <input type="hidden" name="form" value="create">
+                <input type="hidden" name="member_id" value="<?= e((string) $person['id']) ?>">
+                <button class="sapp-person" type="submit">
+                  <span><?= e($personName) ?></span>
+                  <small><?= e(staff_app_role_label((string) ($person['role'] ?? ''))) ?></small>
+                </button>
+              </form>
+            <?php endforeach; ?>
+            <?php if ($shown === 0): ?>
+              <p class="muted">درمانگر یا منشی دیگری برای گفتگو پیدا نشد.</p>
+            <?php endif; ?>
+            <details class="sapp-group">
+              <summary>گفتگوی گروهی</summary>
+              <form method="post" action="<?= e(url('/app/chat')) ?>" style="margin-top:10px">
+                <?= csrf_field() ?>
+                <input type="hidden" name="form" value="create">
+                <label class="label" for="room-title">نام گروه</label>
+                <input class="input" id="room-title" name="title" maxlength="80" placeholder="مثلاً شیفت عصر">
+                <?php foreach ($people as $person): ?>
+                  <?php if ((string) ($person['id'] ?? '') === $userId) { continue; } ?>
+                  <label class="sapp-check">
+                    <input type="checkbox" name="member_ids[]" value="<?= e((string) $person['id']) ?>">
+                    <span><?= e(trim((string) ($person['name'] ?? '')) !== '' ? (string) $person['name'] : (string) ($person['username'] ?? '')) ?></span>
+                  </label>
+                <?php endforeach; ?>
+                <button class="btn btn-primary" type="submit">ساخت گروه</button>
+              </form>
+            </details>
             <?php
             $html = ob_get_clean();
         }

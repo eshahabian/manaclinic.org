@@ -260,6 +260,7 @@ body.nav-open .site-chrome {
   padding: 0 .15rem 0 .2rem;
 }
 @media (max-width: 1199px) {
+  .site-header, .header-inner { max-width: 100%; }
   .header-inner { flex-wrap: nowrap; gap: .5rem; }
   .brand { font-size: 1.05rem; }
   .header-actions { flex-wrap: nowrap; }
@@ -2160,6 +2161,9 @@ html[data-theme="dark"] .consult-badge {
   min-height: 78vh;
   display: grid;
   place-items: center;
+  width: 100%;
+  max-width: 100%;
+  min-width: 0;
   padding: 2rem 1rem 3.5rem;
 }
 body.is-auth {
@@ -2171,6 +2175,8 @@ body.is-auth {
 .auth-card {
   position: relative;
   width: min(960px, 100%);
+  max-width: 100%;
+  min-width: 0;
   min-height: 34rem;
   background: var(--auth-cream, #f7f4ee);
   color: var(--auth-ink, #1a2e28);
@@ -2211,11 +2217,15 @@ body.is-auth {
 }
 .auth-form {
   width: min(24rem, 100%);
+  max-width: 100%;
+  min-width: 0;
   display: grid;
   gap: .85rem;
 }
 .auth-form-register {
   width: min(26.5rem, 100%);
+  max-width: 100%;
+  min-width: 0;
   gap: .38rem;
 }
 .auth-form-register .auth-form-title {
@@ -2282,12 +2292,14 @@ body.is-auth {
   border-radius: 99px;
   background: var(--auth-gold, #c4a574);
 }
-.auth-line { display: grid; gap: .28rem; font-size: .82rem; color: #5a6a63; }
+.auth-line { display: grid; gap: .28rem; font-size: .82rem; color: #5a6a63; min-width: 0; max-width: 100%; }
 .auth-line input,
 .auth-line select,
 .auth-card .password-field .input,
 .auth-select {
   width: 100%;
+  max-width: 100%;
+  min-width: 0;
   border: 0;
   border-bottom: 1px solid #d7cfc2;
   background: transparent;
@@ -2331,6 +2343,7 @@ body.is-auth {
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: .4rem .7rem;
+  min-width: 0;
 }
 .auth-hint { margin: 0; font-size: .72rem; line-height: 1.6; color: #7a746a; }
 .auth-submit {
@@ -2430,17 +2443,36 @@ body.is-auth {
 .auth-card .password-field-box { position: relative; }
 @media (max-width: 860px) {
   .auth-band { display: none; }
+  .auth-pane:not(.is-on) { display: none !important; }
   .auth-pane,
   .auth-card[data-mode="login"] [data-auth-pane="login"],
   .auth-card[data-mode="register"] [data-auth-pane="register"] {
     position: relative;
+    inset: auto;
+    top: auto;
+    right: auto;
+    bottom: auto;
+    left: auto;
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    justify-items: stretch;
     padding: 1.4rem 1.2rem 1.6rem !important;
+    padding-inline: 1.2rem !important;
+    padding-inline-start: 1.2rem !important;
+    padding-inline-end: 1.2rem !important;
   }
   .auth-card { min-height: 0; }
   .auth-card[data-mode="register"] { min-height: 0; }
   .auth-grid { grid-template-columns: 1fr; }
+  .auth-grid > * { min-width: 0; }
   .auth-form-register .auth-grid { grid-template-columns: 1fr 1fr; }
-  .auth-form, .auth-form-register { width: 100%; }
+  .auth-form, .auth-form-register {
+    width: 100%;
+    max-width: 100%;
+    min-width: 0;
+    justify-items: stretch;
+  }
 }
 .account-type-grid {
   display: grid;
