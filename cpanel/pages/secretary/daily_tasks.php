@@ -20,7 +20,7 @@ ob_start();
 ?>
 <h1>کارهای روزانه</h1>
 <p class="muted" style="margin-top:.35rem;line-height:1.8">فقط فهرست خودتان اینجاست. تیک‌ها را خودتان می‌زنید.</p>
-<div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:1rem">
+<div class="daywork-nav">
   <a class="btn btn-outline btn-sm" href="<?= e(url('/secretary/daily-tasks?date=' . rawurlencode($prev))) ?>">روز قبل</a>
   <strong><?= e(secretary_daily_task_date_label($ymd)) ?></strong>
   <?php if ($next <= $today): ?>
@@ -30,7 +30,7 @@ ob_start();
 <?php if (!$wasPresent): ?>
   <p class="muted" style="margin-top:1rem">در این روز حضور ثبت‌شده‌ای برای شما نیست.</p>
 <?php else: ?>
-  <?= secretary_daily_tasks_html($pdo, $user, $ymd, $editable, url('/secretary/daily-tasks'), true) ?>
+  <?= secretary_daily_tasks_own_html($pdo, $user, $ymd, $editable, url('/secretary/daily-tasks')) ?>
 <?php endif; ?>
 <?php
 render_secretary_page('کارهای روزانه', ob_get_clean());
