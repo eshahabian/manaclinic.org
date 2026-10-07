@@ -83,16 +83,21 @@ function secretary_panel_daytasks_box($pdo, ?array $user): string
     }
     $dateLabel = function_exists('secretary_daily_task_date_label') ? secretary_daily_task_date_label($ymd) : $ymd;
     $postUrl = url('/secretary/daily-tasks');
+    $requestPath = (string) (parse_url($_SERVER['REQUEST_URI'] ?? '', PHP_URL_PATH) ?: '');
+    $forceOpen = str_contains($requestPath, '/secretary/daily-tasks');
 
     ob_start();
     ?>
     <style>
-      #daytasks-live::backdrop{background:rgba(26,46,40,.55)}
+      #daytasks-live[hidden]{display:none !important}
+      #daytasks-live{position:fixed;top:0;right:0;bottom:0;left:0;z-index:4000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(26,46,40,.55);direction:rtl;text-align:right}
+      #daytasks-live .daytasks-card{position:relative;width:min(42rem,100%);max-height:calc(100vh - 32px);overflow:auto;border:0;border-radius:16px;padding:18px 18px 20px;background:#fff;color:#1a2e28;box-shadow:0 18px 50px rgba(26,46,40,.28)}
       #daytasks-live .daytask-time{display:block;margin-top:4px;color:#1f6b45;font-size:.82rem;font-weight:700}
       #daytasks-live .daytask-time[hidden]{display:none}
     </style>
-    <dialog id="daytasks-live" style="width:min(42rem,calc(100vw - 32px));max-height:calc(100vh - 32px);overflow:auto;margin:auto;border:0;border-radius:16px;padding:18px 18px 20px;background:#fff;color:#1a2e28;direction:rtl;text-align:right;box-shadow:0 18px 50px rgba(26,46,40,.28)">
-        <button type="button" aria-label="بستن" onclick="document.getElementById('daytasks-live').close()" style="position:absolute;top:8px;left:8px;width:36px;height:36px;border:0;background:transparent;font-size:24px;line-height:1;cursor:pointer">×</button>
+    <div id="daytasks-live"<?= $forceOpen ? '' : ' hidden' ?> onclick="if(event.target===this&&window.closeDayTasks)closeDayTasks()">
+      <div class="daytasks-card" role="dialog" aria-modal="true" aria-label="لیست انجام کارهای روزانه">
+        <button type="button" aria-label="بستن" onclick="if(window.closeDayTasks)closeDayTasks()" style="position:absolute;top:8px;left:8px;width:36px;height:36px;border:0;background:transparent;font-size:24px;line-height:1;cursor:pointer">×</button>
         <h2 style="margin:0 28px 12px 0;font-size:1.15rem">لیست انجام کارهای روزانه</h2>
         <p style="margin:0 0 12px;line-height:1.7"><b><?= e($name) ?></b><br><?= e($dateLabel) ?><br>انجام‌شده <span id="daytasks-done-count"><?= e(to_fa_digits((string) $done)) ?></span> از <?= e(to_fa_digits((string) count($catalog))) ?></p>
         <?php $n = 0; foreach ($catalog as $key => $label): ?>
@@ -128,20 +133,28 @@ function secretary_panel_daytasks_box($pdo, ?array $user): string
             <?php endif; ?>
           </div>
         <?php endforeach; ?>
-    </dialog>
+      </div>
+    </div>
     <script>
     (function(){
       function faDigits(n){
         return String(n).replace(/\d/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹"[d]; });
       }
+      window.openDayTasks = function(){
+        var box = document.getElementById("daytasks-live");
+        if (!box) return;
+        if (box.parentNode !== document.body) document.body.appendChild(box);
+        box.hidden = false;
+      };
+      window.closeDayTasks = function(){
+        var box = document.getElementById("daytasks-live");
+        if (box) box.hidden = true;
+      };
       var box = document.getElementById("daytasks-live");
-      if (box && !box.dataset.bound) {
-        box.dataset.bound = "1";
-        box.addEventListener("click", function(e){
-          var r = box.getBoundingClientRect();
-          if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) box.close();
-        });
-      }
+      if (box && !box.hidden) window.openDayTasks();
+      document.addEventListener("keydown", function(e){
+        if (e.key === "Escape") window.closeDayTasks();
+      });
       document.addEventListener("change", function(e){
         var input = e.target;
         if (!input || !input.form || !input.form.classList || !input.form.classList.contains("daytask-form")) return;
@@ -215,7 +228,7 @@ function render_secretary_page(string $title, string $innerHtml): void
               $active = !$tasks && $href !== '' && str_contains($currentPath, $href);
           ?>
             <?php if ($tasks): ?>
-            <a href="#" onclick="event.preventDefault();var d=document.getElementById('daytasks-live');if(!d)return false;if(d.parentNode!==document.body)document.body.appendChild(d);if(d.open)d.close();else d.showModal();return false;">
+            <a href="<?= e(url('/secretary/daily-tasks')) ?>" onclick="if(window.openDayTasks){event.preventDefault();openDayTasks();return false;}">
             <?php else: ?>
             <a class="<?= $active ? 'is-active' : '' ?>" href="<?= e(url($href)) ?>">
             <?php endif; ?>
