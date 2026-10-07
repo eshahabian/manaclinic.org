@@ -1,6 +1,7 @@
 Options -Indexes
 AddType font/woff2 .woff2
 AddType font/ttf .ttf
+AddType application/manifest+json .webmanifest
 RewriteEngine On
 
 # Canonical host: https://manaclinic.org (no www)
@@ -17,6 +18,13 @@ RewriteRule ^uploads/receipts(/|$) - [F]
 RewriteRule ^storage(/|$) - [F]
 RewriteRule ^(config\.php|config\.sample\.php)$ - [F]
 RewriteRule \.(env|sql|log|bak|old)$ - [F]
+
+# Staff PWA: revalidate the worker and manifest so installs pick up scope changes.
+<IfModule mod_headers.c>
+  <FilesMatch "^(sw-staff\.js|staff-app\.webmanifest)$">
+    Header set Cache-Control "no-cache"
+  </FilesMatch>
+</IfModule>
 
 # Always revalidate call scripts while the LiveKit migration is active.
 <IfModule mod_headers.c>

@@ -63,7 +63,11 @@ function seo_render_head(?array $meta = null): string
     $out[] = '<meta name="keywords" content="' . e($keywords) . '">';
     $out[] = '<meta name="robots" content="' . e($robots) . '">';
     $out[] = '<meta name="author" content="' . e($site) . '">';
-    $out[] = '<meta name="theme-color" content="#1a5c4a">';
+    $themeColor = trim((string) ($GLOBALS['pageThemeColor'] ?? '#1a5c4a'));
+    if (!preg_match('/^#[0-9a-fA-F]{6}$/', $themeColor)) {
+        $themeColor = '#1a5c4a';
+    }
+    $out[] = '<meta name="theme-color" content="' . e($themeColor) . '">';
     $out[] = '<link rel="icon" type="image/png" sizes="32x32" href="' . e(url('/assets/img/favicon-32.png')) . '">';
     $out[] = '<link rel="icon" type="image/png" sizes="192x192" href="' . e(url('/assets/img/favicon-192.png')) . '">';
     $out[] = '<link rel="apple-touch-icon" href="' . e(url('/assets/img/apple-touch-icon.png')) . '">';

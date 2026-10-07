@@ -499,6 +499,34 @@ function staff_app_room_board(PDO $pdo): array
     return clinic_rooms_between($pdo, $from, $to);
 }
 
+function staff_app_pwa_head(): string
+{
+    $icon = e(url('/assets/img/apple-touch-icon.png'));
+    $manifest = e(url('/assets/staff-app.webmanifest'));
+
+    return '<meta name="mobile-web-app-capable" content="yes">'
+        . '<meta name="apple-mobile-web-app-capable" content="yes">'
+        . '<meta name="apple-mobile-web-app-status-bar-style" content="default">'
+        . '<meta name="apple-mobile-web-app-title" content="کارکنان">'
+        . '<meta name="theme-color" content="#1a9a8a">'
+        . '<link rel="apple-touch-icon" href="' . $icon . '">'
+        . '<link rel="manifest" href="' . $manifest . '">';
+}
+
+function staff_app_pwa_script(): string
+{
+    global $base;
+    $prefix = (is_string($base) && $base !== '' && $base !== '/') ? rtrim($base, '/') : '';
+    $cfg = json_encode(
+        ['src' => url('/sw-staff.js'), 'scope' => $prefix . '/'],
+        JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
+    );
+
+    return '<script>(function(){if(!("serviceWorker" in navigator))return;var cfg='
+        . $cfg
+        . ';navigator.serviceWorker.register(cfg.src,{scope:cfg.scope}).catch(function(){});})();</script>';
+}
+
 function staff_app_render(string $active, string $title, string $description, string $html, bool $locked = false): void
 {
     global $pdo;
@@ -508,6 +536,7 @@ function staff_app_render(string $active, string $title, string $description, st
     $GLOBALS['pageDescription'] = $description;
     $GLOBALS['pageCanonical'] = seo_absolute_url($path);
     $GLOBALS['pageRobots'] = 'noindex,nofollow';
+    $GLOBALS['pageThemeColor'] = '#1a9a8a';
     $GLOBALS['pageKeywords'] = 'برنامه داخلی مانا کلینیک, درمانگر, منشی';
     $unread = 0;
     if (!$locked && $user && $pdo instanceof PDO) {
@@ -540,9 +569,7 @@ function staff_app_render(string $active, string $title, string $description, st
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
-  <meta name="mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <link rel="manifest" href="<?= e(url('/assets/staff-app.webmanifest')) ?>">
+  <?= staff_app_pwa_head() ?>
   <?= seo_render_head() ?>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -655,6 +682,7 @@ function staff_app_render(string $active, string $title, string $description, st
       </a>
     </nav>
   <?php endif; ?>
+  <?= staff_app_pwa_script() ?>
   <?php if ($user): ?>
     <script src="<?= e(url('/assets/js/session-guard.js')) ?>?v=20261001idle"></script>
   <?php endif; ?>

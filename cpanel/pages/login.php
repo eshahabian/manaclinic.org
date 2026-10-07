@@ -16,9 +16,13 @@ $pageCanonical = url('/login');
 $pageKeywords = 'ورود مانا کلینیک, ورود روانشناس, ورود مراجعه‌کننده';
 $pageRobots = 'noindex,nofollow';
 $loginNext = safe_next_path((string) ($_GET['next'] ?? ''));
-if ($loginNext && str_starts_with($loginNext, '/app')) {
+$staffAppLogin = is_string($loginNext) && ($loginNext === '/app' || str_starts_with($loginNext, '/app/'));
+if ($staffAppLogin) {
     $GLOBALS['pageBodyClass'] = trim((string) ($GLOBALS['pageBodyClass'] ?? '') . ' staff-app-gate');
-    $GLOBALS['pageHead'] = '<style>body.staff-app-gate .nav-links,body.staff-app-gate .nav-toggle,body.staff-app-gate .site-footer,body.staff-app-gate .mobile-nav,body.staff-app-gate a[href*="/register"]{display:none!important}body.staff-app-gate .brand{pointer-events:none}</style>';
+    $GLOBALS['pageThemeColor'] = '#1a9a8a';
+    require_once __DIR__ . '/../includes/staff_app.php';
+    $GLOBALS['pageHead'] = '<style>body.staff-app-gate .nav-links,body.staff-app-gate .nav-toggle,body.staff-app-gate .site-footer,body.staff-app-gate .mobile-nav,body.staff-app-gate a[href*="/register"]{display:none!important}body.staff-app-gate .brand{pointer-events:none}</style>'
+        . staff_app_pwa_head();
 }
 $GLOBALS['pageTitle'] = $pageTitle;
 $GLOBALS['pageDescription'] = $pageDescription;
@@ -28,6 +32,9 @@ $GLOBALS['pageRobots'] = $pageRobots;
 ob_start();
 require __DIR__ . '/../includes/auth_gate.php';
 $content = ob_get_clean();
+if ($staffAppLogin) {
+    $GLOBALS['pageScripts'] = ($GLOBALS['pageScripts'] ?? '') . staff_app_pwa_script();
+}
 $pageScripts = $GLOBALS['pageScripts'] ?? '';
 $pageHead = $GLOBALS['pageHead'] ?? '';
 require __DIR__ . '/../includes/layout.php';
