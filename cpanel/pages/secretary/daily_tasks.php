@@ -18,12 +18,7 @@ $postUrl = url('/secretary/daily-tasks');
 ob_start();
 ?>
 <h1>کارهای روزانه</h1>
-<table style="width:100%;margin-top:1rem;border-collapse:collapse;table-layout:fixed;direction:rtl;text-align:right">
-  <colgroup>
-    <col style="width:52px">
-    <col>
-    <col style="width:9.5rem">
-  </colgroup>
+<table style="width:auto;max-width:100%;margin-top:1rem;border-collapse:collapse;direction:rtl;text-align:right">
   <tbody>
     <?php foreach (secretary_daily_task_catalog() as $key => $label): ?>
       <?php
@@ -45,8 +40,8 @@ ob_start();
             <input type="checkbox" disabled aria-label="انجام شد" style="width:18px;height:18px"<?= $checked ? ' checked' : '' ?>>
           <?php endif; ?>
         </td>
-        <td class="daytask-text" style="padding:10px 8px;vertical-align:middle;line-height:1.8;overflow-wrap:anywhere;<?= $checked ? 'text-decoration:line-through;color:#5a6f66' : '' ?>"><?= e($label) ?></td>
-        <td class="daytask-time" style="padding:10px 0;vertical-align:middle;color:#1f6b45;font-weight:700;white-space:nowrap"><?= $timeLabel !== '' ? 'ساعت انجام: ' . e($timeLabel) : '' ?></td>
+        <td class="daytask-text" style="padding:10px 8px;vertical-align:middle;line-height:1.8;text-align:right;white-space:normal;word-spacing:normal;<?= $checked ? 'text-decoration:line-through;color:#5a6f66' : '' ?>"><?= e($label) ?></td>
+        <td class="daytask-time" style="padding:10px 0 10px 12px;vertical-align:middle;color:#1f6b45;font-weight:700;white-space:nowrap;text-align:right"><?= $timeLabel !== '' ? 'ساعت انجام: ' . e($timeLabel) : '' ?></td>
       </tr>
     <?php endforeach; ?>
   </tbody>
