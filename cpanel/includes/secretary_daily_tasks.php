@@ -433,10 +433,11 @@ function secretary_daily_tasks_page_html(PDO $pdo, array $secretary, string $ymd
     $dateLabel = secretary_daily_task_date_label($ymd);
     ob_start();
     ?>
+    <h1>کارهای روزانه</h1>
     <style>
-      #daytasks-page{direction:rtl;text-align:right;background:#fff;color:#1a2e28;border:1px solid #d5e0da;border-radius:16px;padding:18px 18px 8px;box-sizing:border-box}
+      #daytasks-page{direction:rtl;text-align:right;width:100%;max-width:100%;margin-top:1rem;box-sizing:border-box}
       #daytasks-page *{box-sizing:border-box}
-      #daytasks-page h2{margin:0 0 14px;font-size:1.2rem;font-weight:800;line-height:1.4}
+      #daytasks-page h2{margin:0 0 14px;font-size:1.1rem;font-weight:800;line-height:1.4}
       #daytasks-page .daytasks-meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0 0 16px}
       #daytasks-page .daytasks-meta div{min-width:0;background:#f7f5f0;border:1px solid #d5e0da;border-radius:12px;padding:10px 12px}
       #daytasks-page .daytasks-meta span{display:block;color:#5a6f66;font-size:.78rem;font-weight:500}
@@ -450,7 +451,7 @@ function secretary_daily_tasks_page_html(PDO $pdo, array $secretary, string $ymd
       #daytasks-page .daytask-time{display:block;margin-top:4px;color:#1f6b45;font-size:.82rem;font-weight:700}
       @media (max-width:700px){#daytasks-page .daytasks-meta{grid-template-columns:1fr}}
     </style>
-    <section id="daytasks-page">
+    <div class="panel stack" id="daytasks-page">
       <h2>لیست انجام کارهای روزانه</h2>
       <div class="daytasks-meta">
         <div><span>نام و نام خانوادگی</span><strong><?= e($name) ?></strong></div>
@@ -486,7 +487,7 @@ function secretary_daily_tasks_page_html(PDO $pdo, array $secretary, string $ymd
           <?php endif; ?>
         </div>
       <?php endforeach; ?>
-    </section>
+    </div>
     <script>
     (function(){
       var root = document.getElementById("daytasks-page");
