@@ -19,6 +19,7 @@ function secretary_nav(): array
             'badge_tone' => 'new',
         ],
         ['href' => '/secretary/appointments', 'label' => 'نوبت‌ها'],
+        ['href' => '/secretary/complaints', 'label' => 'شکایت از درمانگر'],
         ['href' => '/admin/rooms', 'label' => 'اتاق‌ها'],
         ['href' => '/admin/outreach', 'label' => 'مراجعه‌کنندگان قدیمی'],
         ['href' => '/secretary/patients', 'label' => 'مراجعه‌کنندگان'],
