@@ -35,6 +35,15 @@ $secretaryPatientHint = $secretaryPatientHint ?? 'مراجعه‌کننده با
         </select>
       </div>
       <div style="grid-column:1/-1">
+        <label class="label" for="new_referral_source">معرف</label>
+        <?php
+          if (!function_exists('user_referral_options_html')) {
+              require_once __DIR__ . '/user_referral.php';
+          }
+          echo user_referral_options_html('new_referral_source', 'new_referral_source', '', true);
+        ?>
+      </div>
+      <div style="grid-column:1/-1">
         <label class="label" for="new_phone">موبایل</label>
         <input class="input" name="new_phone" id="new_phone" dir="ltr" inputmode="tel" autocomplete="tel" placeholder="مثلاً 0912... یا +1..." title="شماره ایران یا بین‌المللی">
       </div>

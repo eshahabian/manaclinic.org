@@ -2,13 +2,14 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../../includes/secretary_panel.php';
+require_once __DIR__ . '/../../includes/user_referral.php';
 
 $user = require_login(['SECRETARY']);
 
 users_backfill_created_by($pdo);
 
 $patients = $pdo->query("
-  SELECT u.id, u.name, u.username, u.phone,
+  SELECT u.id, u.name, u.username, u.phone, u.referral_source,
          cu.name AS created_by_name, cu.username AS created_by_username, cu.role AS created_by_role,
          COUNT(a.id) AS visit_count,
          MAX(a.starts_at) AS last_visit
@@ -17,7 +18,7 @@ $patients = $pdo->query("
   LEFT JOIN appointments a ON a.patient_id = u.id
     AND a.status IN ('PENDING_APPROVAL','PENDING_PAYMENT','CONFIRMED','COMPLETED')
   WHERE u.role = 'PATIENT'
-  GROUP BY u.id, u.name, u.username, u.phone, cu.name, cu.username, cu.role
+  GROUP BY u.id, u.name, u.username, u.phone, u.referral_source, cu.name, cu.username, cu.role
   ORDER BY u.name ASC
 ")->fetchAll();
 $doctors = secretary_active_doctors($pdo);
@@ -73,6 +74,10 @@ ob_start();
           <?php endif; ?>
         </div>
         <div class="muted" style="font-size:.8rem;margin-top:.35rem">ثبت توسط <?= e($creatorLabel) ?></div>
+        <?php $referralLabel = user_referral_label((string) ($p['referral_source'] ?? '')); ?>
+        <?php if ($referralLabel !== ''): ?>
+          <div class="muted" style="font-size:.8rem;margin-top:.2rem">معرف: <?= e($referralLabel) ?></div>
+        <?php endif; ?>
       </div>
       <div style="text-align:left">
         <span class="badge"><?= (int) $p['visit_count'] ?> نوبت</span>
@@ -91,7 +96,7 @@ $pageScripts = '
 <script src="' . e(url('/assets/js/search-select.js')) . '?v=20260906p"></script>
 <script src="' . e(url('/assets/js/name-transliterate.js')) . '?v=20260906p"></script>
 <script src="' . e(url('/assets/js/form-draft.js')) . '?v=20260906p"></script>
-<script src="' . e(url('/assets/js/secretary-patient-form.js')) . '?v=20260906p"></script>
+<script src="' . e(url('/assets/js/secretary-patient-form.js')) . '?v=20261007ref"></script>
 <script>
 (function(){
   var form = document.getElementById("secretary-patient-form");

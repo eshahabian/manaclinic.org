@@ -3,10 +3,25 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/admin_panel.php';
 require_once __DIR__ . '/../includes/user_cleanup.php';
 require_once __DIR__ . '/../includes/outreach.php';
+require_once __DIR__ . '/../includes/user_referral.php';
 require_site_admin();
 csrf_verify();
 
 $action = post('action');
+
+if ($action === 'set_referral') {
+    $id = post('user_id');
+    $back = post('return_to');
+    if (!in_array($back, ['/admin/users', '/admin/users-disabled'], true)) {
+        $back = '/admin/users';
+    }
+    if ($id === '' || !user_referral_save($pdo, $id, post('referral_source'))) {
+        flash_set('error', 'معرف را انتخاب کنید.');
+        redirect($back);
+    }
+    flash_set('success', 'معرف ذخیره شد.');
+    redirect($back);
+}
 
 if ($action === 'set_password') {
     $id = post('user_id');

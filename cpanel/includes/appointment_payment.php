@@ -133,6 +133,10 @@ function staff_confirm_appointment_payment(
         $pdo->prepare('UPDATE payments SET status=?, ref_id=COALESCE(NULLIF(ref_id,\'\'),\'SECRETARY\'), recorded_by_user_id=? WHERE id=?')
             ->execute(['PAID', $staffUserId, $paymentId]);
     }
+    if (!function_exists('user_referral_stamp_payment')) {
+        require_once __DIR__ . '/user_referral.php';
+    }
+    user_referral_stamp_payment($pdo, $paymentId, (string) ($row['patient_user_id'] ?? ''), (int) ($row['amount'] ?? 0));
 
     if (function_exists('ensure_appointment_hold_columns')) {
         ensure_appointment_hold_columns($pdo);

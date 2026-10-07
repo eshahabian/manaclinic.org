@@ -89,6 +89,14 @@ function db_ensure_schema(PDO $pdo): void
     } catch (Throwable $ignored) {
     }
 
+    try {
+        if (!function_exists('ensure_user_referral_schema')) {
+            require_once __DIR__ . '/user_referral.php';
+        }
+        ensure_user_referral_schema($pdo);
+    } catch (Throwable $ignored) {
+    }
+
     if (function_exists('ensure_staff_desk_schema')) {
         try {
             ensure_staff_desk_schema($pdo);

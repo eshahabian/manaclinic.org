@@ -85,6 +85,10 @@ try {
         ->execute([$appointmentId, $doctorId, $user['id'], $startsAt, $endsAt, 'PENDING_PAYMENT', null, $sessionMode, (string) $user['id']]);
     $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,status) VALUES (?,?,?,?)')
         ->execute([$paymentId, $appointmentId, $amount, 'PENDING']);
+    if (!function_exists('user_referral_stamp_payment')) {
+        require_once __DIR__ . '/../includes/user_referral.php';
+    }
+    user_referral_stamp_payment($pdo, $paymentId, (string) $user['id'], $amount);
     $pdo->commit();
 
     $patientName = (string) ($user['name'] ?? 'مراجعه‌کننده');

@@ -77,6 +77,10 @@ try {
         ->execute([$appointmentId, $doctorId, $patientId, $startsAt, $endsAt, 'CONFIRMED', $notes, $sessionMode, $actorId]);
     $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,status,ref_id,recorded_by_user_id,receipt_path) VALUES (?,?,?,?,?,?,?)')
         ->execute([$paymentId, $appointmentId, (int)$doctor['session_price'], 'PAID', 'SECRETARY', $actorId, $receiptPath]);
+    if (!function_exists('user_referral_stamp_payment')) {
+        require_once __DIR__ . '/../includes/user_referral.php';
+    }
+    user_referral_stamp_payment($pdo, $paymentId, $patientId, (int) $doctor['session_price']);
     $pdo->commit();
 
     $patientNameStmt = $pdo->prepare('SELECT name FROM users WHERE id = ?');

@@ -45,6 +45,13 @@ function secretary_create_patient_from_post(PDO $pdo, array $actor, array $opts 
     if (!preg_match('/^[a-z0-9._-]{3,32}$/', $newUsername)) {
         return ['ok' => false, 'error' => 'نام کاربری نامعتبر است. فقط حروف انگلیسی، عدد و ._- (۳ تا ۳۲ کاراکتر).'];
     }
+    if (!function_exists('user_referral_normalize')) {
+        require_once __DIR__ . '/user_referral.php';
+    }
+    $referralSource = user_referral_normalize(post('new_referral_source'));
+    if ($referralSource === null) {
+        return ['ok' => false, 'error' => 'معرف را انتخاب کنید.'];
+    }
     if (strlen($newPassword) < 6) {
         return ['ok' => false, 'error' => 'رمز عبور حداقل ۶ کاراکتر باشد.'];
     }
@@ -58,7 +65,7 @@ function secretary_create_patient_from_post(PDO $pdo, array $actor, array $opts 
     }
 
     $patientId = cuid();
-    $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,preferred_doctor_id,created_by_user_id,must_change_password) VALUES (?,?,?,?,?,?,?,?,?,0)')
+    $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,preferred_doctor_id,created_by_user_id,referral_source,must_change_password) VALUES (?,?,?,?,?,?,?,?,?,?,0)')
         ->execute([
             $patientId,
             $newUsername,
@@ -69,6 +76,7 @@ function secretary_create_patient_from_post(PDO $pdo, array $actor, array $opts 
             'PATIENT',
             $preferredDoctorId,
             $actorId,
+            $referralSource,
         ]);
     user_remember_password_plain($pdo, $patientId, $newPassword);
     if (function_exists('outreach_link_user_by_phone')) {

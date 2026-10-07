@@ -167,7 +167,7 @@ $secretaryBookScripts = '
 <script src="' . e(url('/assets/js/search-select.js')) . '?v=20260916c"></script>
 <script src="' . e(url('/assets/js/name-transliterate.js')) . '?v=20260906p"></script>
 <script src="' . e(url('/assets/js/form-draft.js')) . '?v=20260906p"></script>
-<script src="' . e(url('/assets/js/secretary-patient-form.js')) . '?v=20260906p"></script>
+<script src="' . e(url('/assets/js/secretary-patient-form.js')) . '?v=20261007ref"></script>
 <script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260920c"></script>
 <script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
@@ -204,7 +204,7 @@ $secretaryBookScripts = '
     enhanceSelects: true,
     draftFields: [
       "new_first_name", "new_last_name", "new_name_en", "new_surname",
-      "new_preferred_doctor_id", "new_phone", "new_username",
+      "new_preferred_doctor_id", "new_referral_source", "new_phone", "new_username",
       "new_password", "new_password_confirm", "notes"
     ]
   });
@@ -224,6 +224,8 @@ $secretaryBookScripts = '
     nameEnEl.value = "";
     surnameEl.value = "";
     preferredDoctorEl.value = "";
+    var referralEl = document.getElementById("new_referral_source");
+    if (referralEl) referralEl.value = "";
     newUserEl.value = "";
     newPassEl.value = "";
     newPassConfirmEl.value = "";

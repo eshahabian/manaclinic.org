@@ -22,7 +22,7 @@
       draft = global.bindFormDraft(form, opts.draftKey, {
         fields: opts.draftFields || [
           "new_first_name", "new_last_name", "new_name_en", "new_surname",
-          "new_preferred_doctor_id", "new_phone", "new_username",
+          "new_preferred_doctor_id", "new_referral_source", "new_phone", "new_username",
           "new_password", "new_password_confirm"
         ],
         exclude: opts.draftExclude || ["receipt", "_csrf"],
@@ -75,6 +75,10 @@
     }
     if (!preferredDoctorEl || !preferredDoctorEl.value) {
       return fail("درمانگر مربوط به مراجعه‌کننده را انتخاب کنید.", preferredDoctorEl);
+    }
+    var referralEl = document.getElementById("new_referral_source");
+    if (!referralEl || !referralEl.value) {
+      return fail("معرف را انتخاب کنید.", referralEl);
     }
     if (!newPhoneEl || !global.manaIsValidPhone(newPhoneEl.value.trim())) {
       return fail("موبایل الزامی است. شماره ایران یا بین‌المللی معتبر وارد کنید.", newPhoneEl);

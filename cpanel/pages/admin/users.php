@@ -4,6 +4,7 @@ require_once __DIR__ . '/../../includes/admin_panel.php';
 require_once __DIR__ . '/../../includes/user_cleanup.php';
 require_once __DIR__ . '/../../includes/outreach.php';
 require_once __DIR__ . '/../../includes/secretary_patient.php';
+require_once __DIR__ . '/../../includes/user_referral.php';
 require_site_admin();
 
 ensure_users_password_plain_schema($pdo);
@@ -18,7 +19,7 @@ if (function_exists('users_backfill_created_by')) {
     ensure_staff_desk_schema($pdo);
 }
 $users = $pdo->query("
-  SELECT u.id, u.username, u.name, u.role, u.created_at, u.last_login_at, u.password_plain, u.is_disabled,
+  SELECT u.id, u.username, u.name, u.role, u.created_at, u.last_login_at, u.password_plain, u.is_disabled, u.referral_source,
          cu.name AS created_by_name, cu.username AS created_by_username, cu.role AS created_by_role
   FROM users u
   LEFT JOIN users cu ON cu.id = u.created_by_user_id
@@ -151,6 +152,7 @@ ob_start();
       <col class="admin-users-col-user">
       <col class="admin-users-col-role">
       <col class="admin-users-col-by">
+      <col class="admin-users-col-by">
       <col class="admin-users-col-pass">
       <col class="admin-users-col-date">
       <col class="admin-users-col-date">
@@ -163,6 +165,7 @@ ob_start();
         <th>نام کاربری</th>
         <th>نقش</th>
         <th>ثبت توسط</th>
+        <th>معرف</th>
         <th>رمز فعلی</th>
         <th>عضویت</th>
         <th>آخرین ورود</th>
@@ -192,6 +195,19 @@ ob_start();
           <td dir="ltr"><?= e((string) $u['username']) ?></td>
           <td><?= e(role_label($u['role'])) ?></td>
           <td style="font-size:.85rem"><?= e($creator) ?></td>
+          <td>
+            <form method="post" action="<?= e(url('/admin/users')) ?>" style="margin:0">
+              <?= csrf_field() ?>
+              <input type="hidden" name="action" value="set_referral">
+              <input type="hidden" name="user_id" value="<?= e($uid) ?>">
+              <input type="hidden" name="return_to" value="<?= e($usersDisabledPage ? '/admin/users-disabled' : '/admin/users') ?>">
+              <select class="input" name="referral_source" aria-label="معرف" onchange="this.form.submit()" style="min-width:9rem;padding:.35rem .5rem">
+                <option value="">انتخاب معرف</option>
+                <option value="clinic"<?= (($u['referral_source'] ?? '') === 'clinic') ? ' selected' : '' ?>>ارجاع از سمت کلینیک</option>
+                <option value="therapist"<?= (($u['referral_source'] ?? '') === 'therapist') ? ' selected' : '' ?>>ارجاع از سمت درمانگر</option>
+              </select>
+            </form>
+          </td>
           <td>
             <?php if ($plain !== ''): ?>
               <code class="admin-password-plain" dir="ltr"><?= e($plain) ?></code>
@@ -278,7 +294,7 @@ ob_start();
         </tr>
       <?php endforeach; ?>
       <?php if (!$users): ?>
-        <tr><td colspan="9" class="muted" style="text-align:center;padding:1.2rem"><?= $usersDisabledPage ? 'کاربر غیرفعالی نیست.' : 'کاربری ثبت نشده است.' ?></td></tr>
+        <tr><td colspan="10" class="muted" style="text-align:center;padding:1.2rem"><?= $usersDisabledPage ? 'کاربر غیرفعالی نیست.' : 'کاربری ثبت نشده است.' ?></td></tr>
       <?php endif; ?>
     </tbody>
   </table>

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../includes/secretary_panel.php';
 require_once __DIR__ . '/../../includes/appointment_cancel.php';
+require_once __DIR__ . '/../../includes/user_referral.php';
 
 $user = require_login(['SECRETARY']);
 $id = trim((string) ($_GET['id'] ?? ''));
@@ -10,7 +11,7 @@ $id = trim((string) ($_GET['id'] ?? ''));
 users_backfill_created_by($pdo);
 
 $stmt = $pdo->prepare("
-  SELECT u.id, u.name, u.username, u.phone,
+  SELECT u.id, u.name, u.username, u.phone, u.referral_source,
          cu.name AS created_by_name, cu.username AS created_by_username, cu.role AS created_by_role
   FROM users u
   LEFT JOIN users cu ON cu.id = u.created_by_user_id
@@ -97,6 +98,14 @@ ob_start();
     ], 'نامشخص (قبل از ثبت این قابلیت یا ثبت‌نام شخصی)')) ?></div>
   </div>
   <div class="muted" style="font-size:.85rem">نام کاربری: <span dir="ltr"><?= e((string) $patient['username']) ?></span></div>
+  <form method="post" action="<?= e(url('/secretary/patients/' . $id . '/referral')) ?>" class="form-stack" style="margin:0">
+    <?= csrf_field() ?>
+    <div>
+      <label class="label" for="patient-referral">معرف</label>
+      <?= user_referral_options_html('referral_source', 'patient-referral', (string) ($patient['referral_source'] ?? ''), true) ?>
+    </div>
+    <button class="btn btn-primary btn-sm" type="submit" style="justify-self:start">ذخیره معرف</button>
+  </form>
 </div>
 
 <div class="binder-tile" data-binder-tabs data-binder-initial="<?= e($tab) ?>" data-binder-tone="<?= e($tab === 'workshops' ? 'workshops' : 'appts') ?>" style="margin-top:1.5rem">

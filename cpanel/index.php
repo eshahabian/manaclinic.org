@@ -415,6 +415,11 @@ if (preg_match('#^/workshop-media/stream$#', $path) && $method === 'GET') {
     exit;
 }
 
+if (preg_match('#^/secretary/patients/([a-zA-Z0-9_-]+)/referral$#', $path, $m) && $method === 'POST') {
+    $_GET['id'] = $m[1];
+    require __DIR__ . '/actions/secretary_patient_referral.php';
+    exit;
+}
 if (preg_match('#^/secretary/patients/([a-zA-Z0-9_-]+)$#', $path, $m) && $method === 'GET') {
     $_GET['id'] = $m[1];
     require __DIR__ . '/pages/secretary/patient_detail.php';
