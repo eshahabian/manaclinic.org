@@ -23,6 +23,7 @@ function secretary_nav(): array
         ['href' => '/admin/rooms', 'label' => 'اتاق‌ها'],
         ['href' => '/admin/outreach', 'label' => 'مراجعه‌کنندگان قدیمی'],
         ['href' => '/secretary/patients', 'label' => 'مراجعه‌کنندگان'],
+        ['href' => '/secretary/users', 'label' => 'کاربران'],
         ['href' => '/secretary/profile', 'label' => 'پیام مدیر'],
         ['href' => '/secretary/board', 'label' => 'یادداشت مشترک'],
         ['href' => '/secretary/hours', 'label' => 'ساعت کاری'],

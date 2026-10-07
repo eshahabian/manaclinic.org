@@ -132,7 +132,7 @@ function secretary_active_doctors(PDO $pdo): array
 function secretary_bookable_patients(PDO $pdo): array
 {
     return $pdo->query("
-      SELECT u.id, u.name, u.username, u.phone, u.preferred_doctor_id, du.name AS doctor_name
+      SELECT u.id, u.name, u.username, u.phone, u.preferred_doctor_id, u.referral_source, du.name AS doctor_name
       FROM users u
       LEFT JOIN doctor_profiles dp ON dp.id = u.preferred_doctor_id
       LEFT JOIN users du ON du.id = dp.user_id
