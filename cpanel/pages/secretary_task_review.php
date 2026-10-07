@@ -7,7 +7,7 @@ require_once __DIR__ . '/../includes/secretary_daily_tasks.php';
 /** @var callable $renderReview */
 $user = current_user();
 if (!secretary_daily_tasks_can_review($user)) {
-    flash_set('error', 'پیگیری کارهای روزانه منشی فقط برای دکتر شیوا گرانمایه‌پور، دکتر عطیه گارسچی و eshahabian است.');
+    flash_set('error', 'پیگیری کارهای روزانه منشی فقط برای دکتر شیوا گرانمایه‌پور، دکتر عطیه گارسچی، eshahabian و eemadian است.');
     redirect((string) ($user['role'] ?? '') === 'ADMIN' ? '/admin' : '/doctor/notifications');
 }
 

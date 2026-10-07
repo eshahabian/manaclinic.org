@@ -39,7 +39,7 @@ function secretary_daily_tasks_can_review(?array $user = null): bool
         return false;
     }
     $username = strtolower(trim((string) ($user['username'] ?? '')));
-    if ($username === 'eshahabian') {
+    if ($username === 'eshahabian' || $username === 'eemadian') {
         return true;
     }
 
