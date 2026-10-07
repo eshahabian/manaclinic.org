@@ -17,6 +17,7 @@
   var replyBox = document.getElementById("sapp-reply");
   var current = null;
   var timer = null;
+  var pendingReact = {};
   var startX = 0;
   var startY = 0;
   var fromTouch = false;
@@ -73,6 +74,13 @@
     try { document.execCommand("copy"); } catch (err) {}
     area.remove();
     return Promise.resolve();
+  }
+
+  function messageId(article) {
+    if (!article) return "";
+    var id = article.getAttribute("data-id") || "";
+    if (id) return id;
+    return article.id.indexOf("m-") === 0 ? article.id.slice(2) : "";
   }
 
   function messageText(article) {
@@ -168,7 +176,7 @@
     if (pin) {
       var pinLabel = pin.querySelector("span");
       if (pinLabel) {
-        pinLabel.textContent = thread.getAttribute("data-pinned") === article.id.slice(2) ? "برداشتن سنجاق" : "سنجاق";
+        pinLabel.textContent = thread.getAttribute("data-pinned") === messageId(article) ? "برداشتن سنجاق" : "سنجاق";
       }
     }
     var emoji = article.querySelector(".sapp-reacts");
@@ -196,19 +204,36 @@
     });
   }
 
-  function paintReacts(article, counts, emoji) {
+  function paintReacts(article, counts, mineEmoji) {
     var box = article.querySelector(".sapp-reacts");
     if (!box) return;
-    var mine = box.getAttribute("data-mine") || "";
-    if (emoji) mine = mine === emoji ? "" : emoji;
-    box.setAttribute("data-mine", mine);
+    mineEmoji = mineEmoji || "";
+    box.setAttribute("data-mine", mineEmoji);
     box.innerHTML = "";
     Object.keys(counts || {}).forEach(function (key) {
       if (!counts[key]) return;
       var chip = document.createElement("span");
-      chip.className = "sapp-react-chip" + (key === mine ? " is-mine" : "");
+      chip.className = "sapp-react-chip" + (key === mineEmoji ? " is-mine" : "");
       chip.textContent = key + " " + faDigits(counts[key]);
       box.appendChild(chip);
+    });
+  }
+
+  function applyReactions(map) {
+    if (!map || Array.isArray(map)) return;
+    var seen = {};
+    Object.keys(map).forEach(function (id) {
+      seen[id] = true;
+      if (pendingReact[id]) return;
+      var article = document.getElementById("m-" + id);
+      if (!article) return;
+      paintReacts(article, (map[id] && map[id].counts) || {}, (map[id] && map[id].mine) || "");
+    });
+    thread.querySelectorAll(".sapp-msg").forEach(function (article) {
+      var id = messageId(article);
+      if (!id || pendingReact[id] || seen[id]) return;
+      var box = article.querySelector(".sapp-reacts");
+      if (box && box.childNodes.length) paintReacts(article, {}, "");
     });
   }
 
@@ -275,30 +300,43 @@
     article.classList.toggle("is-picked");
   }, true);
 
-  document.getElementById("sapp-hold-back").addEventListener("click", closeMenu);
+  var holdBack = document.getElementById("sapp-hold-back");
+  if (holdBack) holdBack.addEventListener("click", closeMenu);
   document.addEventListener("keydown", function (event) {
     if (event.key === "Escape") closeMenu();
   });
 
-  pop.querySelectorAll(".sapp-hold-emojis button").forEach(function (button) {
+  if (pop) pop.querySelectorAll(".sapp-hold-emojis button").forEach(function (button) {
     button.addEventListener("click", function () {
       if (!current) return;
       var article = current;
+      var id = messageId(article);
       var emoji = button.getAttribute("data-emoji") || "";
-      postAction({ form: "react", message_id: article.id.slice(2), emoji: emoji }).then(function (data) {
-        paintReacts(article, data.counts || {}, emoji);
-        closeMenu();
+      if (!id || pendingReact[id]) return;
+      pendingReact[id] = true;
+      var box = article.querySelector(".sapp-reacts");
+      var prevMine = box ? (box.getAttribute("data-mine") || "") : "";
+      var nextMine = prevMine === emoji ? "" : emoji;
+      var optimistic = {};
+      if (nextMine) optimistic[nextMine] = 1;
+      paintReacts(article, optimistic, nextMine);
+      closeMenu();
+      postAction({ form: "react", message_id: id, emoji: emoji }).then(function (data) {
+        paintReacts(article, data.counts || {}, data.mine || "");
       }).catch(function (err) {
+        paintReacts(article, {}, prevMine);
         window.alert(err.message || "انجام نشد.");
+      }).then(function () {
+        delete pendingReact[id];
       });
     });
   });
 
-  menu.addEventListener("click", function (event) {
+  if (menu) menu.addEventListener("click", function (event) {
     var button = event.target.closest("[data-act]");
     if (!button || !current) return;
     var article = current;
-    var id = article.id.slice(2);
+    var id = messageId(article);
     var act = button.getAttribute("data-act");
     if (act === "seen") return;
     if (act === "reply") {
@@ -391,12 +429,15 @@
     }
   });
 
-  document.getElementById("sapp-reply-x").addEventListener("click", function () {
-    document.getElementById("sapp-reply-id").value = "";
-    replyBox.hidden = true;
+  var replyX = document.getElementById("sapp-reply-x");
+  if (replyX) replyX.addEventListener("click", function () {
+    var replyInput = document.getElementById("sapp-reply-id");
+    if (replyInput) replyInput.value = "";
+    if (replyBox) replyBox.hidden = true;
   });
 
-  document.getElementById("sapp-select-cancel").addEventListener("click", function () {
+  var selectCancel = document.getElementById("sapp-select-cancel");
+  if (selectCancel) selectCancel.addEventListener("click", function () {
     thread.classList.remove("is-selecting");
     thread.querySelectorAll(".sapp-msg.is-picked").forEach(function (item) {
       item.classList.remove("is-picked");
@@ -404,7 +445,8 @@
     selectBar.hidden = true;
   });
 
-  document.getElementById("sapp-select-copy").addEventListener("click", function () {
+  var selectCopy = document.getElementById("sapp-select-copy");
+  if (selectCopy) selectCopy.addEventListener("click", function () {
     var parts = [];
     thread.querySelectorAll(".sapp-msg.is-picked").forEach(function (item) {
       var text = messageText(item);
@@ -417,10 +459,11 @@
     copyText(parts.join("\n"));
   });
 
-  document.getElementById("sapp-select-delete").addEventListener("click", function () {
+  var selectDelete = document.getElementById("sapp-select-delete");
+  if (selectDelete) selectDelete.addEventListener("click", function () {
     var ids = [];
     thread.querySelectorAll(".sapp-msg.is-picked").forEach(function (item) {
-      if (item.getAttribute("data-mine") === "1") ids.push(item.id.slice(2));
+      if (item.getAttribute("data-mine") === "1") ids.push(messageId(item));
     });
     if (!ids.length) {
       window.alert("فقط پیام خودتان حذف می‌شود.");
@@ -442,8 +485,9 @@
 
   function buildMessage(msg) {
     var article = document.createElement("article");
-    article.className = "sapp-msg " + (msg.mine ? "is-mine" : "is-theirs");
+    article.className = "sapp-msg " + (msg.mine ? "is-mine" : "is-theirs") + (msg.pending ? " is-pending" : "");
     article.id = "m-" + msg.id;
+    article.setAttribute("data-id", msg.id);
     article.setAttribute("data-created", msg.created || "");
     article.setAttribute("data-mine", msg.mine ? "1" : "0");
     article.setAttribute("data-name", msg.name || "");
@@ -481,7 +525,12 @@
     }
     (msg.files || []).forEach(function (file) {
       var href = String(file.url || "");
-      if (!href) return;
+      if (!href) {
+        var pendingName = document.createElement("p");
+        pendingName.textContent = file.name || "فایل";
+        article.appendChild(pendingName);
+        return;
+      }
       if (String(file.mime || "").indexOf("image/") === 0) {
         var link = document.createElement("a");
         link.href = href;
@@ -537,19 +586,26 @@
     if (added && stick) window.scrollTo(0, document.body.scrollHeight);
   }
 
-  function pullLive() {
-    if (!config.receipts || document.hidden) return;
+  function cursorId() {
     var nodes = thread.querySelectorAll(".sapp-msg");
-    var last = nodes.length ? nodes[nodes.length - 1] : null;
-    var since = last ? (last.getAttribute("data-created") || "") : "1970-01-01 00:00:00";
-    var after = last && last.id.indexOf("m-") === 0 ? last.id.slice(2) : "";
-    if (!since) return;
-    var live = config.receipts + "?since=" + encodeURIComponent(since) + "&after=" + encodeURIComponent(after);
+    var i;
+    for (i = nodes.length - 1; i >= 0; i--) {
+      var id = messageId(nodes[i]);
+      if (/^[a-f0-9]{24}$/.test(id)) return id;
+    }
+    return "";
+  }
+
+  function pullLive() {
+    if (!config.receipts) return;
+    var after = cursorId();
+    var live = config.receipts + "?after=" + encodeURIComponent(after);
     fetch(live, { cache: "no-store", credentials: "same-origin", headers: { Accept: "application/json" } })
       .then(function (res) { return res.ok ? res.json() : null; })
       .then(function (data) {
         if (!data) return;
         appendMessages(data.messages || []);
+        applyReactions(data.reactions);
         if (data.states) paintTicks(data.states);
         Object.keys(data.seen || {}).forEach(function (id) {
           var article = document.getElementById("m-" + id);
@@ -565,10 +621,32 @@
   if (compose) {
     compose.addEventListener("submit", function (event) {
       event.preventDefault();
-      var button = compose.querySelector(".sapp-send");
-      if (button) button.disabled = true;
+      var field = document.getElementById("chat-body");
+      var file = document.getElementById("chat-file");
+      var text = field ? field.value : "";
+      var hasFile = file && file.files && file.files.length > 0;
+      if (!String(text).trim() && !hasFile) return;
       var body = new FormData(compose);
       body.set("ajax", "1");
+      var tempId = "tmp" + Date.now();
+      appendMessages([{
+        id: tempId,
+        mine: true,
+        pending: true,
+        name: "",
+        body: String(text),
+        time: "…",
+        created: "",
+        forward: "",
+        replyTo: "",
+        files: hasFile ? [{ url: "", name: file.files[0].name || "فایل", mime: "" }] : []
+      }]);
+      if (field) field.value = "";
+      if (file) file.value = "";
+      var replyId = document.getElementById("sapp-reply-id");
+      if (replyId) replyId.value = "";
+      if (replyBox) replyBox.hidden = true;
+      window.scrollTo(0, document.body.scrollHeight);
       fetch(compose.action, {
         method: "POST",
         body: body,
@@ -583,25 +661,22 @@
           return data;
         });
       }).then(function (data) {
+        var temp = document.getElementById("m-" + tempId);
+        if (temp) temp.remove();
         if (data.message) appendMessages([data.message]);
-        var field = document.getElementById("chat-body");
-        if (field) field.value = "";
-        var file = document.getElementById("chat-file");
-        if (file) file.value = "";
-        var replyId = document.getElementById("sapp-reply-id");
-        if (replyId) replyId.value = "";
-        if (replyBox) replyBox.hidden = true;
         window.scrollTo(0, document.body.scrollHeight);
       }).catch(function (err) {
+        var temp = document.getElementById("m-" + tempId);
+        if (temp) temp.classList.remove("is-pending");
+        if (field && !field.value) field.value = text;
         window.alert(err.message || "پیام فرستاده نشد.");
-      }).then(function () {
-        if (button) button.disabled = false;
       });
     });
   }
 
   if (config.receipts) {
-    setInterval(pullLive, 2000);
+    pullLive();
+    setInterval(pullLive, 1500);
     document.addEventListener("visibilitychange", function () {
       if (!document.hidden) pullLive();
     });

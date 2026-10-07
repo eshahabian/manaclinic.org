@@ -486,26 +486,38 @@ function staff_app_allowed_reactions(): array
     return ['😂', '❤️', '👍', '😍', '🙏', '👎', '🔥'];
 }
 
-/** @return array<string, int> */
+function staff_app_match_emoji(string $emoji): string
+{
+    $emoji = trim($emoji);
+    $bare = str_replace("\u{FE0F}", '', $emoji);
+    foreach (staff_app_allowed_reactions() as $allowed) {
+        if ($emoji === $allowed || $bare === str_replace("\u{FE0F}", '', $allowed)) {
+            return $allowed;
+        }
+    }
+
+    return '';
+}
+
+/** @return array{counts: array<string, int>, mine: string} */
 function staff_app_toggle_reaction(PDO $pdo, array $user, string $roomId, string $messageId, string $emoji): array
 {
     $userId = (string) ($user['id'] ?? '');
-    if (!in_array($emoji, staff_app_allowed_reactions(), true)) {
+    $emoji = staff_app_match_emoji($emoji);
+    if ($emoji === '') {
         throw new RuntimeException('این واکنش مجاز نیست.');
     }
-    if (!staff_app_message_for_member($pdo, $messageId, $roomId, $userId)) {
+    if (!preg_match('/^[a-f0-9]{24}$/', $messageId) || !staff_app_message_for_member($pdo, $messageId, $roomId, $userId)) {
         throw new RuntimeException('این پیام پیدا نشد.');
     }
     $current = $pdo->prepare('SELECT emoji FROM staff_app_reactions WHERE message_id = ? AND user_id = ?');
     $current->execute([$messageId, $userId]);
     $have = (string) ($current->fetchColumn() ?: '');
-    if ($have === $emoji) {
-        $pdo->prepare('DELETE FROM staff_app_reactions WHERE message_id = ? AND user_id = ?')->execute([$messageId, $userId]);
-    } else {
-        $pdo->prepare("
-          INSERT INTO staff_app_reactions (message_id, user_id, emoji) VALUES (?,?,?)
-          ON DUPLICATE KEY UPDATE emoji = VALUES(emoji)
-        ")->execute([$messageId, $userId, $emoji]);
+    $pdo->prepare('DELETE FROM staff_app_reactions WHERE message_id = ? AND user_id = ?')->execute([$messageId, $userId]);
+    $mine = '';
+    if ($have !== $emoji) {
+        $pdo->prepare('INSERT INTO staff_app_reactions (message_id, user_id, emoji) VALUES (?,?,?)')->execute([$messageId, $userId, $emoji]);
+        $mine = $emoji;
     }
     $counts = $pdo->prepare('SELECT emoji, COUNT(*) AS total FROM staff_app_reactions WHERE message_id = ? GROUP BY emoji');
     $counts->execute([$messageId]);
@@ -514,7 +526,7 @@ function staff_app_toggle_reaction(PDO $pdo, array $user, string $roomId, string
         $out[(string) $row['emoji']] = (int) $row['total'];
     }
 
-    return $out;
+    return ['counts' => $out, 'mine' => $mine];
 }
 
 function staff_app_forward_message(PDO $pdo, array $user, string $fromRoom, string $toRoom, string $messageId): void
@@ -608,13 +620,26 @@ function staff_app_messages(PDO $pdo, string $roomId): array
 }
 
 /** @return list<array<string, mixed>> */
-function staff_app_live_messages(PDO $pdo, string $roomId, string $userId, string $since, string $afterId = ''): array
+function staff_app_live_messages(PDO $pdo, string $roomId, string $userId, string $afterId = ''): array
 {
-    if (!preg_match('/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/', $since)) {
-        return [];
-    }
     if (!preg_match('/^[a-f0-9]{24}$/', $afterId)) {
         $afterId = '';
+    }
+    if ($afterId === '') {
+        $stmt = $pdo->prepare("
+          SELECT m.id, m.body, m.created_at, m.user_id, m.reply_to, m.forward_from,
+                 u.name, rm.body AS reply_body, ru.name AS reply_name
+          FROM staff_app_messages m
+          JOIN users u ON u.id = m.user_id
+          LEFT JOIN staff_app_messages rm ON rm.id = m.reply_to
+          LEFT JOIN users ru ON ru.id = rm.user_id
+          WHERE m.room_id = ?
+          ORDER BY m.created_at DESC
+          LIMIT 20
+        ");
+        $stmt->execute([$roomId]);
+
+        return staff_app_message_cards($pdo, $userId, array_reverse($stmt->fetchAll() ?: []));
     }
     $stmt = $pdo->prepare("
       SELECT m.id, m.body, m.created_at, m.user_id, m.reply_to, m.forward_from,
@@ -623,14 +648,55 @@ function staff_app_live_messages(PDO $pdo, string $roomId, string $userId, strin
       JOIN users u ON u.id = m.user_id
       LEFT JOIN staff_app_messages rm ON rm.id = m.reply_to
       LEFT JOIN users ru ON ru.id = rm.user_id
+      JOIN staff_app_messages cursor_msg ON cursor_msg.id = ? AND cursor_msg.room_id = m.room_id
       WHERE m.room_id = ?
-        AND (m.created_at > ? OR (m.created_at = ? AND m.id <> ?))
+        AND (
+          m.created_at > cursor_msg.created_at
+          OR (m.created_at = cursor_msg.created_at AND m.id <> cursor_msg.id)
+        )
       ORDER BY m.created_at ASC
       LIMIT 40
     ");
-    $stmt->execute([$roomId, $since, $since, $afterId]);
+    $stmt->execute([$afterId, $roomId]);
 
     return staff_app_message_cards($pdo, $userId, $stmt->fetchAll() ?: []);
+}
+
+/** @return array<string, array{counts: array<string, int>, mine: string}> */
+function staff_app_reaction_overview(PDO $pdo, string $roomId, string $userId): array
+{
+    $stmt = $pdo->prepare("
+      SELECT r.message_id, r.emoji, COUNT(*) AS total
+      FROM staff_app_reactions r
+      JOIN staff_app_messages m ON m.id = r.message_id
+      WHERE m.room_id = ?
+      GROUP BY r.message_id, r.emoji
+    ");
+    $stmt->execute([$roomId]);
+    $out = [];
+    foreach ($stmt->fetchAll() ?: [] as $row) {
+        $id = (string) $row['message_id'];
+        if (!isset($out[$id])) {
+            $out[$id] = ['counts' => [], 'mine' => ''];
+        }
+        $out[$id]['counts'][(string) $row['emoji']] = (int) $row['total'];
+    }
+    $mine = $pdo->prepare("
+      SELECT r.message_id, r.emoji
+      FROM staff_app_reactions r
+      JOIN staff_app_messages m ON m.id = r.message_id
+      WHERE m.room_id = ? AND r.user_id = ?
+    ");
+    $mine->execute([$roomId, $userId]);
+    foreach ($mine->fetchAll() ?: [] as $row) {
+        $id = (string) $row['message_id'];
+        if (!isset($out[$id])) {
+            $out[$id] = ['counts' => [], 'mine' => ''];
+        }
+        $out[$id]['mine'] = (string) $row['emoji'];
+    }
+
+    return $out;
 }
 
 function staff_app_message_card(PDO $pdo, string $roomId, string $userId, string $messageId): ?array
@@ -1157,6 +1223,7 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-check{display:flex;gap:10px;align-items:center;min-height:44px;margin:0 0 6px}
     .sapp-check input{width:22px;height:22px;flex:none}
     .sapp-msg{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+    .sapp-msg.is-pending{opacity:.72}
     .sapp-pin{display:block;margin:0 0 8px;padding:8px 10px;border-radius:12px;background:#fff;border-inline-start:3px solid #1a9a8a;color:inherit;text-decoration:none}
     .sapp-pin strong{display:block;color:#1a9a8a;font-size:.78rem}
     .sapp-pin span{display:block;color:#667781;font-size:.84rem}

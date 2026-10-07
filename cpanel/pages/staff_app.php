@@ -25,15 +25,16 @@ if (preg_match('#^/app/chat/([a-f0-9]{24})/receipts$#', $path, $m)) {
             echo json_encode(['ok' => false], JSON_UNESCAPED_UNICODE);
             exit;
         }
-        $since = trim((string) ($_GET['since'] ?? ''));
         $after = trim((string) ($_GET['after'] ?? ''));
-        $live = staff_app_live_messages($pdo, $m[1], $userId, $since, $after);
+        $live = staff_app_live_messages($pdo, $m[1], $userId, $after);
         staff_app_mark_read($pdo, $userId, $m[1]);
+        $reactions = staff_app_reaction_overview($pdo, $m[1], $userId);
         echo json_encode([
             'ok' => true,
             'states' => staff_app_own_receipts($pdo, $m[1], $userId),
             'seen' => staff_app_seen_map($pdo, $m[1]),
             'messages' => $live,
+            'reactions' => $reactions === [] ? new stdClass() : $reactions,
         ], JSON_UNESCAPED_UNICODE);
     } catch (Throwable $e) {
         http_response_code(500);
@@ -108,9 +109,13 @@ if ($method === 'POST' && ($path === '/app/chat' || preg_match('#^/app/chat/([a-
             redirect($back);
         }
         if ($form === 'react') {
-            $counts = staff_app_toggle_reaction($pdo, $user, $roomId, post('message_id'), post('emoji'));
+            $reaction = staff_app_toggle_reaction($pdo, $user, $roomId, post('message_id'), post('emoji'));
             header('Content-Type: application/json; charset=utf-8');
-            echo json_encode(['ok' => true, 'counts' => $counts, 'emoji' => post('emoji')], JSON_UNESCAPED_UNICODE);
+            echo json_encode([
+                'ok' => true,
+                'counts' => $reaction['counts'],
+                'mine' => $reaction['mine'],
+            ], JSON_UNESCAPED_UNICODE);
             exit;
         }
         if ($form === 'forward') {
@@ -738,7 +743,7 @@ if ($section === 'chat') {
                   $forwardFrom = trim((string) ($message['forward_from'] ?? ''));
                   $mineEmoji = (string) ($reactMine[$msgId] ?? '');
                 ?>
-                <article class="sapp-msg<?= $mine ? ' is-mine' : ' is-theirs' ?>" id="m-<?= e($msgId) ?>" data-created="<?= e((string) ($message['created_at'] ?? '')) ?>" data-mine="<?= $mine ? '1' : '0' ?>" data-name="<?= e($senderName) ?>" data-body="<?= e($bodyText) ?>" data-seen="<?= json_encode($seenMap[$msgId] ?? [], $attrFlags) ?>" data-files="<?= json_encode($fileMeta, $attrFlags) ?>">
+                <article class="sapp-msg<?= $mine ? ' is-mine' : ' is-theirs' ?>" id="m-<?= e($msgId) ?>" data-id="<?= e($msgId) ?>" data-created="<?= e((string) ($message['created_at'] ?? '')) ?>" data-mine="<?= $mine ? '1' : '0' ?>" data-name="<?= e($senderName) ?>" data-body="<?= e($bodyText) ?>" data-seen="<?= json_encode($seenMap[$msgId] ?? [], $attrFlags) ?>" data-files="<?= json_encode($fileMeta, $attrFlags) ?>">
                   <?php if (!$mine): ?>
                     <span class="sapp-msg-name"><?= e($senderName) ?></span>
                   <?php endif; ?>
@@ -836,7 +841,7 @@ if ($section === 'chat') {
             <script type="application/json" id="sapp-chat-config"><?= $chatConfig ?></script>
             <?php
             $html = ob_get_clean();
-            $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/staff-chat.js')) . '?v=20261008live"></script>';
+            $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/staff-chat.js')) . '?v=20261008live3"></script>';
         } else {
             $rooms = staff_app_rooms_for($pdo, $userId);
             $people = staff_app_people($pdo);
