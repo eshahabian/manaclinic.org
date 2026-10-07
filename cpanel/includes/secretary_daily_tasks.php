@@ -227,7 +227,8 @@ function secretary_daily_tasks_html(
         $name = (string) ($secretary['username'] ?? 'منشی');
     }
     $total = (int) $progress['total'];
-    $doneLabel = to_fa_digits((string) $progress['done']) . ' از ' . to_fa_digits((string) $total);
+    $doneCount = to_fa_digits((string) $progress['done']);
+    $totalCount = to_fa_digits((string) $total);
     $dateLabel = secretary_daily_task_date_label($ymd);
     $shadowId = 'dayshadow-' . substr(md5((string) ($secretary['id'] ?? '') . '|' . $ymd), 0, 12);
     static $booted = false;
@@ -236,18 +237,18 @@ function secretary_daily_tasks_html(
         $booted = true;
         ?>
     <style>
-      [data-dayshadow]{position:fixed;inset:0;z-index:5000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(16,24,22,.92);direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif;box-sizing:border-box}
+      [data-dayshadow]{position:fixed;inset:0;z-index:5000;overflow-x:hidden;overflow-y:auto;padding:24px 16px 48px;background:#f7f5f0;direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif;box-sizing:border-box}
       [data-dayshadow][hidden]{display:none !important}
       [data-dayshadow] *{box-sizing:border-box}
-      .dayshadow-card{width:min(42rem,100%);height:calc(100dvh - 40px);max-height:calc(100dvh - 40px);display:flex;flex-direction:column;overflow:hidden;background:#fff;color:#1a2e28;border-radius:16px;direction:rtl;text-align:right;position:relative;box-shadow:0 18px 50px rgba(0,0,0,.3)}
+      .dayshadow-card{width:min(42rem,100%);height:auto;max-height:none;overflow:visible;margin:0 auto;background:#fff;color:#1a2e28;border:1px solid #d5e0da;border-radius:16px;direction:rtl;text-align:right;position:relative;box-shadow:0 18px 50px rgba(26,46,40,.18)}
       .dayshadow-x{position:absolute;top:8px;left:8px;width:36px;height:36px;border:0;border-radius:999px;background:transparent;font-size:24px;line-height:1;cursor:pointer;color:#5a6f66}
-      .dayshadow-head{flex:none;padding:16px 18px 10px 48px;border-bottom:1px solid #d5e0da;direction:rtl;text-align:right}
+      .dayshadow-head{padding:16px 18px 10px 48px;border-bottom:1px solid #d5e0da;direction:rtl;text-align:right}
       .dayshadow-head h2{margin:0 0 12px;font-size:1.15rem;font-family:Vazirmatn,Tahoma,sans-serif}
-      .dayshadow-meta{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0;direction:rtl;text-align:right}
+      .dayshadow-meta{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0;direction:rtl;text-align:right}
       .dayshadow-meta div{min-width:0}
       .dayshadow-meta dt{margin:0;font-size:.78rem;color:#5a6f66;font-weight:500}
       .dayshadow-meta dd{margin:4px 0 0;font-weight:700;line-height:1.55}
-      .dayshadow-scroll{flex:1 1 0px;height:0;min-height:0;overflow-x:hidden;overflow-y:scroll;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:12px 14px 20px;direction:rtl;text-align:right}
+      .dayshadow-scroll{height:auto;max-height:none;overflow:visible;padding:12px 14px 20px;direction:rtl;text-align:right}
       .dayshadow-row{display:block;margin:0 0 8px;padding:10px 12px;border:1px solid #d5e0da;border-radius:12px;background:#f7f5f0;direction:rtl;text-align:right;line-height:1.75}
       .dayshadow-row.is-done{background:#e8f6ee;border-color:#b7e0c6}
       .dayshadow-row form,.dayshadow-row label{display:flex;direction:rtl;text-align:right;gap:8px;align-items:flex-start;margin:0;width:100%;cursor:pointer;font-family:Vazirmatn,Tahoma,sans-serif}
@@ -265,24 +266,22 @@ function secretary_daily_tasks_html(
         document.querySelectorAll("[data-dayshadow]").forEach(function(el){
           if (el.parentNode !== document.body) document.body.appendChild(el);
         });
-        document.body.style.overflow = document.querySelector("[data-dayshadow]:not([hidden])") ? "hidden" : "";
       }
       document.addEventListener("click", function(e){
         var open = e.target.closest ? e.target.closest("[data-dayshadow-open]") : null;
         if (open) {
           var el = document.getElementById(open.getAttribute("data-dayshadow-open"));
-          if (el) { placeAll(); el.hidden = false; document.body.style.overflow = "hidden"; }
+          if (el) { placeAll(); el.hidden = false; el.scrollTop = 0; }
           return;
         }
         var close = e.target.closest ? e.target.closest("[data-dayshadow-close]") : null;
         if (close) {
           var root = close.closest("[data-dayshadow]");
-          if (root) { root.hidden = true; document.body.style.overflow = ""; }
+          if (root) root.hidden = true;
           return;
         }
         if (e.target && e.target.hasAttribute && e.target.hasAttribute("data-dayshadow")) {
           e.target.hidden = true;
-          document.body.style.overflow = "";
         }
       });
       if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", placeAll);
@@ -297,7 +296,7 @@ function secretary_daily_tasks_html(
         <div>
           <strong><?= e($name) ?></strong>
           <span class="muted" style="display:block"><?= e($dateLabel) ?></span>
-          <span style="display:block">انجام‌شده: <?= e($doneLabel) ?></span>
+          <span style="display:block">انجام‌شده: <?= e($doneCount) ?> · همهٔ کارها: <?= e($totalCount) ?></span>
         </div>
         <button type="button" class="btn btn-primary btn-sm" data-dayshadow-open="<?= e($shadowId) ?>">باز کردن فهرست</button>
       </div>
@@ -310,7 +309,8 @@ function secretary_daily_tasks_html(
           <dl class="dayshadow-meta">
             <div><dt>نام و نام خانوادگی</dt><dd><?= e($name) ?></dd></div>
             <div><dt>روز و تاریخ</dt><dd><?= e($dateLabel) ?></dd></div>
-            <div><dt>انجام‌شده</dt><dd><?= e($doneLabel) ?></dd></div>
+            <div><dt>انجام‌شده</dt><dd><?= e($doneCount) ?></dd></div>
+            <div><dt>تعداد کارها</dt><dd><?= e($totalCount) ?></dd></div>
           </dl>
         </div>
         <div class="dayshadow-scroll" dir="rtl">
@@ -345,6 +345,7 @@ function secretary_daily_tasks_html(
               <?php endif; ?>
             </div>
           <?php endforeach; ?>
+          <p style="margin:8px 0 0;text-align:center;color:#5a6f66;font-size:.85rem">پایان فهرست · <?= e($totalCount) ?> کار</p>
         </div>
       </div>
     </div>
@@ -352,7 +353,6 @@ function secretary_daily_tasks_html(
     (function(){
       var el = document.getElementById(<?= json_encode($shadowId) ?>);
       if (el && el.parentNode !== document.body) document.body.appendChild(el);
-      if (el && !el.hidden) document.body.style.overflow = "hidden";
     })();
     </script>
     <?php
