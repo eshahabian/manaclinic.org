@@ -265,8 +265,8 @@ function secretary_daily_tasks_html(
         $booted = true;
         ?>
     <style>
-      [data-dayshadow]{position:fixed;top:0;right:0;bottom:0;left:0;z-index:5000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(26,46,40,.55);direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif;box-sizing:border-box}
-      [data-dayshadow][hidden]{display:none !important}
+      [data-dayshadow]{display:none}
+      [data-dayshadow].is-open{position:fixed;top:0;right:0;bottom:0;left:0;z-index:5000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(26,46,40,.55);direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif;box-sizing:border-box}
       [data-dayshadow] *{box-sizing:border-box}
       .dayshadow-card{width:min(42rem,100%);max-height:calc(100vh - 32px);display:flex;flex-direction:column;overflow:hidden;background:#fff;color:#1a2e28;border:1px solid #d5e0da;border-radius:16px;direction:rtl;text-align:right;position:relative;box-shadow:0 18px 50px rgba(26,46,40,.28)}
       .dayshadow-x{position:absolute;top:8px;left:8px;width:36px;height:36px;border:0;border-radius:999px;background:transparent;font-size:24px;line-height:1;cursor:pointer;color:#5a6f66}
@@ -300,18 +300,38 @@ function secretary_daily_tasks_html(
         if (open) {
           if (e.preventDefault) e.preventDefault();
           var el = document.getElementById(open.getAttribute("data-dayshadow-open"));
-          if (el) { placeAll(); el.hidden = false; el.scrollTop = 0; }
+          if (!el) return;
+          if (el.parentNode !== document.body) document.body.appendChild(el);
+          el.hidden = false;
+          el.style.display = "flex";
+          el.classList.add("is-open");
+          var sc = el.querySelector(".dayshadow-scroll");
+          if (sc) sc.scrollTop = 0;
           return;
         }
         var close = e.target.closest ? e.target.closest("[data-dayshadow-close]") : null;
         if (close) {
           var root = close.closest("[data-dayshadow]");
-          if (root) root.hidden = true;
+          if (root) { root.classList.remove("is-open"); root.hidden = true; root.style.display = "none"; }
           return;
         }
         if (e.target && e.target.hasAttribute && e.target.hasAttribute("data-dayshadow")) {
+          e.target.classList.remove("is-open");
           e.target.hidden = true;
+          e.target.style.display = "none";
         }
+      });
+      document.addEventListener("change", function(e){
+        var input = e.target;
+        if (!input || !input.form || !input.form.classList || !input.form.classList.contains("daytask-form")) return;
+        var form = input.form;
+        var data = new FormData(form);
+        data.set("done", input.checked ? "1" : "0");
+        var row = form.closest(".dayshadow-row");
+        fetch(form.action, {method:"POST", body:data, credentials:"same-origin", headers:{"X-Requested-With":"XMLHttpRequest","Accept":"application/json"}})
+          .then(function(r){ if (!r.ok) throw new Error(); return r.json(); })
+          .then(function(){ if (row) row.classList.toggle("is-done", !!input.checked); })
+          .catch(function(){ input.checked = !input.checked; });
       });
       if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", placeAll);
       else placeAll();
@@ -332,7 +352,7 @@ function secretary_daily_tasks_html(
       </div>
     </article>
     <?php endif; ?>
-    <div data-dayshadow id="<?= e($shadowId) ?>" dir="rtl"<?= $startOpen ? '' : ' hidden' ?>>
+    <div data-dayshadow id="<?= e($shadowId) ?>" dir="rtl" hidden style="display:none">
       <div class="dayshadow-card" role="dialog" aria-modal="true" aria-label="لیست انجام کارهای روزانه" dir="rtl">
         <button type="button" class="dayshadow-x" data-dayshadow-close aria-label="بستن">×</button>
         <div class="dayshadow-head">
@@ -363,14 +383,14 @@ function secretary_daily_tasks_html(
             ?>
             <div class="dayshadow-row<?= $checked ? ' is-done' : '' ?>">
               <?php if ($editable): ?>
-                <form method="post" action="<?= e($postUrl) ?>">
+                <form class="daytask-form" method="post" action="<?= e($postUrl) ?>" onsubmit="return false">
                   <?= csrf_field() ?>
                   <input type="hidden" name="task_date" value="<?= e($ymd) ?>">
                   <input type="hidden" name="task_key" value="<?= e($key) ?>">
                   <input type="hidden" name="return_to" value="<?= e($returnPath) ?>">
                   <input type="hidden" name="done" value="0">
                   <label>
-                    <input type="checkbox" name="done" value="1"<?= $checked ? ' checked' : '' ?> onchange="this.form.submit()">
+                    <input type="checkbox" name="done" value="1"<?= $checked ? ' checked' : '' ?>>
                     <b><?= e(to_fa_digits((string) $n)) ?></b>
                     <span><?= e($label) ?></span>
                   </label>

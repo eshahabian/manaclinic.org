@@ -21,10 +21,24 @@ if (!secretary_daily_task_can_edit($pdo, $userId, $ymd, true) || ($ymd !== date(
     redirect($back . '?date=' . rawurlencode($ymd));
 }
 
+$ajax = strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest';
 try {
     secretary_daily_task_set($pdo, $userId, $ymd, $key, $done);
 } catch (Throwable $e) {
+    if ($ajax) {
+        http_response_code(400);
+        header('Content-Type: application/json; charset=utf-8');
+        echo json_encode(['ok' => false, 'error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
     flash_set('error', $e->getMessage());
+    redirect($back . '?date=' . rawurlencode($ymd));
+}
+
+if ($ajax) {
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['ok' => true], JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
 redirect($back . '?date=' . rawurlencode($ymd));
