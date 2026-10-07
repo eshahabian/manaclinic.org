@@ -73,7 +73,7 @@ function render_secretary_page(string $title, string $innerHtml): void
               $active = !$tasks && $href !== '' && str_contains($currentPath, $href);
           ?>
             <?php if ($tasks): ?>
-            <a href="#" data-daytasks-open="<?= e(url('/secretary/daily-tasks?part=1')) ?>">
+            <a href="#" data-daytasks-open="1">
             <?php else: ?>
             <a class="<?= $active ? 'is-active' : '' ?>" href="<?= e(url($href)) ?>">
             <?php endif; ?>
@@ -101,39 +101,59 @@ function render_secretary_page(string $title, string $innerHtml): void
       </aside>
       <div class="panel-main"><?= $innerHtml ?></div>
     </div>
-    <?php if ($user && (string) ($user['role'] ?? '') === 'SECRETARY'): ?>
+    <?php if ($user && $pdo instanceof PDO && (string) ($user['role'] ?? '') === 'SECRETARY'): ?>
+    <?php
+        require_once __DIR__ . '/secretary_daily_tasks.php';
+        $taskDate = date('Y-m-d');
+        $taskUserId = (string) ($user['id'] ?? '');
+    ?>
+    <div id="daytasks-live" style="display:none !important">
+      <div id="daytasks-card" style="position:relative;width:min(42rem,100%);max-height:calc(100vh - 32px);overflow:auto;background:#fff;color:#1a2e28;border-radius:16px;padding:18px 18px 20px;direction:rtl;text-align:right;box-shadow:0 18px 50px rgba(26,46,40,.28)">
+        <?= secretary_daily_tasks_fragment($pdo, $user, $taskDate, secretary_daily_task_can_edit($pdo, $taskUserId, $taskDate, true), url('/secretary/daily-tasks')) ?>
+      </div>
+    </div>
     <script>
     (function(){
       if (window.__daytasksNav) return;
       window.__daytasksNav = true;
-      function closeBox(){
-        var box = document.getElementById("daytasks-live");
-        if (box && box.parentNode) box.parentNode.removeChild(box);
+      var box = document.getElementById("daytasks-live");
+      var card = document.getElementById("daytasks-card");
+      if (card) card.addEventListener("click", function(ev){
+        var shut = ev.target.closest ? ev.target.closest("[data-daytasks-close]") : null;
+        if (shut) { hideBox(); return; }
+        ev.stopPropagation();
+      });
+      function hideBox(){
+        if (!box) return;
+        box.style.setProperty("display", "none", "important");
+      }
+      function showBox(){
+        if (!box) return;
+        if (box.parentNode !== document.body) document.body.appendChild(box);
+        box.style.setProperty("display", "flex", "important");
+        box.style.setProperty("position", "fixed", "important");
+        box.style.setProperty("top", "0", "important");
+        box.style.setProperty("right", "0", "important");
+        box.style.setProperty("bottom", "0", "important");
+        box.style.setProperty("left", "0", "important");
+        box.style.setProperty("z-index", "5000", "important");
+        box.style.setProperty("align-items", "center", "important");
+        box.style.setProperty("justify-content", "center", "important");
+        box.style.setProperty("padding", "16px", "important");
+        box.style.setProperty("background", "rgba(26,46,40,.55)", "important");
+        box.style.setProperty("direction", "rtl", "important");
       }
       document.addEventListener("click", function(e){
         var open = e.target.closest ? e.target.closest("[data-daytasks-open]") : null;
         if (open) {
           if (e.preventDefault) e.preventDefault();
-          if (document.getElementById("daytasks-live")) { closeBox(); return; }
-          fetch(open.getAttribute("data-daytasks-open"), {credentials:"same-origin"})
-            .then(function(r){ if (!r.ok) throw new Error(); return r.text(); })
-            .then(function(html){
-              var live = document.createElement("div");
-              live.id = "daytasks-live";
-              live.style.cssText = "position:fixed;top:0;right:0;bottom:0;left:0;z-index:5000;display:flex;align-items:center;justify-content:center;padding:16px;background:rgba(26,46,40,.55);direction:rtl;text-align:right;font-family:Vazirmatn,Tahoma,sans-serif";
-              var card = document.createElement("div");
-              card.style.cssText = "width:min(42rem,100%);max-height:calc(100vh - 32px);overflow:auto;background:#fff;color:#1a2e28;border-radius:16px;padding:16px 18px 20px;box-shadow:0 18px 50px rgba(26,46,40,.28)";
-              card.innerHTML = html;
-              card.addEventListener("click", function(ev){ ev.stopPropagation(); });
-              live.appendChild(card);
-              live.addEventListener("click", function(){ closeBox(); });
-              document.body.appendChild(live);
-            });
+          if (box && box.style.display === "flex") hideBox();
+          else showBox();
           return;
         }
-        if (e.target && e.target.id === "daytasks-live") closeBox();
+        if (e.target === box) hideBox();
         var shut = e.target.closest ? e.target.closest("[data-daytasks-close]") : null;
-        if (shut) closeBox();
+        if (shut) hideBox();
       });
       document.addEventListener("change", function(e){
         var input = e.target;
