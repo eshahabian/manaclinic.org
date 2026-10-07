@@ -237,15 +237,21 @@ function staff_app_rooms_for(PDO $pdo, string $userId): array
     $general = staff_app_ensure_general($pdo);
     $stmt = $pdo->prepare("
       SELECT r.id, r.title, r.is_general, r.created_at,
-             (SELECT COUNT(*) FROM staff_app_messages m WHERE m.room_id = r.id) AS message_count
+             (SELECT COUNT(*) FROM staff_app_messages m WHERE m.room_id = r.id) AS message_count,
+             (SELECT COUNT(*) FROM staff_app_messages um
+               LEFT JOIN staff_app_reads rd ON rd.room_id = r.id AND rd.user_id = ?
+               WHERE um.room_id = r.id
+                 AND um.user_id <> ?
+                 AND um.created_at > COALESCE(rd.read_at, '1970-01-01 00:00:00')
+             ) AS unread_count
       FROM staff_app_rooms r
       JOIN staff_app_members mem ON mem.room_id = r.id AND mem.user_id = ?
       ORDER BY r.is_general DESC, r.created_at DESC
     ");
-    $stmt->execute([$userId]);
+    $stmt->execute([$userId, $userId, $userId]);
     $rows = $stmt->fetchAll() ?: [];
     if ($rows === []) {
-        $stmt->execute([$userId]);
+        $stmt->execute([$userId, $userId, $userId]);
         $rows = $stmt->fetchAll() ?: [];
     }
     foreach ($rows as &$row) {
@@ -294,6 +300,37 @@ function staff_app_unread_count(PDO $pdo, string $userId): int
         return (int) $stmt->fetchColumn();
     } catch (Throwable $e) {
         return 0;
+    }
+}
+
+/** @return array<string, int> */
+function staff_app_unread_by_room(PDO $pdo, string $userId): array
+{
+    if ($userId === '' || !staff_app_ready($pdo)) {
+        return [];
+    }
+    try {
+        $stmt = $pdo->prepare("
+          SELECT m.room_id, COUNT(*) AS unread
+          FROM staff_app_messages m
+          JOIN staff_app_members mem ON mem.room_id = m.room_id AND mem.user_id = ?
+          LEFT JOIN staff_app_reads r ON r.room_id = m.room_id AND r.user_id = ?
+          WHERE m.user_id <> ?
+            AND m.created_at > COALESCE(r.read_at, '1970-01-01 00:00:00')
+          GROUP BY m.room_id
+        ");
+        $stmt->execute([$userId, $userId, $userId]);
+        $map = [];
+        foreach ($stmt->fetchAll() ?: [] as $row) {
+            $count = (int) ($row['unread'] ?? 0);
+            if ($count > 0) {
+                $map[(string) $row['room_id']] = $count;
+            }
+        }
+
+        return $map;
+    } catch (Throwable $e) {
+        return [];
     }
 }
 
@@ -1183,6 +1220,27 @@ function staff_app_client_script(): string
   var mobile = window.matchMedia("(max-width: 900px)").matches || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
   var lastUnread = null;
 
+  function faCount(value) {
+    return String(value).replace(/[0-9]/g, function (digit) {
+      return "۰۱۲۳۴۵۶۷۸۹"[digit];
+    });
+  }
+
+  function paintUnread(map) {
+    if (!map || Array.isArray(map)) map = {};
+    document.querySelectorAll("[data-room-unread]").forEach(function (el) {
+      var id = el.getAttribute("data-room-unread") || "";
+      var count = Number(map[id] || 0);
+      if (count > 0) {
+        el.hidden = false;
+        el.textContent = faCount(count);
+      } else {
+        el.hidden = true;
+        el.textContent = "";
+      }
+    });
+  }
+
   function paintOnline(ids) {
     var on = {};
     (ids || []).forEach(function (id) { on[id] = 1; });
@@ -1231,6 +1289,7 @@ function staff_app_client_script(): string
       .then(function (data) {
         if (!data || !data.ok) return;
         paintOnline(data.online || []);
+        paintUnread(data.unreadRooms);
         watchUnread(data.unread);
       })
       .catch(function () {});
@@ -1422,6 +1481,8 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-person{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:52px;margin:0 0 8px;padding:10px 12px;border:1px solid #e6eeea;border-radius:14px;background:#fff;color:#1c3d36;font:inherit;font-weight:700;text-align:right;cursor:pointer}
     .sapp-person-name{display:inline-flex;align-items:center;gap:.35rem;min-width:0}
     .sapp-dot{display:inline-block;width:.55rem;height:.55rem;border-radius:999px;background:#1fa855;box-shadow:0 0 0 .18rem rgba(31,168,85,.22);flex:none;vertical-align:middle}
+    .sapp-unread{color:#e23b3b;font-weight:800;font-size:1rem;line-height:1;flex:none}
+    .sapp-unread[hidden]{display:none !important}
     .sapp-dot[hidden]{display:none !important}
     .sapp-thread-title{display:flex;align-items:center;gap:.4rem}
     .sapp-row strong{display:flex;align-items:center;gap:.35rem}

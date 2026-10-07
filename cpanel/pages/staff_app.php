@@ -20,10 +20,12 @@ if ($path === '/app/presence') {
             staff_app_online_ids($pdo),
             static fn(string $id): bool => $id !== $userId
         ));
+        $unreadRooms = staff_app_unread_by_room($pdo, $userId);
         echo json_encode([
             'ok' => true,
             'online' => $online,
-            'unread' => staff_app_unread_count($pdo, $userId),
+            'unread' => array_sum($unreadRooms),
+            'unreadRooms' => $unreadRooms === [] ? new stdClass() : $unreadRooms,
         ], JSON_UNESCAPED_UNICODE);
     } catch (Throwable $e) {
         http_response_code(500);
@@ -883,8 +885,9 @@ if ($section === 'chat') {
             <p class="muted">چت کلی برای همه است. برای حرف زدن با یک نفر، اسمش را بزنید.</p>
             <div class="sapp-list">
               <?php foreach ($rooms as $room): ?>
+                <?php $roomUnread = (int) ($room['unread_count'] ?? 0); ?>
                 <a class="sapp-row" href="<?= e(url('/app/chat/' . (string) $room['id'])) ?>" style="text-decoration:none;color:inherit">
-                  <strong><i class="sapp-dot" data-online="<?= e(implode(',', $peerMap[(string) $room['id']] ?? [])) ?>" hidden></i><?= e((string) ($room['title'] ?? 'اتاق')) ?></strong>
+                  <strong><b class="sapp-unread" data-room-unread="<?= e((string) $room['id']) ?>"<?= $roomUnread > 0 ? '' : ' hidden' ?>><?= $roomUnread > 0 ? e(to_fa_digits((string) $roomUnread)) : '' ?></b><i class="sapp-dot" data-online="<?= e(implode(',', $peerMap[(string) $room['id']] ?? [])) ?>" hidden></i><?= e((string) ($room['title'] ?? 'اتاق')) ?></strong>
                   <small><?= !empty($room['is_general']) ? 'همه درمانگرها و منشی‌ها' : 'گفتگوی خصوصی' ?> · <?= e(to_fa_digits((string) (int) ($room['message_count'] ?? 0))) ?> پیام</small>
                 </a>
               <?php endforeach; ?>
