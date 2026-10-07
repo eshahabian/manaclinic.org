@@ -8,7 +8,8 @@ require_once __DIR__ . '/../includes/secretary_daily_tasks.php';
 $user = current_user();
 if (!secretary_daily_tasks_can_review($user)) {
     flash_set('error', 'پیگیری کارهای روزانه منشی فقط برای دکتر شیوا گرانمایه‌پور، دکتر عطیه گارسچی، eshahabian و eemadian است.');
-    redirect((string) ($user['role'] ?? '') === 'ADMIN' ? '/admin' : '/doctor/notifications');
+    $role = (string) ($user['role'] ?? '');
+    redirect($role === 'ADMIN' ? '/admin' : ($role === 'SECRETARY' ? '/secretary/messages' : '/doctor/notifications'));
 }
 
 $today = date('Y-m-d');
@@ -22,8 +23,7 @@ $secretaries = secretary_daily_task_secretaries($pdo);
 $present = [];
 $absent = [];
 foreach ($secretaries as $sec) {
-    $always = strtolower(trim((string) ($sec['username'] ?? ''))) === 'eemadian';
-    if ($always || secretary_was_present($pdo, (string) $sec['id'], $ymd)) {
+    if (secretary_was_present($pdo, (string) $sec['id'], $ymd)) {
         $present[] = $sec;
     } else {
         $absent[] = $sec;

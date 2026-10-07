@@ -40,6 +40,23 @@ function secretary_nav(): array
     if ($videoLink) {
         array_splice($nav, 1, 0, [$videoLink]);
     }
+    if (!function_exists('secretary_daily_tasks_can_review') && is_file(__DIR__ . '/secretary_daily_tasks.php')) {
+        require_once __DIR__ . '/secretary_daily_tasks.php';
+    }
+    if (function_exists('secretary_daily_tasks_can_review') && secretary_daily_tasks_can_review()) {
+        $taskLink = ['href' => '/secretary/secretary-tasks', 'label' => 'کارهای روزانه منشی'];
+        $inserted = false;
+        foreach ($nav as $i => $item) {
+            if (($item['href'] ?? '') === '/secretary/daily-tasks') {
+                array_splice($nav, $i + 1, 0, [$taskLink]);
+                $inserted = true;
+                break;
+            }
+        }
+        if (!$inserted) {
+            $nav[] = $taskLink;
+        }
+    }
 
     return $nav;
 }

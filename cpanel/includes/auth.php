@@ -370,6 +370,12 @@ function require_login(?array $roles = null): array
     }
     if (($user['role'] ?? '') === 'DOCTOR' && $pdo instanceof PDO && function_exists('doctor_must_complete_profile') && doctor_must_complete_profile($pdo, $user)) {
         $profileAllowed = ['/doctor/profile', '/logout', '/change-password', '/session/ping', '/secretary/heartbeat'];
+        if (!function_exists('secretary_daily_tasks_can_review') && is_file(__DIR__ . '/secretary_daily_tasks.php')) {
+            require_once __DIR__ . '/secretary_daily_tasks.php';
+        }
+        if (function_exists('secretary_daily_tasks_can_review') && secretary_daily_tasks_can_review($user)) {
+            $profileAllowed[] = '/doctor/secretary-tasks';
+        }
         if (!in_array($path ?? '', $profileAllowed, true)) {
             redirect('/doctor/profile');
         }

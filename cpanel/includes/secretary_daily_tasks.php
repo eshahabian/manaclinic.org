@@ -32,14 +32,54 @@ function secretary_daily_task_catalog(): array
     ];
 }
 
-function secretary_daily_tasks_can_review(?array $user = null): bool
+/** نام کاربری را از دیتابیس می‌خواند تا نشست قدیمی لینک را پنهان نکند. */
+function secretary_daily_tasks_identity(?array $user = null): ?array
 {
     $user = $user ?? (function_exists('current_user') ? current_user() : null);
+    if (!$user) {
+        return null;
+    }
+    $id = (string) ($user['id'] ?? '');
+    static $cache = [];
+    if ($id !== '' && isset($cache[$id])) {
+        return $cache[$id];
+    }
+    global $pdo;
+    if ($id !== '' && ($pdo ?? null) instanceof PDO) {
+        try {
+            $stmt = $pdo->prepare('SELECT username, name, role FROM users WHERE id=? LIMIT 1');
+            $stmt->execute([$id]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (is_array($row)) {
+                if (array_key_exists('username', $row)) {
+                    $user['username'] = $row['username'];
+                }
+                if (isset($row['name']) && (string) $row['name'] !== '') {
+                    $user['name'] = $row['name'];
+                }
+                if (isset($row['role']) && (string) $row['role'] !== '') {
+                    $user['role'] = $row['role'];
+                }
+                $cache[$id] = $user;
+            }
+        } catch (Throwable $e) {
+        }
+    }
+
+    return $user;
+}
+
+function secretary_daily_tasks_can_review(?array $user = null): bool
+{
+    $user = secretary_daily_tasks_identity($user);
     if (!$user) {
         return false;
     }
     $username = strtolower(trim((string) ($user['username'] ?? '')));
     if ($username === 'eshahabian' || $username === 'eemadian') {
+        return true;
+    }
+    if (str_contains((string) ($user['name'] ?? ''), 'عمادیان')) {
         return true;
     }
 
@@ -208,7 +248,7 @@ function secretary_daily_task_secretaries(PDO $pdo): array
           SELECT id, name, username
           FROM users
           WHERE COALESCE(is_disabled,0)=0
-            AND (role='SECRETARY' OR LOWER(username)='eemadian')
+            AND role='SECRETARY'
           ORDER BY name ASC
         ")->fetchAll() ?: [];
     } catch (Throwable $e) {

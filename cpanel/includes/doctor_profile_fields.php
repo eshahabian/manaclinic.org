@@ -259,8 +259,18 @@ function doctor_skips_profile_gate(?array $user): bool
         return true;
     }
     $username = strtolower(trim((string) ($user['username'] ?? '')));
+    if ($username === '' && !function_exists('secretary_daily_tasks_identity') && is_file(__DIR__ . '/secretary_daily_tasks.php')) {
+        require_once __DIR__ . '/secretary_daily_tasks.php';
+    }
+    if ($username === '' && function_exists('secretary_daily_tasks_identity')) {
+        $fresh = secretary_daily_tasks_identity($user);
+        if (is_array($fresh)) {
+            $user = $fresh;
+            $username = strtolower(trim((string) ($user['username'] ?? '')));
+        }
+    }
 
-    return $username === 'mbabei';
+    return $username === 'mbabei' || $username === 'eemadian' || str_contains((string) ($user['name'] ?? ''), 'عمادیان');
 }
 
 function doctor_must_complete_profile(PDO $pdo, array $user): bool

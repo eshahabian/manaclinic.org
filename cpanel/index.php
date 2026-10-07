@@ -273,6 +273,7 @@ $routes = [
     'GET /secretary/intakes' => 'pages/secretary/intakes.php',
     'GET /secretary/daily-tasks' => 'pages/secretary/daily_tasks.php',
     'POST /secretary/daily-tasks' => 'actions/secretary_daily_tasks.php',
+    'GET /secretary/secretary-tasks' => 'pages/secretary/secretary_tasks.php',
     'GET /secretary/hours' => 'pages/secretary/hours.php',
     'POST /secretary/hours' => 'actions/secretary_day_report.php',
     'GET /secretary/profile' => 'pages/secretary/profile.php',
