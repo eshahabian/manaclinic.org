@@ -1095,9 +1095,16 @@ function staff_app_pwa_script(): string
         JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT
     );
 
-    return '<script>(function(){if(!("serviceWorker" in navigator))return;var cfg='
-        . $cfg
-        . ';navigator.serviceWorker.register(cfg.src,{scope:cfg.scope}).catch(function(){});})();</script>';
+    return '<script>(function(){'
+        . 'if("serviceWorker" in navigator){var cfg=' . $cfg . ';navigator.serviceWorker.register(cfg.src,{scope:cfg.scope}).catch(function(){});}'
+        . 'var box=document.getElementById("sapp-install");if(!box)return;'
+        . 'var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);'
+        . 'var standalone=window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true;'
+        . 'var seen=false;try{seen=localStorage.getItem("sapp-ios-install")==="1";}catch(e){}'
+        . 'if(!ios||standalone||seen)return;box.hidden=false;'
+        . 'var close=document.getElementById("sapp-install-x");'
+        . 'if(close)close.addEventListener("click",function(){box.hidden=true;try{localStorage.setItem("sapp-ios-install","1");}catch(e){}});'
+        . '})();</script>';
 }
 
 function staff_app_render(string $active, string $title, string $description, string $html, bool $locked = false): void
@@ -1156,8 +1163,9 @@ function staff_app_render(string $active, string $title, string $description, st
     <?= $GLOBALS['pageHead'] ?>
   <?php endif; ?>
   <style>
-    body.sapp{margin:0;background:#f3f6f4;color:#1c3d36;font-family:Vazirmatn,Tahoma,sans-serif}
-    .sapp-top{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:14px 16px 8px;background:#f3f6f4;direction:ltr}
+    body.sapp{margin:0;max-width:100%;background:#f3f6f4;color:#1c3d36;font-family:Vazirmatn,Tahoma,sans-serif;-webkit-text-size-adjust:100%;text-size-adjust:100%}
+    body.sapp,body.sapp *{box-sizing:border-box}
+    .sapp-top{position:sticky;top:0;z-index:20;display:flex;align-items:center;justify-content:space-between;gap:.6rem;padding:.8rem 4vw .45rem;background:#f3f6f4;direction:ltr}
     .sapp-grid,.sapp-nav{direction:ltr}
     .sapp-brand{display:flex;align-items:center;gap:8px;color:#1c3d36;text-decoration:none;font-weight:800;font-size:1.05rem}
     .sapp-brand img{width:36px;height:36px;border-radius:12px;background:#128f84;object-fit:cover}
@@ -1165,13 +1173,13 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-avatar{width:38px;height:38px;border-radius:999px;background:#e7eeeb;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;color:#1c3d36;font-weight:800;border:2px solid #fff;box-shadow:0 2px 8px rgba(20,60,50,.08);text-decoration:none}
     .sapp-avatar img{width:100%;height:100%;object-fit:cover;display:block}
     .sapp-logout{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:0 14px;border-radius:999px;background:#1a9a8a;color:#fff;text-decoration:none;font-weight:800;font-size:.92rem}
-    .sapp-main{max-width:32rem;margin:0 auto;padding:8px 16px 132px}
+    .sapp-main{width:100%;max-width:min(32rem,100%);margin:0 auto;padding:.5rem 4vw calc(5.4rem + env(safe-area-inset-bottom))}
     .sapp-hello h1{margin:8px 0 2px;font-size:1.28rem;font-weight:800;line-height:1.45;color:#1c3d36}
     .sapp-hello p{margin:0 0 14px;color:#8aa099;font-size:.92rem}
     .sapp-main h1{margin:0 0 .35rem;font-size:1.28rem;color:#1c3d36}
     .sapp-flash{margin:0 0 12px;padding:10px 12px;border-radius:12px;background:#e7f6f3}
     .sapp-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
-    .sapp-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:148px;padding:16px 10px;border-radius:22px;background:#fff;text-decoration:none;color:#1c3d36;box-shadow:0 10px 28px rgba(28,70,58,.06)}
+    .sapp-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5rem;min-height:clamp(6.6rem,30vw,9.25rem);padding:1rem .6rem;border-radius:1.3rem;background:#fff;text-decoration:none;color:#1c3d36;box-shadow:0 .6rem 1.6rem rgba(28,70,58,.06)}
     .sapp-tile strong{font-size:1.02rem;font-weight:800}
     .sapp-tile em{font-style:normal;color:#9aaba4;font-size:.78rem}
     .sapp-ico{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center}
@@ -1182,7 +1190,7 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-ico-amber{background:#fff4e8;color:#e0a15a}
     .sapp-ico-pink{background:#fdeef3;color:#e07a9a}
     .sapp-ico-red{background:#fdeeee;color:#e07070}
-    .sapp-nav{position:fixed;right:0;left:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(3,1fr);padding:6px 8px calc(8px + env(safe-area-inset-bottom));background:#fff;border-top:1px solid #e6eeea}
+    .sapp-nav{position:fixed;right:0;left:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(3,1fr);padding:.35rem 2vw calc(.45rem + env(safe-area-inset-bottom));background:#fff;border-top:1px solid #e6eeea}
     .sapp-nav a{display:flex;flex-direction:column;align-items:center;gap:1px;text-decoration:none;color:#8aa099;font-size:.78rem;font-weight:700}
     .sapp-nav a.is-active{color:#159688}
     .sapp-nav-ico{width:46px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:14px}
@@ -1199,14 +1207,18 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-row{padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
     .sapp-row small{display:block;margin-top:4px;color:var(--muted)}
     .sapp-day{margin:16px 0 0;font-size:1rem}
-    .sapp-chat{display:flex;flex-direction:column;gap:6px;margin-top:12px;padding:12px 10px;border-radius:18px;background:#efe7dc;min-height:46vh}
-    body.sapp.is-thread{position:fixed;left:0;right:0;top:0;display:flex;flex-direction:column;width:100%;height:100dvh;overflow:hidden}
-    body.sapp.is-thread .sapp-main{flex:1;min-height:0;display:flex;flex-direction:column;width:100%;max-width:32rem;margin:0 auto;padding:8px 12px 0;overflow:hidden;box-sizing:border-box}
-    body.sapp.is-thread .sapp-chat{flex:1;min-height:0;margin-top:8px;overflow:auto}
-    body.sapp.is-thread .sapp-compose{flex:none;margin:0;padding:8px 0 calc(8px + env(safe-area-inset-bottom));background:#f3f6f4}
+    .sapp-chat{display:flex;flex-direction:column;gap:.4rem;margin-top:.7rem;padding:.7rem .6rem;border-radius:1.1rem;background:#efe7dc;min-height:min(46svh,22rem)}
+    html:has(body.sapp.is-thread){height:100%;overflow:hidden}
+    body.sapp.is-thread{position:fixed;top:0;left:0;right:0;display:flex;flex-direction:column;width:100%;height:100%;height:100svh;max-width:100%;overflow:hidden;padding-top:env(safe-area-inset-top);overscroll-behavior:none}
+    body.sapp.is-thread .sapp-top,body.sapp.is-thread .sapp-install{flex:none}
+    body.sapp.is-thread .sapp-main{flex:1;min-height:0;display:flex;flex-direction:column;width:100%;max-width:min(32rem,100%);margin:0 auto;padding:.4rem 3vw 0;overflow:hidden}
+    body.sapp.is-thread .sapp-chat{flex:1;min-height:0;margin-top:.4rem;overflow:auto;-webkit-overflow-scrolling:touch}
+    body.sapp.is-thread .sapp-compose{flex:none;display:flex;flex-direction:column;align-items:stretch;gap:.35rem;margin:0;padding:.4rem 0 .45rem;background:#f3f6f4}
     body.sapp.is-thread .sapp-nav{position:static;flex:none}
     body.sapp.is-typing .sapp-nav{display:none}
-    body.sapp.is-typing .sapp-compose{padding-bottom:8px;border-top:1px solid #e6eeea}
+    body.sapp.is-typing .sapp-compose{padding-bottom:.35rem;border-top:1px solid #e6eeea}
+    .sapp-compose-row{display:flex;align-items:flex-end;gap:.45rem;width:100%;min-width:0}
+    .sapp-compose-row textarea.input{flex:1 1 auto;width:auto;min-width:0;max-width:100%;font-size:1rem}
     .sapp-chat-empty{margin:auto;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,.72);color:#667781;font-size:.86rem}
     .sapp-msg{width:fit-content;max-width:82%;padding:6px 8px 4px;border-radius:12px;box-shadow:0 1px 1px rgba(0,0,0,.08)}
     .sapp-msg.is-mine{margin-left:auto;margin-right:0;background:#d9fdd3;border-top-right-radius:4px}
@@ -1220,11 +1232,15 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-msg img{display:block;max-width:min(100%,16rem);margin-top:6px;border-radius:8px}
     .sapp-person{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:52px;margin:0 0 8px;padding:10px 12px;border:1px solid #e6eeea;border-radius:14px;background:#fff;color:#1c3d36;font:inherit;font-weight:700;text-align:right;cursor:pointer}
     .sapp-person small{color:#8aa099;font-weight:600}
-    .sapp-compose{display:flex;align-items:flex-end;gap:8px;margin-top:10px}
-    .sapp-compose textarea.input{width:auto;flex:1;min-height:44px;max-height:8rem;border-radius:18px}
-    .sapp-file{position:relative;display:inline-flex;align-items:center;justify-content:center;width:44px;height:44px;border-radius:999px;background:#fff;color:#1a9a8a;cursor:pointer;flex:none}
+    .sapp-compose{display:flex;align-items:flex-end;gap:.5rem;margin-top:.6rem}
+    .sapp-compose textarea.input{width:auto;flex:1;min-width:0;min-height:2.75rem;max-height:8rem;border-radius:1.1rem;font-size:1rem}
+    .sapp-file{position:relative;display:inline-flex;align-items:center;justify-content:center;width:2.75rem;height:2.75rem;border-radius:999px;background:#fff;color:#1a9a8a;cursor:pointer;flex:none}
     .sapp-file input{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
-    .sapp-send{flex:none;width:44px;height:44px;border:0;border-radius:999px;background:#1a9a8a;color:#fff;font-weight:800;font-size:1.05rem}
+    .sapp-send{flex:none;width:2.75rem;height:2.75rem;border:0;border-radius:999px;background:#1a9a8a;color:#fff;font-weight:800;font-size:1.05rem}
+    .sapp-install{display:flex;align-items:center;gap:.7rem;width:min(32rem,calc(100% - 1.5rem));margin:.2rem auto .4rem;padding:.7rem .85rem;border-radius:1rem;background:#fff;box-shadow:0 .35rem 1.1rem rgba(28,70,58,.08);font-size:.9rem;line-height:1.55}
+    .sapp-install[hidden]{display:none !important}
+    .sapp-install p{margin:0;flex:1}
+    .sapp-install button{flex:none;border:0;border-radius:999px;background:#1a9a8a;color:#fff;font:inherit;font-weight:800;min-height:2.4rem;padding:0 .9rem}
     .sapp-group{margin-top:16px}
     .sapp-group summary{cursor:pointer;font-weight:800}
     .sapp-check{display:flex;gap:10px;align-items:center;min-height:44px;margin:0 0 6px}
@@ -1243,7 +1259,7 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-msg.is-mine .sapp-react-chip.is-mine{background:#b7ebc6}
     .sapp-chat.is-selecting .sapp-msg{cursor:pointer}
     .sapp-msg.is-picked{box-shadow:0 0 0 2px #1a9a8a}
-    .sapp-compose{flex-wrap:wrap}
+    body.sapp:not(.is-thread) .sapp-compose{flex-wrap:wrap}
     .sapp-reply{flex:1 0 100%;display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;background:#fff;border-inline-start:3px solid #1a9a8a}
     .sapp-reply[hidden]{display:none}
     .sapp-reply strong{display:block;color:#1a9a8a;font-size:.78rem}
@@ -1296,6 +1312,10 @@ function staff_app_render(string $active, string $title, string $description, st
       </div>
     <?php endif; ?>
   </header>
+  <div class="sapp-install" id="sapp-install" hidden>
+    <p><strong>نصب روی آیفون</strong> دکمه اشتراک‌گذاری را بزنید و «افزودن به صفحهٔ اصلی» را انتخاب کنید. آیفون مثل اندروید خودش پنجره نصب نشان نمی‌دهد.</p>
+    <button type="button" id="sapp-install-x">فهمیدم</button>
+  </div>
   <main class="sapp-main">
     <?php if (is_array($flash) && trim((string) ($flash['message'] ?? '')) !== ''): ?>
       <p class="sapp-flash"><?= e((string) $flash['message']) ?></p>

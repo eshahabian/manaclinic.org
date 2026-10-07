@@ -96,6 +96,7 @@
   }
 
   function fillSeen(article) {
+    if (!article || !seenFaces || !peopleBox || !seenLabel) return;
     var people = seenPeople(article);
     var group = thread.getAttribute("data-group") === "1";
     seenFaces.innerHTML = "";
@@ -141,6 +142,7 @@
   }
 
   function placeMenu(article) {
+    if (!pop || !article || !article.getBoundingClientRect) return;
     pop.style.top = "0px";
     pop.style.left = "8px";
     pop.style.right = "auto";
@@ -162,7 +164,8 @@
   }
 
   function openMenu(article) {
-    if (thread.classList.contains("is-selecting")) return;
+    if (!article || thread.classList.contains("is-selecting")) return;
+    if (!hold || !pop || !menu || !forwardBox) return;
     current = article;
     menu.hidden = false;
     forwardBox.hidden = true;
@@ -248,7 +251,8 @@
     clearPress();
     startX = x;
     startY = y;
-    var article = event.target.closest(".sapp-msg");
+    var target = event.target;
+    var article = target && target.closest ? target.closest(".sapp-msg") : null;
     if (!article || thread.classList.contains("is-selecting")) return;
     timer = setTimeout(function () {
       timer = null;
@@ -257,6 +261,7 @@
     }, 420);
   }
 
+  try {
   thread.addEventListener("touchstart", function (event) {
     fromTouch = true;
     if (!event.touches || !event.touches[0]) return;
@@ -280,7 +285,8 @@
   window.addEventListener("mouseup", clearPress);
 
   thread.addEventListener("contextmenu", function (event) {
-    var article = event.target.closest(".sapp-msg");
+    var target = event.target;
+    var article = target && target.closest ? target.closest(".sapp-msg") : null;
     if (!article) return;
     event.preventDefault();
     openMenu(article);
@@ -294,7 +300,8 @@
       return;
     }
     if (!thread.classList.contains("is-selecting")) return;
-    var article = event.target.closest(".sapp-msg");
+    var target = event.target;
+    var article = target && target.closest ? target.closest(".sapp-msg") : null;
     if (!article) return;
     event.preventDefault();
     article.classList.toggle("is-picked");
@@ -333,7 +340,8 @@
   });
 
   if (menu) menu.addEventListener("click", function (event) {
-    var button = event.target.closest("[data-act]");
+    var actNode = event.target;
+    var button = actNode && actNode.closest ? actNode.closest("[data-act]") : null;
     if (!button || !current) return;
     var article = current;
     var id = messageId(article);
@@ -342,10 +350,13 @@
     if (act === "reply") {
       var who = article.getAttribute("data-name") || "";
       var snippet = messageText(article) || (messageFiles(article)[0] && messageFiles(article)[0].name) || "پیام";
-      document.getElementById("sapp-reply-id").value = id;
-      document.getElementById("sapp-reply-who").textContent = who;
-      document.getElementById("sapp-reply-snippet").textContent = snippet;
-      replyBox.hidden = false;
+      var replyInput = document.getElementById("sapp-reply-id");
+      var replyWho = document.getElementById("sapp-reply-who");
+      var replySnippet = document.getElementById("sapp-reply-snippet");
+      if (replyInput) replyInput.value = id;
+      if (replyWho) replyWho.textContent = who;
+      if (replySnippet) replySnippet.textContent = snippet;
+      if (replyBox) replyBox.hidden = false;
       closeMenu();
       var field = document.getElementById("chat-body");
       if (field) field.focus();
@@ -385,6 +396,7 @@
       return;
     }
     if (act === "forward") {
+      if (!menu || !forwardBox || !roomBox) return;
       menu.hidden = true;
       forwardBox.hidden = false;
       roomBox.innerHTML = "";
@@ -424,7 +436,7 @@
     if (act === "select") {
       thread.classList.add("is-selecting");
       article.classList.add("is-picked");
-      selectBar.hidden = false;
+      if (selectBar) selectBar.hidden = false;
       closeMenu();
     }
   });
@@ -442,7 +454,7 @@
     thread.querySelectorAll(".sapp-msg.is-picked").forEach(function (item) {
       item.classList.remove("is-picked");
     });
-    selectBar.hidden = true;
+    if (selectBar) selectBar.hidden = true;
   });
 
   var selectCopy = document.getElementById("sapp-select-copy");
@@ -482,6 +494,7 @@
       window.alert(err.message || "انجام نشد.");
     });
   });
+  } catch (err) {}
 
   function buildMessage(msg) {
     var article = document.createElement("article");
@@ -596,10 +609,18 @@
     return "";
   }
 
+  var liveBusy = false;
+  var liveAgain = false;
+
   function pullLive() {
     if (!config.receipts) return;
+    if (liveBusy) {
+      liveAgain = true;
+      return;
+    }
+    liveBusy = true;
     var after = cursorId();
-    var live = config.receipts + "?after=" + encodeURIComponent(after);
+    var live = config.receipts + "?after=" + encodeURIComponent(after) + "&t=" + Date.now();
     fetch(live, { cache: "no-store", credentials: "same-origin", headers: { Accept: "application/json" } })
       .then(function (res) { return res.ok ? res.json() : null; })
       .then(function (data) {
@@ -614,7 +635,20 @@
           if (current && current.id === article.id) fillSeen(article);
         });
       })
-      .catch(function () {});
+      .catch(function () {})
+      .then(function () {
+        liveBusy = false;
+        if (!liveAgain) return;
+        liveAgain = false;
+        pullLive();
+      });
+  }
+
+  function armLive() {
+    setTimeout(function () {
+      try { pullLive(); } catch (err) {}
+      armLive();
+    }, 1500);
   }
 
   var compose = document.querySelector(".sapp-compose");
@@ -676,12 +710,19 @@
 
   if (config.receipts) {
     pullLive();
-    setInterval(pullLive, 1500);
-    document.addEventListener("visibilitychange", function () {
-      if (!document.hidden) pullLive();
-    });
+    armLive();
+    document.addEventListener("visibilitychange", pullLive);
     window.addEventListener("focus", pullLive);
     window.addEventListener("pageshow", pullLive);
+    if (window.visualViewport) {
+      var viewportPull = 0;
+      window.visualViewport.addEventListener("resize", function () {
+        var now = Date.now();
+        if (now - viewportPull < 1000) return;
+        viewportPull = now;
+        pullLive();
+      });
+    }
   }
 
   document.body.classList.add("is-thread");
@@ -693,16 +734,25 @@
 
   function syncKeyboard() {
     var vv = window.visualViewport;
-    var focused = typeField && document.activeElement === typeField;
-    var keyboard = 0;
-    if (vv) {
-      keyboard = Math.max(0, window.innerHeight - vv.height - vv.offsetTop);
-      document.body.style.top = vv.offsetTop + "px";
-      document.body.style.height = vv.height + "px";
+    if (!vv) return;
+    var off = vv.offsetTop || 0;
+    document.body.style.top = "0px";
+    document.body.style.height = vv.height + "px";
+    if (window.scrollY) window.scrollTo(0, 0);
+    if (off > 2) {
+      var probe = document.getElementById("sapp-vv-probe");
+      if (!probe) {
+        probe = document.createElement("div");
+        probe.id = "sapp-vv-probe";
+        probe.setAttribute("aria-hidden", "true");
+        probe.style.cssText = "position:fixed;top:0;left:0;width:0;height:0;pointer-events:none";
+        document.body.appendChild(probe);
+      }
+      if (probe.getBoundingClientRect().top < -1) document.body.style.top = off + "px";
     }
-    var typing = !!(focused || keyboard > 80);
-    document.body.classList.toggle("is-typing", typing);
-    if (typing) stickThread();
+    var focused = !!(typeField && document.activeElement === typeField);
+    document.body.classList.toggle("is-typing", focused);
+    if (document.body.classList.contains("is-typing")) stickThread();
   }
 
   if (window.visualViewport) {
@@ -712,11 +762,13 @@
   if (typeField) {
     typeField.addEventListener("focus", function () {
       document.body.classList.add("is-typing");
+      window.scrollTo(0, 0);
       setTimeout(syncKeyboard, 40);
-      setTimeout(syncKeyboard, 280);
+      setTimeout(syncKeyboard, 320);
     });
     typeField.addEventListener("blur", function () {
-      setTimeout(syncKeyboard, 120);
+      setTimeout(syncKeyboard, 160);
+      pullLive();
     });
   }
   window.addEventListener("resize", syncKeyboard);
