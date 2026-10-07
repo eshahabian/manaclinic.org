@@ -4,51 +4,47 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../includes/secretary_panel.php';
 require_once __DIR__ . '/../../includes/secretary_patient.php';
 require_once __DIR__ . '/../../includes/availability.php';
-require_once __DIR__ . '/../../includes/therapist_presence.php';
 
 require_login(['SECRETARY']);
 ensure_availability_schema($pdo);
-ensure_therapist_presence_schema($pdo);
+ensure_doctor_weekly_hours_schema($pdo);
 
 $doctors = secretary_active_doctors($pdo);
 $doctorId = trim((string) ($_GET['doctor'] ?? ''));
 if ($doctorId === '' && $doctors) {
     $doctorId = (string) $doctors[0]['id'];
 }
-$known = false;
+$doctorName = '';
 foreach ($doctors as $doctor) {
     if ((string) $doctor['id'] === $doctorId) {
-        $known = true;
+        $doctorName = (string) $doctor['name'];
         break;
     }
 }
-if (!$known) {
+if ($doctorName === '') {
     $doctorId = '';
 }
 
-$today = date('Y-m-d');
-$end = appointment_booking_horizon_end($today);
-$days = [];
-$cursor = $today;
-while ($cursor <= $end) {
-    $days[] = $cursor;
-    $cursor = date('Y-m-d', strtotime($cursor . ' +1 day') ?: time());
-}
-$presence = $doctorId !== '' ? therapist_presence_map($pdo, $doctorId, $today, $end) : [];
-$hoursByDate = [];
-if ($doctorId !== '') {
-    $stmt = $pdo->prepare('SELECT date, available_hours FROM availabilities WHERE doctor_id=? AND date BETWEEN ? AND ?');
-    $stmt->execute([$doctorId, $today, $end]);
-    foreach ($stmt->fetchAll() as $row) {
-        $hoursByDate[substr((string) $row['date'], 0, 10)] = appointment_hours_decode((string) ($row['available_hours'] ?? ''));
-    }
+if ($doctorId !== '' && function_exists('doctor_availability_resync_weekly')) {
+    doctor_availability_resync_weekly($pdo, $doctorId, 12);
 }
 $bookingHours = appointment_booking_hours();
+$weekdays = doctor_weekdays_sat_first();
+$weeklyMap = $doctorId !== '' ? doctor_weekly_hours_map($pdo, $doctorId) : [];
+$weekdaySummary = $doctorId !== '' ? doctor_weekday_presence_summary($pdo, $doctorId) : [];
+$summaryByWeekday = [];
+foreach ($weekdaySummary as $row) {
+    $summaryByWeekday[(int) ($row['weekday'] ?? -1)] = $row;
+}
 
 ob_start();
 ?>
 <h1>روزهای درمانگر</h1>
-<p class="muted">روزهایی که درمانگر در کلینیک هست را انتخاب کنید تا بشود نوبت گرفت. از امروز فقط تا دو هفته بعد باز است.</p>
+<p class="muted">
+  درمانگر را انتخاب کنید، روز هفته را بزنید، ساعت شروع و پایان حضور را از منوی کرکره‌ای انتخاب کنید.
+  سیستم به‌صورت خودکار اسلات‌های <strong>یک‌ساعته</strong> می‌سازد تا نوبت ثبت شود.
+  گرفتن نوبت فقط تا دو هفته آینده باز است.
+</p>
 
 <form method="get" action="<?= e(url('/secretary/therapist-days')) ?>" class="panel" style="margin-top:1rem">
   <label class="label" for="presence-doctor">درمانگر</label>
@@ -63,45 +59,183 @@ ob_start();
 </form>
 
 <?php if ($doctorId !== ''): ?>
-  <form method="post" action="<?= e(url('/secretary/therapist-days')) ?>" class="stack" style="margin-top:1rem">
-    <?= csrf_field() ?>
-    <input type="hidden" name="doctor_id" value="<?= e($doctorId) ?>">
-    <?php foreach ($days as $date): ?>
-      <?php
-        $saved = $presence[$date] ?? null;
-        $existingHours = $hoursByDate[$date] ?? [];
-        $checked = $saved ? ((int) $saved['present'] === 1) : ($existingHours !== []);
-        $from = $saved['from'] ?? ($existingHours[0] ?? 9);
-        $to = $saved['to'] ?? ($existingHours !== [] ? $existingHours[count($existingHours) - 1] : 17);
-      ?>
-      <div class="panel" style="margin:0">
-        <input type="hidden" name="days[]" value="<?= e($date) ?>">
-        <label style="display:flex;gap:.6rem;align-items:center;font-weight:600">
-          <input type="checkbox" name="present[<?= e($date) ?>]" value="1"<?= $checked ? ' checked' : '' ?>>
-          <?= e(to_jalali_label($date)) ?>
-        </label>
-        <div style="display:grid;grid-template-columns:1fr 1fr;gap:.5rem;margin-top:.75rem">
+<section class="panel avail-week-panel" style="margin-top:1rem">
+  <h2 class="avail-week-title">روزهای هفته<?= $doctorName !== '' ? ' — ' . e($doctorName) : '' ?></h2>
+  <div class="avail-weekday-row" role="tablist" aria-label="روزهای هفته">
+    <?php foreach ($weekdays as $w => $label): ?>
+      <?php $has = isset($weeklyMap[$w]); ?>
+      <button type="button"
+        class="avail-weekday-btn<?= $has ? ' has-hours' : '' ?>"
+        data-weekday-open="<?= (int) $w ?>"
+        aria-controls="weekday-panel-<?= (int) $w ?>"
+        id="weekday-<?= (int) $w ?>">
+        <?= e($label) ?>
+        <?php if ($has): ?>
+          <span class="avail-weekday-dot" aria-hidden="true"></span>
+        <?php endif; ?>
+      </button>
+    <?php endforeach; ?>
+  </div>
+
+  <?php foreach ($weekdays as $w => $label): ?>
+    <?php
+      $saved = $weeklyMap[$w] ?? [];
+      $defaultFrom = $saved[0] ?? 9;
+      $defaultTo = $saved !== [] ? $saved[count($saved) - 1] : 13;
+    ?>
+    <div class="avail-weekday-editor" id="weekday-panel-<?= (int) $w ?>" data-weekday-panel="<?= (int) $w ?>" hidden>
+      <div class="avail-weekday-editor-head">
+        <strong>ساعت حضور — <?= e($label) ?></strong>
+        <?php if ($saved !== []): ?>
+          <span class="muted" style="font-size:.85rem">
+            الان:
+            <?= e(implode(' · ', array_map(
+                static fn (int $h): string => appointment_hour_chip_label($h),
+                $saved
+            ))) ?>
+          </span>
+        <?php endif; ?>
+      </div>
+      <form method="post" action="<?= e(url('/secretary/therapist-days')) ?>" class="avail-weekday-form">
+        <?= csrf_field() ?>
+        <input type="hidden" name="action" value="save_weekday">
+        <input type="hidden" name="doctor_id" value="<?= e($doctorId) ?>">
+        <input type="hidden" name="weekday" value="<?= (int) $w ?>">
+        <div class="avail-weekday-fields">
           <label>
             <span class="label">از ساعت</span>
-            <select class="input" name="hour_from[<?= e($date) ?>]">
+            <select class="input" name="hour_from" required>
               <?php foreach ($bookingHours as $hour): ?>
-                <option value="<?= (int) $hour ?>"<?= (int) $hour === (int) $from ? ' selected' : '' ?>><?= e(appointment_hour_chip_label((int) $hour)) ?></option>
+                <option value="<?= (int) $hour ?>"<?= (int) $hour === (int) $defaultFrom ? ' selected' : '' ?>>
+                  <?= e(appointment_hour_chip_label((int) $hour)) ?>
+                </option>
               <?php endforeach; ?>
             </select>
           </label>
           <label>
             <span class="label">تا ساعت</span>
-            <select class="input" name="hour_to[<?= e($date) ?>]">
+            <select class="input" name="hour_to" required>
               <?php foreach ($bookingHours as $hour): ?>
-                <option value="<?= (int) $hour ?>"<?= (int) $hour === (int) $to ? ' selected' : '' ?>><?= e(appointment_hour_chip_label((int) $hour)) ?></option>
+                <option value="<?= (int) $hour ?>"<?= (int) $hour === (int) $defaultTo ? ' selected' : '' ?>>
+                  <?= e(appointment_hour_chip_label((int) $hour)) ?>
+                </option>
               <?php endforeach; ?>
             </select>
           </label>
+          <label>
+            <span class="label">اعمال برای</span>
+            <select class="input" name="weeks">
+              <option value="4">۴ هفته آینده</option>
+              <option value="8">۸ هفته آینده</option>
+              <option value="12" selected>۱۲ هفته آینده</option>
+              <option value="26">۶ ماه آینده</option>
+            </select>
+          </label>
         </div>
-      </div>
-    <?php endforeach; ?>
-    <button class="btn btn-primary" type="submit">ذخیره روزها</button>
-  </form>
+        <p class="muted" style="font-size:.8rem;margin:.65rem 0 0;line-height:1.65">
+          مثلاً از ۹ صبح تا ۱۳ بعدازظهر → اسلات‌های ۹، ۱۰، ۱۱، ۱۲، ۱۳ برای رزرو.
+        </p>
+        <div class="assistant-actions" style="margin-top:.85rem">
+          <button class="btn btn-primary" type="submit">ثبت ساعت حضور</button>
+        </div>
+      </form>
+      <?php if ($saved !== []): ?>
+        <form method="post" action="<?= e(url('/secretary/therapist-days')) ?>" style="margin-top:.65rem" onsubmit="return confirm('ساعت‌های این روز هفته پاک شود؟');">
+          <?= csrf_field() ?>
+          <input type="hidden" name="action" value="clear_weekday">
+          <input type="hidden" name="doctor_id" value="<?= e($doctorId) ?>">
+          <input type="hidden" name="weekday" value="<?= (int) $w ?>">
+          <button class="btn btn-outline btn-sm" type="submit">پاک کردن این روز</button>
+        </form>
+      <?php endif; ?>
+    </div>
+  <?php endforeach; ?>
+</section>
+
+<section class="panel avail-summary-panel" style="margin-top:1.25rem" id="avail-summary-panel" hidden>
+  <h2 class="avail-week-title">خلاصه حضور</h2>
+  <?php foreach ($weekdays as $w => $label): ?>
+    <?php
+      $row = $summaryByWeekday[(int) $w] ?? null;
+      $hours = is_array($row) ? ($row['hours'] ?? []) : [];
+      $bookedMap = [];
+      if (is_array($row)) {
+          foreach ($row['booked'] ?? [] as $b) {
+              $bookedMap[(int) ($b['hour'] ?? -1)] = [
+                  'patient' => trim((string) ($b['patient'] ?? '')),
+                  'patient_id' => trim((string) ($b['patient_id'] ?? '')),
+              ];
+          }
+      }
+    ?>
+    <div class="avail-summary-one" data-summary-weekday="<?= (int) $w ?>" hidden>
+      <?php if ($hours === []): ?>
+        <p class="muted avail-summary-empty" style="margin:0">برای «<?= e($label) ?>» هنوز ساعت حضوری ثبت نشده است.</p>
+      <?php else: ?>
+        <div class="avail-summary-hours" aria-label="ساعت‌های <?= e($label) ?>">
+          <?php foreach ($hours as $hour): ?>
+            <?php
+              $hour = (int) $hour;
+              $bookedInfo = $bookedMap[$hour] ?? null;
+              $isBooked = is_array($bookedInfo);
+              $who = $isBooked ? (string) ($bookedInfo['patient'] ?? '') : '';
+              $patientId = $isBooked ? (string) ($bookedInfo['patient_id'] ?? '') : '';
+              $title = $isBooked
+                  ? ('رزرو شده' . ($who !== '' ? ' — ' . $who : ''))
+                  : 'خالی';
+            ?>
+            <?php if ($isBooked && $patientId !== ''): ?>
+              <a class="avail-hour-pill is-booked"
+                 href="<?= e(url('/secretary/patients/' . $patientId)) ?>"
+                 title="<?= e($title) ?>">
+                <?= e(appointment_hour_chip_label($hour)) ?>
+              </a>
+            <?php else: ?>
+              <span class="avail-hour-pill<?= $isBooked ? ' is-booked' : '' ?>" title="<?= e($title) ?>">
+                <?= e(appointment_hour_chip_label($hour)) ?>
+              </span>
+            <?php endif; ?>
+          <?php endforeach; ?>
+        </div>
+        <?php if (!empty($row['next_label'])): ?>
+          <p class="muted" style="margin:.55rem 0 0;font-size:.8rem">نزدیک‌ترین <?= e($label) ?>: <?= e((string) $row['next_label']) ?> — ساعت قرمز رزرو شده است.</p>
+        <?php endif; ?>
+      <?php endif; ?>
+    </div>
+  <?php endforeach; ?>
+</section>
 <?php endif; ?>
 <?php
-render_secretary_page('روزهای درمانگر', ob_get_clean());
+$inner = ob_get_clean();
+$pageScripts = '
+<script>
+(function(){
+  var buttons = document.querySelectorAll("[data-weekday-open]");
+  var panels = document.querySelectorAll("[data-weekday-panel]");
+  var summaries = document.querySelectorAll("[data-summary-weekday]");
+  var summaryPanel = document.getElementById("avail-summary-panel");
+  function openWeekday(id){
+    panels.forEach(function(p){
+      p.hidden = String(p.getAttribute("data-weekday-panel")) !== String(id);
+    });
+    buttons.forEach(function(b){
+      b.classList.toggle("is-active", String(b.getAttribute("data-weekday-open")) === String(id));
+    });
+    summaries.forEach(function(s){
+      s.hidden = String(s.getAttribute("data-summary-weekday")) !== String(id);
+    });
+    if (summaryPanel) summaryPanel.hidden = false;
+  }
+  buttons.forEach(function(btn){
+    btn.addEventListener("click", function(){
+      openWeekday(btn.getAttribute("data-weekday-open"));
+    });
+  });
+  var hash = (location.hash || "").replace("#weekday-", "");
+  if (hash !== "" && document.getElementById("weekday-panel-" + hash)) {
+    openWeekday(hash);
+  }
+})();
+</script>
+';
+render_secretary_page('روزهای درمانگر', $inner);
