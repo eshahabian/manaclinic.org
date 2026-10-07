@@ -115,8 +115,8 @@ function admin_nav(): array {
         $taskLink = ['href' => '/admin/secretary-tasks', 'label' => 'کارهای روزانه منشی'];
         $inserted = false;
         foreach ($nav as $i => $item) {
-            if (($item['href'] ?? '') === '/admin/staff-hours') {
-                array_splice($nav, $i + 1, 0, [$taskLink]);
+            if (($item['href'] ?? '') === '/admin/staff-board') {
+                array_splice($nav, $i, 0, [$taskLink]);
                 $inserted = true;
                 break;
             }

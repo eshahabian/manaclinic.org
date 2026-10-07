@@ -8,7 +8,14 @@ require_once __DIR__ . '/../includes/secretary_daily_tasks.php';
 $user = current_user();
 if (!secretary_daily_tasks_can_review($user)) {
     flash_set('error', 'پیگیری کارهای روزانه منشی فقط برای دکتر شیوا گرانمایه‌پور، دکتر عطیه گارسچی، eshahabian و eemadian است.');
-    redirect((string) ($user['role'] ?? '') === 'ADMIN' ? '/admin' : '/doctor/notifications');
+    $role = (string) ($user['role'] ?? '');
+    if ($role === 'ADMIN') {
+        redirect('/admin');
+    }
+    if ($role === 'SECRETARY') {
+        redirect('/secretary/messages');
+    }
+    redirect('/doctor/notifications');
 }
 
 $today = date('Y-m-d');
