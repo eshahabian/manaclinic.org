@@ -22,7 +22,8 @@ $secretaries = secretary_daily_task_secretaries($pdo);
 $present = [];
 $absent = [];
 foreach ($secretaries as $sec) {
-    if (secretary_was_present($pdo, (string) $sec['id'], $ymd)) {
+    $always = strtolower(trim((string) ($sec['username'] ?? ''))) === 'eemadian';
+    if ($always || secretary_was_present($pdo, (string) $sec['id'], $ymd)) {
         $present[] = $sec;
     } else {
         $absent[] = $sec;

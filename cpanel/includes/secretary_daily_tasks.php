@@ -207,7 +207,8 @@ function secretary_daily_task_secretaries(PDO $pdo): array
         return $pdo->query("
           SELECT id, name, username
           FROM users
-          WHERE role='SECRETARY' AND COALESCE(is_disabled,0)=0
+          WHERE COALESCE(is_disabled,0)=0
+            AND (role='SECRETARY' OR LOWER(username)='eemadian')
           ORDER BY name ASC
         ")->fetchAll() ?: [];
     } catch (Throwable $e) {
