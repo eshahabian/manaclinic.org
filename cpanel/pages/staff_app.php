@@ -830,7 +830,7 @@ if ($section === 'chat') {
                   <input id="chat-file" name="file" type="file" aria-label="فایل">
                   <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m21 12-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8L13.2 4.2a3.5 3.5 0 0 1 5 5L9.6 17.8a1.5 1.5 0 0 1-2.1-2.1l7.4-7.4"/></svg>
                 </label>
-                <textarea class="input" id="chat-body" name="body" rows="1" maxlength="4000" placeholder="پیام" autocomplete="off" enterkeyhint="send"></textarea>
+                <textarea class="input" id="chat-body" name="body" rows="1" maxlength="4000" placeholder="پیام" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="send"></textarea>
                 <button class="sapp-send" type="submit" aria-label="ارسال">➤</button>
               </div>
             </form>
@@ -872,7 +872,7 @@ if ($section === 'chat') {
             <script type="application/json" id="sapp-chat-config"><?= $chatConfig ?></script>
             <?php
             $html = ob_get_clean();
-            $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/staff-chat.js')) . '?v=20261008note"></script>';
+            $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/staff-chat.js')) . '?v=20261008mini"></script>';
         } else {
             $rooms = staff_app_rooms_for($pdo, $userId);
             $people = staff_app_people($pdo);

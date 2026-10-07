@@ -1131,8 +1131,8 @@ function staff_app_room_board(PDO $pdo): array
 
 function staff_app_pwa_head(): string
 {
-    $icon = e(url('/assets/img/apple-touch-icon.png'));
-    $manifest = e(url('/assets/staff-app.webmanifest'));
+    $icon = e(url('/assets/img/staff-icon-180.png')) . '?v=20261008icon';
+    $manifest = e(url('/assets/staff-app.webmanifest')) . '?v=20261008icon';
 
     return '<meta name="mobile-web-app-capable" content="yes">'
         . '<meta name="apple-mobile-web-app-capable" content="yes">'
@@ -1394,14 +1394,18 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-day{margin:16px 0 0;font-size:1rem}
     .sapp-chat{display:flex;flex-direction:column;gap:.4rem;margin-top:.7rem;padding:.7rem .6rem;border-radius:1.1rem;background:#efe7dc;min-height:min(46svh,22rem)}
     html:has(body.sapp.is-thread){height:100%;overflow:hidden}
-    body.sapp.is-thread{position:fixed;top:0;left:0;right:0;display:flex;flex-direction:column;width:100%;height:100%;height:100svh;max-width:100%;overflow:hidden;padding-top:env(safe-area-inset-top);overscroll-behavior:none}
-    body.sapp.is-thread .sapp-top,body.sapp.is-thread .sapp-install{flex:none}
-    body.sapp.is-thread .sapp-main{flex:1;min-height:0;display:flex;flex-direction:column;width:100%;max-width:min(32rem,100%);margin:0 auto;padding:.4rem 3vw 0;overflow:hidden}
-    body.sapp.is-thread .sapp-chat{flex:1;min-height:0;margin-top:.4rem;overflow:auto;-webkit-overflow-scrolling:touch}
-    body.sapp.is-thread .sapp-compose{flex:none;display:flex;flex-direction:column;align-items:stretch;gap:.35rem;margin:0;padding:.4rem 0 .45rem;background:#f3f6f4}
+    body.sapp.is-thread{position:fixed;top:0;left:0;right:0;display:flex;flex-direction:column;width:100%;height:calc(100svh - var(--sapp-kb, 0px));max-width:100%;overflow:hidden;padding-top:env(safe-area-inset-top);box-sizing:border-box;overscroll-behavior:none}
+    body.sapp.is-thread .sapp-top,body.sapp.is-thread .sapp-install,body.sapp.is-thread .sapp-notify{flex:none}
+    body.sapp.is-thread .sapp-main{flex:1;min-height:0;display:flex;flex-direction:column;width:100%;max-width:min(32rem,100%);margin:0 auto;padding:.35rem 3vw 0;overflow:hidden}
+    body.sapp.is-thread .sapp-main>p{margin:0 0 .2rem;font-size:clamp(.78rem, 3.4vw, .92rem)}
+    body.sapp.is-thread .sapp-main h1,body.sapp.is-thread .sapp-thread-title{margin:0 0 .25rem;font-size:clamp(1rem, 4.8vw, 1.2rem);line-height:1.35}
+    body.sapp.is-thread .sapp-chat{flex:1;min-height:0;margin-top:.3rem;overflow:auto;-webkit-overflow-scrolling:touch}
+    body.sapp.is-thread .sapp-compose{flex:none;display:flex;flex-direction:column;align-items:stretch;gap:.35rem;margin:0;padding:.35rem 0 calc(.4rem + env(safe-area-inset-bottom));background:#f3f6f4}
     body.sapp.is-thread .sapp-nav{position:static;flex:none}
     body.sapp.is-typing .sapp-nav{display:none}
+    body.sapp.is-typing .sapp-top{padding:.25rem 3vw .1rem}
     body.sapp.is-typing .sapp-compose{padding-bottom:.35rem;border-top:1px solid #e6eeea}
+    body.sapp.is-typing .sapp-main>p{display:none}
     .sapp-compose-row{display:flex;align-items:flex-end;gap:.45rem;width:100%;min-width:0}
     .sapp-compose-row textarea.input{flex:1 1 auto;width:auto;min-width:0;max-width:100%;font-size:1rem}
     .sapp-chat-empty{margin:auto;padding:8px 12px;border-radius:10px;background:rgba(255,255,255,.72);color:#667781;font-size:.86rem}

@@ -11,19 +11,19 @@
   "dir": "rtl",
   "icons": [
     {
-      "src": "/assets/img/favicon-192.png",
+      "src": "/assets/img/staff-icon-192.png",
       "sizes": "192x192",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/assets/img/logo.png",
+      "src": "/assets/img/staff-icon-512.png",
       "sizes": "512x512",
       "type": "image/png",
       "purpose": "any"
     },
     {
-      "src": "/assets/img/apple-touch-icon.png",
+      "src": "/assets/img/staff-icon-180.png",
       "sizes": "180x180",
       "type": "image/png",
       "purpose": "any"

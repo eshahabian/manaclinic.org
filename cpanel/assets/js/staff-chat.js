@@ -582,10 +582,15 @@
     return article;
   }
 
+  function threadNearBottom() {
+    if (!thread) return true;
+    return thread.scrollHeight - thread.scrollTop - thread.clientHeight < 140;
+  }
+
   function appendMessages(list) {
     if (!list || !list.length) return;
     var empty = thread.querySelector(".sapp-chat-empty");
-    var stick = window.innerHeight + window.scrollY >= document.body.scrollHeight - 140;
+    var follow = threadNearBottom();
     var added = false;
     list.forEach(function (msg) {
       if (!msg || !msg.id || document.getElementById("m-" + msg.id)) return;
@@ -600,7 +605,7 @@
         window.sappShowChatNote(msg.name || "مانا کارکنان", noteText);
       }
     });
-    if (added && stick) window.scrollTo(0, document.body.scrollHeight);
+    if (added && follow) stickThread();
   }
 
   function cursorId() {
@@ -684,7 +689,7 @@
       var replyId = document.getElementById("sapp-reply-id");
       if (replyId) replyId.value = "";
       if (replyBox) replyBox.hidden = true;
-      window.scrollTo(0, document.body.scrollHeight);
+      stickThread();
       fetch(compose.action, {
         method: "POST",
         body: body,
@@ -702,7 +707,7 @@
         var temp = document.getElementById("m-" + tempId);
         if (temp) temp.remove();
         if (data.message) appendMessages([data.message]);
-        window.scrollTo(0, document.body.scrollHeight);
+        stickThread();
       }).catch(function (err) {
         var temp = document.getElementById("m-" + tempId);
         if (temp) temp.classList.remove("is-pending");
@@ -736,27 +741,30 @@
     if (thread) thread.scrollTop = thread.scrollHeight;
   }
 
-  function syncKeyboard() {
+  function keyboardInset() {
     var vv = window.visualViewport;
-    if (!vv) return;
-    var off = vv.offsetTop || 0;
-    document.body.style.top = "0px";
-    document.body.style.height = vv.height + "px";
-    if (window.scrollY) window.scrollTo(0, 0);
-    if (off > 2) {
-      var probe = document.getElementById("sapp-vv-probe");
-      if (!probe) {
-        probe = document.createElement("div");
-        probe.id = "sapp-vv-probe";
-        probe.setAttribute("aria-hidden", "true");
-        probe.style.cssText = "position:fixed;top:0;left:0;width:0;height:0;pointer-events:none";
-        document.body.appendChild(probe);
-      }
-      if (probe.getBoundingClientRect().top < -1) document.body.style.top = off + "px";
-    }
     var focused = !!(typeField && document.activeElement === typeField);
+    var inset = 0;
+    if (vv) {
+      inset = Math.max(0, window.innerHeight - vv.height - (vv.offsetTop || 0));
+    }
+    if (focused && inset < 80) {
+      inset = Math.round(Math.min(window.innerHeight * 0.46, 340));
+      if (inset < 160) inset = Math.round(window.innerHeight * 0.42);
+    }
+    return focused ? inset : 0;
+  }
+
+  function syncKeyboard() {
+    var focused = !!(typeField && document.activeElement === typeField);
+    document.documentElement.style.setProperty("--sapp-kb", keyboardInset() + "px");
     document.body.classList.toggle("is-typing", focused);
-    if (document.body.classList.contains("is-typing")) stickThread();
+    document.body.style.top = "";
+    document.body.style.height = "";
+    if (focused) {
+      window.scrollTo(0, 0);
+      stickThread();
+    }
   }
 
   if (window.visualViewport) {
