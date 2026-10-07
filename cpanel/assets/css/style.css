@@ -2036,20 +2036,8 @@ html[data-theme="dark"] .daywork-item.is-done { background: #1c3a30; border-colo
 .daywork-item b { flex: none; min-width: 1.6rem; }
 .daywork-item span { flex: 1; }
 .daywork-item small { display: block; margin-top: .2rem; color: var(--muted); font-size: .78rem; }
-.daywork-meta.daywork-meta-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.daywork-nav {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: .5rem;
-  margin-top: 1rem;
-}
-.daywork-item small.daytask-time { color: #1f6b45; font-weight: 700; font-size: .82rem; }
-.daywork-item small.daytask-time[hidden] { display: none; }
-.daywork-end { margin: .35rem 0 0; text-align: center; color: var(--muted); font-size: .85rem; }
 @media (max-width: 640px) {
-  .daywork-meta,
-  .daywork-meta.daywork-meta-4 { grid-template-columns: 1fr 1fr; }
+  .daywork-meta { grid-template-columns: 1fr; }
 }
 .consult-list {
   display: grid;
