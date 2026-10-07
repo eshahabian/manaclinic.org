@@ -77,31 +77,36 @@ ob_start();
   <button class="btn btn-outline" type="submit" style="justify-self:start">نمایش این ماه</button>
 </form>
 
-<form class="panel form-stack" method="post" action="<?= e(url($cashPath)) ?>" style="margin-top:1rem">
-  <?= csrf_field() ?>
-  <input type="hidden" name="action" value="in">
-  <input type="hidden" name="jy" value="<?= (int) $range['year'] ?>">
-  <input type="hidden" name="jm" value="<?= (int) $range['month'] ?>">
-  <p style="margin:0;font-weight:600">مبلغ ورودی</p>
-  <div>
-    <label class="label" for="petty-in-amount">مبلغ</label>
-    <input class="input" id="petty-in-amount" name="amount" inputmode="numeric" required placeholder="تومان">
+<div class="panel" id="petty-entry-box" style="margin-top:1rem">
+  <style>#petty-entry-box [hidden]{display:none !important}</style>
+  <div class="binder-tabs" role="tablist" aria-label="ثبت تنخواه">
+    <button type="button" class="binder-tab is-active" data-petty-tab="in" role="tab" aria-selected="true" aria-controls="petty-pane-in">مبلغ ورودی</button>
+    <button type="button" class="binder-tab" data-petty-tab="out" role="tab" aria-selected="false" aria-controls="petty-pane-out">هزینه‌ها</button>
   </div>
-  <?= petty_cash_date_fields((int) $todayY, (int) $todayM, (int) $todayD) ?>
-  <div>
-    <label class="label" for="petty-in-note">توضیح</label>
-    <input class="input" id="petty-in-note" name="note" placeholder="اختیاری">
-  </div>
-  <button class="btn btn-primary" type="submit" style="justify-self:start">ثبت ورودی</button>
-</form>
 
-<form class="panel form-stack" method="post" action="<?= e(url($cashPath)) ?>" enctype="multipart/form-data" style="margin-top:1rem">
-  <?= csrf_field() ?>
-  <input type="hidden" name="action" value="out">
-  <input type="hidden" name="jy" value="<?= (int) $range['year'] ?>">
-  <input type="hidden" name="jm" value="<?= (int) $range['month'] ?>">
-  <p style="margin:0;font-weight:600">هزینه</p>
-  <div id="petty-lines" style="display:grid;gap:.65rem">
+  <form class="form-stack" id="petty-pane-in" data-petty-pane="in" method="post" action="<?= e(url($cashPath)) ?>" style="margin-top:1rem">
+    <?= csrf_field() ?>
+    <input type="hidden" name="action" value="in">
+    <input type="hidden" name="jy" value="<?= (int) $range['year'] ?>">
+    <input type="hidden" name="jm" value="<?= (int) $range['month'] ?>">
+    <div>
+      <label class="label" for="petty-in-amount">مبلغ</label>
+      <input class="input" id="petty-in-amount" name="amount" inputmode="numeric" required placeholder="تومان">
+    </div>
+    <?= petty_cash_date_fields((int) $todayY, (int) $todayM, (int) $todayD) ?>
+    <div>
+      <label class="label" for="petty-in-note">توضیح</label>
+      <input class="input" id="petty-in-note" name="note" placeholder="اختیاری">
+    </div>
+    <button class="btn btn-primary" type="submit" style="justify-self:start">ثبت ورودی</button>
+  </form>
+
+  <form class="form-stack" id="petty-pane-out" data-petty-pane="out" method="post" action="<?= e(url($cashPath)) ?>" enctype="multipart/form-data" hidden style="margin-top:1rem">
+    <?= csrf_field() ?>
+    <input type="hidden" name="action" value="out">
+    <input type="hidden" name="jy" value="<?= (int) $range['year'] ?>">
+    <input type="hidden" name="jm" value="<?= (int) $range['month'] ?>">
+    <div id="petty-lines" style="display:grid;gap:.65rem">
     <div class="petty-line" style="display:grid;grid-template-columns:minmax(0,1.6fr) minmax(7.5rem,.9fr);gap:.5rem;align-items:end">
       <div>
         <label class="label" for="petty-item">قلم هزینه</label>
@@ -125,8 +130,9 @@ ob_start();
     <label class="label" for="petty-out-note">توضیح</label>
     <input class="input" id="petty-out-note" name="note" placeholder="اختیاری">
   </div>
-  <button class="btn btn-primary" type="submit" style="justify-self:start">ثبت هزینه</button>
-</form>
+    <button class="btn btn-primary" type="submit" style="justify-self:start">ثبت هزینه</button>
+  </form>
+</div>
 
 <div class="panel" style="margin-top:1rem">
   <h2 style="margin:0 0 .75rem;font-size:1rem">جمع قلم‌ها در <?= e($range['label']) ?></h2>
@@ -174,6 +180,19 @@ ob_start();
 </div>
 <script>
 (function () {
+  document.querySelectorAll('[data-petty-tab]').forEach(function (tab) {
+    tab.addEventListener('click', function () {
+      var id = tab.getAttribute('data-petty-tab');
+      document.querySelectorAll('[data-petty-tab]').forEach(function (other) {
+        var on = other === tab;
+        other.classList.toggle('is-active', on);
+        other.setAttribute('aria-selected', on ? 'true' : 'false');
+      });
+      document.querySelectorAll('[data-petty-pane]').forEach(function (pane) {
+        pane.hidden = pane.getAttribute('data-petty-pane') !== id;
+      });
+    });
+  });
   var box = document.getElementById('petty-lines');
   var add = document.getElementById('petty-add-line');
   if (!box || !add) return;
