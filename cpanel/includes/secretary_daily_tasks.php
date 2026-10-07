@@ -405,3 +405,50 @@ function secretary_daily_tasks_html(
     <?php
     return (string) ob_get_clean();
 }
+
+function secretary_daily_tasks_fragment(PDO $pdo, array $secretary, string $ymd, bool $editable, string $postUrl): string
+{
+    $states = secretary_daily_task_states($pdo, (string) ($secretary['id'] ?? ''), $ymd);
+    $progress = secretary_daily_task_progress($states);
+    $name = trim((string) ($secretary['name'] ?? ''));
+    if ($name === '') {
+        $name = (string) ($secretary['username'] ?? 'منشی');
+    }
+    $doneCount = to_fa_digits((string) $progress['done']);
+    $totalCount = to_fa_digits((string) $progress['total']);
+    $dateLabel = secretary_daily_task_date_label($ymd);
+    ob_start();
+    ?>
+    <button type="button" data-daytasks-close aria-label="بستن" style="position:absolute;top:8px;left:8px;width:36px;height:36px;border:0;background:transparent;font-size:24px;cursor:pointer">×</button>
+    <h2 style="margin:0 0 12px;font-size:1.15rem">لیست انجام کارهای روزانه</h2>
+    <p style="margin:0 0 12px;line-height:1.6"><b><?= e($name) ?></b><br><?= e($dateLabel) ?><br>انجام‌شده <?= e($doneCount) ?> از <?= e($totalCount) ?></p>
+    <?php $n = 0; foreach (secretary_daily_task_catalog() as $key => $label): ?>
+      <?php
+        $n++;
+        $checked = !empty($states[$key]['done']);
+      ?>
+      <div class="dayshadow-row<?= $checked ? ' is-done' : '' ?>" style="margin:0 0 8px;padding:10px 12px;border:1px solid #d5e0da;border-radius:12px;background:<?= $checked ? '#e8f6ee' : '#f7f5f0' ?>;line-height:1.75">
+        <?php if ($editable): ?>
+          <form class="daytask-form" method="post" action="<?= e($postUrl) ?>" onsubmit="return false" style="margin:0">
+            <?= csrf_field() ?>
+            <input type="hidden" name="task_date" value="<?= e($ymd) ?>">
+            <input type="hidden" name="task_key" value="<?= e($key) ?>">
+            <input type="hidden" name="done" value="0">
+            <label style="display:flex;gap:8px;align-items:flex-start;cursor:pointer">
+              <input type="checkbox" name="done" value="1"<?= $checked ? ' checked' : '' ?>>
+              <b><?= e(to_fa_digits((string) $n)) ?></b>
+              <span><?= e($label) ?></span>
+            </label>
+          </form>
+        <?php else: ?>
+          <label style="display:flex;gap:8px;align-items:flex-start">
+            <input type="checkbox" disabled<?= $checked ? ' checked' : '' ?>>
+            <b><?= e(to_fa_digits((string) $n)) ?></b>
+            <span><?= e($label) ?></span>
+          </label>
+        <?php endif; ?>
+      </div>
+    <?php endforeach; ?>
+    <?php
+    return (string) ob_get_clean();
+}
