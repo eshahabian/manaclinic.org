@@ -28,14 +28,6 @@ function secretary_nav(): array
         ['href' => '/secretary/patients', 'label' => 'مراجعه‌کنندگان'],
         ['href' => '/secretary/users', 'label' => 'کاربران'],
         ['href' => '/secretary/profile', 'label' => 'پیام مدیر'],
-    ];
-    if (!function_exists('secretary_daily_tasks_can_review') && is_file(__DIR__ . '/secretary_daily_tasks.php')) {
-        require_once __DIR__ . '/secretary_daily_tasks.php';
-    }
-    if (function_exists('secretary_daily_tasks_can_review') && secretary_daily_tasks_can_review()) {
-        $nav[] = ['href' => '/secretary/review-tasks', 'label' => 'کارهای روزانه منشی'];
-    }
-    $nav = array_merge($nav, [
         ['href' => '/secretary/board', 'label' => 'یادداشت مشترک'],
         ['href' => '/secretary/hours', 'label' => 'ساعت کاری'],
         ['href' => '/secretary/daily-tasks', 'label' => 'کارهای روزانه'],
@@ -43,7 +35,7 @@ function secretary_nav(): array
         ['href' => '/secretary/articles', 'label' => 'مقالات'],
         ['href' => '/secretary/workshops', 'label' => 'کارگاه‌ها'],
         ['href' => '/change-password', 'label' => 'تغییر رمز عبور'],
-    ]);
+    ];
     $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link() : null;
     if ($videoLink) {
         array_splice($nav, 1, 0, [$videoLink]);

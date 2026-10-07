@@ -94,14 +94,14 @@ function doctor_nav(): array
     $canReviewSecretaryTasks = function_exists('secretary_daily_tasks_can_review') && secretary_daily_tasks_can_review();
     if (doctor_can_view_staff_hours() || doctor_can_message_secretaries() || $canReviewSecretaryTasks) {
         $nav[] = ['type' => 'group', 'label' => 'منشی‌ها'];
-        if ($canReviewSecretaryTasks) {
-            $nav[] = ['type' => 'link', 'href' => '/doctor/secretary-tasks', 'label' => 'کارهای روزانه منشی'];
-        }
         if (doctor_can_message_secretaries()) {
             $nav[] = ['type' => 'link', 'href' => '/doctor/secretary-messages', 'label' => 'پیام به منشی‌ها'];
         }
         if (doctor_can_view_staff_hours()) {
             $nav[] = ['type' => 'link', 'href' => '/doctor/staff-hours', 'label' => 'ساعت کاری منشی‌ها'];
+        }
+        if ($canReviewSecretaryTasks) {
+            $nav[] = ['type' => 'link', 'href' => '/doctor/secretary-tasks', 'label' => 'کارهای روزانه منشی'];
         }
     }
 
