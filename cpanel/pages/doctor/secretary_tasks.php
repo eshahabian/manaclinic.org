@@ -6,7 +6,7 @@ require_once __DIR__ . '/../../includes/secretary_daily_tasks.php';
 
 $ctx = require_doctor_profile($pdo);
 if (!secretary_daily_tasks_can_review($ctx['user'] ?? null)) {
-    flash_set('error', 'پیگیری کارهای روزانه منشی فقط برای دکتر شیوا گرانمایه‌پور، دکتر عطیه گارسچی، eshahabian و eemadian است.');
+    flash_set('error', 'پیگیری کارهای روزانه منشی فقط برای دکتر شیوا گرانمایه‌پور، دکتر عطیه گارسچی و eshahabian است.');
     redirect('/doctor/notifications');
 }
 $reviewBase = '/doctor/secretary-tasks';

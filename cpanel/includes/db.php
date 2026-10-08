@@ -127,4 +127,24 @@ function db_ensure_schema(PDO $pdo): void
         }
     } catch (Throwable $ignored) {
     }
+
+    try {
+        $emad = $pdo->query("SELECT id, role FROM users WHERE username='eemadian' LIMIT 1")->fetch();
+        if (is_array($emad) && (string) ($emad['id'] ?? '') !== '') {
+            $emadId = (string) $emad['id'];
+            if ((string) ($emad['role'] ?? '') !== 'DOCTOR') {
+                $pdo->prepare("UPDATE users SET role='DOCTOR' WHERE id=?")->execute([$emadId]);
+            }
+            $profile = $pdo->prepare('SELECT id, is_approved, is_active FROM doctor_profiles WHERE user_id=? LIMIT 1');
+            $profile->execute([$emadId]);
+            $profileRow = $profile->fetch();
+            if (!is_array($profileRow)) {
+                $pdo->prepare('INSERT INTO doctor_profiles (id,user_id,specialty,bio,session_price,is_approved,is_active) VALUES (?,?,?,?,?,1,1)')
+                    ->execute([cuid(), $emadId, 'روان‌شناسی', '', 3000000]);
+            } elseif ((int) ($profileRow['is_approved'] ?? 0) !== 1 || (int) ($profileRow['is_active'] ?? 0) !== 1) {
+                $pdo->prepare('UPDATE doctor_profiles SET is_approved=1, is_active=1 WHERE user_id=?')->execute([$emadId]);
+            }
+        }
+    } catch (Throwable $ignored) {
+    }
 }

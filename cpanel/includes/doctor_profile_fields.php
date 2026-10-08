@@ -270,7 +270,7 @@ function doctor_skips_profile_gate(?array $user): bool
         }
     }
 
-    return $username === 'mbabei' || $username === 'eemadian' || str_contains((string) ($user['name'] ?? ''), 'عمادیان');
+    return $username === 'mbabei';
 }
 
 function doctor_must_complete_profile(PDO $pdo, array $user): bool
