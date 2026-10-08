@@ -567,7 +567,8 @@ function secretary_daily_tasks_table_html(
     string $ymd,
     bool $editable,
     string $postUrl,
-    bool $showDate = true
+    bool $showDate = true,
+    bool $live = false
 ): string {
     $userId = (string) ($secretary['id'] ?? '');
     try {
@@ -639,12 +640,51 @@ function secretary_daily_tasks_table_html(
           .catch(function(){ input.checked = !input.checked; })
           .then(function(){ form.removeAttribute("data-busy"); });
       });
+      document.addEventListener("change", function(e){
+        var input = e.target;
+        if (!input || input.type !== "checkbox" || !input.hasAttribute("data-duty-key")) return;
+        if (input.form && input.form.classList.contains("duty-form")) return;
+        var sheet = input.closest("[data-duty-sheet]");
+        var url = sheet ? sheet.getAttribute("data-duty-url") : "";
+        var csrfEl = sheet ? sheet.querySelector("[data-duty-csrf]") : null;
+        if (!sheet || !url || !csrfEl || input.getAttribute("data-busy") === "1") {
+          input.checked = !input.checked;
+          return;
+        }
+        var wantOn = !!input.checked;
+        var data = new FormData();
+        data.set("_csrf", csrfEl.value);
+        data.set("task_date", input.getAttribute("data-duty-date") || "");
+        data.set("task_key", input.getAttribute("data-duty-key") || "");
+        data.set("done", wantOn ? "1" : "0");
+        var row = input.closest(".duty-row");
+        var time = row ? row.querySelector(".duty-time") : null;
+        var caption = input.parentNode ? input.parentNode.querySelector("span") : null;
+        input.setAttribute("data-busy", "1");
+        fetch(url, {method:"POST", body:data, credentials:"same-origin", headers:{"X-Requested-With":"XMLHttpRequest","Accept":"application/json"}})
+          .then(function(r){ return r.json().then(function(body){ if (!r.ok || !body || body.ok === false) throw new Error((body && body.error) || ""); return body; }); })
+          .then(function(res){
+            var on = wantOn && !!(res && res.time);
+            if (wantOn && !on) throw new Error("no-time");
+            input.checked = on;
+            if (row) row.classList.toggle("is-done", on);
+            if (time) time.textContent = on ? res.time : "—";
+            if (caption) caption.textContent = on ? "انجام شد" : "انجام نشده";
+            var count = sheet.querySelector("[data-duty-count]");
+            if (count) count.textContent = faDigits(sheet.querySelectorAll("[data-duty-key]:checked").length);
+          })
+          .catch(function(){ input.checked = !wantOn; })
+          .then(function(){ input.removeAttribute("data-busy"); });
+      });
     })();
     </script>
         <?php
     }
     ?>
-    <section class="duty-sheet panel" data-duty-sheet>
+    <section class="duty-sheet panel" data-duty-sheet<?= ($live && $postUrl !== '') ? ' data-duty-url="' . e($postUrl) . '"' : '' ?>>
+      <?php if ($live && $postUrl !== ''): ?>
+        <input type="hidden" data-duty-csrf value="<?= e(csrf_token()) ?>">
+      <?php endif; ?>
       <div class="duty-sheet-meta">
         <?php if ($name !== ''): ?><strong><?= e($name) ?></strong><?php endif; ?>
         <?php if ($showDate): ?><span><?= e($dateLabel) ?></span><?php endif; ?>
@@ -680,7 +720,7 @@ function secretary_daily_tasks_table_html(
               </form>
             <?php else: ?>
               <label class="duty-check is-locked">
-                <input type="checkbox" disabled<?= $checked ? ' checked' : '' ?>>
+                <input type="checkbox"<?= ($live && $postUrl !== '') ? '' : ' disabled' ?><?= ($live && $postUrl !== '') ? ' data-duty-key="' . e($key) . '" data-duty-date="' . e($ymd) . '"' : '' ?><?= $checked ? ' checked' : '' ?>>
                 <span><?= $checked ? 'انجام شد' : 'انجام نشده' ?></span>
               </label>
             <?php endif; ?>
