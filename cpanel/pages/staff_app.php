@@ -11,6 +11,30 @@ $userId = (string) ($user['id'] ?? '');
 $role = (string) ($user['role'] ?? '');
 $name = trim((string) ($user['name'] ?? ''));
 
+if ($path === '/app/push/subscribe' && $method === 'POST') {
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+    csrf_verify();
+    try {
+        staff_push_save(
+            $pdo,
+            $userId,
+            trim((string) ($_POST['endpoint'] ?? '')),
+            trim((string) ($_POST['p256dh'] ?? '')),
+            trim((string) ($_POST['auth'] ?? ''))
+        );
+        echo json_encode(['ok' => true], JSON_UNESCAPED_UNICODE);
+    } catch (RuntimeException $e) {
+        http_response_code(400);
+        echo json_encode(['ok' => false, 'error' => $e->getMessage()], JSON_UNESCAPED_UNICODE);
+    } catch (Throwable $e) {
+        error_log('staff push subscribe: ' . $e->getMessage());
+        http_response_code(500);
+        echo json_encode(['ok' => false, 'error' => 'ثبت اعلان انجام نشد.'], JSON_UNESCAPED_UNICODE);
+    }
+    exit;
+}
+
 if ($path === '/app/presence') {
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store');
@@ -874,7 +898,7 @@ if ($section === 'chat') {
             <script type="application/json" id="sapp-chat-config"><?= $chatConfig ?></script>
             <?php
             $html = ob_get_clean();
-            $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/staff-chat.js')) . '?v=20261008mini"></script>';
+            $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/staff-chat.js')) . '?v=20261008push"></script>';
         } else {
             $rooms = staff_app_rooms_for($pdo, $userId);
             $people = staff_app_people($pdo);

@@ -717,6 +717,10 @@
     });
   }
 
+  window.sappOnPush = function (payload) {
+    if (payload && payload.roomId && payload.roomId === config.roomId) pullLive();
+  };
+
   if (config.receipts) {
     pullLive();
     armLive();

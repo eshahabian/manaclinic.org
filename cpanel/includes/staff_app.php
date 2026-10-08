@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/web_push.php';
+
 function staff_app_sections(): array
 {
     return [
@@ -114,6 +116,26 @@ function staff_app_ensure_schema(PDO $pdo): void
         user_id VARCHAR(32) NOT NULL,
         emoji VARCHAR(32) NOT NULL,
         PRIMARY KEY (message_id, user_id)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
+    $pdo->exec("
+      CREATE TABLE IF NOT EXISTS staff_app_vapid (
+        id TINYINT NOT NULL PRIMARY KEY,
+        public_key VARCHAR(255) NOT NULL,
+        private_pem TEXT NOT NULL
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
+    $pdo->exec("
+      CREATE TABLE IF NOT EXISTS staff_app_push (
+        id VARCHAR(32) NOT NULL PRIMARY KEY,
+        user_id VARCHAR(32) NOT NULL,
+        endpoint_hash CHAR(64) NOT NULL,
+        endpoint TEXT NOT NULL,
+        p256dh VARCHAR(255) NOT NULL,
+        auth VARCHAR(255) NOT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uniq_staff_push (user_id, endpoint_hash),
+        INDEX idx_staff_push_user (user_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
     $pdo->exec("
@@ -1066,6 +1088,8 @@ function staff_app_send_message(PDO $pdo, array $user, string $roomId, string $b
         throw $e;
     }
     staff_app_mark_read($pdo, (string) $user['id'], $roomId);
+    $senderName = trim((string) ($user['name'] ?? ''));
+    staff_push_notify_room($pdo, $roomId, (string) ($user['id'] ?? ''), $senderName, $body);
 
     return $messageId;
 }
@@ -1256,6 +1280,7 @@ function staff_app_client_script(): string
   }
 
   function showChatNote(title, bodyText) {
+    if (window.sappPushReady) return;
     if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
     if (!document.hidden) return;
     try {
@@ -1294,6 +1319,54 @@ function staff_app_client_script(): string
       })
       .catch(function () {});
   }
+
+  function enablePush() {
+    var vapid = body.getAttribute("data-vapid") || "";
+    var pushUrl = body.getAttribute("data-push") || "";
+    if (!vapid || !pushUrl || !("serviceWorker" in navigator) || !("PushManager" in window)) return;
+    if (typeof Notification === "undefined" || Notification.permission !== "granted") return;
+    navigator.serviceWorker.ready.then(function (reg) {
+      var padding = "=".repeat((4 - vapid.length % 4) % 4);
+      var raw = atob((vapid + padding).replace(/-/g, "+").replace(/_/g, "/"));
+      var key = new Uint8Array(raw.length);
+      var i;
+      for (i = 0; i < raw.length; i++) key[i] = raw.charCodeAt(i);
+      return reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: key }).then(function (sub) {
+        var json = sub.toJSON();
+        var keys = (json && json.keys) || {};
+        var form = new URLSearchParams();
+        var csrf = document.querySelector('meta[name="csrf-token"]');
+        form.set("_csrf", csrf ? (csrf.getAttribute("content") || "") : "");
+        form.set("endpoint", sub.endpoint || "");
+        form.set("p256dh", keys.p256dh || "");
+        form.set("auth", keys.auth || "");
+        return fetch(pushUrl, {
+          method: "POST",
+          credentials: "same-origin",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded",
+            "Accept": "application/json",
+            "X-Requested-With": "XMLHttpRequest"
+          },
+          body: form.toString()
+        });
+      });
+    }).then(function (res) {
+      if (res && res.ok) window.sappPushReady = true;
+    }).catch(function () {});
+  }
+
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.addEventListener("message", function (event) {
+      var data = event.data || {};
+      if (data.type === "staff-push") {
+        pullPresence();
+        if (window.sappOnPush) window.sappOnPush(data.payload || {});
+      }
+      if (data.type === "staff-push-open" && data.url) window.location.href = data.url;
+    });
+  }
+  if (typeof Notification !== "undefined" && Notification.permission === "granted") enablePush();
 
   if (presenceUrl) {
     pullPresence();
@@ -1336,7 +1409,10 @@ function staff_app_client_script(): string
     }
     Notification.requestPermission().then(function (result) {
       notifyBox.hidden = true;
-      if (result === "granted") pullPresence();
+      if (result === "granted") {
+        enablePush();
+        pullPresence();
+      }
     }).catch(function () {});
   });
 })();
@@ -1380,9 +1456,11 @@ function staff_app_render(string $active, string $title, string $description, st
         $avatarInitial = user_avatar_initial($name !== '' ? $name : 'م');
     }
     $navKey = $active === 'chat' ? 'chat' : ($active === 'profile' ? 'profile' : 'home');
+    $vapidKey = '';
     if (!$locked && $user && $pdo instanceof PDO) {
         try {
             staff_app_touch_presence($pdo, (string) ($user['id'] ?? ''));
+            $vapidKey = staff_push_public($pdo);
         } catch (Throwable $e) {
             error_log('staff app presence: ' . $e->getMessage());
         }
@@ -1552,7 +1630,7 @@ function staff_app_render(string $active, string $title, string $description, st
     body.sapp{padding:0}
   </style>
 </head>
-<body class="sapp<?= !empty($GLOBALS['staffBodyClass']) ? ' ' . e((string) $GLOBALS['staffBodyClass']) : '' ?>"<?= $user ? ' data-session-guard="1" data-session-ping="' . e(url('/session/ping')) . '" data-logout="' . e(url('/logout')) . '"' : '' ?><?= ($user && !$locked) ? ' data-presence="' . e(url('/app/presence')) . '" data-chat="' . e(url('/app/chat')) . '"' : '' ?><?= $isSecretary ? ' data-secretary-desk="1" data-no-idle="1" data-heartbeat="' . e(url('/secretary/heartbeat')) . '"' : '' ?>>
+<body class="sapp<?= !empty($GLOBALS['staffBodyClass']) ? ' ' . e((string) $GLOBALS['staffBodyClass']) : '' ?>"<?= $user ? ' data-session-guard="1" data-session-ping="' . e(url('/session/ping')) . '" data-logout="' . e(url('/logout')) . '"' : '' ?><?= ($user && !$locked) ? ' data-presence="' . e(url('/app/presence')) . '" data-chat="' . e(url('/app/chat')) . '" data-vapid="' . e($vapidKey) . '" data-push="' . e(url('/app/push/subscribe')) . '"' : '' ?><?= $isSecretary ? ' data-secretary-desk="1" data-no-idle="1" data-heartbeat="' . e(url('/secretary/heartbeat')) . '"' : '' ?>>
   <header class="sapp-top">
     <a class="sapp-brand" href="<?= e(url('/app')) ?>">
       <img src="<?= e(url('/assets/img/logo.png')) ?>" alt="" width="36" height="36">
