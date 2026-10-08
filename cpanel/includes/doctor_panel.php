@@ -36,10 +36,11 @@ function doctor_can_view_staff_hours(?array $user = null): bool
     if (!$user) {
         return false;
     }
-    if (($user['role'] ?? '') === 'ADMIN') {
+    $role = (string) ($user['role'] ?? '');
+    if ($role === 'ADMIN' || $role === 'SECRETARY') {
         return true;
     }
-    if (($user['role'] ?? '') !== 'DOCTOR') {
+    if ($role !== 'DOCTOR') {
         return false;
     }
 
@@ -285,6 +286,52 @@ function admin_doctor_switcher_html(PDO $pdo, array $profile, string $action = '
     </form>
     <?php
     return ob_get_clean();
+}
+
+function oversight_home(?array $user = null): string
+{
+    $user = $user ?? (function_exists('current_user') ? current_user() : null);
+
+    return (string) ($user['role'] ?? '') === 'SECRETARY' ? '/secretary/messages' : '/doctor/notifications';
+}
+
+/** ساعت کاری و پیام به منشی‌ها: دکترهای مجاز و هر دو منشی، بدون ساختن پروفایل درمانگر برای منشی. */
+function require_clinic_oversight(PDO $pdo): array
+{
+    $peek = function_exists('current_user') ? current_user() : null;
+    if (is_array($peek) && (string) ($peek['role'] ?? '') === 'SECRETARY') {
+        $user = require_login(['SECRETARY']);
+        if (!doctor_can_view_staff_hours($user)) {
+            flash_set('error', 'این بخش برای این حساب باز نیست.');
+            redirect('/secretary/messages');
+        }
+        $ctx = [
+            'user' => $user,
+            'profile' => [
+                'id' => '',
+                'user_id' => (string) ($user['id'] ?? ''),
+                'name' => (string) ($user['name'] ?? ''),
+            ],
+            'secretary_mode' => true,
+        ];
+        $GLOBALS['doctor_ctx'] = $ctx;
+
+        return $ctx;
+    }
+
+    return require_doctor_profile($pdo);
+}
+
+function render_oversight_page(string $title, string $innerHtml): void
+{
+    $ctx = $GLOBALS['doctor_ctx'] ?? null;
+    if (is_array($ctx) && !empty($ctx['secretary_mode'])) {
+        require_once __DIR__ . '/secretary_panel.php';
+        render_secretary_page($title, $innerHtml);
+
+        return;
+    }
+    render_doctor_page($title, $innerHtml);
 }
 
 function require_doctor_profile(PDO $pdo): array

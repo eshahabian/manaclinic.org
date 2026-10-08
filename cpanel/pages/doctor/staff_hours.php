@@ -2,10 +2,10 @@
 declare(strict_types=1);
 require_once __DIR__ . '/../../includes/doctor_panel.php';
 
-$ctx = require_doctor_profile($pdo);
+$ctx = require_clinic_oversight($pdo);
 if (!doctor_can_view_staff_hours($ctx['user'] ?? null)) {
-    flash_set('error', 'مشاهده ورود و خروج منشی‌ها فقط برای دکتر شیوا گرانمایه‌پور، دکتر عطیه گارسچی و مدیر مجاز است.');
-    redirect('/doctor/notifications');
+    flash_set('error', 'مشاهده ورود و خروج منشی‌ها فقط برای دکتر شیوا گرانمایه‌پور، دکتر عطیه گارسچی، منشی‌ها و مدیر مجاز است.');
+    redirect(oversight_home($ctx['user'] ?? null));
 }
 $fallback = '<h1>ساعت کاری منشی‌ها</h1><p class="muted">بارگذاری ساعت کاری الان ممکن نیست. یک‌بار دیگر صفحه را باز کنید.</p>';
 $html = $fallback;
@@ -27,4 +27,4 @@ try {
     $html = $fallback;
     $pageScripts = '';
 }
-render_doctor_page('ساعت کاری منشی‌ها', $html);
+render_oversight_page('ساعت کاری منشی‌ها', $html);

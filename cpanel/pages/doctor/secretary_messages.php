@@ -4,11 +4,11 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../includes/doctor_panel.php';
 require_once __DIR__ . '/../../includes/admin_staff_messages.php';
 
-$ctx = require_doctor_profile($pdo);
+$ctx = require_clinic_oversight($pdo);
 $user = $ctx['user'] ?? current_user();
 if (!doctor_can_message_secretaries($user)) {
-    flash_set('error', 'پیام به منشی‌ها فقط برای دکتر شیوا گرانمایه‌پور، دکتر عطیه گارسچی و مدیر سایت مجاز است.');
-    redirect('/doctor/notifications');
+    flash_set('error', 'پیام به منشی‌ها فقط برای دکتر شیوا گرانمایه‌پور، دکتر عطیه گارسچی، منشی‌ها و مدیر سایت مجاز است.');
+    redirect(oversight_home($user));
 }
 $userId = (string) ($user['id'] ?? '');
 $secretaries = admin_staff_msg_secretaries($pdo);
@@ -182,4 +182,4 @@ $pageScripts = '<script src="' . e(url('/assets/js/rich-editor.js')) . '?v=20260
 })();
 </script>';
 $GLOBALS['pageScripts'] = $pageScripts;
-render_doctor_page('پیام به منشی‌ها', $inner);
+render_oversight_page('پیام به منشی‌ها', $inner);

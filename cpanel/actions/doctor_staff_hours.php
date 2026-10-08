@@ -3,10 +3,10 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/doctor_panel.php';
 
-$ctx = require_doctor_profile($pdo);
+$ctx = require_clinic_oversight($pdo);
 if (!doctor_can_view_staff_hours($ctx['user'] ?? null)) {
-    flash_set('error', 'مشاهده ورود و خروج منشی‌ها فقط برای دکتر شیوا گرانمایه‌پور، دکتر عطیه گارسچی و مدیر مجاز است.');
-    redirect('/doctor/notifications');
+    flash_set('error', 'مشاهده ورود و خروج منشی‌ها فقط برای دکتر شیوا گرانمایه‌پور، دکتر عطیه گارسچی، منشی‌ها و مدیر مجاز است.');
+    redirect(oversight_home($ctx['user'] ?? null));
 }
 if (!doctor_can_message_secretaries($ctx['user'] ?? null)) {
     flash_set('error', 'تغییر نام منشی‌ها فقط برای دکتر شیوا گرانمایه‌پور، دکتر عطیه گارسچی و مدیر مجاز است.');

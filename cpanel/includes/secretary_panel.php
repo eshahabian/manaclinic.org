@@ -34,6 +34,8 @@ function secretary_nav(): array
         ['href' => '/secretary/profile', 'label' => 'پیام مدیر'],
         ['href' => '/secretary/board', 'label' => 'یادداشت مشترک'],
         ['href' => '/secretary/hours', 'label' => 'ساعت کاری'],
+        ['href' => '/doctor/staff-hours', 'label' => 'ساعت کاری منشی‌ها'],
+        ['href' => '/doctor/secretary-messages', 'label' => 'پیام به منشی‌ها'],
         ['href' => '/secretary/daily-tasks', 'label' => 'وظایف'],
         ['href' => '/secretary/colleague-messages', 'label' => 'پیام همکار'],
         ['href' => '/secretary/articles', 'label' => 'مقالات'],
