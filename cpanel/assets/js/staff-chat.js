@@ -763,6 +763,7 @@
   var kbBumped = false;
   var kbRaised = false;
   var maxCovered = 0;
+  var kbFloor = 0;
   var stickOnOpen = true;
 
   function stickThread() {
@@ -833,6 +834,20 @@
     if (stickOnOpen) stickThread();
   }
 
+  function clampKbCss() {
+    return "clamp(12rem, 50svh, 28rem)";
+  }
+
+  function clampKbPx() {
+    var root = rootPx();
+    var preferred = svhPx() * 0.5;
+    return Math.round(Math.max(root * 12, Math.min(root * 28, preferred)));
+  }
+
+  function raiseFloor(px) {
+    if (px > kbFloor) kbFloor = px;
+  }
+
   function setKb(value) {
     document.body.style.setProperty("--sapp-kb", value);
     stickIfOpen();
@@ -849,13 +864,24 @@
         if (kbBumped || !fieldFocused()) return;
         kbBumped = true;
         var extra = composerOverlap();
-        if (extra > 8) setKb("calc(" + (appliedKbPx() + extra) + "px)");
+        var root = rootPx();
+        if (extra <= root * 0.5) return;
+        var next = Math.max(appliedKbPx(), kbFloor) + extra;
+        raiseFloor(next);
+        setKb("calc(" + Math.round(next) + "px)");
       });
     });
   }
 
   function lockMeasured(px) {
     kbState = "locked";
+    var root = rootPx();
+    var next = px + root * 3;
+    if (kbFloor > 0 && next < kbFloor - root * 4) {
+      bumpOnce();
+      return;
+    }
+    raiseFloor(next);
     setKb("calc(" + Math.round(px) + "px + 3rem)");
     bumpOnce();
   }
@@ -865,13 +891,15 @@
     if (!fieldFocused() || kbState === "locked") return;
     var covered = Math.max(keyboardCovered(), maxCovered);
     var overlap = composerOverlap();
-    var real = rootPx() * 8;
+    var root = rootPx();
+    var real = root * 8;
     if (covered >= real) {
       lockMeasured(covered);
       return;
     }
     if (svhDropped()) {
       kbState = "locked";
+      kbFloor = root * 3;
       setKb("3rem");
       bumpOnce();
       return;
@@ -882,14 +910,15 @@
     }
     if (phoneLike()) {
       kbState = "locked";
-      clearKb();
-      stickIfOpen();
+      raiseFloor(clampKbPx());
+      setKb(clampKbCss());
       bumpOnce();
       return;
     }
     kbState = "locked";
-    if (overlap > 8) {
-      setKb("calc(" + overlap + "px + 3rem)");
+    if (overlap > root * 0.5) {
+      raiseFloor(overlap + root * 3);
+      setKb("calc(" + Math.round(overlap) + "px + 3rem)");
       bumpOnce();
       return;
     }
@@ -901,8 +930,11 @@
     var covered = keyboardCovered();
     var root = rootPx();
     if (covered < root * 8) return;
-    if (covered + root * 3 <= appliedKbPx() + root * 1.5) return;
+    var next = covered + root * 3;
+    var floor = Math.max(appliedKbPx(), kbFloor);
+    if (next <= floor + root) return;
     kbRaised = true;
+    raiseFloor(next);
     maxCovered = covered;
     setKb("calc(" + Math.round(covered) + "px + 3rem)");
   }
@@ -929,6 +961,7 @@
     kbState = "idle";
     kbBumped = false;
     kbRaised = false;
+    kbFloor = 0;
     maxCovered = 0;
     document.body.classList.remove("is-typing");
     clearKb();
@@ -945,6 +978,10 @@
     typeField.addEventListener("focus", function () {
       rememberStick();
       document.body.classList.add("is-typing");
+      if (phoneLike() && kbState !== "locked") {
+        raiseFloor(clampKbPx());
+        setKb(clampKbCss());
+      }
       window.requestAnimationFrame(function () { stickIfOpen(); });
       syncKeyboard();
     });

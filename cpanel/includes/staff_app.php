@@ -1586,6 +1586,8 @@ function staff_app_render(string $active, string $title, string $description, st
     body.sapp.is-thread .sapp-compose{flex:none;display:flex;flex-direction:column;align-items:stretch;gap:clamp(.25rem,1.4vw,.35rem);margin:0;padding:clamp(.25rem,1.4vw,.35rem) 0 calc(.35rem + env(safe-area-inset-bottom));background:#f3f6f4}
     body.sapp.is-thread .sapp-nav{position:static;flex:none}
     body.sapp.is-thread .sapp-msg{padding:clamp(.22rem,1.4vw,.4rem) clamp(.35rem,1.8vw,.5rem) clamp(.12rem,.8vw,.25rem);border-radius:clamp(.5rem,2.4vw,.75rem)}
+    body.sapp.is-thread .sapp-msg.is-mine{border-top-right-radius:.25rem}
+    body.sapp.is-thread .sapp-msg.is-theirs{border-top-left-radius:.25rem}
     body.sapp.is-thread .sapp-msg p{font-size:clamp(.88rem,3.6vw,1rem);line-height:1.45}
     body.sapp.is-thread .sapp-msg-name{margin-bottom:.1rem;font-size:clamp(.66rem,3vw,.78rem)}
     body.sapp.is-thread .sapp-msg-meta{gap:.15rem;margin-top:.1rem;font-size:clamp(.62rem,2.7vw,.72rem)}
@@ -1595,7 +1597,7 @@ function staff_app_render(string $active, string $title, string $description, st
     body.sapp.is-thread .sapp-send{font-size:clamp(.9rem,4vw,1.05rem)}
     body.sapp.is-thread .sapp-file svg{width:clamp(1.05rem,4.8vw,1.35rem);height:clamp(1.05rem,4.8vw,1.35rem)}
     @media (hover:none) and (pointer:coarse){
-      body.sapp.is-thread.is-typing{--sapp-kb:clamp(16rem,48svh,26rem)}
+      body.sapp.is-thread.is-typing{--sapp-kb:clamp(12rem,50svh,28rem)}
     }
     body.sapp.is-typing .sapp-nav{display:none}
     body.sapp.is-typing .sapp-top{padding:clamp(.15rem,1.2vw,.25rem) 3vw clamp(.05rem,.6vw,.12rem)}
