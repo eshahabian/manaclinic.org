@@ -73,19 +73,8 @@ ob_start();
   <p class="muted" style="margin-top:1rem">در این روز هیچ منشی‌ای حضور ثبت‌شده ندارد. فهرست وظایف:</p>
   <?= secretary_daily_tasks_table_html($pdo, ['id' => '', 'name' => '', 'username' => ''], $ymd, false, '', true) ?>
 <?php else: ?>
-  <?php
-    $selfId = (string) ($user['id'] ?? '');
-    $tickUrl = url('/secretary/daily-tasks');
-  ?>
   <?php foreach ($present as $sec): ?>
-    <?php
-      $rowLive = !empty($reviewOnlySelf)
-        && (string) ($user['role'] ?? '') === 'SECRETARY'
-        && $selfId !== ''
-        && (string) ($sec['id'] ?? '') === $selfId
-        && secretary_daily_task_can_edit($pdo, $selfId, $ymd, true);
-    ?>
-    <?= secretary_daily_tasks_table_html($pdo, $sec, $ymd, false, $rowLive ? $tickUrl : '', false, $rowLive) ?>
+    <?= secretary_daily_tasks_table_html($pdo, $sec, $ymd, false, '', false) ?>
   <?php endforeach; ?>
 <?php endif; ?>
 <?php if ($absent): ?>
