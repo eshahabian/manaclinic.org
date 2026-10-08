@@ -11,6 +11,17 @@ $ymd = trim((string) post('task_date'));
 $key = trim((string) post('task_key'));
 $done = post('done') === '1';
 $back = '/secretary/daily-tasks';
+$next = trim((string) post('next'));
+if (preg_match('#^/secretary/secretary-tasks\?date=\d{4}-\d{2}-\d{2}$#', $next)) {
+    $back = $next;
+}
+$backWithDate = static function (string $path, string $date): string {
+    if (str_contains($path, 'date=')) {
+        return $path;
+    }
+
+    return $path . '?date=' . rawurlencode($date);
+};
 
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymd) || $ymd > date('Y-m-d')) {
     flash_set('error', 'تاریخ این فهرست معتبر نیست.');
@@ -18,7 +29,7 @@ if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymd) || $ymd > date('Y-m-d')) {
 }
 if (!secretary_daily_task_can_edit($pdo, $userId, $ymd, true) || ($ymd !== date('Y-m-d') && !secretary_was_present($pdo, $userId, $ymd))) {
     flash_set('error', 'فقط روزهایی که در کلینیک حضور دارید قابل تیک خوردن است.');
-    redirect($back . '?date=' . rawurlencode($ymd));
+    redirect($backWithDate($back, $ymd));
 }
 
 $ajax = strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest';
@@ -32,7 +43,7 @@ try {
         exit;
     }
     flash_set('error', $e->getMessage());
-    redirect($back . '?date=' . rawurlencode($ymd));
+    redirect($backWithDate($back, $ymd));
 }
 
 if ($ajax) {
@@ -45,4 +56,4 @@ if ($ajax) {
     exit;
 }
 
-redirect($back . '?date=' . rawurlencode($ymd));
+redirect($backWithDate($back, $ymd));

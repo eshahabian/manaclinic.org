@@ -11,6 +11,7 @@ if (!secretary_daily_tasks_can_review($user)) {
 }
 $reviewBase = '/secretary/secretary-tasks';
 $reviewTitle = 'لیست کارهای روزانه';
+$reviewEditableSelf = true;
 $renderReview = static function (string $title, string $html): void {
     render_secretary_page($title, $html);
 };

@@ -567,7 +567,8 @@ function secretary_daily_tasks_table_html(
     string $ymd,
     bool $editable,
     string $postUrl,
-    bool $showDate = true
+    bool $showDate = true,
+    string $returnTo = ''
 ): string {
     $userId = (string) ($secretary['id'] ?? '');
     try {
@@ -670,6 +671,9 @@ function secretary_daily_tasks_table_html(
             <?php if ($editable): ?>
               <form class="duty-form" method="post" action="<?= e($postUrl) ?>">
                 <?= csrf_field() ?>
+                <?php if ($returnTo !== ''): ?>
+                  <input type="hidden" name="next" value="<?= e($returnTo) ?>">
+                <?php endif; ?>
                 <input type="hidden" name="task_date" value="<?= e($ymd) ?>">
                 <input type="hidden" name="task_key" value="<?= e($key) ?>">
                 <input type="hidden" name="done" value="0">
