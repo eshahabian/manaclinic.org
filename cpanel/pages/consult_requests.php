@@ -9,6 +9,11 @@ require_once __DIR__ . '/../includes/admin_panel.php';
 $user = require_login(['SECRETARY', 'DOCTOR', 'ADMIN']);
 $rows = consult_request_list($pdo);
 $back = consult_panel_path($user);
+$asSecretary = (string) ($user['role'] ?? '') === 'SECRETARY'
+    || (function_exists('user_is_eemadian') && user_is_eemadian($user) && str_starts_with((string) ($GLOBALS['path'] ?? ''), '/secretary'));
+if ($asSecretary && str_starts_with((string) ($GLOBALS['path'] ?? ''), '/secretary')) {
+    $back = '/secretary/consult-requests';
+}
 $openRows = [];
 $doneRows = [];
 foreach ($rows as $row) {
@@ -75,7 +80,7 @@ ob_start();
 <?php
 $inner = ob_get_clean();
 $role = (string) ($user['role'] ?? '');
-if ($role === 'SECRETARY') {
+if ($role === 'SECRETARY' || $asSecretary) {
     render_secretary_page('درخواست مشاوره', $inner);
     return;
 }

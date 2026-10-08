@@ -258,11 +258,20 @@ function auth_guard_request(PDO $pdo, array $user, bool $touch): void
     }
 }
 
+function user_is_eemadian(?array $user = null): bool
+{
+    $user = $user ?? (function_exists('current_user') ? current_user() : null);
+    if (!$user) {
+        return false;
+    }
+
+    return strtolower(trim((string) ($user['username'] ?? ''))) === 'eemadian';
+}
+
 /** درمانگر جدید eemadian؛ اگر نشست هنوز نقش قبلی را دارد، پنل درمانگر باز شود. */
 function auth_sync_eemadian_doctor(array $user): array
 {
-    $username = strtolower(trim((string) ($user['username'] ?? '')));
-    if ($username !== 'eemadian' || (string) ($user['role'] ?? '') === 'DOCTOR') {
+    if (!user_is_eemadian($user) || (string) ($user['role'] ?? '') === 'DOCTOR') {
         return $user;
     }
     $user['role'] = 'DOCTOR';
@@ -395,7 +404,13 @@ function require_login(?array $roles = null): array
         if (function_exists('secretary_daily_tasks_can_review') && secretary_daily_tasks_can_review($user)) {
             $profileAllowed[] = '/doctor/secretary-tasks';
         }
-        if (!$onStaffApp && !in_array($path ?? '', $profileAllowed, true)) {
+        $pathNow = (string) ($path ?? '');
+        $secretarySide = user_is_eemadian($user) && (
+            str_starts_with($pathNow, '/secretary')
+            || $pathNow === '/admin/rooms'
+            || str_starts_with($pathNow, '/admin/outreach')
+        );
+        if (!$onStaffApp && !$secretarySide && !in_array($path ?? '', $profileAllowed, true)) {
             redirect('/doctor/profile');
         }
     }
@@ -424,7 +439,9 @@ function require_login(?array $roles = null): array
             }
         }
     }
-    if ($roles && !in_array($user['role'], $roles, true) && ($user['role'] ?? '') !== 'ADMIN') {
+    $roleName = (string) ($user['role'] ?? '');
+    $secretaryDoor = $roles && in_array('SECRETARY', $roles, true) && user_is_eemadian($user);
+    if ($roles && !in_array($roleName, $roles, true) && $roleName !== 'ADMIN' && !$secretaryDoor) {
         redirect('/');
     }
     return $user;

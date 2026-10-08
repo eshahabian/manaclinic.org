@@ -41,7 +41,7 @@ function staff_board_can_access(?array $user): bool
         return false;
     }
     $role = strtoupper((string) ($user['role'] ?? ''));
-    if ($role === 'SECRETARY' || $role === 'ADMIN') {
+    if ($role === 'SECRETARY' || $role === 'ADMIN' || (function_exists('user_is_eemadian') && user_is_eemadian($user))) {
         return true;
     }
     if ($role === 'DOCTOR' && function_exists('doctor_has_shiva_access') && doctor_has_shiva_access($user)) {

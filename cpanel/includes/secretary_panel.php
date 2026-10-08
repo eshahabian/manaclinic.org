@@ -5,6 +5,11 @@ function secretary_nav(): array
 {
     $nav = [
         ['href' => '/app', 'label' => 'برنامه داخلی'],
+    ];
+    if (function_exists('user_is_eemadian') && user_is_eemadian()) {
+        array_unshift($nav, ['href' => '/doctor/notifications', 'label' => 'پنل درمانگر']);
+    }
+    $nav = array_merge($nav, [
         [
             'href' => '/secretary/messages',
             'label' => 'پیام‌ها',

@@ -11,15 +11,16 @@ if (!petty_cash_user_allowed($user)) {
 }
 
 $role = (string) ($user['role'] ?? '');
-$cashPath = $role === 'SECRETARY' ? '/secretary/petty-cash' : '/doctor/petty-cash';
+$asSecretary = $role === 'SECRETARY' || (function_exists('user_is_eemadian') && user_is_eemadian($user) && str_contains((string) ($GLOBALS['path'] ?? ''), '/secretary/'));
+$cashPath = $asSecretary ? '/secretary/petty-cash' : '/doctor/petty-cash';
 $requestPath = (string) ($GLOBALS['path'] ?? '');
 if ($role === 'SECRETARY' && !str_contains($requestPath, '/secretary/')) {
     redirect('/secretary/petty-cash');
 }
-if ($role === 'DOCTOR' && !str_contains($requestPath, '/doctor/')) {
+if ($role === 'DOCTOR' && !$asSecretary && !str_contains($requestPath, '/doctor/')) {
     redirect('/doctor/petty-cash');
 }
-if ($role === 'DOCTOR') {
+if ($role === 'DOCTOR' && !$asSecretary) {
     require_once __DIR__ . '/../includes/doctor_panel.php';
     require_doctor_profile($pdo);
 } else {
@@ -214,7 +215,7 @@ ob_start();
 </script>
 <?php
 $html = ob_get_clean();
-if ($role === 'DOCTOR') {
+if ($role === 'DOCTOR' && !$asSecretary) {
     render_doctor_page('تنخواه', $html);
 } else {
     render_secretary_page('تنخواه', $html);

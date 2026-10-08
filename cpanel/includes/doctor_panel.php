@@ -65,6 +65,9 @@ function doctor_nav(): array
     $nav = [
         ['type' => 'link', 'href' => '/app', 'label' => 'برنامه داخلی'],
     ];
+    if (function_exists('user_is_eemadian') && user_is_eemadian()) {
+        $nav[] = ['type' => 'link', 'href' => '/secretary/messages', 'label' => 'پنل منشی'];
+    }
     $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link(true) : null;
     $consultLink = [
         'type' => 'link',
