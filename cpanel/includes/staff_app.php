@@ -1615,7 +1615,8 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-reply strong{display:block;color:#1a9a8a;font-size:.78rem}
     .sapp-reply span{display:block;max-width:16rem;overflow:hidden;color:#667781;font-size:.8rem;white-space:nowrap;text-overflow:ellipsis}
     .sapp-reply button{border:0;background:transparent;color:#667781;font-size:1.3rem;line-height:1}
-    #sapp-hold[hidden],.sapp-hold-people[hidden],#sapp-hold-forward[hidden],#sapp-selectbar[hidden],.sapp-hold-item[hidden]{display:none !important}
+    #sapp-hold[hidden],#sapp-hold[hidden] *,.sapp-hold-people[hidden],#sapp-hold-forward[hidden],#sapp-selectbar[hidden],.sapp-hold-item[hidden],.sapp-notify[hidden],.sapp-install[hidden]{display:none !important;pointer-events:none !important}
+    .sapp-nav a,.sapp-tile,.sapp-logout,.sapp-send,.sapp-person,.sapp-notify button,.sapp-install button{touch-action:manipulation}
     .sapp-hold-back{position:fixed;inset:0;z-index:80;border:0;padding:0;background:rgba(0,0,0,.28)}
     .sapp-hold-pop{position:fixed;z-index:81;display:flex;flex-direction:column;gap:8px;width:min(17.5rem,calc(100vw - 20px));max-height:calc(100vh - 16px);overflow:auto}
     .sapp-hold-emojis{display:flex;justify-content:space-between;gap:2px;padding:6px 8px;border-radius:999px;background:#2c2c2e}
