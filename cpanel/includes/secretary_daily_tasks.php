@@ -567,8 +567,7 @@ function secretary_daily_tasks_table_html(
     string $ymd,
     bool $editable,
     string $postUrl,
-    bool $showDate = true,
-    string $returnTo = ''
+    bool $showDate = true
 ): string {
     $userId = (string) ($secretary['id'] ?? '');
     try {
@@ -593,52 +592,52 @@ function secretary_daily_tasks_table_html(
       .duty-sheet.panel{max-width:44rem;margin-top:.75rem;padding:1rem;direction:rtl;text-align:right}
       .duty-sheet-meta{display:flex;flex-wrap:wrap;gap:.25rem .8rem;align-items:baseline;margin:0 0 .6rem;line-height:1.5;font-size:.92rem}
       .duty-list{border:1px solid var(--line,#d5e0da);border-radius:12px}
-      .duty-head,.duty-row{display:grid;grid-template-columns:2rem minmax(0,1fr) 4.6rem 3.4rem;gap:.4rem;align-items:center;padding:.28rem .55rem}
+      .duty-head,.duty-row{display:grid;grid-template-columns:2rem minmax(0,1fr) auto 3.6rem;gap:.45rem;align-items:center;padding:.38rem .65rem}
       .duty-head{position:sticky;top:0;z-index:1;background:var(--bg-soft,#f7f5f0);color:var(--muted,#5a6f66);font-size:.78rem;font-weight:700;border-bottom:1px solid var(--line,#d5e0da)}
       .duty-row{border-top:1px solid var(--line,#d5e0da);background:#fff}
       .duty-row:first-of-type{border-top:0}
       .duty-row.is-done{background:#e8f6ee}
       .duty-num{font-weight:800;font-size:.82rem;color:#5a6f66}
-      .duty-task{line-height:1.4;font-size:.86rem}
-      .duty-time{font-size:.78rem;font-weight:800;color:#1f6b45;white-space:nowrap}
+      .duty-task{line-height:1.45;font-size:.9rem}
+      .duty-time{font-size:.82rem;font-weight:800;color:#1f6b45;white-space:nowrap}
       .duty-row:not(.is-done) .duty-time{color:#8aa099;font-weight:600}
-      .duty-state{font-size:.75rem;font-weight:700;color:#5a6f66;white-space:nowrap}
+      .duty-check{display:inline-flex;align-items:center;gap:.35rem;margin:0;cursor:pointer;font-weight:700;font-size:.82rem;white-space:nowrap}
+      .duty-check input{width:1rem;height:1rem;margin:0;flex:none}
+      .duty-check.is-locked{cursor:default}
       .duty-form{margin:0}
-      .duty-mark{appearance:none;-webkit-appearance:none;display:inline-flex;align-items:center;justify-content:center;width:100%;border:1px solid #1f6b45;background:#fff;color:#1f6b45;border-radius:999px;padding:.16rem .35rem;font:inherit;font-size:.72rem;font-weight:800;line-height:1.3;cursor:pointer;white-space:nowrap}
-      .duty-row.is-done .duty-mark{background:#1f6b45;color:#fff}
-      .duty-mark:disabled{opacity:.6;cursor:default}
     </style>
     <script>
     (function(){
       if (window.__dutyTable) return;
       window.__dutyTable = true;
       function faDigits(n){ return String(n).replace(/\d/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹"[d]; }); }
-      document.addEventListener("click", function(e){
-        var btn = e.target && e.target.closest ? e.target.closest(".duty-mark") : null;
-        if (!btn || !btn.form || !btn.form.classList.contains("duty-form")) return;
-        e.preventDefault();
-        var form = btn.form;
-        if (form.getAttribute("data-busy") === "1") return;
-        var turningOn = btn.getAttribute("data-done") !== "1";
+      document.addEventListener("change", function(e){
+        var input = e.target;
+        if (!input || input.type !== "checkbox" || !input.form || !input.form.classList.contains("duty-form")) return;
+        var form = input.form;
+        if (form.getAttribute("data-busy") === "1") {
+          input.checked = !input.checked;
+          return;
+        }
         var data = new FormData(form);
-        data.set("done", turningOn ? "1" : "0");
+        data.set("done", input.checked ? "1" : "0");
         var row = form.closest(".duty-row");
         var time = row ? row.querySelector(".duty-time") : null;
+        var caption = form.querySelector(".duty-check-label");
         form.setAttribute("data-busy", "1");
-        btn.disabled = true;
         fetch(form.action, {method:"POST", body:data, credentials:"same-origin", headers:{"X-Requested-With":"XMLHttpRequest","Accept":"application/json"}})
           .then(function(r){ return r.json().then(function(body){ if (!r.ok || !body || body.ok === false) throw new Error((body && body.error) || ""); return body; }); })
           .then(function(res){
-            var on = turningOn && !!(res && res.time);
-            btn.setAttribute("data-done", on ? "1" : "0");
+            var on = !!input.checked && !!(res && res.time);
             if (row) row.classList.toggle("is-done", on);
             if (time) time.textContent = on ? res.time : "—";
+            if (caption) caption.textContent = on ? "انجام شد" : "انجام دادم";
             var sheet = form.closest("[data-duty-sheet]");
             var count = sheet ? sheet.querySelector("[data-duty-count]") : null;
-            if (count && sheet) count.textContent = faDigits(sheet.querySelectorAll(".duty-mark[data-done='1']").length);
+            if (count && sheet) count.textContent = faDigits(sheet.querySelectorAll(".duty-form input[type=checkbox]:checked").length);
           })
-          .catch(function(){})
-          .then(function(){ btn.disabled = false; form.removeAttribute("data-busy"); });
+          .catch(function(){ input.checked = !input.checked; })
+          .then(function(){ form.removeAttribute("data-busy"); });
       });
     })();
     </script>
@@ -671,15 +670,19 @@ function secretary_daily_tasks_table_html(
             <?php if ($editable): ?>
               <form class="duty-form" method="post" action="<?= e($postUrl) ?>">
                 <?= csrf_field() ?>
-                <?php if ($returnTo !== ''): ?>
-                  <input type="hidden" name="next" value="<?= e($returnTo) ?>">
-                <?php endif; ?>
                 <input type="hidden" name="task_date" value="<?= e($ymd) ?>">
                 <input type="hidden" name="task_key" value="<?= e($key) ?>">
-                <button type="button" class="duty-mark" data-done="<?= $checked ? '1' : '0' ?>">انجام شد</button>
+                <input type="hidden" name="done" value="0">
+                <label class="duty-check">
+                  <input type="checkbox" name="done" value="1"<?= $checked ? ' checked' : '' ?>>
+                  <span class="duty-check-label"><?= $checked ? 'انجام شد' : 'انجام دادم' ?></span>
+                </label>
               </form>
             <?php else: ?>
-              <span class="duty-state"><?= $checked ? 'انجام شد' : '—' ?></span>
+              <label class="duty-check is-locked">
+                <input type="checkbox" disabled<?= $checked ? ' checked' : '' ?>>
+                <span><?= $checked ? 'انجام شد' : 'انجام نشده' ?></span>
+              </label>
             <?php endif; ?>
             <span class="duty-time"><?= $timeLabel !== '' ? e($timeLabel) : '—' ?></span>
           </div>
