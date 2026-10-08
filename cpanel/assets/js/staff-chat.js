@@ -587,6 +587,19 @@
     return thread.scrollHeight - thread.scrollTop - thread.clientHeight < 140;
   }
 
+  function currentUserId() {
+    var fromBody = document.body ? (document.body.getAttribute("data-user") || "") : "";
+    return String(fromBody || config.userId || "").trim().toLowerCase();
+  }
+
+  function messageIsMine(msg) {
+    if (!msg) return false;
+    var author = String(msg.userId || "").trim().toLowerCase();
+    var me = currentUserId();
+    if (author && me && author === me) return true;
+    return !!msg.mine;
+  }
+
   function appendMessages(list) {
     if (!list || !list.length) return;
     var empty = thread.querySelector(".sapp-chat-empty");
@@ -594,6 +607,7 @@
     var added = false;
     list.forEach(function (msg) {
       if (!msg || !msg.id || document.getElementById("m-" + msg.id)) return;
+      if (messageIsMine(msg)) msg.mine = true;
       if (empty) {
         empty.remove();
         empty = null;
@@ -669,6 +683,7 @@
       var text = field ? field.value : "";
       var hasFile = file && file.files && file.files.length > 0;
       if (!String(text).trim() && !hasFile) return;
+      window.sappSentAt = Date.now();
       var body = new FormData(compose);
       body.set("ajax", "1");
       var tempId = "tmp" + Date.now();
@@ -709,6 +724,7 @@
         if (data.message) appendMessages([data.message]);
         stickThread();
       }).catch(function (err) {
+        window.sappSentAt = 0;
         var temp = document.getElementById("m-" + tempId);
         if (temp) temp.classList.remove("is-pending");
         if (field && !field.value) field.value = text;
@@ -740,35 +756,185 @@
 
   document.body.classList.add("is-thread");
   var typeField = document.getElementById("chat-body");
+  var svhProbe = null;
+  var baseSvh = 0;
+  var kbState = "idle";
+  var kbTimer = 0;
+  var kbBumped = false;
+  var kbRaised = false;
+  var maxCovered = 0;
+  var stickOnOpen = true;
 
   function stickThread() {
     if (thread) thread.scrollTop = thread.scrollHeight;
   }
 
-  function keyboardInset() {
+  function rootPx() {
+    var size = parseFloat(window.getComputedStyle(document.documentElement).fontSize);
+    return size > 0 ? size : 16;
+  }
+
+  function phoneLike() {
+    return window.matchMedia("(hover: none) and (pointer: coarse)").matches;
+  }
+
+  function fieldFocused() {
+    return !!(typeField && document.activeElement === typeField);
+  }
+
+  function svhPx() {
+    if (!svhProbe) {
+      svhProbe = document.createElement("div");
+      svhProbe.setAttribute("aria-hidden", "true");
+      svhProbe.style.cssText = "position:fixed;left:0;top:0;width:0;height:100svh;visibility:hidden;pointer-events:none";
+      document.documentElement.appendChild(svhProbe);
+    }
+    var height = svhProbe.getBoundingClientRect().height;
+    return height > 0 ? height : window.innerHeight;
+  }
+
+  function noteBase() {
+    if (fieldFocused()) return;
+    var height = svhPx();
+    if (height > 0) baseSvh = height;
+  }
+
+  function svhDropped() {
+    return baseSvh > 0 && svhPx() < baseSvh - rootPx() * 5;
+  }
+
+  function keyboardCovered() {
     var vv = window.visualViewport;
-    var focused = !!(typeField && document.activeElement === typeField);
-    var inset = 0;
-    if (vv) {
-      inset = Math.max(0, window.innerHeight - vv.height - (vv.offsetTop || 0));
+    if (!vv) return 0;
+    var offset = vv.offsetTop > 0 ? vv.offsetTop : 0;
+    return Math.max(0, Math.round(svhPx() - (offset + vv.height)));
+  }
+
+  function composerOverlap() {
+    var compose = document.querySelector(".sapp-compose");
+    var field = typeField || document.getElementById("chat-body");
+    var edge = 0;
+    if (compose) edge = compose.getBoundingClientRect().bottom;
+    if (field) edge = Math.max(edge, field.getBoundingClientRect().bottom);
+    if (!edge) return 0;
+    var visibleBottom = window.visualViewport ? window.visualViewport.height : window.innerHeight;
+    return Math.round(edge - visibleBottom);
+  }
+
+  function appliedKbPx() {
+    return Math.max(0, Math.round(svhPx() - document.body.getBoundingClientRect().height));
+  }
+
+  function rememberStick() {
+    stickOnOpen = threadNearBottom();
+  }
+
+  function stickIfOpen() {
+    if (stickOnOpen) stickThread();
+  }
+
+  function setKb(value) {
+    document.body.style.setProperty("--sapp-kb", value);
+    stickIfOpen();
+  }
+
+  function clearKb() {
+    document.body.style.removeProperty("--sapp-kb");
+  }
+
+  function bumpOnce() {
+    if (kbBumped || !fieldFocused()) return;
+    window.requestAnimationFrame(function () {
+      window.requestAnimationFrame(function () {
+        if (kbBumped || !fieldFocused()) return;
+        kbBumped = true;
+        var extra = composerOverlap();
+        if (extra > 8) setKb("calc(" + (appliedKbPx() + extra) + "px)");
+      });
+    });
+  }
+
+  function lockMeasured(px) {
+    kbState = "locked";
+    setKb("calc(" + Math.round(px) + "px + 3rem)");
+    bumpOnce();
+  }
+
+  function finishKeyboard() {
+    kbTimer = 0;
+    if (!fieldFocused() || kbState === "locked") return;
+    var covered = Math.max(keyboardCovered(), maxCovered);
+    var overlap = composerOverlap();
+    var real = rootPx() * 8;
+    if (covered >= real) {
+      lockMeasured(covered);
+      return;
     }
-    if (focused && inset < 80) {
-      inset = Math.round(Math.min(window.innerHeight * 0.46, 340));
-      if (inset < 160) inset = Math.round(window.innerHeight * 0.42);
+    if (svhDropped()) {
+      kbState = "locked";
+      setKb("3rem");
+      bumpOnce();
+      return;
     }
-    return focused ? inset : 0;
+    if (overlap >= real) {
+      lockMeasured(overlap);
+      return;
+    }
+    if (phoneLike()) {
+      kbState = "locked";
+      clearKb();
+      stickIfOpen();
+      bumpOnce();
+      return;
+    }
+    kbState = "locked";
+    if (overlap > 8) {
+      setKb("calc(" + overlap + "px + 3rem)");
+      bumpOnce();
+      return;
+    }
+    setKb("0px");
+  }
+
+  function maybeRaise() {
+    if (kbRaised || !fieldFocused()) return;
+    var covered = keyboardCovered();
+    var root = rootPx();
+    if (covered < root * 8) return;
+    if (covered + root * 3 <= appliedKbPx() + root * 1.5) return;
+    kbRaised = true;
+    maxCovered = covered;
+    setKb("calc(" + Math.round(covered) + "px + 3rem)");
   }
 
   function syncKeyboard() {
-    var focused = !!(typeField && document.activeElement === typeField);
-    document.documentElement.style.setProperty("--sapp-kb", keyboardInset() + "px");
-    document.body.classList.toggle("is-typing", focused);
+    if (!fieldFocused()) return;
+    document.body.classList.add("is-typing");
+    if (kbState === "locked") {
+      maybeRaise();
+      return;
+    }
+    var covered = keyboardCovered();
+    if (covered > maxCovered) maxCovered = covered;
+    if (kbState !== "pending") {
+      kbState = "pending";
+      kbTimer = window.setTimeout(finishKeyboard, 400);
+    }
+  }
+
+  function resetKeyboard() {
+    if (fieldFocused()) return;
+    window.clearTimeout(kbTimer);
+    kbTimer = 0;
+    kbState = "idle";
+    kbBumped = false;
+    kbRaised = false;
+    maxCovered = 0;
+    document.body.classList.remove("is-typing");
+    clearKb();
     document.body.style.top = "";
     document.body.style.height = "";
-    if (focused) {
-      window.scrollTo(0, 0);
-      stickThread();
-    }
+    noteBase();
   }
 
   if (window.visualViewport) {
@@ -777,17 +943,23 @@
   }
   if (typeField) {
     typeField.addEventListener("focus", function () {
+      rememberStick();
       document.body.classList.add("is-typing");
-      window.scrollTo(0, 0);
-      setTimeout(syncKeyboard, 40);
-      setTimeout(syncKeyboard, 320);
+      window.requestAnimationFrame(function () { stickIfOpen(); });
+      syncKeyboard();
     });
     typeField.addEventListener("blur", function () {
-      setTimeout(syncKeyboard, 160);
-      pullLive();
+      window.setTimeout(function () {
+        resetKeyboard();
+        pullLive();
+      }, 180);
     });
   }
-  window.addEventListener("resize", syncKeyboard);
+  window.addEventListener("resize", function () {
+    if (fieldFocused()) syncKeyboard();
+    else noteBase();
+  });
+  noteBase();
   syncKeyboard();
 
   if (window.location.hash) {

@@ -754,6 +754,7 @@ if ($section === 'chat') {
                 'post' => url('/app/chat'),
                 'chatBase' => url('/app/chat'),
                 'roomId' => $roomId,
+                'userId' => $userId,
                 'receipts' => url('/app/chat/' . $roomId . '/receipts'),
                 'rooms' => $forwardRooms,
             ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
@@ -773,7 +774,7 @@ if ($section === 'chat') {
               <?php endif; ?>
               <?php foreach ($messages as $message): ?>
                 <?php
-                  $mine = (string) ($message['user_id'] ?? '') === $userId;
+                  $mine = staff_push_same_user((string) ($message['user_id'] ?? ''), $userId);
                   $msgId = (string) ($message['id'] ?? '');
                   $senderName = trim((string) ($message['name'] ?? ''));
                   if ($senderName === '') {
@@ -898,7 +899,7 @@ if ($section === 'chat') {
             <script type="application/json" id="sapp-chat-config"><?= $chatConfig ?></script>
             <?php
             $html = ob_get_clean();
-            $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/staff-chat.js')) . '?v=20261008push"></script>';
+            $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/staff-chat.js')) . '?v=20261008kb"></script>';
         } else {
             $rooms = staff_app_rooms_for($pdo, $userId);
             $people = staff_app_people($pdo);

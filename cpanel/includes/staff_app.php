@@ -263,7 +263,7 @@ function staff_app_rooms_for(PDO $pdo, string $userId): array
              (SELECT COUNT(*) FROM staff_app_messages um
                LEFT JOIN staff_app_reads rd ON rd.room_id = r.id AND rd.user_id = ?
                WHERE um.room_id = r.id
-                 AND um.user_id <> ?
+                 AND TRIM(um.user_id) <> TRIM(?)
                  AND um.created_at > COALESCE(rd.read_at, '1970-01-01 00:00:00')
              ) AS unread_count
       FROM staff_app_rooms r
@@ -314,7 +314,7 @@ function staff_app_unread_count(PDO $pdo, string $userId): int
           FROM staff_app_messages m
           JOIN staff_app_members mem ON mem.room_id = m.room_id AND mem.user_id = ?
           LEFT JOIN staff_app_reads r ON r.room_id = m.room_id AND r.user_id = ?
-          WHERE m.user_id <> ?
+          WHERE TRIM(m.user_id) <> TRIM(?)
             AND m.created_at > COALESCE(r.read_at, '1970-01-01 00:00:00')
         ");
         $stmt->execute([$userId, $userId, $userId]);
@@ -337,7 +337,7 @@ function staff_app_unread_by_room(PDO $pdo, string $userId): array
           FROM staff_app_messages m
           JOIN staff_app_members mem ON mem.room_id = m.room_id AND mem.user_id = ?
           LEFT JOIN staff_app_reads r ON r.room_id = m.room_id AND r.user_id = ?
-          WHERE m.user_id <> ?
+          WHERE TRIM(m.user_id) <> TRIM(?)
             AND m.created_at > COALESCE(r.read_at, '1970-01-01 00:00:00')
           GROUP BY m.room_id
         ");
@@ -872,9 +872,11 @@ function staff_app_message_cards(PDO $pdo, string $userId, array $rows): array
                 'mime' => (string) ($file['mime'] ?? ''),
             ];
         }
+        $authorId = trim((string) ($row['user_id'] ?? ''));
         $cards[] = [
             'id' => (string) $row['id'],
-            'mine' => (string) ($row['user_id'] ?? '') === $userId,
+            'userId' => $authorId,
+            'mine' => staff_push_same_user($authorId, $userId),
             'name' => $name,
             'body' => (string) ($row['body'] ?? ''),
             'time' => format_fa_time((string) ($row['created_at'] ?? '')),
@@ -1087,9 +1089,10 @@ function staff_app_send_message(PDO $pdo, array $user, string $roomId, string $b
         }
         throw $e;
     }
-    staff_app_mark_read($pdo, (string) $user['id'], $roomId);
+    $senderId = trim((string) ($user['id'] ?? ''));
+    staff_app_mark_read($pdo, $senderId, $roomId);
     $senderName = trim((string) ($user['name'] ?? ''));
-    staff_push_notify_room($pdo, $roomId, (string) ($user['id'] ?? ''), $senderName, $body);
+    staff_push_notify_room($pdo, $roomId, $senderId, $senderName, $body);
 
     return $messageId;
 }
@@ -1243,6 +1246,7 @@ function staff_app_client_script(): string
   var standalone = window.matchMedia("(display-mode: standalone)").matches || window.navigator.standalone === true;
   var mobile = window.matchMedia("(max-width: 900px)").matches || /Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent);
   var lastUnread = null;
+  var me = (body.getAttribute("data-user") || "").trim().toLowerCase();
 
   function faCount(value) {
     return String(value).replace(/[0-9]/g, function (digit) {
@@ -1306,10 +1310,19 @@ function staff_app_client_script(): string
     if (job && job.catch) job.catch(function () {});
   }
 
+  function ownSendRecent() {
+    var sentAt = Number(window.sappSentAt) || 0;
+    return sentAt > 0 && (Date.now() - sentAt) < 25000;
+  }
+
   function watchUnread(count) {
     count = Number(count) || 0;
+    var bumped = lastUnread !== null && count > lastUnread;
+    if (bumped && ownSendRecent()) {
+      return;
+    }
     paintAppBadge(count);
-    if (lastUnread !== null && count > lastUnread) {
+    if (bumped) {
       showChatNote("مانا کارکنان", "پیام تازه در چت دارید.");
     }
     lastUnread = count;
@@ -1326,6 +1339,7 @@ function staff_app_client_script(): string
         paintOnline(data.online || []);
         paintUnread(data.unreadRooms);
         watchUnread(data.unread);
+        publishUser();
       })
       .catch(function () {});
   }
@@ -1366,15 +1380,31 @@ function staff_app_client_script(): string
     }).catch(function () {});
   }
 
+  function publishUser() {
+    if (!("serviceWorker" in navigator) || !me) return;
+    var send = function (reg) {
+      var worker = (reg && reg.active) || navigator.serviceWorker.controller;
+      if (worker) worker.postMessage({ type: "staff-user", userId: body.getAttribute("data-user") || "" });
+    };
+    navigator.serviceWorker.ready.then(send).catch(function () {});
+  }
+
   if ("serviceWorker" in navigator) {
     navigator.serviceWorker.addEventListener("message", function (event) {
       var data = event.data || {};
+      if (data.type === "staff-who" && event.ports && event.ports[0]) {
+        event.ports[0].postMessage({ userId: body.getAttribute("data-user") || "" });
+      }
       if (data.type === "staff-push") {
+        var from = String((data.payload && data.payload.senderId) || "").trim().toLowerCase();
+        if (from && me && from === me) return;
         pullPresence();
         if (window.sappOnPush) window.sappOnPush(data.payload || {});
       }
       if (data.type === "staff-push-open" && data.url) window.location.href = data.url;
     });
+    publishUser();
+    navigator.serviceWorker.addEventListener("controllerchange", publishUser);
   }
   if (typeof Notification !== "undefined" && Notification.permission === "granted") enablePush();
 
@@ -1541,16 +1571,34 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-day{margin:16px 0 0;font-size:1rem}
     .sapp-chat{display:flex;flex-direction:column;gap:.4rem;margin-top:.7rem;padding:.7rem .6rem;border-radius:1.1rem;background:#efe7dc;min-height:min(46svh,22rem)}
     html:has(body.sapp.is-thread){height:100%;overflow:hidden}
-    body.sapp.is-thread{position:fixed;top:0;left:0;right:0;display:flex;flex-direction:column;width:100%;height:calc(100svh - var(--sapp-kb, 0px));max-width:100%;overflow:hidden;padding-top:env(safe-area-inset-top);box-sizing:border-box;overscroll-behavior:none}
+    body.sapp.is-thread{--sapp-kb:0px;position:fixed;top:0;left:0;right:0;display:flex;flex-direction:column;width:100%;height:100vh;height:calc(100svh - var(--sapp-kb));max-width:100%;overflow:hidden;padding-top:env(safe-area-inset-top);box-sizing:border-box;overscroll-behavior:none}
     body.sapp.is-thread .sapp-top,body.sapp.is-thread .sapp-install,body.sapp.is-thread .sapp-notify{flex:none}
-    body.sapp.is-thread .sapp-main{flex:1;min-height:0;display:flex;flex-direction:column;width:100%;max-width:min(32rem,100%);margin:0 auto;padding:.35rem 3vw 0;overflow:hidden}
-    body.sapp.is-thread .sapp-main>p{margin:0 0 .2rem;font-size:clamp(.78rem, 3.4vw, .92rem)}
-    body.sapp.is-thread .sapp-main h1,body.sapp.is-thread .sapp-thread-title{margin:0 0 .25rem;font-size:clamp(1rem, 4.8vw, 1.2rem);line-height:1.35}
-    body.sapp.is-thread .sapp-chat{flex:1;min-height:0;margin-top:.3rem;overflow:auto;-webkit-overflow-scrolling:touch}
-    body.sapp.is-thread .sapp-compose{flex:none;display:flex;flex-direction:column;align-items:stretch;gap:.35rem;margin:0;padding:.35rem 0 calc(.4rem + env(safe-area-inset-bottom));background:#f3f6f4}
+    body.sapp.is-thread .sapp-top{gap:clamp(.35rem,2vw,.6rem);padding:clamp(.35rem,2.2vw,.7rem) 3vw clamp(.2rem,1.2vw,.4rem)}
+    body.sapp.is-thread .sapp-brand{gap:clamp(.3rem,1.6vw,.5rem);font-size:clamp(.88rem,4.2vw,1.05rem)}
+    body.sapp.is-thread .sapp-brand img{width:clamp(1.65rem,8vw,2.25rem);height:clamp(1.65rem,8vw,2.25rem);border-radius:clamp(.5rem,2.4vw,.75rem)}
+    body.sapp.is-thread .sapp-tools{gap:clamp(.3rem,1.6vw,.5rem)}
+    body.sapp.is-thread .sapp-avatar{width:clamp(1.75rem,8.4vw,2.35rem);height:clamp(1.75rem,8.4vw,2.35rem)}
+    body.sapp.is-thread .sapp-logout{min-height:clamp(1.7rem,7.6vw,2.25rem);padding:0 clamp(.5rem,2.8vw,.85rem);font-size:clamp(.75rem,3.4vw,.92rem)}
+    body.sapp.is-thread .sapp-main{flex:1;min-height:0;display:flex;flex-direction:column;width:100%;max-width:min(32rem,100%);margin:0 auto;padding:clamp(.2rem,1.4vw,.35rem) 3vw 0;overflow:hidden}
+    body.sapp.is-thread .sapp-main>p{margin:0 0 .2rem;font-size:clamp(.72rem,3.2vw,.92rem)}
+    body.sapp.is-thread .sapp-main h1,body.sapp.is-thread .sapp-thread-title{margin:0 0 .2rem;font-size:clamp(.92rem,4.4vw,1.15rem);line-height:1.3}
+    body.sapp.is-thread .sapp-chat{flex:1;min-height:0;margin-top:clamp(.15rem,1.2vw,.3rem);padding:clamp(.35rem,2vw,.65rem) clamp(.3rem,1.8vw,.55rem);gap:clamp(.25rem,1.4vw,.4rem);border-radius:clamp(.7rem,3vw,1.1rem);overflow:auto;-webkit-overflow-scrolling:touch}
+    body.sapp.is-thread .sapp-compose{flex:none;display:flex;flex-direction:column;align-items:stretch;gap:clamp(.25rem,1.4vw,.35rem);margin:0;padding:clamp(.25rem,1.4vw,.35rem) 0 calc(.35rem + env(safe-area-inset-bottom));background:#f3f6f4}
     body.sapp.is-thread .sapp-nav{position:static;flex:none}
+    body.sapp.is-thread .sapp-msg{padding:clamp(.22rem,1.4vw,.4rem) clamp(.35rem,1.8vw,.5rem) clamp(.12rem,.8vw,.25rem);border-radius:clamp(.5rem,2.4vw,.75rem)}
+    body.sapp.is-thread .sapp-msg p{font-size:clamp(.88rem,3.6vw,1rem);line-height:1.45}
+    body.sapp.is-thread .sapp-msg-name{margin-bottom:.1rem;font-size:clamp(.66rem,3vw,.78rem)}
+    body.sapp.is-thread .sapp-msg-meta{gap:.15rem;margin-top:.1rem;font-size:clamp(.62rem,2.7vw,.72rem)}
+    body.sapp.is-thread .sapp-ticks svg{width:clamp(.8rem,3.4vw,1rem);height:clamp(.7rem,3vw,.875rem)}
+    body.sapp.is-thread .sapp-compose textarea.input{min-height:clamp(2.15rem,10.5vw,2.75rem);max-height:clamp(4.5rem,22svh,8rem);padding:clamp(.4rem,1.8vw,.65rem) clamp(.55rem,2.4vw,.85rem);font-size:1rem}
+    body.sapp.is-thread .sapp-file,body.sapp.is-thread .sapp-send{width:clamp(2.15rem,10.5vw,2.75rem);height:clamp(2.15rem,10.5vw,2.75rem)}
+    body.sapp.is-thread .sapp-send{font-size:clamp(.9rem,4vw,1.05rem)}
+    body.sapp.is-thread .sapp-file svg{width:clamp(1.05rem,4.8vw,1.35rem);height:clamp(1.05rem,4.8vw,1.35rem)}
+    @media (hover:none) and (pointer:coarse){
+      body.sapp.is-thread.is-typing{--sapp-kb:clamp(16rem,48svh,26rem)}
+    }
     body.sapp.is-typing .sapp-nav{display:none}
-    body.sapp.is-typing .sapp-top{padding:.25rem 3vw .1rem}
+    body.sapp.is-typing .sapp-top{padding:clamp(.15rem,1.2vw,.25rem) 3vw clamp(.05rem,.6vw,.12rem)}
     body.sapp.is-typing .sapp-compose{padding-bottom:.35rem;border-top:1px solid #e6eeea}
     body.sapp.is-typing .sapp-main>p{display:none}
     .sapp-compose-row{display:flex;align-items:flex-end;gap:.45rem;width:100%;min-width:0}
@@ -1642,7 +1690,7 @@ function staff_app_render(string $active, string $title, string $description, st
     body.sapp{padding:0}
   </style>
 </head>
-<body class="sapp<?= !empty($GLOBALS['staffBodyClass']) ? ' ' . e((string) $GLOBALS['staffBodyClass']) : '' ?>"<?= $user ? ' data-session-guard="1" data-session-ping="' . e(url('/session/ping')) . '" data-logout="' . e(url('/logout')) . '"' : '' ?><?= ($user && !$locked) ? ' data-presence="' . e(url('/app/presence')) . '" data-chat="' . e(url('/app/chat')) . '" data-unread="' . e((string) (int) $unread) . '" data-vapid="' . e($vapidKey) . '" data-push="' . e(url('/app/push/subscribe')) . '"' : '' ?><?= $isSecretary ? ' data-secretary-desk="1" data-no-idle="1" data-heartbeat="' . e(url('/secretary/heartbeat')) . '"' : '' ?>>
+<body class="sapp<?= !empty($GLOBALS['staffBodyClass']) ? ' ' . e((string) $GLOBALS['staffBodyClass']) : '' ?>"<?= $user ? ' data-user="' . e((string) ($user['id'] ?? '')) . '" data-session-guard="1" data-session-ping="' . e(url('/session/ping')) . '" data-logout="' . e(url('/logout')) . '"' : '' ?><?= ($user && !$locked) ? ' data-presence="' . e(url('/app/presence')) . '" data-chat="' . e(url('/app/chat')) . '" data-unread="' . e((string) (int) $unread) . '" data-vapid="' . e($vapidKey) . '" data-push="' . e(url('/app/push/subscribe')) . '"' : '' ?><?= $isSecretary ? ' data-secretary-desk="1" data-no-idle="1" data-heartbeat="' . e(url('/secretary/heartbeat')) . '"' : '' ?>>
   <header class="sapp-top">
     <a class="sapp-brand" href="<?= e(url('/app')) ?>">
       <img src="<?= e(url('/assets/img/logo.png')) ?>" alt="" width="36" height="36">

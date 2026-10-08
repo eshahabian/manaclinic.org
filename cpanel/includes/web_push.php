@@ -74,6 +74,9 @@ function staff_push_save(PDO $pdo, string $userId, string $endpoint, string $p25
     }
     staff_app_ensure_schema($pdo);
     $hash = hash('sha256', $endpoint);
+    // One browser has one push endpoint. Keep it on the account that just subscribed.
+    $pdo->prepare('DELETE FROM staff_app_push WHERE endpoint_hash = ? AND user_id <> ?')
+        ->execute([$hash, $userId]);
     $pdo->prepare('
       INSERT INTO staff_app_push (id, user_id, endpoint_hash, endpoint, p256dh, auth)
       VALUES (?, ?, ?, ?, ?, ?)
@@ -81,27 +84,60 @@ function staff_push_save(PDO $pdo, string $userId, string $endpoint, string $p25
     ')->execute([cuid(), $userId, $hash, $endpoint, $p256dh, $auth]);
 }
 
+function staff_push_same_user(string $left, string $right): bool
+{
+    $left = strtolower(trim($left));
+    $right = strtolower(trim($right));
+
+    return $left !== '' && $left === $right;
+}
+
+function staff_push_endpoint_hash(string $endpoint, string $stored = ''): string
+{
+    $stored = strtolower(trim($stored));
+    if (preg_match('/^[a-f0-9]{64}$/', $stored)) {
+        return $stored;
+    }
+    $endpoint = trim($endpoint);
+
+    return $endpoint === '' ? '' : hash('sha256', $endpoint);
+}
+
 function staff_push_notify_room(PDO $pdo, string $roomId, string $senderId, string $senderName, string $body): void
 {
     try {
-        $stmt = $pdo->prepare('SELECT user_id FROM staff_app_members WHERE room_id = ? AND user_id <> ?');
-        $stmt->execute([$roomId, $senderId]);
-        $ids = [];
-        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) ?: [] as $id) {
-            $id = (string) $id;
-            if ($id !== '') {
-                $ids[] = $id;
-            }
-        }
-        if ($ids === []) {
+        $senderId = trim($senderId);
+        $roomId = trim($roomId);
+        if ($senderId === '' || $roomId === '') {
             return;
         }
-        $marks = implode(',', array_fill(0, count($ids), '?'));
-        $sub = $pdo->prepare("SELECT id, user_id, endpoint, p256dh, auth FROM staff_app_push WHERE user_id IN ($marks)");
-        $sub->execute($ids);
-        $rows = $sub->fetchAll() ?: [];
+        $stmt = $pdo->prepare('SELECT user_id FROM staff_app_members WHERE room_id = ?');
+        $stmt->execute([$roomId]);
+        $recipients = [];
+        foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) ?: [] as $id) {
+            $id = trim((string) $id);
+            if ($id === '' || staff_push_same_user($id, $senderId)) {
+                continue;
+            }
+            $recipients[strtolower($id)] = $id;
+        }
+        if ($recipients === []) {
+            return;
+        }
+        $sub = $pdo->query('SELECT id, user_id, endpoint_hash, endpoint, p256dh, auth FROM staff_app_push');
+        $rows = $sub ? ($sub->fetchAll() ?: []) : [];
         if ($rows === []) {
             return;
+        }
+        $senderEndpoints = [];
+        foreach ($rows as $row) {
+            if (!staff_push_same_user((string) ($row['user_id'] ?? ''), $senderId)) {
+                continue;
+            }
+            $hash = staff_push_endpoint_hash((string) ($row['endpoint'] ?? ''), (string) ($row['endpoint_hash'] ?? ''));
+            if ($hash !== '') {
+                $senderEndpoints[$hash] = true;
+            }
         }
         $preview = trim(preg_replace('/\s+/u', ' ', $body) ?? '');
         if ($preview === '') {
@@ -114,7 +150,14 @@ function staff_push_notify_room(PDO $pdo, string $roomId, string $senderId, stri
         $keys = staff_push_keys($pdo);
         $badges = [];
         foreach ($rows as $row) {
-            $owner = (string) ($row['user_id'] ?? '');
+            $owner = trim((string) ($row['user_id'] ?? ''));
+            if ($owner === '' || staff_push_same_user($owner, $senderId) || !isset($recipients[strtolower($owner)])) {
+                continue;
+            }
+            $hash = staff_push_endpoint_hash((string) ($row['endpoint'] ?? ''), (string) ($row['endpoint_hash'] ?? ''));
+            if ($hash !== '' && isset($senderEndpoints[$hash])) {
+                continue;
+            }
             if (!isset($badges[$owner])) {
                 $badges[$owner] = staff_app_unread_count($pdo, $owner);
             }
@@ -125,6 +168,7 @@ function staff_push_notify_room(PDO $pdo, string $roomId, string $senderId, stri
                 'roomId' => $roomId,
                 'tag' => 'sapp-' . $roomId,
                 'badge' => $badges[$owner],
+                'senderId' => $senderId,
             ], JSON_UNESCAPED_UNICODE);
             if (!is_string($payload)) {
                 continue;
