@@ -21,15 +21,14 @@ function secretary_nav(): array
         ['href' => '/secretary/appointments', 'label' => 'نوبت‌ها'],
         ['href' => '/secretary/therapist-days', 'label' => 'روزهای درمانگر'],
         ['href' => '/secretary/payouts', 'label' => 'پرداخت درمانگرها'],
-        ['href' => '/secretary/petty-cash', 'label' => 'تنخواه'],
         ['href' => '/secretary/complaints', 'label' => 'شکایت از درمانگر'],
+        ['href' => '/secretary/petty-cash', 'label' => 'تنخواه'],
         ['href' => '/admin/rooms', 'label' => 'اتاق‌ها'],
         ['href' => '/admin/outreach', 'label' => 'مراجعه‌کنندگان قدیمی'],
         ['href' => '/secretary/patients', 'label' => 'مراجعه‌کنندگان'],
         ['href' => '/secretary/users', 'label' => 'کاربران'],
-        ['href' => '/secretary/profile', 'label' => 'پیام مدیر'],
         ['href' => '/secretary/board', 'label' => 'یادداشت مشترک'],
-        ['href' => '/secretary/colleague-messages', 'label' => 'پیام همکار'],
+        ['href' => '/secretary/secretary-tasks', 'label' => 'لیست کارهای روزانه'],
         ['href' => '/secretary/articles', 'label' => 'مقالات'],
         ['href' => '/secretary/workshops', 'label' => 'کارگاه‌ها'],
         ['href' => '/change-password', 'label' => 'تغییر رمز عبور'],
@@ -38,24 +37,6 @@ function secretary_nav(): array
     if ($videoLink) {
         array_splice($nav, 1, 0, [$videoLink]);
     }
-    if (!function_exists('secretary_daily_tasks_can_review') && is_file(__DIR__ . '/secretary_daily_tasks.php')) {
-        require_once __DIR__ . '/secretary_daily_tasks.php';
-    }
-    if (function_exists('secretary_daily_tasks_can_review') && secretary_daily_tasks_can_review()) {
-        $taskLink = ['href' => '/secretary/secretary-tasks', 'label' => 'وظایف منشی‌ها'];
-        $inserted = false;
-        foreach ($nav as $i => $item) {
-            if (($item['href'] ?? '') === '/secretary/daily-tasks') {
-                array_splice($nav, $i + 1, 0, [$taskLink]);
-                $inserted = true;
-                break;
-            }
-        }
-        if (!$inserted) {
-            $nav[] = $taskLink;
-        }
-    }
-
     return $nav;
 }
 

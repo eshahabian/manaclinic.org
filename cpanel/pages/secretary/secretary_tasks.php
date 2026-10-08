@@ -10,6 +10,7 @@ if (!secretary_daily_tasks_can_review($user)) {
     redirect('/secretary/messages');
 }
 $reviewBase = '/secretary/secretary-tasks';
+$reviewTitle = 'لیست کارهای روزانه';
 $renderReview = static function (string $title, string $html): void {
     render_secretary_page($title, $html);
 };
