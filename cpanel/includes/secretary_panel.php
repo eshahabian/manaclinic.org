@@ -3,11 +3,7 @@ declare(strict_types=1);
 
 function secretary_nav(): array
 {
-    $nav = [];
-    if (function_exists('user_is_eemadian') && user_is_eemadian()) {
-        array_unshift($nav, ['href' => '/doctor/notifications', 'label' => 'پنل درمانگر']);
-    }
-    $nav = array_merge($nav, [
+    $nav = [
         [
             'href' => '/secretary/messages',
             'label' => 'پیام‌ها',

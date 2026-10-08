@@ -31,7 +31,7 @@ function petty_cash_user_allowed(?array $user = null): bool
     if (!$user) {
         return false;
     }
-    if ((string) ($user['role'] ?? '') === 'SECRETARY' || (function_exists('user_is_eemadian') && user_is_eemadian($user))) {
+    if ((string) ($user['role'] ?? '') === 'SECRETARY') {
         return true;
     }
     if ((string) ($user['role'] ?? '') === 'DOCTOR' && function_exists('doctor_has_shiva_access') && doctor_has_shiva_access($user)) {

@@ -11,7 +11,7 @@ if (!petty_cash_user_allowed($user)) {
 }
 
 $role = (string) ($user['role'] ?? '');
-$asSecretary = $role === 'SECRETARY' || (function_exists('user_is_eemadian') && user_is_eemadian($user) && str_contains((string) ($GLOBALS['path'] ?? ''), '/secretary/'));
+$asSecretary = $role === 'SECRETARY';
 $cashPath = $asSecretary ? '/secretary/petty-cash' : '/doctor/petty-cash';
 $requestPath = (string) ($GLOBALS['path'] ?? '');
 if ($role === 'SECRETARY' && !str_contains($requestPath, '/secretary/')) {

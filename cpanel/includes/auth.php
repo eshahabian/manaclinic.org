@@ -258,31 +258,6 @@ function auth_guard_request(PDO $pdo, array $user, bool $touch): void
     }
 }
 
-function user_is_eemadian(?array $user = null): bool
-{
-    $user = $user ?? (function_exists('current_user') ? current_user() : null);
-    if (!$user) {
-        return false;
-    }
-
-    return strtolower(trim((string) ($user['username'] ?? ''))) === 'eemadian';
-}
-
-/** درمانگر جدید eemadian؛ اگر نشست هنوز نقش قبلی را دارد، پنل درمانگر باز شود. */
-function auth_sync_eemadian_doctor(array $user): array
-{
-    if (!user_is_eemadian($user) || (string) ($user['role'] ?? '') === 'DOCTOR') {
-        return $user;
-    }
-    $user['role'] = 'DOCTOR';
-    $id = (string) ($user['id'] ?? '');
-    if ($id !== '' && isset($_SESSION['user']) && is_array($_SESSION['user']) && (string) ($_SESSION['user']['id'] ?? '') === $id) {
-        $_SESSION['user']['role'] = 'DOCTOR';
-    }
-
-    return $user;
-}
-
 /** حساب‌های مشخص را به نقش مدیر ارتقا می‌دهد */
 function auth_grant_named_roles(PDO $pdo, array $user): array
 {
@@ -308,7 +283,6 @@ function login_user(array $user): void
     global $pdo;
     if ($pdo instanceof PDO) {
         $user = auth_grant_named_roles($pdo, $user);
-        $user = auth_sync_eemadian_doctor($user);
     }
     $avatarUrl = '';
     if ($pdo instanceof PDO) {
@@ -374,7 +348,6 @@ function require_login(?array $roles = null): array
     $onStaffApp = str_starts_with((string) ($path ?? ''), '/app');
     if ($pdo instanceof PDO) {
         $user = auth_grant_named_roles($pdo, $user);
-        $user = auth_sync_eemadian_doctor($user);
     }
     $isSessionPoll = in_array($path ?? '', ['/secretary/heartbeat', '/session/ping'], true);
     if ($pdo instanceof PDO) {
@@ -404,13 +377,7 @@ function require_login(?array $roles = null): array
         if (function_exists('secretary_daily_tasks_can_review') && secretary_daily_tasks_can_review($user)) {
             $profileAllowed[] = '/doctor/secretary-tasks';
         }
-        $pathNow = (string) ($path ?? '');
-        $secretarySide = user_is_eemadian($user) && (
-            str_starts_with($pathNow, '/secretary')
-            || $pathNow === '/admin/rooms'
-            || str_starts_with($pathNow, '/admin/outreach')
-        );
-        if (!$onStaffApp && !$secretarySide && !in_array($path ?? '', $profileAllowed, true)) {
+        if (!$onStaffApp && !in_array($path ?? '', $profileAllowed, true)) {
             redirect('/doctor/profile');
         }
     }
@@ -440,8 +407,7 @@ function require_login(?array $roles = null): array
         }
     }
     $roleName = (string) ($user['role'] ?? '');
-    $secretaryDoor = $roles && in_array('SECRETARY', $roles, true) && user_is_eemadian($user);
-    if ($roles && !in_array($roleName, $roles, true) && $roleName !== 'ADMIN' && !$secretaryDoor) {
+    if ($roles && !in_array($roleName, $roles, true) && $roleName !== 'ADMIN') {
         redirect('/');
     }
     return $user;

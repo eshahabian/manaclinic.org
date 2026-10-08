@@ -23,19 +23,9 @@ if (user_account_is_disabled($pdo, (string) $user['id'])) {
 }
 
 if ($user['role'] === 'DOCTOR') {
-    $dp = $pdo->prepare('SELECT id, is_approved, is_active FROM doctor_profiles WHERE user_id=? LIMIT 1');
+    $dp = $pdo->prepare('SELECT is_approved, is_active FROM doctor_profiles WHERE user_id=? LIMIT 1');
     $dp->execute([$user['id']]);
     $profile = $dp->fetch();
-    $isEmad = strtolower(trim((string) ($user['username'] ?? ''))) === 'eemadian';
-    if ($isEmad && (!is_array($profile) || !(int) ($profile['is_approved'] ?? 0) || !(int) ($profile['is_active'] ?? 0))) {
-        if (!is_array($profile)) {
-            $pdo->prepare('INSERT INTO doctor_profiles (id,user_id,specialty,bio,session_price,is_approved,is_active) VALUES (?,?,?,?,?,1,1)')
-                ->execute([cuid(), (string) $user['id'], 'روان‌شناسی', '', 3000000]);
-        } else {
-            $pdo->prepare('UPDATE doctor_profiles SET is_approved=1, is_active=1 WHERE user_id=?')->execute([(string) $user['id']]);
-        }
-        $profile = ['is_approved' => 1, 'is_active' => 1];
-    }
     if (!$profile || !(int) $profile['is_approved']) {
         flash_set('error', 'حساب درمانگر شما هنوز توسط مدیر سایت تأیید نشده است.');
         redirect('/login');

@@ -9,7 +9,7 @@ function clinic_rooms_user_allowed(?array $user): bool
         return false;
     }
     $role = (string) ($user['role'] ?? '');
-    if ($role === 'ADMIN' || $role === 'SECRETARY' || (function_exists('user_is_eemadian') && user_is_eemadian($user))) {
+    if ($role === 'ADMIN' || $role === 'SECRETARY') {
         return true;
     }
     if ($role !== 'DOCTOR') {
@@ -39,7 +39,7 @@ function clinic_desk_render_page(string $title, string $innerHtml): void
 {
     $user = function_exists('current_user') ? current_user() : null;
     $role = (string) ($user['role'] ?? '');
-    if ($role === 'SECRETARY' || (function_exists('user_is_eemadian') && user_is_eemadian($user))) {
+    if ($role === 'SECRETARY') {
         require_once __DIR__ . '/secretary_panel.php';
         render_secretary_page($title, $innerHtml);
 
