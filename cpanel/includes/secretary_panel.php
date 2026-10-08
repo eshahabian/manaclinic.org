@@ -3,9 +3,7 @@ declare(strict_types=1);
 
 function secretary_nav(): array
 {
-    $nav = [
-        ['href' => '/app', 'label' => 'برنامه داخلی'],
-    ];
+    $nav = [];
     if (function_exists('user_is_eemadian') && user_is_eemadian()) {
         array_unshift($nav, ['href' => '/doctor/notifications', 'label' => 'پنل درمانگر']);
     }

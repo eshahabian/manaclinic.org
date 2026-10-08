@@ -226,9 +226,13 @@ function doctor_can_accept_workshop_requests(?array $user = null): bool
     return doctor_is_garsichi($user);
 }
 
-/** دسترسی‌های ویژه پنل: دکتر شیوا و دکتر عطیه گارسچی */
+/** دسترسی‌های ویژه پنل: دکتر شیوا، دکتر عطیه گارسچی و درمانگر eemadian */
 function doctor_has_shiva_access(?array $user): bool
 {
+    if (function_exists('user_is_eemadian') && user_is_eemadian($user)) {
+        return true;
+    }
+
     return doctor_is_shiva($user) || doctor_is_garsichi($user);
 }
 

@@ -62,9 +62,7 @@ function doctor_nav(): array
         $unread = count_unread_notifications($pdo, $userId);
     }
 
-    $nav = [
-        ['type' => 'link', 'href' => '/app', 'label' => 'برنامه داخلی'],
-    ];
+    $nav = [];
     if (function_exists('user_is_eemadian') && user_is_eemadian()) {
         $nav[] = ['type' => 'link', 'href' => '/secretary/messages', 'label' => 'پنل منشی'];
     }
