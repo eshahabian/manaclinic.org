@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-/** فهرست ثابت کارهای روزانه منشی — نام، روز و عنوان جدا هستند و چک‌باکس نیستند. */
+/** فهرست ثابت وظایف منشی. */
 function secretary_daily_task_catalog(): array
 {
     return [
@@ -564,6 +564,153 @@ function secretary_daily_tasks_sheet_html(PDO $pdo, array $secretary, string $ym
     <?php
     return (string) ob_get_clean();
 }
+function secretary_daily_tasks_table_html(
+    PDO $pdo,
+    array $secretary,
+    string $ymd,
+    bool $editable,
+    string $postUrl,
+    bool $showDate = true
+): string {
+    $userId = (string) ($secretary['id'] ?? '');
+    try {
+        $states = $userId !== '' ? secretary_daily_task_states($pdo, $userId, $ymd) : [];
+    } catch (Throwable $e) {
+        $states = [];
+    }
+    $progress = secretary_daily_task_progress($states);
+    $name = trim((string) ($secretary['name'] ?? ''));
+    if ($name === '') {
+        $name = (string) ($secretary['username'] ?? '');
+    }
+    $doneCount = to_fa_digits((string) $progress['done']);
+    $totalCount = to_fa_digits((string) $progress['total']);
+    $dateLabel = secretary_daily_task_date_label($ymd);
+    static $booted = false;
+    ob_start();
+    if (!$booted) {
+        $booted = true;
+        ?>
+    <style>
+      .duty-sheet{margin-top:1rem;direction:rtl;text-align:right}
+      .duty-sheet-meta{display:flex;flex-wrap:wrap;gap:.35rem 1rem;align-items:baseline;margin:0 0 .75rem;line-height:1.7}
+      .duty-table-wrap{overflow-x:auto}
+      .duty-table{width:100%;border-collapse:collapse;font-size:.95rem}
+      .duty-table th,.duty-table td{padding:.7rem .75rem;border-top:1px solid var(--line,#d5e0da);text-align:right;vertical-align:middle}
+      .duty-table thead th{background:var(--bg-soft,#f7f5f0);color:var(--muted,#5a6f66);font-weight:700;border-top:0}
+      .duty-table tr.is-done td{background:#e8f6ee}
+      .duty-num{width:3rem;font-weight:800;white-space:nowrap}
+      .duty-task{line-height:1.75}
+      .duty-time{width:6.5rem;color:#1f6b45;font-weight:800;white-space:nowrap}
+      .duty-table tr:not(.is-done) .duty-time{color:#8aa099;font-weight:600}
+      .duty-check{display:inline-flex;align-items:center;gap:.45rem;min-height:2.5rem;margin:0;cursor:pointer;font-weight:700}
+      .duty-check input{width:1.15rem;height:1.15rem;margin:0;flex:none}
+      .duty-check.is-locked{cursor:default}
+      @media (max-width:720px){
+        .duty-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
+        .duty-table,.duty-table tbody,.duty-table tr,.duty-table td{display:block;width:auto}
+        .duty-table tr{margin:0 0 .65rem;border:1px solid #d5e0da;border-radius:12px;overflow:hidden;background:#fff}
+        .duty-table tr.is-done{border-color:#b7e0c6}
+        .duty-table td{border-top:0}
+        .duty-num{width:auto;padding-bottom:0;color:#5a6f66}
+        .duty-time{width:auto}
+      }
+    </style>
+    <script>
+    (function(){
+      if (window.__dutyTable) return;
+      window.__dutyTable = true;
+      function faDigits(n){ return String(n).replace(/\d/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹"[d]; }); }
+      document.addEventListener("change", function(e){
+        var input = e.target;
+        if (!input || input.type !== "checkbox" || !input.form || !input.form.classList.contains("duty-form")) return;
+        var form = input.form;
+        if (form.getAttribute("data-busy") === "1") {
+          input.checked = !input.checked;
+          return;
+        }
+        var data = new FormData(form);
+        data.set("done", input.checked ? "1" : "0");
+        var row = form.closest("tr");
+        var time = row ? row.querySelector(".duty-time") : null;
+        var caption = form.querySelector(".duty-check-label");
+        form.setAttribute("data-busy", "1");
+        fetch(form.action, {method:"POST", body:data, credentials:"same-origin", headers:{"X-Requested-With":"XMLHttpRequest","Accept":"application/json"}})
+          .then(function(r){ return r.json().then(function(body){ if (!r.ok || !body || body.ok === false) throw new Error((body && body.error) || ""); return body; }); })
+          .then(function(res){
+            var on = !!input.checked && !!(res && res.time);
+            if (row) row.classList.toggle("is-done", on);
+            if (time) time.textContent = on ? res.time : "—";
+            if (caption) caption.textContent = on ? "انجام شد" : "انجام دادم";
+            var sheet = form.closest("[data-duty-sheet]");
+            var count = sheet ? sheet.querySelector("[data-duty-count]") : null;
+            if (count && sheet) count.textContent = faDigits(sheet.querySelectorAll(".duty-form input[type=checkbox]:checked").length);
+          })
+          .catch(function(){ input.checked = !input.checked; })
+          .then(function(){ form.removeAttribute("data-busy"); });
+      });
+    })();
+    </script>
+        <?php
+    }
+    ?>
+    <section class="duty-sheet panel" data-duty-sheet>
+      <div class="duty-sheet-meta">
+        <?php if ($name !== ''): ?><strong><?= e($name) ?></strong><?php endif; ?>
+        <?php if ($showDate): ?><span><?= e($dateLabel) ?></span><?php endif; ?>
+        <span>انجام‌شده <b data-duty-count><?= e($doneCount) ?></b> از <?= e($totalCount) ?></span>
+      </div>
+      <div class="duty-table-wrap">
+        <table class="duty-table">
+          <thead>
+            <tr>
+              <th>ردیف</th>
+              <th>وظیفه</th>
+              <th>انجام</th>
+              <th>ساعت</th>
+            </tr>
+          </thead>
+          <tbody>
+            <?php $n = 0; foreach (secretary_daily_task_catalog() as $key => $label): ?>
+              <?php
+                $n++;
+                $checked = !empty($states[$key]['done']);
+                $doneAt = (string) ($states[$key]['done_at'] ?? '');
+                $timeLabel = ($checked && $doneAt !== '') ? format_fa_time($doneAt) : '';
+              ?>
+              <tr class="<?= $checked ? 'is-done' : '' ?>">
+                <td class="duty-num"><?= e(to_fa_digits((string) $n)) ?></td>
+                <td class="duty-task"><?= e($label) ?></td>
+                <td>
+                  <?php if ($editable): ?>
+                    <form class="duty-form" method="post" action="<?= e($postUrl) ?>">
+                      <?= csrf_field() ?>
+                      <input type="hidden" name="task_date" value="<?= e($ymd) ?>">
+                      <input type="hidden" name="task_key" value="<?= e($key) ?>">
+                      <input type="hidden" name="done" value="0">
+                      <label class="duty-check">
+                        <input type="checkbox" name="done" value="1"<?= $checked ? ' checked' : '' ?>>
+                        <span class="duty-check-label"><?= $checked ? 'انجام شد' : 'انجام دادم' ?></span>
+                      </label>
+                    </form>
+                  <?php else: ?>
+                    <label class="duty-check is-locked">
+                      <input type="checkbox" disabled<?= $checked ? ' checked' : '' ?>>
+                      <span><?= $checked ? 'انجام شد' : 'انجام نشده' ?></span>
+                    </label>
+                  <?php endif; ?>
+                </td>
+                <td class="duty-time"><?= $timeLabel !== '' ? e($timeLabel) : '—' ?></td>
+              </tr>
+            <?php endforeach; ?>
+          </tbody>
+        </table>
+      </div>
+    </section>
+    <?php
+    return (string) ob_get_clean();
+}
+
 function secretary_daily_tasks_fragment(PDO $pdo, array $secretary, string $ymd, bool $editable, string $postUrl): string
 {
     $states = secretary_daily_task_states($pdo, (string) ($secretary['id'] ?? ''), $ymd);

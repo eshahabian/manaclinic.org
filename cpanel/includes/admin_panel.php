@@ -112,7 +112,7 @@ function admin_nav(): array {
         require_once __DIR__ . '/secretary_daily_tasks.php';
     }
     if ($user && function_exists('secretary_daily_tasks_can_review') && secretary_daily_tasks_can_review($user)) {
-        $taskLink = ['href' => '/admin/secretary-tasks', 'label' => 'کارهای روزانه منشی'];
+        $taskLink = ['href' => '/admin/secretary-tasks', 'label' => 'وظایف منشی‌ها'];
         $inserted = false;
         foreach ($nav as $i => $item) {
             if (($item['href'] ?? '') === '/admin/staff-hours') {

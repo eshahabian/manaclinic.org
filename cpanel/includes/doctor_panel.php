@@ -103,7 +103,7 @@ function doctor_nav(): array
             $nav[] = ['type' => 'link', 'href' => '/doctor/staff-hours', 'label' => 'ساعت کاری منشی‌ها'];
         }
         if ($canReviewSecretaryTasks) {
-            $nav[] = ['type' => 'link', 'href' => '/doctor/secretary-tasks', 'label' => 'کارهای روزانه منشی'];
+            $nav[] = ['type' => 'link', 'href' => '/doctor/secretary-tasks', 'label' => 'وظایف منشی‌ها'];
         }
     }
 

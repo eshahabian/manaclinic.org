@@ -31,7 +31,7 @@ function secretary_nav(): array
         ['href' => '/secretary/profile', 'label' => 'پیام مدیر'],
         ['href' => '/secretary/board', 'label' => 'یادداشت مشترک'],
         ['href' => '/secretary/hours', 'label' => 'ساعت کاری'],
-        ['href' => '/secretary/daily-tasks', 'label' => 'کارهای روزانه'],
+        ['href' => '/secretary/daily-tasks', 'label' => 'وظایف'],
         ['href' => '/secretary/colleague-messages', 'label' => 'پیام همکار'],
         ['href' => '/secretary/articles', 'label' => 'مقالات'],
         ['href' => '/secretary/workshops', 'label' => 'کارگاه‌ها'],
@@ -45,7 +45,7 @@ function secretary_nav(): array
         require_once __DIR__ . '/secretary_daily_tasks.php';
     }
     if (function_exists('secretary_daily_tasks_can_review') && secretary_daily_tasks_can_review()) {
-        $taskLink = ['href' => '/secretary/secretary-tasks', 'label' => 'کارهای روزانه منشی'];
+        $taskLink = ['href' => '/secretary/secretary-tasks', 'label' => 'وظایف منشی‌ها'];
         $inserted = false;
         foreach ($nav as $i => $item) {
             if (($item['href'] ?? '') === '/secretary/daily-tasks') {

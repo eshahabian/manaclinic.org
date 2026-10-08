@@ -408,7 +408,7 @@ if ($section === 'home') {
       </a>
       <a class="sapp-tile" href="<?= e(url('/app/checklist')) ?>">
         <span class="sapp-ico sapp-ico-pink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="16" rx="3"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg></span>
-        <strong>چک‌لیست</strong>
+        <strong>وظایف</strong>
         <em>Daily Tasks</em>
       </a>
       <a class="sapp-tile" href="<?= e(url('/app/complaints')) ?>">
@@ -1009,8 +1009,8 @@ if ($section === 'checklist') {
     $secretaries = secretary_daily_task_secretaries($pdo);
     ob_start();
     ?>
-    <h1>چک‌لیست منشی‌ها</h1>
-    <p class="muted">تیک را خود منشی می‌زند. بقیه فقط پیشرفت همان روز را می‌بینند.</p>
+    <h1>وظایف</h1>
+    <p class="muted">با زدن «انجام دادم» ساعت همان لحظه ثبت می‌شود. درمانگرها فقط وضعیت و ساعت را می‌بینند.</p>
     <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.75rem">
       <a class="btn btn-outline btn-sm" href="<?= e(url('/app/checklist?date=' . rawurlencode($prev))) ?>">روز قبل</a>
       <strong><?= e(secretary_daily_task_date_label($ymd)) ?></strong>
@@ -1035,11 +1035,11 @@ if ($section === 'checklist') {
             continue;
         }
         $editable = $isSelf && secretary_daily_task_can_edit($pdo, $userId, $ymd, true);
-        echo secretary_daily_tasks_html($pdo, $secretary, $ymd, $editable, url('/app/checklist'));
+        echo secretary_daily_tasks_table_html($pdo, $secretary, $ymd, $editable, url('/app/checklist'), false);
       ?>
     <?php endforeach; ?>
     <?php
-    staff_app_render('checklist', 'چک‌لیست منشی‌ها', $descriptions['checklist'], ob_get_clean());
+    staff_app_render('checklist', 'وظایف منشی‌ها', $descriptions['checklist'], ob_get_clean());
     exit;
 }
 
