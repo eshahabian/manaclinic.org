@@ -97,7 +97,7 @@ function staff_push_notify_room(PDO $pdo, string $roomId, string $senderId, stri
             return;
         }
         $marks = implode(',', array_fill(0, count($ids), '?'));
-        $sub = $pdo->prepare("SELECT id, endpoint, p256dh, auth FROM staff_app_push WHERE user_id IN ($marks)");
+        $sub = $pdo->prepare("SELECT id, user_id, endpoint, p256dh, auth FROM staff_app_push WHERE user_id IN ($marks)");
         $sub->execute($ids);
         $rows = $sub->fetchAll() ?: [];
         if ($rows === []) {
@@ -111,18 +111,24 @@ function staff_push_notify_room(PDO $pdo, string $roomId, string $senderId, stri
             $preview = mb_substr($preview, 0, 120) . '…';
         }
         $who = $senderName !== '' ? $senderName : 'همکار';
-        $payload = json_encode([
-            'title' => 'مانا کارکنان',
-            'body' => $who . ': ' . $preview,
-            'url' => url('/app/chat/' . $roomId),
-            'roomId' => $roomId,
-            'tag' => 'sapp-' . $roomId,
-        ], JSON_UNESCAPED_UNICODE);
-        if (!is_string($payload)) {
-            return;
-        }
         $keys = staff_push_keys($pdo);
+        $badges = [];
         foreach ($rows as $row) {
+            $owner = (string) ($row['user_id'] ?? '');
+            if (!isset($badges[$owner])) {
+                $badges[$owner] = staff_app_unread_count($pdo, $owner);
+            }
+            $payload = json_encode([
+                'title' => 'مانا کارکنان',
+                'body' => $who . ': ' . $preview,
+                'url' => url('/app/chat/' . $roomId),
+                'roomId' => $roomId,
+                'tag' => 'sapp-' . $roomId,
+                'badge' => $badges[$owner],
+            ], JSON_UNESCAPED_UNICODE);
+            if (!is_string($payload)) {
+                continue;
+            }
             staff_push_send($pdo, $row, $keys, $payload);
         }
     } catch (Throwable $e) {

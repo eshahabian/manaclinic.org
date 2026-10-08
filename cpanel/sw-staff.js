@@ -43,7 +43,12 @@ self.addEventListener('push', function (event) {
   } catch (err) {
     payload = {};
   }
-  event.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {
+  var jobs = [];
+  if (self.navigator && self.navigator.setAppBadge) {
+    var badge = Number(payload.badge) || 0;
+    jobs.push(badge > 0 ? self.navigator.setAppBadge(badge) : (self.navigator.clearAppBadge ? self.navigator.clearAppBadge() : Promise.resolve()));
+  }
+  jobs.push(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(function (list) {
     var visible = false;
     list.forEach(function (client) {
       client.postMessage({ type: 'staff-push', payload: payload });
@@ -57,6 +62,7 @@ self.addEventListener('push', function (event) {
       data: { url: payload.url || '/app/chat' }
     });
   }));
+  event.waitUntil(Promise.all(jobs));
 });
 
 self.addEventListener('notificationclick', function (event) {

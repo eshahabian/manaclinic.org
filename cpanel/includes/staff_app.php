@@ -1299,13 +1299,23 @@ function staff_app_client_script(): string
 
   window.sappShowChatNote = showChatNote;
 
+  function paintAppBadge(count) {
+    count = Number(count) || 0;
+    if (!navigator.setAppBadge) return;
+    var job = count > 0 ? navigator.setAppBadge(count) : (navigator.clearAppBadge ? navigator.clearAppBadge() : null);
+    if (job && job.catch) job.catch(function () {});
+  }
+
   function watchUnread(count) {
     count = Number(count) || 0;
+    paintAppBadge(count);
     if (lastUnread !== null && count > lastUnread) {
       showChatNote("مانا کارکنان", "پیام تازه در چت دارید.");
     }
     lastUnread = count;
   }
+
+  paintAppBadge(body.getAttribute("data-unread") || 0);
 
   function pullPresence() {
     if (!presenceUrl) return;
@@ -1563,7 +1573,8 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-unread[hidden]{display:none !important}
     .sapp-dot[hidden]{display:none !important}
     .sapp-thread-title{display:flex;align-items:center;gap:.4rem}
-    .sapp-row strong{display:flex;align-items:center;gap:.35rem}
+    .sapp-room-name{display:flex;direction:ltr;justify-content:flex-end;align-items:center;gap:.4rem;width:100%}
+    .sapp-room-label{display:inline-flex;align-items:center;gap:.35rem;min-width:0;direction:rtl}
     .sapp-notify{display:flex;flex-wrap:wrap;align-items:center;gap:.5rem;width:min(32rem,calc(100% - 1.5rem));margin:.2rem auto .4rem;padding:.7rem .85rem;border-radius:14px;background:#e7f6f3;color:#1c3d36}
     .sapp-notify[hidden]{display:none !important}
     .sapp-notify p{margin:0;flex:1 1 12rem;font-size:.92rem;line-height:1.55}
@@ -1630,7 +1641,7 @@ function staff_app_render(string $active, string $title, string $description, st
     body.sapp{padding:0}
   </style>
 </head>
-<body class="sapp<?= !empty($GLOBALS['staffBodyClass']) ? ' ' . e((string) $GLOBALS['staffBodyClass']) : '' ?>"<?= $user ? ' data-session-guard="1" data-session-ping="' . e(url('/session/ping')) . '" data-logout="' . e(url('/logout')) . '"' : '' ?><?= ($user && !$locked) ? ' data-presence="' . e(url('/app/presence')) . '" data-chat="' . e(url('/app/chat')) . '" data-vapid="' . e($vapidKey) . '" data-push="' . e(url('/app/push/subscribe')) . '"' : '' ?><?= $isSecretary ? ' data-secretary-desk="1" data-no-idle="1" data-heartbeat="' . e(url('/secretary/heartbeat')) . '"' : '' ?>>
+<body class="sapp<?= !empty($GLOBALS['staffBodyClass']) ? ' ' . e((string) $GLOBALS['staffBodyClass']) : '' ?>"<?= $user ? ' data-session-guard="1" data-session-ping="' . e(url('/session/ping')) . '" data-logout="' . e(url('/logout')) . '"' : '' ?><?= ($user && !$locked) ? ' data-presence="' . e(url('/app/presence')) . '" data-chat="' . e(url('/app/chat')) . '" data-unread="' . e((string) (int) $unread) . '" data-vapid="' . e($vapidKey) . '" data-push="' . e(url('/app/push/subscribe')) . '"' : '' ?><?= $isSecretary ? ' data-secretary-desk="1" data-no-idle="1" data-heartbeat="' . e(url('/secretary/heartbeat')) . '"' : '' ?>>
   <header class="sapp-top">
     <a class="sapp-brand" href="<?= e(url('/app')) ?>">
       <img src="<?= e(url('/assets/img/logo.png')) ?>" alt="" width="36" height="36">
