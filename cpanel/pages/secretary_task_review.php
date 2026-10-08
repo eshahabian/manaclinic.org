@@ -41,6 +41,23 @@ foreach ($secretaries as $sec) {
     }
 }
 
+if (!empty($reviewOnlySelf) && (string) ($user['role'] ?? '') === 'SECRETARY') {
+    $selfId = (string) ($user['id'] ?? '');
+    $selfRow = [
+        'id' => $selfId,
+        'name' => (string) ($user['name'] ?? ''),
+        'username' => (string) ($user['username'] ?? ''),
+    ];
+    foreach ($secretaries as $sec) {
+        if ((string) ($sec['id'] ?? '') === $selfId) {
+            $selfRow = $sec;
+            break;
+        }
+    }
+    $present = [$selfRow];
+    $absent = [];
+}
+
 ob_start();
 ?>
 <h1><?= e((string) ($reviewTitle ?? 'وظایف منشی‌ها')) ?></h1>
