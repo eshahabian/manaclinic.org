@@ -592,29 +592,22 @@ function secretary_daily_tasks_table_html(
         $booted = true;
         ?>
     <style>
-      .duty-sheet{margin-top:1rem;direction:rtl;text-align:right}
-      .duty-sheet-meta{display:flex;flex-wrap:wrap;gap:.35rem 1rem;align-items:baseline;margin:0 0 .75rem;line-height:1.7}
-      .duty-table-wrap{overflow-x:auto}
-      .duty-table{width:100%;border-collapse:collapse;font-size:.95rem}
-      .duty-table th,.duty-table td{padding:.7rem .75rem;border-top:1px solid var(--line,#d5e0da);text-align:right;vertical-align:middle}
-      .duty-table thead th{background:var(--bg-soft,#f7f5f0);color:var(--muted,#5a6f66);font-weight:700;border-top:0}
-      .duty-table tr.is-done td{background:#e8f6ee}
-      .duty-num{width:3rem;font-weight:800;white-space:nowrap}
-      .duty-task{line-height:1.75}
-      .duty-time{width:6.5rem;color:#1f6b45;font-weight:800;white-space:nowrap}
-      .duty-table tr:not(.is-done) .duty-time{color:#8aa099;font-weight:600}
-      .duty-check{display:inline-flex;align-items:center;gap:.45rem;min-height:2.5rem;margin:0;cursor:pointer;font-weight:700}
-      .duty-check input{width:1.15rem;height:1.15rem;margin:0;flex:none}
+      .duty-sheet.panel{max-width:44rem;margin-top:.75rem;padding:1rem;direction:rtl;text-align:right}
+      .duty-sheet-meta{display:flex;flex-wrap:wrap;gap:.25rem .8rem;align-items:baseline;margin:0 0 .6rem;line-height:1.5;font-size:.92rem}
+      .duty-list{border:1px solid var(--line,#d5e0da);border-radius:12px}
+      .duty-head,.duty-row{display:grid;grid-template-columns:2rem minmax(0,1fr) auto 3.6rem;gap:.45rem;align-items:center;padding:.38rem .65rem}
+      .duty-head{position:sticky;top:0;z-index:1;background:var(--bg-soft,#f7f5f0);color:var(--muted,#5a6f66);font-size:.78rem;font-weight:700;border-bottom:1px solid var(--line,#d5e0da)}
+      .duty-row{border-top:1px solid var(--line,#d5e0da);background:#fff}
+      .duty-row:first-of-type{border-top:0}
+      .duty-row.is-done{background:#e8f6ee}
+      .duty-num{font-weight:800;font-size:.82rem;color:#5a6f66}
+      .duty-task{line-height:1.45;font-size:.9rem}
+      .duty-time{font-size:.82rem;font-weight:800;color:#1f6b45;white-space:nowrap}
+      .duty-row:not(.is-done) .duty-time{color:#8aa099;font-weight:600}
+      .duty-check{display:inline-flex;align-items:center;gap:.35rem;margin:0;cursor:pointer;font-weight:700;font-size:.82rem;white-space:nowrap}
+      .duty-check input{width:1rem;height:1rem;margin:0;flex:none}
       .duty-check.is-locked{cursor:default}
-      @media (max-width:720px){
-        .duty-table thead{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
-        .duty-table,.duty-table tbody,.duty-table tr,.duty-table td{display:block;width:auto}
-        .duty-table tr{margin:0 0 .65rem;border:1px solid #d5e0da;border-radius:12px;overflow:hidden;background:#fff}
-        .duty-table tr.is-done{border-color:#b7e0c6}
-        .duty-table td{border-top:0}
-        .duty-num{width:auto;padding-bottom:0;color:#5a6f66}
-        .duty-time{width:auto}
-      }
+      .duty-form{margin:0}
     </style>
     <script>
     (function(){
@@ -631,7 +624,7 @@ function secretary_daily_tasks_table_html(
         }
         var data = new FormData(form);
         data.set("done", input.checked ? "1" : "0");
-        var row = form.closest("tr");
+        var row = form.closest(".duty-row");
         var time = row ? row.querySelector(".duty-time") : null;
         var caption = form.querySelector(".duty-check-label");
         form.setAttribute("data-busy", "1");
@@ -660,51 +653,43 @@ function secretary_daily_tasks_table_html(
         <?php if ($showDate): ?><span><?= e($dateLabel) ?></span><?php endif; ?>
         <span>انجام‌شده <b data-duty-count><?= e($doneCount) ?></b> از <?= e($totalCount) ?></span>
       </div>
-      <div class="duty-table-wrap">
-        <table class="duty-table">
-          <thead>
-            <tr>
-              <th>ردیف</th>
-              <th>وظیفه</th>
-              <th>انجام</th>
-              <th>ساعت</th>
-            </tr>
-          </thead>
-          <tbody>
-            <?php $n = 0; foreach (secretary_daily_task_catalog() as $key => $label): ?>
-              <?php
-                $n++;
-                $checked = !empty($states[$key]['done']);
-                $doneAt = (string) ($states[$key]['done_at'] ?? '');
-                $timeLabel = ($checked && $doneAt !== '') ? format_fa_time($doneAt) : '';
-              ?>
-              <tr class="<?= $checked ? 'is-done' : '' ?>">
-                <td class="duty-num"><?= e(to_fa_digits((string) $n)) ?></td>
-                <td class="duty-task"><?= e($label) ?></td>
-                <td>
-                  <?php if ($editable): ?>
-                    <form class="duty-form" method="post" action="<?= e($postUrl) ?>">
-                      <?= csrf_field() ?>
-                      <input type="hidden" name="task_date" value="<?= e($ymd) ?>">
-                      <input type="hidden" name="task_key" value="<?= e($key) ?>">
-                      <input type="hidden" name="done" value="0">
-                      <label class="duty-check">
-                        <input type="checkbox" name="done" value="1"<?= $checked ? ' checked' : '' ?>>
-                        <span class="duty-check-label"><?= $checked ? 'انجام شد' : 'انجام دادم' ?></span>
-                      </label>
-                    </form>
-                  <?php else: ?>
-                    <label class="duty-check is-locked">
-                      <input type="checkbox" disabled<?= $checked ? ' checked' : '' ?>>
-                      <span><?= $checked ? 'انجام شد' : 'انجام نشده' ?></span>
-                    </label>
-                  <?php endif; ?>
-                </td>
-                <td class="duty-time"><?= $timeLabel !== '' ? e($timeLabel) : '—' ?></td>
-              </tr>
-            <?php endforeach; ?>
-          </tbody>
-        </table>
+      <div class="duty-list">
+        <div class="duty-head">
+          <span>ردیف</span>
+          <span>وظیفه</span>
+          <span>انجام</span>
+          <span>ساعت</span>
+        </div>
+        <?php $n = 0; foreach (secretary_daily_task_catalog() as $key => $label): ?>
+          <?php
+            $n++;
+            $checked = !empty($states[$key]['done']);
+            $doneAt = (string) ($states[$key]['done_at'] ?? '');
+            $timeLabel = ($checked && $doneAt !== '') ? format_fa_time($doneAt) : '';
+          ?>
+          <div class="duty-row<?= $checked ? ' is-done' : '' ?>">
+            <span class="duty-num"><?= e(to_fa_digits((string) $n)) ?></span>
+            <span class="duty-task"><?= e($label) ?></span>
+            <?php if ($editable): ?>
+              <form class="duty-form" method="post" action="<?= e($postUrl) ?>">
+                <?= csrf_field() ?>
+                <input type="hidden" name="task_date" value="<?= e($ymd) ?>">
+                <input type="hidden" name="task_key" value="<?= e($key) ?>">
+                <input type="hidden" name="done" value="0">
+                <label class="duty-check">
+                  <input type="checkbox" name="done" value="1"<?= $checked ? ' checked' : '' ?>>
+                  <span class="duty-check-label"><?= $checked ? 'انجام شد' : 'انجام دادم' ?></span>
+                </label>
+              </form>
+            <?php else: ?>
+              <label class="duty-check is-locked">
+                <input type="checkbox" disabled<?= $checked ? ' checked' : '' ?>>
+                <span><?= $checked ? 'انجام شد' : 'انجام نشده' ?></span>
+              </label>
+            <?php endif; ?>
+            <span class="duty-time"><?= $timeLabel !== '' ? e($timeLabel) : '—' ?></span>
+          </div>
+        <?php endforeach; ?>
       </div>
     </section>
     <?php
