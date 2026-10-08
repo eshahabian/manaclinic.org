@@ -47,28 +47,31 @@ $selfCanEdit = $selfId !== '' && secretary_daily_task_can_edit($pdo, $selfId, $y
 $dutyPostUrl = url('/secretary/daily-tasks');
 $dutyReturn = '/secretary/secretary-tasks?date=' . rawurlencode($ymd);
 if ($selfId !== '') {
-    $selfListed = false;
+    $selfRow = null;
+    $others = [];
     foreach ($present as $sec) {
         if ((string) ($sec['id'] ?? '') === $selfId) {
-            $selfListed = true;
-            break;
+            $selfRow = $sec;
+        } else {
+            $others[] = $sec;
         }
     }
-    if (!$selfListed && ($selfCanEdit || $ymd === $today)) {
-        array_unshift($present, [
+    if ($selfRow === null && ($selfCanEdit || $ymd === $today)) {
+        $selfRow = [
             'id' => $selfId,
             'name' => (string) ($user['name'] ?? ''),
             'username' => (string) ($user['username'] ?? ''),
-        ]);
+        ];
     }
+    $present = $selfRow !== null ? array_merge([$selfRow], $others) : $others;
 }
 
 ob_start();
 ?>
 <h1><?= e((string) ($reviewTitle ?? 'وظایف منشی‌ها')) ?></h1>
 <p class="muted" style="margin-top:.35rem;line-height:1.8"><?= $editSelf
-    ? 'با زدن «انجام دادم» ساعت همان لحظه کنار وظیفه ثبت می‌شود.'
-    : 'ساعت کنار هر وظیفه، لحظه‌ای است که منشی «انجام دادم» را زده. تیک را خود منشی می‌زند.' ?></p>
+    ? 'دکمه «انجام شد» را بزنید تا ساعت همان لحظه کنار وظیفه ثبت شود. زدن دوباره، ثبت را برمی‌دارد.'
+    : 'ساعت کنار هر وظیفه، لحظه‌ای است که منشی دکمه «انجام شد» را زده است.' ?></p>
 <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:1rem">
   <a class="btn btn-outline btn-sm" href="<?= e(url((string) $reviewBase . '?date=' . rawurlencode($prev))) ?>">روز قبل</a>
   <strong><?= e(secretary_daily_task_date_label($ymd)) ?></strong>
