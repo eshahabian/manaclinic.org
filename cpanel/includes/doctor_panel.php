@@ -348,11 +348,30 @@ function require_doctor_profile(PDO $pdo): array
 
         return $ctx;
     }
-    $profile = doctor_ensure_profile($pdo, (string) $user['id']);
+    $emadDoctor = function_exists('user_is_eemadian') && user_is_eemadian($user);
+    $profile = doctor_ensure_profile($pdo, (string) $user['id'], $emadDoctor ? [
+        'is_approved' => 1,
+        'is_active' => 1,
+    ] : []);
+    if ($emadDoctor && is_array($profile) && (!(int) ($profile['is_approved'] ?? 0) || !(int) ($profile['is_active'] ?? 0))) {
+        $pdo->prepare('UPDATE doctor_profiles SET is_approved=1, is_active=1 WHERE user_id=?')->execute([(string) $user['id']]);
+        $profile['is_approved'] = 1;
+        $profile['is_active'] = 1;
+    }
     if (!$profile || !(int) ($profile['is_approved'] ?? 0)) {
-        flash_set('error', 'حساب درمانگر شما هنوز توسط مدیر سایت تأیید نشده است.');
-        logout_user();
-        redirect('/login');
+        if ($emadDoctor) {
+            $profile = [
+                'id' => '',
+                'user_id' => (string) ($user['id'] ?? ''),
+                'name' => (string) ($user['name'] ?? ''),
+                'is_approved' => 1,
+                'is_active' => 1,
+            ];
+        } else {
+            flash_set('error', 'حساب درمانگر شما هنوز توسط مدیر سایت تأیید نشده است.');
+            logout_user();
+            redirect('/login');
+        }
     }
     if (!(int) ($profile['is_active'] ?? 0)) {
         flash_set('error', 'حساب درمانگر شما فعلاً غیرفعال است.');
