@@ -969,20 +969,55 @@ if ($section === 'chat') {
                 </div>
                 <button type="button" id="sapp-reply-x" aria-label="لغو پاسخ">×</button>
               </div>
-              <div class="sapp-voice-bar" id="sapp-voice-bar" hidden>
-                <span class="sapp-voice-dot" aria-hidden="true"></span>
-                <span class="sapp-voice-time" id="sapp-voice-time">۰:۰۰</span>
-                <span class="sapp-voice-label" id="sapp-voice-label">در حال ضبط</span>
-                <button type="button" class="sapp-voice-cancel" id="sapp-voice-cancel">لغو</button>
-              </div>
-              <div class="sapp-compose-row">
+              <p class="sapp-voice-hint" id="sapp-voice-hint" hidden></p>
+              <div class="sapp-compose-row" id="sapp-compose-row">
                 <label class="sapp-file" title="فایل">
                   <input id="chat-file" name="file" type="file" aria-label="فایل">
                   <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m21 12-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8L13.2 4.2a3.5 3.5 0 0 1 5 5L9.6 17.8a1.5 1.5 0 0 1-2.1-2.1l7.4-7.4"/></svg>
                 </label>
+                <button type="button" class="sapp-voice" id="sapp-voice" aria-pressed="false" aria-label="ضبط وویس">
+                  <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0"/><path d="M12 17v3"/><path d="M8 20h8"/></svg>
+                </button>
                 <textarea class="input" id="chat-body" name="body" rows="1" maxlength="4000" placeholder="پیام" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="send"></textarea>
-                <button type="button" class="sapp-voice" id="sapp-voice" aria-pressed="false" aria-label="ضبط وویس">وویس</button>
                 <button class="sapp-send" type="submit" aria-label="ارسال">➤</button>
+                <div class="sapp-voice-rec" id="sapp-voice-rec" hidden>
+                  <div class="sapp-voice-live" id="sapp-voice-live">
+                    <div class="sapp-voice-pill">
+                      <span class="sapp-voice-dot" aria-hidden="true"></span>
+                      <span class="sapp-voice-time" id="sapp-voice-time">۰:۰۰,۰۰</span>
+                      <button type="button" class="sapp-voice-cancel" id="sapp-voice-cancel">لغو</button>
+                    </div>
+                    <div class="sapp-voice-stack">
+                      <button type="button" class="sapp-voice-mini" id="sapp-voice-pause" aria-label="مکث">
+                        <svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="7" y="6" width="3.2" height="12" rx="1" fill="currentColor"/><rect x="13.8" y="6" width="3.2" height="12" rx="1" fill="currentColor"/></svg>
+                      </button>
+                      <button type="button" class="sapp-voice-go" id="sapp-voice-up" aria-label="ارسال وویس">
+                        <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 19V6"/><path d="m6.5 11.5 5.5-5.5 5.5 5.5"/></svg>
+                      </button>
+                    </div>
+                  </div>
+                  <div class="sapp-voice-paused" id="sapp-voice-paused" hidden>
+                    <button type="button" class="sapp-voice-trash" id="sapp-voice-trash" aria-label="حذف">
+                      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M8 7l1 13h6l1-13"/></svg>
+                    </button>
+                    <div class="sapp-voice-preview">
+                      <button type="button" class="sapp-voice-play" id="sapp-voice-play" aria-label="پخش" aria-pressed="false">
+                        <svg class="is-play" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><path d="M9 7.2v9.6l8.2-4.8L9 7.2z" fill="currentColor"/></svg>
+                        <svg class="is-pause" viewBox="0 0 24 24" width="16" height="16" aria-hidden="true"><rect x="7" y="6" width="3.2" height="12" rx="1" fill="currentColor"/><rect x="13.8" y="6" width="3.2" height="12" rx="1" fill="currentColor"/></svg>
+                      </button>
+                      <div class="sapp-voice-wave" id="sapp-voice-wave" aria-hidden="true"></div>
+                      <span class="sapp-voice-dur" id="sapp-voice-dur">۰:۰۰</span>
+                    </div>
+                    <div class="sapp-voice-stack">
+                      <button type="button" class="sapp-voice-mini" id="sapp-voice-resume" aria-label="ادامه ضبط">
+                        <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M6 11a6 6 0 0 0 12 0"/><path d="M12 17v3"/><path d="M8 20h8"/></svg>
+                      </button>
+                      <button type="button" class="sapp-voice-go" id="sapp-voice-plane" aria-label="ارسال">
+                        <svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path d="m21.5 3.5-8.8 18-2.4-7.8-7.8-2.4 19-7.8z" fill="currentColor"/></svg>
+                      </button>
+                    </div>
+                  </div>
+                </div>
               </div>
             </form>
             <?php endif; ?>
@@ -1034,7 +1069,7 @@ if ($section === 'chat') {
             <script type="application/json" id="sapp-chat-config"><?= $chatConfig ?></script>
             <?php
             $html = ob_get_clean();
-            $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/staff-chat.js')) . '?v=20261009voice"></script>';
+            $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/staff-chat.js')) . '?v=20261009tg3"></script>';
         } else {
             $rooms = staff_app_rooms_for($pdo, $userId);
             $people = staff_app_people($pdo);

@@ -1358,7 +1358,57 @@ function staff_app_allowed_upload_types(): array
     ];
 }
 
-function staff_app_store_upload(array $file): ?array
+function staff_app_is_audio_mime(string $mime): bool
+{
+    $mime = strtolower(trim(explode(';', $mime, 2)[0]));
+
+    return str_starts_with($mime, 'audio/')
+        || in_array($mime, ['video/webm', 'application/ogg', 'video/ogg'], true);
+}
+
+/** @return array{ext:string,mime:string}|null */
+function staff_app_voice_mime(string $detected, string $originalName): ?array
+{
+    $detected = strtolower(trim(explode(';', $detected, 2)[0]));
+    $byMime = [
+        'audio/webm' => ['webm', 'audio/webm'],
+        'video/webm' => ['webm', 'audio/webm'],
+        'audio/ogg' => ['ogg', 'audio/ogg'],
+        'application/ogg' => ['ogg', 'audio/ogg'],
+        'video/ogg' => ['ogg', 'audio/ogg'],
+        'audio/opus' => ['ogg', 'audio/ogg'],
+        'audio/mp4' => ['m4a', 'audio/mp4'],
+        'audio/x-m4a' => ['m4a', 'audio/mp4'],
+        'audio/m4a' => ['m4a', 'audio/mp4'],
+        'audio/aac' => ['m4a', 'audio/mp4'],
+        'video/mp4' => ['m4a', 'audio/mp4'],
+        'application/mp4' => ['m4a', 'audio/mp4'],
+        'audio/mpeg' => ['mp3', 'audio/mpeg'],
+        'audio/mp3' => ['mp3', 'audio/mpeg'],
+    ];
+    if (isset($byMime[$detected])) {
+        return ['ext' => $byMime[$detected][0], 'mime' => $byMime[$detected][1]];
+    }
+    if ($detected !== 'application/octet-stream') {
+        return null;
+    }
+    $name = strtolower(pathinfo(basename(str_replace(["\0", '/', '\\'], '', $originalName)), PATHINFO_EXTENSION));
+    $byExt = [
+        'webm' => ['webm', 'audio/webm'],
+        'ogg' => ['ogg', 'audio/ogg'],
+        'oga' => ['ogg', 'audio/ogg'],
+        'm4a' => ['m4a', 'audio/mp4'],
+        'mp4' => ['m4a', 'audio/mp4'],
+        'mp3' => ['mp3', 'audio/mpeg'],
+    ];
+    if (!isset($byExt[$name])) {
+        return null;
+    }
+
+    return ['ext' => $byExt[$name][0], 'mime' => $byExt[$name][1]];
+}
+
+function staff_app_store_upload(array $file, bool $voice = false): ?array
 {
     $error = (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE);
     if ($error === UPLOAD_ERR_NO_FILE) {
@@ -1376,8 +1426,15 @@ function staff_app_store_upload(array $file): ?array
         throw new RuntimeException('فایل معتبر نیست.');
     }
     $finfo = new finfo(FILEINFO_MIME_TYPE);
-    $mime = (string) $finfo->file($tmp);
+    $mime = strtolower(trim((string) $finfo->file($tmp)));
     $ext = staff_app_allowed_upload_types()[$mime] ?? '';
+    if ($voice) {
+        $normalized = staff_app_voice_mime($mime, (string) ($file['name'] ?? ''));
+        if ($normalized !== null) {
+            $ext = $normalized['ext'];
+            $mime = $normalized['mime'];
+        }
+    }
     if ($ext === '') {
         throw new RuntimeException('این نوع فایل مجاز نیست. عکس، پی‌دی‌اف، زیپ، صوت یا فایل آفیس بفرستید.');
     }
@@ -1406,7 +1463,7 @@ function staff_app_store_upload(array $file): ?array
     ];
 }
 
-function staff_app_send_message(PDO $pdo, array $user, string $roomId, string $body, ?array $file, string $replyTo = ''): string
+function staff_app_send_message(PDO $pdo, array $user, string $roomId, string $body, ?array $file, string $replyTo = '', bool $voice = false): string
 {
     staff_app_assert_can_post($pdo, $user, $roomId);
     $body = trim($body);
@@ -1415,7 +1472,7 @@ function staff_app_send_message(PDO $pdo, array $user, string $roomId, string $b
     }
     $stored = null;
     if (is_array($file)) {
-        $stored = staff_app_store_upload($file);
+        $stored = staff_app_store_upload($file, $voice);
     }
     if ($body === '' && $stored === null) {
         throw new RuntimeException('متن یا فایل را بفرستید.');
@@ -1446,7 +1503,11 @@ function staff_app_send_message(PDO $pdo, array $user, string $roomId, string $b
     $senderId = trim((string) ($user['id'] ?? ''));
     staff_app_mark_read($pdo, $senderId, $roomId);
     $senderName = trim((string) ($user['name'] ?? ''));
-    staff_push_notify_room($pdo, $roomId, $senderId, $senderName, $body);
+    $preview = $body;
+    if ($preview === '' && is_array($stored) && staff_app_is_audio_mime((string) ($stored['mime'] ?? ''))) {
+        $preview = 'پیام صوتی';
+    }
+    staff_push_notify_room($pdo, $roomId, $senderId, $senderName, $preview);
 
     return $messageId;
 }
@@ -1484,14 +1545,76 @@ function staff_app_output_file(PDO $pdo, array $user, string $fileId): never
         exit;
     }
     $mime = (string) ($file['mime'] ?? 'application/octet-stream');
-    $inline = !isset($_GET['download']) && (str_starts_with($mime, 'image/') || $mime === 'application/pdf');
+    $audio = staff_app_is_audio_mime($mime);
+    $inline = !isset($_GET['download']) && (str_starts_with($mime, 'image/') || $mime === 'application/pdf' || $audio);
     $name = (string) ($file['original_name'] ?? 'file');
+    $size = (int) filesize($path);
     header('Content-Type: ' . $mime);
-    header('Content-Length: ' . (string) filesize($path));
     header('X-Content-Type-Options: nosniff');
     header('Content-Disposition: ' . ($inline ? 'inline' : 'attachment') . "; filename*=UTF-8''" . rawurlencode($name));
+    if ($audio && $size > 0) {
+        header('Accept-Ranges: bytes');
+        header('Cache-Control: private');
+        staff_app_stream_file($path, $size, trim((string) ($_SERVER['HTTP_RANGE'] ?? '')) !== '');
+        exit;
+    }
+    header('Content-Length: ' . (string) $size);
     readfile($path);
     exit;
+}
+
+function staff_app_stream_file(string $path, int $size, bool $ranged): void
+{
+    $start = 0;
+    $end = $size - 1;
+    $raw = trim((string) ($_SERVER['HTTP_RANGE'] ?? ''));
+    if (!$ranged || !preg_match('/^bytes=(\d*)-(\d*)$/', $raw, $match) || ($match[1] === '' && $match[2] === '')) {
+        header('Content-Length: ' . (string) $size);
+        readfile($path);
+        return;
+    }
+    if ($match[1] === '') {
+        $suffix = (int) $match[2];
+        if ($suffix < 1) {
+            http_response_code(416);
+            header('Content-Range: bytes */' . $size);
+            return;
+        }
+        $start = max(0, $size - $suffix);
+    } else {
+        $start = (int) $match[1];
+        if ($match[2] !== '') {
+            $end = (int) $match[2];
+        }
+    }
+    if ($start >= $size || $start > $end) {
+        http_response_code(416);
+        header('Content-Range: bytes */' . $size);
+        return;
+    }
+    $end = min($end, $size - 1);
+    $length = $end - $start + 1;
+    http_response_code(206);
+    header('Content-Range: bytes ' . $start . '-' . $end . '/' . $size);
+    header('Content-Length: ' . (string) $length);
+    $handle = fopen($path, 'rb');
+    if ($handle === false) {
+        return;
+    }
+    fseek($handle, $start);
+    $left = $length;
+    while ($left > 0 && !feof($handle)) {
+        $chunk = fread($handle, (int) min(65536, $left));
+        if (!is_string($chunk) || $chunk === '') {
+            break;
+        }
+        echo $chunk;
+        $left -= strlen($chunk);
+        if (connection_aborted()) {
+            break;
+        }
+    }
+    fclose($handle);
 }
 
 function staff_app_doctor_profile_id(PDO $pdo, string $userId): string
@@ -2090,7 +2213,7 @@ function staff_app_render(string $active, string $title, string $description, st
     body.sapp.is-thread .sapp-msg-meta{gap:.15rem;margin-top:.1rem;font-size:clamp(.62rem,2.7vw,.72rem)}
     body.sapp.is-thread .sapp-ticks svg{width:clamp(.8rem,3.4vw,1rem);height:clamp(.7rem,3vw,.875rem)}
     body.sapp.is-thread .sapp-compose textarea.input{min-height:clamp(2.15rem,10.5vw,2.75rem);max-height:clamp(4.5rem,22svh,8rem);padding:clamp(.4rem,1.8vw,.65rem) clamp(.55rem,2.4vw,.85rem);font-size:1rem}
-    body.sapp.is-thread .sapp-file,body.sapp.is-thread .sapp-send{width:clamp(2.15rem,10.5vw,2.75rem);height:clamp(2.15rem,10.5vw,2.75rem)}
+    body.sapp.is-thread .sapp-file,body.sapp.is-thread .sapp-send,body.sapp.is-thread .sapp-voice{width:clamp(2.15rem,10.5vw,2.75rem);height:clamp(2.15rem,10.5vw,2.75rem)}
     body.sapp.is-thread .sapp-send{font-size:clamp(.9rem,4vw,1.05rem)}
     body.sapp.is-thread .sapp-file svg{width:clamp(1.05rem,4.8vw,1.35rem);height:clamp(1.05rem,4.8vw,1.35rem)}
     @media (hover:none) and (pointer:coarse){
@@ -2134,6 +2257,40 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-file{position:relative;display:inline-flex;align-items:center;justify-content:center;width:2.75rem;height:2.75rem;border-radius:999px;background:#fff;color:#1a9a8a;cursor:pointer;flex:none}
     .sapp-file input{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0)}
     .sapp-send{flex:none;width:2.75rem;height:2.75rem;border:0;border-radius:999px;background:#1a9a8a;color:#fff;font-weight:800;font-size:1.05rem}
+    .sapp-voice{flex:none;width:2.75rem;height:2.75rem;padding:0;border:0;border-radius:999px;background:#fff;color:#1a9a8a;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;touch-action:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none}
+    .sapp-voice svg,.sapp-voice-mini svg,.sapp-voice-go svg,.sapp-voice-trash svg,.sapp-voice-play svg{display:block;pointer-events:none}
+    .sapp-voice-hint{margin:0;padding:.15rem .35rem .25rem;color:#1a9a8a;font-size:.82rem;font-weight:800;text-align:center}
+    .sapp-voice-hint[hidden]{display:none !important}
+    .sapp-voice-rec{display:flex;align-items:flex-end;gap:.45rem;width:100%;min-width:0;direction:ltr}
+    .sapp-voice-rec[hidden],.sapp-voice-live[hidden],.sapp-voice-paused[hidden]{display:none !important}
+    .sapp-voice-live,.sapp-voice-paused{display:flex;align-items:flex-end;gap:.45rem;width:100%;min-width:0}
+    .sapp-compose-row.is-recording{align-items:flex-end;overflow:visible}
+    .sapp-compose-row.is-recording .sapp-file,
+    .sapp-compose-row.is-recording .sapp-voice,
+    .sapp-compose-row.is-recording textarea,
+    .sapp-compose-row.is-recording .sapp-send{display:none !important}
+    .sapp-compose-row.is-recording .sapp-voice-rec{display:flex;flex:1 1 auto}
+    .sapp-voice-pill{flex:1;min-width:0;display:flex;align-items:center;gap:.55rem;min-height:2.85rem;padding:.35rem .9rem;border-radius:999px;background:#e7eeeb}
+    .sapp-voice-dot{width:.62rem;height:.62rem;border-radius:999px;background:#e25b6a;flex:none;animation:sapp-voice-pulse 1s ease-in-out infinite}
+    .sapp-voice-time{font-weight:800;font-variant-numeric:tabular-nums;color:#1c3d36;font-size:1rem}
+    .sapp-voice-cancel{margin-inline-start:auto;border:0;background:transparent;color:#1a9a8a;font:inherit;font-weight:800;font-size:1rem;cursor:pointer}
+    .sapp-voice-stack{position:relative;flex:none;width:3.45rem;height:3.45rem;z-index:5}
+    .sapp-voice-go{width:3.45rem;height:3.45rem;border:0;border-radius:999px;background:#1a9a8a;color:#fff;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 .4rem 1rem rgba(26,154,138,.28);cursor:pointer}
+    .sapp-voice-mini{position:absolute;left:50%;bottom:calc(100% + .4rem);transform:translateX(-50%);width:2.45rem;height:2.45rem;border:0;border-radius:999px;background:#163832;color:#fff;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+    .sapp-voice-trash{flex:none;width:2.75rem;height:2.75rem;border:0;border-radius:999px;background:#fff;color:#1c3d36;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 .15rem .5rem rgba(28,70,58,.08);cursor:pointer}
+    .sapp-voice-preview{flex:1;min-width:0;display:flex;align-items:center;gap:.45rem;min-height:2.85rem;padding:.3rem .7rem .3rem .35rem;border-radius:999px;background:#1a9a8a;color:#fff}
+    .sapp-voice-play{flex:none;width:2.15rem;height:2.15rem;border:0;border-radius:999px;background:#fff;color:#1a9a8a;display:inline-flex;align-items:center;justify-content:center;cursor:pointer}
+    .sapp-voice-play .is-pause{display:none}
+    .sapp-voice-play.is-on .is-play{display:none}
+    .sapp-voice-play.is-on .is-pause{display:block}
+    .sapp-voice-wave{flex:1;min-width:0;height:1.35rem;display:flex;align-items:center;gap:2px}
+    .sapp-voice-wave i{flex:1;display:block;height:30%;border-radius:999px;background:rgba(255,255,255,.85)}
+    .sapp-voice-wave.is-on i{animation:sapp-voice-bar .8s ease-in-out infinite}
+    .sapp-voice-dur{flex:none;font-weight:800;font-size:.92rem;font-variant-numeric:tabular-nums}
+    .sapp-audio{display:block;width:min(16rem,70vw);max-width:100%;height:2.15rem;margin-top:6px}
+    body.sapp-voice-hold,body.sapp-voice-hold .sapp-chat{overflow:hidden;touch-action:none}
+    @keyframes sapp-voice-pulse{50%{opacity:.35}}
+    @keyframes sapp-voice-bar{50%{height:100%}}
     .sapp-install{display:flex;align-items:center;gap:.7rem;width:min(32rem,calc(100% - 1.5rem));margin:.2rem auto .4rem;padding:.7rem .85rem;border-radius:1rem;background:#fff;box-shadow:0 .35rem 1.1rem rgba(28,70,58,.08);font-size:.9rem;line-height:1.55}
     .sapp-install[hidden]{display:none !important}
     .sapp-install p{margin:0;flex:1}
@@ -2163,7 +2320,7 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-reply span{display:block;max-width:16rem;overflow:hidden;color:#667781;font-size:.8rem;white-space:nowrap;text-overflow:ellipsis}
     .sapp-reply button{border:0;background:transparent;color:#667781;font-size:1.3rem;line-height:1}
     #sapp-hold[hidden],#sapp-hold[hidden] *,.sapp-hold-people[hidden],#sapp-hold-forward[hidden],#sapp-selectbar[hidden],.sapp-hold-item[hidden],.sapp-notify[hidden],.sapp-install[hidden]{display:none !important;pointer-events:none !important}
-    .sapp-nav a,.sapp-tile,.sapp-logout,.sapp-send,.sapp-person,.sapp-notify button,.sapp-install button{touch-action:manipulation}
+    .sapp-nav a,.sapp-tile,.sapp-logout,.sapp-send,.sapp-voice-go,.sapp-voice-mini,.sapp-voice-cancel,.sapp-voice-trash,.sapp-voice-play,.sapp-person,.sapp-notify button,.sapp-install button{touch-action:manipulation}
     .sapp-hold-back{position:fixed;inset:0;z-index:80;border:0;padding:0;background:rgba(0,0,0,.28)}
     .sapp-hold-pop{position:fixed;z-index:81;display:flex;flex-direction:column;gap:8px;width:min(17.5rem,calc(100vw - 20px));max-height:calc(100vh - 16px);overflow:auto}
     .sapp-hold-emojis{display:flex;justify-content:space-between;gap:2px;padding:6px 8px;border-radius:999px;background:#2c2c2e}

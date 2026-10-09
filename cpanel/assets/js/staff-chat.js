@@ -265,6 +265,7 @@
     startX = x;
     startY = y;
     var target = event.target;
+    if (target && target.closest && target.closest("audio")) return;
     var article = target && target.closest ? target.closest(".sapp-msg") : null;
     if (!article || thread.classList.contains("is-selecting")) return;
     timer = setTimeout(function () {
@@ -299,6 +300,7 @@
 
   thread.addEventListener("contextmenu", function (event) {
     var target = event.target;
+    if (target && target.closest && target.closest("audio")) return;
     var article = target && target.closest ? target.closest(".sapp-msg") : null;
     if (!article) return;
     event.preventDefault();
@@ -511,6 +513,57 @@
   });
   } catch (err) {}
 
+  function isAudioMime(mime) {
+    mime = String(mime || "").toLowerCase().split(";")[0].trim();
+    return mime.indexOf("audio/") === 0 || mime === "video/webm" || mime === "application/ogg" || mime === "video/ogg";
+  }
+
+  function messageHasAudio(msg) {
+    var files = msg && msg.files ? msg.files : [];
+    var i;
+    for (i = 0; i < files.length; i++) {
+      if (isAudioMime(files[i] && files[i].mime)) return true;
+    }
+    return false;
+  }
+
+  function appendFileNode(parent, file) {
+    var href = String((file && file.url) || "");
+    var mime = file && file.mime ? file.mime : "";
+    if (!href) {
+      var pendingName = document.createElement("p");
+      pendingName.textContent = isAudioMime(mime) ? "وویس" : ((file && file.name) || "فایل");
+      parent.appendChild(pendingName);
+      return;
+    }
+    if (String(mime).indexOf("image/") === 0) {
+      var link = document.createElement("a");
+      link.href = href;
+      var image = document.createElement("img");
+      image.src = href;
+      image.alt = (file && file.name) || "فایل";
+      link.appendChild(image);
+      parent.appendChild(link);
+      return;
+    }
+    if (isAudioMime(mime)) {
+      var audio = document.createElement("audio");
+      audio.className = "sapp-audio";
+      audio.controls = true;
+      audio.preload = "none";
+      audio.setAttribute("aria-label", "پیام صوتی");
+      audio.src = href;
+      parent.appendChild(audio);
+      return;
+    }
+    var line = document.createElement("p");
+    var fileLink = document.createElement("a");
+    fileLink.href = href;
+    fileLink.textContent = (file && file.name) || "فایل";
+    line.appendChild(fileLink);
+    parent.appendChild(line);
+  }
+
   function buildMessage(msg) {
     var article = document.createElement("article");
     article.className = "sapp-msg " + (msg.mine ? "is-mine" : "is-theirs") + (msg.pending ? " is-pending" : "");
@@ -552,29 +605,7 @@
       article.appendChild(body);
     }
     (msg.files || []).forEach(function (file) {
-      var href = String(file.url || "");
-      if (!href) {
-        var pendingName = document.createElement("p");
-        pendingName.textContent = file.name || "فایل";
-        article.appendChild(pendingName);
-        return;
-      }
-      if (String(file.mime || "").indexOf("image/") === 0) {
-        var link = document.createElement("a");
-        link.href = href;
-        var image = document.createElement("img");
-        image.src = href;
-        image.alt = file.name || "فایل";
-        link.appendChild(image);
-        article.appendChild(link);
-      } else {
-        var line = document.createElement("p");
-        var fileLink = document.createElement("a");
-        fileLink.href = href;
-        fileLink.textContent = file.name || "فایل";
-        line.appendChild(fileLink);
-        article.appendChild(line);
-      }
+      appendFileNode(article, file);
     });
     var reacts = document.createElement("div");
     reacts.className = "sapp-reacts";
@@ -630,7 +661,7 @@
       thread.appendChild(buildMessage(msg));
       added = true;
       if (!msg.mine && !msg.pending && window.sappShowChatNote) {
-        var noteText = msg.body ? String(msg.body) : "فایل تازه";
+        var noteText = msg.body ? String(msg.body) : (messageHasAudio(msg) ? "پیام صوتی" : "فایل تازه");
         window.sappShowChatNote(msg.name || "مانا کارکنان", noteText);
       }
     });
@@ -691,16 +722,480 @@
 
   var compose = document.querySelector(".sapp-compose");
   if (compose && !observeOnly) {
-    compose.addEventListener("submit", function (event) {
-      event.preventDefault();
+    var voiceBlob = null;
+    var voiceMime = "";
+    var voiceUrl = "";
+    var recorder = null;
+    var recordStream = null;
+    var recordChunks = [];
+    var recording = false;
+    var arming = false;
+    var discardRecord = false;
+    var sendAfterStop = false;
+    var recordTimer = 0;
+    var recordStarted = 0;
+    var voiceSending = false;
+    var maxRecordMs = 5 * 60 * 1000;
+    var holding = false;
+    var locked = false;
+    var dropStream = false;
+    var tooShort = false;
+    var slideCancel = false;
+    var sendWhenReady = false;
+    var pointerId = null;
+    var originX = 0;
+    var originY = 0;
+    var gestureStart = 0;
+    var paused = false;
+    var stopIntent = "";
+    var elapsedBase = 0;
+    var segmentStart = 0;
+    var pickedMime = "";
+    var previewAudio = null;
+
+    function voiceExt(mime) {
+      mime = String(mime || "").toLowerCase();
+      if (mime.indexOf("mp4") >= 0 || mime.indexOf("m4a") >= 0 || mime.indexOf("aac") >= 0) return "m4a";
+      if (mime.indexOf("ogg") >= 0 || mime.indexOf("opus") >= 0) return "ogg";
+      if (mime.indexOf("mpeg") >= 0 || mime.indexOf("mp3") >= 0) return "mp3";
+      return "webm";
+    }
+
+    function pickRecordMime() {
+      var types = ["audio/webm;codecs=opus", "audio/webm", "audio/mp4", "audio/ogg;codecs=opus", "audio/ogg"];
+      if (!window.MediaRecorder || !MediaRecorder.isTypeSupported) return "";
+      var i;
+      for (i = 0; i < types.length; i++) {
+        if (MediaRecorder.isTypeSupported(types[i])) return types[i];
+      }
+      return "";
+    }
+
+    function pad2(n) {
+      return (n < 10 ? "0" : "") + n;
+    }
+
+    function formatClock(ms) {
+      var csTotal = Math.max(0, Math.floor(ms / 10));
+      var cs = csTotal % 100;
+      var totalSec = Math.floor(csTotal / 100);
+      var s = totalSec % 60;
+      var m = Math.floor(totalSec / 60);
+      return faDigits(m + ":" + pad2(s) + "," + pad2(cs));
+    }
+
+    function formatDuration(ms) {
+      var total = Math.max(0, Math.round(ms / 1000));
+      var s = total % 60;
+      var m = Math.floor(total / 60);
+      return faDigits(m + ":" + pad2(s));
+    }
+
+    function currentElapsed() {
+      return elapsedBase + (segmentStart ? Date.now() - segmentStart : 0);
+    }
+
+    function beginSegment() {
+      segmentStart = Date.now();
+    }
+
+    function freezeSegment() {
+      if (!segmentStart) return;
+      elapsedBase += Date.now() - segmentStart;
+      segmentStart = 0;
+    }
+
+    function showHint(text) {
+      var el = document.getElementById("sapp-voice-hint");
+      if (!el) return;
+      el.textContent = text;
+      el.hidden = false;
+      clearTimeout(showHint.timer);
+      showHint.timer = setTimeout(function () { el.hidden = true; }, 2200);
+    }
+
+    function setHoldScroll(on) {
+      document.body.classList.toggle("sapp-voice-hold", !!on);
+    }
+
+    function showSlideHint(on) {
+      var el = document.getElementById("sapp-voice-hint");
+      if (!el) return;
+      if (!on) {
+        if (el.getAttribute("data-slide") === "1") el.hidden = true;
+        el.removeAttribute("data-slide");
+        return;
+      }
+      clearTimeout(showHint.timer);
+      el.setAttribute("data-slide", "1");
+      el.textContent = "به بالا بکشید تا قفل شود";
+      el.hidden = false;
+    }
+
+    function paintVoice(mode) {
+      var row = document.getElementById("sapp-compose-row");
+      var rec = document.getElementById("sapp-voice-rec");
+      var liveBox = document.getElementById("sapp-voice-live");
+      var pausedBox = document.getElementById("sapp-voice-paused");
+      var btn = document.getElementById("sapp-voice");
+      var active = mode === "recording" || mode === "locked" || mode === "paused" || mode === "ready";
+      var showPaused = mode === "paused" || mode === "ready";
+      if (row) row.classList.toggle("is-recording", active);
+      if (rec) rec.hidden = !active;
+      if (liveBox) liveBox.hidden = !active || showPaused;
+      if (pausedBox) pausedBox.hidden = !showPaused;
+      if (!active) {
+        var timeEl = document.getElementById("sapp-voice-time");
+        if (timeEl) timeEl.textContent = faDigits("0:00,00");
+      }
+      if (showPaused) {
+        var dur = document.getElementById("sapp-voice-dur");
+        if (dur) dur.textContent = formatDuration(currentElapsed());
+      }
+      showSlideHint(mode === "recording" && holding && !locked);
+      if (btn) btn.setAttribute("aria-pressed", active ? "true" : "false");
+    }
+
+    function releaseVoiceUrl() {
+      if (!voiceUrl) return;
+      try { URL.revokeObjectURL(voiceUrl); } catch (err) {}
+      voiceUrl = "";
+    }
+
+    function stopPreview() {
+      if (previewAudio) {
+        try { previewAudio.pause(); } catch (err) {}
+      }
+      var playBtn = document.getElementById("sapp-voice-play");
+      var wave = document.getElementById("sapp-voice-wave");
+      if (playBtn) {
+        playBtn.classList.remove("is-on");
+        playBtn.setAttribute("aria-pressed", "false");
+        playBtn.setAttribute("aria-label", "پخش");
+      }
+      if (wave) wave.classList.remove("is-on");
+    }
+
+    function clearVoiceHold() {
+      stopPreview();
+      releaseVoiceUrl();
+      voiceBlob = null;
+      voiceMime = "";
+      recordChunks = [];
+      elapsedBase = 0;
+      segmentStart = 0;
+      paused = false;
+      locked = false;
+      holding = false;
+      showSlideHint(false);
+      paintVoice("idle");
+    }
+
+    function refreshPreviewUrl() {
+      releaseVoiceUrl();
+      if (!voiceBlob) return;
+      try { voiceUrl = URL.createObjectURL(voiceBlob); } catch (err) { voiceUrl = ""; }
+      if (previewAudio) {
+        try { previewAudio.pause(); } catch (err) {}
+        previewAudio = null;
+      }
+      stopPreview();
+    }
+
+    function snapshotChunks() {
+      var type = pickedMime || (recorder && recorder.mimeType) || voiceMime || "audio/webm";
+      if (recordChunks.length) voiceBlob = new Blob(recordChunks, { type: type });
+      voiceMime = String(type).split(";")[0] || "audio/webm";
+      refreshPreviewUrl();
+      var dur = document.getElementById("sapp-voice-dur");
+      if (dur) dur.textContent = formatDuration(currentElapsed());
+    }
+
+    function muteStream(muted) {
+      if (!recordStream) return;
+      recordStream.getAudioTracks().forEach(function (track) { track.enabled = !muted; });
+    }
+
+    function openRecorder(stream) {
+      var mime = pickRecordMime();
+      if (mime) pickedMime = mime;
+      var rec = null;
+      try {
+        rec = new MediaRecorder(stream, mime ? { mimeType: mime, audioBitsPerSecond: 48000 } : { audioBitsPerSecond: 48000 });
+      } catch (err) {
+        try {
+          rec = mime ? new MediaRecorder(stream, { mimeType: mime }) : new MediaRecorder(stream);
+        } catch (err2) {
+          return null;
+        }
+      }
+      rec.ondataavailable = function (event) {
+        if (event.data && event.data.size > 0) recordChunks.push(event.data);
+        if (paused) snapshotChunks();
+      };
+      rec.onstop = function () {
+        var type = rec.mimeType || pickedMime || "audio/webm";
+        var blob = new Blob(recordChunks, { type: type });
+        var intent = stopIntent || (discardRecord ? "discard" : (sendAfterStop ? "send" : ""));
+        stopIntent = "";
+        if (recorder === rec) recorder = null;
+        recording = false;
+        if (intent === "pause") {
+          paused = true;
+          locked = true;
+          voiceBlob = blob;
+          voiceMime = String(type).split(";")[0] || "audio/webm";
+          refreshPreviewUrl();
+          freezeSegment();
+          muteStream(true);
+          paintVoice("paused");
+          return;
+        }
+        stopTracks();
+        if (intent === "discard") {
+          discardRecord = false;
+          sendAfterStop = false;
+          clearVoiceHold();
+          return;
+        }
+        if (!blob.size || blob.size < 500 || currentElapsed() < 400) {
+          clearVoiceHold();
+          showHint("برای ضبط، دکمه را نگه دارید");
+          return;
+        }
+        voiceBlob = blob;
+        voiceMime = String(type).split(";")[0] || "audio/webm";
+        refreshPreviewUrl();
+        sendAfterStop = false;
+        submitCompose();
+      };
+      return rec;
+    }
+
+    function stopTracks() {
+      if (!recordStream) return;
+      recordStream.getTracks().forEach(function (track) {
+        try { track.stop(); } catch (err) {}
+      });
+      recordStream = null;
+    }
+
+    function tickRecord() {
+      var timeEl = document.getElementById("sapp-voice-time");
+      var elapsed = currentElapsed();
+      if (timeEl) timeEl.textContent = formatClock(elapsed);
+      if (elapsed >= maxRecordMs) requestSend();
+    }
+
+    function armTicks() {
+      if (recordTimer) return;
+      recordTimer = setInterval(tickRecord, 50);
+    }
+
+    function stopTicks() {
+      if (!recordTimer) return;
+      clearInterval(recordTimer);
+      recordTimer = 0;
+    }
+
+    function requestDiscard() {
+      stopPreview();
+      sendAfterStop = false;
+      sendWhenReady = false;
+      holding = false;
+      locked = false;
+      setHoldScroll(false);
+      showSlideHint(false);
+      stopIntent = "discard";
+      discardRecord = true;
+      dropStream = true;
+      stopTicks();
+      if (recorder && recorder.state !== "inactive") {
+        try { recorder.stop(); return; } catch (err) {}
+      }
+      stopTracks();
+      clearVoiceHold();
+    }
+
+    function requestSend() {
+      if (voiceSending) return;
+      holding = false;
+      setHoldScroll(false);
+      showSlideHint(false);
+      stopTicks();
+      freezeSegment();
+      sendAfterStop = true;
+      stopIntent = "send";
+      if (recorder && recorder.state !== "inactive") {
+        try { recorder.stop(); return; } catch (err) {}
+      }
+      if (arming) {
+        sendWhenReady = true;
+        return;
+      }
+      if (voiceBlob) submitCompose();
+      else clearVoiceHold();
+    }
+
+    function pauseTake() {
+      if (voiceSending) return;
+      freezeSegment();
+      stopTicks();
+      holding = false;
+      setHoldScroll(false);
+      showSlideHint(false);
+      if (recorder && recorder.state === "recording" && typeof recorder.pause === "function") {
+        try {
+          recorder.requestData();
+          recorder.pause();
+          muteStream(true);
+          paused = true;
+          recording = false;
+          locked = true;
+          window.setTimeout(snapshotChunks, 60);
+          paintVoice("paused");
+          return;
+        } catch (err) {}
+      }
+      stopIntent = "pause";
+      if (recorder && recorder.state === "recording") {
+        try { recorder.stop(); return; } catch (err) {}
+      }
+      snapshotChunks();
+      paused = true;
+      locked = true;
+      paintVoice("paused");
+    }
+
+    function resumeTake() {
+      stopPreview();
+      muteStream(false);
+      if (!recordStream) {
+        locked = true;
+        paused = false;
+        ensureRecording();
+        return;
+      }
+      if (recorder && recorder.state === "paused" && typeof recorder.resume === "function") {
+        try {
+          recorder.resume();
+          paused = false;
+          recording = true;
+          locked = true;
+          beginSegment();
+          armTicks();
+          paintVoice("locked");
+          return;
+        } catch (err) {}
+      }
+      var next = openRecorder(recordStream);
+      if (!next) {
+        window.alert("ضبط شروع نشد.");
+        return;
+      }
+      recorder = next;
+      try { recorder.start(250); } catch (err) {
+        window.alert("ضبط شروع نشد.");
+        return;
+      }
+      paused = false;
+      recording = true;
+      locked = true;
+      beginSegment();
+      armTicks();
+      paintVoice("locked");
+    }
+
+    function ensureRecording() {
+      if (recording || voiceSending || arming) return true;
+      if (paused && recordStream) {
+        resumeTake();
+        return true;
+      }
+      if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || !window.MediaRecorder) {
+        window.alert("این مرورگر ضبط صدا را پشتیبانی نمی‌کند.");
+        return false;
+      }
+      discardRecord = false;
+      sendAfterStop = false;
+      arming = true;
+      navigator.mediaDevices.getUserMedia({ audio: true }).then(function (stream) {
+        arming = false;
+        if (discardRecord || dropStream || (!holding && !locked && !sendWhenReady)) {
+          stream.getTracks().forEach(function (track) {
+            try { track.stop(); } catch (err) {}
+          });
+          var showShort = tooShort;
+          discardRecord = false;
+          dropStream = false;
+          tooShort = false;
+          sendWhenReady = false;
+          clearVoiceHold();
+          if (showShort) showHint("برای ضبط، دکمه را نگه دارید");
+          return;
+        }
+        recordStream = stream;
+        recorder = openRecorder(stream);
+        if (!recorder) {
+          stopTracks();
+          clearVoiceHold();
+          window.alert("این مرورگر ضبط صدا را پشتیبانی نمی‌کند.");
+          return;
+        }
+        try { recorder.start(250); } catch (err) {
+          stopTracks();
+          clearVoiceHold();
+          window.alert("ضبط شروع نشد.");
+          return;
+        }
+        recording = true;
+        beginSegment();
+        armTicks();
+        tickRecord();
+        if (sendWhenReady && !holding) {
+          sendWhenReady = false;
+          requestSend();
+          return;
+        }
+        paintVoice(locked ? "locked" : "recording");
+      }).catch(function () {
+        arming = false;
+        holding = false;
+        locked = false;
+        setHoldScroll(false);
+        var denied = !tooShort && !dropStream;
+        clearVoiceHold();
+        if (denied) window.alert("دسترسی میکروفون داده نشد.");
+        tooShort = false;
+        dropStream = false;
+      });
+      return true;
+    }
+
+    function submitCompose() {
+      if (voiceSending || recording) return;
       var field = document.getElementById("chat-body");
       var file = document.getElementById("chat-file");
       var text = field ? field.value : "";
-      var hasFile = file && file.files && file.files.length > 0;
-      if (!String(text).trim() && !hasFile) return;
+      var blob = voiceBlob;
+      var hasFile = !blob && file && file.files && file.files.length > 0;
+      if (!String(text).trim() && !hasFile && !blob) return;
+      voiceSending = true;
       window.sappSentAt = Date.now();
       var body = new FormData(compose);
       body.set("ajax", "1");
+      var preview = "";
+      var base = "";
+      if (blob) {
+        base = String(voiceMime || blob.type || "audio/webm").split(";")[0] || "audio/webm";
+        body.delete("file");
+        body.append("file", blob, "voice." + voiceExt(base));
+        body.set("voice", "1");
+        preview = voiceUrl;
+        voiceBlob = null;
+        voiceUrl = "";
+        paintVoice("idle");
+      }
       var tempId = "tmp" + Date.now();
       appendMessages([{
         id: tempId,
@@ -712,7 +1207,7 @@
         created: "",
         forward: "",
         replyTo: "",
-        files: hasFile ? [{ url: "", name: file.files[0].name || "فایل", mime: "" }] : []
+        files: blob ? [{ url: preview, name: "وویس", mime: base }] : (hasFile ? [{ url: "", name: file.files[0].name || "فایل", mime: "" }] : [])
       }]);
       if (field) field.value = "";
       if (file) file.value = "";
@@ -734,17 +1229,182 @@
           return data;
         });
       }).then(function (data) {
+        voiceSending = false;
+        if (preview) {
+          try { URL.revokeObjectURL(preview); } catch (err) {}
+        }
         var temp = document.getElementById("m-" + tempId);
         if (temp) temp.remove();
         if (data.message) appendMessages([data.message]);
         stickThread();
       }).catch(function (err) {
+        voiceSending = false;
         window.sappSentAt = 0;
         var temp = document.getElementById("m-" + tempId);
         if (temp) temp.classList.remove("is-pending");
         if (field && !field.value) field.value = text;
+        if (blob) {
+          voiceBlob = blob;
+          voiceMime = base;
+          voiceUrl = preview;
+          locked = true;
+          paused = true;
+          paintVoice("paused");
+          showHint("ارسال نشد");
+        }
         window.alert(err.message || "پیام فرستاده نشد.");
       });
+    }
+
+    compose.addEventListener("submit", function (event) {
+      event.preventDefault();
+      if (recording || paused || (recorder && recorder.state && recorder.state !== "inactive")) {
+        requestSend();
+        return;
+      }
+      submitCompose();
+    });
+
+    var voiceBtn = document.getElementById("sapp-voice");
+    function bindTap(id, fn) {
+      var node = document.getElementById(id);
+      if (!node) return;
+      node.addEventListener("click", function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        fn();
+      });
+    }
+    bindTap("sapp-voice-up", requestSend);
+    bindTap("sapp-voice-plane", requestSend);
+    bindTap("sapp-voice-pause", pauseTake);
+    bindTap("sapp-voice-resume", resumeTake);
+    bindTap("sapp-voice-cancel", requestDiscard);
+    bindTap("sapp-voice-trash", requestDiscard);
+    bindTap("sapp-voice-play", function () {
+      snapshotChunks();
+      if (!voiceUrl) return;
+      if (!previewAudio || previewAudio.getAttribute("data-src") !== voiceUrl) {
+        if (previewAudio) {
+          try { previewAudio.pause(); } catch (err) {}
+        }
+        previewAudio = new Audio(voiceUrl);
+        previewAudio.setAttribute("data-src", voiceUrl);
+        previewAudio.addEventListener("ended", stopPreview);
+      }
+      if (previewAudio.paused) {
+        previewAudio.play().then(function () {
+          var playBtn = document.getElementById("sapp-voice-play");
+          var wave = document.getElementById("sapp-voice-wave");
+          if (playBtn) {
+            playBtn.classList.add("is-on");
+            playBtn.setAttribute("aria-pressed", "true");
+            playBtn.setAttribute("aria-label", "مکث پخش");
+          }
+          if (wave) wave.classList.add("is-on");
+        }).catch(function () {});
+        return;
+      }
+      stopPreview();
+    });
+    var waveBox = document.getElementById("sapp-voice-wave");
+    if (waveBox && !waveBox.childNodes.length) {
+      [30, 55, 80, 45, 95, 60, 40, 75, 50, 88, 35, 70, 48, 92, 58, 42, 78, 52, 66, 38].forEach(function (height, index) {
+        var bar = document.createElement("i");
+        bar.style.height = height + "%";
+        bar.style.animationDelay = ((index % 6) * 0.08) + "s";
+        waveBox.appendChild(bar);
+      });
+    }
+    if (voiceBtn) {
+      voiceBtn.addEventListener("contextmenu", function (event) { event.preventDefault(); });
+      voiceBtn.addEventListener("pointerdown", function (event) {
+        if (event.pointerType === "mouse" && event.button !== 0) return;
+        if (voiceSending || holding || locked || recording || paused || arming) return;
+        event.preventDefault();
+        holding = true;
+        locked = false;
+        slideCancel = false;
+        dropStream = false;
+        tooShort = false;
+        sendWhenReady = false;
+        pointerId = event.pointerId;
+        originX = event.clientX;
+        originY = event.clientY;
+        gestureStart = Date.now();
+        try { voiceBtn.setPointerCapture(event.pointerId); } catch (err) {}
+        setHoldScroll(true);
+        recordChunks = [];
+        elapsedBase = 0;
+        segmentStart = 0;
+        paused = false;
+        voiceBlob = null;
+        releaseVoiceUrl();
+        paintVoice("recording");
+        showSlideHint(true);
+        if (!ensureRecording()) {
+          holding = false;
+          setHoldScroll(false);
+          paintVoice("idle");
+        }
+      }, { passive: false });
+      voiceBtn.addEventListener("pointermove", function (event) {
+        if (!holding || locked || event.pointerId !== pointerId) return;
+        event.preventDefault();
+        var dx = originX - event.clientX;
+        var dy = originY - event.clientY;
+        if (dy > 64) {
+          locked = true;
+          slideCancel = false;
+          setHoldScroll(false);
+          paintVoice("locked");
+          showSlideHint(false);
+          return;
+        }
+        slideCancel = dx > 80;
+      }, { passive: false });
+      voiceBtn.addEventListener("pointerup", function (event) {
+        if (pointerId !== null && event.pointerId !== pointerId) return;
+        if (!holding) return;
+        var elapsed = Date.now() - gestureStart;
+        holding = false;
+        setHoldScroll(false);
+        try { voiceBtn.releasePointerCapture(pointerId); } catch (err) {}
+        pointerId = null;
+        if (locked) return;
+        if (slideCancel || elapsed < 450) {
+          tooShort = elapsed < 450 && !slideCancel;
+          dropStream = true;
+          requestDiscard();
+          if (tooShort) showHint("برای ضبط، دکمه را نگه دارید");
+          return;
+        }
+        if (!recording) {
+          dropStream = true;
+          paintVoice("idle");
+          return;
+        }
+        requestSend();
+      });
+      voiceBtn.addEventListener("pointercancel", function (event) {
+        if (!holding) return;
+        if (locked) {
+          holding = false;
+          setHoldScroll(false);
+          return;
+        }
+        slideCancel = true;
+        tooShort = false;
+        dropStream = true;
+        holding = false;
+        setHoldScroll(false);
+        try { if (pointerId !== null) voiceBtn.releasePointerCapture(pointerId); } catch (err) {}
+        pointerId = null;
+        requestDiscard();
+      });
+    }
+    window.addEventListener("pagehide", function () {
+      requestDiscard();
     });
   }
 
