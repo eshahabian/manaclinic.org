@@ -215,7 +215,7 @@ if ($method === 'POST' && $path === '/app/checklist') {
     $ymd = trim((string) post('task_date'));
     $key = trim((string) post('task_key'));
     $mark = secretary_daily_task_posted_mark();
-    $back = '/app/checklist?date=' . rawurlencode($ymd);
+    $back = '/app/checklist?date=' . rawurlencode($ymd) . '&secretary=' . rawurlencode($userId);
     $ajax = secretary_daily_task_request_is_ajax();
     $fail = static function (string $message, int $status = 400) use ($ajax, $back): never {
         if ($ajax) {
@@ -372,6 +372,7 @@ $descriptions = [
 
 if ($section === 'home') {
     $hello = $name !== '' ? $name : staff_app_role_label($role);
+    $consultOpen = function_exists('consult_request_new_count') ? consult_request_new_count() : 0;
     ob_start();
     ?>
     <div class="sapp-hello">
@@ -395,7 +396,7 @@ if ($section === 'home') {
         <em>Team Messaging</em>
       </a>
       <a class="sapp-tile" href="<?= e(url('/app/consult')) ?>">
-        <span class="sapp-ico sapp-ico-teal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8.2 4.8h2.1a1 1 0 0 1 1 .76l.5 2.4a1 1 0 0 1-.5 1.05l-1.35.7a7.6 7.6 0 0 0 3.74 3.74l.7-1.35a1 1 0 0 1 1.05-.5l2.4.5a1 1 0 0 1 .76 1V15.4A1.6 1.6 0 0 1 17 17 11.2 11.2 0 0 1 7 7a1.6 1.6 0 0 1 1.2-2.2z"/></svg></span>
+        <span class="sapp-ico sapp-ico-teal sapp-consult-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8.2 4.8h2.1a1 1 0 0 1 1 .76l.5 2.4a1 1 0 0 1-.5 1.05l-1.35.7a7.6 7.6 0 0 0 3.74 3.74l.7-1.35a1 1 0 0 1 1.05-.5l2.4.5a1 1 0 0 1 .76 1V15.4A1.6 1.6 0 0 1 17 17 11.2 11.2 0 0 1 7 7a1.6 1.6 0 0 1 1.2-2.2z"/></svg><?php if ($consultOpen > 0): ?><span class="sapp-consult-badge"><?= e(to_fa_digits((string) $consultOpen)) ?></span><?php endif; ?></span>
         <strong>درخواست مشاوره</strong>
         <em>Consult Requests</em>
       </a>
@@ -982,6 +983,11 @@ if ($section === 'chat') {
 }
 
 if ($section === 'hours') {
+    if ($role === 'SECRETARY') {
+        header('Cache-Control: no-store, no-cache, must-revalidate');
+        header('Pragma: no-cache');
+        redirect('/app');
+    }
     $html = '<h1>ساعت کار منشی‌ها</h1><p>بارگذاری ساعت کار الان ممکن نیست.</p>';
     try {
         require_once __DIR__ . '/../includes/staff_hours_ui.php';
@@ -989,21 +995,108 @@ if ($section === 'hours') {
             staff_hours_collect($pdo),
             static fn(array $block): bool => (string) ($block['kind'] ?? '') === 'secretary'
         ));
-        ob_start();
-        echo '<h1>ساعت کار منشی‌ها</h1>';
-        echo '<p class="muted">ورود، خروج و مدت حضور هر منشی. ساعت عادی از ۹ صبح تا ۸ شب است.</p>';
-        if ($blocks === []) {
-            echo '<p class="muted">منشی‌ای برای نمایش ساعت کار پیدا نشد.</p>';
+        $today = date('Y-m-d');
+        $ymd = trim((string) ($_GET['date'] ?? $today));
+        $dateOk = preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymd) === 1;
+        if ($dateOk) {
+            [$gy, $gm, $gd] = array_map('intval', explode('-', $ymd));
+            $dateOk = checkdate($gm, $gd, $gy);
         }
+        if (!$dateOk || $ymd > $today) {
+            $ymd = $today;
+        }
+        $prev = date('Y-m-d', strtotime($ymd . ' -1 day') ?: time());
+        $next = date('Y-m-d', strtotime($ymd . ' +1 day') ?: time());
+        $secretaryIdOf = static function (array $block): string {
+            $row = is_array($block['user'] ?? null) ? $block['user'] : [];
+            $id = trim((string) ($row['id'] ?? ''));
+            if ($id !== '') {
+                return $id;
+            }
+
+            return trim((string) ($block['tab_id'] ?? ''));
+        };
+        $secretaryNameOf = static function (array $block): string {
+            $row = is_array($block['user'] ?? null) ? $block['user'] : [];
+            $person = trim((string) ($row['name'] ?? ''));
+            if ($person !== '') {
+                return $person;
+            }
+            $username = trim((string) ($row['username'] ?? ''));
+            if ($username !== '') {
+                return $username;
+            }
+            $label = trim((string) ($block['label'] ?? ''));
+
+            return $label !== '' ? $label : 'منشی';
+        };
+        $secretaryIds = [];
         foreach ($blocks as $block) {
-            $label = trim((string) ($block['label'] ?? 'منشی'));
-            echo staff_hours_render_self($block, [
-                'title' => $label,
-                'intro' => 'حضور ' . $label . ' در کلینیک.',
-            ]);
+            $secretaryIds[] = $secretaryIdOf($block);
         }
+        $requestedSecretary = trim((string) ($_GET['secretary'] ?? ''));
+        if ($requestedSecretary !== '' && in_array($requestedSecretary, $secretaryIds, true)) {
+            $selectedId = $requestedSecretary;
+        } else {
+            $selectedId = $secretaryIds[0] ?? '';
+        }
+        $selected = null;
+        foreach ($blocks as $block) {
+            if ($secretaryIdOf($block) === $selectedId) {
+                $selected = $block;
+                break;
+            }
+        }
+        $hoursHref = static function (string $day, string $secId): string {
+            $query = 'date=' . rawurlencode($day);
+            if ($secId !== '') {
+                $query .= '&secretary=' . rawurlencode($secId);
+            }
+
+            return url('/app/hours?' . $query);
+        };
+        $weekTs = strtotime($ymd . ' 12:00:00') ?: time();
+        $weekNames = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه', 'شنبه'];
+        $weekName = $weekNames[(int) date('w', $weekTs)] ?? '';
+        $jalali = function_exists('to_jalali_label') ? to_jalali_label($ymd) : $ymd;
+        $dateLabel = trim($weekName . ' · ' . $jalali);
+        $arrowLeft = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 6.5 9 12l5.5 5.5"/></svg>';
+        $arrowRight = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 6.5 15 12l-5.5 5.5"/></svg>';
+        ob_start();
+        ?>
+        <div class="sapp-checklist">
+        <h1>ساعت کار منشی‌ها</h1>
+        <p class="muted">ورود، خروج و مدت حضور هر روز. ساعت عادی از ۹ صبح تا ۸ شب است.</p>
+        <?php if ($blocks === [] || $selected === null): ?>
+          <p class="muted">منشی‌ای برای نمایش ساعت کار پیدا نشد.</p>
+        <?php else: ?>
+          <?php $selected['label'] = $secretaryNameOf($selected); ?>
+          <div class="sapp-check-tabs" role="tablist" aria-label="منشی‌ها">
+            <?php foreach ($blocks as $block): ?>
+              <?php
+                $tabId = $secretaryIdOf($block);
+                $tabName = $secretaryNameOf($block);
+                $isActive = $tabId === $selectedId;
+              ?>
+              <a class="sapp-check-tab<?= $isActive ? ' is-active' : '' ?>" role="tab" id="sapp-hours-tab-<?= e($tabId) ?>" href="<?= e($hoursHref($ymd, $tabId)) ?>" aria-selected="<?= $isActive ? 'true' : 'false' ?>"<?= $isActive ? ' aria-current="page"' : '' ?>><?= e($tabName) ?></a>
+            <?php endforeach; ?>
+          </div>
+          <div role="tabpanel" aria-labelledby="sapp-hours-tab-<?= e($selectedId) ?>">
+            <div class="sapp-daynav">
+              <a class="sapp-daynav-btn" href="<?= e($hoursHref($prev, $selectedId)) ?>" aria-label="روز قبل"><?= $arrowLeft ?></a>
+              <strong class="sapp-daynav-date"><?= e($dateLabel) ?></strong>
+              <?php if ($next <= $today): ?>
+                <a class="sapp-daynav-btn" href="<?= e($hoursHref($next, $selectedId)) ?>" aria-label="روز بعد"><?= $arrowRight ?></a>
+              <?php else: ?>
+                <span class="sapp-daynav-btn is-off" aria-hidden="true"><?= $arrowRight ?></span>
+              <?php endif; ?>
+            </div>
+            <?= staff_hours_render_tile($selected, $ymd, $today) ?>
+          </div>
+        <?php endif; ?>
+        </div>
+        <?php
         $html = ob_get_clean();
-        $GLOBALS['pageScripts'] = staff_hours_scripts();
     } catch (Throwable $e) {
         error_log('staff app hours: ' . $e->getMessage());
     }
@@ -1028,10 +1121,10 @@ if ($section === 'consult') {
             $doneRows[] = $row;
         }
     }
-    $newCount = count($openRows);
+    $newCount = consult_request_new_count();
     ob_start();
     ?>
-    <h1>درخواست مشاوره</h1>
+    <h1>درخواست مشاوره<?php if ($newCount > 0): ?><span class="sapp-consult-badge sapp-consult-badge-inline"><?= e(to_fa_digits((string) $newCount)) ?></span><?php endif; ?></h1>
     <p class="muted">این‌ها را از فرم پایین سایت فرستاده‌اند. روی شماره بزنید تا تماس بگیرید.<?= $newCount ? ' ' . e(to_fa_digits((string) $newCount)) . ' درخواست پیگیری نشده است.' : '' ?></p>
     <?php if (!$rows): ?>
       <p class="sapp-row">هنوز درخواست مشاوره‌ای از سایت نرسیده است.</p>
@@ -1088,55 +1181,93 @@ if ($section === 'checklist') {
     $prev = date('Y-m-d', strtotime($ymd . ' -1 day') ?: time());
     $next = date('Y-m-d', strtotime($ymd . ' +1 day') ?: time());
     $secretaries = secretary_daily_task_secretaries($pdo);
-    $present = [];
-    $absent = [];
+    $secretaryIds = [];
     foreach ($secretaries as $sec) {
-        $secId = (string) ($sec['id'] ?? '');
-        $wasPresent = secretary_was_present($pdo, $secId, $ymd);
-        $hasTick = false;
-        if (!$wasPresent) {
-            foreach (secretary_daily_task_states($pdo, $secId, $ymd) as $state) {
-                if (!empty($state['done']) || !empty($state['skipped'])) {
-                    $hasTick = true;
-                    break;
-                }
-            }
-        }
-        if ($wasPresent || $hasTick || ($role === 'SECRETARY' && $secId === $userId && $ymd === $today)) {
-            $present[] = $sec;
-        } else {
-            $absent[] = $sec;
+        $secretaryIds[] = (string) ($sec['id'] ?? '');
+    }
+    $requestedSecretary = trim((string) ($_GET['secretary'] ?? ''));
+    if ($requestedSecretary !== '' && in_array($requestedSecretary, $secretaryIds, true)) {
+        $selectedId = $requestedSecretary;
+    } elseif (in_array($userId, $secretaryIds, true)) {
+        $selectedId = $userId;
+    } else {
+        $selectedId = $secretaryIds[0] ?? '';
+    }
+    $selected = null;
+    foreach ($secretaries as $sec) {
+        if ((string) ($sec['id'] ?? '') === $selectedId) {
+            $selected = $sec;
+            break;
         }
     }
     $tickUrl = url('/secretary/daily-tasks');
+    $checkHref = static function (string $day, string $secId): string {
+        $query = 'date=' . rawurlencode($day);
+        if ($secId !== '') {
+            $query .= '&secretary=' . rawurlencode($secId);
+        }
+
+        return url('/app/checklist?' . $query);
+    };
+    $arrowLeft = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 6.5 9 12l5.5 5.5"/></svg>';
+    $arrowRight = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 6.5 15 12l-5.5 5.5"/></svg>';
     ob_start();
     ?>
+    <div class="sapp-checklist">
     <h1>لیست کارهای روزانه</h1>
     <p class="muted">همان فهرست داخل سایت است. پس از انجام هر کار آن را علامت بزنید. اگر کاری امروز لازم نیست، «امروز نیاز نیست» را بزنید.</p>
-    <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.75rem">
-      <a class="btn btn-outline btn-sm" href="<?= e(url('/app/checklist?date=' . rawurlencode($prev))) ?>">روز قبل</a>
-      <strong><?= e(secretary_daily_task_date_label($ymd)) ?></strong>
-      <?php if ($next <= $today): ?>
-        <a class="btn btn-outline btn-sm" href="<?= e(url('/app/checklist?date=' . rawurlencode($next))) ?>">روز بعد</a>
-      <?php endif; ?>
-    </div>
-    <?php if ($secretaries === []): ?>
+    <?php if ($secretaries === [] || $selected === null): ?>
       <p class="muted">منشی فعالی ثبت نشده است.</p>
-    <?php elseif (!$present): ?>
-      <p class="muted" style="margin-top:1rem">در این روز هیچ منشی‌ای حضور ثبت‌شده ندارد.</p>
-      <?= secretary_daily_tasks_table_html($pdo, ['id' => '', 'name' => '', 'username' => ''], $ymd, false, '', true) ?>
     <?php else: ?>
-      <?php foreach ($present as $secretary): ?>
+      <div class="sapp-check-tabs" role="tablist" aria-label="منشی‌ها">
+        <?php foreach ($secretaries as $sec): ?>
+          <?php
+            $tabId = (string) ($sec['id'] ?? '');
+            $tabName = trim((string) ($sec['name'] ?? ''));
+            if ($tabName === '') {
+                $tabName = trim((string) ($sec['username'] ?? ''));
+            }
+            if ($tabName === '') {
+                $tabName = 'منشی';
+            }
+            $isActive = $tabId === $selectedId;
+          ?>
+          <a class="sapp-check-tab<?= $isActive ? ' is-active' : '' ?>" role="tab" id="sapp-check-tab-<?= e($tabId) ?>" href="<?= e($checkHref($ymd, $tabId)) ?>" aria-selected="<?= $isActive ? 'true' : 'false' ?>"<?= $isActive ? ' aria-current="page"' : '' ?>><?= e($tabName) ?></a>
+        <?php endforeach; ?>
+      </div>
+      <div class="sapp-check-panel" role="tabpanel" aria-labelledby="sapp-check-tab-<?= e($selectedId) ?>">
+        <div class="sapp-daynav">
+          <a class="sapp-daynav-btn" href="<?= e($checkHref($prev, $selectedId)) ?>" aria-label="روز قبل"><?= $arrowLeft ?></a>
+          <strong class="sapp-daynav-date"><?= e(secretary_daily_task_date_label($ymd)) ?></strong>
+          <?php if ($next <= $today): ?>
+            <a class="sapp-daynav-btn" href="<?= e($checkHref($next, $selectedId)) ?>" aria-label="روز بعد"><?= $arrowRight ?></a>
+          <?php else: ?>
+            <span class="sapp-daynav-btn is-off" aria-hidden="true"><?= $arrowRight ?></span>
+          <?php endif; ?>
+        </div>
         <?php
-          $secId = (string) ($secretary['id'] ?? '');
-          $canTick = $role === 'SECRETARY' && $secId === $userId && secretary_daily_task_can_edit($pdo, $userId, $ymd, true);
-          echo secretary_daily_tasks_table_html($pdo, $secretary, $ymd, $canTick, $canTick ? $tickUrl : '', false);
+          $secId = (string) ($selected['id'] ?? '');
+          $wasPresent = secretary_was_present($pdo, $secId, $ymd);
+          $hasTick = false;
+          if (!$wasPresent) {
+              foreach (secretary_daily_task_states($pdo, $secId, $ymd) as $state) {
+                  if (!empty($state['done']) || !empty($state['skipped'])) {
+                      $hasTick = true;
+                      break;
+                  }
+              }
+          }
+          $showList = $wasPresent || $hasTick || ($role === 'SECRETARY' && $secId === $userId && $ymd === $today);
+          if (!$showList) {
+              echo '<p class="sapp-check-absent">این روز حضور نداشته است.</p>';
+          } else {
+              $canTick = $role === 'SECRETARY' && $secId === $userId && secretary_daily_task_can_edit($pdo, $userId, $ymd, true);
+              echo secretary_daily_tasks_table_html($pdo, $selected, $ymd, $canTick, $canTick ? $tickUrl : '', false);
+          }
         ?>
-      <?php endforeach; ?>
+      </div>
     <?php endif; ?>
-    <?php if ($absent): ?>
-      <p class="muted" style="margin-top:1rem">این روز حضور نداشته‌اند: <?= e(implode('، ', array_map(static fn (array $s): string => (string) (($s['name'] ?? '') !== '' ? $s['name'] : ($s['username'] ?? '')), $absent))) ?></p>
-    <?php endif; ?>
+    </div>
     <?php
     staff_app_render('checklist', 'لیست کارهای روزانه', $descriptions['checklist'], ob_get_clean());
     exit;

@@ -1698,6 +1698,9 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-ico-pink{background:#fdeef3;color:#e07a9a}
     .sapp-ico-red{background:#fdeeee;color:#e07070}
     .sapp-ico-teal{background:#e5f6f4;color:#128f84}
+    .sapp-consult-ico{position:relative}
+    .sapp-consult-badge{position:absolute;top:-.35rem;left:-.45rem;z-index:2;min-width:1.15rem;height:1.15rem;padding:0 .28rem;border-radius:999px;background:#e23b3b;color:#fff;font-size:.72rem;font-weight:800;line-height:1;display:inline-flex;align-items:center;justify-content:center;box-shadow:0 0 0 .12rem #fff;pointer-events:none}
+    .sapp-consult-badge-inline{position:static;margin-inline-start:.45rem;vertical-align:.08rem;pointer-events:auto}
     .sapp-nav{position:fixed;right:0;left:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding:.35rem 1.5vw calc(.45rem + env(safe-area-inset-bottom));background:#fff;border-top:1px solid #e6eeea}
     .sapp-nav a{display:flex;flex-direction:column;align-items:center;gap:1px;text-decoration:none;color:#8aa099;font-size:clamp(.68rem,2.8vw,.78rem);font-weight:700;min-width:0;text-align:center}
     .sapp-nav a.is-active{color:#159688}
@@ -1706,6 +1709,7 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-nav svg{width:22px;height:22px}
     .sapp-badge{position:absolute;top:2px;left:50%;transform:translateX(-18px);min-width:1.1rem;height:1.1rem;padding:0 4px;border-radius:999px;background:#e07070;color:#fff;font-size:.68rem;display:inline-flex;align-items:center;justify-content:center}
     .sapp-nav a{position:relative}
+    .sapp-nav .is-locked{display:flex;flex-direction:column;align-items:center;gap:1px;min-width:0;text-align:center;color:#b7c4be;font-size:clamp(.68rem,2.8vw,.78rem);font-weight:700;opacity:.5;cursor:default;-webkit-user-select:none;user-select:none}
     .sapp-fab{position:fixed;z-index:31;right:18px;bottom:calc(76px + env(safe-area-inset-bottom));display:flex;align-items:center;gap:8px;color:#1c3d36;text-decoration:none;font-weight:800;font-size:.92rem}
     .sapp-fab-btn{width:54px;height:54px;border-radius:999px;background:#1a9a8a;color:#fff;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 22px rgba(26,154,138,.35)}
     .sapp-fab-btn svg{width:26px;height:26px}
@@ -1841,6 +1845,16 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-selectbar{position:fixed;right:16px;left:16px;bottom:calc(76px + env(safe-area-inset-bottom));z-index:40;display:flex;gap:8px}
     .sapp-selectbar button{flex:1;min-height:44px;border:0;border-radius:12px;background:#1c1c1e;color:#fff;font:inherit;font-weight:800}
     .sapp-selectbar .is-danger{background:#c44747}
+    .sapp-checklist{direction:rtl}
+    .sapp-check-tabs{display:flex;flex-wrap:wrap;gap:.45rem;margin:.85rem 0 .7rem}
+    .sapp-check-tab{flex:1 1 7.5rem;min-width:0;min-height:2.75rem;padding:.4rem .7rem;border:1px solid #d5ebe7;border-radius:.95rem;background:#fff;color:#1a9a8a;box-shadow:0 .35rem 1rem rgba(28,70,58,.05);font-size:clamp(.88rem,3.6vw,1rem);font-weight:800;line-height:1.35;text-align:center;text-decoration:none;display:flex;align-items:center;justify-content:center;touch-action:manipulation}
+    .sapp-check-tab.is-active{background:#1a9a8a;border-color:#1a9a8a;color:#fff}
+    .sapp-daynav{display:flex;direction:ltr;align-items:center;justify-content:space-between;gap:.5rem;margin:0 0 .85rem}
+    .sapp-daynav-btn{flex:none;width:2.75rem;height:2.75rem;border:1px solid #d5ebe7;border-radius:999px;background:#fff;color:#1a9a8a;box-shadow:0 .25rem .8rem rgba(28,70,58,.06);display:inline-flex;align-items:center;justify-content:center;text-decoration:none;touch-action:manipulation}
+    .sapp-daynav-btn svg{width:1.35rem;height:1.35rem;display:block}
+    .sapp-daynav-btn.is-off{opacity:.35}
+    .sapp-daynav-date{flex:1;min-width:0;direction:rtl;text-align:center;color:#1c3d36;font-size:clamp(.92rem,3.8vw,1.05rem);font-weight:800;line-height:1.45}
+    .sapp-check-absent{margin:0;padding:1rem 1.05rem;border-radius:1rem;background:#fff;color:#5d746c;box-shadow:0 .35rem 1rem rgba(28,70,58,.05);line-height:1.7}
     body.sapp{padding:0}
   </style>
 </head>
@@ -1901,10 +1915,17 @@ function staff_app_render(string $active, string $title, string $description, st
         گفتگو
         <?php if ($unread > 0): ?><span class="sapp-badge"><?= e(to_fa_digits((string) $unread)) ?></span><?php endif; ?>
       </a>
+      <?php if ($isSecretary): ?>
+      <span class="is-locked" role="link" aria-disabled="true" tabindex="-1">
+        <span class="sapp-nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4.2l2.6 1.6"/></svg></span>
+        ساعت کاری
+      </span>
+      <?php else: ?>
       <a class="<?= $navKey === 'hours' ? 'is-active' : '' ?>" href="<?= e(url('/app/hours')) ?>">
         <span class="sapp-nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4.2l2.6 1.6"/></svg></span>
         ساعت کاری
       </a>
+      <?php endif; ?>
       <a class="<?= $navKey === 'profile' ? 'is-active' : '' ?>" href="<?= e(url('/app/profile')) ?>">
         <span class="sapp-nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5.5 19.2a6.5 6.5 0 0 1 13 0"/></svg></span>
         پروفایل
