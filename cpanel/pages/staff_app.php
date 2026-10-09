@@ -858,7 +858,6 @@ if ($section === 'chat') {
               $canDeleteChat = empty($room['is_general']) && empty($room['deleted_at']) && (!$observeOnly || (staff_app_is_eshahabian($user) && !$watchedDirect));
               $canKeepChat = $fromArchive && staff_app_is_eshahabian($user) && empty($room['kept_forever']);
             ?>
-            <p style="margin:0 0 8px"><a href="<?= e(url($fromArchive ? '/app/chat/archive' : '/app/chat')) ?>"><?= $fromArchive ? 'آرشیو' : 'همه چت‌ها' ?></a></p>
             <div class="sapp-thread-head">
               <h1 class="sapp-thread-title"><i class="sapp-dot" data-online="<?= e(implode(',', $peerIds)) ?>" hidden></i><span><?= e((string) ($room['title'] ?? 'چت')) ?></span></h1>
               <?php if ($canDeleteChat): ?>
