@@ -852,8 +852,24 @@ if ($section === 'chat') {
             ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
             ob_start();
             ?>
+            <?php
+              $watchedCount = count($peerIds) + ($observeOnly ? 0 : 1);
+              $watchedDirect = empty($room['is_general']) && empty($room['is_private']) && $watchedCount === 2;
+              $canDeleteChat = empty($room['is_general']) && empty($room['deleted_at']) && (!$observeOnly || (staff_app_is_eshahabian($user) && !$watchedDirect));
+              $canKeepChat = $fromArchive && staff_app_is_eshahabian($user) && empty($room['kept_forever']);
+            ?>
             <p style="margin:0 0 8px"><a href="<?= e(url($fromArchive ? '/app/chat/archive' : '/app/chat')) ?>"><?= $fromArchive ? 'آرشیو' : 'همه چت‌ها' ?></a></p>
-            <h1 class="sapp-thread-title"><i class="sapp-dot" data-online="<?= e(implode(',', $peerIds)) ?>" hidden></i><span><?= e((string) ($room['title'] ?? 'چت')) ?></span></h1>
+            <div class="sapp-thread-head">
+              <h1 class="sapp-thread-title"><i class="sapp-dot" data-online="<?= e(implode(',', $peerIds)) ?>" hidden></i><span><?= e((string) ($room['title'] ?? 'چت')) ?></span></h1>
+              <?php if ($canDeleteChat): ?>
+                <form class="sapp-thread-delete" method="post" action="<?= e(url('/app/chat')) ?>" onsubmit="return confirm('این چت برای همه حذف شود؟');">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="form" value="delete_room">
+                  <input type="hidden" name="room_id" value="<?= e($roomId) ?>">
+                  <button class="btn btn-outline btn-sm" type="submit">حذف چت</button>
+                </form>
+              <?php endif; ?>
+            </div>
             <?php if ($fromArchive): ?>
               <p class="muted" style="margin:0 0 8px"><?= e(staff_app_archive_countdown($room)) ?></p>
             <?php elseif ($observeOnly): ?>
@@ -861,31 +877,13 @@ if ($section === 'chat') {
             <?php elseif (!empty($room['is_private'])): ?>
               <p class="muted" style="margin:0 0 8px">خصوصی — فقط اعضای گروه</p>
             <?php endif; ?>
-            <?php
-              $watchedCount = count($peerIds) + ($observeOnly ? 0 : 1);
-              $watchedDirect = empty($room['is_general']) && empty($room['is_private']) && $watchedCount === 2;
-              $canDeleteChat = empty($room['is_general']) && empty($room['deleted_at']) && (!$observeOnly || (staff_app_is_eshahabian($user) && !$watchedDirect));
-              $canKeepChat = $fromArchive && staff_app_is_eshahabian($user) && empty($room['kept_forever']);
-            ?>
-            <?php if ($canDeleteChat || $canKeepChat): ?>
-              <div style="display:flex;gap:.5rem;flex-wrap:wrap;margin:0 0 10px">
-                <?php if ($canKeepChat): ?>
-                  <form method="post" action="<?= e(url('/app/chat')) ?>" onsubmit="return confirm('این چت برای همیشه بایگانی شود؟');">
-                    <?= csrf_field() ?>
-                    <input type="hidden" name="form" value="keep_room">
-                    <input type="hidden" name="room_id" value="<?= e($roomId) ?>">
-                    <button class="btn btn-outline btn-sm" type="submit">بایگانی</button>
-                  </form>
-                <?php endif; ?>
-                <?php if ($canDeleteChat): ?>
-                  <form method="post" action="<?= e(url('/app/chat')) ?>" onsubmit="return confirm('این چت برای همه حذف شود؟');">
-                    <?= csrf_field() ?>
-                    <input type="hidden" name="form" value="delete_room">
-                    <input type="hidden" name="room_id" value="<?= e($roomId) ?>">
-                    <button class="btn btn-outline btn-sm" type="submit">حذف چت</button>
-                  </form>
-                <?php endif; ?>
-              </div>
+            <?php if ($canKeepChat): ?>
+              <form method="post" action="<?= e(url('/app/chat')) ?>" onsubmit="return confirm('این چت برای همیشه بایگانی شود؟');" style="margin:0 0 10px">
+                <?= csrf_field() ?>
+                <input type="hidden" name="form" value="keep_room">
+                <input type="hidden" name="room_id" value="<?= e($roomId) ?>">
+                <button class="btn btn-outline btn-sm" type="submit">بایگانی</button>
+              </form>
             <?php endif; ?>
             <?php if ($pinned): ?>
               <a class="sapp-pin" href="#m-<?= e($pinnedId) ?>">
@@ -1103,7 +1101,6 @@ if ($section === 'chat') {
             <?php if (staff_app_is_eshahabian($user)): ?>
               <p style="margin:0 0 8px"><a href="<?= e(url('/app/chat/archive')) ?>">آرشیو</a></p>
             <?php endif; ?>
-            <p class="muted">چت کلی برای همه است. برای حرف زدن با یک نفر، اسمش را بزنید. گفتگوی دو نفره فقط بین همان دو نفر است.</p>
             <div class="sapp-list">
               <?php foreach ($rooms as $room): ?>
                 <?php $roomUnread = (int) ($room['unread_count'] ?? 0); ?>

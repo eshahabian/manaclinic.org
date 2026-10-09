@@ -2288,6 +2288,8 @@ function staff_app_render(string $active, string $title, string $description, st
     body.sapp.is-thread .sapp-main{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;width:100%;max-width:min(32rem,100%);margin:0 auto;padding:clamp(.2rem,1.4vw,.35rem) 3vw 0;overflow:hidden}
     body.sapp.is-thread .sapp-main>p{margin:0 0 .2rem;font-size:clamp(.72rem,3.2vw,.92rem)}
     body.sapp.is-thread .sapp-main h1,body.sapp.is-thread .sapp-thread-title{margin:0 0 .2rem;font-size:clamp(.92rem,4.4vw,1.15rem);line-height:1.3}
+    body.sapp.is-thread .sapp-thread-head{margin:0 0 .2rem}
+    body.sapp.is-thread .sapp-thread-head .sapp-thread-title{margin:0}
     body.sapp.is-thread .sapp-chat{flex:1 1 auto;min-height:0;height:auto;max-height:none;margin-top:clamp(.15rem,1.2vw,.3rem);padding:clamp(.35rem,2vw,.65rem) clamp(.3rem,1.8vw,.55rem);gap:clamp(.25rem,1.4vw,.4rem);border-radius:clamp(.7rem,3vw,1.1rem);overflow:auto;-webkit-overflow-scrolling:touch}
     body.sapp.is-thread .sapp-compose{flex:0 0 auto;display:flex;flex-direction:column;align-items:stretch;gap:clamp(.25rem,1.4vw,.35rem);margin:0;padding:.25rem 0 .15rem;background:#f3f6f4}
     body.sapp.is-thread .sapp-nav{position:static;flex:0 0 auto;padding-top:.15rem}
@@ -2326,6 +2328,9 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-unread{color:#e23b3b;font-weight:800;font-size:1rem;line-height:1;flex:none}
     .sapp-unread[hidden]{display:none !important}
     .sapp-dot[hidden]{display:none !important}
+    .sapp-thread-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin:0 0 .35rem}
+    .sapp-thread-head .sapp-thread-title{flex:1 1 auto;min-width:0;margin:0}
+    .sapp-thread-delete{margin:0;flex:none}
     .sapp-thread-title{display:flex;align-items:center;gap:.4rem}
     .sapp-room-name{display:flex;direction:ltr;justify-content:flex-end;align-items:center;gap:.4rem;width:100%}
     .sapp-room-label{display:inline-flex;align-items:center;gap:.35rem;min-width:0;direction:rtl}
