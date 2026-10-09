@@ -867,3 +867,339 @@ function secretary_daily_tasks_fragment(PDO $pdo, array $secretary, string $ymd,
     <?php
     return (string) ob_get_clean();
 }
+
+/** شناسه پایدار تب عماد؛ با شناسه کاربران منشی تداخل ندارد. */
+function staff_app_emad_task_tab(): string
+{
+    return 'eshahabian';
+}
+
+function staff_app_emad_tasks_is_owner(?array $user = null): bool
+{
+    $user = secretary_daily_tasks_identity($user);
+    if (!$user) {
+        return false;
+    }
+
+    return strtolower(trim((string) ($user['username'] ?? ''))) === 'eshahabian';
+}
+
+/**
+ * دکتر شیوا و دکتر عطیه، با همان تشخیص doctor_is_shiva / doctor_is_garsichi.
+ * doctor_has_shiva_access عمداً استفاده نمی‌شود چون برای هر منشی هم true است.
+ */
+function staff_app_emad_tasks_matches_doctors(?array $user): bool
+{
+    if (!$user) {
+        return false;
+    }
+    if ((!function_exists('doctor_is_shiva') || !function_exists('doctor_is_garsichi')) && is_file(__DIR__ . '/doctor_profile_fields.php')) {
+        require_once __DIR__ . '/doctor_profile_fields.php';
+    }
+    if (!function_exists('doctor_is_shiva') || !function_exists('doctor_is_garsichi')) {
+        return false;
+    }
+
+    return doctor_is_shiva($user) || doctor_is_garsichi($user);
+}
+
+function staff_app_emad_tasks_can_assign(?array $user = null): bool
+{
+    $user = secretary_daily_tasks_identity($user);
+    if (!$user || staff_app_emad_tasks_is_owner($user)) {
+        return false;
+    }
+
+    return staff_app_emad_tasks_matches_doctors($user);
+}
+
+function staff_app_emad_tasks_can_open(?array $user = null): bool
+{
+    return staff_app_emad_tasks_is_owner($user) || staff_app_emad_tasks_can_assign($user);
+}
+
+function staff_app_emad_display_name(PDO $pdo): string
+{
+    $fallback = 'عماد شهابیان';
+    try {
+        $stmt = $pdo->prepare('SELECT name FROM users WHERE LOWER(username)=? LIMIT 1');
+        $stmt->execute(['eshahabian']);
+        $name = trim((string) ($stmt->fetchColumn() ?: ''));
+
+        return $name !== '' ? $name : $fallback;
+    } catch (Throwable $e) {
+        return $fallback;
+    }
+}
+
+function ensure_staff_app_emad_tasks_schema(PDO $pdo): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $pdo->exec("
+      CREATE TABLE IF NOT EXISTS staff_app_emad_tasks (
+        id VARCHAR(32) NOT NULL PRIMARY KEY,
+        task_date DATE NOT NULL,
+        body VARCHAR(500) NOT NULL,
+        created_by VARCHAR(32) NOT NULL,
+        created_at DATETIME NOT NULL,
+        done TINYINT(1) NOT NULL DEFAULT 0,
+        done_at DATETIME NULL,
+        INDEX idx_emad_task_date (task_date)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
+    $ready = true;
+}
+
+function staff_app_emad_task_normalize_body(string $raw): string
+{
+    $body = strip_tags($raw);
+    $body = preg_replace('/\s+/u', ' ', $body);
+    $body = trim((string) $body);
+    if ($body === '') {
+        throw new RuntimeException('متن کار را بنویسید.');
+    }
+    if (mb_strlen($body) > 500) {
+        throw new RuntimeException('متن کار باید حداکثر ۵۰۰ نویسه باشد.');
+    }
+
+    return $body;
+}
+
+/** @return list<array<string, mixed>> */
+function staff_app_emad_tasks_for_date(PDO $pdo, string $ymd): array
+{
+    ensure_staff_app_emad_tasks_schema($pdo);
+    $stmt = $pdo->prepare('
+      SELECT t.id, t.body, t.created_by, t.created_at, t.done, t.done_at, u.name AS creator_name
+      FROM staff_app_emad_tasks t
+      LEFT JOIN users u ON u.id = t.created_by
+      WHERE t.task_date = ?
+      ORDER BY t.created_at ASC, t.id ASC
+    ');
+    $stmt->execute([$ymd]);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    return is_array($rows) ? $rows : [];
+}
+
+/** @return array{done:int,required:int,skipped:int} */
+function staff_app_emad_task_progress(PDO $pdo, string $ymd): array
+{
+    $done = 0;
+    $rows = staff_app_emad_tasks_for_date($pdo, $ymd);
+    foreach ($rows as $row) {
+        if ((int) ($row['done'] ?? 0) === 1) {
+            $done++;
+        }
+    }
+
+    return [
+        'done' => $done,
+        'required' => count($rows),
+        'skipped' => 0,
+    ];
+}
+
+function staff_app_emad_task_create(PDO $pdo, string $ymd, string $body, string $createdBy): string
+{
+    ensure_staff_app_emad_tasks_schema($pdo);
+    if ($createdBy === '' || strlen($createdBy) > 32 || !preg_match('/^[a-zA-Z0-9_-]+$/', $createdBy)) {
+        throw new RuntimeException('فرستنده مشخص نیست.');
+    }
+    $text = staff_app_emad_task_normalize_body($body);
+    $id = cuid();
+    $pdo->prepare('INSERT INTO staff_app_emad_tasks (id, task_date, body, created_by, created_at, done, done_at) VALUES (?,?,?,?,?,0,NULL)')
+        ->execute([$id, $ymd, $text, $createdBy, date('Y-m-d H:i:s')]);
+
+    return $id;
+}
+
+function staff_app_emad_task_set(PDO $pdo, string $taskId, string $ymd, string $mark): ?string
+{
+    ensure_staff_app_emad_tasks_schema($pdo);
+    if (!preg_match('/^[a-f0-9]{24}$/', $taskId)) {
+        throw new RuntimeException('این کار پیدا نشد.');
+    }
+    if (!in_array($mark, ['done', 'pending'], true)) {
+        throw new RuntimeException('وضعیت نامعتبر است.');
+    }
+    $stmt = $pdo->prepare('SELECT task_date FROM staff_app_emad_tasks WHERE id=? LIMIT 1');
+    $stmt->execute([$taskId]);
+    $storedDate = (string) ($stmt->fetchColumn() ?: '');
+    if ($storedDate === '' || $storedDate !== $ymd) {
+        throw new RuntimeException('این کار پیدا نشد.');
+    }
+    $doneAt = $mark === 'done' ? date('Y-m-d H:i:s') : null;
+    $pdo->prepare('UPDATE staff_app_emad_tasks SET done=?, done_at=? WHERE id=? AND task_date=?')
+        ->execute([$mark === 'done' ? 1 : 0, $doneAt, $taskId, $ymd]);
+
+    return $doneAt;
+}
+
+function staff_app_emad_task_save_response(PDO $pdo, string $ymd, string $mark, ?string $doneAt): void
+{
+    $progress = staff_app_emad_task_progress($pdo, $ymd);
+    header('Content-Type: application/json; charset=utf-8');
+    header('Cache-Control: no-store');
+    echo json_encode([
+        'ok' => true,
+        'done' => $mark === 'done',
+        'status' => $mark,
+        'time' => ($mark === 'done' && is_string($doneAt) && $doneAt !== '') ? format_fa_time($doneAt) : '',
+        'done_count' => $progress['done'],
+        'skipped_count' => 0,
+        'required' => $progress['required'],
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+function staff_app_emad_tasks_handle_post(PDO $pdo, array $user): void
+{
+    csrf_verify();
+    $userId = (string) ($user['id'] ?? '');
+    $ymd = trim((string) post('task_date'));
+    $safeDate = (preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymd) && $ymd <= date('Y-m-d')) ? $ymd : date('Y-m-d');
+    $back = '/app/checklist?date=' . rawurlencode($safeDate) . '&secretary=' . rawurlencode(staff_app_emad_task_tab());
+    $ajax = secretary_daily_task_request_is_ajax();
+    $fail = static function (string $message, int $status = 400) use ($ajax, $back): never {
+        if ($ajax) {
+            secretary_daily_task_json_error($message, $status);
+        }
+        flash_set('error', $message);
+        redirect($back);
+    };
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymd) || $ymd > date('Y-m-d')) {
+        $fail('تاریخ این فهرست معتبر نیست.');
+    }
+    if (!staff_app_emad_tasks_can_open($user)) {
+        $fail('به این فهرست دسترسی ندارید.', 403);
+    }
+    try {
+        if (post('action') === 'create') {
+            if (!staff_app_emad_tasks_can_assign($user)) {
+                $fail('فقط دکتر شیوا و دکتر عطیه می‌توانند کار بفرستند.', 403);
+            }
+            staff_app_emad_task_create($pdo, $ymd, (string) post('body'), $userId);
+            flash_set('success', 'کار فرستاده شد.');
+            redirect($back);
+        }
+        if (!staff_app_emad_tasks_is_owner($user)) {
+            $fail('تیک این کارها را فقط عماد شهابیان می‌زند.', 403);
+        }
+        $mark = secretary_daily_task_posted_mark();
+        if ($mark === 'skip') {
+            $fail('این کار فقط انجام‌شده یا انجام‌نشده است.');
+        }
+        if ($mark !== 'done') {
+            $mark = 'pending';
+        }
+        $doneAt = staff_app_emad_task_set($pdo, strtolower(trim((string) post('task_key'))), $ymd, $mark);
+        if ($ajax) {
+            staff_app_emad_task_save_response($pdo, $ymd, $mark, is_string($doneAt) ? $doneAt : null);
+        }
+        redirect($back);
+    } catch (RuntimeException $e) {
+        $fail($e->getMessage());
+    } catch (Throwable $e) {
+        error_log('staff app emad tasks: ' . $e->getMessage());
+        $fail('ذخیره انجام نشد.');
+    }
+}
+
+function staff_app_emad_tasks_panel_html(
+    PDO $pdo,
+    string $ymd,
+    string $displayName,
+    bool $canTick,
+    bool $canCreate,
+    string $postUrl
+): string {
+    try {
+        $rows = staff_app_emad_tasks_for_date($pdo, $ymd);
+    } catch (Throwable $e) {
+        error_log('staff app emad tasks list: ' . $e->getMessage());
+
+        return '<p class="sapp-check-absent">فهرست این روز باز نشد.</p>';
+    }
+    $done = 0;
+    foreach ($rows as $row) {
+        if ((int) ($row['done'] ?? 0) === 1) {
+            $done++;
+        }
+    }
+    $required = count($rows);
+    $live = $canTick && $postUrl !== '' && $required > 0;
+    $summary = to_fa_digits((string) $done) . ' از ' . to_fa_digits((string) $required) . ' کار انجام شده';
+    ob_start();
+    ?>
+    <style>
+      .sapp-emad-send{margin:0 0 .85rem;padding:.85rem .9rem;border-radius:1rem;background:#fff;box-shadow:0 .35rem 1rem rgba(28,70,58,.05)}
+      .sapp-emad-send .btn{margin-top:.65rem}
+      .rx-sheet{margin-top:.85rem;direction:rtl;text-align:right}
+      .rx-head{display:flex;flex-wrap:wrap;gap:.35rem .8rem;align-items:center;margin:0 0 .55rem;line-height:1.6}
+      .rx-progress{display:block;width:100%;height:16px;margin:0 0 .45rem;accent-color:#16836d}
+      .rx-summary{margin:0 0 .8rem;color:#627872}
+      .rx-group{background:#fff;border:1px solid #dce7e3;border-radius:16px;padding:14px 16px;margin:0 0 12px}
+      .rx-item{padding:12px 0;border-bottom:1px solid #eef2f0}
+      .rx-item:last-child{border-bottom:0}
+      .rx-task{display:flex;align-items:flex-start;gap:12px;margin:0;cursor:pointer}
+      .rx-task input{width:22px;height:22px;flex:none;margin-top:6px;accent-color:#16836d}
+      .rx-item.is-done .rx-title{text-decoration:line-through;color:#72857e}
+      .rx-note,.rx-time{display:block;margin:2px 34px 0 0;color:#6b827a;font-size:.82rem}
+      .rx-sheet.is-locked .rx-task{cursor:default}
+      .rx-error{margin:0 0 .7rem;color:#b42318;font-size:.9rem}
+      .rx-error[hidden]{display:none}
+    </style>
+    <?php if ($canCreate): ?>
+      <form class="sapp-emad-send" method="post" action="<?= e($postUrl) ?>">
+        <?= csrf_field() ?>
+        <input type="hidden" name="action" value="create">
+        <input type="hidden" name="task_date" value="<?= e($ymd) ?>">
+        <label class="label" for="emad-task-body">کار</label>
+        <input class="input" id="emad-task-body" name="body" type="text" maxlength="500" required autocomplete="off" placeholder="متن کار">
+        <button class="btn btn-primary btn-sm" type="submit">فرستادن</button>
+      </form>
+    <?php endif; ?>
+    <?php if ($rows === []): ?>
+      <p class="sapp-check-absent">برای این روز کاری ثبت نشده.</p>
+    <?php else: ?>
+      <?php if ($live) {
+          secretary_checklist_register_script();
+      } ?>
+      <section class="rx-sheet<?= $live ? '' : ' is-locked' ?>" data-rx-sheet<?= $live ? ' data-rx-live="1" data-rx-url="' . e($postUrl) . '"' : '' ?>>
+        <?php if ($live): ?>
+          <input type="hidden" data-rx-csrf value="<?= e(csrf_token()) ?>">
+        <?php endif; ?>
+        <?php if ($displayName !== ''): ?>
+          <div class="rx-head"><strong><?= e($displayName) ?></strong></div>
+        <?php endif; ?>
+        <progress class="rx-progress" data-rx-progress max="<?= $required ?>" value="<?= $done ?>"></progress>
+        <p class="rx-summary" data-rx-summary><?= e($summary) ?></p>
+        <p class="rx-error" data-rx-error role="alert" hidden></p>
+        <section class="rx-group">
+          <?php foreach ($rows as $row): ?>
+            <?php
+              $taskId = (string) ($row['id'] ?? '');
+              $checked = (int) ($row['done'] ?? 0) === 1;
+              $doneAt = (string) ($row['done_at'] ?? '');
+              $timeLabel = ($checked && $doneAt !== '') ? format_fa_time($doneAt) : '';
+              $creator = trim((string) ($row['creator_name'] ?? ''));
+            ?>
+            <article class="rx-item<?= $checked ? ' is-done' : '' ?>" data-rx-item data-rx-key="<?= e($taskId) ?>" data-rx-date="<?= e($ymd) ?>">
+              <label class="rx-task">
+                <input type="checkbox" data-rx-done data-rx-was="<?= $checked ? '1' : '0' ?>"<?= $checked ? ' checked' : '' ?><?= $live ? '' : ' disabled' ?>>
+                <span class="rx-title"><?= e((string) ($row['body'] ?? '')) ?></span>
+              </label>
+              <?php if ($creator !== ''): ?><small class="rx-note"><?= e('از طرف ' . $creator) ?></small><?php endif; ?>
+              <small class="rx-time" data-rx-time><?= e($timeLabel) ?></small>
+            </article>
+          <?php endforeach; ?>
+        </section>
+      </section>
+    <?php endif; ?>
+    <?php
+    return (string) ob_get_clean();
+}

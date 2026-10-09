@@ -244,6 +244,11 @@ if ($method === 'POST' && $path === '/app/checklist') {
     redirect($back);
 }
 
+if ($method === 'POST' && $path === '/app/checklist/emad') {
+    require_once __DIR__ . '/../includes/secretary_daily_tasks.php';
+    staff_app_emad_tasks_handle_post($pdo, $user);
+}
+
 if ($method === 'POST' && $path === '/app/appointments') {
     if ($role !== 'SECRETARY') {
         flash_set('error', 'ثبت وقت با منشی است.');
@@ -1181,11 +1186,30 @@ if ($section === 'checklist') {
     $prev = date('Y-m-d', strtotime($ymd . ' -1 day') ?: time());
     $next = date('Y-m-d', strtotime($ymd . ' +1 day') ?: time());
     $secretaries = secretary_daily_task_secretaries($pdo);
+    $ownChecklist = $role === 'SECRETARY'
+        && strtolower(trim((string) ($user['username'] ?? ''))) !== 'eshahabian';
+    if ($ownChecklist) {
+        $selfRow = null;
+        foreach ($secretaries as $sec) {
+            if ($userId !== '' && (string) ($sec['id'] ?? '') === $userId) {
+                $selfRow = $sec;
+                break;
+            }
+        }
+        if ($selfRow === null && $userId !== '') {
+            $selfRow = [
+                'id' => $userId,
+                'name' => $name,
+                'username' => (string) ($user['username'] ?? ''),
+            ];
+        }
+        $secretaries = $selfRow ? [$selfRow] : [];
+    }
     $secretaryIds = [];
     foreach ($secretaries as $sec) {
         $secretaryIds[] = (string) ($sec['id'] ?? '');
     }
-    $requestedSecretary = trim((string) ($_GET['secretary'] ?? ''));
+    $requestedSecretary = $ownChecklist ? '' : trim((string) ($_GET['secretary'] ?? ''));
     if ($requestedSecretary !== '' && in_array($requestedSecretary, $secretaryIds, true)) {
         $selectedId = $requestedSecretary;
     } elseif (in_array($userId, $secretaryIds, true)) {
@@ -1211,15 +1235,29 @@ if ($section === 'checklist') {
     };
     $arrowLeft = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 6.5 9 12l5.5 5.5"/></svg>';
     $arrowRight = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 6.5 15 12l-5.5 5.5"/></svg>';
+    $emadTab = staff_app_emad_task_tab();
+    $showEmadTab = !$ownChecklist && staff_app_emad_tasks_can_open($user);
+    $onEmad = $showEmadTab && $requestedSecretary === $emadTab && !in_array($requestedSecretary, $secretaryIds, true);
+    $emadName = $showEmadTab ? staff_app_emad_display_name($pdo) : '';
+    $emadCanTick = $showEmadTab && staff_app_emad_tasks_is_owner($user);
+    $emadCanAssign = $showEmadTab && staff_app_emad_tasks_can_assign($user);
+    $emadPost = url('/app/checklist/emad');
     ob_start();
     ?>
     <div class="sapp-checklist">
     <h1>لیست کارهای روزانه</h1>
-    <p class="muted">همان فهرست داخل سایت است. پس از انجام هر کار آن را علامت بزنید. اگر کاری امروز لازم نیست، «امروز نیاز نیست» را بزنید.</p>
-    <?php if ($secretaries === [] || $selected === null): ?>
+    <?php if ($onEmad && $emadCanTick): ?>
+      <p class="muted">کارهایی که برای شما فرستاده شده. هر کدام را که انجام دادید تیک بزنید.</p>
+    <?php elseif ($onEmad): ?>
+      <p class="muted">برای همین روز کار بنویسید و بفرستید. تیک را <?= e($emadName) ?> می‌زند.</p>
+    <?php else: ?>
+      <p class="muted">همان فهرست داخل سایت است. پس از انجام هر کار آن را علامت بزنید. اگر کاری امروز لازم نیست، «امروز نیاز نیست» را بزنید.</p>
+    <?php endif; ?>
+    <?php if (($secretaries === [] || $selected === null) && !$showEmadTab): ?>
       <p class="muted">منشی فعالی ثبت نشده است.</p>
     <?php else: ?>
-      <div class="sapp-check-tabs" role="tablist" aria-label="منشی‌ها">
+      <?php if (!$ownChecklist): ?>
+      <div class="sapp-check-tabs" role="tablist" aria-label="<?= e($showEmadTab ? 'فهرست‌ها' : 'منشی‌ها') ?>">
         <?php foreach ($secretaries as $sec): ?>
           <?php
             $tabId = (string) ($sec['id'] ?? '');
@@ -1230,12 +1268,32 @@ if ($section === 'checklist') {
             if ($tabName === '') {
                 $tabName = 'منشی';
             }
-            $isActive = $tabId === $selectedId;
+            $isActive = !$onEmad && $tabId === $selectedId;
           ?>
           <a class="sapp-check-tab<?= $isActive ? ' is-active' : '' ?>" role="tab" id="sapp-check-tab-<?= e($tabId) ?>" href="<?= e($checkHref($ymd, $tabId)) ?>" aria-selected="<?= $isActive ? 'true' : 'false' ?>"<?= $isActive ? ' aria-current="page"' : '' ?>><?= e($tabName) ?></a>
         <?php endforeach; ?>
+        <?php if ($showEmadTab): ?>
+          <a class="sapp-check-tab<?= $onEmad ? ' is-active' : '' ?>" role="tab" id="sapp-check-tab-<?= e($emadTab) ?>" href="<?= e($checkHref($ymd, $emadTab)) ?>" aria-selected="<?= $onEmad ? 'true' : 'false' ?>"<?= $onEmad ? ' aria-current="page"' : '' ?>><?= e($emadName) ?></a>
+        <?php endif; ?>
       </div>
-      <div class="sapp-check-panel" role="tabpanel" aria-labelledby="sapp-check-tab-<?= e($selectedId) ?>">
+      <?php endif; ?>
+      <?php if ($onEmad): ?>
+        <div class="sapp-check-panel" role="tabpanel" aria-labelledby="sapp-check-tab-<?= e($emadTab) ?>">
+          <div class="sapp-daynav">
+            <a class="sapp-daynav-btn" href="<?= e($checkHref($prev, $emadTab)) ?>" aria-label="روز قبل"><?= $arrowLeft ?></a>
+            <strong class="sapp-daynav-date"><?= e(secretary_daily_task_date_label($ymd)) ?></strong>
+            <?php if ($next <= $today): ?>
+              <a class="sapp-daynav-btn" href="<?= e($checkHref($next, $emadTab)) ?>" aria-label="روز بعد"><?= $arrowRight ?></a>
+            <?php else: ?>
+              <span class="sapp-daynav-btn is-off" aria-hidden="true"><?= $arrowRight ?></span>
+            <?php endif; ?>
+          </div>
+          <?= staff_app_emad_tasks_panel_html($pdo, $ymd, $emadName, $emadCanTick, $emadCanAssign, $emadPost) ?>
+        </div>
+      <?php elseif ($selected === null): ?>
+        <p class="muted">منشی فعالی ثبت نشده است.</p>
+      <?php else: ?>
+      <div class="sapp-check-panel"<?php if (!$ownChecklist): ?> role="tabpanel" aria-labelledby="sapp-check-tab-<?= e($selectedId) ?>"<?php endif; ?>>
         <div class="sapp-daynav">
           <a class="sapp-daynav-btn" href="<?= e($checkHref($prev, $selectedId)) ?>" aria-label="روز قبل"><?= $arrowLeft ?></a>
           <strong class="sapp-daynav-date"><?= e(secretary_daily_task_date_label($ymd)) ?></strong>
@@ -1266,6 +1324,7 @@ if ($section === 'checklist') {
           }
         ?>
       </div>
+      <?php endif; ?>
     <?php endif; ?>
     </div>
     <?php
