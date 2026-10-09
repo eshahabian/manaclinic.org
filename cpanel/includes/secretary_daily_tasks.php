@@ -1,35 +1,69 @@
 <?php
 declare(strict_types=1);
 
-/** فهرست ثابت وظایف منشی. */
-function secretary_daily_task_catalog(): array
+/** گروه‌ها و متن چک‌لیست پذیرش. مورد سوم، توضیح مشروط است. */
+function secretary_daily_task_groups(): array
 {
     return [
-        '01' => 'اطمینان از تمیزی میز پذیرش، میزهای آشپزخانه، اتاق‌های درمان و سرویس بهداشتی.',
-        '02' => 'اطمینان از جمع شدن پرونده‌های روز قبل.',
-        '03' => 'اطمینان از وجود پرونده‌های روز بعدی بر روی میز.',
-        '04' => 'پاسخ به تمامی پیام‌ها در واتس‌اپ، تلگرام، آی‌مسیج و بقیه پیام‌رسان‌ها.',
-        '05' => 'گذاشتن آب خنک و لیوان یکبارمصرف بر روی میز پذیرایی.',
-        '06' => 'پخش موسیقی بی‌کلام در زمان مشغول بودن اتاق‌ها.',
-        '07' => 'چک کردن هفتگی برنامه‌های تریاژ، اطلاع به مراجعان، تعیین زمان و هماهنگی با دکتر گرانمایه برای ارجاع نوبت یک هفته بعد از تریاژ.',
-        '08' => 'ارسال برنامه روزانه اتاق‌ها به خانم دکتر گرانمایه.',
-        '09' => 'ارسال عملکرد هر روز دکتر گرانمایه‌پور برای راحله در پایان ساعت کار.',
-        '10' => 'سبز کردن پرداختی‌ها و قرمز کردن در صورت عدم پرداخت (اطمینان از پرداخت مراجعان روز قبل).',
-        '11' => 'فرستادن برنامه فردا در گروه مانا.',
-        '12' => 'اطمینان از به ترتیب قرار دادن پرونده‌ها که توالی شماره به‌هم نخورد.',
-        '13' => 'نظافت همه سطل‌های زباله و انتقال آن‌ها به سطل زباله شهری.',
-        '14' => 'اطمینان از خاموش بودن کولر و چراغ اتاق‌ها و سرویس بعد از اتمام کار درمانگران.',
-        '15' => 'فرستادن روزانه عکس یا فیلم برای نشرین پالین‌پرست.',
-        '16' => 'استفاده از خوشبوکننده یا عود و شمع در روزهای شلوغ.',
-        '17' => 'در روزهای تعطیل، هماهنگی و اطلاع به خانم دکتر گرانمایه.',
-        '18' => 'در پایان شب سطل‌ها تمیز باشد، کف کلینیک بدون آشغال و پلاستیک باشد و ظرف‌ها شسته شده باشد.',
-        '19' => 'تهیه لیست مایحتاج مطب و در صورت نبود کالا، سفارش و پیگیری سریع آن.',
-        '20' => 'برنامه ارسالی به خانم دکتر گرانمایه همه زمان‌ها را پر داشته باشد. در صورت کنسلی سریع جایگزین تعیین شود.',
-        '21' => 'اطمینان از وجود دستمال در سرویس و اتاق‌ها و همچنین مواد شوینده و الکل.',
-        '22' => 'ارسال برنامه بقیه درمانگران به چت شخصی و گروه مانا.',
-        '23' => 'اطمینان از تداخل نداشتن اتاق‌ها.',
-        '24' => 'دادن فرم مراجعان جدید قبل از جلسه.',
+        ['آماده‌سازی و نظم مطب', [
+            ['clean', 'اطمینان از تمیزی میز پذیرش، میزهای آشپزخانه، اتاق‌های درمان و سرویس بهداشتی.', ''],
+            ['previous-files', 'اطمینان از جمع شدن پرونده‌های روز قبل.', ''],
+            ['next-files', 'اطمینان از وجود پرونده‌های روز بعدی بر روی میز.', ''],
+            ['water', 'گذاشتن آب خنک و لیوان یکبارمصرف بر روی میز پذیرایی.', ''],
+            ['file-order', 'اطمینان از به ترتیب قرار دادن پرونده‌ها که توالی شماره به‌هم نخورد.', ''],
+            ['supplies', 'تهیه لیست مایحتاج مطب و در صورت نبود کالا، سفارش و پیگیری سریع آن.', ''],
+            ['tissues', 'اطمینان از وجود دستمال در سرویس و اتاق‌ها و همچنین مواد شوینده و الکل.', ''],
+        ]],
+        ['پیام‌ها، برنامه‌ها و مراجعان', [
+            ['messages', 'پاسخ به تمامی پیام‌ها در واتس‌اپ، تلگرام، آی‌مسیج و بقیه پیام‌رسان‌ها.', ''],
+            ['triage', 'چک کردن هفتگی برنامه‌های تریاژ، اطلاع به مراجعان، تعیین زمان و هماهنگی با دکتر گرانمایه برای ارجاع نوبت یک هفته بعد از تریاژ.', 'هفتگی؛ در روز بررسی برنامه انجام شود.'],
+            ['daily-rooms', 'ارسال برنامه روزانه اتاق‌ها به خانم دکتر گرانمایه.', ''],
+            ['payments', 'سبز کردن پرداختی‌ها و قرمز کردن در صورت عدم پرداخت (اطمینان از پرداخت مراجعان روز قبل).', ''],
+            ['mana-tomorrow', 'فرستادن برنامه فردا در گروه مانا.', ''],
+            ['media', 'فرستادن روزانه عکس یا فیلم برای نشرین پالین‌پرست.', ''],
+            ['holiday', 'در روزهای تعطیل، هماهنگی و اطلاع به خانم دکتر گرانمایه.', 'فقط در روزهای تعطیل.'],
+            ['full-schedule', 'برنامه ارسالی به خانم دکتر گرانمایه همه زمان‌ها را پر داشته باشد. در صورت کنسلی سریع جایگزین تعیین شود.', ''],
+            ['therapists', 'ارسال برنامه بقیه درمانگران به چت شخصی و گروه مانا.', ''],
+            ['room-conflicts', 'اطمینان از تداخل نداشتن اتاق‌ها.', ''],
+            ['new-forms', 'دادن فرم مراجعان جدید قبل از جلسه', 'در صورت وجود مراجع جدید.'],
+        ]],
+        ['در طول فعالیت کلینیک', [
+            ['music', 'پخش موسیقی بی‌کلام در زمان مشغول بودن اتاق‌ها.', 'هنگام مشغول بودن اتاق‌ها.'],
+            ['fragrance', 'استفاده از خوشبوکننده یا عود و شمع در روزهای شلوغ.', 'در روزهای شلوغ.'],
+        ]],
+        ['پایان ساعت کار', [
+            ['performance', 'ارسال عملکرد هر روز دکتر گرانمایه‌پور برای راحله در پایان ساعت کار.', ''],
+            ['bins', 'نظافت همه سطل‌های زباله و انتقال آن‌ها به سطل زباله شهری.', ''],
+            ['lights', 'اطمینان از خاموش بودن کولر و چراغ اتاق‌ها و سرویس بعد از اتمام کار درمانگران.', ''],
+            ['closing', 'در پایان شب سطل‌ها تمیز باشد، کف کلینیک بدون آشغال و پلاستیک باشد و ظرف‌ها شسته شده باشد.', ''],
+        ]],
     ];
+}
+
+/** فهرست تخت وظایف برای ذخیره و شمارش. */
+function secretary_daily_task_catalog(): array
+{
+    $out = [];
+    foreach (secretary_daily_task_groups() as $group) {
+        foreach ($group[1] as $task) {
+            $out[$task[0]] = $task[1];
+        }
+    }
+
+    return $out;
+}
+
+function secretary_daily_task_note(string $key): string
+{
+    foreach (secretary_daily_task_groups() as $group) {
+        foreach ($group[1] as $task) {
+            if ($task[0] === $key) {
+                return (string) ($task[2] ?? '');
+            }
+        }
+    }
+
+    return '';
 }
 
 /** نام کاربری را از دیتابیس می‌خواند تا نشست قدیمی لینک را پنهان نکند. */
@@ -94,13 +128,59 @@ function ensure_secretary_daily_tasks_schema(PDO $pdo): void
         id VARCHAR(32) PRIMARY KEY,
         user_id VARCHAR(32) NOT NULL,
         task_date DATE NOT NULL,
-        task_key VARCHAR(8) NOT NULL,
+        task_key VARCHAR(40) NOT NULL,
         done TINYINT(1) NOT NULL DEFAULT 0,
+        skipped TINYINT(1) NOT NULL DEFAULT 0,
         done_at DATETIME NULL,
         UNIQUE KEY uniq_sec_daily_task (user_id, task_date, task_key),
         INDEX idx_sec_daily_date (task_date, user_id)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
+    $keyCol = $pdo->query("SHOW COLUMNS FROM secretary_daily_tasks LIKE 'task_key'")->fetch(PDO::FETCH_ASSOC);
+    $keyType = strtolower((string) ($keyCol['Type'] ?? ''));
+    if ($keyType !== '' && $keyType !== 'varchar(40)') {
+        $pdo->exec('ALTER TABLE secretary_daily_tasks MODIFY task_key VARCHAR(40) NOT NULL');
+    }
+    $skipCol = $pdo->query("SHOW COLUMNS FROM secretary_daily_tasks LIKE 'skipped'")->fetch(PDO::FETCH_ASSOC);
+    if (!$skipCol) {
+        $pdo->exec('ALTER TABLE secretary_daily_tasks ADD COLUMN skipped TINYINT(1) NOT NULL DEFAULT 0 AFTER done');
+    }
+    $legacy = [
+        '01' => 'clean',
+        '02' => 'previous-files',
+        '03' => 'next-files',
+        '04' => 'messages',
+        '05' => 'water',
+        '06' => 'music',
+        '07' => 'triage',
+        '08' => 'daily-rooms',
+        '09' => 'performance',
+        '10' => 'payments',
+        '11' => 'mana-tomorrow',
+        '12' => 'file-order',
+        '13' => 'bins',
+        '14' => 'lights',
+        '15' => 'media',
+        '16' => 'fragrance',
+        '17' => 'holiday',
+        '18' => 'closing',
+        '19' => 'supplies',
+        '20' => 'full-schedule',
+        '21' => 'tissues',
+        '22' => 'therapists',
+        '23' => 'room-conflicts',
+        '24' => 'new-forms',
+    ];
+    $hasLegacy = $pdo->query("SELECT 1 FROM secretary_daily_tasks WHERE task_key='01' LIMIT 1")->fetchColumn();
+    if ($hasLegacy) {
+        $move = $pdo->prepare('UPDATE secretary_daily_tasks SET task_key=? WHERE task_key=?');
+        foreach ($legacy as $oldKey => $newKey) {
+            try {
+                $move->execute([$newKey, $oldKey]);
+            } catch (Throwable $e) {
+            }
+        }
+    }
     $ready = true;
 }
 
@@ -189,12 +269,13 @@ function secretary_daily_task_can_edit(PDO $pdo, string $userId, string $ymd, bo
 function secretary_daily_task_states(PDO $pdo, string $userId, string $ymd): array
 {
     ensure_secretary_daily_tasks_schema($pdo);
-    $stmt = $pdo->prepare('SELECT task_key, done, done_at FROM secretary_daily_tasks WHERE user_id=? AND task_date=?');
+    $stmt = $pdo->prepare('SELECT task_key, done, skipped, done_at FROM secretary_daily_tasks WHERE user_id=? AND task_date=?');
     $stmt->execute([$userId, $ymd]);
     $out = [];
     foreach ($stmt->fetchAll() as $row) {
         $out[(string) $row['task_key']] = [
             'done' => (int) ($row['done'] ?? 0) === 1 ? 1 : 0,
+            'skipped' => (int) ($row['skipped'] ?? 0) === 1 ? 1 : 0,
             'done_at' => $row['done_at'] !== null ? (string) $row['done_at'] : null,
         ];
     }
@@ -202,39 +283,83 @@ function secretary_daily_task_states(PDO $pdo, string $userId, string $ymd): arr
     return $out;
 }
 
-function secretary_daily_task_set(PDO $pdo, string $userId, string $ymd, string $taskKey, bool $done): ?string
+function secretary_daily_task_posted_mark(): string
+{
+    $mark = trim((string) post('status'));
+    if (!in_array($mark, ['done', 'skip', 'pending'], true)) {
+        $mark = post('done') === '1' ? 'done' : 'pending';
+    }
+
+    return $mark;
+}
+
+function secretary_daily_task_set(PDO $pdo, string $userId, string $ymd, string $taskKey, bool $done, string $mark = ''): ?string
 {
     ensure_secretary_daily_tasks_schema($pdo);
     if (!isset(secretary_daily_task_catalog()[$taskKey])) {
         throw new RuntimeException('این مورد در فهرست نیست.');
     }
-    $doneAt = $done ? date('Y-m-d H:i:s') : null;
+    if (!in_array($mark, ['done', 'skip', 'pending'], true)) {
+        $mark = $done ? 'done' : 'pending';
+    }
+    if ($mark === 'skip' && secretary_daily_task_note($taskKey) === '') {
+        throw new RuntimeException('این مورد را نمی‌توان «امروز نیاز نیست» زد.');
+    }
+    $doneFlag = $mark === 'done' ? 1 : 0;
+    $skipFlag = $mark === 'skip' ? 1 : 0;
+    $doneAt = $mark === 'done' ? date('Y-m-d H:i:s') : null;
     $existing = $pdo->prepare('SELECT id FROM secretary_daily_tasks WHERE user_id=? AND task_date=? AND task_key=? LIMIT 1');
     $existing->execute([$userId, $ymd, $taskKey]);
     $id = (string) ($existing->fetchColumn() ?: '');
     if ($id === '') {
-        $pdo->prepare('INSERT INTO secretary_daily_tasks (id, user_id, task_date, task_key, done, done_at) VALUES (?,?,?,?,?,?)')
-            ->execute([cuid(), $userId, $ymd, $taskKey, $done ? 1 : 0, $doneAt]);
+        $pdo->prepare('INSERT INTO secretary_daily_tasks (id, user_id, task_date, task_key, done, skipped, done_at) VALUES (?,?,?,?,?,?,?)')
+            ->execute([cuid(), $userId, $ymd, $taskKey, $doneFlag, $skipFlag, $doneAt]);
 
         return $doneAt;
     }
-    $pdo->prepare('UPDATE secretary_daily_tasks SET done=?, done_at=? WHERE id=?')
-        ->execute([$done ? 1 : 0, $doneAt, $id]);
+    $pdo->prepare('UPDATE secretary_daily_tasks SET done=?, skipped=?, done_at=? WHERE id=?')
+        ->execute([$doneFlag, $skipFlag, $doneAt, $id]);
 
     return $doneAt;
+}
+
+function secretary_daily_task_save_response(PDO $pdo, string $userId, string $ymd, string $mark, ?string $doneAt): void
+{
+    $progress = secretary_daily_task_progress(secretary_daily_task_states($pdo, $userId, $ymd));
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode([
+        'ok' => true,
+        'done' => $mark === 'done',
+        'status' => $mark,
+        'time' => ($mark === 'done' && is_string($doneAt) && $doneAt !== '') ? format_fa_time($doneAt) : '',
+        'done_count' => $progress['done'],
+        'skipped_count' => $progress['skipped'],
+        'required' => $progress['required'],
+    ], JSON_UNESCAPED_UNICODE);
+    exit;
 }
 
 function secretary_daily_task_progress(array $states): array
 {
     $total = count(secretary_daily_task_catalog());
     $done = 0;
+    $skipped = 0;
     foreach (secretary_daily_task_catalog() as $key => $_label) {
+        if (!empty($states[$key]['skipped'])) {
+            $skipped++;
+            continue;
+        }
         if (!empty($states[$key]['done'])) {
             $done++;
         }
     }
 
-    return ['done' => $done, 'total' => $total];
+    return [
+        'done' => $done,
+        'total' => $total,
+        'skipped' => $skipped,
+        'required' => max(0, $total - $skipped),
+    ];
 }
 
 /** @return list<array{id:string,name:string,username:string}> */
@@ -580,114 +705,135 @@ function secretary_daily_tasks_table_html(
     if ($name === '') {
         $name = (string) ($secretary['username'] ?? '');
     }
-    $doneCount = to_fa_digits((string) $progress['done']);
-    $totalCount = to_fa_digits((string) $progress['total']);
+    $required = (int) ($progress['required'] ?? $progress['total']);
+    $skipped = (int) ($progress['skipped'] ?? 0);
+    $summary = to_fa_digits((string) $progress['done']) . ' از ' . to_fa_digits((string) $required) . ' کار انجام شده';
+    if ($skipped > 0) {
+        $summary .= ' · ' . to_fa_digits((string) $skipped) . ' مورد امروز نیاز نیست';
+    }
     $dateLabel = secretary_daily_task_date_label($ymd);
+    $live = $editable && $postUrl !== '' && $userId !== '';
     static $booted = false;
     ob_start();
     if (!$booted) {
         $booted = true;
         ?>
     <style>
-      .duty-sheet.panel{max-width:44rem;margin-top:.75rem;padding:1rem;direction:rtl;text-align:right}
-      .duty-sheet-meta{display:flex;flex-wrap:wrap;gap:.25rem .8rem;align-items:baseline;margin:0 0 .6rem;line-height:1.5;font-size:.92rem}
-      .duty-list{border:1px solid var(--line,#d5e0da);border-radius:12px}
-      .duty-head,.duty-row{display:grid;grid-template-columns:2rem minmax(0,1fr) auto 3.6rem;gap:.45rem;align-items:center;padding:.38rem .65rem}
-      .duty-head{position:sticky;top:0;z-index:1;background:var(--bg-soft,#f7f5f0);color:var(--muted,#5a6f66);font-size:.78rem;font-weight:700;border-bottom:1px solid var(--line,#d5e0da)}
-      .duty-row{border-top:1px solid var(--line,#d5e0da);background:#fff}
-      .duty-row:first-of-type{border-top:0}
-      .duty-row.is-done{background:#e8f6ee}
-      .duty-num{font-weight:800;font-size:.82rem;color:#5a6f66}
-      .duty-task{line-height:1.45;font-size:.9rem}
-      .duty-time{font-size:.82rem;font-weight:800;color:#1f6b45;white-space:nowrap}
-      .duty-row:not(.is-done) .duty-time{color:#8aa099;font-weight:600}
-      .duty-check{display:inline-flex;align-items:center;gap:.35rem;margin:0;cursor:pointer;font-weight:700;font-size:.82rem;white-space:nowrap}
-      .duty-check input{width:1rem;height:1rem;margin:0;flex:none}
-      .duty-check.is-locked{cursor:default}
-      .duty-form{margin:0}
+      .rx-sheet{margin-top:.85rem;direction:rtl;text-align:right}
+      .rx-head{display:flex;flex-wrap:wrap;gap:.35rem .8rem;align-items:center;margin:0 0 .55rem;line-height:1.6}
+      .rx-progress{display:block;width:100%;height:16px;margin:0 0 .45rem;accent-color:#16836d}
+      .rx-summary{margin:0 0 .8rem;color:#627872}
+      .rx-group{background:#fff;border:1px solid #dce7e3;border-radius:16px;padding:14px 16px;margin:0 0 12px}
+      .rx-group h2{font-size:1.02rem;margin:0 0 .15rem}
+      .rx-item{padding:12px 0;border-bottom:1px solid #eef2f0}
+      .rx-item:last-child{border-bottom:0}
+      .rx-task{display:flex;align-items:flex-start;gap:12px;margin:0;cursor:pointer}
+      .rx-task input{width:22px;height:22px;flex:none;margin-top:6px;accent-color:#16836d}
+      .rx-item.is-done .rx-title{text-decoration:line-through;color:#72857e}
+      .rx-note,.rx-time,.rx-skip{display:block;margin:2px 34px 0 0;color:#6b827a;font-size:.82rem}
+      .rx-skip input{width:15px;height:15px;vertical-align:middle;accent-color:#16836d}
+      .rx-sheet.is-locked .rx-task,.rx-sheet.is-locked .rx-skip{cursor:default}
     </style>
     <script>
     (function(){
-      if (window.__dutyTable) return;
-      window.__dutyTable = true;
+      if (window.__rxChecklist) return;
+      window.__rxChecklist = true;
       function faDigits(n){ return String(n).replace(/\d/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹"[d]; }); }
+      function paint(sheet, done, required, skipped){
+        var bar = sheet.querySelector("[data-rx-progress]");
+        var summary = sheet.querySelector("[data-rx-summary]");
+        if (bar){ bar.max = required || 1; bar.value = done; }
+        if (summary){
+          var text = faDigits(done) + " از " + faDigits(required) + " کار انجام شده";
+          if (skipped) text += " · " + faDigits(skipped) + " مورد امروز نیاز نیست";
+          summary.textContent = text;
+        }
+      }
       document.addEventListener("change", function(e){
         var input = e.target;
-        if (!input || input.type !== "checkbox" || !input.form || !input.form.classList.contains("duty-form")) return;
-        var form = input.form;
-        if (form.getAttribute("data-busy") === "1") {
-          input.checked = !input.checked;
+        if (!input || input.type !== "checkbox") return;
+        var item = input.closest("[data-rx-item]");
+        var sheet = input.closest("[data-rx-sheet]");
+        if (!item || !sheet) return;
+        var url = sheet.getAttribute("data-rx-url") || "";
+        var csrfEl = sheet.querySelector("[data-rx-csrf]");
+        var previous = input.getAttribute("data-rx-was") === "1";
+        if (!url || !csrfEl || item.getAttribute("data-busy") === "1"){
+          input.checked = previous;
           return;
         }
-        var data = new FormData(form);
-        data.set("done", input.checked ? "1" : "0");
-        var row = form.closest(".duty-row");
-        var time = row ? row.querySelector(".duty-time") : null;
-        var caption = form.querySelector(".duty-check-label");
-        form.setAttribute("data-busy", "1");
-        fetch(form.action, {method:"POST", body:data, credentials:"same-origin", headers:{"X-Requested-With":"XMLHttpRequest","Accept":"application/json"}})
-          .then(function(r){ return r.json().then(function(body){ if (!r.ok || !body || body.ok === false) throw new Error((body && body.error) || ""); return body; }); })
+        var status = input.getAttribute("data-rx-skip") === "1"
+          ? (input.checked ? "skip" : "pending")
+          : (input.checked ? "done" : "pending");
+        var data = new FormData();
+        data.set("_csrf", csrfEl.value);
+        data.set("task_date", item.getAttribute("data-rx-date") || "");
+        data.set("task_key", item.getAttribute("data-rx-key") || "");
+        data.set("status", status);
+        item.setAttribute("data-busy", "1");
+        fetch(url, {method:"POST", body:data, credentials:"same-origin", headers:{"X-Requested-With":"XMLHttpRequest","Accept":"application/json"}})
+          .then(function(r){ return r.json().then(function(body){ if (!r.ok || !body || body.ok === false) throw new Error(); return body; }); })
           .then(function(res){
-            var on = !!input.checked && !!(res && res.time);
-            if (row) row.classList.toggle("is-done", on);
-            if (time) time.textContent = on ? res.time : "—";
-            if (caption) caption.textContent = on ? "انجام شد" : "انجام دادم";
-            var sheet = form.closest("[data-duty-sheet]");
-            var count = sheet ? sheet.querySelector("[data-duty-count]") : null;
-            if (count && sheet) count.textContent = faDigits(sheet.querySelectorAll(".duty-form input[type=checkbox]:checked").length);
+            var on = res.status === "done";
+            var skip = res.status === "skip";
+            var doneBox = item.querySelector("[data-rx-done]");
+            var skipBox = item.querySelector("[data-rx-skip]");
+            var time = item.querySelector("[data-rx-time]");
+            if (doneBox){ doneBox.checked = on; doneBox.disabled = skip; doneBox.setAttribute("data-rx-was", on ? "1" : "0"); }
+            if (skipBox){ skipBox.checked = skip; skipBox.setAttribute("data-rx-was", skip ? "1" : "0"); }
+            item.classList.toggle("is-done", on);
+            item.classList.toggle("is-skip", skip);
+            if (time) time.textContent = on && res.time ? res.time : "";
+            paint(sheet, Number(res.done_count) || 0, Number(res.required) || 0, Number(res.skipped_count) || 0);
           })
-          .catch(function(){ input.checked = !input.checked; })
-          .then(function(){ form.removeAttribute("data-busy"); });
+          .catch(function(){ input.checked = previous; })
+          .then(function(){ item.removeAttribute("data-busy"); });
       });
     })();
     </script>
         <?php
     }
     ?>
-    <section class="duty-sheet panel" data-duty-sheet>
-      <div class="duty-sheet-meta">
+    <section class="rx-sheet<?= $live ? '' : ' is-locked' ?>" data-rx-sheet<?= $live ? ' data-rx-url="' . e($postUrl) . '"' : '' ?>>
+      <?php if ($live): ?>
+        <input type="hidden" data-rx-csrf value="<?= e(csrf_token()) ?>">
+      <?php endif; ?>
+      <div class="rx-head">
         <?php if ($name !== ''): ?><strong><?= e($name) ?></strong><?php endif; ?>
         <?php if ($showDate): ?><span><?= e($dateLabel) ?></span><?php endif; ?>
-        <span>انجام‌شده <b data-duty-count><?= e($doneCount) ?></b> از <?= e($totalCount) ?></span>
       </div>
-      <div class="duty-list">
-        <div class="duty-head">
-          <span>ردیف</span>
-          <span>وظیفه</span>
-          <span>انجام</span>
-          <span>ساعت</span>
-        </div>
-        <?php $n = 0; foreach (secretary_daily_task_catalog() as $key => $label): ?>
-          <?php
-            $n++;
-            $checked = !empty($states[$key]['done']);
-            $doneAt = (string) ($states[$key]['done_at'] ?? '');
-            $timeLabel = ($checked && $doneAt !== '') ? format_fa_time($doneAt) : '';
-          ?>
-          <div class="duty-row<?= $checked ? ' is-done' : '' ?>">
-            <span class="duty-num"><?= e(to_fa_digits((string) $n)) ?></span>
-            <span class="duty-task"><?= e($label) ?></span>
-            <?php if ($editable): ?>
-              <form class="duty-form" method="post" action="<?= e($postUrl) ?>">
-                <?= csrf_field() ?>
-                <input type="hidden" name="task_date" value="<?= e($ymd) ?>">
-                <input type="hidden" name="task_key" value="<?= e($key) ?>">
-                <input type="hidden" name="done" value="0">
-                <label class="duty-check">
-                  <input type="checkbox" name="done" value="1"<?= $checked ? ' checked' : '' ?>>
-                  <span class="duty-check-label"><?= $checked ? 'انجام شد' : 'انجام دادم' ?></span>
-                </label>
-              </form>
-            <?php else: ?>
-              <label class="duty-check is-locked">
-                <input type="checkbox" disabled<?= $checked ? ' checked' : '' ?>>
-                <span><?= $checked ? 'انجام شد' : 'انجام نشده' ?></span>
+      <progress class="rx-progress" data-rx-progress max="<?= $required > 0 ? $required : 1 ?>" value="<?= (int) $progress['done'] ?>"></progress>
+      <p class="rx-summary" data-rx-summary><?= e($summary) ?></p>
+      <?php foreach (secretary_daily_task_groups() as $group): ?>
+        <section class="rx-group">
+          <h2><?= e($group[0]) ?></h2>
+          <?php foreach ($group[1] as $task): ?>
+            <?php
+              $key = $task[0];
+              $label = $task[1];
+              $note = (string) ($task[2] ?? '');
+              $checked = !empty($states[$key]['done']);
+              $isSkip = $note !== '' && !empty($states[$key]['skipped']);
+              $doneAt = (string) ($states[$key]['done_at'] ?? '');
+              $timeLabel = ($checked && $doneAt !== '') ? format_fa_time($doneAt) : '';
+            ?>
+            <article class="rx-item<?= $checked ? ' is-done' : '' ?><?= $isSkip ? ' is-skip' : '' ?>" data-rx-item data-rx-key="<?= e($key) ?>" data-rx-date="<?= e($ymd) ?>">
+              <label class="rx-task">
+                <input type="checkbox" data-rx-done data-rx-was="<?= $checked ? '1' : '0' ?>"<?= $checked ? ' checked' : '' ?><?= (!$live || $isSkip) ? ' disabled' : '' ?>>
+                <span class="rx-title"><?= e($label) ?></span>
               </label>
-            <?php endif; ?>
-            <span class="duty-time"><?= $timeLabel !== '' ? e($timeLabel) : '—' ?></span>
-          </div>
-        <?php endforeach; ?>
-      </div>
+              <?php if ($note !== ''): ?><small class="rx-note"><?= e($note) ?></small><?php endif; ?>
+              <small class="rx-time" data-rx-time><?= e($timeLabel) ?></small>
+              <?php if ($note !== ''): ?>
+                <label class="rx-skip">
+                  <input type="checkbox" data-rx-skip data-rx-was="<?= $isSkip ? '1' : '0' ?>"<?= $isSkip ? ' checked' : '' ?><?= $live ? '' : ' disabled' ?>>
+                  امروز نیاز نیست
+                </label>
+              <?php endif; ?>
+            </article>
+          <?php endforeach; ?>
+        </section>
+      <?php endforeach; ?>
     </section>
     <?php
     return (string) ob_get_clean();

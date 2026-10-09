@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="fa" dir="rtl">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>چک‌لیست پذیرش کلینیک</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#f3f7f6;color:#183b36;font-family:Tahoma,Arial,sans-serif;line-height:1.9}main{max-width:850px;margin:40px auto;padding:24px}header,section{background:white;border:1px solid #dce7e3;border-radius:20px;padding:24px;margin-bottom:18px}h1{font-size:26px;margin:0}p{color:#627872}input,button{font:inherit}input[type=date]{padding:8px;border:1px solid #c8d8d2;border-radius:10px}progress{width:100%;height:16px;accent-color:#16836d}h2{font-size:18px}article{padding:14px 0;border-bottom:1px solid #eef2f0}article:last-child{border:0}.task{display:flex;align-items:flex-start;gap:12px;cursor:pointer}input[type=checkbox]{width:22px;height:22px;flex-shrink:0;accent-color:#16836d;margin-top:6px}.done .title{text-decoration:line-through;color:#72857e}.optional{display:block;font-size:12px;color:#647c74;margin-right:34px}.optional input{width:15px;height:15px;vertical-align:middle}small{display:block;color:#6b827a;margin-right:34px}button{padding:8px 20px;border:0;border-radius:10px;background:#16836d;color:white;cursor:pointer}#error{color:#b42318}footer{font-size:13px;color:#627872}@media(max-width:600px){main{margin:12px auto;padding:12px}header,section{padding:18px}h1{font-size:22px}}@media print{body{background:white}main{margin:0}button,footer{display:none}article{break-inside:avoid}}
+</style>
+<main>
+<header><h1>چک‌لیست پذیرش کلینیک</h1><p>پس از انجام هر کار، آن را علامت بزنید.</p><label>تاریخ: <input id="date" type="date"></label><p id="persianDate"></p><progress id="progress" max="24" value="0"></progress><p id="summary" aria-live="polite"></p><p id="error" role="alert"></p><button id="print" type="button">چاپ گزارش</button></header>
+<div id="tasks"></div>
+<footer>وضعیت هر روز فقط در همین مرورگر ذخیره می‌شود. برای استفاده مشترک منشی‌ها و مشاهده توسط مدیر، Cursor باید ذخیره‌سازی را به سرور و حساب‌های کاربری سایت متصل کند.</footer>
+</main>
+<script>
+(() => {
+  'use strict';
+  const groups = [
+    ['آماده‌سازی و نظم مطب', [
+      ['clean', 'اطمینان از تمیزی میز پذیرش، میزهای آشپزخانه، اتاق‌های درمان و سرویس بهداشتی.'],
+      ['previous-files', 'اطمینان از جمع شدن پرونده‌های روز قبل.'],
+      ['next-files', 'اطمینان از وجود پرونده‌های روز بعدی بر روی میز.'],
+      ['water', 'گذاشتن آب خنک و لیوان یکبارمصرف بر روی میز پذیرایی.'],
+      ['file-order', 'اطمینان از به ترتیب قرار دادن پرونده‌ها که توالی شماره به‌هم نخورد.'],
+      ['supplies', 'تهیه لیست مایحتاج مطب و در صورت نبود کالا، سفارش و پیگیری سریع آن.'],
+      ['tissues', 'اطمینان از وجود دستمال در سرویس و اتاق‌ها و همچنین مواد شوینده و الکل.']
+    ]],
+    ['پیام‌ها، برنامه‌ها و مراجعان', [
+      ['messages', 'پاسخ به تمامی پیام‌ها در واتس‌اپ، تلگرام، آی‌مسیج و بقیه پیام‌رسان‌ها.'],
+      ['triage', 'چک کردن هفتگی برنامه‌های تریاژ، اطلاع به مراجعان، تعیین زمان و هماهنگی با دکتر گرانمایه برای ارجاع نوبت یک هفته بعد از تریاژ.', 'هفتگی؛ در روز بررسی برنامه انجام شود.'],
+      ['daily-rooms', 'ارسال برنامه روزانه اتاق‌ها به خانم دکتر گرانمایه.'],
+      ['payments', 'سبز کردن پرداختی‌ها و قرمز کردن در صورت عدم پرداخت (اطمینان از پرداخت مراجعان روز قبل).'],
+      ['mana-tomorrow', 'فرستادن برنامه فردا در گروه مانا.'],
+      ['media', 'فرستادن روزانه عکس یا فیلم برای نشرین پالین‌پرست.'],
+      ['holiday', 'در روزهای تعطیل، هماهنگی و اطلاع به خانم دکتر گرانمایه.', 'فقط در روزهای تعطیل.'],
+      ['full-schedule', 'برنامه ارسالی به خانم دکتر گرانمایه همه زمان‌ها را پر داشته باشد. در صورت کنسلی سریع جایگزین تعیین شود.'],
+      ['therapists', 'ارسال برنامه بقیه درمانگران به چت شخصی و گروه مانا.'],
+      ['room-conflicts', 'اطمینان از تداخل نداشتن اتاق‌ها.'],
+      ['new-forms', 'دادن فرم مراجعان جدید قبل از جلسه', 'در صورت وجود مراجع جدید.']
+    ]],
+    ['در طول فعالیت کلینیک', [
+      ['music', 'پخش موسیقی بی‌کلام در زمان مشغول بودن اتاق‌ها.', 'هنگام مشغول بودن اتاق‌ها.'],
+      ['fragrance', 'استفاده از خوشبوکننده یا عود و شمع در روزهای شلوغ.', 'در روزهای شلوغ.']
+    ]],
+    ['پایان ساعت کار', [
+      ['performance', 'ارسال عملکرد هر روز دکتر گرانمایه‌پور برای راحله در پایان ساعت کار.'],
+      ['bins', 'نظافت همه سطل‌های زباله و انتقال آن‌ها به سطل زباله شهری.'],
+      ['lights', 'اطمینان از خاموش بودن کولر و چراغ اتاق‌ها و سرویس بعد از اتمام کار درمانگران.'],
+      ['closing', 'در پایان شب سطل‌ها تمیز باشد، کف کلینیک بدون آشغال و پلاستیک باشد و ظرف‌ها شسته شده باشد.']
+    ]]
+  ];
+  const all = groups.flatMap(g => g[1]);
+  const date = document.getElementById('date');
+  const error = document.getElementById('error');
+  const key = d => 'clinic-reception-v1:' + d;
+  let state = {};
+  function today() {
+    const parts = new Intl.DateTimeFormat('en-US', {timeZone:'Asia/Tehran',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(new Date());
+    const get = t => parts.find(p => p.type === t).value;
+    return get('year') + '-' + get('month') + '-' + get('day');
+  }
+  let selected = today();
+  date.value = selected;
+  function read() {
+    error.textContent = '';
+    try {
+      const data = JSON.parse(localStorage.getItem(key(selected)) || '{}');
+      state = data && typeof data === 'object' && !Array.isArray(data) ? data : {};
+    } catch (_) { state = {}; error.textContent = 'اطلاعات ذخیره‌شده قابل خواندن نیست؛ ذخیره‌سازی مرورگر را بررسی کنید.'; }
+  }
+  function save() {
+    try { localStorage.setItem(key(selected), JSON.stringify(state)); error.textContent = ''; }
+    catch (_) { error.textContent = 'تغییرات ذخیره نشد؛ دسترسی به ذخیره‌سازی مرورگر را بررسی کنید.'; }
+  }
+  function render() {
+    const container = document.getElementById('tasks');
+    container.replaceChildren();
+    let done = 0, skipped = 0;
+    for (const [heading, tasks] of groups) {
+      const section = document.createElement('section');
+      const h2 = document.createElement('h2'); h2.textContent = heading; section.append(h2);
+      for (const [id, title, condition] of tasks) {
+        const status = state[id] === 'done' ? 'done' : condition && state[id] === 'skip' ? 'skip' : 'pending';
+        if (status === 'done') done++; if (status === 'skip') skipped++;
+        const row = document.createElement('article'); row.className = status;
+        const label = document.createElement('label'); label.className = 'task';
+        const checkbox = document.createElement('input'); checkbox.type = 'checkbox'; checkbox.checked = status === 'done';
+        checkbox.disabled = status === 'skip';
+        const span = document.createElement('span'); span.className = 'title'; span.textContent = title;
+        checkbox.addEventListener('change', () => { state[id] = checkbox.checked ? 'done' : 'pending'; save(); render(); document.getElementById(id).focus(); });
+        checkbox.id = id; label.append(checkbox, span); row.append(label);
+        if (condition) {
+          const note = document.createElement('small'); note.textContent = condition; row.append(note);
+          const optional = document.createElement('label'); optional.className = 'optional';
+          const skip = document.createElement('input'); skip.type = 'checkbox'; skip.checked = status === 'skip'; skip.id = id + '-skip';
+          skip.addEventListener('change', () => { state[id] = skip.checked ? 'skip' : 'pending'; save(); render(); document.getElementById(id + '-skip').focus(); });
+          optional.append(skip, document.createTextNode(' امروز نیاز نیست')); row.append(optional);
+        }
+        section.append(row);
+      }
+      container.append(section);
+    }
+    const required = all.length - skipped;
+    document.getElementById('progress').max = required || 1;
+    document.getElementById('progress').value = done;
+    document.getElementById('summary').textContent = done.toLocaleString('fa-IR') + ' از ' + required.toLocaleString('fa-IR') + ' کار انجام شده' + (skipped ? ' · ' + skipped.toLocaleString('fa-IR') + ' مورد امروز نیاز نیست' : '');
+    document.getElementById('persianDate').textContent = new Intl.DateTimeFormat('fa-IR', {dateStyle:'full',timeZone:'Asia/Tehran'}).format(new Date(selected + 'T12:00:00+03:30'));
+  }
+  date.addEventListener('change', () => {
+    if (!date.value || !date.validity.valid) { date.value = selected; return; }
+    selected = date.value; read(); render();
+  });
+  window.addEventListener('storage', event => { if (event.key === key(selected) || event.key === null) { read(); render(); } });
+  document.getElementById('print').addEventListener('click', () => window.print());
+  read(); render();
+})();
+</script>
+</html>

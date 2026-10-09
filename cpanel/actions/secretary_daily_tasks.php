@@ -9,7 +9,7 @@ csrf_verify();
 $userId = (string) ($user['id'] ?? '');
 $ymd = trim((string) post('task_date'));
 $key = trim((string) post('task_key'));
-$done = post('done') === '1';
+$mark = secretary_daily_task_posted_mark();
 $back = '/secretary/daily-tasks';
 
 if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymd) || $ymd > date('Y-m-d')) {
@@ -23,7 +23,7 @@ if (!secretary_daily_task_can_edit($pdo, $userId, $ymd, true) || ($ymd !== date(
 
 $ajax = strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest';
 try {
-    $doneAt = secretary_daily_task_set($pdo, $userId, $ymd, $key, $done);
+    $doneAt = secretary_daily_task_set($pdo, $userId, $ymd, $key, $mark === 'done', $mark);
 } catch (Throwable $e) {
     if ($ajax) {
         http_response_code(400);
@@ -36,13 +36,7 @@ try {
 }
 
 if ($ajax) {
-    header('Content-Type: application/json; charset=utf-8');
-    echo json_encode([
-        'ok' => true,
-        'done' => $done,
-        'time' => ($done && is_string($doneAt) && $doneAt !== '') ? format_fa_time($doneAt) : '',
-    ], JSON_UNESCAPED_UNICODE);
-    exit;
+    secretary_daily_task_save_response($pdo, $userId, $ymd, $mark, is_string($doneAt) ? $doneAt : null);
 }
 
 redirect($back . '?date=' . rawurlencode($ymd));

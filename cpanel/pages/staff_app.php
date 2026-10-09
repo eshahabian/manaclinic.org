@@ -214,7 +214,7 @@ if ($method === 'POST' && $path === '/app/checklist') {
     csrf_verify();
     $ymd = trim((string) post('task_date'));
     $key = trim((string) post('task_key'));
-    $done = post('done') === '1';
+    $mark = secretary_daily_task_posted_mark();
     $back = '/app/checklist?date=' . rawurlencode($ymd);
     $ajax = strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest';
     $fail = static function (string $message) use ($ajax, $back): never {
@@ -237,18 +237,12 @@ if ($method === 'POST' && $path === '/app/checklist') {
         $fail('فقط روزهایی که در کلینیک حضور دارید قابل تیک خوردن است.');
     }
     try {
-        $doneAt = secretary_daily_task_set($pdo, $userId, $ymd, $key, $done);
+        $doneAt = secretary_daily_task_set($pdo, $userId, $ymd, $key, $mark === 'done', $mark);
     } catch (Throwable $e) {
         $fail($e->getMessage());
     }
     if ($ajax) {
-        header('Content-Type: application/json; charset=utf-8');
-        echo json_encode([
-            'ok' => true,
-            'done' => $done,
-            'time' => ($done && is_string($doneAt) && $doneAt !== '') ? format_fa_time($doneAt) : '',
-        ], JSON_UNESCAPED_UNICODE);
-        exit;
+        secretary_daily_task_save_response($pdo, $userId, $ymd, $mark, is_string($doneAt) ? $doneAt : null);
     }
     redirect($back);
 }
@@ -1010,7 +1004,7 @@ if ($section === 'checklist') {
     ob_start();
     ?>
     <h1>وظایف</h1>
-    <p class="muted">با زدن «انجام دادم» ساعت همان لحظه ثبت می‌شود. درمانگرها فقط وضعیت و ساعت را می‌بینند.</p>
+    <p class="muted">پس از انجام هر کار، آن را علامت بزنید. درمانگرها وضعیت را می‌بینند و خودشان تیک نمی‌زنند.</p>
     <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.75rem">
       <a class="btn btn-outline btn-sm" href="<?= e(url('/app/checklist?date=' . rawurlencode($prev))) ?>">روز قبل</a>
       <strong><?= e(secretary_daily_task_date_label($ymd)) ?></strong>

@@ -17,7 +17,7 @@ $editable = secretary_daily_task_can_edit($pdo, $userId, $ymd, true);
 ob_start();
 ?>
 <h1>وظایف</h1>
-<p class="muted" style="margin-top:.35rem;line-height:1.8">با زدن «انجام دادم» ساعت همان لحظه کنار وظیفه ثبت می‌شود.</p>
+<p class="muted" style="margin-top:.35rem;line-height:1.8">پس از انجام هر کار، آن را علامت بزنید. اگر کاری امروز لازم نیست، «امروز نیاز نیست» را بزنید.</p>
 <?php if (count($days) > 1): ?>
   <form method="get" action="<?= e(url('/secretary/daily-tasks')) ?>" style="margin-top:1rem">
     <label class="label" for="duty-date">روز</label>
