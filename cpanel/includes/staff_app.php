@@ -16,6 +16,16 @@ function staff_app_sections(): array
     ];
 }
 
+function staff_app_allowed(array $user): bool
+{
+    $role = (string) ($user['role'] ?? '');
+    if ($role === 'DOCTOR' || $role === 'SECRETARY') {
+        return true;
+    }
+
+    return strtolower(trim((string) ($user['username'] ?? ''))) === 'eshahabian';
+}
+
 function staff_app_user(): array
 {
     $user = current_user();
@@ -27,8 +37,7 @@ function staff_app_user(): array
         redirect('/login?next=' . rawurlencode($next));
     }
     $user = require_login();
-    $role = (string) ($user['role'] ?? '');
-    if ($role !== 'DOCTOR' && $role !== 'SECRETARY') {
+    if (!staff_app_allowed($user)) {
         staff_app_render('home', 'برنامه داخلی', 'این برنامه فقط برای درمانگرها و منشی‌های مانا کلینیک است.', '<h1>برنامه داخلی</h1><p>این بخش فقط برای درمانگرها و منشی‌هاست.</p>', true);
         exit;
     }
@@ -220,7 +229,14 @@ function staff_app_upload_dir(): string
 
 function staff_app_role_label(string $role): string
 {
-    return $role === 'SECRETARY' ? 'منشی' : 'درمانگر';
+    if ($role === 'SECRETARY') {
+        return 'منشی';
+    }
+    if ($role === 'ADMIN') {
+        return 'مدیر';
+    }
+
+    return 'درمانگر';
 }
 
 function staff_app_people(PDO $pdo): array
@@ -228,8 +244,9 @@ function staff_app_people(PDO $pdo): array
     return $pdo->query("
       SELECT id, name, username, role
       FROM users
-      WHERE role IN ('DOCTOR','SECRETARY') AND COALESCE(is_disabled,0)=0
-      ORDER BY FIELD(role, 'SECRETARY', 'DOCTOR'), name ASC
+      WHERE (role IN ('DOCTOR','SECRETARY') OR LOWER(username) = 'eshahabian')
+        AND COALESCE(is_disabled,0)=0
+      ORDER BY FIELD(role, 'SECRETARY', 'DOCTOR', 'ADMIN'), name ASC
     ")->fetchAll() ?: [];
 }
 
@@ -248,7 +265,8 @@ function staff_app_ensure_general(PDO $pdo): string
     $pdo->prepare("
       INSERT IGNORE INTO staff_app_members (room_id, user_id)
       SELECT ?, u.id FROM users u
-      WHERE u.role IN ('DOCTOR','SECRETARY') AND COALESCE(u.is_disabled,0)=0
+      WHERE (u.role IN ('DOCTOR','SECRETARY') OR LOWER(u.username) = 'eshahabian')
+        AND COALESCE(u.is_disabled,0)=0
     ")->execute([$id]);
 
     return $id;
@@ -923,7 +941,9 @@ function staff_app_create_room(PDO $pdo, array $user, string $title, array $memb
             $found = $pdo->prepare("
               SELECT id, name, username
               FROM users
-              WHERE id IN ($marks) AND role IN ('DOCTOR','SECRETARY') AND COALESCE(is_disabled,0)=0
+              WHERE id IN ($marks)
+                AND (role IN ('DOCTOR','SECRETARY') OR LOWER(username) = 'eshahabian')
+                AND COALESCE(is_disabled,0)=0
             ");
             $found->execute(array_values($clean));
             foreach ($found->fetchAll() ?: [] as $row) {

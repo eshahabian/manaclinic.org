@@ -3,7 +3,8 @@ declare(strict_types=1);
 if (current_user()) {
     $next = safe_next_path((string) ($_GET['next'] ?? ''));
     $role = (string) (current_user()['role'] ?? '');
-    if ($next && str_starts_with($next, '/app') && ($role === 'DOCTOR' || $role === 'SECRETARY')) {
+    $username = strtolower(trim((string) (current_user()['username'] ?? '')));
+    if ($next && str_starts_with($next, '/app') && ($role === 'DOCTOR' || $role === 'SECRETARY' || $username === 'eshahabian')) {
         redirect($next);
     }
     $href = panel_href_for(current_user()) ?: '/';
