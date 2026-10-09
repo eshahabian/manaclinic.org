@@ -323,8 +323,6 @@ function staff_app_rooms_for(PDO $pdo, string $userId): array
           FROM staff_app_rooms r
           WHERE r.is_general = 0
             AND r.deleted_at IS NULL
-            AND COALESCE(r.is_private, 0) = 0
-            AND (SELECT COUNT(*) FROM staff_app_members m WHERE m.room_id = r.id) <> 2
             AND NOT EXISTS (
               SELECT 1 FROM staff_app_members mem
               WHERE mem.room_id = r.id AND mem.user_id = ?
@@ -372,24 +370,10 @@ function staff_app_room_for_member(PDO $pdo, string $roomId, string $userId): ?a
     return $row ?: null;
 }
 
-/**
- * ناظر خاموش گروه‌های ساخته‌شده: eshahabian و دکتر عطیه گارسچی.
- * تشخیص عطیه همان doctor_is_garsichi است (نام شامل «گارسچی»)، نه همه پزشک‌ها.
- */
+/** ناظر خاموش همه گفتگوها: فقط eshahabian. عضویت ساخته نمی‌شود و تیک خوانده‌شد نمی‌فرستد. */
 function staff_app_group_observer(?array $user): bool
 {
-    if (!$user) {
-        return false;
-    }
-    $username = strtolower(trim((string) ($user['username'] ?? '')));
-    if ($username === 'eshahabian') {
-        return true;
-    }
-    if (!function_exists('doctor_is_garsichi') && is_file(__DIR__ . '/doctor_profile_fields.php')) {
-        require_once __DIR__ . '/doctor_profile_fields.php';
-    }
-
-    return function_exists('doctor_is_garsichi') && doctor_is_garsichi($user);
+    return staff_app_is_eshahabian($user);
 }
 
 function staff_app_user_brief(PDO $pdo, string $userId): ?array
@@ -443,13 +427,12 @@ function staff_app_is_group_room(PDO $pdo, array $room): bool
     return (int) $stmt->fetchColumn() !== 2;
 }
 
+/** eshahabian هر گفتگوی غیرکلی را می‌بیند، از جمله دو نفره و گروه خصوصی. */
 function staff_app_is_oversight_group(PDO $pdo, array $room): bool
 {
-    if (!empty($room['is_private'])) {
-        return false;
-    }
+    unset($pdo);
 
-    return staff_app_is_group_room($pdo, $room);
+    return empty($room['is_general']);
 }
 
 function staff_app_is_eshahabian(?array $user): bool
@@ -502,7 +485,7 @@ function staff_app_assert_can_post(PDO $pdo, array $user, string $roomId): void
     }
     $viewer = staff_app_group_observer($user) ? $user : staff_app_user_brief($pdo, $userId);
     if (staff_app_group_observer($viewer)) {
-        throw new RuntimeException('در این گروه فقط مشاهده ممکن است.');
+        throw new RuntimeException('در این گفتگو فقط مشاهده ممکن است.');
     }
     throw new RuntimeException('به این اتاق دسترسی ندارید.');
 }
@@ -609,7 +592,10 @@ function staff_app_direct_room(PDO $pdo, string $userId, string $otherId): ?stri
       JOIN staff_app_members a ON a.room_id = r.id AND a.user_id = ?
       JOIN staff_app_members b ON b.room_id = r.id AND b.user_id = ?
       WHERE r.is_general = 0
+        AND r.deleted_at IS NULL
+        AND COALESCE(r.is_private, 0) = 0
         AND (SELECT COUNT(*) FROM staff_app_members m WHERE m.room_id = r.id) = 2
+      ORDER BY r.created_at DESC
       LIMIT 1
     ");
     $stmt->execute([$userId, $otherId]);
@@ -1325,6 +1311,9 @@ function staff_app_delete_room(PDO $pdo, array $user, string $roomId): void
     if (!$isMember && !staff_app_is_eshahabian($user)) {
         throw new RuntimeException('حذف این چت فقط برای اعضایش است.');
     }
+    if (!$isMember && !staff_app_is_group_room($pdo, $room)) {
+        throw new RuntimeException('حذف گفتگوی دو نفره فقط برای خودشان است.');
+    }
     $pdo->prepare('UPDATE staff_app_rooms SET deleted_at = NOW(), deleted_by = ? WHERE id = ? AND is_general = 0 AND deleted_at IS NULL')
         ->execute([$userId, $roomId]);
 }
@@ -1353,8 +1342,15 @@ function staff_app_allowed_upload_types(): array
         'application/zip' => 'zip',
         'application/x-zip-compressed' => 'zip',
         'audio/mpeg' => 'mp3',
+        'audio/mp3' => 'mp3',
         'audio/mp4' => 'm4a',
         'audio/x-m4a' => 'm4a',
+        'audio/m4a' => 'm4a',
+        'audio/aac' => 'm4a',
+        'audio/webm' => 'webm',
+        'audio/ogg' => 'ogg',
+        'application/ogg' => 'ogg',
+        'audio/opus' => 'ogg',
         'application/msword' => 'doc',
         'application/vnd.openxmlformats-officedocument.wordprocessingml.document' => 'docx',
         'application/vnd.ms-excel' => 'xls',
@@ -1474,20 +1470,6 @@ function staff_app_output_file(PDO $pdo, array $user, string $fileId): never
           JOIN staff_app_messages m ON m.id = f.message_id
           JOIN staff_app_rooms r ON r.id = m.room_id AND r.is_general = 0
           WHERE f.id = ?
-            AND r.deleted_at IS NOT NULL
-          LIMIT 1
-        ");
-        $watch->execute([$fileId]);
-        $file = $watch->fetch();
-    }
-    if (!$file && staff_app_group_observer(staff_app_user_brief($pdo, (string) ($user['id'] ?? '')))) {
-        $watch = $pdo->prepare("
-          SELECT f.stored_name, f.original_name, f.mime
-          FROM staff_app_files f
-          JOIN staff_app_messages m ON m.id = f.message_id
-          JOIN staff_app_rooms r ON r.id = m.room_id AND r.is_general = 0
-          WHERE f.id = ?
-            AND (SELECT COUNT(*) FROM staff_app_members mem WHERE mem.room_id = r.id) <> 2
           LIMIT 1
         ");
         $watch->execute([$fileId]);

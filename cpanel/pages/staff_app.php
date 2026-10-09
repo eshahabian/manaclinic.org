@@ -192,7 +192,7 @@ if ($method === 'POST' && ($path === '/app/chat' || preg_match('#^/app/chat/([a-
             flash_set('success', 'پیام هدایت شد.');
             redirect($back);
         }
-        $newId = staff_app_send_message($pdo, $user, $roomId, post('body'), $_FILES['file'] ?? null, post('reply_to'));
+        $newId = staff_app_send_message($pdo, $user, $roomId, post('body'), $_FILES['file'] ?? null, post('reply_to'), post('voice') === '1');
         if (post('ajax') === '1') {
             header('Content-Type: application/json; charset=utf-8');
             header('Cache-Control: no-store');
@@ -810,7 +810,7 @@ if ($section === 'chat') {
                     $peerIds[] = $peerId;
                 }
             }
-            $isGroup = !empty($room['is_general']) || count($peerIds) > 1;
+            $isGroup = !empty($room['is_general']) || count($peerIds) > ($observeOnly ? 2 : 1);
             $pinned = staff_app_pinned_message($pdo, $roomId);
             $pinnedId = (string) ($pinned['id'] ?? '');
             $pinText = trim(preg_replace('/\s+/u', ' ', (string) ($pinned['body'] ?? '')) ?? '');
@@ -846,12 +846,14 @@ if ($section === 'chat') {
             <?php if ($fromArchive): ?>
               <p class="muted" style="margin:0 0 8px"><?= e(staff_app_archive_countdown($room)) ?></p>
             <?php elseif ($observeOnly): ?>
-              <p class="muted" style="margin:0 0 8px">فقط مشاهده</p>
+              <p class="muted" style="margin:0 0 8px"><?= !empty($room['is_private']) ? 'خصوصی · فقط مشاهده' : 'فقط مشاهده' ?></p>
             <?php elseif (!empty($room['is_private'])): ?>
               <p class="muted" style="margin:0 0 8px">خصوصی — فقط اعضای گروه</p>
             <?php endif; ?>
             <?php
-              $canDeleteChat = empty($room['is_general']) && empty($room['deleted_at']) && (empty($room['observe_only']) || staff_app_is_eshahabian($user));
+              $watchedCount = count($peerIds) + ($observeOnly ? 0 : 1);
+              $watchedDirect = empty($room['is_general']) && empty($room['is_private']) && $watchedCount === 2;
+              $canDeleteChat = empty($room['is_general']) && empty($room['deleted_at']) && (!$observeOnly || (staff_app_is_eshahabian($user) && !$watchedDirect));
               $canKeepChat = $fromArchive && staff_app_is_eshahabian($user) && empty($room['kept_forever']);
             ?>
             <?php if ($canDeleteChat || $canKeepChat): ?>
@@ -934,6 +936,8 @@ if ($section === 'chat') {
                     ?>
                     <?php if (str_starts_with($mime, 'image/')): ?>
                       <a href="<?= e($fileUrl) ?>"><img src="<?= e($fileUrl) ?>" alt="<?= e((string) ($file['original_name'] ?? 'فایل')) ?>"></a>
+                    <?php elseif (staff_app_is_audio_mime($mime)): ?>
+                      <audio class="sapp-audio" controls preload="none" src="<?= e($fileUrl) ?>" aria-label="پیام صوتی"></audio>
                     <?php else: ?>
                       <p><a href="<?= e($fileUrl) ?>"><?= e((string) ($file['original_name'] ?? 'فایل')) ?></a></p>
                     <?php endif; ?>
@@ -965,12 +969,19 @@ if ($section === 'chat') {
                 </div>
                 <button type="button" id="sapp-reply-x" aria-label="لغو پاسخ">×</button>
               </div>
+              <div class="sapp-voice-bar" id="sapp-voice-bar" hidden>
+                <span class="sapp-voice-dot" aria-hidden="true"></span>
+                <span class="sapp-voice-time" id="sapp-voice-time">۰:۰۰</span>
+                <span class="sapp-voice-label" id="sapp-voice-label">در حال ضبط</span>
+                <button type="button" class="sapp-voice-cancel" id="sapp-voice-cancel">لغو</button>
+              </div>
               <div class="sapp-compose-row">
                 <label class="sapp-file" title="فایل">
                   <input id="chat-file" name="file" type="file" aria-label="فایل">
                   <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m21 12-8.5 8.5a5.5 5.5 0 0 1-7.8-7.8L13.2 4.2a3.5 3.5 0 0 1 5 5L9.6 17.8a1.5 1.5 0 0 1-2.1-2.1l7.4-7.4"/></svg>
                 </label>
                 <textarea class="input" id="chat-body" name="body" rows="1" maxlength="4000" placeholder="پیام" autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false" enterkeyhint="send"></textarea>
+                <button type="button" class="sapp-voice" id="sapp-voice" aria-pressed="false" aria-label="ضبط وویس">وویس</button>
                 <button class="sapp-send" type="submit" aria-label="ارسال">➤</button>
               </div>
             </form>
@@ -1023,7 +1034,7 @@ if ($section === 'chat') {
             <script type="application/json" id="sapp-chat-config"><?= $chatConfig ?></script>
             <?php
             $html = ob_get_clean();
-            $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/staff-chat.js')) . '?v=20261009view"></script>';
+            $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/staff-chat.js')) . '?v=20261009voice"></script>';
         } else {
             $rooms = staff_app_rooms_for($pdo, $userId);
             $people = staff_app_people($pdo);
@@ -1034,18 +1045,23 @@ if ($section === 'chat') {
             <?php if (staff_app_is_eshahabian($user)): ?>
               <p style="margin:0 0 8px"><a href="<?= e(url('/app/chat/archive')) ?>">آرشیو</a></p>
             <?php endif; ?>
-            <p class="muted">چت کلی برای همه است. برای حرف زدن با یک نفر، اسمش را بزنید.</p>
+            <p class="muted">چت کلی برای همه است. برای حرف زدن با یک نفر، اسمش را بزنید. گفتگوی دو نفره فقط بین همان دو نفر است.</p>
             <div class="sapp-list">
               <?php foreach ($rooms as $room): ?>
                 <?php $roomUnread = (int) ($room['unread_count'] ?? 0); ?>
                 <?php
                   $isGroupRoom = empty($room['is_general']) && (!empty($room['is_private']) || (int) ($room['member_count'] ?? 0) !== 2);
-                  $canDeleteChat = empty($room['is_general']) && (empty($room['observe_only']) || staff_app_is_eshahabian($user));
-                  $roomKind = 'گفتگوی خصوصی';
+                  $isDirectRoom = empty($room['is_general']) && empty($room['is_private']) && (int) ($room['member_count'] ?? 0) === 2;
+                  $canDeleteChat = empty($room['is_general']) && (empty($room['observe_only']) || (staff_app_is_eshahabian($user) && !$isDirectRoom));
+                  $roomKind = 'گفتگوی دو نفره';
                   if (!empty($room['is_general'])) {
                       $roomKind = 'همه درمانگرها و منشی‌ها';
+                  } elseif (!empty($room['observe_only']) && !empty($room['is_private'])) {
+                      $roomKind = 'خصوصی · فقط مشاهده';
+                  } elseif (!empty($room['observe_only']) && $isDirectRoom) {
+                      $roomKind = 'گفتگوی دو نفره · فقط مشاهده';
                   } elseif (!empty($room['observe_only'])) {
-                      $roomKind = 'فقط مشاهده';
+                      $roomKind = 'گروه · فقط مشاهده';
                   } elseif (!empty($room['is_private'])) {
                       $roomKind = 'خصوصی';
                   } elseif ($isGroupRoom) {
@@ -1096,7 +1112,7 @@ if ($section === 'chat') {
                 <input class="input" id="room-title" name="title" maxlength="80" placeholder="مثلاً شیفت عصر">
                 <label class="sapp-check" for="room-private">
                   <input type="checkbox" id="room-private" name="is_private" value="1">
-                  <span>خصوصی — فقط اعضای همین گروه ببینند</span>
+                  <span>خصوصی — بقیه این گروه را نمی‌بینند</span>
                 </label>
                 <?php foreach ($people as $person): ?>
                   <?php if ((string) ($person['id'] ?? '') === $userId) { continue; } ?>
