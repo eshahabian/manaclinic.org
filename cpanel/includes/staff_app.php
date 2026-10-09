@@ -163,6 +163,7 @@ function staff_app_ensure_schema(PDO $pdo): void
     staff_app_add_column($pdo, 'staff_app_messages', 'reply_to', 'VARCHAR(32) NULL');
     staff_app_add_column($pdo, 'staff_app_messages', 'forward_from', 'VARCHAR(80) NULL');
     staff_app_add_column($pdo, 'staff_app_rooms', 'pinned_message_id', 'VARCHAR(32) NULL');
+    staff_app_add_column($pdo, 'staff_app_rooms', 'is_private', 'TINYINT(1) NOT NULL DEFAULT 0');
     $ready = true;
 }
 
@@ -282,7 +283,8 @@ function staff_app_rooms_for(PDO $pdo, string $userId): array
 {
     $general = staff_app_ensure_general($pdo);
     $stmt = $pdo->prepare("
-      SELECT r.id, r.title, r.is_general, r.created_at,
+      SELECT r.id, r.title, r.is_general, r.is_private, r.created_at,
+             (SELECT COUNT(*) FROM staff_app_members mc WHERE mc.room_id = r.id) AS member_count,
              (SELECT COUNT(*) FROM staff_app_messages m WHERE m.room_id = r.id) AS message_count,
              (SELECT COUNT(*) FROM staff_app_messages um
                LEFT JOIN staff_app_reads rd ON rd.room_id = r.id AND rd.user_id = ?
@@ -309,11 +311,13 @@ function staff_app_rooms_for(PDO $pdo, string $userId): array
     unset($row);
     if (staff_app_group_observer(staff_app_user_brief($pdo, $userId))) {
         $extra = $pdo->prepare("
-          SELECT r.id, r.title, r.is_general, r.created_at,
+          SELECT r.id, r.title, r.is_general, r.is_private, r.created_at,
+                 (SELECT COUNT(*) FROM staff_app_members mc WHERE mc.room_id = r.id) AS member_count,
                  (SELECT COUNT(*) FROM staff_app_messages m WHERE m.room_id = r.id) AS message_count,
                  0 AS unread_count
           FROM staff_app_rooms r
           WHERE r.is_general = 0
+            AND COALESCE(r.is_private, 0) = 0
             AND (SELECT COUNT(*) FROM staff_app_members m WHERE m.room_id = r.id) <> 2
             AND NOT EXISTS (
               SELECT 1 FROM staff_app_members mem
@@ -411,10 +415,16 @@ function staff_app_room_has_member(PDO $pdo, string $roomId, string $userId): bo
 }
 
 /** گروه ساخته‌شده: اتاق غیرکلی که گفتگوی دونفره نیست. چت کلی و خصوصی ۱به۱ این‌جا نیستند. */
-function staff_app_is_oversight_group(PDO $pdo, array $room): bool
+function staff_app_is_group_room(PDO $pdo, array $room): bool
 {
     if (!empty($room['is_general'])) {
         return false;
+    }
+    if (!empty($room['is_private'])) {
+        return true;
+    }
+    if (isset($room['member_count'])) {
+        return (int) $room['member_count'] !== 2;
     }
     $roomId = (string) ($room['id'] ?? '');
     if ($roomId === '') {
@@ -424,6 +434,20 @@ function staff_app_is_oversight_group(PDO $pdo, array $room): bool
     $stmt->execute([$roomId]);
 
     return (int) $stmt->fetchColumn() !== 2;
+}
+
+function staff_app_is_oversight_group(PDO $pdo, array $room): bool
+{
+    if (!empty($room['is_private'])) {
+        return false;
+    }
+
+    return staff_app_is_group_room($pdo, $room);
+}
+
+function staff_app_is_eshahabian(?array $user): bool
+{
+    return strtolower(trim((string) ($user['username'] ?? ''))) === 'eshahabian';
 }
 
 /** عضو واقعی، یا ناظر فقط-مشاهده روی گروه. عضویت در staff_app_members ساخته نمی‌شود. */
@@ -1071,7 +1095,7 @@ function staff_app_message_cards(PDO $pdo, string $userId, array $rows): array
     return $cards;
 }
 
-function staff_app_create_room(PDO $pdo, array $user, string $title, array $memberIds): string
+function staff_app_create_room(PDO $pdo, array $user, string $title, array $memberIds, bool $private = false): string
 {
     $title = trim($title);
     $people = [];
@@ -1140,11 +1164,12 @@ function staff_app_create_room(PDO $pdo, array $user, string $title, array $memb
     if (mb_strlen($title) > 80) {
         throw new RuntimeException('نام اتاق طولانی است.');
     }
+    $isPrivate = $private && count($chosen) > 1 ? 1 : 0;
     $roomId = cuid();
     $pdo->beginTransaction();
     try {
-        $pdo->prepare('INSERT INTO staff_app_rooms (id, title, is_general, created_by) VALUES (?,?,0,?)')
-            ->execute([$roomId, $title, $userId]);
+        $pdo->prepare('INSERT INTO staff_app_rooms (id, title, is_general, is_private, created_by) VALUES (?,?,0,?,?)')
+            ->execute([$roomId, $title, $isPrivate, $userId]);
         $add = $pdo->prepare('INSERT INTO staff_app_members (room_id, user_id) VALUES (?,?)');
         $add->execute([$roomId, $userId]);
         foreach ($chosen as $memberId) {
@@ -1159,6 +1184,59 @@ function staff_app_create_room(PDO $pdo, array $user, string $title, array $memb
     }
 
     return $roomId;
+}
+
+function staff_app_delete_room(PDO $pdo, array $user, string $roomId): void
+{
+    if (!staff_app_is_eshahabian($user)) {
+        throw new RuntimeException('حذف گروه فقط برای این حساب است.');
+    }
+    $room = staff_app_room_for_viewer($pdo, $roomId, (string) ($user['id'] ?? ''));
+    if (!$room || !staff_app_is_group_room($pdo, $room)) {
+        throw new RuntimeException('این گروه پیدا نشد.');
+    }
+    $files = $pdo->prepare('
+      SELECT f.stored_name
+      FROM staff_app_files f
+      JOIN staff_app_messages m ON m.id = f.message_id
+      WHERE m.room_id = ?
+    ');
+    $files->execute([$roomId]);
+    $stored = array_map(static fn(array $row): string => (string) $row['stored_name'], $files->fetchAll() ?: []);
+    $pdo->beginTransaction();
+    try {
+        $pdo->prepare('
+          DELETE r FROM staff_app_reactions r
+          INNER JOIN staff_app_messages m ON m.id = r.message_id
+          WHERE m.room_id = ?
+        ')->execute([$roomId]);
+        $pdo->prepare('
+          DELETE f FROM staff_app_files f
+          INNER JOIN staff_app_messages m ON m.id = f.message_id
+          WHERE m.room_id = ?
+        ')->execute([$roomId]);
+        $pdo->prepare('DELETE FROM staff_app_messages WHERE room_id = ?')->execute([$roomId]);
+        $pdo->prepare('DELETE FROM staff_app_reads WHERE room_id = ?')->execute([$roomId]);
+        $pdo->prepare('DELETE FROM staff_app_receipts WHERE room_id = ?')->execute([$roomId]);
+        $pdo->prepare('DELETE FROM staff_app_members WHERE room_id = ?')->execute([$roomId]);
+        $pdo->prepare('DELETE FROM staff_app_rooms WHERE id = ? AND is_general = 0')->execute([$roomId]);
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+    $dir = staff_app_upload_dir();
+    foreach ($stored as $name) {
+        if (!preg_match('/^[a-f0-9]{32}\.[a-z0-9]{1,5}$/', $name)) {
+            continue;
+        }
+        $path = $dir . '/' . $name;
+        if (is_file($path)) {
+            unlink($path);
+        }
+    }
 }
 
 function staff_app_allowed_upload_types(): array

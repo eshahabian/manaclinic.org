@@ -129,7 +129,7 @@ if ($method === 'POST' && ($path === '/app/chat' || preg_match('#^/app/chat/([a-
             if ($single !== '') {
                 $members[] = $single;
             }
-            $roomId = staff_app_create_room($pdo, $user, post('title'), $members);
+            $roomId = staff_app_create_room($pdo, $user, post('title'), $members, post('is_private') === '1');
             flash_set('success', 'اتاق چت ساخته شد.');
             redirect('/app/chat/' . $roomId);
         }
@@ -140,6 +140,11 @@ if ($method === 'POST' && ($path === '/app/chat' || preg_match('#^/app/chat/([a-
         $back = '/app/chat/' . $roomId;
         $ajax = post('ajax') === '1';
         $form = post('form');
+        if ($form === 'delete_room') {
+            staff_app_delete_room($pdo, $user, $roomId);
+            flash_set('success', 'گروه حذف شد.');
+            redirect('/app/chat');
+        }
         if ($form === 'delete') {
             staff_app_delete_message($pdo, $user, $roomId, post('message_id'));
             if ($ajax) {
@@ -791,6 +796,16 @@ if ($section === 'chat') {
             <h1 class="sapp-thread-title"><i class="sapp-dot" data-online="<?= e(implode(',', $peerIds)) ?>" hidden></i><span><?= e((string) ($room['title'] ?? 'چت')) ?></span></h1>
             <?php if ($observeOnly): ?>
               <p class="muted" style="margin:0 0 8px">فقط مشاهده</p>
+            <?php elseif (!empty($room['is_private'])): ?>
+              <p class="muted" style="margin:0 0 8px">خصوصی — فقط اعضای گروه</p>
+            <?php endif; ?>
+            <?php if (staff_app_is_eshahabian($user) && staff_app_is_group_room($pdo, $room)): ?>
+              <form method="post" action="<?= e(url('/app/chat')) ?>" onsubmit="return confirm('این گروه و پیام‌هایش حذف شود؟');" style="margin:0 0 10px">
+                <?= csrf_field() ?>
+                <input type="hidden" name="form" value="delete_room">
+                <input type="hidden" name="room_id" value="<?= e($roomId) ?>">
+                <button class="btn btn-outline btn-sm" type="submit">حذف گروه</button>
+              </form>
             <?php endif; ?>
             <?php if ($pinned): ?>
               <a class="sapp-pin" href="#m-<?= e($pinnedId) ?>">
@@ -953,18 +968,34 @@ if ($section === 'chat') {
             <div class="sapp-list">
               <?php foreach ($rooms as $room): ?>
                 <?php $roomUnread = (int) ($room['unread_count'] ?? 0); ?>
-                <a class="sapp-row" href="<?= e(url('/app/chat/' . (string) $room['id'])) ?>" style="text-decoration:none;color:inherit">
+                <?php
+                  $isGroupRoom = empty($room['is_general']) && (!empty($room['is_private']) || (int) ($room['member_count'] ?? 0) !== 2);
+                  $canDeleteGroup = staff_app_is_eshahabian($user) && $isGroupRoom;
+                  $roomKind = 'گفتگوی خصوصی';
+                  if (!empty($room['is_general'])) {
+                      $roomKind = 'همه درمانگرها و منشی‌ها';
+                  } elseif (!empty($room['observe_only'])) {
+                      $roomKind = 'فقط مشاهده';
+                  } elseif (!empty($room['is_private'])) {
+                      $roomKind = 'خصوصی';
+                  } elseif ($isGroupRoom) {
+                      $roomKind = 'گروه';
+                  }
+                ?>
+                <div class="sapp-row">
+                <a href="<?= e(url('/app/chat/' . (string) $room['id'])) ?>" style="text-decoration:none;color:inherit;display:block">
                   <strong class="sapp-room-name"><span class="sapp-room-label"><i class="sapp-dot" data-online="<?= e(implode(',', $peerMap[(string) $room['id']] ?? [])) ?>" hidden></i><?= e((string) ($room['title'] ?? 'اتاق')) ?></span><b class="sapp-unread" data-room-unread="<?= e((string) $room['id']) ?>"<?= $roomUnread > 0 ? '' : ' hidden' ?>><?= $roomUnread > 0 ? e(to_fa_digits((string) $roomUnread)) : '' ?></b></strong>
-                  <?php
-                    $roomKind = 'گفتگوی خصوصی';
-                    if (!empty($room['is_general'])) {
-                        $roomKind = 'همه درمانگرها و منشی‌ها';
-                    } elseif (!empty($room['observe_only'])) {
-                        $roomKind = 'فقط مشاهده';
-                    }
-                  ?>
                   <small><?= e($roomKind) ?> · <?= e(to_fa_digits((string) (int) ($room['message_count'] ?? 0))) ?> پیام</small>
                 </a>
+                <?php if ($canDeleteGroup): ?>
+                  <form method="post" action="<?= e(url('/app/chat')) ?>" onsubmit="return confirm('این گروه و پیام‌هایش حذف شود؟');" style="margin-top:8px">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="form" value="delete_room">
+                    <input type="hidden" name="room_id" value="<?= e((string) $room['id']) ?>">
+                    <button class="btn btn-outline btn-sm" type="submit">حذف گروه</button>
+                  </form>
+                <?php endif; ?>
+                </div>
               <?php endforeach; ?>
             </div>
             <h2 id="sapp-new-chat" style="margin:18px 0 8px;font-size:1.05rem">شروع گفتگو</h2>
@@ -993,6 +1024,10 @@ if ($section === 'chat') {
                 <input type="hidden" name="form" value="create">
                 <label class="label" for="room-title">نام گروه</label>
                 <input class="input" id="room-title" name="title" maxlength="80" placeholder="مثلاً شیفت عصر">
+                <label class="sapp-check" for="room-private">
+                  <input type="checkbox" id="room-private" name="is_private" value="1">
+                  <span>خصوصی — فقط اعضای همین گروه ببینند</span>
+                </label>
                 <?php foreach ($people as $person): ?>
                   <?php if ((string) ($person['id'] ?? '') === $userId) { continue; } ?>
                   <label class="sapp-check">
