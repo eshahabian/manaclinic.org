@@ -216,25 +216,22 @@ if ($method === 'POST' && $path === '/app/checklist') {
     $key = trim((string) post('task_key'));
     $mark = secretary_daily_task_posted_mark();
     $back = '/app/checklist?date=' . rawurlencode($ymd);
-    $ajax = strtolower((string) ($_SERVER['HTTP_X_REQUESTED_WITH'] ?? '')) === 'xmlhttprequest';
-    $fail = static function (string $message) use ($ajax, $back): never {
+    $ajax = secretary_daily_task_request_is_ajax();
+    $fail = static function (string $message, int $status = 400) use ($ajax, $back): never {
         if ($ajax) {
-            http_response_code(400);
-            header('Content-Type: application/json; charset=utf-8');
-            echo json_encode(['ok' => false, 'error' => $message], JSON_UNESCAPED_UNICODE);
-            exit;
+            secretary_daily_task_json_error($message, $status);
         }
         flash_set('error', $message);
         redirect($back);
     };
     if ($role !== 'SECRETARY') {
-        $fail('تیک چک‌لیست را خود منشی می‌زند.');
+        $fail('تیک چک‌لیست را خود منشی می‌زند.', 403);
     }
     if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymd) || $ymd > date('Y-m-d')) {
         $fail('تاریخ این فهرست معتبر نیست.');
     }
     if (!secretary_daily_task_can_edit($pdo, $userId, $ymd, true) || ($ymd !== date('Y-m-d') && !secretary_was_present($pdo, $userId, $ymd))) {
-        $fail('فقط روزهایی که در کلینیک حضور دارید قابل تیک خوردن است.');
+        $fail('فقط روزهایی که در کلینیک حضور دارید قابل تیک خوردن است.', 403);
     }
     try {
         $doneAt = secretary_daily_task_set($pdo, $userId, $ymd, $key, $mark === 'done', $mark);

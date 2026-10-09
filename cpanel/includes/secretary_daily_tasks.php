@@ -339,6 +339,33 @@ function secretary_daily_task_save_response(PDO $pdo, string $userId, string $ym
     exit;
 }
 
+function secretary_daily_task_request_is_ajax(): bool
+{
+    return function_exists('request_expects_json') && request_expects_json();
+}
+
+function secretary_daily_task_json_error(string $message, int $status = 400): void
+{
+    http_response_code($status);
+    header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['ok' => false, 'error' => $message], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+function secretary_checklist_register_script(): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    $tag = '<script src="' . e(url('/assets/js/secretary-checklist.js')) . '?v=20261009b"></script>';
+    $current = (string) ($GLOBALS['pageScripts'] ?? '');
+    if (!str_contains($current, 'secretary-checklist.js')) {
+        $GLOBALS['pageScripts'] = $current . $tag;
+    }
+}
+
 function secretary_daily_task_progress(array $states): array
 {
     $total = count(secretary_daily_task_catalog());
@@ -733,68 +760,14 @@ function secretary_daily_tasks_table_html(
       .rx-note,.rx-time,.rx-skip{display:block;margin:2px 34px 0 0;color:#6b827a;font-size:.82rem}
       .rx-skip input{width:15px;height:15px;vertical-align:middle;accent-color:#16836d}
       .rx-sheet.is-locked .rx-task,.rx-sheet.is-locked .rx-skip{cursor:default}
+      .rx-error{margin:0 0 .7rem;color:#b42318;font-size:.9rem}
+      .rx-error[hidden]{display:none}
     </style>
-    <script>
-    (function(){
-      if (window.__rxChecklist) return;
-      window.__rxChecklist = true;
-      function faDigits(n){ return String(n).replace(/\d/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹"[d]; }); }
-      function paint(sheet, done, required, skipped){
-        var bar = sheet.querySelector("[data-rx-progress]");
-        var summary = sheet.querySelector("[data-rx-summary]");
-        if (bar){ bar.max = required || 1; bar.value = done; }
-        if (summary){
-          var text = faDigits(done) + " از " + faDigits(required) + " کار انجام شده";
-          if (skipped) text += " · " + faDigits(skipped) + " مورد امروز نیاز نیست";
-          summary.textContent = text;
-        }
-      }
-      document.addEventListener("change", function(e){
-        var input = e.target;
-        if (!input || input.type !== "checkbox") return;
-        var item = input.closest("[data-rx-item]");
-        var sheet = input.closest("[data-rx-sheet]");
-        if (!item || !sheet) return;
-        var url = sheet.getAttribute("data-rx-url") || "";
-        var csrfEl = sheet.querySelector("[data-rx-csrf]");
-        var previous = input.getAttribute("data-rx-was") === "1";
-        if (!url || !csrfEl || item.getAttribute("data-busy") === "1"){
-          input.checked = previous;
-          return;
-        }
-        var status = input.getAttribute("data-rx-skip") === "1"
-          ? (input.checked ? "skip" : "pending")
-          : (input.checked ? "done" : "pending");
-        var data = new FormData();
-        data.set("_csrf", csrfEl.value);
-        data.set("task_date", item.getAttribute("data-rx-date") || "");
-        data.set("task_key", item.getAttribute("data-rx-key") || "");
-        data.set("status", status);
-        item.setAttribute("data-busy", "1");
-        fetch(url, {method:"POST", body:data, credentials:"same-origin", headers:{"X-Requested-With":"XMLHttpRequest","Accept":"application/json"}})
-          .then(function(r){ return r.json().then(function(body){ if (!r.ok || !body || body.ok === false) throw new Error(); return body; }); })
-          .then(function(res){
-            var on = res.status === "done";
-            var skip = res.status === "skip";
-            var doneBox = item.querySelector("[data-rx-done]");
-            var skipBox = item.querySelector("[data-rx-skip]");
-            var time = item.querySelector("[data-rx-time]");
-            if (doneBox){ doneBox.checked = on; doneBox.disabled = skip; doneBox.setAttribute("data-rx-was", on ? "1" : "0"); }
-            if (skipBox){ skipBox.checked = skip; skipBox.setAttribute("data-rx-was", skip ? "1" : "0"); }
-            item.classList.toggle("is-done", on);
-            item.classList.toggle("is-skip", skip);
-            if (time) time.textContent = on && res.time ? res.time : "";
-            paint(sheet, Number(res.done_count) || 0, Number(res.required) || 0, Number(res.skipped_count) || 0);
-          })
-          .catch(function(){ input.checked = previous; })
-          .then(function(){ item.removeAttribute("data-busy"); });
-      });
-    })();
-    </script>
         <?php
     }
+    secretary_checklist_register_script();
     ?>
-    <section class="rx-sheet<?= $live ? '' : ' is-locked' ?>" data-rx-sheet<?= $live ? ' data-rx-url="' . e($postUrl) . '"' : '' ?>>
+    <section class="rx-sheet<?= $live ? '' : ' is-locked' ?>" data-rx-sheet<?= $live ? ' data-rx-live="1" data-rx-url="' . e($postUrl) . '"' : '' ?>>
       <?php if ($live): ?>
         <input type="hidden" data-rx-csrf value="<?= e(csrf_token()) ?>">
       <?php endif; ?>
@@ -804,6 +777,7 @@ function secretary_daily_tasks_table_html(
       </div>
       <progress class="rx-progress" data-rx-progress max="<?= $required > 0 ? $required : 1 ?>" value="<?= (int) $progress['done'] ?>"></progress>
       <p class="rx-summary" data-rx-summary><?= e($summary) ?></p>
+      <p class="rx-error" data-rx-error role="alert" hidden></p>
       <?php foreach (secretary_daily_task_groups() as $group): ?>
         <section class="rx-group">
           <h2><?= e($group[0]) ?></h2>

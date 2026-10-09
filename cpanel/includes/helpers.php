@@ -332,7 +332,7 @@ function csrf_verify(): void
         if (request_expects_json()) {
             http_response_code(403);
             header('Content-Type: application/json; charset=utf-8');
-            echo json_encode(['error' => 'نشست منقضی شد. صفحه را تازه کنید و دوباره تلاش کنید.'], JSON_UNESCAPED_UNICODE);
+            echo json_encode(['ok' => false, 'error' => 'نشست منقضی شد. صفحه را تازه کنید و دوباره تلاش کنید.'], JSON_UNESCAPED_UNICODE);
             exit;
         }
         flash_set('error', 'نشست منقضی شد. صفحه را تازه کنید و دوباره تلاش کنید.');
