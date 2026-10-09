@@ -301,11 +301,46 @@ function staff_app_rooms_for(PDO $pdo, string $userId): array
         $rows = $stmt->fetchAll() ?: [];
     }
     foreach ($rows as &$row) {
+        $row['observe_only'] = 0;
         if ((string) $row['id'] === $general) {
             $row['is_general'] = 1;
         }
     }
     unset($row);
+    if (staff_app_group_observer(staff_app_user_brief($pdo, $userId))) {
+        $extra = $pdo->prepare("
+          SELECT r.id, r.title, r.is_general, r.created_at,
+                 (SELECT COUNT(*) FROM staff_app_messages m WHERE m.room_id = r.id) AS message_count,
+                 0 AS unread_count
+          FROM staff_app_rooms r
+          WHERE r.is_general = 0
+            AND (SELECT COUNT(*) FROM staff_app_members m WHERE m.room_id = r.id) <> 2
+            AND NOT EXISTS (
+              SELECT 1 FROM staff_app_members mem
+              WHERE mem.room_id = r.id AND mem.user_id = ?
+            )
+          ORDER BY r.created_at DESC
+        ");
+        $extra->execute([$userId]);
+        $added = false;
+        foreach ($extra->fetchAll() ?: [] as $row) {
+            $row['is_general'] = 0;
+            $row['observe_only'] = 1;
+            $row['unread_count'] = 0;
+            $rows[] = $row;
+            $added = true;
+        }
+        if ($added) {
+            usort($rows, static function (array $a, array $b): int {
+                $generalRank = ((int) !empty($b['is_general'])) <=> ((int) !empty($a['is_general']));
+                if ($generalRank !== 0) {
+                    return $generalRank;
+                }
+
+                return strcmp((string) ($b['created_at'] ?? ''), (string) ($a['created_at'] ?? ''));
+            });
+        }
+    }
 
     return $rows;
 }
@@ -324,6 +359,121 @@ function staff_app_room_for_member(PDO $pdo, string $roomId, string $userId): ?a
     $row = $stmt->fetch();
 
     return $row ?: null;
+}
+
+/**
+ * ناظر خاموش گروه‌های ساخته‌شده: eshahabian و دکتر عطیه گارسچی.
+ * تشخیص عطیه همان doctor_is_garsichi است (نام شامل «گارسچی»)، نه همه پزشک‌ها.
+ */
+function staff_app_group_observer(?array $user): bool
+{
+    if (!$user) {
+        return false;
+    }
+    $username = strtolower(trim((string) ($user['username'] ?? '')));
+    if ($username === 'eshahabian') {
+        return true;
+    }
+    if (!function_exists('doctor_is_garsichi') && is_file(__DIR__ . '/doctor_profile_fields.php')) {
+        require_once __DIR__ . '/doctor_profile_fields.php';
+    }
+
+    return function_exists('doctor_is_garsichi') && doctor_is_garsichi($user);
+}
+
+function staff_app_user_brief(PDO $pdo, string $userId): ?array
+{
+    static $cache = [];
+    $userId = trim($userId);
+    if ($userId === '') {
+        return null;
+    }
+    if (array_key_exists($userId, $cache)) {
+        return $cache[$userId];
+    }
+    $stmt = $pdo->prepare('SELECT id, name, username, role FROM users WHERE id = ? LIMIT 1');
+    $stmt->execute([$userId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    $cache[$userId] = $row ?: null;
+
+    return $cache[$userId];
+}
+
+function staff_app_room_has_member(PDO $pdo, string $roomId, string $userId): bool
+{
+    if ($roomId === '' || $userId === '') {
+        return false;
+    }
+    $stmt = $pdo->prepare('SELECT 1 FROM staff_app_members WHERE room_id = ? AND user_id = ? LIMIT 1');
+    $stmt->execute([$roomId, $userId]);
+
+    return (bool) $stmt->fetchColumn();
+}
+
+/** گروه ساخته‌شده: اتاق غیرکلی که گفتگوی دونفره نیست. چت کلی و خصوصی ۱به۱ این‌جا نیستند. */
+function staff_app_is_oversight_group(PDO $pdo, array $room): bool
+{
+    if (!empty($room['is_general'])) {
+        return false;
+    }
+    $roomId = (string) ($room['id'] ?? '');
+    if ($roomId === '') {
+        return false;
+    }
+    $stmt = $pdo->prepare('SELECT COUNT(*) FROM staff_app_members WHERE room_id = ?');
+    $stmt->execute([$roomId]);
+
+    return (int) $stmt->fetchColumn() !== 2;
+}
+
+/** عضو واقعی، یا ناظر فقط-مشاهده روی گروه. عضویت در staff_app_members ساخته نمی‌شود. */
+function staff_app_room_for_viewer(PDO $pdo, string $roomId, string $userId): ?array
+{
+    $room = staff_app_room_for_member($pdo, $roomId, $userId);
+    if ($room) {
+        $room['observe_only'] = 0;
+
+        return $room;
+    }
+    if (!staff_app_group_observer(staff_app_user_brief($pdo, $userId))) {
+        return null;
+    }
+    $stmt = $pdo->prepare('SELECT * FROM staff_app_rooms WHERE id = ? AND is_general = 0 LIMIT 1');
+    $stmt->execute([$roomId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row || !staff_app_is_oversight_group($pdo, $row)) {
+        return null;
+    }
+    $row['observe_only'] = 1;
+
+    return $row;
+}
+
+function staff_app_receipt_suppressed(PDO $pdo, string $userId, string $roomId): bool
+{
+    $userId = trim($userId);
+    $roomId = trim($roomId);
+    if ($userId === '' || $roomId === '') {
+        return false;
+    }
+    if (!staff_app_group_observer(staff_app_user_brief($pdo, $userId))) {
+        return false;
+    }
+
+    return !staff_app_room_has_member($pdo, $roomId, $userId);
+}
+
+function staff_app_assert_can_post(PDO $pdo, array $user, string $roomId): void
+{
+    $userId = trim((string) ($user['id'] ?? ''));
+    if ($userId !== '' && staff_app_room_for_member($pdo, $roomId, $userId)) {
+        return;
+    }
+    $viewer = staff_app_group_observer($user) ? $user : staff_app_user_brief($pdo, $userId);
+    if (staff_app_group_observer($viewer)) {
+        throw new RuntimeException('در این گروه فقط مشاهده ممکن است.');
+    }
+    throw new RuntimeException('به این اتاق دسترسی ندارید.');
 }
 
 function staff_app_unread_count(PDO $pdo, string $userId): int
@@ -382,6 +532,9 @@ function staff_app_unread_by_room(PDO $pdo, string $userId): array
 
 function staff_app_mark_read(PDO $pdo, string $userId, string $roomId): void
 {
+    if (staff_app_receipt_suppressed($pdo, $userId, $roomId)) {
+        return;
+    }
     $pdo->prepare("
       INSERT INTO staff_app_reads (user_id, room_id, read_at)
       VALUES (?, ?, NOW())
@@ -392,7 +545,7 @@ function staff_app_mark_read(PDO $pdo, string $userId, string $roomId): void
 
 function staff_app_mark_delivered(PDO $pdo, string $userId, string $roomId): void
 {
-    if ($userId === '' || $roomId === '') {
+    if ($userId === '' || $roomId === '' || staff_app_receipt_suppressed($pdo, $userId, $roomId)) {
         return;
     }
     $pdo->prepare("
@@ -564,6 +717,7 @@ function staff_app_message_for_member(PDO $pdo, string $messageId, string $roomI
 
 function staff_app_delete_message(PDO $pdo, array $user, string $roomId, string $messageId): void
 {
+    staff_app_assert_can_post($pdo, $user, $roomId);
     $userId = (string) ($user['id'] ?? '');
     $message = staff_app_message_for_member($pdo, $messageId, $roomId, $userId);
     if (!$message) {
@@ -603,10 +757,8 @@ function staff_app_delete_message(PDO $pdo, array $user, string $roomId, string 
 
 function staff_app_pin_message(PDO $pdo, array $user, string $roomId, string $messageId): void
 {
+    staff_app_assert_can_post($pdo, $user, $roomId);
     $userId = (string) ($user['id'] ?? '');
-    if (!staff_app_room_for_member($pdo, $roomId, $userId)) {
-        throw new RuntimeException('به این اتاق دسترسی ندارید.');
-    }
     $current = $pdo->prepare('SELECT pinned_message_id FROM staff_app_rooms WHERE id = ?');
     $current->execute([$roomId]);
     $pinned = (string) ($current->fetchColumn() ?: '');
@@ -642,6 +794,7 @@ function staff_app_match_emoji(string $emoji): string
 /** @return array{counts: array<string, int>, mine: string} */
 function staff_app_toggle_reaction(PDO $pdo, array $user, string $roomId, string $messageId, string $emoji): array
 {
+    staff_app_assert_can_post($pdo, $user, $roomId);
     $userId = (string) ($user['id'] ?? '');
     $emoji = staff_app_match_emoji($emoji);
     if ($emoji === '') {
@@ -671,6 +824,8 @@ function staff_app_toggle_reaction(PDO $pdo, array $user, string $roomId, string
 
 function staff_app_forward_message(PDO $pdo, array $user, string $fromRoom, string $toRoom, string $messageId): void
 {
+    staff_app_assert_can_post($pdo, $user, $fromRoom);
+    staff_app_assert_can_post($pdo, $user, $toRoom);
     $userId = (string) ($user['id'] ?? '');
     $message = staff_app_message_for_member($pdo, $messageId, $fromRoom, $userId);
     if (!$message || !staff_app_room_for_member($pdo, $toRoom, $userId)) {
@@ -1077,10 +1232,7 @@ function staff_app_store_upload(array $file): ?array
 
 function staff_app_send_message(PDO $pdo, array $user, string $roomId, string $body, ?array $file, string $replyTo = ''): string
 {
-    $room = staff_app_room_for_member($pdo, $roomId, (string) ($user['id'] ?? ''));
-    if (!$room) {
-        throw new RuntimeException('به این اتاق دسترسی ندارید.');
-    }
+    staff_app_assert_can_post($pdo, $user, $roomId);
     $body = trim($body);
     if (mb_strlen($body) > 4000) {
         throw new RuntimeException('متن پیام طولانی است.');
@@ -1135,6 +1287,19 @@ function staff_app_output_file(PDO $pdo, array $user, string $fileId): never
     ");
     $stmt->execute([(string) ($user['id'] ?? ''), $fileId]);
     $file = $stmt->fetch();
+    if (!$file && staff_app_group_observer(staff_app_user_brief($pdo, (string) ($user['id'] ?? '')))) {
+        $watch = $pdo->prepare("
+          SELECT f.stored_name, f.original_name, f.mime
+          FROM staff_app_files f
+          JOIN staff_app_messages m ON m.id = f.message_id
+          JOIN staff_app_rooms r ON r.id = m.room_id AND r.is_general = 0
+          WHERE f.id = ?
+            AND (SELECT COUNT(*) FROM staff_app_members mem WHERE mem.room_id = r.id) <> 2
+          LIMIT 1
+        ");
+        $watch->execute([$fileId]);
+        $file = $watch->fetch();
+    }
     $stored = (string) ($file['stored_name'] ?? '');
     $path = staff_app_upload_dir() . '/' . $stored;
     if (!$file || !preg_match('/^[a-f0-9]{32}\.[a-z0-9]{1,5}$/', $stored) || !is_file($path)) {

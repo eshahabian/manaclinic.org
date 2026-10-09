@@ -67,14 +67,17 @@ if (preg_match('#^/app/chat/([a-f0-9]{24})/receipts$#', $path, $m)) {
         exit;
     }
     try {
-        if (!staff_app_ready($pdo) || !staff_app_room_for_member($pdo, $m[1], $userId)) {
+        $watchRoom = staff_app_ready($pdo) ? staff_app_room_for_viewer($pdo, $m[1], $userId) : null;
+        if (!$watchRoom) {
             http_response_code(404);
             echo json_encode(['ok' => false], JSON_UNESCAPED_UNICODE);
             exit;
         }
         $after = trim((string) ($_GET['after'] ?? ''));
         $live = staff_app_live_messages($pdo, $m[1], $userId, $after);
-        staff_app_mark_read($pdo, $userId, $m[1]);
+        if (empty($watchRoom['observe_only'])) {
+            staff_app_mark_read($pdo, $userId, $m[1]);
+        }
         staff_app_touch_presence($pdo, $userId);
         $reactions = staff_app_reaction_overview($pdo, $m[1], $userId);
         echo json_encode([
@@ -730,12 +733,15 @@ if ($section === 'chat') {
             throw new RuntimeException('چت الان در دسترس نیست.');
         }
         if ($roomId !== '') {
-            $room = staff_app_room_for_member($pdo, $roomId, $userId);
+            $room = staff_app_room_for_viewer($pdo, $roomId, $userId);
             if (!$room) {
                 flash_set('error', 'این اتاق برای شما نیست.');
                 redirect('/app/chat');
             }
-            staff_app_mark_read($pdo, $userId, $roomId);
+            $observeOnly = !empty($room['observe_only']);
+            if (!$observeOnly) {
+                staff_app_mark_read($pdo, $userId, $roomId);
+            }
             $messages = staff_app_messages($pdo, $roomId);
             $states = staff_app_own_receipts($pdo, $roomId, $userId);
             $seenMap = staff_app_seen_map($pdo, $roomId);
@@ -762,7 +768,7 @@ if ($section === 'chat') {
             }
             $forwardRooms = [];
             foreach (staff_app_rooms_for($pdo, $userId) as $forwardRoom) {
-                if ((string) ($forwardRoom['id'] ?? '') === $roomId) {
+                if (!empty($forwardRoom['observe_only']) || (string) ($forwardRoom['id'] ?? '') === $roomId) {
                     continue;
                 }
                 $forwardRooms[] = [
@@ -777,18 +783,22 @@ if ($section === 'chat') {
                 'userId' => $userId,
                 'receipts' => url('/app/chat/' . $roomId . '/receipts'),
                 'rooms' => $forwardRooms,
+                'observeOnly' => $observeOnly,
             ], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT);
             ob_start();
             ?>
             <p style="margin:0 0 8px"><a href="<?= e(url('/app/chat')) ?>">همه چت‌ها</a></p>
             <h1 class="sapp-thread-title"><i class="sapp-dot" data-online="<?= e(implode(',', $peerIds)) ?>" hidden></i><span><?= e((string) ($room['title'] ?? 'چت')) ?></span></h1>
+            <?php if ($observeOnly): ?>
+              <p class="muted" style="margin:0 0 8px">فقط مشاهده</p>
+            <?php endif; ?>
             <?php if ($pinned): ?>
               <a class="sapp-pin" href="#m-<?= e($pinnedId) ?>">
                 <strong>سنجاق‌شده · <?= e((string) ($pinned['name'] ?? '')) ?></strong>
                 <span><?= e($pinText) ?></span>
               </a>
             <?php endif; ?>
-            <div class="sapp-chat<?= $isGroup ? ' is-group' : '' ?>" id="sapp-thread" data-group="<?= $isGroup ? '1' : '0' ?>" data-pinned="<?= e($pinnedId) ?>">
+            <div class="sapp-chat<?= $isGroup ? ' is-group' : '' ?>" id="sapp-thread" data-group="<?= $isGroup ? '1' : '0' ?>" data-pinned="<?= e($pinnedId) ?>" data-observe="<?= $observeOnly ? '1' : '0' ?>">
               <?php if ($messages === []): ?>
                 <p class="sapp-chat-empty">هنوز پیامی نیست.</p>
               <?php endif; ?>
@@ -860,6 +870,7 @@ if ($section === 'chat') {
                 </article>
               <?php endforeach; ?>
             </div>
+            <?php if (!$observeOnly): ?>
             <form class="sapp-compose" method="post" action="<?= e(url('/app/chat')) ?>" enctype="multipart/form-data">
               <?= csrf_field() ?>
               <input type="hidden" name="form" value="send">
@@ -881,14 +892,17 @@ if ($section === 'chat') {
                 <button class="sapp-send" type="submit" aria-label="ارسال">➤</button>
               </div>
             </form>
+            <?php endif; ?>
             <div id="sapp-hold" hidden>
               <button type="button" class="sapp-hold-back" id="sapp-hold-back" aria-label="بستن"></button>
               <div class="sapp-hold-pop" id="sapp-hold-pop">
+                <?php if (!$observeOnly): ?>
                 <div class="sapp-hold-emojis">
                   <?php foreach (staff_app_allowed_reactions() as $emoji): ?>
                     <button type="button" data-emoji="<?= e($emoji) ?>"><?= e($emoji) ?></button>
                   <?php endforeach; ?>
                 </div>
+                <?php endif; ?>
                 <div class="sapp-hold-menu" id="sapp-hold-menu">
                   <button type="button" class="sapp-hold-item" data-act="seen" id="sapp-hold-seen">
                     <svg viewBox="0 0 20 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M1.4 8.2 4.6 11.4 11 4.6"/><path d="M6.2 8.2 9.4 11.4 15.8 4.6"/></svg>
@@ -896,14 +910,20 @@ if ($section === 'chat') {
                     <span class="sapp-hold-faces" id="sapp-hold-seen-faces"></span>
                   </button>
                   <div class="sapp-hold-people" id="sapp-hold-people" hidden></div>
+                  <?php if (!$observeOnly): ?>
                   <button type="button" class="sapp-hold-item" data-act="reply"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M9 8 4 12l5 4"/><path d="M4 12h10a6 6 0 0 1 6 6"/></svg><span>پاسخ</span></button>
+                  <?php endif; ?>
                   <button type="button" class="sapp-hold-item" data-act="copy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V6a2 2 0 0 1 2-2h10"/></svg><span>کپی</span></button>
                   <button type="button" class="sapp-hold-item" data-act="save"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M12 4v10"/><path d="m8 10 4 4 4-4"/><path d="M5 19h14"/></svg><span>ذخیره فایل</span></button>
+                  <?php if (!$observeOnly): ?>
                   <button type="button" class="sapp-hold-item" data-act="pin"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m9 4 1 6-4 4v1h12v-1l-4-4 1-6"/><path d="M12 15v5"/></svg><span>سنجاق</span></button>
+                  <?php endif; ?>
                   <button type="button" class="sapp-hold-item" data-act="link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.1.1l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.1-.1l-2 2a5 5 0 0 0 7.1 7.1l1.1-1.1"/></svg><span>کپی لینک</span></button>
+                  <?php if (!$observeOnly): ?>
                   <button type="button" class="sapp-hold-item" data-act="forward"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M15 8h5v5"/><path d="M20 8 12 16a6 6 0 0 1-8.5 0"/></svg><span>هدایت</span></button>
                   <button type="button" class="sapp-hold-item is-danger is-split" data-act="delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M8 7l1 13h6l1-13"/></svg><span>حذف</span></button>
                   <button type="button" class="sapp-hold-item is-split" data-act="select"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="m8.5 12.2 2.2 2.2 4.8-5"/></svg><span>انتخاب</span></button>
+                  <?php endif; ?>
                 </div>
                 <div class="sapp-hold-menu" id="sapp-hold-forward" hidden>
                   <p class="sapp-hold-forward-title">هدایت به</p>
@@ -911,15 +931,17 @@ if ($section === 'chat') {
                 </div>
               </div>
             </div>
+            <?php if (!$observeOnly): ?>
             <div class="sapp-selectbar" id="sapp-selectbar" hidden>
               <button type="button" id="sapp-select-copy">کپی</button>
               <button type="button" class="is-danger" id="sapp-select-delete">حذف</button>
               <button type="button" id="sapp-select-cancel">لغو</button>
             </div>
+            <?php endif; ?>
             <script type="application/json" id="sapp-chat-config"><?= $chatConfig ?></script>
             <?php
             $html = ob_get_clean();
-            $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/staff-chat.js')) . '?v=20261008lift"></script>';
+            $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/staff-chat.js')) . '?v=20261009view"></script>';
         } else {
             $rooms = staff_app_rooms_for($pdo, $userId);
             $people = staff_app_people($pdo);
@@ -933,7 +955,15 @@ if ($section === 'chat') {
                 <?php $roomUnread = (int) ($room['unread_count'] ?? 0); ?>
                 <a class="sapp-row" href="<?= e(url('/app/chat/' . (string) $room['id'])) ?>" style="text-decoration:none;color:inherit">
                   <strong class="sapp-room-name"><span class="sapp-room-label"><i class="sapp-dot" data-online="<?= e(implode(',', $peerMap[(string) $room['id']] ?? [])) ?>" hidden></i><?= e((string) ($room['title'] ?? 'اتاق')) ?></span><b class="sapp-unread" data-room-unread="<?= e((string) $room['id']) ?>"<?= $roomUnread > 0 ? '' : ' hidden' ?>><?= $roomUnread > 0 ? e(to_fa_digits((string) $roomUnread)) : '' ?></b></strong>
-                  <small><?= !empty($room['is_general']) ? 'همه درمانگرها و منشی‌ها' : 'گفتگوی خصوصی' ?> · <?= e(to_fa_digits((string) (int) ($room['message_count'] ?? 0))) ?> پیام</small>
+                  <?php
+                    $roomKind = 'گفتگوی خصوصی';
+                    if (!empty($room['is_general'])) {
+                        $roomKind = 'همه درمانگرها و منشی‌ها';
+                    } elseif (!empty($room['observe_only'])) {
+                        $roomKind = 'فقط مشاهده';
+                    }
+                  ?>
+                  <small><?= e($roomKind) ?> · <?= e(to_fa_digits((string) (int) ($room['message_count'] ?? 0))) ?> پیام</small>
                 </a>
               <?php endforeach; ?>
             </div>

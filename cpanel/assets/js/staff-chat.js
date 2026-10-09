@@ -4,6 +4,19 @@
   if (!configEl || !thread) return;
   var config = {};
   try { config = JSON.parse(configEl.textContent || "{}"); } catch (err) { return; }
+  var observeOnly = !!config.observeOnly;
+  if (observeOnly) {
+    var composeLock = document.querySelector(".sapp-compose");
+    if (composeLock) composeLock.hidden = true;
+    var emojiLock = document.querySelector(".sapp-hold-emojis");
+    if (emojiLock) emojiLock.hidden = true;
+    ["reply", "pin", "forward", "delete", "select"].forEach(function (act) {
+      var node = document.querySelector('.sapp-hold-menu [data-act="' + act + '"]');
+      if (node) node.hidden = true;
+    });
+    var selectDeleteLock = document.getElementById("sapp-select-delete");
+    if (selectDeleteLock) selectDeleteLock.hidden = true;
+  }
 
   var hold = document.getElementById("sapp-hold");
   var pop = document.getElementById("sapp-hold-pop");
@@ -315,7 +328,7 @@
 
   if (pop) pop.querySelectorAll(".sapp-hold-emojis button").forEach(function (button) {
     button.addEventListener("click", function () {
-      if (!current) return;
+      if (observeOnly || !current) return;
       var article = current;
       var id = messageId(article);
       var emoji = button.getAttribute("data-emoji") || "";
@@ -347,6 +360,7 @@
     var id = messageId(article);
     var act = button.getAttribute("data-act");
     if (act === "seen") return;
+    if (observeOnly && (act === "reply" || act === "pin" || act === "forward" || act === "delete" || act === "select")) return;
     if (act === "reply") {
       var who = article.getAttribute("data-name") || "";
       var snippet = messageText(article) || (messageFiles(article)[0] && messageFiles(article)[0].name) || "پیام";
@@ -473,6 +487,7 @@
 
   var selectDelete = document.getElementById("sapp-select-delete");
   if (selectDelete) selectDelete.addEventListener("click", function () {
+    if (observeOnly) return;
     var ids = [];
     thread.querySelectorAll(".sapp-msg.is-picked").forEach(function (item) {
       if (item.getAttribute("data-mine") === "1") ids.push(messageId(item));
@@ -675,7 +690,7 @@
   }
 
   var compose = document.querySelector(".sapp-compose");
-  if (compose) {
+  if (compose && !observeOnly) {
     compose.addEventListener("submit", function (event) {
       event.preventDefault();
       var field = document.getElementById("chat-body");
