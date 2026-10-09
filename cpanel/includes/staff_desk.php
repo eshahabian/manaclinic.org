@@ -140,6 +140,14 @@ function staff_slot_set_label(PDO $pdo, int $slot, string $label): void
       INSERT INTO staff_slot_labels (slot, label) VALUES (?,?)
       ON DUPLICATE KEY UPDATE label = VALUES(label)
     ')->execute([$slot, $label]);
+    $account = staff_slot_user($pdo, $slot);
+    $accountId = (string) ($account['id'] ?? '');
+    if ($accountId !== '') {
+        $pdo->prepare("UPDATE users SET name=? WHERE id=? AND role='SECRETARY'")->execute([$label, $accountId]);
+        if (isset($_SESSION['user']) && is_array($_SESSION['user']) && (string) ($_SESSION['user']['id'] ?? '') === $accountId) {
+            $_SESSION['user']['name'] = $label;
+        }
+    }
 }
 
 function staff_slot_user(PDO $pdo, int $slot): ?array
@@ -197,12 +205,10 @@ function ensure_secretary_accounts(PDO $pdo): void
         $old = $pdo->query("SELECT id FROM users WHERE username='secretary' AND role='SECRETARY' LIMIT 1")->fetch();
         $has1 = $pdo->query("SELECT id FROM users WHERE username='secretary1' LIMIT 1")->fetch();
         if ($old && !$has1) {
-            $pdo->prepare("UPDATE users SET username='secretary1', name='منشی ۱' WHERE id=?")
+            $pdo->prepare("UPDATE users SET username='secretary1' WHERE id=?")->execute([(string) $old['id']]);
+            $pdo->prepare("UPDATE users SET name='منشی ۱' WHERE id=? AND (name IS NULL OR TRIM(name)='' OR name IN ('secretary','منشی'))")
                 ->execute([(string) $old['id']]);
-        } elseif ($has1) {
-            $pdo->prepare("UPDATE users SET name='منشی ۱' WHERE username='secretary1' AND role='SECRETARY'")
-                ->execute();
-        } else {
+        } elseif (!$has1) {
             $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,must_change_password) VALUES (?,?,?,?,?,?,?,1)')
                 ->execute([
                     'secretary001mana',
@@ -233,9 +239,19 @@ function ensure_secretary_accounts(PDO $pdo): void
             if (function_exists('user_remember_password_plain')) {
                 user_remember_password_plain($pdo, 'secretary002mana', '123');
             }
-        } else {
-            $pdo->prepare("UPDATE users SET name='منشی ۲' WHERE username='secretary2' AND role='SECRETARY'")
-                ->execute();
+        }
+        foreach ([1, 2] as $slot) {
+            $saved = trim((string) (staff_slot_labels($pdo)[$slot] ?? ''));
+            $fallback = staff_slot_default_label($slot);
+            if ($saved === '' || $saved === $fallback) {
+                continue;
+            }
+            $account = staff_slot_user($pdo, $slot);
+            $accountId = (string) ($account['id'] ?? '');
+            $current = trim((string) ($account['name'] ?? ''));
+            if ($accountId !== '' && ($current === '' || $current === $fallback)) {
+                $pdo->prepare("UPDATE users SET name=? WHERE id=? AND role='SECRETARY'")->execute([$saved, $accountId]);
+            }
         }
     } catch (Throwable $ignored) {
     }

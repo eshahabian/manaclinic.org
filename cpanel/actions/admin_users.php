@@ -110,6 +110,12 @@ if ($action === 'update_profile') {
     }
 
     $pdo->prepare('UPDATE users SET name=?, username=? WHERE id=?')->execute([$name, $username, $id]);
+    $roleStmt = $pdo->prepare('SELECT role FROM users WHERE id=? LIMIT 1');
+    $roleStmt->execute([$id]);
+    $savedRole = (string) ($roleStmt->fetchColumn() ?: '');
+    if ($savedRole === 'SECRETARY' && ($username === 'secretary1' || $username === 'secretary2') && function_exists('staff_slot_set_label')) {
+        staff_slot_set_label($pdo, $username === 'secretary2' ? 2 : 1, $name);
+    }
 
     $me = current_user();
     if ($me && (string) $me['id'] === $id) {
