@@ -18,7 +18,7 @@ if ($id !== '' && preg_match('/^[a-f0-9]{24}$/', $id)) {
 }
 
 $back = consult_safe_return(post('next', consult_panel_path($user)));
-$allowed = ['/secretary/consult-requests', '/doctor/consult-requests', '/admin/consult-requests'];
+$allowed = ['/secretary/consult-requests', '/doctor/consult-requests', '/admin/consult-requests', '/app/consult'];
 $path = (string) (parse_url($back, PHP_URL_PATH) ?: '');
 if (!in_array($path, $allowed, true)) {
     $back = consult_panel_path($user);

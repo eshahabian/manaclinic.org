@@ -345,6 +345,7 @@ $section = match ($path) {
     '/app/rooms' => 'rooms',
     '/app/chat' => 'chat',
     '/app/hours' => 'hours',
+    '/app/consult' => 'consult',
     '/app/checklist' => 'checklist',
     '/app/complaints' => 'complaints',
     '/app/profile' => 'profile',
@@ -358,12 +359,13 @@ if ($section === '') {
 }
 
 $descriptions = [
-    'home' => 'برنامه خصوصی مانا کلینیک برای درمانگرها و منشی‌ها؛ وقت، اتاق، چت، ساعت کار، چک‌لیست و شکایت.',
+    'home' => 'برنامه خصوصی مانا کلینیک برای درمانگرها و منشی‌ها؛ وقت، اتاق، چت، درخواست مشاوره، کارهای روزانه و شکایت.',
     'appointments' => 'وقت‌های پیش‌رو کلینیک در برنامه داخلی، با نام مراجع، درمانگر، ساعت و اتاق.',
     'rooms' => 'وضعیت اتاق‌های کلینیک در هفت روز پیش‌رو؛ الان، رزروشده یا تمام‌شده.',
     'chat' => 'چت کلی درمانگرها و منشی‌ها و اتاق‌های جدا، با امکان فرستادن فایل.',
     'hours' => 'ساعت ورود و خروج منشی‌های مانا کلینیک و مدت حضور هر روز.',
-    'checklist' => 'چک‌لیست کارهای روزانه منشی‌ها در کلینیک مانا.',
+    'consult' => 'درخواست‌های مشاوره که از فرم سایت مانا کلینیک رسیده است.',
+    'checklist' => 'لیست کارهای روزانه منشی‌ها در کلینیک مانا، همان فهرست داخل سایت.',
     'complaints' => 'ثبت و دیدن شکایت مراجع از جلسه درمانگر در برنامه داخلی مانا.',
     'profile' => 'پروفایل درمانگر یا منشی در برنامه داخلی مانا کلینیک.',
 ];
@@ -392,14 +394,14 @@ if ($section === 'home') {
         <strong>چت کلینیک</strong>
         <em>Team Messaging</em>
       </a>
-      <a class="sapp-tile" href="<?= e(url('/app/hours')) ?>">
-        <span class="sapp-ico sapp-ico-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4.2l2.6 1.6"/><path d="M16.5 16.8l1.2 1.2"/></svg></span>
-        <strong>ساعت کاری</strong>
-        <em>Shifts &amp; Records</em>
+      <a class="sapp-tile" href="<?= e(url('/app/consult')) ?>">
+        <span class="sapp-ico sapp-ico-teal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8.2 4.8h2.1a1 1 0 0 1 1 .76l.5 2.4a1 1 0 0 1-.5 1.05l-1.35.7a7.6 7.6 0 0 0 3.74 3.74l.7-1.35a1 1 0 0 1 1.05-.5l2.4.5a1 1 0 0 1 .76 1V15.4A1.6 1.6 0 0 1 17 17 11.2 11.2 0 0 1 7 7a1.6 1.6 0 0 1 1.2-2.2z"/></svg></span>
+        <strong>درخواست مشاوره</strong>
+        <em>Consult Requests</em>
       </a>
       <a class="sapp-tile" href="<?= e(url('/app/checklist')) ?>">
         <span class="sapp-ico sapp-ico-pink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="16" rx="3"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg></span>
-        <strong>وظایف</strong>
+        <strong>لیست کارهای روزانه</strong>
         <em>Daily Tasks</em>
       </a>
       <a class="sapp-tile" href="<?= e(url('/app/complaints')) ?>">
@@ -441,10 +443,10 @@ if ($section === 'appointments') {
     <?php if ($bookForm !== ''): ?>
       <h1>ثبت وقت</h1>
       <?= $bookForm ?>
-      <h2 class="sapp-day">وقت‌های ده روز آینده</h2>
+      <h2 class="sapp-day">وقت‌های دو هفته آینده</h2>
     <?php else: ?>
       <h1>وقت‌ها</h1>
-      <p class="muted">وقت‌های خودتان تا ده روز آینده.</p>
+      <p class="muted"><?= staff_app_sees_clinic_schedule($user) ? 'وقت‌های کلینیک تا دو هفته آینده.' : 'وقت‌های خودتان تا دو هفته آینده.' ?></p>
     <?php endif; ?>
     <?php if ($error !== ''): ?>
       <p><?= e($error) ?></p>
@@ -457,12 +459,27 @@ if ($section === 'appointments') {
           <?php foreach ($items as $row): ?>
             <?php
               $roomNo = (int) ($row['room_no'] ?? 0);
+              $roomOnly = (int) ($row['room_only'] ?? 0) === 1;
               $mode = (string) ($row['session_mode'] ?? '') === 'ONLINE' ? 'آنلاین' : 'حضوری';
+              $who = trim((string) ($row['patient_name'] ?? ''));
+              $doctorName = trim((string) ($row['doctor_name'] ?? ''));
+              $whoLine = $who !== '' && $doctorName !== '' ? $who . ' · ' . $doctorName : ($who !== '' ? $who : $doctorName);
+              $roomLabel = trim((string) ($row['room_label'] ?? ''));
+              if ($roomOnly && $whoLine === '') {
+                  $whoLine = $roomLabel !== '' ? $roomLabel : 'رزرو اتاق';
+              }
+              $detail = $roomOnly ? 'رزرو اتاق' : ($mode . ' · ' . appointment_row_status_label($row));
+              if ($roomOnly && $roomLabel !== '' && $roomLabel !== $whoLine) {
+                  $detail .= ' · ' . $roomLabel;
+              }
+              if ($roomNo > 0) {
+                  $detail .= ' · اتاق ' . to_fa_digits((string) $roomNo);
+              }
             ?>
             <article class="sapp-row">
               <strong><?= e(format_fa_time((string) $row['starts_at'])) ?> تا <?= e(format_fa_time((string) $row['ends_at'])) ?></strong>
-              <div><?= e((string) ($row['patient_name'] ?? '')) ?> · <?= e((string) ($row['doctor_name'] ?? '')) ?></div>
-              <small><?= e($mode) ?> · <?= e(appointment_row_status_label($row)) ?><?= $roomNo > 0 ? ' · اتاق ' . e(to_fa_digits((string) $roomNo)) : '' ?></small>
+              <div><?= e($whoLine) ?></div>
+              <small><?= e($detail) ?></small>
             </article>
           <?php endforeach; ?>
         </div>
@@ -488,9 +505,16 @@ if ($section === 'rooms') {
     $roomPatients = [];
     $roomDoctors = [];
     $openWorkshops = [];
+    $roomDayStart = $roomDay . ' 00:00:00';
+    $roomDayEnd = date('Y-m-d H:i:s', strtotime($roomDay . ' +1 day') ?: time());
     try {
-        $rows = clinic_rooms_between($pdo, $roomDay . ' 00:00:00', date('Y-m-d H:i:s', strtotime($roomDay . ' +1 day') ?: time()));
-        if ($role === 'SECRETARY') {
+        $rows = staff_app_room_board($pdo, $roomDayStart, $roomDayEnd);
+    } catch (Throwable $e) {
+        error_log('staff app rooms: ' . $e->getMessage());
+        $error = 'بارگذاری اتاق‌ها الان ممکن نیست.';
+    }
+    if ($role === 'SECRETARY') {
+        try {
             $roomPatients = $pdo->query("SELECT id, name, phone FROM users WHERE role='PATIENT' AND COALESCE(is_disabled,0)=0 ORDER BY name ASC")->fetchAll() ?: [];
             $roomDoctors = $pdo->query("
               SELECT dp.id, u.name, dp.specialty
@@ -500,10 +524,9 @@ if ($section === 'rooms') {
               ORDER BY u.name ASC
             ")->fetchAll() ?: [];
             $openWorkshops = clinic_rooms_open_workshop_sessions($pdo);
+        } catch (Throwable $e) {
+            error_log('staff app room form: ' . $e->getMessage());
         }
-    } catch (Throwable $e) {
-        error_log('staff app rooms: ' . $e->getMessage());
-        $error = 'بارگذاری اتاق‌ها الان ممکن نیست.';
     }
     $numbers = function_exists('clinic_rooms_numbers') ? clinic_rooms_numbers() : [1, 2, 3];
     $byRoom = [];
@@ -988,6 +1011,73 @@ if ($section === 'hours') {
     exit;
 }
 
+if ($section === 'consult') {
+    require_once __DIR__ . '/../includes/consult_requests.php';
+    $rows = [];
+    try {
+        $rows = consult_request_list($pdo);
+    } catch (Throwable $e) {
+        error_log('staff app consult: ' . $e->getMessage());
+    }
+    $openRows = [];
+    $doneRows = [];
+    foreach ($rows as $row) {
+        if (consult_request_is_open($row)) {
+            $openRows[] = $row;
+        } else {
+            $doneRows[] = $row;
+        }
+    }
+    $newCount = count($openRows);
+    ob_start();
+    ?>
+    <h1>درخواست مشاوره</h1>
+    <p class="muted">این‌ها را از فرم پایین سایت فرستاده‌اند. روی شماره بزنید تا تماس بگیرید.<?= $newCount ? ' ' . e(to_fa_digits((string) $newCount)) . ' درخواست پیگیری نشده است.' : '' ?></p>
+    <?php if (!$rows): ?>
+      <p class="sapp-row">هنوز درخواست مشاوره‌ای از سایت نرسیده است.</p>
+    <?php endif; ?>
+    <?php if ($openRows): ?>
+      <h2 class="sapp-day">پیگیری نشده</h2>
+    <?php endif; ?>
+    <?php foreach (array_merge($openRows, $doneRows) as $row): ?>
+      <?php
+        $isNew = consult_request_is_open($row);
+        $phone = (string) ($row['phone'] ?? '');
+        $person = trim((string) ($row['name'] ?? ''));
+      ?>
+      <?php if (!$isNew && $openRows && $row === $doneRows[0]): ?>
+        <h2 class="sapp-day">پیگیری شد</h2>
+      <?php endif; ?>
+      <article class="sapp-consult<?= $isNew ? ' is-new' : '' ?>">
+        <header>
+          <strong><?= e($person !== '' ? $person : 'بدون نام') ?></strong>
+          <?php if ($isNew): ?><span>پیگیری نشده</span><?php else: ?><span class="muted">پیگیری شد</span><?php endif; ?>
+          <time><?= e(format_fa_datetime((string) ($row['created_at'] ?? ''))) ?></time>
+        </header>
+        <a href="tel:<?= e($phone) ?>" dir="ltr"><?= e(to_fa_digits($phone)) ?></a>
+        <p><?= e((string) ($row['message'] ?? '')) ?></p>
+        <?php if ($isNew): ?>
+          <form method="post" action="<?= e(url('/consult-requests/done')) ?>">
+            <?= csrf_field() ?>
+            <input type="hidden" name="id" value="<?= e((string) $row['id']) ?>">
+            <input type="hidden" name="next" value="/app/consult">
+            <button type="submit" class="btn btn-outline btn-sm">تماس گرفته شد</button>
+          </form>
+        <?php else: ?>
+          <form method="post" action="<?= e(url('/consult-requests/reopen')) ?>">
+            <?= csrf_field() ?>
+            <input type="hidden" name="id" value="<?= e((string) $row['id']) ?>">
+            <input type="hidden" name="next" value="/app/consult">
+            <button type="submit" class="btn btn-outline btn-sm">برگرداندن به پیگیری‌نشده</button>
+          </form>
+        <?php endif; ?>
+      </article>
+    <?php endforeach; ?>
+    <?php
+    staff_app_render('consult', 'درخواست مشاوره', $descriptions['consult'], ob_get_clean());
+    exit;
+}
+
 if ($section === 'checklist') {
     require_once __DIR__ . '/../includes/secretary_daily_tasks.php';
     $today = date('Y-m-d');
@@ -998,10 +1088,31 @@ if ($section === 'checklist') {
     $prev = date('Y-m-d', strtotime($ymd . ' -1 day') ?: time());
     $next = date('Y-m-d', strtotime($ymd . ' +1 day') ?: time());
     $secretaries = secretary_daily_task_secretaries($pdo);
+    $present = [];
+    $absent = [];
+    foreach ($secretaries as $sec) {
+        $secId = (string) ($sec['id'] ?? '');
+        $wasPresent = secretary_was_present($pdo, $secId, $ymd);
+        $hasTick = false;
+        if (!$wasPresent) {
+            foreach (secretary_daily_task_states($pdo, $secId, $ymd) as $state) {
+                if (!empty($state['done']) || !empty($state['skipped'])) {
+                    $hasTick = true;
+                    break;
+                }
+            }
+        }
+        if ($wasPresent || $hasTick || ($role === 'SECRETARY' && $secId === $userId && $ymd === $today)) {
+            $present[] = $sec;
+        } else {
+            $absent[] = $sec;
+        }
+    }
+    $tickUrl = url('/secretary/daily-tasks');
     ob_start();
     ?>
-    <h1>وظایف</h1>
-    <p class="muted">پس از انجام هر کار، آن را علامت بزنید. درمانگرها وضعیت را می‌بینند و خودشان تیک نمی‌زنند.</p>
+    <h1>لیست کارهای روزانه</h1>
+    <p class="muted">همان فهرست داخل سایت است. پس از انجام هر کار آن را علامت بزنید. اگر کاری امروز لازم نیست، «امروز نیاز نیست» را بزنید.</p>
     <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:.75rem">
       <a class="btn btn-outline btn-sm" href="<?= e(url('/app/checklist?date=' . rawurlencode($prev))) ?>">روز قبل</a>
       <strong><?= e(secretary_daily_task_date_label($ymd)) ?></strong>
@@ -1011,26 +1122,23 @@ if ($section === 'checklist') {
     </div>
     <?php if ($secretaries === []): ?>
       <p class="muted">منشی فعالی ثبت نشده است.</p>
+    <?php elseif (!$present): ?>
+      <p class="muted" style="margin-top:1rem">در این روز هیچ منشی‌ای حضور ثبت‌شده ندارد.</p>
+      <?= secretary_daily_tasks_table_html($pdo, ['id' => '', 'name' => '', 'username' => ''], $ymd, false, '', true) ?>
+    <?php else: ?>
+      <?php foreach ($present as $secretary): ?>
+        <?php
+          $secId = (string) ($secretary['id'] ?? '');
+          $canTick = $role === 'SECRETARY' && $secId === $userId && secretary_daily_task_can_edit($pdo, $userId, $ymd, true);
+          echo secretary_daily_tasks_table_html($pdo, $secretary, $ymd, $canTick, $canTick ? $tickUrl : '', false);
+        ?>
+      <?php endforeach; ?>
     <?php endif; ?>
-    <?php foreach ($secretaries as $secretary): ?>
-      <?php
-        $secId = (string) ($secretary['id'] ?? '');
-        $isSelf = $role === 'SECRETARY' && $secId === $userId;
-        $present = secretary_was_present($pdo, $secId, $ymd);
-        $name = trim((string) ($secretary['name'] ?? ''));
-        if ($name === '') {
-            $name = (string) ($secretary['username'] ?? 'منشی');
-        }
-        if (!$present && !($isSelf && $ymd === $today)) {
-            echo '<p class="sapp-row">' . e($name) . ' این روز در کلینیک حضور نداشته است.</p>';
-            continue;
-        }
-        $editable = $isSelf && secretary_daily_task_can_edit($pdo, $userId, $ymd, true);
-        echo secretary_daily_tasks_table_html($pdo, $secretary, $ymd, $editable, url('/app/checklist'), false);
-      ?>
-    <?php endforeach; ?>
+    <?php if ($absent): ?>
+      <p class="muted" style="margin-top:1rem">این روز حضور نداشته‌اند: <?= e(implode('، ', array_map(static fn (array $s): string => (string) (($s['name'] ?? '') !== '' ? $s['name'] : ($s['username'] ?? '')), $absent))) ?></p>
+    <?php endif; ?>
     <?php
-    staff_app_render('checklist', 'وظایف منشی‌ها', $descriptions['checklist'], ob_get_clean());
+    staff_app_render('checklist', 'لیست کارهای روزانه', $descriptions['checklist'], ob_get_clean());
     exit;
 }
 
@@ -1043,8 +1151,8 @@ if ($section === 'profile') {
       <p><?= e(staff_app_role_label($role)) ?></p>
     </div>
     <div class="sapp-profile">
-      <p style="margin:0;font-weight:800">همین حساب برای وقت‌ها، اتاق‌ها، چت، ساعت کار، چک‌لیست و شکایات است.</p>
-      <a class="sapp-logout" href="<?= e(url('/logout')) ?>">خروج</a>
+      <p style="margin:0;font-weight:800">همین حساب برای وقت‌ها، اتاق‌ها، چت، درخواست مشاوره، کارهای روزانه و شکایات است.</p>
+      <a class="sapp-logout" href="<?= e(staff_app_logout_href()) ?>">خروج</a>
     </div>
     <?php
     staff_app_render('profile', 'پروفایل', $descriptions['profile'], ob_get_clean());

@@ -11,7 +11,8 @@ function staff_app_sections(): array
         'rooms' => ['href' => '/app/rooms', 'label' => 'اتاق‌ها', 'title' => 'شرایط اتاق‌ها'],
         'chat' => ['href' => '/app/chat', 'label' => 'چت', 'title' => 'چت کارکنان'],
         'hours' => ['href' => '/app/hours', 'label' => 'ساعت کار', 'title' => 'ساعت کار منشی‌ها'],
-        'checklist' => ['href' => '/app/checklist', 'label' => 'چک‌لیست', 'title' => 'چک‌لیست منشی‌ها'],
+        'consult' => ['href' => '/app/consult', 'label' => 'مشاوره', 'title' => 'درخواست مشاوره'],
+        'checklist' => ['href' => '/app/checklist', 'label' => 'کارهای روزانه', 'title' => 'لیست کارهای روزانه'],
         'complaints' => ['href' => '/app/complaints', 'label' => 'شکایت', 'title' => 'شکایت‌ها'],
     ];
 }
@@ -26,12 +27,17 @@ function staff_app_allowed(array $user): bool
     return strtolower(trim((string) ($user['username'] ?? ''))) === 'eshahabian';
 }
 
+function staff_app_logout_href(): string
+{
+    return url('/logout?next=' . rawurlencode('/login?next=/app'));
+}
+
 function staff_app_user(): array
 {
     $user = current_user();
     if (!$user) {
         $next = (string) ($GLOBALS['path'] ?? '/app');
-        if (!str_starts_with($next, '/app')) {
+        if (!is_staff_app_next($next)) {
             $next = '/app';
         }
         redirect('/login?next=' . rawurlencode($next));
@@ -1156,20 +1162,80 @@ function staff_app_doctor_profile_id(PDO $pdo, string $userId): string
     return (string) ($stmt->fetchColumn() ?: '');
 }
 
+/** منشی، ادمین و eshahabian فهرست کلینیک را می‌بینند؛ درمانگر فقط نوبت خودش را. */
+function staff_app_sees_clinic_schedule(array $user): bool
+{
+    if ((string) ($user['role'] ?? '') !== 'DOCTOR') {
+        return true;
+    }
+
+    return strtolower(trim((string) ($user['username'] ?? ''))) === 'eshahabian';
+}
+
+/**
+ * همان افق رزرو سایت و میز منشی: از ابتدای امروز تا پایان روز «امروز + ۱۴».
+ *
+ * @return array{0:string,1:string}
+ */
+function staff_app_schedule_bounds(): array
+{
+    if (!function_exists('appointment_booking_horizon_end') && is_file(__DIR__ . '/availability.php')) {
+        require_once __DIR__ . '/availability.php';
+    }
+    $from = date('Y-m-d 00:00:00');
+    $lastDay = function_exists('appointment_booking_horizon_end')
+        ? appointment_booking_horizon_end()
+        : date('Y-m-d', strtotime('+14 days') ?: time());
+    $to = date('Y-m-d 00:00:00', strtotime($lastDay . ' +1 day') ?: time());
+
+    return [$from, $to];
+}
+
+function staff_app_booking_overlaps_appointment(array $booking, array $appt): bool
+{
+    $apptId = (string) ($appt['id'] ?? '');
+    $linked = trim((string) ($booking['appointment_id'] ?? ''));
+    if ($apptId !== '' && $linked === $apptId) {
+        return true;
+    }
+    $patientId = trim((string) ($booking['patient_id'] ?? ''));
+    $doctorId = trim((string) ($booking['doctor_id'] ?? ''));
+    if ($patientId === '' || $doctorId === '' || $patientId !== (string) ($appt['patient_id'] ?? '') || $doctorId !== (string) ($appt['doctor_id'] ?? '')) {
+        return false;
+    }
+    $bookStart = strtotime((string) ($booking['starts_at'] ?? '')) ?: 0;
+    $bookEnd = strtotime((string) ($booking['ends_at'] ?? '')) ?: 0;
+    $apptStart = strtotime((string) ($appt['starts_at'] ?? '')) ?: 0;
+    $apptEnd = strtotime((string) ($appt['ends_at'] ?? '')) ?: 0;
+
+    return $bookStart > 0 && $bookEnd > $bookStart && $apptStart > 0 && $apptEnd > $apptStart
+        && $bookStart < $apptEnd && $bookEnd > $apptStart;
+}
+
 /** @return list<array<string, mixed>> */
 function staff_app_appointment_rows(PDO $pdo, array $user): array
 {
-    if (!function_exists('ensure_clinic_rooms_schema') && is_file(__DIR__ . '/clinic_rooms.php')) {
+    if (!function_exists('clinic_rooms_between') && is_file(__DIR__ . '/clinic_rooms.php')) {
         require_once __DIR__ . '/clinic_rooms.php';
     }
     if (function_exists('ensure_clinic_rooms_schema')) {
         ensure_clinic_rooms_schema($pdo);
     }
-    $from = date('Y-m-d 00:00:00');
-    $to = date('Y-m-d 00:00:00', strtotime('+10 days') ?: time());
+    if (!function_exists('appointment_restore_auto_cancelled_unpaid') && is_file(__DIR__ . '/appointment_session.php')) {
+        require_once __DIR__ . '/appointment_session.php';
+    }
+    if (function_exists('appointment_restore_auto_cancelled_unpaid')) {
+        try {
+            appointment_restore_auto_cancelled_unpaid($pdo);
+        } catch (Throwable $ignored) {
+        }
+    }
+    [$from, $to] = staff_app_schedule_bounds();
     $params = [$from, $to];
     $doctorSql = '';
-    if ((string) ($user['role'] ?? '') === 'DOCTOR') {
+    $profileId = '';
+    $clinicWide = staff_app_sees_clinic_schedule($user);
+    if (!$clinicWide) {
         $profileId = staff_app_doctor_profile_id($pdo, (string) ($user['id'] ?? ''));
         if ($profileId === '') {
             return [];
@@ -1194,12 +1260,65 @@ function staff_app_appointment_rows(PDO $pdo, array $user): array
       LIMIT 300
     ");
     $stmt->execute($params);
+    $rows = $stmt->fetchAll() ?: [];
 
-    return $stmt->fetchAll() ?: [];
+    $bookings = [];
+    if (function_exists('clinic_rooms_between')) {
+        try {
+            $bookings = clinic_rooms_between($pdo, $from, $to) ?: [];
+        } catch (Throwable $ignored) {
+            $bookings = [];
+        }
+    }
+    $used = [];
+    foreach ($rows as &$row) {
+        $roomNo = (int) ($row['room_no'] ?? 0);
+        foreach ($bookings as $booking) {
+            if (!staff_app_booking_overlaps_appointment($booking, $row)) {
+                continue;
+            }
+            $bookingId = (string) ($booking['id'] ?? '');
+            if ($bookingId !== '') {
+                $used[$bookingId] = true;
+            }
+            if ($roomNo < 1) {
+                $roomNo = (int) ($booking['room_no'] ?? 0);
+                $row['room_no'] = $roomNo;
+            }
+        }
+    }
+    unset($row);
+
+    foreach ($bookings as $booking) {
+        $bookingId = (string) ($booking['id'] ?? '');
+        if ($bookingId === '' || isset($used[$bookingId])) {
+            continue;
+        }
+        $bookingDoctor = trim((string) ($booking['doctor_id'] ?? ''));
+        if (!$clinicWide && ($profileId === '' || $bookingDoctor !== $profileId)) {
+            continue;
+        }
+        $label = function_exists('clinic_room_purpose') ? clinic_room_purpose($booking) : trim((string) ($booking['title'] ?? ''));
+        $rows[] = [
+            'id' => '',
+            'starts_at' => (string) ($booking['starts_at'] ?? ''),
+            'ends_at' => (string) ($booking['ends_at'] ?? ''),
+            'patient_name' => (string) ($booking['patient_name'] ?? ''),
+            'doctor_name' => (string) (($booking['doctor_name'] ?? '') !== '' ? $booking['doctor_name'] : ($booking['workshop_doctor_name'] ?? '')),
+            'room_no' => (int) ($booking['room_no'] ?? 0),
+            'session_mode' => 'IN_PERSON',
+            'status' => 'CONFIRMED',
+            'room_only' => 1,
+            'room_label' => $label !== '' ? $label : 'رزرو اتاق',
+        ];
+    }
+    usort($rows, static fn(array $a, array $b): int => strcmp((string) ($a['starts_at'] ?? ''), (string) ($b['starts_at'] ?? '')));
+
+    return $rows;
 }
 
 /** @return list<array<string, mixed>> */
-function staff_app_room_board(PDO $pdo): array
+function staff_app_room_board(PDO $pdo, ?string $from = null, ?string $to = null): array
 {
     if (!function_exists('clinic_rooms_between') && is_file(__DIR__ . '/clinic_rooms.php')) {
         require_once __DIR__ . '/clinic_rooms.php';
@@ -1207,8 +1326,9 @@ function staff_app_room_board(PDO $pdo): array
     if (!function_exists('clinic_rooms_between')) {
         return [];
     }
-    $from = date('Y-m-d 00:00:00');
-    $to = date('Y-m-d 00:00:00', strtotime('+7 days') ?: time());
+    if ($from === null || $to === null) {
+        [$from, $to] = staff_app_schedule_bounds();
+    }
 
     return clinic_rooms_between($pdo, $from, $to);
 }
@@ -1515,7 +1635,12 @@ function staff_app_render(string $active, string $title, string $description, st
         $avatarSrc = user_avatar_src((string) ($user['avatar_url'] ?? ''));
         $avatarInitial = user_avatar_initial($name !== '' ? $name : 'م');
     }
-    $navKey = $active === 'chat' ? 'chat' : ($active === 'profile' ? 'profile' : 'home');
+    $navKey = match ($active) {
+        'chat' => 'chat',
+        'profile' => 'profile',
+        'hours' => 'hours',
+        default => 'home',
+    };
     $vapidKey = '';
     if (!$locked && $user && $pdo instanceof PDO) {
         try {
@@ -1562,7 +1687,7 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-flash{margin:0 0 12px;padding:10px 12px;border-radius:12px;background:#e7f6f3}
     .sapp-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
     .sapp-tile{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.5rem;min-height:clamp(6.6rem,30vw,9.25rem);padding:1rem .6rem;border-radius:1.3rem;background:#fff;text-decoration:none;color:#1c3d36;box-shadow:0 .6rem 1.6rem rgba(28,70,58,.06)}
-    .sapp-tile strong{font-size:1.02rem;font-weight:800}
+    .sapp-tile strong{font-size:.98rem;font-weight:800;text-align:center;line-height:1.35}
     .sapp-tile em{font-style:normal;color:#9aaba4;font-size:.78rem}
     .sapp-ico{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center}
     .sapp-ico svg{width:28px;height:28px}
@@ -1572,8 +1697,9 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-ico-amber{background:#fff4e8;color:#e0a15a}
     .sapp-ico-pink{background:#fdeef3;color:#e07a9a}
     .sapp-ico-red{background:#fdeeee;color:#e07070}
-    .sapp-nav{position:fixed;right:0;left:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(3,1fr);padding:.35rem 2vw calc(.45rem + env(safe-area-inset-bottom));background:#fff;border-top:1px solid #e6eeea}
-    .sapp-nav a{display:flex;flex-direction:column;align-items:center;gap:1px;text-decoration:none;color:#8aa099;font-size:.78rem;font-weight:700}
+    .sapp-ico-teal{background:#e5f6f4;color:#128f84}
+    .sapp-nav{position:fixed;right:0;left:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding:.35rem 1.5vw calc(.45rem + env(safe-area-inset-bottom));background:#fff;border-top:1px solid #e6eeea}
+    .sapp-nav a{display:flex;flex-direction:column;align-items:center;gap:1px;text-decoration:none;color:#8aa099;font-size:clamp(.68rem,2.8vw,.78rem);font-weight:700;min-width:0;text-align:center}
     .sapp-nav a.is-active{color:#159688}
     .sapp-nav-ico{width:46px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:14px}
     .sapp-nav a.is-active .sapp-nav-ico{background:#e7f6f3}
@@ -1586,6 +1712,12 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-profile{display:flex;flex-direction:column;align-items:center;gap:8px;margin-top:18px;padding:22px 16px;border-radius:22px;background:#fff;box-shadow:0 10px 28px rgba(28,70,58,.06)}
     .sapp-profile .sapp-avatar{width:72px;height:72px;font-size:1.6rem}
     .sapp-list{display:flex;flex-direction:column;gap:8px;margin-top:12px}
+    .sapp-consult{margin-top:.75rem;padding:12px 14px;border:1px solid #e6eeea;border-radius:16px;background:#fff}
+    .sapp-consult.is-new{border-color:#f3d0d0;background:#fff8f8}
+    .sapp-consult header{display:flex;flex-wrap:wrap;gap:.35rem .7rem;align-items:baseline}
+    .sapp-consult time,.sapp-consult .muted{color:#8aa099;font-size:.82rem}
+    .sapp-consult a{display:inline-block;margin:.45rem 0;color:#128f84;font-weight:800;font-size:1.05rem;text-decoration:none}
+    .sapp-consult p{margin:.2rem 0 .7rem;white-space:pre-wrap;line-height:1.75}
     .sapp-row{padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
     .sapp-row small{display:block;margin-top:4px;color:var(--muted)}
     .sapp-day{margin:16px 0 0;font-size:1rem}
@@ -1712,7 +1844,7 @@ function staff_app_render(string $active, string $title, string $description, st
     body.sapp{padding:0}
   </style>
 </head>
-<body class="sapp<?= !empty($GLOBALS['staffBodyClass']) ? ' ' . e((string) $GLOBALS['staffBodyClass']) : '' ?>"<?= $user ? ' data-user="' . e((string) ($user['id'] ?? '')) . '" data-session-guard="1" data-session-ping="' . e(url('/session/ping')) . '" data-logout="' . e(url('/logout')) . '"' : '' ?><?= ($user && !$locked) ? ' data-presence="' . e(url('/app/presence')) . '" data-chat="' . e(url('/app/chat')) . '" data-unread="' . e((string) (int) $unread) . '" data-vapid="' . e($vapidKey) . '" data-push="' . e(url('/app/push/subscribe')) . '"' : '' ?><?= $isSecretary ? ' data-secretary-desk="1" data-no-idle="1" data-heartbeat="' . e(url('/secretary/heartbeat')) . '"' : '' ?>>
+<body class="sapp<?= !empty($GLOBALS['staffBodyClass']) ? ' ' . e((string) $GLOBALS['staffBodyClass']) : '' ?>"<?= $user ? ' data-user="' . e((string) ($user['id'] ?? '')) . '" data-session-guard="1" data-session-ping="' . e(url('/session/ping')) . '" data-logout="' . e(staff_app_logout_href()) . '"' : '' ?><?= ($user && !$locked) ? ' data-presence="' . e(url('/app/presence')) . '" data-chat="' . e(url('/app/chat')) . '" data-unread="' . e((string) (int) $unread) . '" data-vapid="' . e($vapidKey) . '" data-push="' . e(url('/app/push/subscribe')) . '"' : '' ?><?= $isSecretary ? ' data-secretary-desk="1" data-no-idle="1" data-heartbeat="' . e(url('/secretary/heartbeat')) . '"' : '' ?>>
   <header class="sapp-top">
     <a class="sapp-brand" href="<?= e(url('/app')) ?>">
       <img src="<?= e(url('/assets/img/logo.png')) ?>" alt="" width="36" height="36">
@@ -1729,7 +1861,7 @@ function staff_app_render(string $active, string $title, string $description, st
             <?php endif; ?>
           </a>
         <?php endif; ?>
-        <a class="sapp-logout" href="<?= e(url('/logout')) ?>">خروج</a>
+        <a class="sapp-logout" href="<?= e(staff_app_logout_href()) ?>">خروج</a>
       </div>
     <?php endif; ?>
   </header>
@@ -1768,6 +1900,10 @@ function staff_app_render(string $active, string $title, string $description, st
         <span class="sapp-nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17.5 4 20V6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8A2.5 2.5 0 0 1 17.5 17H7z"/></svg></span>
         گفتگو
         <?php if ($unread > 0): ?><span class="sapp-badge"><?= e(to_fa_digits((string) $unread)) ?></span><?php endif; ?>
+      </a>
+      <a class="<?= $navKey === 'hours' ? 'is-active' : '' ?>" href="<?= e(url('/app/hours')) ?>">
+        <span class="sapp-nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4.2l2.6 1.6"/></svg></span>
+        ساعت کاری
       </a>
       <a class="<?= $navKey === 'profile' ? 'is-active' : '' ?>" href="<?= e(url('/app/profile')) ?>">
         <span class="sapp-nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5.5 19.2a6.5 6.5 0 0 1 13 0"/></svg></span>

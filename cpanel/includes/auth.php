@@ -244,7 +244,7 @@ function auth_reject_session(string $reason): never
         exit;
     }
     flash_set('info', $message);
-    redirect('/login');
+    redirect(login_url_keeping_staff_app($path));
 }
 
 function auth_guard_request(PDO $pdo, array $user, bool $touch): void
@@ -340,11 +340,12 @@ function logout_user(string $reason = 'logout'): void
 
 function require_login(?array $roles = null): array
 {
+    global $path, $pdo;
+    $requestPath = (string) ($path ?? '');
     $user = current_user();
     if (!$user) {
-        redirect('/login');
+        redirect(login_url_keeping_staff_app($requestPath));
     }
-    global $path, $pdo;
     $onStaffApp = str_starts_with((string) ($path ?? ''), '/app');
     if ($pdo instanceof PDO) {
         $user = auth_grant_named_roles($pdo, $user);
@@ -356,7 +357,7 @@ function require_login(?array $roles = null): array
         if ($user && user_account_is_disabled($pdo, (string) ($user['id'] ?? ''))) {
             logout_user('logout');
             flash_set('error', 'این حساب غیرفعال شده است.');
-            redirect('/login');
+            redirect(login_url_keeping_staff_app($requestPath));
         }
     }
     if (function_exists('staff_tracks_presence') && staff_tracks_presence($user) && function_exists('staff_guard_session') && $pdo instanceof PDO) {

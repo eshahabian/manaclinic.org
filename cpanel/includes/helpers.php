@@ -338,7 +338,18 @@ function csrf_verify(): void
         flash_set('error', 'نشست منقضی شد. صفحه را تازه کنید و دوباره تلاش کنید.');
         $back = $_SERVER['HTTP_REFERER'] ?? '';
         $path = parse_url($back, PHP_URL_PATH);
-        redirect(is_string($path) && str_starts_with($path, '/') && !str_starts_with($path, '//') ? $path : '/');
+        $target = (is_string($path) && str_starts_with($path, '/') && !str_starts_with($path, '//')) ? $path : '/';
+        if ($target === '/login') {
+            $query = parse_url($back, PHP_URL_QUERY);
+            if (is_string($query) && $query !== '') {
+                parse_str($query, $refQuery);
+                $next = safe_next_path(isset($refQuery['next']) ? (string) $refQuery['next'] : '');
+                if ($next !== null) {
+                    $target .= '?next=' . rawurlencode($next);
+                }
+            }
+        }
+        redirect($target);
     }
 }
 
@@ -371,6 +382,54 @@ function safe_next_path(?string $next): ?string
         return null;
     }
     return $next;
+}
+
+/** مسیر داخل next؛ از .. که مرورگر را به صفحهٔ اصلی می‌برد جلوگیری می‌کند */
+function safe_next_url_path(?string $next): ?string
+{
+    $next = safe_next_path($next);
+    if ($next === null) {
+        return null;
+    }
+    $path = parse_url($next, PHP_URL_PATH);
+    if (!is_string($path) || $path === '' || str_contains($path, '..')) {
+        return null;
+    }
+
+    return $path;
+}
+
+function is_staff_app_next(?string $next): bool
+{
+    $path = safe_next_url_path($next);
+
+    return $path === '/app' || ($path !== null && str_starts_with($path, '/app/'));
+}
+
+/** فقط /login یا /app — برای بازگشت خروج اپ، بدون ریدایرکت باز */
+function safe_staff_app_return(?string $next): ?string
+{
+    $next = safe_next_path($next);
+    $path = safe_next_url_path($next);
+    if ($next === null || $path === null) {
+        return null;
+    }
+    $login = $path === '/login' || str_starts_with($path, '/login/');
+    $app = $path === '/app' || str_starts_with($path, '/app/');
+    if (!$login && !$app) {
+        return null;
+    }
+
+    return $next;
+}
+
+function login_url_keeping_staff_app(string $path): string
+{
+    if (!is_staff_app_next($path)) {
+        return '/login';
+    }
+
+    return '/login?next=' . rawurlencode($path);
 }
 
 /** ارقام فارسی/عربی → انگلیسی (برای رمز و نام کاربری) */

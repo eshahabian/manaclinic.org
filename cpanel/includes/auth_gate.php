@@ -15,7 +15,7 @@ $nameDict = isset($pdo) ? build_name_transliterations_client_map($pdo) : [];
 <div class="auth-wrap">
   <div class="auth-card" data-auth-card data-mode="<?= e($authMode) ?>" data-login-url="<?= e($loginHref) ?>" data-register-url="<?= e($registerHref) ?>">
     <section class="auth-pane<?= $authMode === 'login' ? ' is-on' : '' ?>" data-auth-pane="login"<?= $authMode === 'login' ? '' : ' inert' ?>>
-      <form class="auth-form" method="post" action="<?= e(url('/login')) ?>">
+      <form class="auth-form" method="post" action="<?= e($loginHref) ?>">
         <?= csrf_field() ?>
         <input type="hidden" name="next" value="<?= e($authNext) ?>">
         <h1 class="auth-form-title">ورود</h1>

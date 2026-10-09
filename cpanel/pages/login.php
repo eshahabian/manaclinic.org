@@ -4,7 +4,7 @@ if (current_user()) {
     $next = safe_next_path((string) ($_GET['next'] ?? ''));
     $role = (string) (current_user()['role'] ?? '');
     $username = strtolower(trim((string) (current_user()['username'] ?? '')));
-    if ($next && str_starts_with($next, '/app') && ($role === 'DOCTOR' || $role === 'SECRETARY' || $username === 'eshahabian')) {
+    if ($next && is_staff_app_next($next) && ($role === 'DOCTOR' || $role === 'SECRETARY' || $username === 'eshahabian')) {
         redirect($next);
     }
     $href = panel_href_for(current_user()) ?: '/';
@@ -17,7 +17,7 @@ $pageCanonical = url('/login');
 $pageKeywords = 'ورود مانا کلینیک, ورود روانشناس, ورود مراجعه‌کننده';
 $pageRobots = 'noindex,nofollow';
 $loginNext = safe_next_path((string) ($_GET['next'] ?? ''));
-$staffAppLogin = is_string($loginNext) && ($loginNext === '/app' || str_starts_with($loginNext, '/app/'));
+$staffAppLogin = is_staff_app_next($loginNext);
 if ($staffAppLogin) {
     $GLOBALS['pageBodyClass'] = trim((string) ($GLOBALS['pageBodyClass'] ?? '') . ' staff-app-gate');
     $GLOBALS['pageThemeColor'] = '#1a9a8a';

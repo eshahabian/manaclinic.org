@@ -6,6 +6,10 @@ login_throttle_guard();
 $username = mb_strtolower(normalize_input(post('username')));
 $password = normalize_input((string) ($_POST['password'] ?? ''));
 $next = safe_next_path(post('next'));
+if ($next === null) {
+    $next = safe_next_path((string) ($_GET['next'] ?? ''));
+}
+$loginRetry = '/login' . ($next ? ('?next=' . rawurlencode($next)) : '');
 
 $stmt = $pdo->prepare('SELECT * FROM users WHERE username = ? LIMIT 1');
 $stmt->execute([$username]);
@@ -14,12 +18,12 @@ $user = $stmt->fetch();
 if (!$user || $password === '' || !password_verify($password, $user['password_hash'])) {
     login_throttle_fail();
     flash_set('error', 'نام کاربری یا رمز عبور نادرست است.');
-    redirect('/login');
+    redirect($loginRetry);
 }
 
 if (user_account_is_disabled($pdo, (string) $user['id'])) {
     flash_set('error', 'این حساب غیرفعال شده است.');
-    redirect('/login');
+    redirect($loginRetry);
 }
 
 if ($user['role'] === 'DOCTOR') {
@@ -28,11 +32,11 @@ if ($user['role'] === 'DOCTOR') {
     $profile = $dp->fetch();
     if (!$profile || !(int) $profile['is_approved']) {
         flash_set('error', 'حساب درمانگر شما هنوز توسط مدیر سایت تأیید نشده است.');
-        redirect('/login');
+        redirect($loginRetry);
     }
     if (!(int) $profile['is_active']) {
         flash_set('error', 'حساب درمانگر شما فعلاً غیرفعال است.');
-        redirect('/login');
+        redirect($loginRetry);
     }
 }
 
@@ -45,12 +49,16 @@ if (!empty($user['must_change_password'])) {
     redirect('/change-password');
 }
 
+if ($next && is_staff_app_next($next)) {
+    redirect($next);
+}
+
 if (($user['role'] ?? '') === 'DOCTOR' && function_exists('doctor_must_complete_profile') && doctor_must_complete_profile($pdo, current_user() ?? $user)) {
     flash_set('info', 'برای ورود به پنل، پروفایل حرفه‌ای را کامل کنید.');
     redirect('/doctor/profile');
 }
 
-if ($next && str_starts_with($next, '/')) {
+if ($next && safe_next_url_path($next) !== null) {
     redirect($next);
 }
 
