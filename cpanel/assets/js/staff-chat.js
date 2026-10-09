@@ -186,9 +186,13 @@
     var files = messageFiles(article);
     var save = menu.querySelector('[data-act="save"]');
     var remove = menu.querySelector('[data-act="delete"]');
+    var editBtn = menu.querySelector('[data-act="edit"]');
     var pin = menu.querySelector('[data-act="pin"]');
+    var ownMessage = article.getAttribute("data-mine") === "1";
+    var ownText = ownMessage && String(article.getAttribute("data-body") || "").trim() !== "";
     if (save) save.hidden = files.length === 0;
-    if (remove) remove.hidden = article.getAttribute("data-mine") !== "1";
+    if (remove) remove.hidden = !ownMessage;
+    if (editBtn) editBtn.hidden = !ownText;
     if (pin) {
       var pinLabel = pin.querySelector("span");
       if (pinLabel) {
@@ -362,7 +366,28 @@
     var id = messageId(article);
     var act = button.getAttribute("data-act");
     if (act === "seen") return;
-    if (observeOnly && (act === "reply" || act === "pin" || act === "forward" || act === "delete" || act === "select")) return;
+    if (observeOnly && (act === "reply" || act === "pin" || act === "forward" || act === "delete" || act === "select" || act === "edit")) return;
+    if (act === "edit") {
+      if (article.getAttribute("data-mine") !== "1") return;
+      var source = String(messageText(article) || "").trim();
+      if (!source) return;
+      var editBox = document.getElementById("sapp-edit");
+      var editId = document.getElementById("sapp-edit-id");
+      var editSnippet = document.getElementById("sapp-edit-snippet");
+      var field = document.getElementById("chat-body");
+      if (editId) editId.value = id;
+      if (editSnippet) editSnippet.textContent = source.length > 80 ? source.slice(0, 80) + "…" : source;
+      if (editBox) editBox.hidden = false;
+      if (replyBox) replyBox.hidden = true;
+      var replyInput = document.getElementById("sapp-reply-id");
+      if (replyInput) replyInput.value = "";
+      if (field) {
+        field.value = source;
+        field.focus();
+      }
+      closeMenu();
+      return;
+    }
     if (act === "reply") {
       var who = article.getAttribute("data-name") || "";
       var snippet = messageText(article) || (messageFiles(article)[0] && messageFiles(article)[0].name) || "پیام";
@@ -441,9 +466,11 @@
       return;
     }
     if (act === "delete") {
+      if (article.getAttribute("data-mine") !== "1") return;
       if (!window.confirm("این پیام حذف شود؟")) return;
+      closeMenu();
       postAction({ form: "delete", message_id: id }).then(function () {
-        window.location.reload();
+        dropMessage(id);
       }).catch(function (err) {
         window.alert(err.message || "انجام نشد.");
       });
@@ -455,6 +482,16 @@
       if (selectBar) selectBar.hidden = false;
       closeMenu();
     }
+  });
+
+  var editX = document.getElementById("sapp-edit-x");
+  if (editX) editX.addEventListener("click", function () {
+    var editId = document.getElementById("sapp-edit-id");
+    var editBox = document.getElementById("sapp-edit");
+    var field = document.getElementById("chat-body");
+    if (editId) editId.value = "";
+    if (editBox) editBox.hidden = true;
+    if (field) field.value = "";
   });
 
   var replyX = document.getElementById("sapp-reply-x");
@@ -506,7 +543,9 @@
       });
     });
     chain.then(function () {
-      window.location.reload();
+      ids.forEach(dropMessage);
+      thread.classList.remove("is-selecting");
+      if (selectBar) selectBar.hidden = true;
     }).catch(function (err) {
       window.alert(err.message || "انجام نشد.");
     });
@@ -601,6 +640,7 @@
     }
     if (msg.body) {
       var body = document.createElement("p");
+      body.className = "sapp-msg-body";
       body.textContent = msg.body;
       article.appendChild(body);
     }
@@ -613,6 +653,12 @@
     article.appendChild(reacts);
     var meta = document.createElement("div");
     meta.className = "sapp-msg-meta";
+    if (msg.edited) {
+      var edited = document.createElement("span");
+      edited.className = "sapp-edited";
+      edited.textContent = "ویرایش شد";
+      meta.appendChild(edited);
+    }
     var time = document.createElement("time");
     time.textContent = msg.time || "";
     meta.appendChild(time);
@@ -644,6 +690,51 @@
     var me = currentUserId();
     if (author && me && author === me) return true;
     return !!msg.mine;
+  }
+
+  function dropMessage(id) {
+    if (!id || !thread) return;
+    var article = document.getElementById("m-" + id);
+    if (article) article.remove();
+    thread.querySelectorAll('a.sapp-quote[href="#m-' + id + '"] span').forEach(function (span) {
+      span.textContent = "پیام حذف‌شده";
+    });
+    var pin = document.querySelector('a.sapp-pin[href="#m-' + id + '"]');
+    if (pin) pin.remove();
+  }
+
+  function applyEdits(list) {
+    if (!thread || !list) return;
+    list.forEach(function (msg) {
+      if (!msg || !msg.id) return;
+      var article = document.getElementById("m-" + msg.id);
+      if (!article) return;
+      var body = msg.body || "";
+      article.setAttribute("data-body", body);
+      var paragraph = article.querySelector(".sapp-msg-body");
+      if (!paragraph && body) {
+        paragraph = document.createElement("p");
+        paragraph.className = "sapp-msg-body";
+        var reacts = article.querySelector(".sapp-reacts");
+        if (reacts) article.insertBefore(paragraph, reacts);
+        else article.appendChild(paragraph);
+      }
+      if (paragraph) paragraph.textContent = body;
+      if (msg.edited) {
+        var meta = article.querySelector(".sapp-msg-meta");
+        if (meta && !meta.querySelector(".sapp-edited")) {
+          var label = document.createElement("span");
+          label.className = "sapp-edited";
+          label.textContent = "ویرایش شد";
+          meta.insertBefore(label, meta.firstChild);
+        }
+      }
+      var snippet = String(body).replace(/\s+/g, " ").trim();
+      if (snippet.length > 80) snippet = snippet.slice(0, 80) + "…";
+      thread.querySelectorAll('a.sapp-quote[href="#m-' + msg.id + '"] span').forEach(function (span) {
+        span.textContent = snippet || "پیام";
+      });
+    });
   }
 
   function appendMessages(list) {
@@ -694,7 +785,9 @@
       .then(function (res) { return res.ok ? res.json() : null; })
       .then(function (data) {
         if (!data) return;
+        (data.removed || []).forEach(dropMessage);
         appendMessages(data.messages || []);
+        applyEdits(data.edits || []);
         applyReactions(data.reactions);
         if (data.states) paintTicks(data.states);
         Object.keys(data.seen || {}).forEach(function (id) {
@@ -1179,6 +1272,25 @@
       var text = field ? field.value : "";
       var blob = voiceBlob;
       var hasFile = !blob && file && file.files && file.files.length > 0;
+      var editIdEl = document.getElementById("sapp-edit-id");
+      var editingId = editIdEl ? String(editIdEl.value || "") : "";
+      if (editingId && !blob && !hasFile) {
+        var nextBody = String(text).trim();
+        if (!nextBody) return;
+        voiceSending = true;
+        postAction({ form: "edit", message_id: editingId, body: nextBody }).then(function (data) {
+          voiceSending = false;
+          applyEdits([data.message || { id: editingId, body: nextBody, edited: true }]);
+          if (field) field.value = "";
+          if (editIdEl) editIdEl.value = "";
+          var editBox = document.getElementById("sapp-edit");
+          if (editBox) editBox.hidden = true;
+        }).catch(function (err) {
+          voiceSending = false;
+          window.alert(err.message || "ویرایش نشد.");
+        });
+        return;
+      }
       if (!String(text).trim() && !hasFile && !blob) return;
       voiceSending = true;
       window.sappSentAt = Date.now();
@@ -1431,248 +1543,78 @@
 
   document.body.classList.add("is-thread");
   var typeField = document.getElementById("chat-body");
-  var svhProbe = null;
-  var baseSvh = 0;
-  var kbState = "idle";
-  var kbTimer = 0;
-  var kbBumped = false;
-  var kbRaised = false;
-  var maxCovered = 0;
-  var kbFloor = 0;
-  var stickOnOpen = true;
+  var kbFrame = 0;
 
   function stickThread() {
     if (thread) thread.scrollTop = thread.scrollHeight;
-  }
-
-  function rootPx() {
-    var size = parseFloat(window.getComputedStyle(document.documentElement).fontSize);
-    return size > 0 ? size : 16;
-  }
-
-  function phoneLike() {
-    return window.matchMedia("(hover: none) and (pointer: coarse)").matches;
   }
 
   function fieldFocused() {
     return !!(typeField && document.activeElement === typeField);
   }
 
-  function svhPx() {
-    if (!svhProbe) {
-      svhProbe = document.createElement("div");
-      svhProbe.setAttribute("aria-hidden", "true");
-      svhProbe.style.cssText = "position:fixed;left:0;top:0;width:0;height:100svh;visibility:hidden;pointer-events:none";
-      document.documentElement.appendChild(svhProbe);
-    }
-    var height = svhProbe.getBoundingClientRect().height;
-    return height > 0 ? height : window.innerHeight;
-  }
-
-  function noteBase() {
-    if (fieldFocused()) return;
-    var height = svhPx();
-    if (height > 0) baseSvh = height;
-  }
-
-  function svhDropped() {
-    return baseSvh > 0 && svhPx() < baseSvh - rootPx() * 5;
-  }
-
-  function keyboardCovered() {
+  function keyboardOverlap() {
     var vv = window.visualViewport;
     if (!vv) return 0;
+    var layout = window.innerHeight || document.documentElement.clientHeight || 0;
     var offset = vv.offsetTop > 0 ? vv.offsetTop : 0;
-    return Math.max(0, Math.round(svhPx() - (offset + vv.height)));
+    return Math.max(0, Math.round(layout - vv.height - offset));
   }
 
-  function composerOverlap() {
-    var compose = document.querySelector(".sapp-compose");
-    var field = typeField || document.getElementById("chat-body");
-    var edge = 0;
-    if (compose) edge = compose.getBoundingClientRect().bottom;
-    if (field) edge = Math.max(edge, field.getBoundingClientRect().bottom);
-    if (!edge) return 0;
-    var visibleBottom = window.visualViewport ? window.visualViewport.height : window.innerHeight;
-    return Math.round(edge - visibleBottom);
-  }
-
-  function appliedKbPx() {
-    return Math.max(0, Math.round(svhPx() - document.body.getBoundingClientRect().height));
-  }
-
-  function rememberStick() {
-    stickOnOpen = threadNearBottom();
-  }
-
-  function stickIfOpen() {
-    if (stickOnOpen) stickThread();
-  }
-
-  function clampKbCss() {
-    return "clamp(12rem, 50svh, 28rem)";
-  }
-
-  function clampKbPx() {
-    var root = rootPx();
-    var preferred = svhPx() * 0.5;
-    return Math.round(Math.max(root * 12, Math.min(root * 28, preferred)));
-  }
-
-  function raiseFloor(px) {
-    if (px > kbFloor) kbFloor = px;
-  }
-
-  function setKb(value) {
-    document.body.style.setProperty("--sapp-kb", value);
-    stickIfOpen();
-  }
-
-  function clearKb() {
-    document.body.style.removeProperty("--sapp-kb");
-  }
-
-  function bumpOnce() {
-    if (kbBumped || !fieldFocused()) return;
-    window.requestAnimationFrame(function () {
-      window.requestAnimationFrame(function () {
-        if (kbBumped || !fieldFocused()) return;
-        kbBumped = true;
-        var extra = composerOverlap();
-        var root = rootPx();
-        if (extra <= root * 0.5) return;
-        var next = Math.max(appliedKbPx(), kbFloor) + extra;
-        raiseFloor(next);
-        setKb("calc(" + Math.round(next) + "px)");
-      });
-    });
-  }
-
-  function lockMeasured(px) {
-    kbState = "locked";
-    var root = rootPx();
-    var next = px + root * 3;
-    if (kbFloor > 0 && next < kbFloor - root * 4) {
-      bumpOnce();
+  function applyKeyboard() {
+    var vv = window.visualViewport;
+    var focused = fieldFocused();
+    if (!focused) {
+      document.body.classList.remove("is-typing");
+      document.body.style.removeProperty("--sapp-kb");
+      document.body.style.removeProperty("--sapp-vv-top");
+      document.body.style.top = "";
+      document.body.style.height = "";
+      document.body.style.maxHeight = "";
       return;
     }
-    raiseFloor(next);
-    setKb("calc(" + Math.round(px) + "px + 3rem)");
-    bumpOnce();
-  }
-
-  function finishKeyboard() {
-    kbTimer = 0;
-    if (!fieldFocused() || kbState === "locked") return;
-    var covered = Math.max(keyboardCovered(), maxCovered);
-    var overlap = composerOverlap();
-    var root = rootPx();
-    var real = root * 8;
-    if (covered >= real) {
-      lockMeasured(covered);
-      return;
-    }
-    if (svhDropped()) {
-      kbState = "locked";
-      kbFloor = root * 3;
-      setKb("3rem");
-      bumpOnce();
-      return;
-    }
-    if (overlap >= real) {
-      lockMeasured(overlap);
-      return;
-    }
-    if (phoneLike()) {
-      kbState = "locked";
-      raiseFloor(clampKbPx());
-      setKb(clampKbCss());
-      bumpOnce();
-      return;
-    }
-    kbState = "locked";
-    if (overlap > root * 0.5) {
-      raiseFloor(overlap + root * 3);
-      setKb("calc(" + Math.round(overlap) + "px + 3rem)");
-      bumpOnce();
-      return;
-    }
-    setKb("0px");
-  }
-
-  function maybeRaise() {
-    if (kbRaised || !fieldFocused()) return;
-    var covered = keyboardCovered();
-    var root = rootPx();
-    if (covered < root * 8) return;
-    var next = covered + root * 3;
-    var floor = Math.max(appliedKbPx(), kbFloor);
-    if (next <= floor + root) return;
-    kbRaised = true;
-    raiseFloor(next);
-    maxCovered = covered;
-    setKb("calc(" + Math.round(covered) + "px + 3rem)");
-  }
-
-  function syncKeyboard() {
-    if (!fieldFocused()) return;
     document.body.classList.add("is-typing");
-    if (kbState === "locked") {
-      maybeRaise();
-      return;
+    var overlap = keyboardOverlap();
+    var offset = vv && vv.offsetTop > 0 ? Math.round(vv.offsetTop) : 0;
+    var visible = vv ? Math.round(vv.height) : 0;
+    document.body.style.setProperty("--sapp-kb", overlap + "px");
+    document.body.style.setProperty("--sapp-vv-top", offset + "px");
+    if (visible > 0) {
+      document.body.style.top = offset + "px";
+      document.body.style.height = visible + "px";
+      document.body.style.maxHeight = visible + "px";
     }
-    var covered = keyboardCovered();
-    if (covered > maxCovered) maxCovered = covered;
-    if (kbState !== "pending") {
-      kbState = "pending";
-      kbTimer = window.setTimeout(finishKeyboard, 400);
-    }
+    if (thread && threadNearBottom()) stickThread();
   }
 
-  function resetKeyboard() {
-    if (fieldFocused()) return;
-    window.clearTimeout(kbTimer);
-    kbTimer = 0;
-    kbState = "idle";
-    kbBumped = false;
-    kbRaised = false;
-    kbFloor = 0;
-    maxCovered = 0;
-    document.body.classList.remove("is-typing");
-    clearKb();
-    document.body.style.top = "";
-    document.body.style.height = "";
-    noteBase();
+  function scheduleKeyboard() {
+    if (kbFrame) return;
+    kbFrame = window.requestAnimationFrame(function () {
+      kbFrame = 0;
+      applyKeyboard();
+    });
   }
 
   if (window.visualViewport) {
-    window.visualViewport.addEventListener("resize", syncKeyboard);
-    window.visualViewport.addEventListener("scroll", syncKeyboard);
+    window.visualViewport.addEventListener("resize", scheduleKeyboard);
+    window.visualViewport.addEventListener("scroll", scheduleKeyboard);
   }
   if (typeField) {
     typeField.addEventListener("focus", function () {
-      rememberStick();
       document.body.classList.add("is-typing");
-      if (phoneLike() && kbState !== "locked") {
-        raiseFloor(clampKbPx());
-        setKb(clampKbCss());
-      }
-      window.requestAnimationFrame(function () { stickIfOpen(); });
-      syncKeyboard();
+      scheduleKeyboard();
+      window.setTimeout(scheduleKeyboard, 50);
+      window.setTimeout(scheduleKeyboard, 280);
     });
     typeField.addEventListener("blur", function () {
       window.setTimeout(function () {
-        resetKeyboard();
+        if (fieldFocused()) return;
+        applyKeyboard();
         pullLive();
-      }, 180);
+      }, 120);
     });
   }
-  window.addEventListener("resize", function () {
-    if (fieldFocused()) syncKeyboard();
-    else noteBase();
-  });
-  noteBase();
-  syncKeyboard();
+  window.addEventListener("resize", scheduleKeyboard);
 
   if (window.location.hash) {
     var target = document.getElementById(window.location.hash.slice(1));

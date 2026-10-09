@@ -167,6 +167,15 @@ function staff_app_ensure_schema(PDO $pdo): void
     staff_app_add_column($pdo, 'staff_app_rooms', 'deleted_at', 'DATETIME NULL');
     staff_app_add_column($pdo, 'staff_app_rooms', 'deleted_by', 'VARCHAR(32) NULL');
     staff_app_add_column($pdo, 'staff_app_rooms', 'kept_forever', 'TINYINT(1) NOT NULL DEFAULT 0');
+    staff_app_add_column($pdo, 'staff_app_messages', 'edited_at', 'DATETIME NULL');
+    $pdo->exec("
+      CREATE TABLE IF NOT EXISTS staff_app_removals (
+        message_id VARCHAR(32) NOT NULL PRIMARY KEY,
+        room_id VARCHAR(32) NOT NULL,
+        removed_at DATETIME NOT NULL,
+        INDEX idx_staff_app_removals_room (room_id, removed_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
     $ready = true;
 }
 
@@ -237,8 +246,13 @@ function staff_app_upload_dir(): string
     return dirname(__DIR__) . '/uploads/staff-app';
 }
 
-function staff_app_role_label(string $role): string
+function staff_app_role_label(string $role, array $person = []): string
 {
+    $username = strtolower(trim((string) ($person['username'] ?? '')));
+    $personName = trim((string) ($person['name'] ?? ''));
+    if ($username === 'eshahabian' || ($personName !== '' && mb_stripos($personName, 'شهابیان') !== false)) {
+        return 'مدیر سایت';
+    }
     if ($role === 'SECRETARY') {
         return 'منشی';
     }
@@ -686,7 +700,7 @@ function staff_app_seen_map(PDO $pdo, string $roomId): array
         }
         $map[(string) $row['message_id']][] = [
             'name' => $name !== '' ? $name : 'کاربر',
-            'role' => staff_app_role_label((string) ($row['role'] ?? '')),
+            'role' => staff_app_role_label((string) ($row['role'] ?? ''), $row),
         ];
     }
 
@@ -740,7 +754,8 @@ function staff_app_delete_message(PDO $pdo, array $user, string $roomId, string 
     if (!$message) {
         throw new RuntimeException('این پیام پیدا نشد.');
     }
-    if ((string) ($message['user_id'] ?? '') !== $userId) {
+    $authorId = (string) ($message['user_id'] ?? '');
+    if (!staff_push_same_user($authorId, $userId)) {
         throw new RuntimeException('فقط پیام خودتان را می‌توانید حذف کنید.');
     }
     $files = $pdo->prepare('SELECT stored_name FROM staff_app_files WHERE message_id = ?');
@@ -750,9 +765,9 @@ function staff_app_delete_message(PDO $pdo, array $user, string $roomId, string 
     try {
         $pdo->prepare('DELETE FROM staff_app_reactions WHERE message_id = ?')->execute([$messageId]);
         $pdo->prepare('DELETE FROM staff_app_files WHERE message_id = ?')->execute([$messageId]);
-        $pdo->prepare('UPDATE staff_app_messages SET reply_to = NULL WHERE reply_to = ?')->execute([$messageId]);
         $pdo->prepare('UPDATE staff_app_rooms SET pinned_message_id = NULL WHERE id = ? AND pinned_message_id = ?')->execute([$roomId, $messageId]);
-        $pdo->prepare('DELETE FROM staff_app_messages WHERE id = ? AND user_id = ?')->execute([$messageId, $userId]);
+        $pdo->prepare('INSERT INTO staff_app_removals (message_id, room_id, removed_at) VALUES (?,?,NOW()) ON DUPLICATE KEY UPDATE removed_at = NOW()')->execute([$messageId, $roomId]);
+        $pdo->prepare('DELETE FROM staff_app_messages WHERE id = ? AND user_id = ?')->execute([$messageId, $authorId]);
         $pdo->commit();
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
@@ -770,6 +785,38 @@ function staff_app_delete_message(PDO $pdo, array $user, string $roomId, string 
             @unlink(staff_app_upload_dir() . '/' . $name);
         }
     }
+}
+
+function staff_app_edit_message(PDO $pdo, array $user, string $roomId, string $messageId, string $body): array
+{
+    staff_app_assert_can_post($pdo, $user, $roomId);
+    $userId = (string) ($user['id'] ?? '');
+    $message = staff_app_message_for_member($pdo, $messageId, $roomId, $userId);
+    if (!$message) {
+        throw new RuntimeException('این پیام پیدا نشد.');
+    }
+    $authorId = (string) ($message['user_id'] ?? '');
+    if (!staff_push_same_user($authorId, $userId)) {
+        throw new RuntimeException('فقط پیام خودتان را می‌توانید ویرایش کنید.');
+    }
+    if (trim((string) ($message['body'] ?? '')) === '') {
+        throw new RuntimeException('این پیام متن ندارد.');
+    }
+    $body = trim($body);
+    if ($body === '') {
+        throw new RuntimeException('متن پیام خالی است.');
+    }
+    if (mb_strlen($body) > 4000) {
+        $body = mb_substr($body, 0, 4000);
+    }
+    $pdo->prepare('UPDATE staff_app_messages SET body = ?, edited_at = NOW() WHERE id = ? AND user_id = ?')
+        ->execute([$body, $messageId, $authorId]);
+    $card = staff_app_message_card($pdo, $roomId, $userId, $messageId);
+    if (!$card) {
+        throw new RuntimeException('این پیام پیدا نشد.');
+    }
+
+    return $card;
 }
 
 function staff_app_pin_message(PDO $pdo, array $user, string $roomId, string $messageId): void
@@ -900,7 +947,7 @@ function staff_app_pinned_message(PDO $pdo, string $roomId): ?array
 function staff_app_messages(PDO $pdo, string $roomId): array
 {
     $stmt = $pdo->prepare("
-      SELECT m.id, m.body, m.created_at, m.user_id, m.reply_to, m.forward_from,
+      SELECT m.id, m.body, m.created_at, m.edited_at, m.user_id, m.reply_to, m.forward_from,
              u.name, u.role, rm.body AS reply_body, ru.name AS reply_name
       FROM staff_app_messages m
       JOIN users u ON u.id = m.user_id
@@ -939,7 +986,7 @@ function staff_app_live_messages(PDO $pdo, string $roomId, string $userId, strin
     }
     if ($afterId === '') {
         $stmt = $pdo->prepare("
-          SELECT m.id, m.body, m.created_at, m.user_id, m.reply_to, m.forward_from,
+          SELECT m.id, m.body, m.created_at, m.edited_at, m.user_id, m.reply_to, m.forward_from,
                  u.name, rm.body AS reply_body, ru.name AS reply_name
           FROM staff_app_messages m
           JOIN users u ON u.id = m.user_id
@@ -954,7 +1001,7 @@ function staff_app_live_messages(PDO $pdo, string $roomId, string $userId, strin
         return staff_app_message_cards($pdo, $userId, array_reverse($stmt->fetchAll() ?: []));
     }
     $stmt = $pdo->prepare("
-      SELECT m.id, m.body, m.created_at, m.user_id, m.reply_to, m.forward_from,
+      SELECT m.id, m.body, m.created_at, m.edited_at, m.user_id, m.reply_to, m.forward_from,
              u.name, rm.body AS reply_body, ru.name AS reply_name
       FROM staff_app_messages m
       JOIN users u ON u.id = m.user_id
@@ -972,6 +1019,44 @@ function staff_app_live_messages(PDO $pdo, string $roomId, string $userId, strin
     $stmt->execute([$afterId, $roomId]);
 
     return staff_app_message_cards($pdo, $userId, $stmt->fetchAll() ?: []);
+}
+
+/** @return list<array{id: string, body: string, edited: bool}> */
+function staff_app_live_edits(PDO $pdo, string $roomId): array
+{
+    $stmt = $pdo->prepare("
+      SELECT id, body
+      FROM staff_app_messages
+      WHERE room_id = ? AND edited_at IS NOT NULL
+      ORDER BY edited_at DESC
+      LIMIT 40
+    ");
+    $stmt->execute([$roomId]);
+    $out = [];
+    foreach ($stmt->fetchAll() ?: [] as $row) {
+        $out[] = [
+            'id' => (string) $row['id'],
+            'body' => (string) ($row['body'] ?? ''),
+            'edited' => true,
+        ];
+    }
+
+    return $out;
+}
+
+/** @return list<string> */
+function staff_app_recent_removals(PDO $pdo, string $roomId): array
+{
+    $stmt = $pdo->prepare("
+      SELECT message_id
+      FROM staff_app_removals
+      WHERE room_id = ? AND removed_at > DATE_SUB(NOW(), INTERVAL 6 HOUR)
+      ORDER BY removed_at DESC
+      LIMIT 80
+    ");
+    $stmt->execute([$roomId]);
+
+    return array_map(static fn(array $row): string => (string) $row['message_id'], $stmt->fetchAll() ?: []);
 }
 
 /** @return array<string, array{counts: array<string, int>, mine: string}> */
@@ -1014,7 +1099,7 @@ function staff_app_reaction_overview(PDO $pdo, string $roomId, string $userId): 
 function staff_app_message_card(PDO $pdo, string $roomId, string $userId, string $messageId): ?array
 {
     $stmt = $pdo->prepare("
-      SELECT m.id, m.body, m.created_at, m.user_id, m.reply_to, m.forward_from,
+      SELECT m.id, m.body, m.created_at, m.edited_at, m.user_id, m.reply_to, m.forward_from,
              u.name, rm.body AS reply_body, ru.name AS reply_name
       FROM staff_app_messages m
       JOIN users u ON u.id = m.user_id
@@ -1082,6 +1167,7 @@ function staff_app_message_cards(PDO $pdo, string $userId, array $rows): array
             'replyName' => trim((string) ($row['reply_name'] ?? '')),
             'replyText' => $replyTo !== '' ? ($replyText !== '' ? $replyText : 'پیام حذف‌شده') : '',
             'files' => $fileCards,
+            'edited' => trim((string) ($row['edited_at'] ?? '')) !== '',
         ];
     }
 
@@ -2189,9 +2275,9 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-row{padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
     .sapp-row small{display:block;margin-top:4px;color:var(--muted)}
     .sapp-day{margin:16px 0 0;font-size:1rem}
-    .sapp-chat{display:flex;flex-direction:column;gap:.4rem;margin-top:.7rem;padding:.7rem .6rem;border-radius:1.1rem;background:#efe7dc;min-height:min(46svh,22rem)}
-    html:has(body.sapp.is-thread){height:100%;overflow:hidden}
-    body.sapp.is-thread{--sapp-kb:0px;position:fixed;top:0;left:0;right:0;display:flex;flex-direction:column;width:100%;height:100vh;height:calc(100svh - var(--sapp-kb));max-width:100%;overflow:hidden;padding-top:env(safe-area-inset-top);box-sizing:border-box;overscroll-behavior:none}
+    .sapp-chat{display:flex;flex-direction:column;gap:.4rem;margin-top:.7rem;padding:.7rem .6rem;border-radius:1.1rem;background:#efe7dc;min-height:0}
+    html:has(body.sapp.is-thread){height:100%;overflow:hidden;background:#f3f6f4}
+    body.sapp.is-thread{--sapp-kb:0px;--sapp-vv-top:0px;position:fixed;top:var(--sapp-vv-top);left:0;right:0;display:flex;flex-direction:column;width:100%;min-height:0;height:100dvh;height:calc(100dvh - var(--sapp-kb));max-height:calc(100dvh - var(--sapp-kb));max-width:100%;overflow:hidden;padding-top:env(safe-area-inset-top);box-sizing:border-box;overscroll-behavior:none}
     body.sapp.is-thread .sapp-top,body.sapp.is-thread .sapp-install,body.sapp.is-thread .sapp-notify{flex:none}
     body.sapp.is-thread .sapp-top{gap:clamp(.35rem,2vw,.6rem);padding:clamp(.35rem,2.2vw,.7rem) 3vw clamp(.2rem,1.2vw,.4rem)}
     body.sapp.is-thread .sapp-brand{gap:clamp(.3rem,1.6vw,.5rem);font-size:clamp(.88rem,4.2vw,1.05rem)}
@@ -2199,12 +2285,12 @@ function staff_app_render(string $active, string $title, string $description, st
     body.sapp.is-thread .sapp-tools{gap:clamp(.3rem,1.6vw,.5rem)}
     body.sapp.is-thread .sapp-avatar{width:clamp(1.75rem,8.4vw,2.35rem);height:clamp(1.75rem,8.4vw,2.35rem)}
     body.sapp.is-thread .sapp-logout{min-height:clamp(1.7rem,7.6vw,2.25rem);padding:0 clamp(.5rem,2.8vw,.85rem);font-size:clamp(.75rem,3.4vw,.92rem)}
-    body.sapp.is-thread .sapp-main{flex:1;min-height:0;display:flex;flex-direction:column;width:100%;max-width:min(32rem,100%);margin:0 auto;padding:clamp(.2rem,1.4vw,.35rem) 3vw 0;overflow:hidden}
+    body.sapp.is-thread .sapp-main{flex:1 1 auto;min-height:0;display:flex;flex-direction:column;width:100%;max-width:min(32rem,100%);margin:0 auto;padding:clamp(.2rem,1.4vw,.35rem) 3vw 0;overflow:hidden}
     body.sapp.is-thread .sapp-main>p{margin:0 0 .2rem;font-size:clamp(.72rem,3.2vw,.92rem)}
     body.sapp.is-thread .sapp-main h1,body.sapp.is-thread .sapp-thread-title{margin:0 0 .2rem;font-size:clamp(.92rem,4.4vw,1.15rem);line-height:1.3}
-    body.sapp.is-thread .sapp-chat{flex:1;min-height:0;margin-top:clamp(.15rem,1.2vw,.3rem);padding:clamp(.35rem,2vw,.65rem) clamp(.3rem,1.8vw,.55rem);gap:clamp(.25rem,1.4vw,.4rem);border-radius:clamp(.7rem,3vw,1.1rem);overflow:auto;-webkit-overflow-scrolling:touch}
-    body.sapp.is-thread .sapp-compose{flex:none;display:flex;flex-direction:column;align-items:stretch;gap:clamp(.25rem,1.4vw,.35rem);margin:0;padding:clamp(.25rem,1.4vw,.35rem) 0 calc(.35rem + env(safe-area-inset-bottom));background:#f3f6f4}
-    body.sapp.is-thread .sapp-nav{position:static;flex:none}
+    body.sapp.is-thread .sapp-chat{flex:1 1 auto;min-height:0;height:auto;max-height:none;margin-top:clamp(.15rem,1.2vw,.3rem);padding:clamp(.35rem,2vw,.65rem) clamp(.3rem,1.8vw,.55rem);gap:clamp(.25rem,1.4vw,.4rem);border-radius:clamp(.7rem,3vw,1.1rem);overflow:auto;-webkit-overflow-scrolling:touch}
+    body.sapp.is-thread .sapp-compose{flex:0 0 auto;display:flex;flex-direction:column;align-items:stretch;gap:clamp(.25rem,1.4vw,.35rem);margin:0;padding:.25rem 0 .15rem;background:#f3f6f4}
+    body.sapp.is-thread .sapp-nav{position:static;flex:0 0 auto;padding-top:.15rem}
     body.sapp.is-thread .sapp-msg{padding:clamp(.22rem,1.4vw,.4rem) clamp(.35rem,1.8vw,.5rem) clamp(.12rem,.8vw,.25rem);border-radius:clamp(.5rem,2.4vw,.75rem)}
     body.sapp.is-thread .sapp-msg.is-mine{border-top-right-radius:.25rem}
     body.sapp.is-thread .sapp-msg.is-theirs{border-top-left-radius:.25rem}
@@ -2216,9 +2302,6 @@ function staff_app_render(string $active, string $title, string $description, st
     body.sapp.is-thread .sapp-file,body.sapp.is-thread .sapp-send,body.sapp.is-thread .sapp-voice{width:clamp(2.15rem,10.5vw,2.75rem);height:clamp(2.15rem,10.5vw,2.75rem)}
     body.sapp.is-thread .sapp-send{font-size:clamp(.9rem,4vw,1.05rem)}
     body.sapp.is-thread .sapp-file svg{width:clamp(1.05rem,4.8vw,1.35rem);height:clamp(1.05rem,4.8vw,1.35rem)}
-    @media (hover:none) and (pointer:coarse){
-      body.sapp.is-thread.is-typing{--sapp-kb:clamp(12rem,50svh,28rem)}
-    }
     body.sapp.is-typing .sapp-nav{display:none}
     body.sapp.is-typing .sapp-top{padding:clamp(.15rem,1.2vw,.25rem) 3vw clamp(.05rem,.6vw,.12rem)}
     body.sapp.is-typing .sapp-compose{padding-bottom:.35rem;border-top:1px solid #e6eeea}
@@ -2232,6 +2315,7 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-msg-name{display:block;margin-bottom:2px;color:#1a9a8a;font-size:.78rem;font-weight:800}
     .sapp-msg p{margin:0;white-space:pre-wrap;line-height:1.55}
     .sapp-msg-meta{display:flex;align-items:center;justify-content:flex-end;gap:3px;margin-top:2px;color:#667781;font-size:.72rem;line-height:1}
+    .sapp-edited{color:#1a9a8a;font-weight:800}
     .sapp-ticks{display:inline-flex;color:#8696a0}
     .sapp-ticks svg{width:16px;height:14px;display:block}
     .sapp-ticks.is-read{color:#1fa855}

@@ -88,6 +88,8 @@ if (preg_match('#^/app/chat/([a-f0-9]{24})/receipts$#', $path, $m)) {
             'states' => staff_app_own_receipts($pdo, $m[1], $userId),
             'seen' => staff_app_seen_map($pdo, $m[1]),
             'messages' => $live,
+            'edits' => staff_app_live_edits($pdo, $m[1]),
+            'removed' => staff_app_recent_removals($pdo, $m[1]),
             'reactions' => $reactions === [] ? new stdClass() : $reactions,
         ], JSON_UNESCAPED_UNICODE);
     } catch (Throwable $e) {
@@ -152,6 +154,15 @@ if ($method === 'POST' && ($path === '/app/chat' || preg_match('#^/app/chat/([a-
             staff_app_keep_room($pdo, $user, $roomId);
             flash_set('success', 'چت بایگانی شد و برای همیشه می‌ماند.');
             redirect('/app/chat/archive');
+        }
+        if ($form === 'edit') {
+            $edited = staff_app_edit_message($pdo, $user, $roomId, post('message_id'), post('body'));
+            if ($ajax) {
+                header('Content-Type: application/json; charset=utf-8');
+                echo json_encode(['ok' => true, 'message' => $edited], JSON_UNESCAPED_UNICODE);
+                exit;
+            }
+            redirect($back);
         }
         if ($form === 'delete') {
             staff_app_delete_message($pdo, $user, $roomId, post('message_id'));
@@ -927,7 +938,7 @@ if ($section === 'chat') {
                     </a>
                   <?php endif; ?>
                   <?php if ($bodyText !== ''): ?>
-                    <p><?= e($bodyText) ?></p>
+                    <p class="sapp-msg-body"><?= e($bodyText) ?></p>
                   <?php endif; ?>
                   <?php foreach ($message['files'] ?? [] as $index => $file): ?>
                     <?php
@@ -948,6 +959,9 @@ if ($section === 'chat') {
                     <?php endforeach; ?>
                   </div>
                   <div class="sapp-msg-meta">
+                    <?php if (!empty($message['edited_at'])): ?>
+                      <span class="sapp-edited">ویرایش شد</span>
+                    <?php endif; ?>
                     <time><?= e(format_fa_time((string) ($message['created_at'] ?? ''))) ?></time>
                     <?php if ($mine): ?>
                       <?= staff_app_ticks_html((string) ($states[$msgId] ?? 'sent'), $msgId) ?>
@@ -961,6 +975,14 @@ if ($section === 'chat') {
               <?= csrf_field() ?>
               <input type="hidden" name="form" value="send">
               <input type="hidden" name="room_id" value="<?= e($roomId) ?>">
+              <div class="sapp-reply" id="sapp-edit" hidden>
+                <input type="hidden" id="sapp-edit-id" value="">
+                <div>
+                  <strong>ویرایش پیام</strong>
+                  <span id="sapp-edit-snippet"></span>
+                </div>
+                <button type="button" id="sapp-edit-x" aria-label="لغو ویرایش">×</button>
+              </div>
               <div class="sapp-reply" id="sapp-reply" hidden>
                 <input type="hidden" name="reply_to" id="sapp-reply-id" value="">
                 <div>
@@ -1049,6 +1071,7 @@ if ($section === 'chat') {
                   <button type="button" class="sapp-hold-item" data-act="link"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.1.1l2-2a5 5 0 0 0-7.1-7.1l-1.1 1.1"/><path d="M14 11a5 5 0 0 0-7.1-.1l-2 2a5 5 0 0 0 7.1 7.1l1.1-1.1"/></svg><span>کپی لینک</span></button>
                   <?php if (!$observeOnly): ?>
                   <button type="button" class="sapp-hold-item" data-act="forward"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M15 8h5v5"/><path d="M20 8 12 16a6 6 0 0 1-8.5 0"/></svg><span>هدایت</span></button>
+                  <button type="button" class="sapp-hold-item" data-act="edit" hidden><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 20h4l10.5-10.5a2 2 0 0 0 0-2.8l-.7-.7a2 2 0 0 0-2.8 0L4.5 16.5 4 20z"/><path d="M13 7.5l3.5 3.5"/></svg><span>ویرایش</span></button>
                   <button type="button" class="sapp-hold-item is-danger is-split" data-act="delete"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V5h6v2"/><path d="M8 7l1 13h6l1-13"/></svg><span>حذف</span></button>
                   <button type="button" class="sapp-hold-item is-split" data-act="select"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="12" cy="12" r="8"/><path d="m8.5 12.2 2.2 2.2 4.8-5"/></svg><span>انتخاب</span></button>
                   <?php endif; ?>
@@ -1069,7 +1092,7 @@ if ($section === 'chat') {
             <script type="application/json" id="sapp-chat-config"><?= $chatConfig ?></script>
             <?php
             $html = ob_get_clean();
-            $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/staff-chat.js')) . '?v=20261009tg3"></script>';
+            $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/staff-chat.js')) . '?v=20261009edit"></script>';
         } else {
             $rooms = staff_app_rooms_for($pdo, $userId);
             $people = staff_app_people($pdo);
@@ -1131,7 +1154,7 @@ if ($section === 'chat') {
                 <input type="hidden" name="member_id" value="<?= e((string) $person['id']) ?>">
                 <button class="sapp-person" type="submit">
                   <span class="sapp-person-name"><i class="sapp-dot" data-online="<?= e((string) $person['id']) ?>" hidden></i><?= e($personName) ?></span>
-                  <small><?= e(staff_app_role_label((string) ($person['role'] ?? ''))) ?></small>
+                  <small><?= e(staff_app_role_label((string) ($person['role'] ?? ''), $person)) ?></small>
                 </button>
               </form>
             <?php endforeach; ?>
@@ -1524,7 +1547,7 @@ if ($section === 'profile') {
     ?>
     <div class="sapp-hello">
       <h1><?= e($hello) ?></h1>
-      <p><?= e(staff_app_role_label($role)) ?></p>
+      <p><?= e(staff_app_role_label($role, $user)) ?></p>
     </div>
     <div class="sapp-profile">
       <p style="margin:0;font-weight:800">همین حساب برای وقت‌ها، اتاق‌ها، چت، درخواست مشاوره، کارهای روزانه و شکایات است.</p>
