@@ -53,10 +53,10 @@ ob_start();
         <header class="consult-card-head">
           <strong><?= e($name !== '' ? $name : 'بدون نام') ?></strong>
           <?php if ($isNew): ?><span class="consult-badge">پیگیری نشده</span><?php else: ?><span class="muted">پیگیری شد</span><?php endif; ?>
-          <time class="muted"><?= e(format_fa_datetime((string) ($row['created_at'] ?? ''))) ?></time>
         </header>
         <a class="consult-phone" href="tel:<?= e($phone) ?>" dir="ltr"><?= e(to_fa_digits($phone)) ?></a>
         <p class="consult-message"><?= e((string) ($row['message'] ?? '')) ?></p>
+        <?= consult_request_stamps_html($row) ?>
         <?php if ($isNew): ?>
           <form method="post" action="<?= e(url('/consult-requests/done')) ?>">
             <?= csrf_field() ?>

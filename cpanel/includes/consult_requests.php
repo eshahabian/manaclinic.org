@@ -16,9 +16,23 @@ function ensure_consult_requests_schema(PDO $pdo): void
         status VARCHAR(16) NOT NULL DEFAULT 'new',
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         seen_at DATETIME NULL,
+        called_by_user_id VARCHAR(32) NULL,
+        called_by_name VARCHAR(120) NOT NULL DEFAULT '',
+        called_by_role VARCHAR(16) NOT NULL DEFAULT '',
         KEY idx_consult_status_created (status, created_at)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
+    foreach ([
+        'called_by_user_id' => 'VARCHAR(32) NULL',
+        'called_by_name' => "VARCHAR(120) NOT NULL DEFAULT ''",
+        'called_by_role' => "VARCHAR(16) NOT NULL DEFAULT ''",
+    ] as $column => $definition) {
+        try {
+            $pdo->query('SELECT `' . $column . '` FROM consult_requests LIMIT 0');
+        } catch (Throwable $e) {
+            $pdo->exec('ALTER TABLE consult_requests ADD COLUMN `' . $column . '` ' . $definition);
+        }
+    }
     $ready = true;
 }
 
@@ -50,11 +64,49 @@ function consult_request_list(PDO $pdo): array
 {
     ensure_consult_requests_schema($pdo);
     return $pdo->query("
-      SELECT id, name, phone, message, status, created_at, seen_at
+      SELECT id, name, phone, message, status, created_at, seen_at,
+             called_by_user_id, called_by_name, called_by_role
       FROM consult_requests
       ORDER BY (status = 'new') DESC, created_at DESC
       LIMIT 150
     ")->fetchAll();
+}
+
+function consult_request_actor_label(array $row): string
+{
+    $name = trim((string) ($row['called_by_name'] ?? ''));
+    $role = match (strtoupper(trim((string) ($row['called_by_role'] ?? '')))) {
+        'SECRETARY' => 'منشی',
+        'ADMIN' => 'مدیر',
+        'DOCTOR' => 'درمانگر',
+        default => '',
+    };
+    if ($name !== '' && $role !== '') {
+        return $role . ' · ' . $name;
+    }
+
+    return $name !== '' ? $name : $role;
+}
+
+function consult_request_stamps_html(array $row): string
+{
+    $created = format_fa_datetime((string) ($row['created_at'] ?? ''));
+    $html = '<p class="consult-stamp">زمان پیام: ' . e($created) . '</p>';
+    if (consult_request_is_open($row)) {
+        return $html;
+    }
+    $who = consult_request_actor_label($row);
+    $when = trim((string) ($row['seen_at'] ?? ''));
+    $line = 'تماس گرفته شد';
+    if ($who !== '') {
+        $line .= ' توسط ' . $who;
+    }
+    if ($when !== '') {
+        $line .= ' — ' . format_fa_datetime($when);
+    }
+    $html .= '<p class="consult-stamp consult-stamp-call">' . e($line) . '</p>';
+
+    return $html;
 }
 
 function consult_digits(string $value): string

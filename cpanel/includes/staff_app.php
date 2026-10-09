@@ -284,6 +284,7 @@ function staff_app_ensure_general(PDO $pdo): string
 
 function staff_app_rooms_for(PDO $pdo, string $userId): array
 {
+    staff_app_purge_expired_archive($pdo);
     $general = staff_app_ensure_general($pdo);
     $stmt = $pdo->prepare("
       SELECT r.id, r.title, r.is_general, r.is_private, r.kept_forever, r.created_at,
@@ -1207,16 +1208,107 @@ function staff_app_room_archived(PDO $pdo, string $roomId): ?array
     return $row;
 }
 
-function staff_app_archive_rooms(PDO $pdo): array
+function staff_app_archive_days_left(string $deletedAt): int
+{
+    $start = strtotime($deletedAt);
+    if ($start === false) {
+        return 0;
+    }
+    $left = ($start + (30 * 86400)) - time();
+    if ($left <= 0) {
+        return 0;
+    }
+
+    return (int) ceil($left / 86400);
+}
+
+function staff_app_archive_countdown(array $room): string
+{
+    if (!empty($room['kept_forever'])) {
+        return 'بایگانی · برای همیشه';
+    }
+    $days = staff_app_archive_days_left((string) ($room['deleted_at'] ?? ''));
+    if ($days <= 0) {
+        return 'امروز از آرشیو حذف می‌شود';
+    }
+
+    return to_fa_digits((string) $days) . ' روز مانده';
+}
+
+function staff_app_destroy_room(PDO $pdo, string $roomId): void
+{
+    if ($roomId === '') {
+        return;
+    }
+    $files = $pdo->prepare('
+      SELECT f.stored_name
+      FROM staff_app_files f
+      JOIN staff_app_messages m ON m.id = f.message_id
+      WHERE m.room_id = ?
+    ');
+    $files->execute([$roomId]);
+    $stored = array_map(static fn(array $row): string => (string) $row['stored_name'], $files->fetchAll() ?: []);
+    $pdo->beginTransaction();
+    try {
+        $pdo->prepare('
+          DELETE r FROM staff_app_reactions r
+          INNER JOIN staff_app_messages m ON m.id = r.message_id
+          WHERE m.room_id = ?
+        ')->execute([$roomId]);
+        $pdo->prepare('
+          DELETE f FROM staff_app_files f
+          INNER JOIN staff_app_messages m ON m.id = f.message_id
+          WHERE m.room_id = ?
+        ')->execute([$roomId]);
+        $pdo->prepare('DELETE FROM staff_app_messages WHERE room_id = ?')->execute([$roomId]);
+        $pdo->prepare('DELETE FROM staff_app_reads WHERE room_id = ?')->execute([$roomId]);
+        $pdo->prepare('DELETE FROM staff_app_receipts WHERE room_id = ?')->execute([$roomId]);
+        $pdo->prepare('DELETE FROM staff_app_members WHERE room_id = ?')->execute([$roomId]);
+        $pdo->prepare('DELETE FROM staff_app_rooms WHERE id = ? AND is_general = 0 AND COALESCE(kept_forever, 0) = 0')->execute([$roomId]);
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+    $dir = staff_app_upload_dir();
+    foreach ($stored as $name) {
+        if (!preg_match('/^[a-f0-9]{32}\.[a-z0-9]{1,5}$/', $name)) {
+            continue;
+        }
+        $path = $dir . '/' . $name;
+        if (is_file($path)) {
+            unlink($path);
+        }
+    }
+}
+
+function staff_app_purge_expired_archive(PDO $pdo): void
 {
     staff_app_ensure_schema($pdo);
+    $ids = $pdo->query("
+      SELECT id FROM staff_app_rooms
+      WHERE is_general = 0
+        AND deleted_at IS NOT NULL
+        AND COALESCE(kept_forever, 0) = 0
+        AND deleted_at < DATE_SUB(NOW(), INTERVAL 30 DAY)
+    ")->fetchAll(PDO::FETCH_COLUMN) ?: [];
+    foreach ($ids as $id) {
+        staff_app_destroy_room($pdo, (string) $id);
+    }
+}
+
+function staff_app_archive_rooms(PDO $pdo): array
+{
+    staff_app_purge_expired_archive($pdo);
     $rows = $pdo->query("
       SELECT r.id, r.title, r.is_general, r.is_private, r.kept_forever, r.deleted_at, r.created_at,
              (SELECT COUNT(*) FROM staff_app_messages m WHERE m.room_id = r.id) AS message_count
       FROM staff_app_rooms r
       WHERE r.is_general = 0
-        AND (r.deleted_at IS NOT NULL OR r.kept_forever = 1)
-      ORDER BY COALESCE(r.deleted_at, r.created_at) DESC
+        AND r.deleted_at IS NOT NULL
+      ORDER BY r.kept_forever ASC, r.deleted_at DESC
     ")->fetchAll() ?: [];
 
     return $rows;
@@ -1242,15 +1334,11 @@ function staff_app_keep_room(PDO $pdo, array $user, string $roomId): void
     if (!staff_app_is_eshahabian($user)) {
         throw new RuntimeException('بایگانی فقط برای این حساب است.');
     }
-    $userId = (string) ($user['id'] ?? '');
-    $room = staff_app_room_for_viewer($pdo, $roomId, $userId);
-    if (!$room && staff_app_room_archived($pdo, $roomId)) {
-        $room = staff_app_room_archived($pdo, $roomId);
+    $room = staff_app_room_archived($pdo, $roomId);
+    if (!$room || !empty($room['is_general']) || trim((string) ($room['deleted_at'] ?? '')) === '') {
+        throw new RuntimeException('فقط چت حذف‌شده را می‌توان بایگانی کرد.');
     }
-    if (!$room || !empty($room['is_general'])) {
-        throw new RuntimeException('این چت پیدا نشد.');
-    }
-    $pdo->prepare('UPDATE staff_app_rooms SET kept_forever = 1 WHERE id = ? AND is_general = 0')->execute([$roomId]);
+    $pdo->prepare('UPDATE staff_app_rooms SET kept_forever = 1 WHERE id = ? AND is_general = 0 AND deleted_at IS NOT NULL')->execute([$roomId]);
 }
 
 function staff_app_allowed_upload_types(): array
@@ -1386,7 +1474,7 @@ function staff_app_output_file(PDO $pdo, array $user, string $fileId): never
           JOIN staff_app_messages m ON m.id = f.message_id
           JOIN staff_app_rooms r ON r.id = m.room_id AND r.is_general = 0
           WHERE f.id = ?
-            AND (r.deleted_at IS NOT NULL OR r.kept_forever = 1)
+            AND r.deleted_at IS NOT NULL
           LIMIT 1
         ");
         $watch->execute([$fileId]);
@@ -1935,7 +2023,7 @@ function staff_app_render(string $active, string $title, string $description, st
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20261008staff2">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20261009consult">
   <?php if (!empty($GLOBALS['pageHead'])): ?>
     <?= $GLOBALS['pageHead'] ?>
   <?php endif; ?>
@@ -1992,6 +2080,7 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-consult time,.sapp-consult .muted{color:#8aa099;font-size:.82rem}
     .sapp-consult a{display:inline-block;margin:.45rem 0;color:#128f84;font-weight:800;font-size:1.05rem;text-decoration:none}
     .sapp-consult p{margin:.2rem 0 .7rem;white-space:pre-wrap;line-height:1.75}
+    .sapp-consult .consult-stamp{margin:0 0 .3rem;white-space:normal}
     .sapp-row{padding:12px;border:1px solid var(--line);border-radius:14px;background:var(--card)}
     .sapp-row small{display:block;margin-top:4px;color:var(--muted)}
     .sapp-day{margin:16px 0 0;font-size:1rem}

@@ -15,7 +15,7 @@ $id = post('id');
 if ($id !== '' && preg_match('/^[a-f0-9]{24}$/', $id)) {
     $pdo->prepare("
       UPDATE consult_requests
-      SET status='new', seen_at=NULL
+      SET status='new', seen_at=NULL, called_by_user_id=NULL, called_by_name='', called_by_role=''
       WHERE id=? AND LOWER(TRIM(status)) <> 'new'
     ")->execute([$id]);
 }

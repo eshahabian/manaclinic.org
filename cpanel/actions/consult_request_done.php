@@ -13,8 +13,20 @@ ensure_consult_requests_schema($pdo);
 
 $id = post('id');
 if ($id !== '' && preg_match('/^[a-f0-9]{24}$/', $id)) {
-    $pdo->prepare("UPDATE consult_requests SET status='done', seen_at=NOW() WHERE id=? AND status='new'")
-        ->execute([$id]);
+    $actorName = trim((string) ($user['name'] ?? ''));
+    if ($actorName === '') {
+        $actorName = trim((string) ($user['username'] ?? ''));
+    }
+    $pdo->prepare("
+      UPDATE consult_requests
+      SET status='done', seen_at=NOW(), called_by_user_id=?, called_by_name=?, called_by_role=?
+      WHERE id=? AND status='new'
+    ")->execute([
+        (string) ($user['id'] ?? ''),
+        mb_substr($actorName, 0, 120),
+        mb_substr(strtoupper(trim((string) ($user['role'] ?? ''))), 0, 16),
+        $id,
+    ]);
 }
 
 $back = consult_safe_return(post('next', consult_panel_path($user)));

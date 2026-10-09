@@ -2079,6 +2079,17 @@ html[data-theme="dark"] .consult-badge {
   white-space: pre-wrap;
   line-height: 1.85;
 }
+.consult-stamp {
+  margin: 0;
+  font-size: .82rem;
+  color: var(--muted);
+  line-height: 1.7;
+  white-space: normal;
+}
+.consult-stamp-call {
+  color: var(--primary-dark, #146b5b);
+  font-weight: 700;
+}
 .footer-grid a { display: block; color: var(--muted); margin-bottom: .4rem; font-size: .9rem; }
 .footer-contact {
   line-height: 1.9;
