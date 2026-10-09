@@ -5,9 +5,9 @@ if (current_user()) {
 }
 $authMode = 'register';
 $pageTitle = 'ثبت‌نام در مانا کلینیک';
-$pageDescription = 'ثبت‌نام مراجعه‌کننده یا درخواست حساب درمانگر در مانا کلینیک؛ نوبت آنلاین، کارگاه و ارتباط امن با متخصصان روانشناسی.';
+$pageDescription = 'ثبت‌نام مراجعه‌کننده در مانا کلینیک؛ نوبت آنلاین، کارگاه و ارتباط امن با متخصصان روانشناسی در سعادت‌آباد.';
 $pageCanonical = url('/register');
-$pageKeywords = 'ثبت‌نام مانا کلینیک, ثبت‌نام روانشناس, ثبت‌نام مراجعه‌کننده';
+$pageKeywords = 'ثبت‌نام مانا کلینیک, ثبت‌نام مراجعه‌کننده, نوبت روانشناسی';
 $pageRobots = 'noindex,nofollow';
 $GLOBALS['pageTitle'] = $pageTitle;
 $GLOBALS['pageDescription'] = $pageDescription;

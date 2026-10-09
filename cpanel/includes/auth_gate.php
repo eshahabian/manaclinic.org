@@ -5,7 +5,8 @@ declare(strict_types=1);
 /** @var string $authMode login|register */
 
 $authMode = (($authMode ?? 'login') === 'register') ? 'register' : 'login';
-$role = (($_GET['role'] ?? '') === 'DOCTOR') ? 'DOCTOR' : 'PATIENT';
+$askedDoctor = (($_GET['role'] ?? '') === 'DOCTOR');
+$role = 'PATIENT';
 $authNext = (string) (safe_next_path((string) ($_GET['next'] ?? '')) ?? '');
 $loginHref = url('/login') . ($authNext !== '' ? ('?next=' . rawurlencode($authNext)) : '');
 $registerHref = url('/register') . ($authNext !== '' ? ('?next=' . rawurlencode($authNext)) : '');
@@ -48,48 +49,36 @@ $nameDict = isset($pdo) ? build_name_transliterations_client_map($pdo) : [];
       <form class="auth-form auth-form-register" method="post" action="<?= e(url('/register')) ?>" id="register-form">
         <?= csrf_field() ?>
         <input type="hidden" name="next" value="<?= e($authNext) ?>">
-        <h1 class="auth-form-title"><?= $role === 'DOCTOR' ? 'درخواست درمانگر' : 'ثبت‌نام' ?></h1>
+        <input type="hidden" name="role" value="PATIENT">
+        <input class="footer-consult-hp" type="text" name="mana_hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <h1 class="auth-form-title">ثبت‌نام</h1>
+        <?php if ($askedDoctor): ?>
+          <p class="auth-hint">حساب درمانگر از این صفحه ساخته نمی‌شود. درمانگر را مدیر کلینیک اضافه می‌کند. این فرم فقط برای مراجعه‌کننده است.</p>
+        <?php endif; ?>
         <div class="auth-grid">
-          <label class="auth-line">
-            <span>نوع حساب</span>
-            <select class="auth-select" id="role" name="role" required>
-              <option value="PATIENT" <?= $role === 'PATIENT' ? 'selected' : '' ?>>مراجعه‌کننده</option>
-              <option value="DOCTOR" <?= $role === 'DOCTOR' ? 'selected' : '' ?>>درمانگر</option>
-            </select>
-          </label>
-          <?php if ($role !== 'DOCTOR'): ?>
           <label class="auth-line">
             <span>موبایل</span>
             <input name="phone" id="phone" required dir="ltr" inputmode="tel" autocomplete="tel">
           </label>
-          <?php endif; ?>
         </div>
-        <?php if ($role === 'DOCTOR'): ?>
-          <p class="auth-hint">فقط نام، نام خانوادگی و نام کاربری کافی است. بقیه اطلاعات بعد از تأیید مدیر تکمیل می‌شود.</p>
-        <?php endif; ?>
         <div class="auth-grid">
           <label class="auth-line">
             <span>نام</span>
             <input class="input-rtl" name="first_name" id="first_name" required dir="rtl" autocomplete="given-name">
           </label>
-          <?php if ($role !== 'DOCTOR'): ?>
           <label class="auth-line">
             <span>نام (انگلیسی)</span>
             <input name="name_en" id="name_en" required dir="ltr" lang="en" autocomplete="off">
           </label>
-          <?php endif; ?>
           <label class="auth-line">
             <span>نام خانوادگی</span>
             <input class="input-rtl" name="last_name" id="last_name" required dir="rtl" autocomplete="family-name">
           </label>
-          <?php if ($role !== 'DOCTOR'): ?>
           <label class="auth-line">
             <span>نام خانوادگی (انگلیسی)</span>
             <input name="surname" id="surname" required dir="ltr" lang="en" autocomplete="off">
           </label>
-          <?php endif; ?>
         </div>
-        <?php if ($role !== 'DOCTOR'): ?>
         <label class="auth-line">
           <span>جنسیت</span>
           <select name="gender" required>
@@ -98,15 +87,10 @@ $nameDict = isset($pdo) ? build_name_transliterations_client_map($pdo) : [];
             <option value="female">زن</option>
           </select>
         </label>
-        <?php endif; ?>
         <div class="auth-grid">
           <label class="auth-line">
             <span>نام کاربری</span>
-            <?php if ($role === 'DOCTOR'): ?>
-              <input name="username" id="username" required dir="ltr" autocomplete="username" placeholder="نام کاربری با حروف انگلیسی، عدد یا نقطه.">
-            <?php else: ?>
-              <input name="username" id="username" required dir="ltr" readonly tabindex="-1" placeholder="با وارد کردن نام، به‌صورت خودکار ساخته می‌شود.">
-            <?php endif; ?>
+            <input name="username" id="username" required dir="ltr" readonly tabindex="-1" placeholder="با وارد کردن نام، به‌صورت خودکار ساخته می‌شود.">
           </label>
           <label class="auth-line">
             <span>ایمیل</span>
@@ -132,9 +116,7 @@ $nameDict = isset($pdo) ? build_name_transliterations_client_map($pdo) : [];
         </div>
         <p class="auth-hint">حداقل <?= e(to_fa_digits((string) password_min_length())) ?> کاراکتر، با حروف و اعداد انگلیسی.</p>
         <div class="auth-actions">
-          <button class="auth-submit" type="submit" name="submit_register" value="1">
-            <?= $role === 'DOCTOR' ? 'ارسال درخواست' : 'ایجاد حساب' ?>
-          </button>
+          <button class="auth-submit" type="submit" name="submit_register" value="1">ایجاد حساب</button>
           <a class="auth-submit auth-submit-secondary" href="<?= e($loginHref) ?>" data-auth-switch="login">قبلاً ثبت‌نام کرده‌اید؟</a>
         </div>
       </form>

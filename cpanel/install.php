@@ -14,7 +14,7 @@ if (empty($config['allow_install'])) {
 }
 $error = null;
 $ok = false;
-$resetPasswords = false;
+$seededAccounts = false;
 
 try {
     $dsn = sprintf(
@@ -240,11 +240,6 @@ try {
     } catch (Throwable $ignored) {
     }
     try {
-        // درمانگرهای قبلی که فعال بودند را تأییدشده در نظر بگیر
-        $pdo->exec("UPDATE doctor_profiles SET is_approved=1 WHERE is_active=1 AND is_approved=0");
-    } catch (Throwable $ignored) {
-    }
-    try {
         $pdo->exec("ALTER TABLE users ADD COLUMN username VARCHAR(64) NULL AFTER id");
     } catch (Throwable $ignored) {
     }
@@ -253,13 +248,26 @@ try {
     } catch (Throwable $ignored) {
     }
 
-    $pdo->exec("UPDATE users SET username='admin' WHERE (username IS NULL OR username='') AND (email LIKE 'admin@%' OR role='ADMIN') LIMIT 1");
-    $pdo->exec("UPDATE users SET username='shgeranmaye' WHERE username='doctor' AND name LIKE '%گرانمایه%' LIMIT 1");
-    $pdo->exec("UPDATE users SET username='shgeranmaye' WHERE (username IS NULL OR username='') AND (email LIKE 'doctor@%' OR role='DOCTOR') LIMIT 1");
-    $pdo->exec("UPDATE users SET username='patient' WHERE (username IS NULL OR username='') AND (email LIKE 'patient@%' OR role='PATIENT') LIMIT 1");
-    $pdo->exec("UPDATE users SET username='secretary1' WHERE username='secretary' AND role='SECRETARY' LIMIT 1");
-    $pdo->exec("UPDATE users SET username='secretary1' WHERE (username IS NULL OR username='') AND (email LIKE 'secretary@%' OR role='SECRETARY') LIMIT 1");
-    $pdo->exec("UPDATE users SET username=CONCAT('user_', SUBSTRING(id,1,8)) WHERE username IS NULL OR username=''");
+    $alreadyLive = false;
+    try {
+        $alreadyLive = (int) $pdo->query('SELECT COUNT(*) FROM users')->fetchColumn() > 0;
+    } catch (Throwable $ignored) {
+    }
+
+    // روی سایت زنده نام، نقش و رمز کاربران موجود عوض نمی‌شود
+    if (!$alreadyLive) {
+        try {
+            $pdo->exec("UPDATE doctor_profiles SET is_approved=1 WHERE is_active=1 AND is_approved=0");
+        } catch (Throwable $ignored) {
+        }
+        $pdo->exec("UPDATE users SET username='admin' WHERE (username IS NULL OR username='') AND (email LIKE 'admin@%' OR role='ADMIN') LIMIT 1");
+        $pdo->exec("UPDATE users SET username='shgeranmaye' WHERE username='doctor' AND name LIKE '%گرانمایه%' LIMIT 1");
+        $pdo->exec("UPDATE users SET username='shgeranmaye' WHERE (username IS NULL OR username='') AND (email LIKE 'doctor@%' OR role='DOCTOR') LIMIT 1");
+        $pdo->exec("UPDATE users SET username='patient' WHERE (username IS NULL OR username='') AND (email LIKE 'patient@%' OR role='PATIENT') LIMIT 1");
+        $pdo->exec("UPDATE users SET username='secretary1' WHERE username='secretary' AND role='SECRETARY' LIMIT 1");
+        $pdo->exec("UPDATE users SET username='secretary1' WHERE (username IS NULL OR username='') AND (email LIKE 'secretary@%' OR role='SECRETARY') LIMIT 1");
+        $pdo->exec("UPDATE users SET username=CONCAT('user_', SUBSTRING(id,1,8)) WHERE username IS NULL OR username=''");
+    }
     try {
         $pdo->exec("ALTER TABLE users MODIFY username VARCHAR(64) NOT NULL");
     } catch (Throwable $ignored) {
@@ -269,54 +277,47 @@ try {
     } catch (Throwable $ignored) {
     }
 
-    $adminId = 'admin001mana01';
-    $doctorUserId = 'doctor001mana01';
-    $doctorProfileId = 'dprofile001mana';
-    $patientId = 'patient001mana01';
-    $secretaryId = 'secretary001mana';
-    $secretary2Id = 'secretary002mana';
-    $pass123 = password_hash('123', PASSWORD_DEFAULT);
-    $bio = "مشاوره تخصصی: فردی، خانواده (پیش از ازدواج و زناشویی)، کودک و نوجوان، تحصیلی و شغلی\nروان‌درمانی: درمان اضطراب، افسردگی و وسواس";
+    if (!$alreadyLive) {
+        $seededAccounts = true;
+        $adminId = 'admin001mana01';
+        $doctorUserId = 'doctor001mana01';
+        $doctorProfileId = 'dprofile001mana';
+        $patientId = 'patient001mana01';
+        $secretaryId = 'secretary001mana';
+        $secretary2Id = 'secretary002mana';
+        $pass123 = password_hash('123', PASSWORD_DEFAULT);
+        $bio = "مشاوره تخصصی: فردی، خانواده (پیش از ازدواج و زناشویی)، کودک و نوجوان، تحصیلی و شغلی\nروان‌درمانی: درمان اضطراب، افسردگی و وسواس";
 
-    // فقط کاربر جدید می‌سازد؛ رمز کاربران موجود را دست نمی‌زند
-    $resetPasswords = false;
-    $upsertUser = function (
-        string $id,
-        string $username,
-        string $name,
-        string $role,
-        ?string $phone = null
-    ) use ($pdo, $pass123, $resetPasswords): void {
-        $stmt = $pdo->prepare('SELECT id FROM users WHERE username = ?');
-        $stmt->execute([$username]);
-        if (!$stmt->fetch()) {
+        $upsertUser = function (
+            string $id,
+            string $username,
+            string $name,
+            string $role,
+            ?string $phone = null
+        ) use ($pdo, $pass123): void {
+            $stmt = $pdo->prepare('SELECT id FROM users WHERE username = ?');
+            $stmt->execute([$username]);
+            if ($stmt->fetch()) {
+                return;
+            }
             $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,must_change_password) VALUES (?,?,?,?,?,?,?,1)')
                 ->execute([$id, $username, $name, $username . '@manaclinic.local', $phone, $pass123, $role]);
-        } elseif ($resetPasswords) {
-            $pdo->prepare('UPDATE users SET name=?, role=?, password_hash=?, must_change_password=1, phone=COALESCE(phone, ?) WHERE username=?')
-                ->execute([$name, $role, $pass123, $phone, $username]);
-        } else {
-            $pdo->prepare('UPDATE users SET name=?, role=?, phone=COALESCE(phone, ?) WHERE username=?')
-                ->execute([$name, $role, $phone, $username]);
-        }
-    };
+        };
 
-    $upsertUser($adminId, 'admin', 'مدیر سایت', 'ADMIN', '09120000000');
-    $upsertUser($doctorUserId, 'shgeranmaye', 'دکتر شیوا گرانمایه پور', 'DOCTOR', '09121111111');
-    $upsertUser($patientId, 'patient', 'علی رضایی', 'PATIENT', '09123333333');
-    $upsertUser($secretaryId, 'secretary1', 'منشی ۱', 'SECRETARY', '09124444444');
-    $upsertUser($secretary2Id, 'secretary2', 'منشی ۲', 'SECRETARY', '09124444445');
+        $upsertUser($adminId, 'admin', 'مدیر سایت', 'ADMIN', '09120000000');
+        $upsertUser($doctorUserId, 'shgeranmaye', 'دکتر شیوا گرانمایه پور', 'DOCTOR', '09121111111');
+        $upsertUser($patientId, 'patient', 'علی رضایی', 'PATIENT', '09123333333');
+        $upsertUser($secretaryId, 'secretary1', 'منشی ۱', 'SECRETARY', '09124444444');
+        $upsertUser($secretary2Id, 'secretary2', 'منشی ۲', 'SECRETARY', '09124444445');
 
-    $doctorRow = $pdo->query("SELECT id FROM users WHERE username IN ('shgeranmaye','doctor') ORDER BY CASE username WHEN 'shgeranmaye' THEN 0 ELSE 1 END LIMIT 1")->fetch();
-    if ($doctorRow) {
-        $dp = $pdo->prepare('SELECT id FROM doctor_profiles WHERE user_id=?');
-        $dp->execute([$doctorRow['id']]);
-        if (!$dp->fetch()) {
-            $pdo->prepare('INSERT INTO doctor_profiles (id,user_id,specialty,bio,session_price,is_approved,is_active) VALUES (?,?,?,?,?,1,1)')
-                ->execute([$doctorProfileId, $doctorRow['id'], 'روان‌درمانی شناختی-رفتاری', $bio, 3000000]);
-        } else {
-            $pdo->prepare('UPDATE doctor_profiles SET specialty=?, bio=?, session_price=3000000, is_approved=1, is_active=1 WHERE user_id=?')
-                ->execute(['روان‌درمانی شناختی-رفتاری', $bio, $doctorRow['id']]);
+        $doctorRow = $pdo->query("SELECT id FROM users WHERE username IN ('shgeranmaye','doctor') ORDER BY CASE username WHEN 'shgeranmaye' THEN 0 ELSE 1 END LIMIT 1")->fetch();
+        if ($doctorRow) {
+            $dp = $pdo->prepare('SELECT id FROM doctor_profiles WHERE user_id=?');
+            $dp->execute([$doctorRow['id']]);
+            if (!$dp->fetch()) {
+                $pdo->prepare('INSERT INTO doctor_profiles (id,user_id,specialty,bio,session_price,is_approved,is_active) VALUES (?,?,?,?,?,1,1)')
+                    ->execute([$doctorProfileId, $doctorRow['id'], 'روان‌درمانی شناختی-رفتاری', $bio, 3000000]);
+            }
         }
     }
 
@@ -400,17 +401,10 @@ try {
     <h1>نصب مانا کلینیک (PHP)</h1>
     <?php if ($ok): ?>
       <p class="ok">نصب / ارتقا با موفقیت انجام شد.</p>
-      <p>اگر حساب از قبل نبود، با این مشخصات ساخته شد (رمز اولیه <code>123</code> و اجباری به عوض کردن):</p>
-      <ul>
-        <li>ادمین: <code>admin</code></li>
-        <li>دکتر: <code>doctor</code></li>
-        <li>مراجعه‌کننده: <code>patient</code></li>
-        <li>منشی ۱: <code>secretary1</code></li>
-        <li>منشی ۲: <code>secretary2</code> (رمز اولیه <code>123</code> — باید عوض شود)</li>
-      </ul>
-      <p>اگر قبلاً رمز را عوض کرده بودید، همان رمز جدیدتان معتبر است و ریست نشده.</p>
-      <?php if (!empty($resetPasswords)): ?>
-        <p class="ok">رمز حساب‌های نمونه به <code>123</code> ریست شد.</p>
+      <?php if (!empty($seededAccounts)): ?>
+        <p>پایگاه خالی بود و حساب‌های اولیه ساخته شد. رمز اولیه را همان لحظه عوض کنید و بعد <code>allow_install</code> را خاموش کنید.</p>
+      <?php else: ?>
+        <p>حساب‌های موجود دست نخورده ماندند. نقش و رمز هیچ کاربری عوض نشد.</p>
       <?php endif; ?>
       <p><a href="/">رفتن به سایت</a></p>
       <p style="color:#b33a3a">بعد از نصب، فایل <code>install.php</code> را از هاست حذف کنید.</p>

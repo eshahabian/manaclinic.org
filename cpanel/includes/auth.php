@@ -85,6 +85,27 @@ function ensure_users_gender_schema(PDO $pdo): void
     $ready = true;
 }
 
+/** نام‌هایی که ثبت‌نام عمومی نباید بسازد؛ ارتقای نقش روی همین نام‌هاست */
+function registration_username_reserved(string $username): bool
+{
+    $username = strtolower(trim($username));
+    if ($username === '') {
+        return false;
+    }
+
+    return in_array($username, [
+        'admin',
+        'administrator',
+        'eshahabian',
+        'secretary',
+        'secretary1',
+        'secretary2',
+        'doctor',
+        'patient',
+        'shgeranmaye',
+    ], true);
+}
+
 /** ذخیرهٔ نسخهٔ قابل‌مشاهدهٔ رمز فقط برای پنل ادمین */
 function user_remember_password_plain(PDO $pdo, string $userId, string $plain): void
 {

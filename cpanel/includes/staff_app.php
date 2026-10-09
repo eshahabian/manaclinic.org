@@ -164,6 +164,9 @@ function staff_app_ensure_schema(PDO $pdo): void
     staff_app_add_column($pdo, 'staff_app_messages', 'forward_from', 'VARCHAR(80) NULL');
     staff_app_add_column($pdo, 'staff_app_rooms', 'pinned_message_id', 'VARCHAR(32) NULL');
     staff_app_add_column($pdo, 'staff_app_rooms', 'is_private', 'TINYINT(1) NOT NULL DEFAULT 0');
+    staff_app_add_column($pdo, 'staff_app_rooms', 'deleted_at', 'DATETIME NULL');
+    staff_app_add_column($pdo, 'staff_app_rooms', 'deleted_by', 'VARCHAR(32) NULL');
+    staff_app_add_column($pdo, 'staff_app_rooms', 'kept_forever', 'TINYINT(1) NOT NULL DEFAULT 0');
     $ready = true;
 }
 
@@ -283,7 +286,7 @@ function staff_app_rooms_for(PDO $pdo, string $userId): array
 {
     $general = staff_app_ensure_general($pdo);
     $stmt = $pdo->prepare("
-      SELECT r.id, r.title, r.is_general, r.is_private, r.created_at,
+      SELECT r.id, r.title, r.is_general, r.is_private, r.kept_forever, r.created_at,
              (SELECT COUNT(*) FROM staff_app_members mc WHERE mc.room_id = r.id) AS member_count,
              (SELECT COUNT(*) FROM staff_app_messages m WHERE m.room_id = r.id) AS message_count,
              (SELECT COUNT(*) FROM staff_app_messages um
@@ -294,6 +297,7 @@ function staff_app_rooms_for(PDO $pdo, string $userId): array
              ) AS unread_count
       FROM staff_app_rooms r
       JOIN staff_app_members mem ON mem.room_id = r.id AND mem.user_id = ?
+      WHERE r.deleted_at IS NULL
       ORDER BY r.is_general DESC, r.created_at DESC
     ");
     $stmt->execute([$userId, $userId, $userId]);
@@ -311,12 +315,13 @@ function staff_app_rooms_for(PDO $pdo, string $userId): array
     unset($row);
     if (staff_app_group_observer(staff_app_user_brief($pdo, $userId))) {
         $extra = $pdo->prepare("
-          SELECT r.id, r.title, r.is_general, r.is_private, r.created_at,
+          SELECT r.id, r.title, r.is_general, r.is_private, r.kept_forever, r.created_at,
                  (SELECT COUNT(*) FROM staff_app_members mc WHERE mc.room_id = r.id) AS member_count,
                  (SELECT COUNT(*) FROM staff_app_messages m WHERE m.room_id = r.id) AS message_count,
                  0 AS unread_count
           FROM staff_app_rooms r
           WHERE r.is_general = 0
+            AND r.deleted_at IS NULL
             AND COALESCE(r.is_private, 0) = 0
             AND (SELECT COUNT(*) FROM staff_app_members m WHERE m.room_id = r.id) <> 2
             AND NOT EXISTS (
@@ -357,6 +362,7 @@ function staff_app_room_for_member(PDO $pdo, string $roomId, string $userId): ?a
       FROM staff_app_rooms r
       JOIN staff_app_members mem ON mem.room_id = r.id AND mem.user_id = ?
       WHERE r.id = ?
+        AND r.deleted_at IS NULL
       LIMIT 1
     ");
     $stmt->execute([$userId, $roomId]);
@@ -462,7 +468,7 @@ function staff_app_room_for_viewer(PDO $pdo, string $roomId, string $userId): ?a
     if (!staff_app_group_observer(staff_app_user_brief($pdo, $userId))) {
         return null;
     }
-    $stmt = $pdo->prepare('SELECT * FROM staff_app_rooms WHERE id = ? AND is_general = 0 LIMIT 1');
+    $stmt = $pdo->prepare('SELECT * FROM staff_app_rooms WHERE id = ? AND is_general = 0 AND deleted_at IS NULL LIMIT 1');
     $stmt->execute([$roomId]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$row || !staff_app_is_oversight_group($pdo, $row)) {
@@ -1186,57 +1192,65 @@ function staff_app_create_room(PDO $pdo, array $user, string $title, array $memb
     return $roomId;
 }
 
+function staff_app_room_archived(PDO $pdo, string $roomId): ?array
+{
+    staff_app_ensure_schema($pdo);
+    $stmt = $pdo->prepare('SELECT * FROM staff_app_rooms WHERE id = ? AND is_general = 0 AND deleted_at IS NOT NULL LIMIT 1');
+    $stmt->execute([$roomId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        return null;
+    }
+    $row['observe_only'] = 1;
+    $row['archived'] = 1;
+
+    return $row;
+}
+
+function staff_app_archive_rooms(PDO $pdo): array
+{
+    staff_app_ensure_schema($pdo);
+    $rows = $pdo->query("
+      SELECT r.id, r.title, r.is_general, r.is_private, r.kept_forever, r.deleted_at, r.created_at,
+             (SELECT COUNT(*) FROM staff_app_messages m WHERE m.room_id = r.id) AS message_count
+      FROM staff_app_rooms r
+      WHERE r.is_general = 0
+        AND (r.deleted_at IS NOT NULL OR r.kept_forever = 1)
+      ORDER BY COALESCE(r.deleted_at, r.created_at) DESC
+    ")->fetchAll() ?: [];
+
+    return $rows;
+}
+
 function staff_app_delete_room(PDO $pdo, array $user, string $roomId): void
 {
+    $userId = (string) ($user['id'] ?? '');
+    $room = staff_app_room_for_viewer($pdo, $roomId, $userId);
+    if (!$room || !empty($room['is_general'])) {
+        throw new RuntimeException('این چت پیدا نشد.');
+    }
+    $isMember = staff_app_room_has_member($pdo, $roomId, $userId);
+    if (!$isMember && !staff_app_is_eshahabian($user)) {
+        throw new RuntimeException('حذف این چت فقط برای اعضایش است.');
+    }
+    $pdo->prepare('UPDATE staff_app_rooms SET deleted_at = NOW(), deleted_by = ? WHERE id = ? AND is_general = 0 AND deleted_at IS NULL')
+        ->execute([$userId, $roomId]);
+}
+
+function staff_app_keep_room(PDO $pdo, array $user, string $roomId): void
+{
     if (!staff_app_is_eshahabian($user)) {
-        throw new RuntimeException('حذف گروه فقط برای این حساب است.');
+        throw new RuntimeException('بایگانی فقط برای این حساب است.');
     }
-    $room = staff_app_room_for_viewer($pdo, $roomId, (string) ($user['id'] ?? ''));
-    if (!$room || !staff_app_is_group_room($pdo, $room)) {
-        throw new RuntimeException('این گروه پیدا نشد.');
+    $userId = (string) ($user['id'] ?? '');
+    $room = staff_app_room_for_viewer($pdo, $roomId, $userId);
+    if (!$room && staff_app_room_archived($pdo, $roomId)) {
+        $room = staff_app_room_archived($pdo, $roomId);
     }
-    $files = $pdo->prepare('
-      SELECT f.stored_name
-      FROM staff_app_files f
-      JOIN staff_app_messages m ON m.id = f.message_id
-      WHERE m.room_id = ?
-    ');
-    $files->execute([$roomId]);
-    $stored = array_map(static fn(array $row): string => (string) $row['stored_name'], $files->fetchAll() ?: []);
-    $pdo->beginTransaction();
-    try {
-        $pdo->prepare('
-          DELETE r FROM staff_app_reactions r
-          INNER JOIN staff_app_messages m ON m.id = r.message_id
-          WHERE m.room_id = ?
-        ')->execute([$roomId]);
-        $pdo->prepare('
-          DELETE f FROM staff_app_files f
-          INNER JOIN staff_app_messages m ON m.id = f.message_id
-          WHERE m.room_id = ?
-        ')->execute([$roomId]);
-        $pdo->prepare('DELETE FROM staff_app_messages WHERE room_id = ?')->execute([$roomId]);
-        $pdo->prepare('DELETE FROM staff_app_reads WHERE room_id = ?')->execute([$roomId]);
-        $pdo->prepare('DELETE FROM staff_app_receipts WHERE room_id = ?')->execute([$roomId]);
-        $pdo->prepare('DELETE FROM staff_app_members WHERE room_id = ?')->execute([$roomId]);
-        $pdo->prepare('DELETE FROM staff_app_rooms WHERE id = ? AND is_general = 0')->execute([$roomId]);
-        $pdo->commit();
-    } catch (Throwable $e) {
-        if ($pdo->inTransaction()) {
-            $pdo->rollBack();
-        }
-        throw $e;
+    if (!$room || !empty($room['is_general'])) {
+        throw new RuntimeException('این چت پیدا نشد.');
     }
-    $dir = staff_app_upload_dir();
-    foreach ($stored as $name) {
-        if (!preg_match('/^[a-f0-9]{32}\.[a-z0-9]{1,5}$/', $name)) {
-            continue;
-        }
-        $path = $dir . '/' . $name;
-        if (is_file($path)) {
-            unlink($path);
-        }
-    }
+    $pdo->prepare('UPDATE staff_app_rooms SET kept_forever = 1 WHERE id = ? AND is_general = 0')->execute([$roomId]);
 }
 
 function staff_app_allowed_upload_types(): array
@@ -1365,6 +1379,19 @@ function staff_app_output_file(PDO $pdo, array $user, string $fileId): never
     ");
     $stmt->execute([(string) ($user['id'] ?? ''), $fileId]);
     $file = $stmt->fetch();
+    if (!$file && staff_app_is_eshahabian($user)) {
+        $watch = $pdo->prepare("
+          SELECT f.stored_name, f.original_name, f.mime
+          FROM staff_app_files f
+          JOIN staff_app_messages m ON m.id = f.message_id
+          JOIN staff_app_rooms r ON r.id = m.room_id AND r.is_general = 0
+          WHERE f.id = ?
+            AND (r.deleted_at IS NOT NULL OR r.kept_forever = 1)
+          LIMIT 1
+        ");
+        $watch->execute([$fileId]);
+        $file = $watch->fetch();
+    }
     if (!$file && staff_app_group_observer(staff_app_user_brief($pdo, (string) ($user['id'] ?? '')))) {
         $watch = $pdo->prepare("
           SELECT f.stored_name, f.original_name, f.mime

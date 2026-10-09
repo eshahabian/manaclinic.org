@@ -16,7 +16,7 @@ RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
 # فیش و فایل خصوصی مستقیم از وب باز نشود
 RewriteRule ^uploads/receipts(/|$) - [F]
 RewriteRule ^storage(/|$) - [F]
-RewriteRule ^(config\.php|config\.sample\.php)$ - [F]
+RewriteRule ^(config\.php|config\.sample\.php|install\.php)$ - [F]
 RewriteRule \.(env|sql|log|bak|old)$ - [F]
 
 # Staff PWA: revalidate the worker and manifest so installs pick up scope changes.
