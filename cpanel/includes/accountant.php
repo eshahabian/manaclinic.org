@@ -13,6 +13,7 @@ function ensure_accountant_account(PDO $pdo): void
         $pdo->exec("ALTER TABLE users MODIFY role ENUM('ADMIN','DOCTOR','PATIENT','SECRETARY','ACCOUNTANT') NOT NULL DEFAULT 'PATIENT'");
     } catch (Throwable $ignored) {
     }
+    ensure_outside_payments_schema($pdo);
 
     try {
         $exists = $pdo->query("SELECT id FROM users WHERE username='accountant' LIMIT 1")->fetch();
@@ -43,6 +44,7 @@ function accountant_nav(): array
     return [
         ['href' => '/accountant', 'label' => 'خلاصه مالی'],
         ['href' => '/accountant/payments', 'label' => 'پرداخت‌ها'],
+        ['href' => '/accountant/outside', 'label' => 'خارج از روال'],
         ['href' => '/accountant/payouts', 'label' => 'پرداخت درمانگرها'],
         ['href' => '/accountant/petty-cash', 'label' => 'تنخواه'],
         ['href' => '/change-password', 'label' => 'تغییر رمز عبور'],
@@ -290,6 +292,206 @@ function accountant_payout_totals(PDO $pdo, string $start, string $end): array
     } catch (Throwable $ignored) {
         return ['count' => 0, 'total' => 0];
     }
+}
+
+function ensure_outside_payments_schema(PDO $pdo): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $pdo->exec("
+      CREATE TABLE IF NOT EXISTS outside_payments (
+        id VARCHAR(32) PRIMARY KEY,
+        direction ENUM('IN','OUT') NOT NULL,
+        method ENUM('CASH','CARD','TRANSFER','DEPOSIT','OTHER') NOT NULL,
+        title VARCHAR(190) NOT NULL,
+        party_name VARCHAR(190) NULL,
+        amount INT NOT NULL,
+        paid_on DATE NOT NULL,
+        note VARCHAR(500) NULL,
+        created_by VARCHAR(32) NOT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        voided_at DATETIME NULL,
+        voided_by VARCHAR(32) NULL,
+        void_reason VARCHAR(190) NULL,
+        INDEX idx_outside_paid (paid_on, direction)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
+    $ready = true;
+}
+
+function outside_payment_method_label(string $method): string
+{
+    return match ($method) {
+        'CASH' => 'نقدی',
+        'CARD' => 'کارت‌خوان',
+        'TRANSFER' => 'انتقال بانکی',
+        'DEPOSIT' => 'بیعانه',
+        'OTHER' => 'سایر',
+        default => $method,
+    };
+}
+
+function outside_payment_direction_label(string $direction): string
+{
+    return $direction === 'OUT' ? 'پرداخت' : 'دریافت';
+}
+
+/** @return list<array<string,mixed>> */
+function accountant_outside_rows(PDO $pdo, string $start, string $end, bool $voided = false): array
+{
+    ensure_outside_payments_schema($pdo);
+    $flag = $voided ? 'o.voided_at IS NOT NULL' : 'o.voided_at IS NULL';
+    $stmt = $pdo->prepare("
+      SELECT o.*, u.name AS created_by_name, vu.name AS voided_by_name
+      FROM outside_payments o
+      JOIN users u ON u.id = o.created_by
+      LEFT JOIN users vu ON vu.id = o.voided_by
+      WHERE o.paid_on BETWEEN ? AND ?
+        AND {$flag}
+      ORDER BY o.paid_on DESC, o.created_at DESC
+      LIMIT 400
+    ");
+    $stmt->execute([$start, $end]);
+
+    return $stmt->fetchAll() ?: [];
+}
+
+/** @return array{in:int,out:int} */
+function accountant_outside_totals(PDO $pdo, string $start, string $end): array
+{
+    try {
+        ensure_outside_payments_schema($pdo);
+        $stmt = $pdo->prepare("
+          SELECT direction, COALESCE(SUM(amount),0) AS total
+          FROM outside_payments
+          WHERE voided_at IS NULL
+            AND paid_on BETWEEN ? AND ?
+          GROUP BY direction
+        ");
+        $stmt->execute([$start, $end]);
+        $in = 0;
+        $out = 0;
+        foreach ($stmt->fetchAll() as $row) {
+            if (($row['direction'] ?? '') === 'OUT') {
+                $out = (int) $row['total'];
+            } else {
+                $in = (int) $row['total'];
+            }
+        }
+
+        return ['in' => $in, 'out' => $out];
+    } catch (Throwable $ignored) {
+        return ['in' => 0, 'out' => 0];
+    }
+}
+
+function accountant_received_on(PDO $pdo, string $start, string $end): int
+{
+    $total = 0;
+    try {
+        $stmt = $pdo->prepare("
+          SELECT COALESCE(SUM(p.amount),0)
+          FROM payments p
+          JOIN appointments a ON a.id = p.appointment_id
+          WHERE p.status = 'PAID'
+            AND DATE(COALESCE(a.payment_confirmed_at, p.created_at)) BETWEEN ? AND ?
+        ");
+        $stmt->execute([$start, $end]);
+        $total += (int) $stmt->fetchColumn();
+    } catch (Throwable $ignored) {
+    }
+    try {
+        $exists = $pdo->query("SHOW TABLES LIKE 'workshop_payments'")->fetch();
+        if ($exists) {
+            $stmt = $pdo->prepare("
+              SELECT COALESCE(SUM(amount),0)
+              FROM workshop_payments
+              WHERE status = 'PAID'
+                AND DATE(created_at) BETWEEN ? AND ?
+            ");
+            $stmt->execute([$start, $end]);
+            $total += (int) $stmt->fetchColumn();
+        }
+    } catch (Throwable $ignored) {
+    }
+    $total += accountant_outside_totals($pdo, $start, $end)['in'];
+
+    return $total;
+}
+
+function accountant_spent_on(PDO $pdo, string $start, string $end): int
+{
+    $total = accountant_outside_totals($pdo, $start, $end)['out'];
+    try {
+        if (!function_exists('ensure_petty_cash_schema')) {
+            require_once __DIR__ . '/petty_cash.php';
+        }
+        ensure_petty_cash_schema($pdo);
+        $stmt = $pdo->prepare("
+          SELECT COALESCE(SUM(amount),0)
+          FROM petty_cash_entries
+          WHERE kind = 'OUT'
+            AND entry_date BETWEEN ? AND ?
+        ");
+        $stmt->execute([$start, $end]);
+        $total += (int) $stmt->fetchColumn();
+    } catch (Throwable $ignored) {
+    }
+
+    return $total;
+}
+
+function accountant_receivables(PDO $pdo): int
+{
+    $total = 0;
+    try {
+        $stmt = $pdo->query("
+          SELECT COALESCE(SUM(p.amount),0)
+          FROM payments p
+          JOIN appointments a ON a.id = p.appointment_id
+          WHERE p.status = 'PENDING'
+            AND a.status IN ('PENDING_PAYMENT','PENDING_APPROVAL')
+        ");
+        $total += (int) $stmt->fetchColumn();
+    } catch (Throwable $ignored) {
+    }
+    try {
+        $exists = $pdo->query("SHOW TABLES LIKE 'workshop_payments'")->fetch();
+        if ($exists) {
+            $total += (int) $pdo->query("
+              SELECT COALESCE(SUM(wp.amount),0)
+              FROM workshop_payments wp
+              JOIN workshop_enrollments e ON e.id = wp.enrollment_id
+              WHERE wp.status = 'PENDING'
+                AND e.status = 'PENDING_PAYMENT'
+            ")->fetchColumn();
+        }
+    } catch (Throwable $ignored) {
+    }
+
+    return $total;
+}
+
+/** @return list<array{start:string,end:string,year:int,month:int,label:string}> */
+function accountant_recent_months(int $count = 6): array
+{
+    if (!function_exists('petty_cash_month_range')) {
+        require_once __DIR__ . '/petty_cash.php';
+    }
+    [$jy, $jm] = gregorian_to_jalali((int) date('Y'), (int) date('n'), (int) date('j'));
+    $months = [];
+    for ($i = 0; $i < $count; $i++) {
+        array_unshift($months, petty_cash_month_range($jy, $jm));
+        $jm--;
+        if ($jm < 1) {
+            $jm = 12;
+            $jy--;
+        }
+    }
+
+    return $months;
 }
 
 function accountant_send_csv(array $rows, string $filename): void
