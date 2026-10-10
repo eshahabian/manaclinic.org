@@ -176,6 +176,7 @@ function role_label(string $role): string
         'ADMIN' => 'مدیر',
         'DOCTOR' => 'درمانگر',
         'SECRETARY' => 'منشی',
+        'ACCOUNTANT' => 'حسابدار',
         'PATIENT' => 'مراجعه‌کننده',
         default => $role,
     };

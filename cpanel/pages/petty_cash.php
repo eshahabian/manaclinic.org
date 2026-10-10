@@ -6,16 +6,26 @@ require_once __DIR__ . '/../includes/doctor_profile_fields.php';
 
 $user = require_login();
 if (!petty_cash_user_allowed($user)) {
-    flash_set('error', 'تنخواه فقط برای منشی، دکتر شیوا گرانمایه‌پور و دکتر عطیه گارسچی است.');
+    flash_set('error', 'تنخواه فقط برای منشی، حسابدار، دکتر شیوا گرانمایه‌پور و دکتر عطیه گارسچی است.');
     redirect(((string) ($user['role'] ?? '')) === 'DOCTOR' ? '/doctor/appointments' : '/');
 }
 
 $role = (string) ($user['role'] ?? '');
 $asSecretary = $role === 'SECRETARY';
-$cashPath = $asSecretary ? '/secretary/petty-cash' : '/doctor/petty-cash';
+$asAccountant = $role === 'ACCOUNTANT';
+if ($asAccountant) {
+    $cashPath = '/accountant/petty-cash';
+} elseif ($asSecretary) {
+    $cashPath = '/secretary/petty-cash';
+} else {
+    $cashPath = '/doctor/petty-cash';
+}
 $requestPath = (string) ($GLOBALS['path'] ?? '');
-if ($role === 'SECRETARY' && !str_contains($requestPath, '/secretary/')) {
+if ($asSecretary && !str_contains($requestPath, '/secretary/')) {
     redirect('/secretary/petty-cash');
+}
+if ($asAccountant && !str_contains($requestPath, '/accountant/')) {
+    redirect('/accountant/petty-cash');
 }
 if ($role === 'DOCTOR' && !$asSecretary && !str_contains($requestPath, '/doctor/')) {
     redirect('/doctor/petty-cash');
@@ -23,6 +33,9 @@ if ($role === 'DOCTOR' && !$asSecretary && !str_contains($requestPath, '/doctor/
 if ($role === 'DOCTOR' && !$asSecretary) {
     require_once __DIR__ . '/../includes/doctor_panel.php';
     require_doctor_profile($pdo);
+} elseif ($asAccountant) {
+    require_once __DIR__ . '/../includes/accountant.php';
+    require_login(['ACCOUNTANT']);
 } else {
     require_once __DIR__ . '/../includes/secretary_panel.php';
     require_login(['SECRETARY']);
@@ -217,6 +230,8 @@ ob_start();
 $html = ob_get_clean();
 if ($role === 'DOCTOR' && !$asSecretary) {
     render_doctor_page('تنخواه', $html);
+} elseif ($asAccountant) {
+    render_accountant_page('تنخواه', $html);
 } else {
     render_secretary_page('تنخواه', $html);
 }

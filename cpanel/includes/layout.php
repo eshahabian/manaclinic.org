@@ -257,6 +257,7 @@ if ($user) {
       $wayfindLabels = [
           'DOCTOR' => 'پنل درمانگر',
           'SECRETARY' => 'پنل منشی',
+          'ACCOUNTANT' => 'پنل حسابدار',
           'ADMIN' => 'پنل مدیر',
           'PATIENT' => 'پنل مراجعه‌کننده',
       ];

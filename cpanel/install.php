@@ -35,7 +35,7 @@ try {
         email VARCHAR(191) NULL,
         phone VARCHAR(50) NULL,
         password_hash VARCHAR(255) NOT NULL,
-        role ENUM('ADMIN','DOCTOR','PATIENT','SECRETARY') NOT NULL DEFAULT 'PATIENT',
+        role ENUM('ADMIN','DOCTOR','PATIENT','SECRETARY','ACCOUNTANT') NOT NULL DEFAULT 'PATIENT',
         preferred_doctor_id VARCHAR(32) NULL,
         must_change_password TINYINT(1) NOT NULL DEFAULT 0,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -224,7 +224,7 @@ try {
 
     // ارتقای نقش‌ها و ستون‌ها برای دیتابیس‌های قبلی
     try {
-        $pdo->exec("ALTER TABLE users MODIFY role ENUM('ADMIN','DOCTOR','PATIENT','SECRETARY') NOT NULL DEFAULT 'PATIENT'");
+        $pdo->exec("ALTER TABLE users MODIFY role ENUM('ADMIN','DOCTOR','PATIENT','SECRETARY','ACCOUNTANT') NOT NULL DEFAULT 'PATIENT'");
     } catch (Throwable $ignored) {
     }
     try {

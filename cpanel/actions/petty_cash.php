@@ -12,7 +12,11 @@ if (!petty_cash_user_allowed($user)) {
 }
 
 $role = (string) ($user['role'] ?? '');
-$cashPath = $role === 'SECRETARY' ? '/secretary/petty-cash' : '/doctor/petty-cash';
+$cashPath = match ($role) {
+    'SECRETARY' => '/secretary/petty-cash',
+    'ACCOUNTANT' => '/accountant/petty-cash',
+    default => '/doctor/petty-cash',
+};
 $jy = (int) post('jy');
 $jm = (int) post('jm');
 $back = $cashPath . '?jy=' . $jy . '&jm=' . $jm;

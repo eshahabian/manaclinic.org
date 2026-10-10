@@ -538,6 +538,7 @@ function panel_href_for(?array $user): ?string
         'ADMIN' => '/admin',
         'DOCTOR' => '/doctor/notifications',
         'SECRETARY' => '/secretary/messages',
+        'ACCOUNTANT' => '/accountant',
         'PATIENT' => '/dashboard',
         default => null,
     };

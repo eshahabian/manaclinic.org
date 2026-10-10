@@ -4,13 +4,14 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/therapist_payouts.php';
 require_once __DIR__ . '/../includes/secretary_patient.php';
 
-$user = require_login(['SECRETARY']);
+$user = require_login(['SECRETARY', 'ACCOUNTANT']);
 csrf_verify();
 
+$base = ((string) ($user['role'] ?? '')) === 'ACCOUNTANT' ? '/accountant/payouts' : '/secretary/payouts';
 $doctorId = trim((string) post('doctor_id'));
 $from = parse_user_date((string) post('from_date'));
 $to = parse_user_date((string) post('to_date'));
-$back = '/secretary/payouts?doctor=' . rawurlencode($doctorId)
+$back = $base . '?doctor=' . rawurlencode($doctorId)
     . '&from=' . rawurlencode((string) post('from_date'))
     . '&to=' . rawurlencode((string) post('to_date'));
 
@@ -23,7 +24,7 @@ foreach (secretary_active_doctors($pdo) as $doctor) {
 }
 if (!$allowed || $from === null || $to === null) {
     flash_set('error', 'درمانگر و بازه تاریخ را کامل انتخاب کنید.');
-    redirect('/secretary/payouts');
+    redirect($base);
 }
 
 try {
@@ -37,4 +38,4 @@ try {
 }
 
 flash_set('success', 'این بازه تسویه شد و به آرشیو رفت.');
-redirect('/secretary/payouts?archive=' . rawurlencode($id));
+redirect($base . '?archive=' . rawurlencode($id));

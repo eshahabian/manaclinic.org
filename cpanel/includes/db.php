@@ -110,6 +110,10 @@ function db_ensure_schema(PDO $pdo): void
             require_once __DIR__ . '/petty_cash.php';
         }
         ensure_petty_cash_schema($pdo);
+        if (!function_exists('ensure_accountant_account')) {
+            require_once __DIR__ . '/accountant.php';
+        }
+        ensure_accountant_account($pdo);
     } catch (Throwable $ignored) {
     }
 

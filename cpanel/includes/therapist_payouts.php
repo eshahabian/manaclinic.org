@@ -319,7 +319,7 @@ function therapist_payouts_screen(PDO $pdo, string $basePath, bool $canSettle, ?
           <?php if ($settled): ?>
             <p class="muted" style="margin:.75rem 0 0">این بازه تسویه شده و در آرشیو است.</p>
           <?php elseif ($canSettle): ?>
-            <form method="post" action="<?= e(url('/secretary/payouts')) ?>" style="margin:.75rem 0 0" onsubmit="return confirm('این بازه تسویه شود و به آرشیو برود؟');">
+            <form method="post" action="<?= e(url($basePath)) ?>" style="margin:.75rem 0 0" onsubmit="return confirm('این بازه تسویه شود و به آرشیو برود؟');">
               <?= csrf_field() ?>
               <input type="hidden" name="doctor_id" value="<?= e($doctorId) ?>">
               <input type="hidden" name="from_date" value="<?= e($fromRaw) ?>">
