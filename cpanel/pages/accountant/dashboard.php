@@ -118,16 +118,18 @@ ob_start();
 
 <div class="panel" style="margin-top:1rem;overflow:auto">
   <h2 style="margin:0 0 .75rem;font-size:1rem">جلسات به تفکیک درمانگر</h2>
+  <p class="muted" style="margin:0 0 .75rem">همه درمانگرهای فعال این ماه این‌جا هستند. اگر پرداختی ثبت نشده باشد، جمع صفر می‌ماند و ستون «بدون پرداخت» تعداد همان جلسه‌ها را نشان می‌دهد.</p>
   <?php if (!$byDoctor): ?>
-    <p class="muted" style="margin:0">در این ماه پرداخت جلسه‌ای ثبت نشده است.</p>
+    <p class="muted" style="margin:0">درمانگر فعالی ثبت نشده است.</p>
   <?php else: ?>
     <table class="table">
-      <thead><tr><th>درمانگر</th><th>تعداد</th><th>جمع</th><th>سهم کلینیک</th></tr></thead>
+      <thead><tr><th>درمانگر</th><th>پرداخت‌شده</th><th>بدون پرداخت</th><th>جمع</th><th>سهم کلینیک</th></tr></thead>
       <tbody>
         <?php foreach ($byDoctor as $row): ?>
           <tr>
             <td><?= e((string) $row['doctor_name']) ?></td>
             <td><?= e(to_fa_digits((string) (int) $row['c'])) ?></td>
+            <td><?= e(to_fa_digits((string) (int) ($row['unpaid'] ?? 0))) ?></td>
             <td><?= e(format_price((int) $row['total'])) ?></td>
             <td><?= e(format_price((int) $row['clinic'])) ?></td>
           </tr>

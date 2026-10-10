@@ -177,17 +177,22 @@ function accountant_session_by_doctor(PDO $pdo, string $start, string $end): arr
     try {
         $stmt = $pdo->prepare("
           SELECT du.name AS doctor_name,
-                 COUNT(*) AS c,
-                 COALESCE(SUM(p.amount),0) AS total,
-                 COALESCE(SUM(p.clinic_share_amount),0) AS clinic
-          FROM payments p
-          JOIN appointments a ON a.id = p.appointment_id
-          JOIN doctor_profiles dp ON dp.id = a.doctor_id
+                 COUNT(DISTINCT CASE WHEN p.status = 'PAID' THEN p.id END) AS c,
+                 COALESCE(SUM(CASE WHEN p.status = 'PAID' THEN p.amount ELSE 0 END),0) AS total,
+                 COALESCE(SUM(CASE WHEN p.status = 'PAID' THEN p.clinic_share_amount ELSE 0 END),0) AS clinic,
+                 COUNT(DISTINCT CASE
+                   WHEN a.id IS NOT NULL AND (p.id IS NULL OR p.status <> 'PAID')
+                   THEN a.id END) AS unpaid
+          FROM doctor_profiles dp
           JOIN users du ON du.id = dp.user_id
-          WHERE p.status = 'PAID'
-            AND DATE(a.starts_at) BETWEEN ? AND ?
+          LEFT JOIN appointments a
+            ON a.doctor_id = dp.id
+           AND a.status IN ('CONFIRMED','COMPLETED','PENDING_PAYMENT','PENDING_APPROVAL')
+           AND DATE(a.starts_at) BETWEEN ? AND ?
+          LEFT JOIN payments p ON p.appointment_id = a.id
+          WHERE dp.is_active = 1 AND dp.is_approved = 1 AND du.is_disabled = 0
           GROUP BY dp.id, du.name
-          ORDER BY total DESC, du.name ASC
+          ORDER BY total DESC, unpaid DESC, du.name ASC
         ");
         $stmt->execute([$start, $end]);
 
