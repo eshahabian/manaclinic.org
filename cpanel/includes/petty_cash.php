@@ -79,6 +79,19 @@ function petty_cash_select_html(string $name, string $id, string $label, array $
     return (string) ob_get_clean();
 }
 
+function petty_cash_doctor_allowed(?array $user): bool
+{
+    if (!$user || (string) ($user['role'] ?? '') !== 'DOCTOR') {
+        return false;
+    }
+    if ((!function_exists('doctor_is_shiva') || !function_exists('doctor_is_garsichi')) && is_file(__DIR__ . '/doctor_profile_fields.php')) {
+        require_once __DIR__ . '/doctor_profile_fields.php';
+    }
+
+    return (function_exists('doctor_is_shiva') && doctor_is_shiva($user))
+        || (function_exists('doctor_is_garsichi') && doctor_is_garsichi($user));
+}
+
 function petty_cash_user_allowed(?array $user = null): bool
 {
     $user = $user ?? (function_exists('current_user') ? current_user() : null);
@@ -89,14 +102,22 @@ function petty_cash_user_allowed(?array $user = null): bool
     if ($role === 'SECRETARY' || $role === 'ACCOUNTANT') {
         return true;
     }
-    if (!function_exists('doctor_has_shiva_access') && is_file(__DIR__ . '/doctor_profile_fields.php')) {
-        require_once __DIR__ . '/doctor_profile_fields.php';
+
+    return petty_cash_doctor_allowed($user);
+}
+
+/** برنامه کارکنان: هر منشی فعال، به‌علاوه دکتر عطیه گارسچی و دکتر شیوا گرانمایه. حسابدار فقط پنل سایت را دارد. */
+function petty_cash_staff_app_allowed(?array $user = null): bool
+{
+    $user = $user ?? (function_exists('current_user') ? current_user() : null);
+    if (!$user) {
+        return false;
     }
-    if ($role === 'DOCTOR' && function_exists('doctor_has_shiva_access') && doctor_has_shiva_access($user)) {
+    if ((string) ($user['role'] ?? '') === 'SECRETARY') {
         return true;
     }
 
-    return false;
+    return petty_cash_doctor_allowed($user);
 }
 
 /** @return array{start:string,end:string,year:int,month:int,label:string} */

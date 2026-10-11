@@ -13,6 +13,7 @@ function staff_app_sections(): array
         'hours' => ['href' => '/app/hours', 'label' => 'ساعت کار', 'title' => 'ساعت کار منشی‌ها'],
         'consult' => ['href' => '/app/consult', 'label' => 'مشاوره', 'title' => 'درخواست مشاوره'],
         'checklist' => ['href' => '/app/checklist', 'label' => 'کارهای روزانه', 'title' => 'لیست کارهای روزانه'],
+        'petty' => ['href' => '/app/petty-cash', 'label' => 'تنخواه', 'title' => 'تنخواه'],
         'complaints' => ['href' => '/app/complaints', 'label' => 'شکایت', 'title' => 'شکایت‌ها'],
     ];
 }
@@ -2213,6 +2214,7 @@ function staff_app_render(string $active, string $title, string $description, st
         'chat' => 'chat',
         'profile' => 'profile',
         'hours' => 'hours',
+        'petty' => 'petty',
         default => 'home',
     };
     $vapidKey = '';
@@ -2529,10 +2531,10 @@ function staff_app_render(string $active, string $title, string $description, st
         <span class="sapp-badge" id="sapp-nav-unread"<?= $unread > 0 ? '' : ' hidden' ?>><?= $unread > 0 ? e(to_fa_digits((string) $unread)) : '' ?></span>
       </a>
       <?php if ($isSecretary): ?>
-      <span class="is-locked" role="link" aria-disabled="true" tabindex="-1">
-        <span class="sapp-nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4.2l2.6 1.6"/></svg></span>
-        ساعت کاری
-      </span>
+      <a class="<?= $navKey === 'petty' ? 'is-active' : '' ?>" href="<?= e(url('/app/petty-cash')) ?>">
+        <span class="sapp-nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="6" width="17" height="13" rx="2"/><path d="M3.5 10h17"/><path d="M16 15h.01"/></svg></span>
+        تنخواه
+      </a>
       <?php else: ?>
       <a class="<?= $navKey === 'hours' ? 'is-active' : '' ?>" href="<?= e(url('/app/hours')) ?>">
         <span class="sapp-nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4.2l2.6 1.6"/></svg></span>

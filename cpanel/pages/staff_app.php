@@ -288,7 +288,7 @@ if ($method === 'POST' && $path === '/app/petty-cash') {
     $jy = (int) post('jy');
     $jm = (int) post('jm');
     $back = '/app/petty-cash?jy=' . $jy . '&jm=' . $jm;
-    if (!petty_cash_user_allowed($user)) {
+    if (!petty_cash_staff_app_allowed($user)) {
         flash_set('error', 'دسترسی به تنخواه مجاز نیست.');
         redirect('/app');
     }
@@ -463,8 +463,8 @@ if ($section === 'home') {
         <strong>لیست کارهای روزانه</strong>
         <em>Daily Tasks</em>
       </a>
-      <?php if (!function_exists('petty_cash_user_allowed')) { require_once __DIR__ . '/../includes/petty_cash.php'; } ?>
-      <?php if (petty_cash_user_allowed($user)): ?>
+      <?php if (!function_exists('petty_cash_staff_app_allowed')) { require_once __DIR__ . '/../includes/petty_cash.php'; } ?>
+      <?php if (petty_cash_staff_app_allowed($user)): ?>
       <a class="sapp-tile" href="<?= e(url('/app/petty-cash')) ?>">
         <span class="sapp-ico sapp-ico-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="6" width="17" height="13" rx="2"/><path d="M3.5 10h17"/><path d="M16 15h.01"/></svg></span>
         <strong>تنخواه</strong>
@@ -1618,10 +1618,10 @@ if ($section === 'checklist') {
 }
 
 if ($section === 'petty') {
-    if (!function_exists('petty_cash_user_allowed')) {
+    if (!function_exists('petty_cash_staff_app_allowed')) {
         require_once __DIR__ . '/../includes/petty_cash.php';
     }
-    if (!petty_cash_user_allowed($user)) {
+    if (!petty_cash_staff_app_allowed($user)) {
         flash_set('error', 'تنخواه فقط برای منشی، دکتر شیوا گرانمایه‌پور و دکتر عطیه گارسچی است.');
         redirect('/app');
     }
