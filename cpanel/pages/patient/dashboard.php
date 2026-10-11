@@ -7,8 +7,16 @@ require_once __DIR__ . '/../../includes/booking_terms.php';
 require_once __DIR__ . '/../../includes/availability.php';
 require_once __DIR__ . '/../../includes/workshop_overview.php';
 
+if (!function_exists('appointment_ensure_room_schema') && is_file(__DIR__ . '/../../includes/appointment_session.php')) {
+    require_once __DIR__ . '/../../includes/appointment_session.php';
+}
+if (function_exists('appointment_ensure_room_schema')) {
+    appointment_ensure_room_schema($pdo);
+}
+$roomSql = function_exists('appointment_room_no_sql') ? appointment_room_no_sql('a') : 'NULL AS room_no';
 $stmt = $pdo->prepare("
-  SELECT a.*, u.name AS doctor_name, dp.specialty
+  SELECT a.*, u.name AS doctor_name, dp.specialty,
+         {$roomSql}
   FROM appointments a
   JOIN doctor_profiles dp ON dp.id = a.doctor_id
   JOIN users u ON u.id = dp.user_id
@@ -17,7 +25,21 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute([$user['id']]);
 $appointments = $stmt->fetchAll();
-$ymdPack = patient_ymd_groups_with_open_slots($pdo, $appointments, (string) ($user['preferred_doctor_id'] ?? ''));
+$fixedAppointments = [];
+$upcomingFixed = [];
+$nowTs = time();
+foreach ($appointments as $row) {
+    if (function_exists('appointment_is_panel_fixed') && !appointment_is_panel_fixed($row)) {
+        continue;
+    }
+    $fixedAppointments[] = $row;
+    $start = strtotime((string) ($row['starts_at'] ?? '')) ?: 0;
+    if ((string) ($row['status'] ?? '') === 'CONFIRMED' && $start >= $nowTs) {
+        $upcomingFixed[] = $row;
+    }
+}
+usort($upcomingFixed, static fn(array $a, array $b): int => strcmp((string) ($a['starts_at'] ?? ''), (string) ($b['starts_at'] ?? '')));
+$ymdPack = patient_ymd_groups_with_open_slots($pdo, $fixedAppointments, (string) ($user['preferred_doctor_id'] ?? ''));
 
 $ws = patient_workshop_tab_data($pdo, (string) $user['id']);
 $wallet = $ws['wallet'];
@@ -61,7 +83,7 @@ ob_start();
     <div class="binder-tabs" role="tablist" aria-label="بخش‌های پنل">
       <button type="button" class="binder-tab binder-tab-appts<?= $outerInitial === 'appts' ? ' is-active' : '' ?>" role="tab" data-binder-tab="appts" data-binder-tone="appts" aria-selected="<?= $outerInitial === 'appts' ? 'true' : 'false' ?>">
         نوبت‌ها
-        <span class="binder-tab-count"><?= count($appointments) ?></span>
+        <span class="binder-tab-count"><?= count($fixedAppointments) ?></span>
       </button>
       <button type="button" class="binder-tab binder-tab-workshops<?= $outerInitial === 'workshops' ? ' is-active' : '' ?>" role="tab" data-binder-tab="workshops" data-binder-tone="workshops" aria-selected="<?= $outerInitial === 'workshops' ? 'true' : 'false' ?>">
         کارگاه‌ها
@@ -76,6 +98,20 @@ ob_start();
             <a class="btn btn-primary btn-sm" href="<?= e(url('/doctors')) ?>">رزرو جدید</a>
           </div>
         </div>
+        <?php if ($upcomingFixed): ?>
+          <div class="stack" style="margin:0 0 1rem">
+            <?php foreach ($upcomingFixed as $fixedRow): ?>
+              <div class="panel" style="padding:.75rem 1rem">
+                <strong><?= e((string) ($fixedRow['doctor_name'] ?? '')) ?></strong>
+                <div class="muted" style="margin-top:.3rem;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center">
+                  <?= e(format_fa_datetime((string) ($fixedRow['starts_at'] ?? ''))) ?>
+                  <?= function_exists('appointment_session_mode_badge_html') ? appointment_session_mode_badge_html((string) ($fixedRow['session_mode'] ?? '')) : '' ?>
+                  <?= function_exists('appointment_room_badge_html') ? appointment_room_badge_html($fixedRow) : '' ?>
+                </div>
+              </div>
+            <?php endforeach; ?>
+          </div>
+        <?php endif; ?>
         <?= booking_terms_acceptance_html('terms-accept-dash') ?>
         <?php
           if (!function_exists('appointment_session_mode_pick_html') && is_file(__DIR__ . '/../../includes/appointment_session.php')) {

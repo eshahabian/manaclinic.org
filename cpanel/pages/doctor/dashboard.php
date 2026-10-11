@@ -12,9 +12,17 @@ $userId = doctor_notification_user_id($ctx);
 ensure_assistant_schema($pdo);
 ensure_workshop_schema($pdo);
 
+if (!function_exists('appointment_ensure_room_schema') && is_file(__DIR__ . '/../../includes/appointment_session.php')) {
+    require_once __DIR__ . '/../../includes/appointment_session.php';
+}
+if (function_exists('appointment_ensure_room_schema')) {
+    appointment_ensure_room_schema($pdo);
+}
+$roomSql = function_exists('appointment_room_no_sql') ? appointment_room_no_sql('a') : 'NULL AS room_no';
 $apptStmt = $pdo->prepare("
   SELECT a.*, u.name AS patient_name, u.phone,
-         cu.name AS actor_name, cu.username AS actor_username, cu.role AS actor_role
+         cu.name AS actor_name, cu.username AS actor_username, cu.role AS actor_role,
+         {$roomSql}
   FROM appointments a
   JOIN users u ON u.id = a.patient_id
   LEFT JOIN users cu ON cu.id = a.created_by_user_id
@@ -29,10 +37,18 @@ $upcomingAppointments = [];
 foreach ($allAppointments as $row) {
     $status = (string) ($row['status'] ?? '');
     $start = strtotime((string) ($row['starts_at'] ?? '')) ?: 0;
-    if (!in_array($status, ['CANCELLED', 'COMPLETED'], true) && $start >= $now) {
+    if ($status === 'CONFIRMED' && $start >= $now) {
         $upcomingAppointments[] = $row;
     }
 }
+$allAppointments = array_values(array_filter(
+    $allAppointments,
+    static function (array $row): bool {
+        $status = (string) ($row['status'] ?? '');
+
+        return $status === 'CANCELLED' || (function_exists('appointment_is_panel_fixed') && appointment_is_panel_fixed($row));
+    }
+));
 $apptTotal = count($upcomingAppointments);
 $dashApptYmd = group_appointments_by_jalali_ymd($allAppointments, 'dash-ap', 'current');
 
@@ -61,6 +77,9 @@ $ymdRenderDash = static function (array $list): void {
         echo '<strong>' . e((string) ($a['patient_name'] ?? '')) . '</strong>';
         echo '<span class="muted">' . e(format_fa_datetime((string) ($a['starts_at'] ?? ''))) . '</span>';
         echo appointment_booked_by_html($a);
+        if (function_exists('appointment_room_badge_html')) {
+            echo appointment_room_badge_html($a);
+        }
         echo '</div><div class="doctor-dash-row-actions">';
         echo '<span class="badge">' . e(appointment_row_status_label($a)) . '</span>';
         if (!empty($a['patient_id'])) {

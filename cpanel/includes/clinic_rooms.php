@@ -604,7 +604,16 @@ function clinic_rooms_assign(
         if ($patientId === '' || $doctorId === '') {
             throw new RuntimeException('برای تراپی، مراجعه‌کننده و درمانگر را انتخاب کنید.');
         }
-        $patientOk = $pdo->prepare("SELECT id FROM users WHERE id=? AND role='PATIENT' LIMIT 1");
+        $patientOk = $pdo->prepare("
+          SELECT id FROM users
+          WHERE id=? AND COALESCE(is_disabled,0)=0
+            AND (
+              role='PATIENT'
+              OR LOWER(username)='eshahabian'
+              OR (name LIKE '%عماد%' AND name LIKE '%شهابیان%')
+            )
+          LIMIT 1
+        ");
         $patientOk->execute([$patientId]);
         if (!$patientOk->fetch()) {
             throw new RuntimeException('مراجعه‌کننده یافت نشد.');
@@ -768,7 +777,16 @@ function clinic_rooms_update(
         if ($patientId === '' || $doctorId === '') {
             throw new RuntimeException('برای تراپی، مراجعه‌کننده و درمانگر را انتخاب کنید.');
         }
-        $patientOk = $pdo->prepare("SELECT id FROM users WHERE id=? AND role='PATIENT' LIMIT 1");
+        $patientOk = $pdo->prepare("
+          SELECT id FROM users
+          WHERE id=? AND COALESCE(is_disabled,0)=0
+            AND (
+              role='PATIENT'
+              OR LOWER(username)='eshahabian'
+              OR (name LIKE '%عماد%' AND name LIKE '%شهابیان%')
+            )
+          LIMIT 1
+        ");
         $patientOk->execute([$patientId]);
         if (!$patientOk->fetch()) {
             throw new RuntimeException('مراجعه‌کننده یافت نشد.');

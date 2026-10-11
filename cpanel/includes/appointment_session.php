@@ -275,6 +275,160 @@ function appointment_restore_auto_cancelled_unpaid(PDO $pdo): int
 }
 
 /** انتخاب نوع جلسه در فرم رزرو */
+/** نوبت قطعی پنل درمانگر و مراجع: فقط بعد از ثبت منشی یا تأیید پرداخت. */
+function appointment_is_panel_fixed(array $row): bool
+{
+    return in_array((string) ($row['status'] ?? ''), ['CONFIRMED', 'COMPLETED'], true);
+}
+
+function appointment_room_no_sql(string $alias = 'a'): string
+{
+    if (!preg_match('/^[a-z_]+$/', $alias)) {
+        $alias = 'a';
+    }
+
+    return '(SELECT rb.room_no FROM clinic_room_bookings rb WHERE rb.appointment_id = ' . $alias . '.id ORDER BY rb.starts_at DESC LIMIT 1) AS room_no';
+}
+
+function appointment_ensure_room_schema(PDO $pdo): void
+{
+    if (!function_exists('clinic_rooms_ready') && is_file(__DIR__ . '/clinic_rooms.php')) {
+        require_once __DIR__ . '/clinic_rooms.php';
+    }
+    if (function_exists('clinic_rooms_ready')) {
+        clinic_rooms_ready($pdo);
+    }
+}
+
+function appointment_room_badge_html(array $row): string
+{
+    $room = (int) ($row['room_no'] ?? 0);
+    if ($room < 1) {
+        return '';
+    }
+    if (!function_exists('clinic_room_label') && is_file(__DIR__ . '/clinic_rooms.php')) {
+        require_once __DIR__ . '/clinic_rooms.php';
+    }
+    $label = function_exists('clinic_room_label') ? clinic_room_label($room) : ('اتاق ' . to_fa_digits((string) $room));
+
+    return '<span class="badge">' . e($label) . '</span>';
+}
+
+function appointment_room_pick_html(string $name = 'room_no', string $id = 'room_no', string $selected = ''): string
+{
+    if (!function_exists('clinic_rooms_numbers') && is_file(__DIR__ . '/clinic_rooms.php')) {
+        require_once __DIR__ . '/clinic_rooms.php';
+    }
+    $numbers = function_exists('clinic_rooms_numbers') ? clinic_rooms_numbers() : [1, 2, 3];
+    $selected = trim($selected);
+    ob_start();
+    ?>
+    <div class="appt-room-pick" data-appt-room-pick>
+      <label class="label" for="<?= e($id) ?>">اتاق جلسه</label>
+      <select class="input" name="<?= e($name) ?>" id="<?= e($id) ?>">
+        <option value="">— انتخاب اتاق —</option>
+        <?php foreach ($numbers as $n): ?>
+          <?php $n = (int) $n; ?>
+          <option value="<?= $n ?>"<?= $selected === (string) $n ? ' selected' : '' ?>><?= e(function_exists('clinic_room_label') ? clinic_room_label($n) : ('اتاق ' . $n)) ?></option>
+        <?php endforeach; ?>
+      </select>
+      <p class="muted appt-room-hint" id="<?= e($id) ?>-hint" style="margin:.35rem 0 0;font-size:.8rem">برای جلسه حضوری انتخاب اتاق لازم است. اگر جلسه آنلاین باشد، اتاق اجباری نیست.</p>
+    </div>
+    <?php
+    return (string) ob_get_clean();
+}
+
+function appointment_parse_room_choice(string $raw): int
+{
+    $raw = trim($raw);
+
+    return $raw === '' ? 0 : (int) $raw;
+}
+
+/** اتاق حضوری اجباری است؛ آنلاین می‌تواند خالی بماند. در صورت تداخل خطا می‌دهد. */
+function appointment_assert_room_choice(PDO $pdo, array $appointment, int $room): int
+{
+    appointment_ensure_room_schema($pdo);
+    if (!function_exists('clinic_rooms_numbers')) {
+        require_once __DIR__ . '/clinic_rooms.php';
+    }
+    $online = appointment_is_online_mode($appointment);
+    if ($room === 0) {
+        if ($online) {
+            return 0;
+        }
+        throw new RuntimeException('برای جلسه حضوری اتاق را انتخاب کنید.');
+    }
+    if (!in_array($room, clinic_rooms_numbers(), true)) {
+        throw new RuntimeException('اتاق نامعتبر است.');
+    }
+    $starts = (string) ($appointment['starts_at'] ?? '');
+    $ends = (string) ($appointment['ends_at'] ?? '');
+    $apptId = trim((string) ($appointment['id'] ?? ''));
+    $except = $apptId !== '' && function_exists('clinic_rooms_existing_id')
+        ? clinic_rooms_existing_id($pdo, $apptId, null)
+        : null;
+    $clash = clinic_rooms_find_clash($pdo, $room, $starts, $ends, $except);
+    if ($clash) {
+        throw new RuntimeException(clinic_room_label($room) . ' در این ساعت پر است.');
+    }
+
+    return $room;
+}
+
+function appointment_save_room(PDO $pdo, array $actor, array $appointment, int $room): void
+{
+    if ($room < 1) {
+        return;
+    }
+    appointment_ensure_room_schema($pdo);
+    $actorId = (string) ($actor['id'] ?? '');
+    if ($actorId === '') {
+        throw new RuntimeException('حساب منشی برای ثبت اتاق شناخته نشد.');
+    }
+    $apptId = (string) ($appointment['id'] ?? '');
+    if ($apptId === '') {
+        throw new RuntimeException('نوبت برای ثبت اتاق مشخص نیست.');
+    }
+    $starts = (string) ($appointment['starts_at'] ?? '');
+    $ends = (string) ($appointment['ends_at'] ?? '');
+    $patientId = trim((string) ($appointment['patient_id'] ?? ''));
+    $doctorId = trim((string) ($appointment['doctor_id'] ?? ''));
+    $existing = clinic_rooms_existing_id($pdo, $apptId, null);
+    if ($existing) {
+        $pdo->prepare("
+          UPDATE clinic_room_bookings
+          SET room_no=?, kind='APPOINTMENT', starts_at=?, ends_at=?, patient_id=?, doctor_id=?, booked_by_user_id=?
+          WHERE id=?
+        ")->execute([
+            $room,
+            $starts,
+            $ends,
+            $patientId !== '' ? $patientId : null,
+            $doctorId !== '' ? $doctorId : null,
+            $actorId,
+            $existing,
+        ]);
+
+        return;
+    }
+    $pdo->prepare("
+      INSERT INTO clinic_room_bookings
+        (id, room_no, kind, appointment_id, patient_id, doctor_id, starts_at, ends_at, booked_by_user_id)
+      VALUES (?,?,?,?,?,?,?,?,?)
+    ")->execute([
+        cuid(),
+        $room,
+        'APPOINTMENT',
+        $apptId,
+        $patientId !== '' ? $patientId : null,
+        $doctorId !== '' ? $doctorId : null,
+        $starts,
+        $ends,
+        $actorId,
+    ]);
+}
+
 function appointment_session_mode_pick_html(string $name = 'session_mode', string $selected = 'IN_PERSON', string $idPrefix = 'sm'): string
 {
     $selected = appointment_normalize_session_mode($selected);

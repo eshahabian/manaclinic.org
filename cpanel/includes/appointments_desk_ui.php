@@ -15,10 +15,15 @@ if (function_exists('appointment_expire_unpaid_holds')) {
 }
 
 /** میز نوبت مشترک منشی و ادمین */
+if (function_exists('appointment_ensure_room_schema')) {
+    appointment_ensure_room_schema($pdo);
+}
+$roomSql = function_exists('appointment_room_no_sql') ? appointment_room_no_sql('a') : 'NULL AS room_no';
 $rows = $pdo->query("
   SELECT a.*, pu.name AS patient_name, pu.phone, du.name AS doctor_name,
          p.id AS payment_id, p.status AS pay_status, p.amount, p.receipt_path, p.ref_id,
-         cu.name AS actor_name, cu.username AS actor_username, cu.role AS actor_role
+         cu.name AS actor_name, cu.username AS actor_username, cu.role AS actor_role,
+         {$roomSql}
   FROM appointments a
   JOIN users pu ON pu.id = a.patient_id
   JOIN doctor_profiles dp ON dp.id = a.doctor_id

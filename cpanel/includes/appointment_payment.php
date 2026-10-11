@@ -85,7 +85,8 @@ function staff_confirm_appointment_payment(
     string $appointmentId,
     array $actor,
     array $file = [],
-    string $note = ''
+    string $note = '',
+    int $roomNo = 0
 ): array {
     $stmt = $pdo->prepare("
       SELECT a.*, p.id AS payment_id, p.status AS pay_status, p.receipt_path, p.amount,
@@ -105,6 +106,10 @@ function staff_confirm_appointment_payment(
     if (!in_array($holdStatus, ['PENDING_APPROVAL', 'PENDING_PAYMENT'], true)) {
         throw new RuntimeException('این نوبت قابل تأیید پرداخت نیست.');
     }
+    if (!function_exists('appointment_assert_room_choice')) {
+        require_once __DIR__ . '/appointment_session.php';
+    }
+    $roomNo = appointment_assert_room_choice($pdo, $row, $roomNo);
     $alreadyPaid = (string) ($row['pay_status'] ?? '') === 'PAID';
 
     $paymentId = (string) $row['payment_id'];
@@ -162,9 +167,11 @@ function staff_confirm_appointment_payment(
           WHERE id=?
         ")->execute([$appointmentId]);
     }
+    appointment_save_room($pdo, $actor, $row, $roomNo);
 
     $patientName = (string) ($row['patient_name'] ?? 'مراجعه‌کننده');
     $when = format_fa_datetime((string) ($row['starts_at'] ?? ''));
+    $roomBit = $roomNo > 0 && function_exists('clinic_room_label') ? ' در ' . clinic_room_label($roomNo) : '';
     $actorLabel = function_exists('staff_actor_label') ? staff_actor_label($actor) : (string) ($actor['name'] ?? 'منشی');
 
     if (function_exists('staff_log_action')) {
@@ -175,7 +182,7 @@ function staff_confirm_appointment_payment(
         $pdo,
         (string) ($row['patient_user_id'] ?? ''),
         'نوبت رزرو شد',
-        "پرداخت نوبت {$when} تأیید شد و وقت شما رزرو گردید.",
+        "پرداخت نوبت {$when}{$roomBit} تأیید شد و وقت شما رزرو گردید.",
         '/dashboard/appointments',
         'appointment',
         $staffUserId !== '' ? $staffUserId : null
@@ -184,7 +191,7 @@ function staff_confirm_appointment_payment(
         $pdo,
         (string) $row['doctor_id'],
         'نوبت تأیید شد',
-        "پرداخت نوبت «{$patientName}» ({$when}) توسط {$actorLabel} تأیید شد و وقت رزرو گردید.",
+        "پرداخت نوبت «{$patientName}» ({$when}{$roomBit}) توسط {$actorLabel} تأیید شد و وقت رزرو گردید.",
         '/doctor/appointments?tab=upcoming',
         'appointment'
     );
@@ -205,7 +212,8 @@ function staff_confirm_appointment_unpaid(
     PDO $pdo,
     string $appointmentId,
     array $actor,
-    string $note = ''
+    string $note = '',
+    int $roomNo = 0
 ): array {
     if (!function_exists('wallet_debit_balance_allow_negative')) {
         require_once __DIR__ . '/wallet.php';
@@ -234,6 +242,10 @@ function staff_confirm_appointment_unpaid(
     if (!in_array((string) ($row['status'] ?? ''), ['PENDING_APPROVAL', 'PENDING_PAYMENT'], true)) {
         throw new RuntimeException('این نوبت دیگر قابل ثبت به‌صورت پرداخت‌نشده نیست.');
     }
+    if (!function_exists('appointment_assert_room_choice')) {
+        require_once __DIR__ . '/appointment_session.php';
+    }
+    $roomNo = appointment_assert_room_choice($pdo, $row, $roomNo);
     if ((string) ($row['pay_status'] ?? '') === 'PAID') {
         throw new RuntimeException('پرداخت این نوبت قبلاً ثبت شده است.');
     }
@@ -299,6 +311,7 @@ function staff_confirm_appointment_unpaid(
         if ($updated->rowCount() < 1) {
             throw new RuntimeException('رزرو نوبت انجام نشد.');
         }
+        appointment_save_room($pdo, $actor, $row, $roomNo);
         $pdo->commit();
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
@@ -312,11 +325,12 @@ function staff_confirm_appointment_unpaid(
         staff_log_action($pdo, $staffUserId, 'appointment_confirm_unpaid', 'appointment', $appointmentId, $patientName);
     }
 
+    $roomBit = $roomNo > 0 && function_exists('clinic_room_label') ? ' در ' . clinic_room_label($roomNo) : '';
     notify_user(
         $pdo,
         $patientUserId,
         'نوبت رزرو شد — پرداخت نشده',
-        'وقت ' . $when . ' رزرو شد. ' . format_price($amount) . ' حق مشاوره از کیف پول شما کسر شد. موجودی می‌تواند منفی باشد.',
+        'وقت ' . $when . $roomBit . ' رزرو شد. ' . format_price($amount) . ' حق مشاوره از کیف پول شما کسر شد. موجودی می‌تواند منفی باشد.',
         '/dashboard/wallet',
         'appointment',
         $staffUserId !== '' ? $staffUserId : null
@@ -325,7 +339,7 @@ function staff_confirm_appointment_unpaid(
         $pdo,
         (string) $row['doctor_id'],
         'نوبت رزرو شد',
-        'نوبت «' . $patientName . '» (' . $when . ') توسط ' . $actorLabel . ' رزرو شد. پرداخت نشده و حق مشاوره از کیف پول مراجع کسر شده است.',
+        'نوبت «' . $patientName . '» (' . $when . $roomBit . ') توسط ' . $actorLabel . ' رزرو شد. پرداخت نشده و حق مشاوره از کیف پول مراجع کسر شده است.',
         '/doctor/appointments?tab=upcoming',
         'appointment'
     );
@@ -667,6 +681,11 @@ function appointment_staff_mark_paid_form_html(array $row, string $next): string
     if ($fee <= 0) {
         $fee = (int) ($row['session_price'] ?? 0);
     }
+    $online = function_exists('appointment_is_online_mode') && appointment_is_online_mode($row);
+    if (!function_exists('clinic_rooms_numbers') && is_file(__DIR__ . '/clinic_rooms.php')) {
+        require_once __DIR__ . '/clinic_rooms.php';
+    }
+    $roomNumbers = function_exists('clinic_rooms_numbers') ? clinic_rooms_numbers() : [1, 2, 3];
     ob_start();
     ?>
     <form method="post" action="<?= e(url('/secretary/appointments')) ?>" enctype="multipart/form-data" class="appt-confirm-pay-form" style="display:flex;flex-wrap:wrap;gap:.45rem;align-items:end;margin:0;flex-basis:100%">
@@ -674,6 +693,15 @@ function appointment_staff_mark_paid_form_html(array $row, string $next): string
       <input type="hidden" name="action" value="confirm_payment">
       <input type="hidden" name="appointment_id" value="<?= e($id) ?>">
       <input type="hidden" name="next" value="<?= e($next) ?>">
+      <label style="min-width:9rem;margin:0">
+        <span class="label" style="font-size:.75rem">اتاق جلسه<?= $online ? ' (اختیاری)' : '' ?></span>
+        <select class="input" name="room_no"<?= $online ? '' : ' required' ?>>
+          <option value=""><?= $online ? '— بدون اتاق —' : '— انتخاب اتاق —' ?></option>
+          <?php foreach ($roomNumbers as $n): ?>
+            <option value="<?= (int) $n ?>"><?= e(function_exists('clinic_room_label') ? clinic_room_label((int) $n) : ('اتاق ' . (int) $n)) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </label>
       <label style="flex:1;min-width:12rem;margin:0">
         <span class="label" style="font-size:.75rem">یادداشت منشی</span>
         <textarea class="input" name="note" rows="2" placeholder="مثلاً کارت‌به‌کارت شد، یا پرداخت نقدی در کلینیک"><?= e(trim((string) ($row['staff_payment_note'] ?? ''))) ?></textarea>
@@ -685,7 +713,7 @@ function appointment_staff_mark_paid_form_html(array $row, string $next): string
       <button type="submit" class="btn btn-primary btn-sm" name="pay_choice" value="paid" onclick="return confirm('پرداخت شده ثبت شود و این وقت رزرو گردد؟');">پرداخت شده</button>
       <button type="submit" class="btn btn-outline btn-sm" name="pay_choice" value="unpaid" onclick="return confirm(<?= json_encode('پرداخت نشده: ' . format_price($fee) . ' حق مشاوره از کیف پول مراجع کم شود؟ موجودی می‌تواند منفی شود و وقت رزرو می‌گردد.', JSON_UNESCAPED_UNICODE) ?>);">پرداخت نشده</button>
     </form>
-    <p class="muted" style="font-size:.75rem;margin:0;flex-basis:100%">بدون فیش هم «پرداخت شده» را می‌توانید بزنید. «پرداخت نشده» وقت را رزرو می‌کند و حق مشاوره را از کیف پول کم می‌کند، حتی اگر موجودی منفی شود.</p>
+    <p class="muted" style="font-size:.75rem;margin:0;flex-basis:100%"><?= $online ? 'جلسه آنلاین است و اتاق اجباری نیست. ' : 'برای جلسه حضوری قبل از تأیید، اتاق را انتخاب کنید. ' ?>بدون فیش هم «پرداخت شده» را می‌توانید بزنید. «پرداخت نشده» وقت را رزرو می‌کند و حق مشاوره را از کیف پول کم می‌کند، حتی اگر موجودی منفی شود.</p>
     <?php
     return (string) ob_get_clean();
 }

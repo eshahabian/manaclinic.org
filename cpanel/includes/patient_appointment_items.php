@@ -57,6 +57,7 @@ $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/
               <div style="margin-top:.45rem;font-size:.9rem;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center">
                 <?= e(format_workshop_datetime_fa((string) $a['starts_at'])) ?>
                 <?= $modeBadge ?>
+                <?= function_exists('appointment_room_badge_html') ? appointment_room_badge_html($a) : '' ?>
               </div>
             </div>
             <div class="patient-appt-row-meta">
@@ -119,6 +120,7 @@ $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/
             <div class="muted" style="font-size:.85rem;margin-top:.25rem;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center">
               <?= e(format_workshop_datetime_fa((string) $a['starts_at'])) ?>
               <?= $modeBadge ?>
+              <?= function_exists('appointment_room_badge_html') ? appointment_room_badge_html($a) : '' ?>
             </div>
             <?php if ($showMana): ?>
               <p class="muted patient-appt-mana-hint" style="margin-top:.55rem">تماس مانا از ۱۵ دقیقه قبل از شروع جلسه فعال می‌شود.</p>

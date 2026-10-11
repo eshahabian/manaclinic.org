@@ -67,6 +67,7 @@ if (!$appointmentList) {
               · ساعت <?= e((string) $time['time_fa']) ?>
             <?php endif; ?>
             <?= function_exists('appointment_session_mode_badge_html') ? appointment_session_mode_badge_html((string) ($a['session_mode'] ?? 'IN_PERSON')) : '' ?>
+            <?= function_exists('appointment_room_badge_html') ? appointment_room_badge_html($a) : '' ?>
           </div>
           <?= appointment_booked_by_html($a) ?>
         </div>

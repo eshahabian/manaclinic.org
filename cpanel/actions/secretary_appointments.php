@@ -68,14 +68,42 @@ if ($action === 'reject_booking') {
     redirect($next);
 }
 
+if ($action === 'set_room') {
+    $appointmentId = trim((string) post('appointment_id'));
+    try {
+        if (!function_exists('appointment_assert_room_choice')) {
+            require_once __DIR__ . '/../includes/appointment_session.php';
+        }
+        $stmt = $pdo->prepare('SELECT * FROM appointments WHERE id=? LIMIT 1');
+        $stmt->execute([$appointmentId]);
+        $row = $stmt->fetch();
+        if (!$row) {
+            throw new RuntimeException('نوبت یافت نشد.');
+        }
+        $roomNo = appointment_parse_room_choice((string) post('room_no'));
+        $roomNo = appointment_assert_room_choice($pdo, $row, $roomNo);
+        if ($roomNo < 1) {
+            throw new RuntimeException('اتاق را انتخاب کنید.');
+        }
+        appointment_save_room($pdo, $user, $row, $roomNo);
+        flash_set('success', 'اتاق این نوبت ثبت شد.');
+    } catch (Throwable $e) {
+        flash_set('error', $e->getMessage());
+    }
+    redirect($next);
+}
+
 if ($action === 'confirm_payment') {
     $appointmentId = trim((string) post('appointment_id'));
     try {
+        $roomNo = function_exists('appointment_parse_room_choice')
+            ? appointment_parse_room_choice((string) post('room_no'))
+            : (int) post('room_no');
         if (post('pay_choice') === 'unpaid') {
-            $result = staff_confirm_appointment_unpaid($pdo, $appointmentId, $user, (string) post('note'));
+            $result = staff_confirm_appointment_unpaid($pdo, $appointmentId, $user, (string) post('note'), $roomNo);
             $flash = 'وقت «' . (string) $result['patient_name'] . '» رزرو شد و ' . format_price((int) $result['amount']) . ' از کیف پولش کسر شد.';
         } else {
-            $result = staff_confirm_appointment_payment($pdo, $appointmentId, $user, $_FILES['receipt'] ?? [], (string) post('note'));
+            $result = staff_confirm_appointment_payment($pdo, $appointmentId, $user, $_FILES['receipt'] ?? [], (string) post('note'), $roomNo);
             $flash = 'پرداخت «' . (string) $result['patient_name'] . '» ثبت شد و وقت رزرو گردید.';
         }
         if (!str_contains($next, 'tab=')) {

@@ -42,6 +42,7 @@ function admin_nav(): array {
         ['href' => '/admin', 'label' => 'خلاصه'],
     ];
     if ($user && strcasecmp(trim((string) ($user['username'] ?? '')), 'eshahabian') === 0) {
+        $nav[] = ['href' => '/dashboard/appointments', 'label' => 'نوبت‌های من'];
         $nav[] = ['href' => '/dashboard/path', 'label' => 'اتاق ذهن'];
     }
     $nav[] = [

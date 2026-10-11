@@ -154,6 +154,9 @@ ob_start();
     echo function_exists('appointment_session_mode_pick_html')
         ? appointment_session_mode_pick_html('session_mode', 'IN_PERSON', 'sec-sm')
         : '';
+    echo function_exists('appointment_room_pick_html')
+        ? appointment_room_pick_html('room_no', 'sec-room')
+        : '';
   ?>
 
   <div>
@@ -907,6 +910,24 @@ $secretaryBookScripts = '
       applyingPrefill = false;
     }
   })();
+
+  var roomEl = document.getElementById("sec-room");
+  var roomHint = document.getElementById("sec-room-hint");
+  function syncRoomRule() {
+    if (!roomEl) return;
+    var picked = form.querySelector("input[name=session_mode]:checked");
+    var online = !!(picked && picked.value === "ONLINE");
+    roomEl.required = !online;
+    if (roomHint) {
+      roomHint.textContent = online
+        ? "جلسه آنلاین است؛ انتخاب اتاق لازم نیست."
+        : "برای جلسه حضوری اتاق را انتخاب کنید.";
+    }
+  }
+  form.querySelectorAll("input[name=session_mode]").forEach(function (el) {
+    el.addEventListener("change", syncRoomRule);
+  });
+  syncRoomRule();
 })();
 </script>
 ';

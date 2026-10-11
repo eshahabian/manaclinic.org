@@ -13,8 +13,13 @@ if (function_exists('appointment_expire_unpaid_holds')) {
     appointment_expire_unpaid_holds($pdo);
 }
 
+if (function_exists('appointment_ensure_room_schema')) {
+    appointment_ensure_room_schema($pdo);
+}
+$roomSql = function_exists('appointment_room_no_sql') ? appointment_room_no_sql('a') : 'NULL AS room_no';
 $stmt = $pdo->prepare("
-  SELECT a.*, u.name AS doctor_name, dp.specialty, p.id AS payment_id, p.amount, p.status AS pay_status, p.ref_id, p.receipt_path
+  SELECT a.*, u.name AS doctor_name, dp.specialty, p.id AS payment_id, p.amount, p.status AS pay_status, p.ref_id, p.receipt_path,
+         {$roomSql}
   FROM appointments a
   JOIN doctor_profiles dp ON dp.id = a.doctor_id
   JOIN users u ON u.id = dp.user_id
@@ -24,6 +29,18 @@ $stmt = $pdo->prepare("
 ");
 $stmt->execute([$user['id']]);
 $appointments = $stmt->fetchAll();
+$fixedAppointments = [];
+$requestAppointments = [];
+foreach ($appointments as $row) {
+    $status = (string) ($row['status'] ?? '');
+    if (function_exists('appointment_is_panel_fixed') && appointment_is_panel_fixed($row)) {
+        $fixedAppointments[] = $row;
+    } elseif (in_array($status, ['PENDING_APPROVAL', 'PENDING_PAYMENT'], true)) {
+        $requestAppointments[] = $row;
+    } else {
+        $fixedAppointments[] = $row;
+    }
+}
 $booked = isset($_GET['booked']);
 $payUrl = url('/dashboard/pay');
 $receiptUrl = url('/dashboard/upload-receipt');
@@ -52,8 +69,19 @@ ob_start();
   <?php endif; ?>
   <p id="pay-error" style="color:var(--danger);font-size:.9rem;display:none"></p>
   <p id="cancel-msg" style="font-size:.9rem;display:none"></p>
+  <?php if ($requestAppointments): ?>
+    <h2 class="binder-sub">درخواست‌های در انتظار منشی</h2>
+    <p class="muted" style="margin:-.35rem 0 .75rem;font-size:.85rem">این وقت‌ها هنوز قطعی نیستند. بعد از تأیید پرداخت منشی، در فهرست نوبت‌های شما و درمانگر دیده می‌شوند.</p>
+    <?php
+      $appointmentList = $requestAppointments;
+      $appointmentItemMode = 'manage';
+      $appointmentOnlinePayEnabled = $onlinePayEnabled;
+      require __DIR__ . '/../../includes/patient_appointment_items.php';
+    ?>
+  <?php endif; ?>
+  <h2 class="binder-sub">نوبت‌های قطعی</h2>
   <?php
-    $appointmentList = $appointments;
+    $appointmentList = $fixedAppointments;
     $appointmentItemMode = 'manage';
     $appointmentOnlinePayEnabled = $onlinePayEnabled;
     require __DIR__ . '/../../includes/patient_appointment_items.php';

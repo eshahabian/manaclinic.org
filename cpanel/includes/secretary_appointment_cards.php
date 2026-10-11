@@ -33,6 +33,7 @@ $deskNext = $appointmentsDeskNext ?? '/secretary/appointments';
             <div class="muted" style="font-size:.85rem;margin-top:.35rem;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center">
               <?= e(format_fa_datetime($a['starts_at'])) ?>
               <?= function_exists('appointment_session_mode_badge_html') ? appointment_session_mode_badge_html((string) ($a['session_mode'] ?? 'IN_PERSON')) : '' ?>
+              <?= function_exists('appointment_room_badge_html') ? appointment_room_badge_html($a) : '' ?>
             </div>
             <?= appointment_booked_by_html($a) ?>
           </div>
@@ -59,6 +60,34 @@ $deskNext = $appointmentsDeskNext ?? '/secretary/appointments';
           </select>
           <button type="submit" class="btn btn-outline btn-sm">ذخیره</button>
         </form>
+        <?php
+          $needsRoom = in_array((string) ($a['status'] ?? ''), ['CONFIRMED', 'COMPLETED'], true)
+              && function_exists('appointment_is_online_mode')
+              && !appointment_is_online_mode($a)
+              && (int) ($a['room_no'] ?? 0) < 1;
+          if ($needsRoom && !function_exists('clinic_rooms_numbers') && is_file(__DIR__ . '/clinic_rooms.php')) {
+              require_once __DIR__ . '/clinic_rooms.php';
+          }
+          $roomNumbers = function_exists('clinic_rooms_numbers') ? clinic_rooms_numbers() : [1, 2, 3];
+        ?>
+        <?php if ($needsRoom): ?>
+          <form method="post" action="<?= e(url('/secretary/appointments')) ?>" style="display:flex;flex-wrap:wrap;gap:.4rem;align-items:end;margin:0 0 .6rem">
+            <?= csrf_field() ?>
+            <input type="hidden" name="action" value="set_room">
+            <input type="hidden" name="appointment_id" value="<?= e((string) ($a['id'] ?? '')) ?>">
+            <input type="hidden" name="next" value="<?= e($deskNext) ?>">
+            <label style="margin:0;min-width:9rem">
+              <span class="label" style="font-size:.75rem">اتاق این نوبت هنوز مشخص نیست</span>
+              <select class="input" name="room_no" required>
+                <option value="">— انتخاب اتاق —</option>
+                <?php foreach ($roomNumbers as $n): ?>
+                  <option value="<?= (int) $n ?>"><?= e(function_exists('clinic_room_label') ? clinic_room_label((int) $n) : ('اتاق ' . (int) $n)) ?></option>
+                <?php endforeach; ?>
+              </select>
+            </label>
+            <button type="submit" class="btn btn-primary btn-sm">ثبت اتاق</button>
+          </form>
+        <?php endif; ?>
         <div class="appt-card-actions">
           <?php if ($awaitingApproval): ?>
             <?= appointment_approval_actions_html($a, $deskNext) ?>

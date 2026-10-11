@@ -21,6 +21,9 @@ $notes = post('notes') ?: null;
 $sessionMode = function_exists('appointment_normalize_session_mode')
     ? appointment_normalize_session_mode(post('session_mode'))
     : 'IN_PERSON';
+$roomNo = function_exists('appointment_parse_room_choice')
+    ? appointment_parse_room_choice((string) post('room_no'))
+    : (int) post('room_no');
 
 if ($doctorId === '' || $date === '' || $time === '') {
     flash_set('error', 'اطلاعات نوبت ناقص است.');
@@ -79,6 +82,21 @@ if (appointment_has_overlap($pdo, $doctorId, $startsAt, $endsAt)) {
     $bookRedirect('/secretary/appointments?tab=new');
 }
 
+$roomDraft = [
+    'id' => '',
+    'starts_at' => $startsAt,
+    'ends_at' => $endsAt,
+    'session_mode' => $sessionMode,
+    'patient_id' => $patientId,
+    'doctor_id' => $doctorId,
+];
+try {
+    $roomNo = appointment_assert_room_choice($pdo, $roomDraft, $roomNo);
+} catch (Throwable $e) {
+    flash_set('error', $e->getMessage());
+    $bookRedirect('/secretary/appointments?tab=new');
+}
+
 $appointmentId = cuid();
 $paymentId = cuid();
 $pdo->beginTransaction();
@@ -96,6 +114,8 @@ try {
         require_once __DIR__ . '/../includes/user_referral.php';
     }
     user_referral_stamp_payment($pdo, $paymentId, $patientId, (int) $doctor['session_price']);
+    $roomDraft['id'] = $appointmentId;
+    appointment_save_room($pdo, $user, $roomDraft, $roomNo);
     $pdo->commit();
 
     $patientNameStmt = $pdo->prepare('SELECT name FROM users WHERE id = ?');
@@ -111,11 +131,21 @@ try {
         '/secretary/appointments',
         'appointment'
     );
+    $roomBit = $roomNo > 0 && function_exists('clinic_room_label') ? ' در ' . clinic_room_label($roomNo) : '';
+    notify_user(
+        $pdo,
+        $patientId,
+        'نوبت شما ثبت شد',
+        "نوبت شما برای {$when}{$roomBit} توسط {$actorName} ثبت شد و در پنل شما و درمانگر دیده می‌شود.",
+        '/dashboard/appointments',
+        'appointment',
+        $actorId
+    );
     notify_doctor_profile(
         $pdo,
         $doctorId,
         'نوبت جدید توسط منشی',
-        "نوبت «{$patientName}» برای {$when} توسط {$actorName} ثبت و تأیید شد.",
+        "نوبت «{$patientName}» برای {$when}{$roomBit} توسط {$actorName} ثبت و تأیید شد.",
         '/doctor/appointments',
         'appointment'
     );
