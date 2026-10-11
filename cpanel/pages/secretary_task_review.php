@@ -98,7 +98,7 @@ ob_start();
 <?php endif; ?>
 <?php if (staff_app_emad_tasks_can_open($user)): ?>
   <h2 style="margin-top:1.6rem">کارهای eshahabian، عطیه گارسچی و شیوا</h2>
-  <p class="muted">هر کدام می‌تواند برای دو نفر دیگر کار بفرستد. تیک را خودِ گیرنده می‌زند و با انجام کار، برای فرستنده پیام می‌آید.</p>
+  <p class="muted">هر کدام می‌تواند برای خودش و برای دو نفر دیگر کار بفرستد. تیک را خودِ گیرنده می‌زند. اگر کار را کس دیگری فرستاده باشد، با انجام آن برای فرستنده پیام می‌آید.</p>
   <?php
     $peerSelf = (string) ($user['id'] ?? '');
     foreach (staff_peer_task_people($pdo) as $peer):
@@ -113,7 +113,7 @@ ob_start();
           $ymd,
           $peerName,
           $peerSelf !== '' && $peerSelf === $peerId,
-          staff_app_emad_tasks_can_assign($user) && $peerSelf !== $peerId,
+          staff_app_emad_tasks_can_assign($user),
           url('/app/checklist/emad'),
           $peerId,
           $peerReturn

@@ -1597,14 +1597,11 @@ function staff_app_emad_tasks_handle_post(PDO $pdo, array $user): void
     try {
         if (post('action') === 'create') {
             if (!staff_app_emad_tasks_can_assign($user)) {
-                $fail('فقط eshahabian، دکتر عطیه گارسچی و دکتر شیوا گرانمایه‌پور می‌توانند برای هم کار بفرستند.', 403);
+                $fail('فقط eshahabian، دکتر عطیه گارسچی و دکتر شیوا گرانمایه‌پور می‌توانند برای خودشان و برای هم کار بفرستند.', 403);
             }
             $assignee = staff_peer_task_by_id($pdo, $postedAssignee);
             if ($assignee === null) {
                 $fail('گیرنده کار باید یکی از این سه نفر باشد.');
-            }
-            if ($postedAssignee === $userId) {
-                $fail('کار را برای یکی از دو نفر دیگر بفرستید.');
             }
             staff_app_emad_task_create($pdo, $ymd, staff_task_posted_body_raw(), $userId, $postedAssignee);
             flash_set('success', 'کار فرستاده شد.');

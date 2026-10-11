@@ -1505,13 +1505,15 @@ if ($section === 'checklist') {
     }
     $peerTab = $peerId !== '' ? staff_peer_task_tab($peerId) : '';
     $peerCanTick = $onPeer && $userId !== '' && $userId === $peerId;
-    $peerCanAssign = $onPeer && staff_app_emad_tasks_can_assign($user) && $userId !== $peerId;
+    $peerCanAssign = $onPeer && staff_app_emad_tasks_can_assign($user);
     $emadPost = url('/app/checklist/emad');
     ob_start();
     ?>
     <div class="sapp-checklist">
     <h1>لیست کارهای روزانه</h1>
-    <?php if ($onPeer && $peerCanTick): ?>
+    <?php if ($onPeer && $peerCanTick && $peerCanAssign): ?>
+      <p class="muted">برای خودتان هم می‌توانید کار بنویسید. تیک را خودتان می‌زنید. اگر کس دیگری کار را فرستاده باشد، با انجام آن برای او پیام می‌آید.</p>
+    <?php elseif ($onPeer && $peerCanTick): ?>
       <p class="muted">کارهایی که برای شما فرستاده شده. هر کدام را که انجام دادید تیک بزنید.</p>
     <?php elseif ($onPeer): ?>
       <p class="muted">برای <?= e($peerName) ?> در همین روز کار بنویسید. تیک را خودش می‌زند و پس از انجام، برای شما پیام می‌آید.</p>
