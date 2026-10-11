@@ -57,10 +57,31 @@ $today = date('Y-m-d');
         </span>
         <span class="chart-session-meta muted">
           <?= e(appointment_row_status_label($a)) ?>
+          <?php if (trim((string) ($a['doctor_name'] ?? '')) !== ''): ?>
+            · <?= e((string) $a['doctor_name']) ?>
+          <?php endif; ?>
           · <?= $hasNote ? 'دارای شرح حال' : 'بدون شرح حال' ?>
         </span>
       </button>
       <div class="chart-session-panel" data-panel>
+        <?php if (!empty($sessionListReadonly)): ?>
+          <?php if (!$hasNote): ?>
+            <p class="muted" style="margin:0">برای این جلسه شرح حالی ثبت نشده.</p>
+          <?php else: ?>
+            <?php foreach (session_soap_fields() as $fieldKey => $field): ?>
+              <?php $soapHtml = trim((string) ($note[$fieldKey] ?? '')); ?>
+              <?php if ($soapHtml !== ''): ?>
+                <p style="margin:.4rem 0 0"><strong><?= e((string) ($field['fa'] ?? $fieldKey)) ?></strong></p>
+                <div><?= rich_html_for_display($soapHtml) ?></div>
+              <?php endif; ?>
+            <?php endforeach; ?>
+            <?php $shortNote = trim((string) ($note['note_text'] ?? '')); ?>
+            <?php if ($shortNote !== ''): ?>
+              <p style="margin:.4rem 0 0"><strong>نوت کوتاه</strong></p>
+              <div><?= rich_html_for_display($shortNote) ?></div>
+            <?php endif; ?>
+          <?php endif; ?>
+        <?php else: ?>
         <form method="post" action="<?= e(url('/doctor/patients/' . $patientId . '/session-note')) ?>" class="form-stack" style="gap:.75rem">
           <input type="hidden" name="appointment_id" value="<?= e($appId) ?>">
           <input type="hidden" name="next_tab" value="<?= e($sessionListNextTab) ?>">
@@ -81,6 +102,7 @@ $today = date('Y-m-d');
             <button class="btn btn-outline btn-sm" type="button" data-close>بستن</button>
           </div>
         </form>
+        <?php endif; ?>
       </div>
     </article>
   <?php endforeach; ?>

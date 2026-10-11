@@ -4,7 +4,8 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/petty_cash.php';
 require_once __DIR__ . '/../includes/doctor_profile_fields.php';
 
-$user = require_login();
+$embedded = !empty($pettyCashEmbedded);
+$user = $embedded && is_array($pettyCashUser ?? null) ? $pettyCashUser : require_login();
 if (!petty_cash_user_allowed($user)) {
     flash_set('error', 'تنخواه فقط برای منشی، حسابدار، دکتر شیوا گرانمایه‌پور و دکتر عطیه گارسچی است.');
     redirect(((string) ($user['role'] ?? '')) === 'DOCTOR' ? '/doctor/appointments' : '/');
@@ -13,32 +14,36 @@ if (!petty_cash_user_allowed($user)) {
 $role = (string) ($user['role'] ?? '');
 $asSecretary = $role === 'SECRETARY';
 $asAccountant = $role === 'ACCOUNTANT';
-if ($asAccountant) {
+if ($embedded) {
+    $cashPath = '/app/petty-cash';
+} elseif ($asAccountant) {
     $cashPath = '/accountant/petty-cash';
 } elseif ($asSecretary) {
     $cashPath = '/secretary/petty-cash';
 } else {
     $cashPath = '/doctor/petty-cash';
 }
-$requestPath = (string) ($GLOBALS['path'] ?? '');
-if ($asSecretary && !str_contains($requestPath, '/secretary/')) {
-    redirect('/secretary/petty-cash');
-}
-if ($asAccountant && !str_contains($requestPath, '/accountant/')) {
-    redirect('/accountant/petty-cash');
-}
-if ($role === 'DOCTOR' && !$asSecretary && !str_contains($requestPath, '/doctor/')) {
-    redirect('/doctor/petty-cash');
-}
-if ($role === 'DOCTOR' && !$asSecretary) {
-    require_once __DIR__ . '/../includes/doctor_panel.php';
-    require_doctor_profile($pdo);
-} elseif ($asAccountant) {
-    require_once __DIR__ . '/../includes/accountant.php';
-    require_login(['ACCOUNTANT']);
-} else {
-    require_once __DIR__ . '/../includes/secretary_panel.php';
-    require_login(['SECRETARY']);
+if (!$embedded) {
+    $requestPath = (string) ($GLOBALS['path'] ?? '');
+    if ($asSecretary && !str_contains($requestPath, '/secretary/')) {
+        redirect('/secretary/petty-cash');
+    }
+    if ($asAccountant && !str_contains($requestPath, '/accountant/')) {
+        redirect('/accountant/petty-cash');
+    }
+    if ($role === 'DOCTOR' && !$asSecretary && !str_contains($requestPath, '/doctor/')) {
+        redirect('/doctor/petty-cash');
+    }
+    if ($role === 'DOCTOR' && !$asSecretary) {
+        require_once __DIR__ . '/../includes/doctor_panel.php';
+        require_doctor_profile($pdo);
+    } elseif ($asAccountant) {
+        require_once __DIR__ . '/../includes/accountant.php';
+        require_login(['ACCOUNTANT']);
+    } else {
+        require_once __DIR__ . '/../includes/secretary_panel.php';
+        require_login(['SECRETARY']);
+    }
 }
 
 ensure_petty_cash_schema($pdo);
@@ -133,6 +138,8 @@ ob_start();
     </div>
   </div>
   <button class="btn btn-outline" type="button" id="petty-add-line" aria-label="قلم بعدی" style="justify-self:start;min-width:2.75rem;font-size:1.35rem;line-height:1;padding:.45rem .8rem">+</button>
+  <?= petty_cash_select_html('pay_account', 'petty-pay-account', 'از چه حسابی پرداخت شده', petty_cash_pay_accounts()) ?>
+  <?= petty_cash_select_html('approver', 'petty-approver', 'تاییدکننده', petty_cash_approvers()) ?>
   <?= petty_cash_date_fields((int) $todayY, (int) $todayM, (int) $todayD) ?>
   <div>
     <label class="label" for="petty-receipt">رسید</label>
@@ -175,6 +182,16 @@ ob_start();
           <span class="muted">
             · <?= e(to_jalali_label(substr((string) $entry['entry_date'], 0, 10))) ?>
             · <?= e((string) $entry['created_by_name']) ?>
+            <?php
+              $accountLabel = petty_cash_option_label(petty_cash_pay_accounts(), (string) ($entry['pay_account'] ?? ''));
+              $approverLabel = petty_cash_option_label(petty_cash_approvers(), (string) ($entry['approver'] ?? ''));
+            ?>
+            <?php if ($accountLabel !== ''): ?>
+              · حساب: <?= e($accountLabel) ?>
+            <?php endif; ?>
+            <?php if ($approverLabel !== ''): ?>
+              · تایید: <?= e($approverLabel) ?>
+            <?php endif; ?>
             <?php if (!empty($entry['receipt_path'])): ?>
               · <a href="<?= e(url('/petty-cash/receipt?id=' . rawurlencode((string) $entry['id']))) ?>" target="_blank" rel="noopener">رسید</a>
             <?php endif; ?>
@@ -228,6 +245,10 @@ ob_start();
 </script>
 <?php
 $html = ob_get_clean();
+if ($embedded) {
+    $pettyCashHtml = $html;
+    return;
+}
 if ($role === 'DOCTOR' && !$asSecretary) {
     render_doctor_page('تنخواه', $html);
 } elseif ($asAccountant) {

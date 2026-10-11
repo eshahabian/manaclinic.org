@@ -1711,14 +1711,20 @@ function staff_app_doctor_profile_id(PDO $pdo, string $userId): string
     return (string) ($stmt->fetchColumn() ?: '');
 }
 
-/** منشی، ادمین و eshahabian فهرست کلینیک را می‌بینند؛ درمانگر فقط نوبت خودش را. */
+/** منشی، ادمین، eshahabian، دکتر شیوا و دکتر عطیه فهرست کلینیک را می‌بینند؛ درمانگر دیگر فقط نوبت خودش را. */
 function staff_app_sees_clinic_schedule(array $user): bool
 {
     if ((string) ($user['role'] ?? '') !== 'DOCTOR') {
         return true;
     }
+    if (strtolower(trim((string) ($user['username'] ?? ''))) === 'eshahabian') {
+        return true;
+    }
+    if (!function_exists('doctor_is_clinic_lead') && is_file(__DIR__ . '/doctor_profile_fields.php')) {
+        require_once __DIR__ . '/doctor_profile_fields.php';
+    }
 
-    return strtolower(trim((string) ($user['username'] ?? ''))) === 'eshahabian';
+    return function_exists('doctor_is_clinic_lead') && doctor_is_clinic_lead($user);
 }
 
 /**

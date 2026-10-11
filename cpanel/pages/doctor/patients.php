@@ -8,40 +8,88 @@ $ctx = require_doctor_profile($pdo);
 ensure_doctor_clinical_tables($pdo);
 ensure_assistant_schema($pdo);
 $doctorId = $ctx['profile']['id'];
+if (!function_exists('doctor_is_clinic_lead')) {
+    require_once __DIR__ . '/../../includes/doctor_profile_fields.php';
+}
+$seesAllPatients = doctor_is_clinic_lead($ctx['user'] ?? null);
+$leadIds = clinic_lead_profile_ids($pdo);
 
-$stmt = $pdo->prepare("
-  SELECT
-    u.id,
-    u.name,
-    u.username,
-    u.phone,
-    COUNT(a.id) AS visit_count,
-    MAX(a.starts_at) AS last_visit
-  FROM users u
-  LEFT JOIN appointments a ON a.patient_id = u.id AND a.doctor_id = ?
-  WHERE u.role = 'PATIENT'
-    AND (
-      u.preferred_doctor_id = ?
-      OR EXISTS (
-        SELECT 1 FROM appointments ax
-        WHERE ax.patient_id = u.id AND ax.doctor_id = ?
-      )
-      OR EXISTS (
-        SELECT 1 FROM workshop_enrollments e
-        JOIN workshops w ON w.id = e.workshop_id
-        " . doctor_workshop_host_join('w') . "
-        WHERE e.patient_id = u.id
-      )
-    )
-  GROUP BY u.id, u.name, u.username, u.phone
-  ORDER BY last_visit IS NULL ASC, last_visit DESC, u.name ASC
-");
-$stmt->execute([$doctorId, $doctorId, $doctorId, $doctorId]);
-$patients = $stmt->fetchAll();
+if ($seesAllPatients) {
+    $stmt = $pdo->query("
+      SELECT
+        u.id,
+        u.name,
+        u.username,
+        u.phone,
+        COUNT(a.id) AS visit_count,
+        MAX(a.starts_at) AS last_visit,
+        COALESCE(pdu.name, '') AS therapist_name
+      FROM users u
+      LEFT JOIN appointments a ON a.patient_id = u.id
+      LEFT JOIN doctor_profiles pdp ON pdp.id = u.preferred_doctor_id
+      LEFT JOIN users pdu ON pdu.id = pdp.user_id
+      WHERE u.role = 'PATIENT'
+        AND (
+          (u.preferred_doctor_id IS NOT NULL AND u.preferred_doctor_id <> '')
+          OR EXISTS (SELECT 1 FROM appointments ax WHERE ax.patient_id = u.id)
+          OR EXISTS (
+            SELECT 1 FROM workshop_enrollments e
+            JOIN workshops w ON w.id = e.workshop_id
+            WHERE e.patient_id = u.id
+          )
+        )
+      GROUP BY u.id, u.name, u.username, u.phone, pdu.name
+      ORDER BY last_visit IS NULL ASC, last_visit DESC, u.name ASC
+    ");
+    $patients = $stmt->fetchAll();
+} else {
+    $excludeSql = '';
+    $params = [$doctorId, $doctorId, $doctorId, $doctorId];
+    if ($leadIds !== []) {
+        $marks = implode(',', array_fill(0, count($leadIds), '?'));
+        $excludeSql = " AND (u.preferred_doctor_id IS NULL OR u.preferred_doctor_id NOT IN ({$marks}))";
+        $params = array_merge($params, $leadIds);
+    }
+    $stmt = $pdo->prepare("
+      SELECT
+        u.id,
+        u.name,
+        u.username,
+        u.phone,
+        COUNT(a.id) AS visit_count,
+        MAX(a.starts_at) AS last_visit,
+        '' AS therapist_name
+      FROM users u
+      LEFT JOIN appointments a ON a.patient_id = u.id AND a.doctor_id = ?
+      WHERE u.role = 'PATIENT'
+        AND (
+          u.preferred_doctor_id = ?
+          OR EXISTS (
+            SELECT 1 FROM appointments ax
+            WHERE ax.patient_id = u.id AND ax.doctor_id = ?
+          )
+          OR EXISTS (
+            SELECT 1 FROM workshop_enrollments e
+            JOIN workshops w ON w.id = e.workshop_id
+            " . doctor_workshop_host_join('w') . "
+            WHERE e.patient_id = u.id
+          )
+        )
+        {$excludeSql}
+      GROUP BY u.id, u.name, u.username, u.phone
+      ORDER BY last_visit IS NULL ASC, last_visit DESC, u.name ASC
+    ");
+    $stmt->execute($params);
+    $patients = $stmt->fetchAll();
+}
 
 $noteCounts = [];
-$nc = $pdo->prepare('SELECT patient_id, COUNT(*) AS c FROM doctor_session_notes WHERE doctor_id=? GROUP BY patient_id');
-$nc->execute([$doctorId]);
+if ($seesAllPatients) {
+    $nc = $pdo->query('SELECT patient_id, COUNT(*) AS c FROM doctor_session_notes GROUP BY patient_id');
+} else {
+    $nc = $pdo->prepare('SELECT patient_id, COUNT(*) AS c FROM doctor_session_notes WHERE doctor_id=? GROUP BY patient_id');
+    $nc->execute([$doctorId]);
+}
 foreach ($nc->fetchAll() as $row) {
     $noteCounts[$row['patient_id']] = (int) $row['c'];
 }
@@ -63,7 +111,9 @@ $binderInitial = in_array($tabParam, ['chart', 'intakes'], true) ? $tabParam : '
 ob_start();
 ?>
 <h1>پرونده مراجعه‌کنندگان</h1>
-<p class="muted">فقط مراجعه‌کنندگانی که درمانگر مسئول‌شان شما هستید (ترجیحی، نوبت یا کارگاه شما). پرونده‌شان برای درمانگر دیگر باز نیست.</p>
+<p class="muted"><?= $seesAllPatients
+    ? 'مراجعه‌کنندگان همه درمانگرها اینجاست. این دید فقط برای دکتر شیوا گرانمایه‌پور و دکتر عطیه گارسچی است و درمانگرهای دیگر مراجع این دو را نمی‌بینند.'
+    : 'فقط مراجعه‌کنندگان خودتان. مراجعه‌کنندگانی که درمانگرشان دکتر شیوا گرانمایه‌پور یا دکتر عطیه گارسچی است در این فهرست نیستند.' ?></p>
 
 <div class="binder-tile" data-binder-tabs data-binder-initial="<?= e($binderInitial) ?>" data-binder-tone="<?= e($binderInitial === 'intakes' ? 'workshops' : 'appts') ?>" style="margin-top:1.25rem">
   <div class="binder-tabs" role="tablist" aria-label="بخش‌های پرونده">
@@ -95,6 +145,9 @@ ob_start();
           <a class="panel row-between doctor-patient-row" href="<?= e(url('/doctor/patients/' . $p['id'])) ?>" style="color:inherit" data-search="<?= e($search) ?>">
             <div>
               <strong><?= e($p['name']) ?></strong>
+              <?php if ($seesAllPatients && trim((string) ($p['therapist_name'] ?? '')) !== ''): ?>
+                <div style="font-size:.85rem;margin-top:.15rem">درمانگر: <?= e((string) $p['therapist_name']) ?></div>
+              <?php endif; ?>
               <div class="muted" style="font-size:.85rem" dir="ltr">
                 <?= e((string)$p['username']) ?>
                 <?php if (can_view_patient_phone() && $phone !== ''): ?>

@@ -5,7 +5,11 @@ require_once __DIR__ . '/../includes/doctor_clinical.php';
 
 $ctx = require_doctor_profile($pdo);
 $patientId = (string) ($_GET['id'] ?? '');
-require_doctor_patient_access($pdo, $ctx, $patientId);
+$access = require_doctor_patient_access($pdo, $ctx, $patientId);
+if (!empty($access['oversight'])) {
+    flash_set('error', 'این پرونده فقط برای دیدن است.');
+    redirect('/doctor/patients/' . $patientId);
+}
 
 $doctorId = $ctx['profile']['id'];
 $appointmentId = post('appointment_id');

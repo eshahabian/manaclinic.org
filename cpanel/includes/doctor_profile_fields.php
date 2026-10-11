@@ -218,6 +218,12 @@ function doctor_is_garsichi(?array $user): bool
     return str_contains((string) ($user['name'] ?? ''), 'گارسچی');
 }
 
+/** دکتر شیوا گرانمایه‌پور و دکتر عطیه گارسچی؛ منشی‌ها شامل این دسترسی نیستند. */
+function doctor_is_clinic_lead(?array $user): bool
+{
+    return doctor_is_shiva($user) || doctor_is_garsichi($user);
+}
+
 /** تأیید درخواست کارگاه و وارد کردن مراجع به دوره: دکتر عطیه گارسچی */
 function doctor_can_accept_workshop_requests(?array $user = null): bool
 {

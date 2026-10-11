@@ -174,32 +174,67 @@ function accountant_session_totals(PDO $pdo, string $start, string $end): array
 /** @return list<array<string,mixed>> */
 function accountant_session_by_doctor(PDO $pdo, string $start, string $end): array
 {
+    if (!function_exists('secretary_active_doctors')) {
+        require_once __DIR__ . '/secretary_patient.php';
+    }
     try {
+        $doctors = secretary_active_doctors($pdo);
+    } catch (Throwable $ignored) {
+        $doctors = [];
+    }
+    if (!$doctors) {
+        return [];
+    }
+
+    $stats = [];
+    try {
+        if (function_exists('ensure_user_referral_schema')) {
+            ensure_user_referral_schema($pdo);
+        }
         $stmt = $pdo->prepare("
-          SELECT du.name AS doctor_name,
+          SELECT a.doctor_id,
                  COUNT(DISTINCT CASE WHEN p.status = 'PAID' THEN p.id END) AS c,
                  COALESCE(SUM(CASE WHEN p.status = 'PAID' THEN p.amount ELSE 0 END),0) AS total,
                  COALESCE(SUM(CASE WHEN p.status = 'PAID' THEN p.clinic_share_amount ELSE 0 END),0) AS clinic,
                  COUNT(DISTINCT CASE
-                   WHEN a.id IS NOT NULL AND (p.id IS NULL OR p.status <> 'PAID')
+                   WHEN p.id IS NULL OR p.status <> 'PAID'
                    THEN a.id END) AS unpaid
-          FROM doctor_profiles dp
-          JOIN users du ON du.id = dp.user_id
-          LEFT JOIN appointments a
-            ON a.doctor_id = dp.id
-           AND a.status IN ('CONFIRMED','COMPLETED','PENDING_PAYMENT','PENDING_APPROVAL')
-           AND DATE(a.starts_at) BETWEEN ? AND ?
+          FROM appointments a
           LEFT JOIN payments p ON p.appointment_id = a.id
-          WHERE dp.is_active = 1 AND dp.is_approved = 1 AND du.is_disabled = 0
-          GROUP BY dp.id, du.name
-          ORDER BY total DESC, unpaid DESC, du.name ASC
+          WHERE a.status IN ('CONFIRMED','COMPLETED','PENDING_PAYMENT','PENDING_APPROVAL')
+            AND DATE(a.starts_at) BETWEEN ? AND ?
+          GROUP BY a.doctor_id
         ");
         $stmt->execute([$start, $end]);
-
-        return $stmt->fetchAll() ?: [];
+        foreach ($stmt->fetchAll() as $row) {
+            $stats[(string) $row['doctor_id']] = $row;
+        }
     } catch (Throwable $ignored) {
-        return [];
+        $stats = [];
     }
+
+    $rows = [];
+    foreach ($doctors as $doctor) {
+        $id = (string) ($doctor['id'] ?? '');
+        $stat = $stats[$id] ?? [];
+        $rows[] = [
+            'doctor_name' => (string) ($doctor['name'] ?? ''),
+            'c' => (int) ($stat['c'] ?? 0),
+            'total' => (int) ($stat['total'] ?? 0),
+            'clinic' => (int) ($stat['clinic'] ?? 0),
+            'unpaid' => (int) ($stat['unpaid'] ?? 0),
+        ];
+    }
+    usort($rows, static function (array $a, array $b): int {
+        $byTotal = ($b['total'] <=> $a['total']);
+        if ($byTotal !== 0) {
+            return $byTotal;
+        }
+
+        return strcmp((string) $a['doctor_name'], (string) $b['doctor_name']);
+    });
+
+    return $rows;
 }
 
 /** @return list<array<string,mixed>> */

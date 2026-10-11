@@ -276,6 +276,30 @@ if ($method === 'POST' && $path === '/app/checklist/emad') {
     staff_app_emad_tasks_handle_post($pdo, $user);
 }
 
+if ($method === 'POST' && $path === '/app/checklist/assign') {
+    require_once __DIR__ . '/../includes/secretary_daily_tasks.php';
+    secretary_assigned_tasks_handle_create($pdo, $user, '/app/checklist');
+}
+
+if ($method === 'POST' && $path === '/app/petty-cash') {
+    require_once __DIR__ . '/../includes/petty_cash.php';
+    require_once __DIR__ . '/../includes/staff_desk.php';
+    csrf_verify();
+    $jy = (int) post('jy');
+    $jm = (int) post('jm');
+    $back = '/app/petty-cash?jy=' . $jy . '&jm=' . $jm;
+    if (!petty_cash_user_allowed($user)) {
+        flash_set('error', 'دسترسی به تنخواه مجاز نیست.');
+        redirect('/app');
+    }
+    try {
+        flash_set('success', petty_cash_apply_post($pdo, $user));
+    } catch (RuntimeException $e) {
+        flash_set('error', $e->getMessage());
+    }
+    redirect($back);
+}
+
 if ($method === 'POST' && $path === '/app/appointments') {
     if ($role !== 'SECRETARY') {
         flash_set('error', 'ثبت وقت با منشی است.');
@@ -379,6 +403,7 @@ $section = match ($path) {
     '/app/hours' => 'hours',
     '/app/consult' => 'consult',
     '/app/checklist' => 'checklist',
+    '/app/petty-cash' => 'petty',
     '/app/complaints' => 'complaints',
     '/app/profile' => 'profile',
     default => '',
@@ -398,6 +423,7 @@ $descriptions = [
     'hours' => 'ساعت ورود و خروج منشی‌های مانا کلینیک و مدت حضور هر روز.',
     'consult' => 'درخواست‌های مشاوره که از فرم سایت مانا کلینیک رسیده است.',
     'checklist' => 'لیست کارهای روزانه منشی‌ها در کلینیک مانا، همان فهرست داخل سایت.',
+    'petty' => 'تنخواه کلینیک مانا؛ ثبت هزینه، حساب پرداخت و تاییدکننده، همان فهرست داخل سایت.',
     'complaints' => 'ثبت و دیدن شکایت مراجع از جلسه درمانگر در برنامه داخلی مانا.',
     'profile' => 'پروفایل درمانگر یا منشی در برنامه داخلی مانا کلینیک.',
 ];
@@ -437,6 +463,14 @@ if ($section === 'home') {
         <strong>لیست کارهای روزانه</strong>
         <em>Daily Tasks</em>
       </a>
+      <?php if (!function_exists('petty_cash_user_allowed')) { require_once __DIR__ . '/../includes/petty_cash.php'; } ?>
+      <?php if (petty_cash_user_allowed($user)): ?>
+      <a class="sapp-tile" href="<?= e(url('/app/petty-cash')) ?>">
+        <span class="sapp-ico sapp-ico-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="6" width="17" height="13" rx="2"/><path d="M3.5 10h17"/><path d="M16 15h.01"/></svg></span>
+        <strong>تنخواه</strong>
+        <em>Petty Cash</em>
+      </a>
+      <?php endif; ?>
       <a class="sapp-tile" href="<?= e(url('/app/complaints')) ?>">
         <span class="sapp-ico sapp-ico-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5 20 19H4L12 4.5z"/><path d="M12 10v4.2"/><path d="M12 16.8h.01"/></svg></span>
         <strong>شکایات</strong>
@@ -1519,8 +1553,20 @@ if ($section === 'checklist') {
                       break;
                   }
               }
+              if (!$hasTick && secretary_assigned_tasks_for($pdo, $secId, $ymd) !== []) {
+                  $hasTick = true;
+              }
           }
           $showList = $wasPresent || $hasTick || ($role === 'SECRETARY' && $secId === $userId && $ymd === $today);
+          if (secretary_assigned_tasks_can_give($user)) {
+              echo secretary_assigned_task_composer_html(
+                  url('/app/checklist/assign'),
+                  $ymd,
+                  $secretaries,
+                  $selectedId,
+                  '/app/checklist?date=' . rawurlencode($ymd) . '&secretary=' . rawurlencode($selectedId)
+              );
+          }
           if (!$showList) {
               echo '<p class="sapp-check-absent">این روز حضور نداشته است.</p>';
           } else {
@@ -1534,6 +1580,22 @@ if ($section === 'checklist') {
     </div>
     <?php
     staff_app_render('checklist', 'لیست کارهای روزانه', $descriptions['checklist'], ob_get_clean());
+    exit;
+}
+
+if ($section === 'petty') {
+    if (!function_exists('petty_cash_user_allowed')) {
+        require_once __DIR__ . '/../includes/petty_cash.php';
+    }
+    if (!petty_cash_user_allowed($user)) {
+        flash_set('error', 'تنخواه فقط برای منشی، دکتر شیوا گرانمایه‌پور و دکتر عطیه گارسچی است.');
+        redirect('/app');
+    }
+    $pettyCashEmbedded = true;
+    $pettyCashUser = $user;
+    $pettyCashHtml = '';
+    require __DIR__ . '/petty_cash.php';
+    staff_app_render('petty', 'تنخواه', $descriptions['petty'], $pettyCashHtml);
     exit;
 }
 

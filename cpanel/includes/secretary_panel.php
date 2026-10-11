@@ -82,6 +82,19 @@ function secretary_panel_daytasks_box($pdo, ?array $user): string
             $done++;
         }
     }
+    $extraTasks = [];
+    try {
+        if (function_exists('secretary_assigned_tasks_for')) {
+            $extraTasks = secretary_assigned_tasks_for($pdo, $userId, $ymd);
+        }
+    } catch (Throwable $e) {
+        $extraTasks = [];
+    }
+    foreach ($extraTasks as $extraTask) {
+        if ((int) ($extraTask['done'] ?? 0) === 1) {
+            $done++;
+        }
+    }
     $dateLabel = function_exists('secretary_daily_task_date_label') ? secretary_daily_task_date_label($ymd) : $ymd;
     $postUrl = url('/secretary/daily-tasks');
     $forceOpen = false;
@@ -99,7 +112,7 @@ function secretary_panel_daytasks_box($pdo, ?array $user): string
       <div class="daytasks-card" role="dialog" aria-modal="true" aria-label="لیست انجام کارهای روزانه">
         <button type="button" aria-label="بستن" onclick="if(window.closeDayTasks)closeDayTasks()" style="position:absolute;top:8px;left:8px;width:36px;height:36px;border:0;background:transparent;font-size:24px;line-height:1;cursor:pointer">×</button>
         <h2 style="margin:0 28px 12px 0;font-size:1.15rem">لیست انجام کارهای روزانه</h2>
-        <p style="margin:0 0 12px;line-height:1.7"><b><?= e($name) ?></b><br><?= e($dateLabel) ?><br>انجام‌شده <span id="daytasks-done-count"><?= e(to_fa_digits((string) $done)) ?></span> از <?= e(to_fa_digits((string) count($catalog))) ?></p>
+        <p style="margin:0 0 12px;line-height:1.7"><b><?= e($name) ?></b><br><?= e($dateLabel) ?><br>انجام‌شده <span id="daytasks-done-count"><?= e(to_fa_digits((string) $done)) ?></span> از <?= e(to_fa_digits((string) (count($catalog) + count($extraTasks)))) ?></p>
         <?php $n = 0; foreach ($catalog as $key => $label): ?>
           <?php
             $n++;
@@ -128,6 +141,41 @@ function secretary_panel_daytasks_box($pdo, ?array $user): string
                 <span style="flex:1;min-width:0">
                   <span style="display:block"><b><?= e(to_fa_digits((string) $n)) ?></b> <?= e($label) ?></span>
                   <small class="daytask-time"<?= $timeLabel === '' ? ' hidden' : '' ?>><?= $timeLabel !== '' ? 'ساعت تیک: ' . e($timeLabel) : '' ?></small>
+                </span>
+              </label>
+            <?php endif; ?>
+          </div>
+        <?php endforeach; ?>
+        <?php foreach ($extraTasks as $extraTask): ?>
+          <?php
+            $extraId = (string) ($extraTask['id'] ?? '');
+            $extraChecked = (int) ($extraTask['done'] ?? 0) === 1;
+            $extraAt = (string) ($extraTask['done_at'] ?? '');
+            $extraTime = ($extraChecked && $extraAt !== '') ? format_fa_time($extraAt) : '';
+            $extraFrom = trim((string) ($extraTask['creator_name'] ?? ''));
+          ?>
+          <div class="dayshadow-row" data-daytask-row style="margin:0 0 8px;padding:10px 12px;border:1px solid <?= $extraChecked ? '#b7e0c6' : '#d5e0da' ?>;border-radius:12px;background:<?= $extraChecked ? '#e8f6ee' : '#f7f5f0' ?>;line-height:1.75">
+            <?php if ($editable): ?>
+              <form class="daytask-form" method="post" action="<?= e($postUrl) ?>" onsubmit="return false" style="margin:0">
+                <?= csrf_field() ?>
+                <input type="hidden" name="task_date" value="<?= e($ymd) ?>">
+                <input type="hidden" name="task_key" value="<?= e($extraId) ?>">
+                <input type="hidden" name="done" value="0">
+                <label style="display:flex;flex-direction:row;gap:10px;align-items:flex-start;cursor:pointer">
+                  <input type="checkbox" name="done" value="1" style="margin-top:6px;width:18px;height:18px;flex:none"<?= $extraChecked ? ' checked' : '' ?>>
+                  <span style="flex:1;min-width:0">
+                    <span style="display:block"><?= e((string) ($extraTask['body'] ?? '')) ?></span>
+                    <?php if ($extraFrom !== ''): ?><small style="display:block;color:#6b827a">از طرف <?= e($extraFrom) ?></small><?php endif; ?>
+                    <small class="daytask-time"<?= $extraTime === '' ? ' hidden' : '' ?>><?= $extraTime !== '' ? 'ساعت تیک: ' . e($extraTime) : '' ?></small>
+                  </span>
+                </label>
+              </form>
+            <?php else: ?>
+              <label style="display:flex;flex-direction:row;gap:10px;align-items:flex-start">
+                <input type="checkbox" disabled style="margin-top:6px;width:18px;height:18px;flex:none"<?= $extraChecked ? ' checked' : '' ?>>
+                <span style="flex:1;min-width:0">
+                  <span style="display:block"><?= e((string) ($extraTask['body'] ?? '')) ?></span>
+                  <?php if ($extraFrom !== ''): ?><small style="display:block;color:#6b827a">از طرف <?= e($extraFrom) ?></small><?php endif; ?>
                 </span>
               </label>
             <?php endif; ?>

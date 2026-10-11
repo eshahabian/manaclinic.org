@@ -33,6 +33,9 @@ foreach ($secretaries as $sec) {
                 break;
             }
         }
+        if (!$hasTick && secretary_assigned_tasks_for($pdo, $secId, $ymd) !== []) {
+            $hasTick = true;
+        }
     }
     if ($wasPresent || $hasTick) {
         $present[] = $sec;
@@ -70,6 +73,9 @@ ob_start();
   <?php endif; ?>
   <button type="button" class="btn btn-outline btn-sm" onclick="window.print()">چاپ گزارش</button>
 </div>
+<?php if (secretary_assigned_tasks_can_give($user)): ?>
+  <?= secretary_assigned_task_composer_html(url((string) $reviewBase), $ymd, $secretaries, '', (string) $reviewBase . '?date=' . rawurlencode($ymd)) ?>
+<?php endif; ?>
 <?php if (!$present): ?>
   <p class="muted" style="margin-top:1rem">در این روز هیچ منشی‌ای حضور ثبت‌شده ندارد. فهرست وظایف:</p>
   <?= secretary_daily_tasks_table_html($pdo, ['id' => '', 'name' => '', 'username' => ''], $ymd, false, '', true) ?>

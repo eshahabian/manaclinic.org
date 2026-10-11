@@ -405,14 +405,88 @@ function session_soap_fields(): array
     ];
 }
 
+/** شناسه پروفایل دکتر شیوا و دکتر عطیه. */
+function clinic_lead_profile_ids(PDO $pdo): array
+{
+    static $cache = null;
+    if (is_array($cache)) {
+        return $cache;
+    }
+    try {
+        $rows = $pdo->query("
+          SELECT dp.id
+          FROM doctor_profiles dp
+          JOIN users u ON u.id = dp.user_id
+          WHERE u.role = 'DOCTOR'
+            AND (
+              LOWER(u.username) = 'shgeranmaye'
+              OR u.name LIKE '%گرانمایه%'
+              OR u.name LIKE '%گارسچی%'
+            )
+        ")->fetchAll(PDO::FETCH_COLUMN);
+        $cache = array_values(array_filter(array_map('strval', is_array($rows) ? $rows : [])));
+    } catch (Throwable $e) {
+        $cache = [];
+    }
+
+    return $cache;
+}
+
+function doctor_patient_assigned_to_clinic_lead(PDO $pdo, array $patient): bool
+{
+    $preferred = (string) ($patient['preferred_doctor_id'] ?? '');
+    if ($preferred === '') {
+        return false;
+    }
+
+    return in_array($preferred, clinic_lead_profile_ids($pdo), true);
+}
+
+function doctor_find_patient_chart(PDO $pdo, string $doctorId, string $patientId): ?array
+{
+    if ($doctorId === '' || $patientId === '') {
+        return null;
+    }
+    ensure_doctor_clinical_tables($pdo);
+    $stmt = $pdo->prepare('SELECT * FROM doctor_patient_charts WHERE doctor_id=? AND patient_id=? LIMIT 1');
+    $stmt->execute([$doctorId, $patientId]);
+    $row = $stmt->fetch();
+
+    return $row ?: null;
+}
+
+function doctor_find_any_patient_chart(PDO $pdo, string $patientId): ?array
+{
+    if ($patientId === '') {
+        return null;
+    }
+    ensure_doctor_clinical_tables($pdo);
+    $stmt = $pdo->prepare("
+      SELECT *
+      FROM doctor_patient_charts
+      WHERE patient_id=?
+      ORDER BY updated_at DESC
+      LIMIT 1
+    ");
+    $stmt->execute([$patientId]);
+    $row = $stmt->fetch();
+
+    return $row ?: null;
+}
+
 /**
- * پرونده فقط برای درمانگر مسئول: ترجیحی، نوبت مشترک، یا کارگاه همین دکتر. ادمین مستثنی است.
- * @return array{patient: array, appointments: array}
+ * پرونده فقط برای درمانگر مسئول: ترجیحی، نوبت مشترک، یا کارگاه همین دکتر.
+ * دکتر شیوا و دکتر عطیه پرونده بقیه را هم می‌بینند. بقیه درمانگرها مراجع این دو را نمی‌بینند.
+ * ادمین مستثنی است.
+ * @return array{patient: array, appointments: array, oversight: bool, owner_name: string}
  */
 function require_doctor_patient_access(PDO $pdo, array $ctx, string $patientId): array
 {
     ensure_doctor_clinical_tables($pdo);
     $doctorId = $ctx['profile']['id'];
+    if (!function_exists('doctor_is_clinic_lead') && is_file(__DIR__ . '/doctor_profile_fields.php')) {
+        require_once __DIR__ . '/doctor_profile_fields.php';
+    }
 
     $patientStmt = $pdo->prepare("SELECT id, username, name, phone, email, preferred_doctor_id, created_at FROM users WHERE id=? AND role='PATIENT' LIMIT 1");
     $patientStmt->execute([$patientId]);
@@ -440,14 +514,36 @@ function require_doctor_patient_access(PDO $pdo, array $ctx, string $patientId):
         $hasWorkshop = false;
     }
     $isAdmin = is_admin_user($ctx['user'] ?? null) || !empty($ctx['admin_mode']);
-    if (!$hasAppointment && !$isPreferred && !$hasWorkshop && !$isAdmin) {
+    $isLead = function_exists('doctor_is_clinic_lead') && doctor_is_clinic_lead($ctx['user'] ?? null);
+    $assignedToLead = doctor_patient_assigned_to_clinic_lead($pdo, $patient);
+    if (!$isAdmin && !$isLead && $assignedToLead) {
+        flash_set('error', 'مراجعه‌کنندگان دکتر شیوا گرانمایه‌پور و دکتر عطیه گارسچی برای درمانگرهای دیگر باز نیست.');
+        redirect('/doctor/patients');
+    }
+    $owns = $hasAppointment || $isPreferred || $hasWorkshop;
+    if (!$owns && !$isAdmin && !$isLead) {
         flash_set('error', 'دسترسی به پرونده این مراجعه‌کننده برای شما مجاز نیست.');
         redirect('/doctor/patients');
     }
 
-    if ($isAdmin) {
-        $apps = $pdo->prepare('SELECT * FROM appointments WHERE patient_id=? ORDER BY starts_at DESC');
+    $oversight = $isLead && !$isAdmin && !$owns;
+    $ownerName = '';
+    if ($isAdmin || $oversight) {
+        $apps = $pdo->prepare('
+          SELECT a.*, du.name AS doctor_name
+          FROM appointments a
+          LEFT JOIN doctor_profiles dp ON dp.id = a.doctor_id
+          LEFT JOIN users du ON du.id = dp.user_id
+          WHERE a.patient_id=?
+          ORDER BY a.starts_at DESC
+        ');
         $apps->execute([$patientId]);
+        $preferredId = (string) ($patient['preferred_doctor_id'] ?? '');
+        if ($preferredId !== '') {
+            $owner = $pdo->prepare('SELECT u.name FROM doctor_profiles dp JOIN users u ON u.id = dp.user_id WHERE dp.id=? LIMIT 1');
+            $owner->execute([$preferredId]);
+            $ownerName = trim((string) ($owner->fetchColumn() ?: ''));
+        }
     } else {
         $apps = $pdo->prepare('SELECT * FROM appointments WHERE doctor_id=? AND patient_id=? ORDER BY starts_at DESC');
         $apps->execute([$doctorId, $patientId]);
@@ -456,6 +552,8 @@ function require_doctor_patient_access(PDO $pdo, array $ctx, string $patientId):
     return [
         'patient' => $patient,
         'appointments' => $apps->fetchAll(),
+        'oversight' => $oversight,
+        'owner_name' => $ownerName,
     ];
 }
 

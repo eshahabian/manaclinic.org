@@ -297,6 +297,9 @@ function secretary_daily_task_set(PDO $pdo, string $userId, string $ymd, string 
 {
     ensure_secretary_daily_tasks_schema($pdo);
     if (!isset(secretary_daily_task_catalog()[$taskKey])) {
+        if (preg_match('/^[a-f0-9]{24}$/', $taskKey)) {
+            return secretary_assigned_task_set($pdo, $userId, $ymd, $taskKey, $done, $mark);
+        }
         throw new RuntimeException('این مورد در فهرست نیست.');
     }
     if (!in_array($mark, ['done', 'skip', 'pending'], true)) {
@@ -326,6 +329,9 @@ function secretary_daily_task_set(PDO $pdo, string $userId, string $ymd, string 
 function secretary_daily_task_save_response(PDO $pdo, string $userId, string $ymd, string $mark, ?string $doneAt): void
 {
     $progress = secretary_daily_task_progress(secretary_daily_task_states($pdo, $userId, $ymd));
+    $extra = secretary_assigned_task_counts($pdo, $userId, $ymd);
+    $progress['done'] += $extra['done'];
+    $progress['required'] += $extra['required'];
     header('Content-Type: application/json; charset=utf-8');
     echo json_encode([
         'ok' => true,
@@ -732,7 +738,16 @@ function secretary_daily_tasks_table_html(
     if ($name === '') {
         $name = (string) ($secretary['username'] ?? '');
     }
-    $required = (int) ($progress['required'] ?? $progress['total']);
+    $extraRows = $userId !== '' ? secretary_assigned_tasks_for($pdo, $userId, $ymd) : [];
+    $extraDone = 0;
+    foreach ($extraRows as $extraRow) {
+        if ((int) ($extraRow['done'] ?? 0) === 1) {
+            $extraDone++;
+        }
+    }
+    $progress['done'] += $extraDone;
+    $progress['required'] = (int) ($progress['required'] ?? $progress['total']) + count($extraRows);
+    $required = (int) $progress['required'];
     $skipped = (int) ($progress['skipped'] ?? 0);
     $summary = to_fa_digits((string) $progress['done']) . ' از ' . to_fa_digits((string) $required) . ' کار انجام شده';
     if ($skipped > 0) {
@@ -808,6 +823,29 @@ function secretary_daily_tasks_table_html(
           <?php endforeach; ?>
         </section>
       <?php endforeach; ?>
+      <?php if ($extraRows !== []): ?>
+        <section class="rx-group">
+          <h2>کارهای اضافه‌شده</h2>
+          <?php foreach ($extraRows as $extraRow): ?>
+            <?php
+              $key = (string) ($extraRow['id'] ?? '');
+              $label = (string) ($extraRow['body'] ?? '');
+              $checked = (int) ($extraRow['done'] ?? 0) === 1;
+              $doneAt = (string) ($extraRow['done_at'] ?? '');
+              $timeLabel = ($checked && $doneAt !== '') ? format_fa_time($doneAt) : '';
+              $creator = trim((string) ($extraRow['creator_name'] ?? ''));
+            ?>
+            <article class="rx-item<?= $checked ? ' is-done' : '' ?>" data-rx-item data-rx-key="<?= e($key) ?>" data-rx-date="<?= e($ymd) ?>">
+              <label class="rx-task">
+                <input type="checkbox" data-rx-done data-rx-was="<?= $checked ? '1' : '0' ?>"<?= $checked ? ' checked' : '' ?><?= $live ? '' : ' disabled' ?>>
+                <span class="rx-title"><?= e($label) ?></span>
+              </label>
+              <?php if ($creator !== ''): ?><small class="rx-note"><?= e('از طرف ' . $creator) ?></small><?php endif; ?>
+              <small class="rx-time" data-rx-time><?= e($timeLabel) ?></small>
+            </article>
+          <?php endforeach; ?>
+        </section>
+      <?php endif; ?>
     </section>
     <?php
     return (string) ob_get_clean();
@@ -866,6 +904,282 @@ function secretary_daily_tasks_fragment(PDO $pdo, array $secretary, string $ymd,
     <?php endforeach; ?>
     <?php
     return (string) ob_get_clean();
+}
+
+function secretary_assigned_tasks_can_give(?array $user = null): bool
+{
+    $user = secretary_daily_tasks_identity($user);
+    if (!$user) {
+        return false;
+    }
+    if ((!function_exists('doctor_is_shiva') || !function_exists('doctor_is_garsichi')) && is_file(__DIR__ . '/doctor_profile_fields.php')) {
+        require_once __DIR__ . '/doctor_profile_fields.php';
+    }
+
+    return (function_exists('doctor_is_shiva') && doctor_is_shiva($user))
+        || (function_exists('doctor_is_garsichi') && doctor_is_garsichi($user));
+}
+
+function ensure_secretary_assigned_tasks_schema(PDO $pdo): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $pdo->exec("
+      CREATE TABLE IF NOT EXISTS secretary_assigned_tasks (
+        id VARCHAR(32) NOT NULL PRIMARY KEY,
+        user_id VARCHAR(32) NOT NULL,
+        task_date DATE NOT NULL,
+        body VARCHAR(500) NOT NULL,
+        created_by VARCHAR(32) NOT NULL,
+        created_at DATETIME NOT NULL,
+        done TINYINT(1) NOT NULL DEFAULT 0,
+        done_at DATETIME NULL,
+        INDEX idx_sec_assigned_day (user_id, task_date)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
+    $ready = true;
+}
+
+/** @return list<array<string, mixed>> */
+function secretary_assigned_tasks_for(PDO $pdo, string $userId, string $ymd): array
+{
+    if ($userId === '' || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymd)) {
+        return [];
+    }
+    ensure_secretary_assigned_tasks_schema($pdo);
+    $stmt = $pdo->prepare('
+      SELECT t.id, t.body, t.created_by, t.created_at, t.done, t.done_at, u.name AS creator_name
+      FROM secretary_assigned_tasks t
+      LEFT JOIN users u ON u.id = t.created_by
+      WHERE t.user_id = ? AND t.task_date = ?
+      ORDER BY t.created_at ASC, t.id ASC
+    ');
+    $stmt->execute([$userId, $ymd]);
+    $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    return is_array($rows) ? $rows : [];
+}
+
+/** @return array{done:int,required:int} */
+function secretary_assigned_task_counts(PDO $pdo, string $userId, string $ymd): array
+{
+    $done = 0;
+    $rows = secretary_assigned_tasks_for($pdo, $userId, $ymd);
+    foreach ($rows as $row) {
+        if ((int) ($row['done'] ?? 0) === 1) {
+            $done++;
+        }
+    }
+
+    return ['done' => $done, 'required' => count($rows)];
+}
+
+function secretary_assigned_task_set(PDO $pdo, string $userId, string $ymd, string $taskId, bool $done, string $mark = ''): ?string
+{
+    ensure_secretary_assigned_tasks_schema($pdo);
+    if ($mark === 'skip') {
+        throw new RuntimeException('این کار فقط انجام‌شده یا انجام‌نشده است.');
+    }
+    if (!preg_match('/^[a-f0-9]{24}$/', $taskId)) {
+        throw new RuntimeException('این کار پیدا نشد.');
+    }
+    $stmt = $pdo->prepare('SELECT task_date, user_id FROM secretary_assigned_tasks WHERE id=? LIMIT 1');
+    $stmt->execute([$taskId]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row || (string) ($row['user_id'] ?? '') !== $userId || (string) ($row['task_date'] ?? '') !== $ymd) {
+        throw new RuntimeException('این کار پیدا نشد.');
+    }
+    $doneAt = ($mark === 'done' || $done) && $mark !== 'pending' ? date('Y-m-d H:i:s') : null;
+    if ($mark === 'pending') {
+        $doneAt = null;
+    }
+    $pdo->prepare('UPDATE secretary_assigned_tasks SET done=?, done_at=? WHERE id=? AND user_id=? AND task_date=?')
+        ->execute([$doneAt !== null ? 1 : 0, $doneAt, $taskId, $userId, $ymd]);
+
+    return $doneAt;
+}
+
+function secretary_assigned_task_safe_return(string $raw, string $fallback): string
+{
+    $raw = trim($raw);
+    if ($raw === '' || !str_starts_with($raw, '/') || str_contains($raw, '://') || str_contains($raw, '\\') || str_contains($raw, "\n")) {
+        return $fallback;
+    }
+    $path = (string) (parse_url($raw, PHP_URL_PATH) ?: '');
+    $allowed = ['/doctor/secretary-tasks', '/admin/secretary-tasks', '/secretary/secretary-tasks', '/app/checklist'];
+    foreach ($allowed as $prefix) {
+        if ($path === $prefix) {
+            return $raw;
+        }
+    }
+
+    return $fallback;
+}
+
+function secretary_task_lines_register_script(): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    $tag = '<script src="' . e(url('/assets/js/task-lines.js')) . '?v=20261011a"></script>';
+    $current = (string) ($GLOBALS['pageScripts'] ?? '');
+    if (!str_contains($current, 'task-lines.js')) {
+        $GLOBALS['pageScripts'] = $current . $tag;
+    }
+}
+
+function secretary_assigned_task_composer_html(
+    string $postUrl,
+    string $ymd,
+    array $secretaries,
+    string $selectedId,
+    string $returnPath
+): string {
+    $choices = [];
+    foreach ($secretaries as $sec) {
+        if (!is_array($sec)) {
+            continue;
+        }
+        $id = (string) ($sec['id'] ?? '');
+        if ($id === '') {
+            continue;
+        }
+        $label = trim((string) ($sec['name'] ?? ''));
+        if ($label === '') {
+            $label = trim((string) ($sec['username'] ?? ''));
+        }
+        if ($label === '') {
+            $label = 'منشی';
+        }
+        $choices[] = ['id' => $id, 'name' => $label];
+    }
+    if ($choices === []) {
+        return '';
+    }
+    secretary_task_lines_register_script();
+    $picked = $selectedId;
+    if ($picked !== 'all') {
+        $known = array_column($choices, 'id');
+        if (!in_array($picked, $known, true)) {
+            $picked = $choices[0]['id'];
+        }
+    }
+    ob_start();
+    ?>
+    <form class="form-stack panel" method="post" action="<?= e($postUrl) ?>" data-task-composer style="margin-top:1rem">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="create">
+      <input type="hidden" name="task_date" value="<?= e($ymd) ?>">
+      <input type="hidden" name="return" value="<?= e($returnPath) ?>">
+      <p style="margin:0;font-weight:700">تسک جدید برای منشی</p>
+      <?php if (count($choices) > 1): ?>
+        <div>
+          <label class="label" for="assigned-secretary">منشی</label>
+          <select class="input" id="assigned-secretary" name="secretary_id">
+            <option value="all"<?= $picked === 'all' ? ' selected' : '' ?>>همه منشی‌ها</option>
+            <?php foreach ($choices as $choice): ?>
+              <option value="<?= e($choice['id']) ?>"<?= $choice['id'] === $picked ? ' selected' : '' ?>><?= e($choice['name']) ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+      <?php else: ?>
+        <input type="hidden" name="secretary_id" value="<?= e($choices[0]['id']) ?>">
+      <?php endif; ?>
+      <div data-task-lines style="display:grid;gap:.5rem">
+        <input class="input" name="body[]" maxlength="500" data-task-line autocomplete="off" placeholder="متن کار؛ اینتر کار بعدی را باز می‌کند">
+      </div>
+      <button class="btn btn-primary" type="submit" style="justify-self:start">فرستادن کارها</button>
+    </form>
+    <?php
+    return (string) ob_get_clean();
+}
+
+function secretary_assigned_tasks_handle_create(PDO $pdo, array $user, string $fallbackReturn): void
+{
+    csrf_verify();
+    $ymd = trim((string) post('task_date'));
+    $safeDate = (preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymd) && $ymd <= date('Y-m-d')) ? $ymd : date('Y-m-d');
+    $back = secretary_assigned_task_safe_return((string) post('return'), $fallbackReturn);
+    if (!str_contains($back, 'date=')) {
+        $join = str_contains($back, '?') ? '&' : '?';
+        $back .= $join . 'date=' . rawurlencode($safeDate);
+    }
+    $fail = static function (string $message) use ($back): never {
+        flash_set('error', $message);
+        redirect($back);
+    };
+    if (!secretary_assigned_tasks_can_give($user)) {
+        $fail('تسک جدید برای منشی‌ها فقط از طرف دکتر عطیه گارسچی و دکتر شیوا گرانمایه‌پور ثبت می‌شود.');
+    }
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymd) || $ymd > date('Y-m-d')) {
+        $fail('تاریخ این فهرست معتبر نیست.');
+    }
+    $secretaries = secretary_daily_task_secretaries($pdo);
+    $allowed = [];
+    foreach ($secretaries as $sec) {
+        $allowed[(string) ($sec['id'] ?? '')] = true;
+    }
+    unset($allowed['']);
+    $target = trim((string) post('secretary_id'));
+    $ids = [];
+    if ($target === 'all') {
+        $ids = array_keys($allowed);
+    } elseif (isset($allowed[$target])) {
+        $ids = [$target];
+    }
+    if ($ids === []) {
+        $fail('منشی را انتخاب کنید.');
+    }
+    $bodies = $_POST['body'] ?? [];
+    if (!is_array($bodies)) {
+        $bodies = [(string) $bodies];
+    }
+    $texts = [];
+    foreach ($bodies as $raw) {
+        $text = trim(preg_replace('/\s+/u', ' ', strip_tags((string) $raw)) ?? '');
+        if ($text === '') {
+            continue;
+        }
+        if (mb_strlen($text) > 500) {
+            $fail('متن هر کار باید حداکثر ۵۰۰ نویسه باشد.');
+        }
+        $texts[] = $text;
+    }
+    if ($texts === []) {
+        $fail('متن کار را بنویسید.');
+    }
+    if (count($texts) > 20) {
+        $fail('در هر نوبت حداکثر ۲۰ کار می‌شود.');
+    }
+    $createdBy = (string) ($user['id'] ?? '');
+    if ($createdBy === '' || !preg_match('/^[a-zA-Z0-9_-]+$/', $createdBy)) {
+        $fail('فرستنده مشخص نیست.');
+    }
+    ensure_secretary_assigned_tasks_schema($pdo);
+    $insert = $pdo->prepare('INSERT INTO secretary_assigned_tasks (id, user_id, task_date, body, created_by, created_at, done, done_at) VALUES (?,?,?,?,?,?,0,NULL)');
+    $count = 0;
+    try {
+        $pdo->beginTransaction();
+        foreach ($ids as $secretaryId) {
+            foreach ($texts as $text) {
+                $insert->execute([cuid(), $secretaryId, $ymd, $text, $createdBy, date('Y-m-d H:i:s')]);
+                $count++;
+            }
+        }
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        error_log('secretary assigned tasks: ' . $e->getMessage());
+        $fail('ثبت کار انجام نشد.');
+    }
+    flash_set('success', $count === 1 ? 'کار برای منشی ثبت شد.' : to_fa_digits((string) $count) . ' کار برای منشی‌ها ثبت شد.');
+    redirect($back);
 }
 
 /** شناسه پایدار تب عماد؛ با شناسه کاربران منشی تداخل ندارد. */
@@ -1082,8 +1396,28 @@ function staff_app_emad_tasks_handle_post(PDO $pdo, array $user): void
             if (!staff_app_emad_tasks_can_assign($user)) {
                 $fail('فقط دکتر شیوا و دکتر عطیه می‌توانند کار بفرستند.', 403);
             }
-            staff_app_emad_task_create($pdo, $ymd, (string) post('body'), $userId);
-            flash_set('success', 'کار فرستاده شد.');
+            $bodies = $_POST['body'] ?? [];
+            if (!is_array($bodies)) {
+                $bodies = [(string) $bodies];
+            }
+            $texts = [];
+            foreach ($bodies as $raw) {
+                $raw = trim((string) $raw);
+                if ($raw === '') {
+                    continue;
+                }
+                $texts[] = $raw;
+            }
+            if ($texts === []) {
+                $fail('متن کار را بنویسید.');
+            }
+            if (count($texts) > 20) {
+                $fail('در هر نوبت حداکثر ۲۰ کار می‌شود.');
+            }
+            foreach ($texts as $text) {
+                staff_app_emad_task_create($pdo, $ymd, $text, $userId);
+            }
+            flash_set('success', count($texts) === 1 ? 'کار فرستاده شد.' : to_fa_digits((string) count($texts)) . ' کار فرستاده شد.');
             redirect($back);
         }
         if (!staff_app_emad_tasks_is_owner($user)) {
@@ -1154,12 +1488,15 @@ function staff_app_emad_tasks_panel_html(
       .rx-error[hidden]{display:none}
     </style>
     <?php if ($canCreate): ?>
-      <form class="sapp-emad-send" method="post" action="<?= e($postUrl) ?>">
+      <?php secretary_task_lines_register_script(); ?>
+      <form class="sapp-emad-send" method="post" action="<?= e($postUrl) ?>" data-task-composer>
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="create">
         <input type="hidden" name="task_date" value="<?= e($ymd) ?>">
         <label class="label" for="emad-task-body">کار</label>
-        <input class="input" id="emad-task-body" name="body" type="text" maxlength="500" required autocomplete="off" placeholder="متن کار">
+        <div data-task-lines style="display:grid;gap:.5rem">
+          <input class="input" id="emad-task-body" name="body[]" type="text" maxlength="500" data-task-line autocomplete="off" placeholder="متن کار؛ اینتر کار بعدی را باز می‌کند">
+        </div>
         <button class="btn btn-primary btn-sm" type="submit">فرستادن</button>
       </form>
     <?php endif; ?>

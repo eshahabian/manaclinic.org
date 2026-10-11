@@ -18,21 +18,40 @@ if ($patientId === '') {
 $access = require_doctor_patient_access($pdo, $ctx, $patientId);
 $patient = $access['patient'];
 $appointments = $access['appointments'];
+$oversight = !empty($access['oversight']);
+$chartReadonly = $oversight;
 $doctorId = $ctx['profile']['id'];
-$doctorName = doctor_ctx_user_name($ctx);
+$doctorName = $oversight && trim((string) ($access['owner_name'] ?? '')) !== ''
+    ? (string) $access['owner_name']
+    : doctor_ctx_user_name($ctx);
 $isPreferred = (string) ($patient['preferred_doctor_id'] ?? '') === (string) $doctorId;
 
-$chart = get_or_create_patient_chart($pdo, $doctorId, $patientId);
-$historyExtraIds = extract_assistant_session_ids_from_history((string) ($chart['history_text'] ?? ''));
-$historyClean = doctor_chart_detach_assistant_history($pdo, $chart, $patientId);
+if ($oversight) {
+    $preferredId = (string) ($patient['preferred_doctor_id'] ?? '');
+    $chart = doctor_find_patient_chart($pdo, $preferredId, $patientId) ?: doctor_find_any_patient_chart($pdo, $patientId);
+    if (!$chart) {
+        $chart = ['id' => '', 'doctor_id' => '', 'patient_id' => $patientId, 'history_text' => ''];
+    }
+    $historyExtraIds = extract_assistant_session_ids_from_history((string) ($chart['history_text'] ?? ''));
+    $historyClean = strip_assistant_blocks_from_history((string) ($chart['history_text'] ?? ''));
+} else {
+    $chart = get_or_create_patient_chart($pdo, $doctorId, $patientId);
+    $historyExtraIds = extract_assistant_session_ids_from_history((string) ($chart['history_text'] ?? ''));
+    $historyClean = doctor_chart_detach_assistant_history($pdo, $chart, $patientId);
+}
 $historyHtml = history_html_for_editor($historyClean);
 [$defaultFirst, $defaultLast] = chart_split_patient_name((string) ($patient['name'] ?? ''));
 $chartFirst = trim((string) ($chart['first_name'] ?? '')) !== '' ? (string) $chart['first_name'] : $defaultFirst;
 $chartLast = trim((string) ($chart['last_name'] ?? '')) !== '' ? (string) $chart['last_name'] : $defaultLast;
 $chartTherapist = trim((string) ($chart['therapist_name'] ?? '')) !== '' ? (string) $chart['therapist_name'] : $doctorName;
 
-$notesStmt = $pdo->prepare('SELECT * FROM doctor_session_notes WHERE doctor_id=? AND patient_id=?');
-$notesStmt->execute([$doctorId, $patientId]);
+if ($oversight) {
+    $notesStmt = $pdo->prepare('SELECT * FROM doctor_session_notes WHERE patient_id=?');
+    $notesStmt->execute([$patientId]);
+} else {
+    $notesStmt = $pdo->prepare('SELECT * FROM doctor_session_notes WHERE doctor_id=? AND patient_id=?');
+    $notesStmt->execute([$doctorId, $patientId]);
+}
 $notesByApp = [];
 foreach ($notesStmt->fetchAll() as $n) {
     $notesByApp[$n['appointment_id']] = $n;
@@ -47,7 +66,10 @@ foreach ($intakes as $session) {
 }
 $intakeYmdPack = group_appointments_by_jalali_ymd($intakeMapped, 'intk', 'latest', ['fill' => 'none']);
 
-$enrollments = doctor_patient_enrollments_for_doctor($pdo, $doctorId, $patientId);
+$chartDoctorId = $oversight && (string) ($patient['preferred_doctor_id'] ?? '') !== ''
+    ? (string) $patient['preferred_doctor_id']
+    : (string) $doctorId;
+$enrollments = doctor_patient_enrollments_for_doctor($pdo, $chartDoctorId, $patientId);
 $activeEnrollments = [];
 $archivedEnrollments = [];
 foreach ($enrollments as $en) {
@@ -57,8 +79,8 @@ foreach ($enrollments as $en) {
         $activeEnrollments[] = $en;
     }
 }
-$privateQa = doctor_patient_private_qa_for_doctor($pdo, $doctorId, $patientId);
-$pathNotes = doctor_patient_path_notes_for_doctor($pdo, $doctorId, $patientId);
+$privateQa = doctor_patient_private_qa_for_doctor($pdo, $chartDoctorId, $patientId);
+$pathNotes = doctor_patient_path_notes_for_doctor($pdo, $chartDoctorId, $patientId);
 $callStats = doctor_patient_call_stats($pdo, doctor_ctx_user_id($ctx), $patientId);
 $journalEntries = patient_journal_fetch_all($pdo, $patientId, 60);
 $journalMoods = patient_journal_moods();
@@ -99,7 +121,7 @@ ob_start();
       <div class="ehr-identity-text">
         <div class="ehr-title-row">
           <h1><?= e($patient['name']) ?></h1>
-          <span class="ehr-lock" title="فقط درمانگر مسئول این پرونده">محرمانه — فقط درمانگر مسئول</span>
+          <span class="ehr-lock" title="<?= $chartReadonly ? 'مشاهده پرونده درمانگر دیگر' : 'فقط درمانگر مسئول این پرونده' ?>"><?= $chartReadonly ? 'فقط مشاهده' : 'محرمانه — فقط درمانگر مسئول' ?></span>
         </div>
         <p class="ehr-meta" dir="ltr">
           <span>@<?= e((string) $patient['username']) ?></span>
@@ -254,7 +276,11 @@ ob_start();
           <p class="muted" style="margin:.3rem 0 0;font-size:.85rem">این بخش معمولاً یک‌بار پر می‌شود: مشخصات، شکایت اصلی، محل سکونت و تاریخچه خانوادگی.</p>
         </div>
       </header>
-      <form method="post" action="<?= e(url('/doctor/patients/' . $patientId . '/history')) ?>" id="history-form" class="form-stack" style="gap:1rem">
+      <?php if ($chartReadonly): ?>
+        <p class="muted" style="margin:0 0 .8rem">این پرونده برای دیدن است و ذخیره روی پرونده درمانگر مسئول نوشته نمی‌شود.</p>
+        <style>#history-form [contenteditable]{pointer-events:none}#history-form input,#history-form select,#history-form textarea{pointer-events:none}</style>
+      <?php endif; ?>
+      <form method="post" action="<?= e(url('/doctor/patients/' . $patientId . '/history')) ?>" id="history-form" class="form-stack" style="gap:1rem"<?= $chartReadonly ? ' onsubmit="return false"' : '' ?>>
         <div class="ehr-basics-grid">
           <div>
             <label class="label" for="chart_first_name">نام</label>
@@ -332,7 +358,9 @@ ob_start();
         <?= chart_soap_rich_editor_html($chart, ['id_prefix' => 'chart-soap']) ?>
         <textarea name="history_text" id="history_text" hidden><?= e($historyClean) ?></textarea>
         <div style="margin-top:.85rem;display:flex;gap:.5rem;flex-wrap:wrap;align-items:center">
-          <button class="btn btn-primary" type="submit">ذخیره اطلاعات پایه و شرح حال</button>
+          <?php if (!$chartReadonly): ?>
+            <button class="btn btn-primary" type="submit">ذخیره اطلاعات پایه و شرح حال</button>
+          <?php endif; ?>
           <?php if (!empty($chart['updated_at'])): ?>
             <span class="muted" style="font-size:.8rem">آخرین ویرایش: <?= e(format_fa_datetime($chart['updated_at'])) ?></span>
           <?php endif; ?>
@@ -352,6 +380,7 @@ ob_start();
       <?php
         $sessionList = $appointments;
         usort($sessionList, static fn (array $a, array $b): int => strcmp((string) ($b['starts_at'] ?? ''), (string) ($a['starts_at'] ?? '')));
+        $sessionListReadonly = $chartReadonly;
         $sessionListNextTab = 'chart';
         $sessionListEmpty = 'هنوز نوبتی برای این مراجع ثبت نشده. وقتی نوبت رزرو شود، اینجا با تاریخ و ساعت ظاهر می‌شود.';
         require __DIR__ . '/../../includes/doctor_chart_session_list.php';
@@ -370,6 +399,7 @@ ob_start();
       <?php
         $sessionList = $appointments;
         usort($sessionList, static fn (array $a, array $b): int => strcmp((string) ($b['starts_at'] ?? ''), (string) ($a['starts_at'] ?? '')));
+        $sessionListReadonly = $chartReadonly;
         $sessionListNextTab = 'sessions';
         $sessionListEmpty = 'هنوز جلسه‌ای ثبت نشده.';
         require __DIR__ . '/../../includes/doctor_chart_session_list.php';

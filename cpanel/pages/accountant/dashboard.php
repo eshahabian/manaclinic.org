@@ -118,7 +118,7 @@ ob_start();
 
 <div class="panel" style="margin-top:1rem;overflow:auto">
   <h2 style="margin:0 0 .75rem;font-size:1rem">جلسات به تفکیک درمانگر</h2>
-  <p class="muted" style="margin:0 0 .75rem">همه درمانگرهای فعال این ماه این‌جا هستند. اگر پرداختی ثبت نشده باشد، جمع صفر می‌ماند و ستون «بدون پرداخت» تعداد همان جلسه‌ها را نشان می‌دهد.</p>
+  <p class="muted" style="margin:0 0 .75rem">هر درمانگری که حسابش تأیید و فعال شود همین‌جا می‌آید، حتی اگر هنوز جلسه‌ای نداشته باشد. جمع صفر یعنی پرداختی برای این ماه ثبت نشده است.</p>
   <?php if (!$byDoctor): ?>
     <p class="muted" style="margin:0">درمانگر فعالی ثبت نشده است.</p>
   <?php else: ?>
