@@ -513,6 +513,9 @@ if ($section === 'appointments') {
         $GLOBALS['pageHead'] = '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">';
         $GLOBALS['pageScripts'] = (string) ($secretaryBookScripts ?? '');
     }
+    if ($role === 'SECRETARY' && !function_exists('appointment_time_edit_form_html')) {
+        require_once __DIR__ . '/../includes/appointment_session.php';
+    }
     $rows = [];
     $error = '';
     try {
@@ -568,6 +571,9 @@ if ($section === 'appointments') {
               <strong><?= e(format_fa_time((string) $row['starts_at'])) ?> تا <?= e(format_fa_time((string) $row['ends_at'])) ?></strong>
               <div><?= e($whoLine) ?></div>
               <small><?= e($detail) ?></small>
+              <?php if ($role === 'SECRETARY' && !$roomOnly && trim((string) ($row['id'] ?? '')) !== '' && function_exists('appointment_time_edit_form_html')): ?>
+                <?= appointment_time_edit_form_html($row, '/app/appointments') ?>
+              <?php endif; ?>
             </article>
           <?php endforeach; ?>
         </div>

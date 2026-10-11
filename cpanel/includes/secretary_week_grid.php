@@ -79,12 +79,12 @@ function secretary_week_schedule(PDO $pdo, string $doctorId, int $days = 7): arr
             $hour = (int) $hour;
             $seenHours[$hour] = true;
             $startsAt = appointment_slot_starts_at($date, $hour);
-            $key = substr(str_replace('T', ' ', $startsAt), 0, 16);
-            $booking = $booked[$key] ?? null;
+            $endsAt = date('Y-m-d H:i:s', (strtotime($startsAt) ?: 0) + (appointment_slot_minutes() * 60));
+            $booking = appointment_booking_covering_window($booked, $startsAt, $endsAt);
             $slots[] = [
                 'hour' => $hour,
                 'time' => appointment_hour_to_time($hour),
-                'label' => appointment_hour_chip_label($hour),
+                'label' => secretary_week_slot_label($hour, $booking),
                 'starts_at' => $startsAt,
                 'booking' => $booking,
             ];
@@ -102,7 +102,7 @@ function secretary_week_schedule(PDO $pdo, string $doctorId, int $days = 7): arr
             $slots[] = [
                 'hour' => $hour,
                 'time' => appointment_hour_to_time($hour),
-                'label' => appointment_hour_chip_label($hour),
+                'label' => secretary_week_slot_label($hour, $bookingRow),
                 'starts_at' => $startsAt,
                 'booking' => $bookingRow,
             ];
@@ -117,6 +117,21 @@ function secretary_week_schedule(PDO $pdo, string $doctorId, int $days = 7): arr
     }
 
     return $out;
+}
+
+function secretary_week_slot_label(int $hour, ?array $booking): string
+{
+    if (!is_array($booking)) {
+        return appointment_hour_chip_label($hour);
+    }
+    $clock = appointment_clock_from_row($booking);
+    $who = trim((string) ($booking['patient_name'] ?? ''));
+    $label = $clock !== '' ? to_fa_digits($clock) : appointment_hour_chip_label($hour);
+    if ($who !== '') {
+        $label .= ' · ' . $who;
+    }
+
+    return $label;
 }
 
 function secretary_week_grid_html(array $week, string $doctorId, string $bookBaseUrl, ?string $deskNext = null): string
@@ -178,6 +193,7 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                           data-pay="<?= e($pay) ?>"
                           data-mode="<?= e($mode) ?>"
                           data-amount="<?= e($amount) ?>"
+                          data-when="<?= e(to_fa_digits(appointment_clock_from_row($booking))) ?>"
                           data-appt="<?= e((string) ($booking['id'] ?? '')) ?>"
                           title="<?= e($title) ?>"
                         ><?= e((string) ($slot['label'] ?? $time)) ?></button>
@@ -251,6 +267,7 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
         if (!btn || !root.contains(btn)) return;
         e.preventDefault();
         var lines = [];
+        if (btn.getAttribute("data-when")) lines.push("ساعت: " + btn.getAttribute("data-when"));
         if (btn.getAttribute("data-status")) lines.push("وضعیت نوبت: " + btn.getAttribute("data-status"));
         if (btn.getAttribute("data-pay")) lines.push("پرداخت: " + btn.getAttribute("data-pay"));
         if (btn.getAttribute("data-mode")) lines.push("نوع جلسه: " + btn.getAttribute("data-mode"));

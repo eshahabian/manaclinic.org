@@ -68,40 +68,51 @@ if ($hours === []) {
 $nextDate = date('Y-m-d', strtotime($date . ' +1 day') ?: time());
 
 $takenStmt = $pdo->prepare("
-  SELECT starts_at, ends_at
-  FROM appointments
-  WHERE doctor_id=? AND DATE(starts_at) IN (?, ?) AND status IN ('PENDING_APPROVAL','PENDING_PAYMENT','CONFIRMED','COMPLETED')
+  SELECT a.starts_at, a.ends_at, u.name AS patient_name
+  FROM appointments a
+  JOIN users u ON u.id = a.patient_id
+  WHERE a.doctor_id=? AND a.starts_at < ? AND a.ends_at > ?
+    AND a.status IN ('PENDING_APPROVAL','PENDING_PAYMENT','CONFIRMED','COMPLETED')
 ");
-$takenStmt->execute([$doctorId, $date, $nextDate]);
+$rangeStart = $date . ' 00:00:00';
+$rangeEnd = $nextDate . ' 23:59:59';
+$takenStmt->execute([$doctorId, $rangeEnd, $rangeStart]);
 $taken = $takenStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
 $staff = current_user();
-$staffCanSeePast = $staff && in_array((string) ($staff['role'] ?? ''), ['SECRETARY', 'ADMIN', 'DOCTOR'], true)
-    && (string) ($_GET['include_past'] ?? '') === '1';
+$isStaff = $staff && in_array((string) ($staff['role'] ?? ''), ['SECRETARY', 'ADMIN', 'DOCTOR'], true);
+$staffCanSeePast = $isStaff && (string) ($_GET['include_past'] ?? '') === '1';
 
 $now = time();
 $free = [];
+$booked = [];
 foreach ($hours as $hour) {
-    $freeMinutes = [];
     $anchor = appointment_slot_starts_at($date, $hour);
+    $hourEnd = date('Y-m-d H:i:s', (strtotime($anchor) ?: 0) + (appointment_slot_minutes() * 60));
+    $cover = appointment_booking_covering_window($taken, $anchor, $hourEnd);
+    $freeMinutes = [];
     for ($minute = 0; $minute < 60; $minute += 5) {
         $startsAt = appointment_slot_starts_at($date, sprintf('%02d:%02d', $hour, $minute));
-        $endsAt = date('Y-m-d H:i:s', strtotime($startsAt) + (appointment_slot_minutes() * 60));
-        $blocked = false;
-        foreach ($taken as $row) {
-            $busyStart = (string) ($row['starts_at'] ?? '');
-            $busyEnd = (string) ($row['ends_at'] ?? '');
-            if ($busyStart !== '' && $busyEnd !== '' && $busyStart < $endsAt && $busyEnd > $startsAt) {
-                $blocked = true;
-                break;
-            }
-        }
+        $endsAt = date('Y-m-d H:i:s', (strtotime($startsAt) ?: 0) + (appointment_slot_minutes() * 60));
+        $blocked = appointment_booking_covering_window($taken, $startsAt, $endsAt) !== null;
         $ts = strtotime($startsAt);
         if (!$blocked && $ts && ($staffCanSeePast || $ts > $now)) {
             $freeMinutes[] = sprintf('%02d', $minute);
         }
     }
+    if (!$isStaff) {
+        $freeMinutes = in_array('00', $freeMinutes, true) ? ['00'] : [];
+    }
     if ($freeMinutes === []) {
+        if ($isStaff && is_array($cover)) {
+            $clock = appointment_clock_from_row($cover);
+            $booked[] = [
+                'value' => appointment_hour_to_time($hour),
+                'clock' => $clock,
+                'patient' => trim((string) ($cover['patient_name'] ?? '')),
+                'label' => $clock !== '' ? appointment_clock_label($clock) : appointment_hour_chip_label($hour),
+            ];
+        }
         continue;
     }
     $free[] = [
@@ -112,13 +123,17 @@ foreach ($hours as $hour) {
     ];
 }
 
-if ($free === []) {
+if ($free === [] && $booked === []) {
     echo json_encode([
         'slots' => [],
+        'booked' => [],
         'reason' => 'all_taken',
         'message' => 'ساعت خالی در این تاریخ باقی نمانده است',
     ], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
-echo json_encode(['slots' => $free], JSON_UNESCAPED_UNICODE);
+echo json_encode([
+    'slots' => $free,
+    'booked' => $isStaff ? $booked : [],
+], JSON_UNESCAPED_UNICODE);

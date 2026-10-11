@@ -417,14 +417,22 @@ $secretaryBookScripts = '
     selectedTime = timeEl.value;
     paintChosenTime();
   }
-  function renderSlotButtons(slots, keepTime, emptyMsg){
+  function renderSlotButtons(slots, keepTime, emptyMsg, booked){
+    booked = booked || [];
     var prev = keepTime ? (timeEl.value || selectedTime) : "";
     var prevHour = hourKey(prev);
     if (!keepTime) timeEl.value = "";
     slotsEl.innerHTML = "";
-    if (!slots.length) {
+    if (!slots.length && !booked.length) {
       slotsEl.innerHTML = "<span class=\\"muted\\">" + escHtml(emptyMsg || "در این تاریخ درمانگر وقت خالی ندارد") + "</span>";
       return;
+    }
+    if (!slots.length) {
+      var note = document.createElement("span");
+      note.className = "muted";
+      note.style.flexBasis = "100%";
+      note.textContent = emptyMsg || "ساعت خالی در این تاریخ باقی نمانده است";
+      slotsEl.appendChild(note);
     }
     slots.forEach(function(s){
       var value = typeof s === "string" ? s : (s.value || "");
@@ -461,6 +469,17 @@ $secretaryBookScripts = '
       };
       slotsEl.appendChild(b);
     });
+    booked.forEach(function(item){
+      var clock = toFa(item.clock || item.label || "");
+      var who = item.patient ? String(item.patient) : "";
+      var b = document.createElement("button");
+      b.type = "button";
+      b.disabled = true;
+      b.className = "slot-btn is-taken";
+      b.textContent = who ? (clock + " · " + who) : (clock || "پر");
+      b.title = who ? ("رزرو شده برای " + who) : "این ساعت پر است";
+      slotsEl.appendChild(b);
+    });
   }
 
   function loadSlots(opts){
@@ -479,7 +498,7 @@ $secretaryBookScripts = '
     fetch(slotsUrl + "?doctorId=" + encodeURIComponent(doctorEl.value) + "&date=" + encodeURIComponent(dateEl.value) + "&include_past=1")
       .then(function(r){ return r.json(); })
       .then(function(data){
-        renderSlotButtons(data.slots || [], !!opts.keepTime, data.message || "");
+        renderSlotButtons(data.slots || [], !!opts.keepTime, data.message || "", data.booked || []);
       })
       .catch(function(){
         if (!opts.silent) slotsEl.innerHTML = "<span class=\\"muted\\">خطا در دریافت ساعت‌ها</span>";

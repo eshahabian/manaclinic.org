@@ -3030,6 +3030,14 @@ a.doctor-dash-stat:hover {
   line-height: 1.25; text-align: center; min-height: 3.1rem;
 }
 .slot-btn.active { background: var(--primary); color: #fff; border-color: var(--primary); }
+.slot-btn.is-taken,
+.slot-btn.is-taken:disabled {
+  background: #e11d48;
+  color: #fff;
+  border-color: #be123c;
+  cursor: default;
+  opacity: 1;
+}
 
 .hour-picker {
   display: grid;

@@ -1253,6 +1253,50 @@ function group_appointments_by_jalali_ymd(array $appointments, string $prefix = 
     ];
 }
 
+/** اگر امروز نوبتی نیست، تقویم را روی نزدیک‌ترین روزِ دارای نوبت باز کن. */
+function appointment_ymd_open_on_next_booking(array $pack): array
+{
+    $today = date('Y-m-d');
+    $todayHas = false;
+    $best = null;
+    foreach ($pack['years'] ?? [] as $yearId => $year) {
+        if (!is_array($year)) {
+            continue;
+        }
+        foreach ($year['months'] ?? [] as $monthId => $month) {
+            if (!is_array($month)) {
+                continue;
+            }
+            foreach ($month['days'] ?? [] as $day) {
+                if (!is_array($day) || empty($day['items'])) {
+                    continue;
+                }
+                $date = (string) ($day['date'] ?? '');
+                if ($date === $today) {
+                    $todayHas = true;
+                }
+                if ($date >= $today && ($best === null || $date < $best['date'])) {
+                    $best = [
+                        'date' => $date,
+                        'year' => (string) $yearId,
+                        'month' => (string) $monthId,
+                        'day' => (string) ($day['id'] ?? ''),
+                    ];
+                }
+            }
+        }
+    }
+    if ($todayHas || $best === null || $best['day'] === '') {
+        return $pack;
+    }
+    $pack['default_year_id'] = $best['year'];
+    $pack['default_half_id'] = $best['year'];
+    $pack['default_month_id'] = $best['month'];
+    $pack['default_day_id'] = $best['day'];
+
+    return $pack;
+}
+
 /** روز و ساعت شمسی یک تاریخ میلادی — برای کارت جلسه */
 function jalali_day_parts(string $datetime): ?array
 {

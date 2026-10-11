@@ -429,6 +429,182 @@ function appointment_save_room(PDO $pdo, array $actor, array $appointment, int $
     ]);
 }
 
+/**
+ * جابه‌جایی ساعت و دقیقه یک نوبت. اگر اتاق به همین نوبت وصل باشد، بازه اتاق هم جابه‌جا می‌شود.
+ *
+ * @return array{patient_name:string,starts_at:string,ends_at:string,unchanged:bool}
+ */
+function appointment_reschedule(PDO $pdo, array $actor, string $appointmentId, int $hour, int $minute): array
+{
+    if (!function_exists('appointment_booking_hours')) {
+        require_once __DIR__ . '/availability.php';
+    }
+    if (!in_array($hour, appointment_booking_hours(), true) || $minute < 0 || $minute > 55 || $minute % 5 !== 0) {
+        throw new RuntimeException('ساعت یا دقیقه نامعتبر است.');
+    }
+    $stmt = $pdo->prepare("
+      SELECT a.*, u.name AS patient_name, dp.user_id AS doctor_user_id
+      FROM appointments a
+      JOIN users u ON u.id = a.patient_id
+      JOIN doctor_profiles dp ON dp.id = a.doctor_id
+      WHERE a.id = ?
+      LIMIT 1
+    ");
+    $stmt->execute([$appointmentId]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        throw new RuntimeException('نوبت یافت نشد.');
+    }
+    $status = (string) ($row['status'] ?? '');
+    if (in_array($status, ['CANCELLED', 'COMPLETED'], true)) {
+        throw new RuntimeException('این نوبت را نمی‌توان جابه‌جا کرد.');
+    }
+    $oldTs = strtotime(str_replace('T', ' ', (string) ($row['starts_at'] ?? ''))) ?: 0;
+    if ($oldTs <= 0) {
+        throw new RuntimeException('زمان فعلی نوبت نامعتبر است.');
+    }
+    $date = date('Y-m-d', $oldTs);
+    $startsAt = $date . ' ' . sprintf('%02d:%02d:00', $hour, $minute);
+    $endsAt = date('Y-m-d H:i:s', (strtotime($startsAt) ?: 0) + (appointment_slot_minutes() * 60));
+    $patientName = (string) ($row['patient_name'] ?? 'مراجعه‌کننده');
+    if ($startsAt === date('Y-m-d H:i:s', $oldTs)) {
+        return [
+            'patient_name' => $patientName,
+            'starts_at' => $startsAt,
+            'ends_at' => $endsAt,
+            'unchanged' => true,
+        ];
+    }
+    if (strtotime($startsAt) <= time()) {
+        throw new RuntimeException('زمان جدید گذشته است.');
+    }
+    $doctorId = (string) ($row['doctor_id'] ?? '');
+    if (appointment_has_overlap($pdo, $doctorId, $startsAt, $endsAt, $appointmentId)) {
+        throw new RuntimeException('این ساعت برای این درمانگر پر است.');
+    }
+
+    appointment_ensure_room_schema($pdo);
+    if (!function_exists('clinic_rooms_find_clash')) {
+        require_once __DIR__ . '/clinic_rooms.php';
+    }
+    $roomStmt = $pdo->prepare('SELECT id, room_no FROM clinic_room_bookings WHERE appointment_id=?');
+    $roomStmt->execute([$appointmentId]);
+    $rooms = $roomStmt->fetchAll() ?: [];
+    foreach ($rooms as $roomRow) {
+        $roomNo = (int) ($roomRow['room_no'] ?? 0);
+        $roomId = (string) ($roomRow['id'] ?? '');
+        if ($roomNo < 1 || $roomId === '') {
+            continue;
+        }
+        $clash = clinic_rooms_find_clash($pdo, $roomNo, $startsAt, $endsAt, $roomId);
+        if ($clash) {
+            $label = function_exists('clinic_room_label') ? clinic_room_label($roomNo) : ('اتاق ' . $roomNo);
+            throw new RuntimeException($label . ' در زمان جدید پر است.');
+        }
+    }
+
+    $pdo->beginTransaction();
+    try {
+        $pdo->prepare('UPDATE appointments SET starts_at=?, ends_at=? WHERE id=?')->execute([$startsAt, $endsAt, $appointmentId]);
+        if ($rooms !== []) {
+            $pdo->prepare('UPDATE clinic_room_bookings SET starts_at=?, ends_at=? WHERE appointment_id=?')
+                ->execute([$startsAt, $endsAt, $appointmentId]);
+        }
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw $e;
+    }
+
+    $when = format_fa_datetime($startsAt);
+    $actorId = (string) ($actor['id'] ?? '');
+    if (!function_exists('notify_user')) {
+        require_once __DIR__ . '/notifications.php';
+    }
+    $patientId = (string) ($row['patient_id'] ?? '');
+    if ($patientId !== '') {
+        notify_user(
+            $pdo,
+            $patientId,
+            'ساعت نوبت تغییر کرد',
+            "ساعت نوبت شما به {$when} تغییر کرد.",
+            '/dashboard/appointments',
+            'appointment',
+            $actorId !== '' ? $actorId : null
+        );
+    }
+    if (!function_exists('notify_doctor_profile')) {
+        require_once __DIR__ . '/notifications.php';
+    }
+    if (function_exists('notify_doctor_profile') && $doctorId !== '') {
+        notify_doctor_profile(
+            $pdo,
+            $doctorId,
+            'ساعت نوبت تغییر کرد',
+            "ساعت نوبت «{$patientName}» به {$when} تغییر کرد.",
+            '/doctor/appointments',
+            'appointment'
+        );
+    }
+
+    return [
+        'patient_name' => $patientName,
+        'starts_at' => $startsAt,
+        'ends_at' => $endsAt,
+        'unchanged' => false,
+    ];
+}
+
+function appointment_time_edit_form_html(array $row, string $next): string
+{
+    $status = (string) ($row['status'] ?? '');
+    $appointmentId = trim((string) ($row['id'] ?? ''));
+    if ($appointmentId === '' || in_array($status, ['CANCELLED', 'COMPLETED'], true)) {
+        return '';
+    }
+    $ts = strtotime(str_replace('T', ' ', (string) ($row['starts_at'] ?? ''))) ?: 0;
+    if ($ts <= 0) {
+        return '';
+    }
+    $hourNow = (int) date('G', $ts);
+    $minuteNow = (int) date('i', $ts);
+    $minuteNow -= $minuteNow % 5;
+    if (!function_exists('appointment_booking_hours')) {
+        require_once __DIR__ . '/availability.php';
+    }
+    $hours = appointment_booking_hours();
+    ob_start();
+    ?>
+    <form method="post" action="<?= e(url('/secretary/appointments')) ?>" style="display:flex;flex-wrap:wrap;gap:.4rem;align-items:end;margin:0 0 .6rem">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="set_time">
+      <input type="hidden" name="appointment_id" value="<?= e($appointmentId) ?>">
+      <input type="hidden" name="next" value="<?= e($next) ?>">
+      <label style="margin:0">
+        <span class="label" style="font-size:.75rem">تغییر ساعت</span>
+        <select class="input" name="hour" style="width:auto;min-width:6.5rem;padding:.35rem .5rem">
+          <?php foreach ($hours as $hour): ?>
+            <?php $hour = (int) $hour; ?>
+            <option value="<?= $hour ?>"<?= $hour === $hourNow ? ' selected' : '' ?>><?= e(sprintf('%02d', $hour)) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </label>
+      <label style="margin:0">
+        <span class="label" style="font-size:.75rem">دقیقه</span>
+        <select class="input" name="minute" style="width:auto;min-width:4.5rem;padding:.35rem .5rem">
+          <?php for ($minute = 0; $minute < 60; $minute += 5): ?>
+            <option value="<?= $minute ?>"<?= $minute === $minuteNow ? ' selected' : '' ?>><?= e(sprintf('%02d', $minute)) ?></option>
+          <?php endfor; ?>
+        </select>
+      </label>
+      <button type="submit" class="btn btn-outline btn-sm">ذخیره ساعت</button>
+    </form>
+    <?php
+    return (string) ob_get_clean();
+}
+
 function appointment_session_mode_pick_html(string $name = 'session_mode', string $selected = 'IN_PERSON', string $idPrefix = 'sm'): string
 {
     $selected = appointment_normalize_session_mode($selected);

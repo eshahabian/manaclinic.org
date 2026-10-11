@@ -173,18 +173,97 @@ function appointment_minute_select_html(string $id, string $selected = '00'): st
     return $html;
 }
 
-function appointment_has_overlap(PDO $pdo, string $doctorId, string $startsAt, string $endsAt): bool
+function appointment_has_overlap(PDO $pdo, string $doctorId, string $startsAt, string $endsAt, string $exceptId = ''): bool
 {
-    $stmt = $pdo->prepare("
+    $sql = "
       SELECT id FROM appointments
       WHERE doctor_id=?
         AND status IN ('PENDING_APPROVAL','PENDING_PAYMENT','CONFIRMED','COMPLETED')
         AND starts_at < ? AND ends_at > ?
-      LIMIT 1
-    ");
-    $stmt->execute([$doctorId, $endsAt, $startsAt]);
+    ";
+    $params = [$doctorId, $endsAt, $startsAt];
+    if ($exceptId !== '') {
+        $sql .= ' AND id <> ?';
+        $params[] = $exceptId;
+    }
+    $sql .= ' LIMIT 1';
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
 
     return (bool) $stmt->fetchColumn();
+}
+
+/**
+ * نوبتی که شروعش در همین ساعتِ ساعت‌شمار است (مثلاً ۱۲:۳۰ برای ساعت ۱۲).
+ *
+ * @param array<string, array<string, mixed>> $bookedByStart کلید Y-m-d H:i
+ */
+function appointment_booking_for_clock_hour(array $bookedByStart, string $date, int $hour): ?array
+{
+    $prefix = $date . ' ' . sprintf('%02d:', $hour);
+    $found = null;
+    $foundKey = '';
+    foreach ($bookedByStart as $key => $row) {
+        if (!is_string($key) || !is_array($row) || !str_starts_with($key, $prefix)) {
+            continue;
+        }
+        if ($found === null || strcmp($key, $foundKey) < 0) {
+            $found = $row;
+            $foundKey = $key;
+        }
+    }
+
+    return $found;
+}
+
+/** @return array{0:string,1:string} */
+function appointment_row_span(array $row): array
+{
+    $start = str_replace('T', ' ', trim((string) ($row['starts_at'] ?? '')));
+    $end = str_replace('T', ' ', trim((string) ($row['ends_at'] ?? '')));
+    if ($end === '' && strlen($start) >= 16) {
+        $ts = strtotime(substr($start, 0, 19)) ?: 0;
+        $end = $ts > 0 ? date('Y-m-d H:i:s', $ts + (appointment_slot_minutes() * 60)) : '';
+    }
+
+    return [$start, $end];
+}
+
+/**
+ * نوبتی که بازه‌اش با این ساعتِ ۶۰ دقیقه‌ای تداخل دارد (۱۲:۳۰ ساعت ۱۲ و ۱۳ را پر می‌کند).
+ *
+ * @param array<string, array<string, mixed>> $bookedByStart
+ */
+function appointment_booking_covering_window(array $bookedByStart, string $startsAt, string $endsAt): ?array
+{
+    $found = null;
+    $foundKey = '';
+    foreach ($bookedByStart as $key => $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        [$busyStart, $busyEnd] = appointment_row_span($row);
+        if ($busyStart === '' || $busyEnd === '' || $busyStart >= $endsAt || $busyEnd <= $startsAt) {
+            continue;
+        }
+        $keyStr = is_string($key) ? $key : $busyStart;
+        if ($found === null || strcmp($keyStr, $foundKey) < 0) {
+            $found = $row;
+            $foundKey = $keyStr;
+        }
+    }
+
+    return $found;
+}
+
+function appointment_clock_from_row(array $row): string
+{
+    $raw = str_replace('T', ' ', (string) ($row['starts_at'] ?? ''));
+    if (strlen($raw) < 16) {
+        return '';
+    }
+
+    return substr($raw, 11, 5);
 }
 
 function appointment_hour_chip_label(int $hour): string
@@ -328,7 +407,7 @@ function appointment_hours_display_fa(array $hours): string
 function doctor_availability_booked_map(PDO $pdo, string $doctorId): array
 {
     $stmt = $pdo->prepare("
-      SELECT a.id, a.starts_at, a.status, u.id AS patient_id, u.name AS patient_name, u.phone
+      SELECT a.id, a.starts_at, a.ends_at, a.status, u.id AS patient_id, u.name AS patient_name, u.phone
       FROM appointments a
       JOIN users u ON u.id = a.patient_id
       WHERE a.doctor_id = ?
@@ -606,7 +685,7 @@ function doctor_weekly_hours_clear(PDO $pdo, string $doctorId, int $weekdaySat0)
  *   next_date:?string,
  *   next_label:string,
  *   free:list<int>,
- *   booked:list<array{hour:int,patient:string,patient_id:string}>
+ *   booked:list<array{hour:int,clock:string,patient:string,patient_id:string}>
  * }>
  */
 function doctor_weekday_presence_summary(PDO $pdo, string $doctorId): array
@@ -657,11 +736,12 @@ function doctor_weekday_presence_summary(PDO $pdo, string $doctorId): array
             foreach ($hours as $hour) {
                 $hour = (int) $hour;
                 $startsAt = appointment_slot_starts_at($nextDate, $hour);
-                $slotKey = substr(str_replace('T', ' ', $startsAt), 0, 16);
-                $row = $bookedMap[$slotKey] ?? null;
+                $endsAt = date('Y-m-d H:i:s', (strtotime($startsAt) ?: 0) + (appointment_slot_minutes() * 60));
+                $row = appointment_booking_covering_window($bookedMap, $startsAt, $endsAt);
                 if (is_array($row)) {
                     $booked[] = [
                         'hour' => $hour,
+                        'clock' => appointment_clock_from_row($row),
                         'patient' => trim((string) ($row['patient_name'] ?? '')),
                         'patient_id' => trim((string) ($row['patient_id'] ?? '')),
                     ];
@@ -948,16 +1028,16 @@ function patient_open_slots_between(PDO $pdo, string $fromYmd, string $toYmd): a
     $rows = $stmt->fetchAll();
 
     $takenStmt = $pdo->prepare("
-      SELECT doctor_id, DATE(starts_at) AS d, DATE_FORMAT(starts_at, '%H:%i') AS t
+      SELECT doctor_id, starts_at, ends_at
       FROM appointments
-      WHERE DATE(starts_at) BETWEEN ? AND ?
+      WHERE starts_at < ? AND ends_at > ?
         AND status IN ('PENDING_APPROVAL','PENDING_PAYMENT','CONFIRMED','COMPLETED')
     ");
-    $takenEnd = date('Y-m-d', strtotime($toYmd . ' +1 day') ?: time());
-    $takenStmt->execute([$fromYmd, $takenEnd]);
-    $taken = [];
+    $rangeEnd = date('Y-m-d 23:59:59', strtotime($toYmd . ' +1 day') ?: time());
+    $takenStmt->execute([$rangeEnd, $fromYmd . ' 00:00:00']);
+    $takenByDoctor = [];
     foreach ($takenStmt->fetchAll() as $row) {
-        $taken[(string) $row['doctor_id'] . '|' . $row['d'] . '|' . $row['t']] = true;
+        $takenByDoctor[(string) ($row['doctor_id'] ?? '')][] = $row;
     }
 
     $now = time();
@@ -978,7 +1058,16 @@ function patient_open_slots_between(PDO $pdo, string $fromYmd, string $toYmd): a
             $startsAt = appointment_slot_starts_at($date, $hour);
             $slot = appointment_hour_to_time($hour);
             $slotDate = substr($startsAt, 0, 10);
-            if (isset($taken[$doctorId . '|' . $slotDate . '|' . $slot])) {
+            $endsAt = date('Y-m-d H:i:s', (strtotime($startsAt) ?: 0) + (appointment_slot_minutes() * 60));
+            $blocked = false;
+            foreach ($takenByDoctor[$doctorId] ?? [] as $busy) {
+                [$busyStart, $busyEnd] = appointment_row_span($busy);
+                if ($busyStart !== '' && $busyEnd !== '' && $busyStart < $endsAt && $busyEnd > $startsAt) {
+                    $blocked = true;
+                    break;
+                }
+            }
+            if ($blocked) {
                 continue;
             }
             $ts = strtotime($startsAt);

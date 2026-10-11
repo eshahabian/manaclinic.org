@@ -51,6 +51,7 @@ $allAppointments = array_values(array_filter(
 ));
 $apptTotal = count($upcomingAppointments);
 $dashApptYmd = group_appointments_by_jalali_ymd($allAppointments, 'dash-ap', 'current');
+$dashApptYmd = appointment_ymd_open_on_next_booking($dashApptYmd);
 
 $jalaliNow = jalali_current_month_meta();
 $curJy = (int) ($jalaliNow['year'] ?? 0);

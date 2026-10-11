@@ -60,6 +60,7 @@ $deskNext = $appointmentsDeskNext ?? '/secretary/appointments';
           </select>
           <button type="submit" class="btn btn-outline btn-sm">ذخیره</button>
         </form>
+        <?= function_exists('appointment_time_edit_form_html') ? appointment_time_edit_form_html($a, $deskNext) : '' ?>
         <?php
           $needsRoom = in_array((string) ($a['status'] ?? ''), ['CONFIRMED', 'COMPLETED'], true)
               && function_exists('appointment_is_online_mode')

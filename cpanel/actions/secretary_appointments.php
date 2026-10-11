@@ -68,6 +68,28 @@ if ($action === 'reject_booking') {
     redirect($next);
 }
 
+if ($action === 'set_time') {
+    $appointmentId = trim((string) post('appointment_id'));
+    try {
+        $result = appointment_reschedule(
+            $pdo,
+            $user,
+            $appointmentId,
+            (int) post('hour'),
+            (int) post('minute')
+        );
+        $when = format_fa_datetime((string) $result['starts_at']);
+        if (!empty($result['unchanged'])) {
+            flash_set('success', 'ساعت همین است: ' . $when);
+        } else {
+            flash_set('success', 'ساعت نوبت «' . (string) $result['patient_name'] . '» به ' . $when . ' تغییر کرد.');
+        }
+    } catch (Throwable $e) {
+        flash_set('error', $e->getMessage());
+    }
+    redirect($next);
+}
+
 if ($action === 'set_room') {
     $appointmentId = trim((string) post('appointment_id'));
     try {

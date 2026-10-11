@@ -129,6 +129,7 @@ ob_start();
               $bookedMap[(int) ($b['hour'] ?? -1)] = [
                   'patient' => trim((string) ($b['patient'] ?? '')),
                   'patient_id' => trim((string) ($b['patient_id'] ?? '')),
+                  'clock' => trim((string) ($b['clock'] ?? '')),
               ];
           }
       }
@@ -145,19 +146,21 @@ ob_start();
               $isBooked = is_array($bookedInfo);
               $who = $isBooked ? (string) ($bookedInfo['patient'] ?? '') : '';
               $patientId = $isBooked ? (string) ($bookedInfo['patient_id'] ?? '') : '';
+              $clock = $isBooked ? (string) ($bookedInfo['clock'] ?? '') : '';
+              $face = $clock !== '' ? to_fa_digits($clock) : appointment_hour_chip_label($hour);
               $title = $isBooked
-                  ? ('رزرو شده' . ($who !== '' ? ' — ' . $who : '') . ' — برای باز کردن پرونده کلیک کنید')
+                  ? ('رزرو شده' . ($clock !== '' ? ' ' . to_fa_digits($clock) : '') . ($who !== '' ? ' — ' . $who : '') . ' — برای باز کردن پرونده کلیک کنید')
                   : 'خالی';
             ?>
             <?php if ($isBooked && $patientId !== ''): ?>
               <a class="avail-hour-pill is-booked"
                  href="<?= e(url('/doctor/patients/' . $patientId)) ?>"
                  title="<?= e($title) ?>">
-                <?= e(appointment_hour_chip_label($hour)) ?>
+                <?= e($face) ?>
               </a>
             <?php else: ?>
               <span class="avail-hour-pill<?= $isBooked ? ' is-booked' : '' ?>" title="<?= e($title) ?>">
-                <?= e(appointment_hour_chip_label($hour)) ?>
+                <?= e($face) ?>
               </span>
             <?php endif; ?>
           <?php endforeach; ?>

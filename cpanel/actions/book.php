@@ -58,9 +58,14 @@ if (!$availability) {
     exit;
 }
 
+if (!preg_match('/^\d{2}:00$/', $time)) {
+    http_response_code(400);
+    echo json_encode(['error' => 'مراجعه‌کننده فقط از ساعت‌های ثابت درمانگر می‌تواند وقت بگیرد.']);
+    exit;
+}
 if (!appointment_booking_time_allowed($availability, $time)) {
     http_response_code(400);
-    echo json_encode(['error' => 'ساعت یا دقیقه نامعتبر است.']);
+    echo json_encode(['error' => 'ساعت نامعتبر است.']);
     exit;
 }
 
