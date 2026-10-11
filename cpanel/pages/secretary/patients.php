@@ -12,7 +12,6 @@ users_backfill_created_by($pdo);
 
 $doctors = secretary_active_doctors($pdo);
 $nameDict = build_name_transliterations_client_map($pdo);
-$openAdd = true;
 $tab = (string) ($_GET['tab'] ?? 'active');
 if ($tab !== 'inactive') {
     $tab = 'active';
@@ -55,13 +54,7 @@ ob_start();
 </div>
 
 <div id="patients-active" <?= $tab === 'inactive' ? 'hidden' : '' ?>>
-<div class="secretary-patients-head" style="margin-top:1rem">
-  <button type="button" class="btn btn-primary" id="toggle-add-patient" aria-expanded="<?= $openAdd ? 'true' : 'false' ?>" aria-controls="secretary-patient-form">
-    افزودن مراجعه‌کننده فعال
-  </button>
-</div>
-
-<form class="panel form-stack secretary-add-patient" method="post" action="<?= e(url('/secretary/patients')) ?>" id="secretary-patient-form" <?= $openAdd ? '' : 'hidden' ?>>
+<form class="panel form-stack secretary-add-patient" method="post" action="<?= e(url('/secretary/patients')) ?>" id="secretary-patient-form">
   <?= csrf_field() ?>
   <p style="margin:0;font-weight:600">مراجعه‌کننده جدید</p>
   <?php
@@ -233,38 +226,14 @@ $pageScripts = '
 <script>
 (function(){
   var form = document.getElementById("secretary-patient-form");
-  var toggle = document.getElementById("toggle-add-patient");
   var errEl = document.getElementById("sec-patient-error");
   bindSecretaryPatientFields({
     form: form,
     transliterateUrl: ' . json_encode(url('/api/transliterate-name')) . ',
     nameDict: ' . json_encode($nameDict, JSON_UNESCAPED_UNICODE) . ',
     draftKey: "mana.secretary.patient.create",
-    clearParams: ["added"],
-    onRestore: function(){
-      if (form) form.hidden = false;
-      if (toggle) toggle.setAttribute("aria-expanded", "true");
-    }
+    clearParams: ["added"]
   });
-
-  function openForm(){
-    if (!form) return;
-    form.hidden = false;
-    if (toggle) toggle.setAttribute("aria-expanded", "true");
-    var first = document.getElementById("new_first_name");
-    if (first) first.focus();
-  }
-  function closeForm(){
-    if (!form) return;
-    form.hidden = true;
-    if (toggle) toggle.setAttribute("aria-expanded", "false");
-  }
-  if (toggle) {
-    toggle.addEventListener("click", function(){
-      if (form && form.hidden) openForm();
-      else closeForm();
-    });
-  }
   if (form) {
     form.addEventListener("submit", function(e){
       if (!validateSecretaryNewPatient(errEl)) e.preventDefault();
