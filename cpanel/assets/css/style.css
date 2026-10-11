@@ -5514,7 +5514,6 @@ body.workshop-overview-locked { overflow: hidden; }
 #patients-inactive[hidden] {
   display: none !important;
 }
-.secretary-add-patient { margin-top: 1rem; max-width: none; width: 100%; }
 .form-draft-hint { color: var(--primary-dark); }
 
 .password-field { display: grid; gap: .35rem; }
@@ -5732,7 +5731,6 @@ body.workshop-overview-locked { overflow: hidden; }
 .panel-layout .panel-main > .doctor-secretary-msgs,
 .panel-layout .panel-main > .doc-profile-page,
 .panel-layout .panel-main > .doc-admin-switcher,
-.panel-layout .panel-main > .secretary-add-patient,
 .panel-layout .panel-main > .workshop-path-page,
 .panel-layout .panel-main > .workshop-path-wrap,
 .panel-layout .panel-main .panel,

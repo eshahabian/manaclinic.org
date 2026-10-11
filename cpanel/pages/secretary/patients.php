@@ -11,8 +11,6 @@ $user = require_login(['SECRETARY']);
 users_backfill_created_by($pdo);
 
 $doctors = secretary_active_doctors($pdo);
-$nameDict = build_name_transliterations_client_map($pdo);
-$openAdd = isset($_GET['add']);
 $tab = (string) ($_GET['tab'] ?? 'active');
 if ($tab !== 'inactive') {
     $tab = 'active';
@@ -55,23 +53,6 @@ ob_start();
 </div>
 
 <div id="patients-active" <?= $tab === 'inactive' ? 'hidden' : '' ?>>
-<div class="secretary-patients-head" style="margin-top:1rem">
-  <button type="button" class="btn btn-primary" id="toggle-add-patient" aria-expanded="<?= $openAdd ? 'true' : 'false' ?>" aria-controls="secretary-add-patient">
-    افزودن مراجعه‌کننده فعال
-  </button>
-</div>
-
-<form class="panel form-stack secretary-add-patient" method="post" action="<?= e(url('/secretary/patients')) ?>" id="secretary-patient-form" <?= $openAdd ? '' : 'hidden' ?>>
-  <?= csrf_field() ?>
-  <p style="margin:0;font-weight:600">مراجعه‌کننده جدید</p>
-  <?php
-    $secretaryPatientHint = 'بدون گرفتن نوبت هم می‌توانید نفر جدید ثبت کنید. با تایپ نام فارسی، معادل انگلیسی پیشنهاد می‌شود. اگر صفحه بسته شود یا نت قطع شود، اطلاعات همین‌جا می‌ماند.';
-    require __DIR__ . '/../../includes/secretary_new_patient_fields.php';
-  ?>
-  <p id="sec-patient-error" style="color:var(--danger);display:none;font-size:.9rem"></p>
-  <button class="btn btn-primary" type="submit">ثبت مراجعه‌کننده</button>
-</form>
-
 <div style="margin-top:1.25rem;max-width:22rem">
   <label class="label" for="patient-filter">جستجو</label>
   <input class="input" type="search" id="patient-filter" placeholder="نام، فامیل، نام کاربری یا موبایل" autocomplete="off" aria-controls="secretary-account-edit">
@@ -226,51 +207,8 @@ ob_start();
 <?php
 $inner = ob_get_clean();
 $pageScripts = '
-<script src="' . e(url('/assets/js/search-select.js')) . '?v=20260906p"></script>
-<script src="' . e(url('/assets/js/name-transliterate.js')) . '?v=20260906p"></script>
-<script src="' . e(url('/assets/js/form-draft.js')) . '?v=20260906p"></script>
-<script src="' . e(url('/assets/js/secretary-patient-form.js')) . '?v=20261007ref"></script>
 <script>
 (function(){
-  var form = document.getElementById("secretary-patient-form");
-  var toggle = document.getElementById("toggle-add-patient");
-  var errEl = document.getElementById("sec-patient-error");
-  var bound = bindSecretaryPatientFields({
-    form: form,
-    transliterateUrl: ' . json_encode(url('/api/transliterate-name')) . ',
-    nameDict: ' . json_encode($nameDict, JSON_UNESCAPED_UNICODE) . ',
-    draftKey: "mana.secretary.patient.create",
-    clearParams: ["added"],
-    onRestore: function(){
-      if (form) form.hidden = false;
-      if (toggle) toggle.setAttribute("aria-expanded", "true");
-    }
-  });
-
-  function openForm(){
-    if (!form) return;
-    form.hidden = false;
-    if (toggle) toggle.setAttribute("aria-expanded", "true");
-    var first = document.getElementById("new_first_name");
-    if (first) first.focus();
-  }
-  function closeForm(){
-    if (!form) return;
-    form.hidden = true;
-    if (toggle) toggle.setAttribute("aria-expanded", "false");
-  }
-  if (toggle) {
-    toggle.addEventListener("click", function(){
-      if (form && form.hidden) openForm();
-      else closeForm();
-    });
-  }
-  if (form) {
-    form.addEventListener("submit", function(e){
-      if (!validateSecretaryNewPatient(errEl)) e.preventDefault();
-    });
-  }
-
   var activePanel = document.getElementById("patients-active");
   var inactivePanel = document.getElementById("patients-inactive");
   var kindButtons = document.querySelectorAll("[data-patient-kind]");
