@@ -98,8 +98,11 @@ ob_start();
               $label .= ' — ' . $doc;
           }
           $searchBits = trim($pname . ' ' . $uname . ' ' . $phone . ' ' . $doc);
+          $savedReferral = function_exists('user_referral_normalize')
+              ? (user_referral_normalize((string) ($p['referral_source'] ?? '')) ?? '')
+              : '';
         ?>
-        <option value="<?= e($p['id']) ?>" data-search="<?= e($searchBits) ?>"><?= e($label) ?></option>
+        <option value="<?= e($p['id']) ?>" data-search="<?= e($searchBits) ?>" data-referral="<?= e($savedReferral) ?>"><?= e($label) ?></option>
       <?php endforeach; ?>
     </select>
     <p class="muted" style="margin:.35rem 0 0;font-size:.8rem">در باکس بالا نام، نام کاربری یا شماره موبایل را تایپ کنید.</p>
@@ -216,8 +219,54 @@ $secretaryBookScripts = '
     ]
   });
 
+  function selectedPatientReferral() {
+    if (!patientEl || !patientEl.value) return "";
+    var opt = patientEl.options[patientEl.selectedIndex];
+    return opt ? (opt.getAttribute("data-referral") || "") : "";
+  }
+  function patientReferralKnown(value) {
+    return value === "clinic" || value === "therapist";
+  }
+  function referralLabel(value) {
+    if (value === "clinic") return "ارجاع از سمت کلینیک";
+    if (value === "therapist") return "ارجاع از سمت درمانگر";
+    return "";
+  }
+  function syncReferralRule() {
+    var referralEl = document.getElementById("new_referral_source");
+    var hint = document.getElementById("new-referral-hint");
+    if (!referralEl) return;
+    var saved = selectedPatientReferral();
+    if (patientReferralKnown(saved)) {
+      referralEl.required = false;
+      referralEl.disabled = true;
+      referralEl.value = saved;
+      if (hint) {
+        hint.hidden = false;
+        hint.textContent = "معرف این مراجعه‌کننده قبلاً ثبت شده (" + referralLabel(saved) + ") و برای این نوبت دوباره لازم نیست.";
+      }
+      return;
+    }
+    var wasLocked = referralEl.disabled;
+    referralEl.disabled = false;
+    referralEl.required = true;
+    if (patientEl && patientEl.value) {
+      referralEl.value = "";
+      if (hint) {
+        hint.hidden = false;
+        hint.textContent = "برای این مراجعه‌کننده هنوز معرف ثبت نشده؛ انتخابش لازم است.";
+      }
+      return;
+    }
+    if (wasLocked) referralEl.value = "";
+    if (hint) {
+      hint.hidden = true;
+      hint.textContent = "";
+    }
+  }
   function clearExistingPatient() {
     if (patientEl.value) patientEl.value = "";
+    syncReferralRule();
   }
   [firstNameEl, lastNameEl, nameEnEl, surnameEl, preferredDoctorEl, newUserEl, newPassEl, newPassConfirmEl, newPhoneEl].forEach(function(el){
     if (!el) return;
@@ -225,20 +274,20 @@ $secretaryBookScripts = '
     el.addEventListener("change", clearExistingPatient);
   });
   patientEl.addEventListener("change", function(){
-    if (!patientEl.value) return;
-    firstNameEl.value = "";
-    lastNameEl.value = "";
-    nameEnEl.value = "";
-    surnameEl.value = "";
-    preferredDoctorEl.value = "";
-    var referralEl = document.getElementById("new_referral_source");
-    if (referralEl) referralEl.value = "";
-    newUserEl.value = "";
-    newPassEl.value = "";
-    newPassConfirmEl.value = "";
-    newPhoneEl.value = "";
-    if (bound && bound.names) bound.names.reset();
-    if (usernameHint) usernameHint.textContent = "";
+    if (patientEl.value) {
+      firstNameEl.value = "";
+      lastNameEl.value = "";
+      nameEnEl.value = "";
+      surnameEl.value = "";
+      preferredDoctorEl.value = "";
+      newUserEl.value = "";
+      newPassEl.value = "";
+      newPassConfirmEl.value = "";
+      newPhoneEl.value = "";
+      if (bound && bound.names) bound.names.reset();
+      if (usernameHint) usernameHint.textContent = "";
+    }
+    syncReferralRule();
   });
 
   doctorEl.addEventListener("change", function(){
@@ -630,6 +679,16 @@ $secretaryBookScripts = '
       e.preventDefault();
       return;
     }
+    if (patientId && !patientReferralKnown(selectedPatientReferral())) {
+      var referralEl = document.getElementById("new_referral_source");
+      if (!referralEl || !referralEl.value) {
+        e.preventDefault();
+        errEl.textContent = "معرف را انتخاب کنید.";
+        errEl.style.display = "block";
+        if (referralEl && referralEl.focus) referralEl.focus();
+        return;
+      }
+    }
     if (!doctorEl.value) {
       e.preventDefault();
       errEl.textContent = "دکتر را انتخاب کنید.";
@@ -720,6 +779,7 @@ $secretaryBookScripts = '
     el.addEventListener("change", syncRoomRule);
   });
   syncRoomRule();
+  syncReferralRule();
 })();
 </script>
 ';

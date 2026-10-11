@@ -31,6 +31,19 @@ function user_referral_normalize(string $source): ?string
     return in_array($source, ['clinic', 'therapist'], true) ? $source : null;
 }
 
+/** معرف ذخیره‌شده روی حساب؛ خالی یا مقدار نامعتبر یعنی هنوز انتخاب نشده. */
+function user_referral_of(PDO $pdo, string $userId): ?string
+{
+    if ($userId === '') {
+        return null;
+    }
+    ensure_user_referral_schema($pdo);
+    $stmt = $pdo->prepare('SELECT referral_source FROM users WHERE id=? LIMIT 1');
+    $stmt->execute([$userId]);
+
+    return user_referral_normalize((string) $stmt->fetchColumn());
+}
+
 function user_referral_label(?string $source): string
 {
     return match (user_referral_normalize((string) $source)) {

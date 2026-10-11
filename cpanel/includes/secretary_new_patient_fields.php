@@ -42,6 +42,7 @@ $secretaryPatientHint = $secretaryPatientHint ?? 'مراجعه‌کننده با
           }
           echo user_referral_options_html('new_referral_source', 'new_referral_source', '', true);
         ?>
+        <p class="muted" id="new-referral-hint" style="margin:.35rem 0 0;font-size:.8rem;line-height:1.6" hidden></p>
       </div>
       <div style="grid-column:1/-1">
         <label class="label" for="new_phone">موبایل</label>

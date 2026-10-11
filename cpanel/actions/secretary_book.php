@@ -53,6 +53,20 @@ if ($patientId === '') {
     $patientId = (string) $created['id'];
 }
 
+$referralToSave = null;
+if (post('patient_id') !== '') {
+    if (!function_exists('user_referral_of')) {
+        require_once __DIR__ . '/../includes/user_referral.php';
+    }
+    if (user_referral_of($pdo, $patientId) === null) {
+        $referralToSave = user_referral_normalize((string) post('new_referral_source'));
+        if ($referralToSave === null) {
+            flash_set('error', 'معرف را انتخاب کنید.');
+            $bookRedirect('/secretary/appointments?tab=new');
+        }
+    }
+}
+
 $doc = $pdo->prepare('SELECT * FROM doctor_profiles WHERE id=? AND is_active=1 AND is_approved=1');
 $doc->execute([$doctorId]);
 $doctor = $doc->fetch();
@@ -112,6 +126,9 @@ try {
         ->execute([$paymentId, $appointmentId, (int)$doctor['session_price'], 'PAID', 'SECRETARY', $actorId, $receiptPath]);
     if (!function_exists('user_referral_stamp_payment')) {
         require_once __DIR__ . '/../includes/user_referral.php';
+    }
+    if ($referralToSave !== null && !user_referral_save($pdo, $patientId, $referralToSave)) {
+        throw new RuntimeException('معرف ذخیره نشد.');
     }
     user_referral_stamp_payment($pdo, $paymentId, $patientId, (int) $doctor['session_price']);
     $roomDraft['id'] = $appointmentId;
