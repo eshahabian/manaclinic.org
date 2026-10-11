@@ -99,9 +99,18 @@ if ($isHeadRequest) {
     // Keep response headers, drop body (valid HEAD).
     ob_start(static fn (): string => '');
 }
-$isLightRequest = $path === '/video-signal' || $path === '/secretary/heartbeat' || $path === '/session/ping';
+$isStaffApp = $path === '/app' || str_starts_with($path, '/app/');
+$isStaffPoll = $isStaffApp && (
+    $path === '/app/presence'
+    || $path === '/app/push/subscribe'
+    || preg_match('#^/app/chat/[a-f0-9]{24}/receipts$#', $path) === 1
+    || preg_match('#^/app/file/[a-f0-9]{24}$#', $path) === 1
+);
+$isLightRequest = $path === '/video-signal' || $path === '/secretary/heartbeat' || $path === '/session/ping' || $isStaffPoll;
 
-if (!$isLightRequest) {
+// برنامه کارکنان خودش جدول‌هایش را می‌سازد. این بلوک روی هر کلیک،
+// ALTER و اسکن‌های سایت را هم اجرا می‌کرد و بخش بعد دیر باز می‌شد.
+if (!$isLightRequest && !$isStaffApp) {
     ensure_doctor_profile_schema($pdo);
     ensure_workshop_schema($pdo);
     ensure_workshop_media_schema($pdo);
@@ -146,7 +155,7 @@ if (strtoupper((string) $method) === 'POST') {
 
 // seed مقالات فقط روی صفحات عمومی GET — نه روی API چت (جلوگیری از HTML/تایم‌اوت وسط گفتگو)
 $isAssistantApi = str_starts_with($path, '/assistant/chat') || str_starts_with($path, '/assistant/send');
-if ($method === 'GET' && !$isAssistantApi && !$isLightRequest) {
+if ($method === 'GET' && !$isAssistantApi && !$isLightRequest && !$isStaffApp) {
     ensure_featured_psychology_article($pdo);
     ensure_latest_couples_research_article($pdo);
 }

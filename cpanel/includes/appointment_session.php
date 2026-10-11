@@ -249,6 +249,16 @@ function appointment_restore_auto_cancelled_unpaid(PDO $pdo): int
 {
     $n = 0;
     try {
+        $pending = $pdo->query("
+          SELECT 1 FROM appointments
+          WHERE status = 'CANCELLED'
+            AND starts_at >= NOW()
+            AND (cancel_reason IS NULL OR TRIM(cancel_reason) = '')
+          LIMIT 1
+        ")->fetchColumn();
+        if (!$pending) {
+            return 0;
+        }
         $n += (int) $pdo->exec("
           UPDATE appointments a
           INNER JOIN payments p ON p.appointment_id = a.id

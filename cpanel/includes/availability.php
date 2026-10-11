@@ -8,28 +8,44 @@ function ensure_availability_schema(PDO $pdo): void
         return;
     }
     $col = $pdo->query("SHOW COLUMNS FROM availabilities LIKE 'available_hours'")->fetch();
+    $type = strtolower((string) ($col['Type'] ?? ''));
+    $wideEnough = preg_match('/varchar\((\d+)\)/', $type, $width) === 1 && (int) $width[1] >= 128;
     if (!$col) {
         $pdo->exec('ALTER TABLE availabilities ADD COLUMN available_hours VARCHAR(128) NULL AFTER slot_minutes');
-    } else {
+    } elseif (!$wideEnough) {
         try {
             $pdo->exec('ALTER TABLE availabilities MODIFY available_hours VARCHAR(128) NULL');
         } catch (Throwable $ignored) {
         }
     }
 
-    $span = appointment_hours_span();
-    $pdo->prepare("
-      UPDATE availabilities
-      SET start_time = ?, end_time = ?
-      WHERE start_time IN ('10:00', '12:00')
-    ")->execute([$span['start'], $span['end']]);
-
-    // ردیف بدون ساعت واقعی قابل رزرو نیست
+    // این دو اصلاح دادهٔ قدیمی‌اند. اجرای UPDATE/DELETE روی هر باز شدن صفحه
+    // جدول را قفل می‌کرد و کلیک بعدیِ برنامه کارکنان بی‌اثر به نظر می‌رسید.
     try {
-        $pdo->exec("
-          DELETE FROM availabilities
+        $staleSpan = $pdo->query("SELECT 1 FROM availabilities WHERE start_time IN ('10:00', '12:00') LIMIT 1")->fetchColumn();
+        if ($staleSpan) {
+            $span = appointment_hours_span();
+            $pdo->prepare("
+              UPDATE availabilities
+              SET start_time = ?, end_time = ?
+              WHERE start_time IN ('10:00', '12:00')
+            ")->execute([$span['start'], $span['end']]);
+        }
+    } catch (Throwable $ignored) {
+    }
+
+    try {
+        $emptyHours = $pdo->query("
+          SELECT 1 FROM availabilities
           WHERE available_hours IS NULL OR TRIM(available_hours) = ''
-        ");
+          LIMIT 1
+        ")->fetchColumn();
+        if ($emptyHours) {
+            $pdo->exec("
+              DELETE FROM availabilities
+              WHERE available_hours IS NULL OR TRIM(available_hours) = ''
+            ");
+        }
     } catch (Throwable $ignored) {
     }
 

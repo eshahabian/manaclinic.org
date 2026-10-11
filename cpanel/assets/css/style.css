@@ -3315,7 +3315,9 @@ jdp-container, .jdp-container, .jdp-overlay {
 a.doctor-patient-row.is-search-hidden,
 a.secretary-patient-row.is-search-hidden,
 .doctor-patient-row[hidden],
-.secretary-patient-row[hidden] {
+.secretary-patient-row[hidden],
+tr.secretary-account-row.is-search-hidden,
+tr.secretary-account-row[hidden] {
   display: none !important;
 }
 .appt-card {
@@ -3543,27 +3545,15 @@ html[data-theme="dark"] .appt-search-bar {
   color: var(--primary, #1f7a4c);
   border-color: #cfe8d8;
 }
-.sec-week-hour.is-free:hover {
-  background: #e7f6ec;
-  transform: translateY(-1px);
-}
 .sec-week-hour.is-booked {
   background: #e11d48;
   color: #fff;
   border-color: #be123c;
 }
-.sec-week-hour.is-booked:hover {
-  background: #be123c;
-  box-shadow: 0 6px 18px rgba(190, 18, 60, .28);
-}
 .sec-week-hour.is-booked.is-continuation {
   background: #fff1f2;
   color: #9f1239;
   border-color: #fecdd3;
-}
-.sec-week-hour.is-booked.is-continuation:hover {
-  background: #ffe4e6;
-  box-shadow: none;
 }
 .sec-week-room-form {
   margin: 0 0 .75rem;
@@ -3575,9 +3565,23 @@ html[data-theme="dark"] .appt-search-bar {
   color: #fff;
   border-color: #b45309;
 }
-.sec-week-hour.is-awaiting:hover {
-  background: #b45309;
-  box-shadow: 0 6px 18px rgba(180, 83, 9, .28);
+@media (hover: hover) and (pointer: fine) {
+  .sec-week-hour.is-free:hover {
+    background: #e7f6ec;
+    transform: translateY(-1px);
+  }
+  .sec-week-hour.is-booked:hover {
+    background: #be123c;
+    box-shadow: 0 6px 18px rgba(190, 18, 60, .28);
+  }
+  .sec-week-hour.is-booked.is-continuation:hover {
+    background: #ffe4e6;
+    box-shadow: none;
+  }
+  .sec-week-hour.is-awaiting:hover {
+    background: #b45309;
+    box-shadow: 0 6px 18px rgba(180, 83, 9, .28);
+  }
 }
 .sec-week-shadow {
   position: fixed;
@@ -3592,6 +3596,7 @@ html[data-theme="dark"] .appt-search-bar {
 }
 .sec-week-shadow[hidden] {
   display: none !important;
+  pointer-events: none !important;
 }
 .sec-week-shadow-card {
   position: relative;

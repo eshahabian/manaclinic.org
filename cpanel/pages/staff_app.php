@@ -685,14 +685,51 @@ if ($section === 'rooms') {
     }
     if(purpose) purpose.addEventListener("change",sync);
     if(repeat) repeat.addEventListener("change",syncRepeat);
-    if(window.enhanceSearchSelect){
-      form.querySelectorAll("select[data-search]").forEach(function(sel){enhanceSearchSelect(sel);});
+    function fillSelects(){
+      form.querySelectorAll("select[data-search]").forEach(function(sel){
+        if(sel.getAttribute("data-filled")==="1") return;
+        var key=sel.getAttribute("data-options");
+        var tpl=key?document.getElementById("room-opts-"+key):null;
+        if(tpl&&tpl.content){
+          var have={};
+          Array.prototype.forEach.call(sel.options,function(opt){ if(opt.value) have[opt.value]=1; });
+          var frag=tpl.content.cloneNode(true);
+          Array.prototype.forEach.call(frag.querySelectorAll("option"),function(opt){
+            if(opt.value&&have[opt.value]) opt.parentNode.removeChild(opt);
+          });
+          var current=sel.value;
+          sel.appendChild(frag);
+          if(current) sel.value=current;
+        }
+        sel.setAttribute("data-filled","1");
+        if(window.enhanceSearchSelect) enhanceSearchSelect(sel);
+      });
+    }
+    var details=form.closest("details");
+    if(details&&!details.open){
+      details.addEventListener("toggle",function(){ if(details.open) fillSelects(); });
+    }else{
+      form.addEventListener("focusin",function(){ fillSelects(); },{once:true});
+      form.addEventListener("pointerdown",function(){ fillSelects(); },{once:true});
     }
     sync();
     syncRepeat();
   });
 })();
 </script>';
+    }
+    $roomOpt = ['patient_id' => '', 'doctor_id' => '', 'workshop_session_id' => ''];
+    if ($role === 'SECRETARY') {
+        foreach ($roomPatients as $person) {
+            $roomOpt['patient_id'] .= '<option value="' . e((string) $person['id']) . '">' . e((string) $person['name']) . '</option>';
+        }
+        foreach ($roomDoctors as $doctor) {
+            $roomOpt['doctor_id'] .= '<option value="' . e((string) $doctor['id']) . '">' . e((string) $doctor['name']) . '</option>';
+        }
+        foreach ($openWorkshops as $sess) {
+            $workshopLabel = trim((string) ($sess['workshop_title'] ?? 'کارگاه')) . ' · ' . trim((string) ($sess['doctor_name'] ?? ''));
+            $roomOpt['workshop_session_id'] .= '<option value="' . e((string) $sess['id']) . '">' . e($workshopLabel) . '</option>';
+        }
     }
     ob_start();
     ?>
@@ -715,6 +752,9 @@ if ($section === 'rooms') {
           <option value="<?= e($clock) ?>"></option>
         <?php endforeach; ?>
       </datalist>
+      <template id="room-opts-patient_id"><?= $roomOpt['patient_id'] ?></template>
+      <template id="room-opts-doctor_id"><?= $roomOpt['doctor_id'] ?></template>
+      <template id="room-opts-workshop_session_id"><?= $roomOpt['workshop_session_id'] ?></template>
       <?php foreach ($byRoom as $number => $items): ?>
         <h2 class="sapp-day"><?= e(function_exists('clinic_room_label') ? clinic_room_label((int) $number) : ('اتاق ' . to_fa_digits((string) $number))) ?></h2>
         <?php if ($items === []): ?>
@@ -747,28 +787,7 @@ if ($section === 'rooms') {
                     if ($editDoctorId === '') {
                         $editDoctorId = trim((string) ($row['appt_doctor_id'] ?? ''));
                     }
-                    $editPatientKnown = false;
-                    foreach ($roomPatients as $person) {
-                        if ((string) $person['id'] === $editPatientId) {
-                            $editPatientKnown = true;
-                            break;
-                        }
-                    }
-                    $editDoctorKnown = false;
-                    foreach ($roomDoctors as $doctor) {
-                        if ((string) $doctor['id'] === $editDoctorId) {
-                            $editDoctorKnown = true;
-                            break;
-                        }
-                    }
                     $editSessionId = trim((string) ($row['workshop_session_id'] ?? ''));
-                    $editSessionKnown = false;
-                    foreach ($openWorkshops as $sess) {
-                        if ((string) $sess['id'] === $editSessionId) {
-                            $editSessionKnown = true;
-                            break;
-                        }
-                    }
                   ?>
                   <div style="display:flex;gap:.45rem;flex-wrap:wrap;align-items:flex-start;margin-top:.55rem">
                     <details class="room-edit">
@@ -799,38 +818,29 @@ if ($section === 'rooms') {
                         </label>
                         <div data-for="therapy" <?= $editPurpose === 'therapy' ? '' : 'hidden' ?>>
                           <label class="label">مراجعه‌کننده
-                            <select class="input" name="patient_id" data-search id="<?= e($editId) ?>-patient">
+                            <select class="input" name="patient_id" data-search data-options="patient_id" id="<?= e($editId) ?>-patient">
                               <option value="">انتخاب مراجعه‌کننده</option>
-                              <?php if ($editPatientId !== '' && !$editPatientKnown): ?>
+                              <?php if ($editPatientId !== ''): ?>
                                 <option value="<?= e($editPatientId) ?>" selected><?= e(trim((string) ($row['patient_name'] ?? '')) !== '' ? (string) $row['patient_name'] : 'مراجعه‌کننده فعلی') ?></option>
                               <?php endif; ?>
-                              <?php foreach ($roomPatients as $person): ?>
-                                <option value="<?= e((string) $person['id']) ?>" <?= $editPatientId === (string) $person['id'] ? 'selected' : '' ?>><?= e((string) $person['name']) ?></option>
-                              <?php endforeach; ?>
                             </select>
                           </label>
                           <label class="label">درمانگر
-                            <select class="input" name="doctor_id" data-search id="<?= e($editId) ?>-doctor">
+                            <select class="input" name="doctor_id" data-search data-options="doctor_id" id="<?= e($editId) ?>-doctor">
                               <option value="">انتخاب درمانگر</option>
-                              <?php if ($editDoctorId !== '' && !$editDoctorKnown): ?>
+                              <?php if ($editDoctorId !== ''): ?>
                                 <option value="<?= e($editDoctorId) ?>" selected><?= e(trim((string) ($row['doctor_name'] ?? '')) !== '' ? (string) $row['doctor_name'] : 'درمانگر فعلی') ?></option>
                               <?php endif; ?>
-                              <?php foreach ($roomDoctors as $doctor): ?>
-                                <option value="<?= e((string) $doctor['id']) ?>" <?= $editDoctorId === (string) $doctor['id'] ? 'selected' : '' ?>><?= e((string) $doctor['name']) ?></option>
-                              <?php endforeach; ?>
                             </select>
                           </label>
                         </div>
                         <div data-for="workshop" <?= $editPurpose === 'workshop' ? '' : 'hidden' ?>>
                           <label class="label">کارگاه
-                            <select class="input" name="workshop_session_id" data-search id="<?= e($editId) ?>-workshop">
+                            <select class="input" name="workshop_session_id" data-search data-options="workshop_session_id" id="<?= e($editId) ?>-workshop">
                               <option value="">انتخاب کارگاه</option>
-                              <?php if ($editSessionId !== '' && !$editSessionKnown): ?>
+                              <?php if ($editSessionId !== ''): ?>
                                 <option value="<?= e($editSessionId) ?>" selected><?= e(trim((string) ($row['workshop_title'] ?? $row['title'] ?? '')) !== '' ? (string) ($row['workshop_title'] ?? $row['title']) : 'کارگاه فعلی') ?></option>
                               <?php endif; ?>
-                              <?php foreach ($openWorkshops as $sess): ?>
-                                <option value="<?= e((string) $sess['id']) ?>" <?= $editSessionId === (string) $sess['id'] ? 'selected' : '' ?>><?= e((string) ($sess['workshop_title'] ?? 'کارگاه')) ?> · <?= e((string) ($sess['doctor_name'] ?? '')) ?></option>
-                              <?php endforeach; ?>
                             </select>
                           </label>
                         </div>
@@ -879,29 +889,20 @@ if ($section === 'rooms') {
             </label>
             <div data-for="therapy" hidden>
               <label class="label">مراجعه‌کننده
-                <select class="input" name="patient_id" data-search>
+                <select class="input" name="patient_id" data-search data-options="patient_id">
                   <option value="">انتخاب مراجعه‌کننده</option>
-                  <?php foreach ($roomPatients as $person): ?>
-                    <option value="<?= e((string) $person['id']) ?>"><?= e((string) $person['name']) ?></option>
-                  <?php endforeach; ?>
                 </select>
               </label>
               <label class="label">درمانگر
-                <select class="input" name="doctor_id" data-search>
+                <select class="input" name="doctor_id" data-search data-options="doctor_id">
                   <option value="">انتخاب درمانگر</option>
-                  <?php foreach ($roomDoctors as $doctor): ?>
-                    <option value="<?= e((string) $doctor['id']) ?>"><?= e((string) $doctor['name']) ?></option>
-                  <?php endforeach; ?>
                 </select>
               </label>
             </div>
             <div data-for="workshop" hidden>
               <label class="label">کارگاه
-                <select class="input" name="workshop_session_id" data-search>
+                <select class="input" name="workshop_session_id" data-search data-options="workshop_session_id">
                   <option value="">انتخاب کارگاه</option>
-                  <?php foreach ($openWorkshops as $sess): ?>
-                    <option value="<?= e((string) $sess['id']) ?>"><?= e((string) ($sess['workshop_title'] ?? 'کارگاه')) ?> · <?= e((string) ($sess['doctor_name'] ?? '')) ?></option>
-                  <?php endforeach; ?>
                 </select>
               </label>
             </div>

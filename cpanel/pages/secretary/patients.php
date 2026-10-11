@@ -10,19 +10,6 @@ $user = require_login(['SECRETARY']);
 
 users_backfill_created_by($pdo);
 
-$patients = $pdo->query("
-  SELECT u.id, u.name, u.username, u.phone, u.referral_source,
-         cu.name AS created_by_name, cu.username AS created_by_username, cu.role AS created_by_role,
-         COUNT(a.id) AS visit_count,
-         MAX(a.starts_at) AS last_visit
-  FROM users u
-  LEFT JOIN users cu ON cu.id = u.created_by_user_id
-  LEFT JOIN appointments a ON a.patient_id = u.id
-    AND a.status IN ('PENDING_APPROVAL','PENDING_PAYMENT','CONFIRMED','COMPLETED')
-  WHERE u.role = 'PATIENT'
-  GROUP BY u.id, u.name, u.username, u.phone, u.referral_source, cu.name, cu.username, cu.role
-  ORDER BY u.name ASC
-")->fetchAll();
 $doctors = secretary_active_doctors($pdo);
 $nameDict = build_name_transliterations_client_map($pdo);
 $openAdd = isset($_GET['add']);
@@ -69,7 +56,6 @@ ob_start();
 
 <div id="patients-active" <?= $tab === 'inactive' ? 'hidden' : '' ?>>
 <div class="secretary-patients-head" style="margin-top:1rem">
-  <p class="muted" style="margin:0;font-size:.9rem">روی نام بزنید تا شماره تماس و روزهای نوبت را ببینید.</p>
   <button type="button" class="btn btn-primary" id="toggle-add-patient" aria-expanded="<?= $openAdd ? 'true' : 'false' ?>" aria-controls="secretary-add-patient">
     افزودن مراجعه‌کننده فعال
   </button>
@@ -86,53 +72,15 @@ ob_start();
   <button class="btn btn-primary" type="submit">ثبت مراجعه‌کننده</button>
 </form>
 
-<div style="margin-top:1rem;max-width:22rem">
+<div style="margin-top:1.25rem;max-width:22rem">
   <label class="label" for="patient-filter">جستجو</label>
-  <input class="input" type="search" id="patient-filter" placeholder="نام، نام کاربری یا موبایل" autocomplete="off">
-</div>
-<div class="stack" id="secretary-patient-list" style="margin-top:1rem">
-  <?php foreach ($patients as $p): ?>
-    <?php
-      $phone = trim((string) ($p['phone'] ?? ''));
-      $creatorLabel = user_created_by_label([
-          'name' => $p['created_by_name'] ?? '',
-          'username' => $p['created_by_username'] ?? '',
-          'role' => $p['created_by_role'] ?? '',
-      ], 'ثبت‌کننده نامشخص');
-      $search = mb_strtolower(trim((string) $p['name'] . ' ' . (string) $p['username'] . ' ' . $phone . ' ' . $creatorLabel));
-    ?>
-    <a class="panel row-between secretary-patient-row" href="<?= e(url('/secretary/patients/' . $p['id'])) ?>" style="color:inherit" data-search="<?= e($search) ?>">
-      <div>
-        <strong><?= e((string) $p['name']) ?></strong>
-        <div class="muted" style="font-size:.85rem;margin-top:.3rem">
-          <?php if ($phone !== ''): ?>
-            <span dir="ltr"><?= e($phone) ?></span>
-          <?php else: ?>
-            شماره ثبت نشده
-          <?php endif; ?>
-        </div>
-        <div class="muted" style="font-size:.8rem;margin-top:.35rem">ثبت توسط <?= e($creatorLabel) ?></div>
-        <?php $referralLabel = user_referral_label((string) ($p['referral_source'] ?? '')); ?>
-        <?php if ($referralLabel !== ''): ?>
-          <div class="muted" style="font-size:.8rem;margin-top:.2rem">معرف: <?= e($referralLabel) ?></div>
-        <?php endif; ?>
-      </div>
-      <div style="text-align:left">
-        <span class="badge"><?= (int) $p['visit_count'] ?> نوبت</span>
-        <?php if (!empty($p['last_visit'])): ?>
-          <div class="muted" style="font-size:.75rem;margin-top:.35rem"><?= e(format_fa_datetime((string) $p['last_visit'])) ?></div>
-        <?php endif; ?>
-      </div>
-    </a>
-  <?php endforeach; ?>
-  <?php if (!$patients): ?><p class="muted">مراجعه‌کننده‌ای ثبت نشده است.</p><?php endif; ?>
-  <p class="muted" id="patient-filter-empty" hidden>موردی با این جستجو نیست.</p>
+  <input class="input" type="search" id="patient-filter" placeholder="نام، فامیل، نام کاربری یا موبایل" autocomplete="off" aria-controls="secretary-account-edit">
 </div>
 
-<h2 style="margin:1.5rem 0 .35rem;font-size:1.05rem">ویرایش حساب فعال</h2>
+<h2 style="margin:1rem 0 .35rem;font-size:1.05rem">ویرایش حساب فعال</h2>
 <p class="muted" style="margin:0 0 .75rem;font-size:.9rem">درمانگر، معرف و موبایل همین حساب‌ها از اینجا عوض می‌شود.</p>
 <div class="panel admin-users-board" style="padding:0;overflow:auto">
-  <table class="table">
+  <table class="table" id="secretary-account-edit">
     <thead>
       <tr>
         <th>نام</th>
@@ -149,8 +97,18 @@ ob_start();
           $uid = (string) ($u['id'] ?? '');
           $formId = 'sec-user-' . preg_replace('/[^a-zA-Z0-9_-]/', '', $uid);
           $compact = 'min-width:9rem;padding:.35rem .5rem;font-size:.85rem';
+          $accountName = trim((string) ($u['name'] ?? ''));
+          $accountParts = preg_split('/\s+/u', $accountName, -1, PREG_SPLIT_NO_EMPTY) ?: [];
+          $accountFirst = (string) ($accountParts[0] ?? '');
+          $accountLast = count($accountParts) > 1 ? implode(' ', array_slice($accountParts, 1)) : '';
+          $accountPhone = trim((string) ($u['phone'] ?? ''));
+          $accountPhoneDigits = preg_replace('/\D+/u', '', $accountPhone) ?? '';
+          $accountSearch = mb_strtolower(trim(
+              $accountName . ' ' . $accountFirst . ' ' . $accountLast . ' ' .
+              (string) ($u['username'] ?? '') . ' ' . $accountPhone . ' ' . $accountPhoneDigits
+          ));
         ?>
-        <tr>
+        <tr class="secretary-account-row" data-search="<?= e($accountSearch) ?>">
           <td><?= e((string) $u['name']) ?></td>
           <td dir="ltr"><?= e((string) $u['username']) ?></td>
           <td>
@@ -186,6 +144,7 @@ ob_start();
     </tbody>
   </table>
 </div>
+<p class="muted" id="patient-filter-empty" hidden>موردی با این جستجو نیست.</p>
 </div>
 
 <div id="patients-inactive" <?= $tab === 'active' ? 'hidden' : '' ?>>
@@ -332,21 +291,33 @@ $pageScripts = '
   });
 
   var input = document.getElementById("patient-filter");
-  var rows = document.querySelectorAll(".secretary-patient-row");
+  var rows = document.querySelectorAll("#secretary-account-edit .secretary-account-row");
   var empty = document.getElementById("patient-filter-empty");
   if (!input) return;
-  input.addEventListener("input", function(){
-    var q = (input.value || "").trim().toLowerCase();
+  function faToEn(str){
+    return String(str || "").replace(/[۰-۹]/g, function(d){ return String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)); })
+      .replace(/[٠-٩]/g, function(d){ return String("٠١٢٣٤٥٦٧٨٩".indexOf(d)); });
+  }
+  function norm(str){
+    return faToEn(str).trim().toLowerCase().replace(/ي/g, "ی").replace(/ك/g, "ک");
+  }
+  function applyAccountFilter(){
+    var q = norm(input.value || "");
+    var qDigits = q.replace(/\D+/g, "");
     var shown = 0;
     rows.forEach(function(row){
-      var hay = (row.getAttribute("data-search") || "");
-      var on = !q || hay.indexOf(q) !== -1;
+      var hay = norm(row.getAttribute("data-search") || "");
+      var hayDigits = hay.replace(/\D+/g, "");
+      var on = !q || hay.indexOf(q) !== -1 || (qDigits.length >= 3 && hayDigits.indexOf(qDigits) !== -1);
       row.classList.toggle("is-search-hidden", !on);
       row.hidden = !on;
+      row.style.display = on ? "" : "none";
       if (on) shown++;
     });
-    if (empty) empty.hidden = shown > 0 || rows.length === 0;
-  });
+    if (empty) empty.hidden = !q || shown > 0 || rows.length === 0;
+  }
+  input.addEventListener("input", applyAccountFilter);
+  input.addEventListener("search", applyAccountFilter);
 })();
 </script>
 ';

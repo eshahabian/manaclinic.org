@@ -2045,6 +2045,50 @@ function staff_app_client_script(): string
 
   paintAppBadge(body.getAttribute("data-unread") || 0);
 
+  function staffNavLink(node) {
+    if (!node || !node.closest) return null;
+    var link = node.closest("a[href]");
+    if (!link || link.closest("jdp-container")) return null;
+    if ((link.getAttribute("target") || "") === "_blank") return null;
+    return link;
+  }
+
+  var rescueNav = null;
+  var rescueY = 0;
+  document.addEventListener("touchstart", function (event) {
+    rescueNav = null;
+    var link = staffNavLink(event.target);
+    if (!link || !link.getAttribute("href")) return;
+    var active = document.activeElement;
+    var field = active && active !== link && /^(INPUT|TEXTAREA|SELECT)$/.test(active.tagName || "");
+    var overlay = document.querySelector("jdp-overlay");
+    var covering = !!(overlay && overlay.style && overlay.style.display === "block");
+    if (!field && !covering) return;
+    rescueNav = link;
+    rescueY = event.touches && event.touches[0] ? event.touches[0].clientY : 0;
+    if (field && active.blur) active.blur();
+    if (covering) {
+      overlay.style.display = "none";
+      var box = document.querySelector("jdp-container");
+      if (box) box.style.display = "none";
+      if (window.jalaliDatepicker && window.jalaliDatepicker.hide) {
+        try { window.jalaliDatepicker.hide(); } catch (err) {}
+      }
+    }
+  }, { capture: true, passive: true });
+
+  document.addEventListener("touchend", function (event) {
+    var link = rescueNav;
+    var y0 = rescueY;
+    rescueNav = null;
+    if (!link) return;
+    var y1 = event.changedTouches && event.changedTouches[0] ? event.changedTouches[0].clientY : y0;
+    if (Math.abs(y1 - y0) > 12) return;
+    if (staffNavLink(event.target) !== link) return;
+    event.preventDefault();
+    window.location.href = link.href;
+  }, { capture: true, passive: false });
+
   function pullPresence() {
     if (!presenceUrl) return;
     fetch(presenceUrl + "?t=" + Date.now(), { cache: "no-store", credentials: "same-origin", headers: { Accept: "application/json" } })
@@ -2241,7 +2285,7 @@ function staff_app_render(string $active, string $title, string $description, st
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20261009consult">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20261011tap">
   <?php if (!empty($GLOBALS['pageHead'])): ?>
     <?= $GLOBALS['pageHead'] ?>
   <?php endif; ?>
@@ -2438,6 +2482,9 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-reply button{border:0;background:transparent;color:#667781;font-size:1.3rem;line-height:1}
     #sapp-hold[hidden],#sapp-hold[hidden] *,.sapp-hold-people[hidden],#sapp-hold-forward[hidden],#sapp-selectbar[hidden],.sapp-hold-item[hidden],.sapp-notify[hidden],.sapp-install[hidden]{display:none !important;pointer-events:none !important}
     .sapp-nav a,.sapp-tile,.sapp-logout,.sapp-send,.sapp-voice-go,.sapp-voice-mini,.sapp-voice-cancel,.sapp-voice-trash,.sapp-voice-play,.sapp-person,.sapp-notify button,.sapp-install button{touch-action:manipulation}
+    body.sapp a,body.sapp button,body.sapp summary{touch-action:manipulation}
+    body.sapp .sapp-voice{touch-action:none}
+    body.sapp jdp-overlay{pointer-events:none !important}
     .sapp-hold-back{position:fixed;inset:0;z-index:80;border:0;padding:0;background:rgba(0,0,0,.28)}
     .sapp-hold-pop{position:fixed;z-index:81;display:flex;flex-direction:column;gap:8px;width:min(17.5rem,calc(100vw - 20px));max-height:calc(100vh - 16px);overflow:auto}
     .sapp-hold-emojis{display:flex;justify-content:space-between;gap:2px;padding:6px 8px;border-radius:999px;background:#2c2c2e}
