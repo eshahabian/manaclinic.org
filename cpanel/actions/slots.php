@@ -105,13 +105,24 @@ foreach ($hours as $hour) {
     }
     if ($freeMinutes === []) {
         if ($isStaff && is_array($cover)) {
-            $clock = appointment_clock_from_row($cover);
-            $booked[] = [
-                'value' => appointment_hour_to_time($hour),
-                'clock' => $clock,
-                'patient' => trim((string) ($cover['patient_name'] ?? '')),
-                'label' => $clock !== '' ? appointment_clock_label($clock) : appointment_hour_chip_label($hour),
-            ];
+            $startsHere = appointment_booking_starts_inside($cover, $anchor, $hourEnd);
+            if ($startsHere) {
+                $clock = appointment_clock_from_row($cover);
+                $booked[] = [
+                    'value' => appointment_hour_to_time($hour),
+                    'clock' => $clock,
+                    'patient' => trim((string) ($cover['patient_name'] ?? '')),
+                    'label' => $clock !== '' ? appointment_clock_label($clock) : appointment_hour_chip_label($hour),
+                ];
+            } else {
+                $booked[] = [
+                    'value' => appointment_hour_to_time($hour),
+                    'clock' => '',
+                    'patient' => '',
+                    'label' => 'پر',
+                    'continuation' => true,
+                ];
+            }
         }
         continue;
     }

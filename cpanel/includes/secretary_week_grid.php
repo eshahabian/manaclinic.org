@@ -17,11 +17,16 @@ function secretary_week_booked_map(PDO $pdo, string $doctorId, string $fromYmd, 
     if (function_exists('ensure_appointment_hold_columns')) {
         ensure_appointment_hold_columns($pdo);
     }
+    if (function_exists('appointment_ensure_room_schema')) {
+        appointment_ensure_room_schema($pdo);
+    }
+    $roomSql = function_exists('appointment_room_no_sql') ? appointment_room_no_sql('a') : 'NULL AS room_no';
     $stmt = $pdo->prepare("
       SELECT a.id, a.starts_at, a.ends_at, a.status, a.session_mode,
              a.created_at, a.requested_at, a.reviewed_at, a.payment_confirmed_at, a.staff_payment_note,
              u.id AS patient_id, u.name AS patient_name, u.phone,
-             p.id AS payment_id, p.status AS pay_status, p.amount, p.receipt_path, p.ref_id
+             p.id AS payment_id, p.status AS pay_status, p.amount, p.receipt_path, p.ref_id,
+             {$roomSql}
       FROM appointments a
       JOIN users u ON u.id = a.patient_id
       LEFT JOIN payments p ON p.appointment_id = a.id
@@ -73,6 +78,7 @@ function secretary_week_schedule(PDO $pdo, string $doctorId, int $days = 7): arr
         $weekday = (string) ($parts['weekday'] ?? '');
         $slots = [];
         $seenHours = [];
+        $shownIds = [];
         $av = $byDate[$date] ?? null;
         $hours = $av ? appointment_availability_hours($av) : [];
         foreach ($hours as $hour) {
@@ -80,17 +86,28 @@ function secretary_week_schedule(PDO $pdo, string $doctorId, int $days = 7): arr
             $seenHours[$hour] = true;
             $startsAt = appointment_slot_starts_at($date, $hour);
             $endsAt = date('Y-m-d H:i:s', (strtotime($startsAt) ?: 0) + (appointment_slot_minutes() * 60));
-            $booking = appointment_booking_covering_window($booked, $startsAt, $endsAt);
+            $placed = secretary_week_place_booking($booked, $startsAt, $endsAt, $shownIds);
+            if ($placed['booking'] !== null) {
+                $id = (string) ($placed['booking']['id'] ?? '');
+                if ($id !== '' && empty($placed['continuation'])) {
+                    $shownIds[$id] = true;
+                }
+            }
             $slots[] = [
                 'hour' => $hour,
                 'time' => appointment_hour_to_time($hour),
-                'label' => secretary_week_slot_label($hour, $booking),
+                'label' => secretary_week_slot_label($hour, $placed['booking'], !empty($placed['continuation'])),
                 'starts_at' => $startsAt,
-                'booking' => $booking,
+                'booking' => $placed['booking'],
+                'continuation' => !empty($placed['continuation']),
             ];
         }
         foreach ($booked as $key => $bookingRow) {
             if (!str_starts_with($key, $date . ' ')) {
+                continue;
+            }
+            $id = (string) ($bookingRow['id'] ?? '');
+            if ($id !== '' && isset($shownIds[$id])) {
                 continue;
             }
             $hour = (int) substr($key, 11, 2);
@@ -98,13 +115,17 @@ function secretary_week_schedule(PDO $pdo, string $doctorId, int $days = 7): arr
                 continue;
             }
             $seenHours[$hour] = true;
+            if ($id !== '') {
+                $shownIds[$id] = true;
+            }
             $startsAt = appointment_slot_starts_at($date, $hour);
             $slots[] = [
                 'hour' => $hour,
                 'time' => appointment_hour_to_time($hour),
-                'label' => secretary_week_slot_label($hour, $bookingRow),
+                'label' => secretary_week_slot_label($hour, $bookingRow, false),
                 'starts_at' => $startsAt,
                 'booking' => $bookingRow,
+                'continuation' => false,
             ];
         }
         usort($slots, static fn(array $a, array $b): int => ((int) $a['hour']) <=> ((int) $b['hour']));
@@ -119,8 +140,41 @@ function secretary_week_schedule(PDO $pdo, string $doctorId, int $days = 7): arr
     return $out;
 }
 
-function secretary_week_slot_label(int $hour, ?array $booking): string
+/**
+ * نام مراجع فقط روی ساعتی می‌آید که نوبت در آن شروع شده.
+ * ساعت بعدی که فقط دنبالهٔ همان جلسه است، دوباره همان نام را نشان نمی‌دهد.
+ *
+ * @param array<string, array<string, mixed>> $booked
+ * @param array<string, true> $shownIds
+ * @return array{booking:?array, continuation:bool}
+ */
+function secretary_week_place_booking(array $booked, string $startsAt, string $endsAt, array $shownIds): array
 {
+    $owner = null;
+    foreach ($booked as $row) {
+        if (!is_array($row) || !appointment_booking_starts_inside($row, $startsAt, $endsAt)) {
+            continue;
+        }
+        $id = (string) ($row['id'] ?? '');
+        if ($id !== '' && isset($shownIds[$id])) {
+            continue;
+        }
+        $owner = $row;
+        break;
+    }
+    if ($owner !== null) {
+        return ['booking' => $owner, 'continuation' => false];
+    }
+    $cover = appointment_booking_covering_window($booked, $startsAt, $endsAt);
+
+    return ['booking' => $cover, 'continuation' => is_array($cover)];
+}
+
+function secretary_week_slot_label(int $hour, ?array $booking, bool $continuation = false): string
+{
+    if ($continuation) {
+        return 'پر';
+    }
     if (!is_array($booking)) {
         return appointment_hour_chip_label($hour);
     }
@@ -155,6 +209,7 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                 <?php
                   $booking = $slot['booking'] ?? null;
                   $isBooked = is_array($booking);
+                  $continuation = !empty($slot['continuation']);
                   $time = (string) ($slot['time'] ?? '');
                   $date = (string) ($day['date'] ?? '');
                   if ($isBooked) {
@@ -173,11 +228,22 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                           && appointment_awaiting_secretary_approval($booking);
                       $openHold = function_exists('appointment_is_open_hold') && appointment_is_open_hold($booking);
                       $hasReceipt = trim((string) ($booking['receipt_path'] ?? '')) !== '';
+                      $roomNo = (int) ($booking['room_no'] ?? 0);
+                      $onlineSession = function_exists('appointment_is_online_mode') && appointment_is_online_mode($booking);
+                      $roomLabel = '';
+                      if ($roomNo > 0) {
+                          $roomLabel = function_exists('clinic_room_label') ? clinic_room_label($roomNo) : ('اتاق ' . $roomNo);
+                      }
+                      if (!function_exists('clinic_rooms_numbers') && is_file(__DIR__ . '/clinic_rooms.php')) {
+                          require_once __DIR__ . '/clinic_rooms.php';
+                      }
+                      $roomNumbers = function_exists('clinic_rooms_numbers') ? clinic_rooms_numbers() : [1, 2, 3];
                       $title = trim(
                           (string) ($booking['patient_name'] ?? '')
                           . "\n" . $status
                           . ($pay !== '' ? "\nپرداخت: " . $pay : '')
                           . ($mode !== '' ? "\nنوع: " . $mode : '')
+                          . ($roomLabel !== '' ? "\n" . $roomLabel : "\nاتاق مشخص نشده")
                           . ($amount !== '' ? "\n" . $amount : '')
                           . (!empty($booking['phone']) ? "\n" . $booking['phone'] : '')
                       );
@@ -185,13 +251,14 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                       <div class="sec-week-hour-wrap">
                         <button
                           type="button"
-                          class="sec-week-hour is-booked<?= ($openHold || $awaitingApproval) ? ' is-awaiting' : '' ?>"
+                          class="sec-week-hour is-booked<?= $continuation ? ' is-continuation' : '' ?><?= ($openHold || $awaitingApproval) ? ' is-awaiting' : '' ?>"
                           data-booked="1"
                           data-patient="<?= e((string) ($booking['patient_name'] ?? '')) ?>"
                           data-phone="<?= e((string) ($booking['phone'] ?? '')) ?>"
                           data-status="<?= e($status) ?>"
                           data-pay="<?= e($pay) ?>"
                           data-mode="<?= e($mode) ?>"
+                          data-room="<?= e($roomLabel) ?>"
                           data-amount="<?= e($amount) ?>"
                           data-when="<?= e(to_fa_digits(appointment_clock_from_row($booking))) ?>"
                           data-appt="<?= e((string) ($booking['id'] ?? '')) ?>"
@@ -201,7 +268,26 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                           <div class="sec-week-shadow-tools">
                             <?php
                               $nextHold = $deskNext . (str_contains($deskNext, '?') ? '&' : '?') . 'tab=reservations&doctor_id=' . rawurlencode($doctorId);
+                              $roomNext = $deskNext . (str_contains($deskNext, '?') ? '&' : '?') . 'doctor_id=' . rawurlencode($doctorId);
                             ?>
+                            <?php if ($roomNo < 1): ?>
+                              <form method="post" action="<?= e(url('/secretary/appointments')) ?>" class="sec-week-room-form">
+                                <?= csrf_field() ?>
+                                <input type="hidden" name="action" value="set_room">
+                                <input type="hidden" name="appointment_id" value="<?= e((string) ($booking['id'] ?? '')) ?>">
+                                <input type="hidden" name="next" value="<?= e($roomNext) ?>">
+                                <label style="display:block;margin:0 0 .65rem">
+                                  <span class="label" style="font-size:.75rem"><?= $onlineSession ? 'اتاق این جلسه هنوز مشخص نیست' : 'اتاق این نوبت حضوری هنوز مشخص نیست' ?></span>
+                                  <select class="input" name="room_no"<?= $onlineSession ? '' : ' required' ?>>
+                                    <option value="">— انتخاب اتاق —</option>
+                                    <?php foreach ($roomNumbers as $n): ?>
+                                      <option value="<?= (int) $n ?>"><?= e(function_exists('clinic_room_label') ? clinic_room_label((int) $n) : ('اتاق ' . (int) $n)) ?></option>
+                                    <?php endforeach; ?>
+                                  </select>
+                                </label>
+                                <button type="submit" class="btn btn-primary btn-sm">ثبت اتاق</button>
+                              </form>
+                            <?php endif; ?>
                             <?php if ($awaitingApproval && function_exists('appointment_approval_actions_html')): ?>
                               <?= appointment_approval_actions_html($booking, $nextHold) ?>
                             <?php elseif ($openHold && function_exists('appointment_hold_reject_form_html')): ?>
@@ -271,6 +357,7 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
         if (btn.getAttribute("data-status")) lines.push("وضعیت نوبت: " + btn.getAttribute("data-status"));
         if (btn.getAttribute("data-pay")) lines.push("پرداخت: " + btn.getAttribute("data-pay"));
         if (btn.getAttribute("data-mode")) lines.push("نوع جلسه: " + btn.getAttribute("data-mode"));
+        lines.push(btn.getAttribute("data-room") ? ("اتاق: " + btn.getAttribute("data-room")) : "اتاق: مشخص نشده");
         if (btn.getAttribute("data-amount")) lines.push(btn.getAttribute("data-amount"));
         if (btn.getAttribute("data-phone")) lines.push("تلفن: " + btn.getAttribute("data-phone"));
         if (nameEl) nameEl.textContent = btn.getAttribute("data-patient") || "مراجعه‌کننده";

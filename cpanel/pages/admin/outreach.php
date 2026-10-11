@@ -10,6 +10,9 @@ if (!outreach_user_allowed($user)) {
     flash_set('error', 'این بخش برای این حساب باز نیست.');
     redirect(clinic_desk_home($user));
 }
+if ((string) ($user['role'] ?? '') === 'SECRETARY') {
+    redirect('/secretary/patients?tab=inactive');
+}
 
 ensure_outreach_schema($pdo);
 $contacts = outreach_contacts($pdo);

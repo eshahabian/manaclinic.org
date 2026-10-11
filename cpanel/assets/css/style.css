@@ -3556,6 +3556,20 @@ html[data-theme="dark"] .appt-search-bar {
   background: #be123c;
   box-shadow: 0 6px 18px rgba(190, 18, 60, .28);
 }
+.sec-week-hour.is-booked.is-continuation {
+  background: #fff1f2;
+  color: #9f1239;
+  border-color: #fecdd3;
+}
+.sec-week-hour.is-booked.is-continuation:hover {
+  background: #ffe4e6;
+  box-shadow: none;
+}
+.sec-week-room-form {
+  margin: 0 0 .75rem;
+  padding-bottom: .75rem;
+  border-bottom: 1px solid var(--line, #e5e7eb);
+}
 .sec-week-hour.is-awaiting {
   background: #d97706;
   color: #fff;
@@ -3638,6 +3652,11 @@ html[data-theme="dark"] .appt-search-bar {
 html[data-theme="dark"] .sec-week-hour.is-free {
   background: rgba(31, 122, 76, .15);
   border-color: rgba(31, 122, 76, .35);
+}
+html[data-theme="dark"] .sec-week-hour.is-booked.is-continuation {
+  background: rgba(225, 29, 72, .18);
+  color: #fecdd3;
+  border-color: rgba(225, 29, 72, .45);
 }
 html[data-theme="dark"] .sec-week-day {
   background: rgba(255, 255, 255, .03);
@@ -5480,6 +5499,15 @@ body.workshop-overview-locked { overflow: hidden; }
   align-items: flex-start;
   gap: 1rem;
   flex-wrap: wrap;
+}
+.secretary-kind-switch {
+  display: flex;
+  gap: .5rem;
+  margin-top: 1rem;
+}
+#patients-active[hidden],
+#patients-inactive[hidden] {
+  display: none !important;
 }
 .secretary-add-patient { margin-top: 1rem; max-width: none; width: 100%; }
 .form-draft-hint { color: var(--primary-dark); }

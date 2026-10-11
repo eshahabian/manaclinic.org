@@ -2,7 +2,9 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../../includes/secretary_panel.php';
+require_once __DIR__ . '/../../includes/secretary_patient.php';
 require_once __DIR__ . '/../../includes/user_referral.php';
+require_once __DIR__ . '/../../includes/outreach.php';
 
 $user = require_login(['SECRETARY']);
 
@@ -24,16 +26,52 @@ $patients = $pdo->query("
 $doctors = secretary_active_doctors($pdo);
 $nameDict = build_name_transliterations_client_map($pdo);
 $openAdd = isset($_GET['add']);
+$tab = (string) ($_GET['tab'] ?? 'active');
+if ($tab !== 'inactive') {
+    $tab = 'active';
+}
+ensure_outreach_schema($pdo);
+ensure_user_referral_schema($pdo);
+$inactiveContacts = outreach_contacts($pdo);
+$smsPending = 0;
+try {
+    $smsPending = (int) $pdo->query("SELECT COUNT(*) FROM sms_outbox WHERE status='PENDING'")->fetchColumn();
+} catch (Throwable $ignored) {
+    $smsPending = 0;
+}
+$accountUsers = $pdo->query("
+  SELECT u.id, u.username, u.name, u.role, u.phone, u.created_at, u.last_login_at,
+         u.referral_source, u.preferred_doctor_id,
+         cu.name AS created_by_name, cu.username AS created_by_username, cu.role AS created_by_role
+  FROM users u
+  LEFT JOIN users cu ON cu.id = u.created_by_user_id
+  WHERE u.is_disabled = 0
+    AND (
+      u.role = 'PATIENT'
+      OR LOWER(u.username) = 'eshahabian'
+      OR (u.name LIKE '%عماد%' AND u.name LIKE '%شهابیان%')
+    )
+  ORDER BY u.created_at DESC
+")->fetchAll() ?: [];
 
 ob_start();
 ?>
 <div class="secretary-patients-head">
   <div>
     <h1>مراجعه‌کنندگان</h1>
-    <p class="muted" style="margin-top:.35rem;font-size:.9rem">روی نام بزنید تا شماره تماس و روزهای نوبت را ببینید.</p>
+    <p class="muted" style="margin-top:.35rem;font-size:.9rem">فعال حساب کاربری دارد. غیر فعال فقط نام و شماره است و حساب ساخته نمی‌شود.</p>
   </div>
+</div>
+<div class="secretary-kind-switch" role="tablist">
+  <button type="button" class="btn <?= $tab === 'active' ? 'btn-primary' : 'btn-outline' ?>" data-patient-kind="active" aria-selected="<?= $tab === 'active' ? 'true' : 'false' ?>">فعال</button>
+  <button type="button" class="btn <?= $tab === 'inactive' ? 'btn-primary' : 'btn-outline' ?>" data-patient-kind="inactive" aria-selected="<?= $tab === 'inactive' ? 'true' : 'false' ?>">غیر فعال</button>
+</div>
+
+<div id="patients-active" <?= $tab === 'inactive' ? 'hidden' : '' ?>>
+<div class="secretary-patients-head" style="margin-top:1rem">
+  <p class="muted" style="margin:0;font-size:.9rem">روی نام بزنید تا شماره تماس و روزهای نوبت را ببینید.</p>
   <button type="button" class="btn btn-primary" id="toggle-add-patient" aria-expanded="<?= $openAdd ? 'true' : 'false' ?>" aria-controls="secretary-add-patient">
-    افزودن مراجعه‌کننده
+    افزودن مراجعه‌کننده فعال
   </button>
 </div>
 
@@ -90,6 +128,142 @@ ob_start();
   <?php if (!$patients): ?><p class="muted">مراجعه‌کننده‌ای ثبت نشده است.</p><?php endif; ?>
   <p class="muted" id="patient-filter-empty" hidden>موردی با این جستجو نیست.</p>
 </div>
+
+<h2 style="margin:1.5rem 0 .35rem;font-size:1.05rem">ویرایش حساب فعال</h2>
+<p class="muted" style="margin:0 0 .75rem;font-size:.9rem">درمانگر، معرف و موبایل همین حساب‌ها از اینجا عوض می‌شود.</p>
+<div class="panel admin-users-board" style="padding:0;overflow:auto">
+  <table class="table">
+    <thead>
+      <tr>
+        <th>نام</th>
+        <th>نام کاربری</th>
+        <th>درمانگر</th>
+        <th>معرف</th>
+        <th>موبایل</th>
+        <th></th>
+      </tr>
+    </thead>
+    <tbody>
+      <?php foreach ($accountUsers as $u): ?>
+        <?php
+          $uid = (string) ($u['id'] ?? '');
+          $formId = 'sec-user-' . preg_replace('/[^a-zA-Z0-9_-]/', '', $uid);
+          $compact = 'min-width:9rem;padding:.35rem .5rem;font-size:.85rem';
+        ?>
+        <tr>
+          <td><?= e((string) $u['name']) ?></td>
+          <td dir="ltr"><?= e((string) $u['username']) ?></td>
+          <td>
+            <select class="input" name="preferred_doctor_id" form="<?= e($formId) ?>" required aria-label="درمانگر" style="<?= e($compact) ?>">
+              <option value="">انتخاب درمانگر</option>
+              <?php foreach ($doctors as $doctor): ?>
+                <option value="<?= e((string) $doctor['id']) ?>"<?= ((string) ($u['preferred_doctor_id'] ?? '') === (string) $doctor['id']) ? ' selected' : '' ?>><?= e((string) $doctor['name']) ?></option>
+              <?php endforeach; ?>
+            </select>
+          </td>
+          <td>
+            <select class="input" name="referral_source" form="<?= e($formId) ?>" aria-label="معرف" style="<?= e($compact) ?>">
+              <option value="">انتخاب معرف</option>
+              <option value="clinic"<?= (($u['referral_source'] ?? '') === 'clinic') ? ' selected' : '' ?>>ارجاع از سمت کلینیک</option>
+              <option value="therapist"<?= (($u['referral_source'] ?? '') === 'therapist') ? ' selected' : '' ?>>ارجاع از سمت درمانگر</option>
+            </select>
+          </td>
+          <td>
+            <input class="input" name="phone" form="<?= e($formId) ?>" dir="ltr" inputmode="tel" value="<?= e((string) ($u['phone'] ?? '')) ?>" required aria-label="موبایل" style="min-width:8rem;padding:.35rem .5rem;font-size:.85rem">
+          </td>
+          <td>
+            <form id="<?= e($formId) ?>" method="post" action="<?= e(url('/secretary/users')) ?>" style="margin:0">
+              <?= csrf_field() ?>
+              <input type="hidden" name="user_id" value="<?= e($uid) ?>">
+              <button class="btn btn-primary btn-sm" type="submit">ذخیره</button>
+            </form>
+          </td>
+        </tr>
+      <?php endforeach; ?>
+      <?php if (!$accountUsers): ?>
+        <tr><td colspan="6" class="muted" style="text-align:center;padding:1.2rem">حساب فعالی نیست.</td></tr>
+      <?php endif; ?>
+    </tbody>
+  </table>
+</div>
+</div>
+
+<div id="patients-inactive" <?= $tab === 'active' ? 'hidden' : '' ?>>
+  <p class="muted" style="margin:1rem 0 0;line-height:1.8">
+    اسم و شماره بدون ساختن حساب کاربری ذخیره می‌شود.
+    اگر بعداً با همین شماره ثبت‌نام کنند، همین ردیف به حسابشان وصل می‌شود.
+    پیامک در صف: <?= e(to_fa_digits((string) $smsPending)) ?>
+  </p>
+  <div class="grid-2" style="margin-top:1rem">
+    <form class="panel" method="post" action="<?= e(url('/secretary/patients')) ?>" style="margin:0">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="add_inactive">
+      <h2 style="margin:0 0 .75rem;font-size:1rem">یک نفر</h2>
+      <label>
+        <span class="label">نام</span>
+        <input class="input" name="name" required>
+      </label>
+      <label style="display:block;margin-top:.6rem">
+        <span class="label">شماره تماس</span>
+        <input class="input" name="phone" required dir="ltr" inputmode="tel">
+      </label>
+      <label style="display:block;margin-top:.6rem">
+        <span class="label">یادداشت</span>
+        <input class="input" name="note">
+      </label>
+      <button class="btn btn-primary" type="submit" style="margin-top:.8rem">ذخیره</button>
+    </form>
+    <form class="panel" method="post" action="<?= e(url('/secretary/patients')) ?>" style="margin:0">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="import_inactive">
+      <h2 style="margin:0 0 .75rem;font-size:1rem">چند نفر با هم</h2>
+      <p class="muted" style="margin:0 0 .5rem;font-size:.85rem">هر خط: نام و بعد شماره. مثلاً «مهراد بابایی ۰۹۱۲۱۲۳۴۵۶۷»</p>
+      <textarea class="input" name="lines" rows="6" required></textarea>
+      <button class="btn btn-primary" type="submit" style="margin-top:.8rem">افزودن فهرست</button>
+    </form>
+  </div>
+  <form class="panel" method="post" action="<?= e(url('/secretary/patients')) ?>" style="margin-top:1rem">
+    <?= csrf_field() ?>
+    <input type="hidden" name="action" value="queue_inactive">
+    <h2 style="margin:0 0 .5rem;font-size:1rem">پیامک دستی به همین فهرست</h2>
+    <textarea class="input" name="body" rows="3" required placeholder="متن پیامک، مثلاً اعلام یک کارگاه"></textarea>
+    <button class="btn btn-primary" type="submit" style="margin-top:.75rem">گذاشتن در صف پیامک</button>
+  </form>
+  <div class="panel" style="padding:0;overflow:auto;margin-top:1rem">
+    <table class="table">
+      <thead>
+        <tr>
+          <th>نام</th>
+          <th>شماره</th>
+          <th>حساب سایت</th>
+          <th>یادداشت</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody>
+        <?php if (!$inactiveContacts): ?>
+          <tr><td colspan="5" class="muted">هنوز شماره‌ای ثبت نشده است.</td></tr>
+        <?php endif; ?>
+        <?php foreach ($inactiveContacts as $row): ?>
+          <tr>
+            <td><?= e((string) $row['name']) ?></td>
+            <td dir="ltr"><?= e((string) $row['phone']) ?></td>
+            <td><?= !empty($row['linked_user_id']) ? 'وصل به ' . e((string) ($row['linked_name'] ?: 'حساب')) : 'هنوز حساب ندارد' ?></td>
+            <td><?= e((string) ($row['note'] ?? '')) ?></td>
+            <td>
+              <form method="post" action="<?= e(url('/secretary/patients')) ?>" onsubmit="return confirm('این شماره از فهرست حذف شود؟');">
+                <?= csrf_field() ?>
+                <input type="hidden" name="action" value="delete_inactive">
+                <input type="hidden" name="id" value="<?= e((string) $row['id']) ?>">
+                <button class="btn btn-outline btn-sm" type="submit">حذف</button>
+              </form>
+            </td>
+          </tr>
+        <?php endforeach; ?>
+      </tbody>
+    </table>
+  </div>
+</div>
 <?php
 $inner = ob_get_clean();
 $pageScripts = '
@@ -137,6 +311,25 @@ $pageScripts = '
       if (!validateSecretaryNewPatient(errEl)) e.preventDefault();
     });
   }
+
+  var activePanel = document.getElementById("patients-active");
+  var inactivePanel = document.getElementById("patients-inactive");
+  var kindButtons = document.querySelectorAll("[data-patient-kind]");
+  function showKind(kind){
+    if (activePanel) activePanel.hidden = kind !== "active";
+    if (inactivePanel) inactivePanel.hidden = kind !== "inactive";
+    kindButtons.forEach(function(btn){
+      var on = btn.getAttribute("data-patient-kind") === kind;
+      btn.classList.toggle("btn-primary", on);
+      btn.classList.toggle("btn-outline", !on);
+      btn.setAttribute("aria-selected", on ? "true" : "false");
+    });
+  }
+  kindButtons.forEach(function(btn){
+    btn.addEventListener("click", function(){
+      showKind(btn.getAttribute("data-patient-kind") || "active");
+    });
+  });
 
   var input = document.getElementById("patient-filter");
   var rows = document.querySelectorAll(".secretary-patient-row");

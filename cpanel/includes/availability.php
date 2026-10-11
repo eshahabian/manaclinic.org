@@ -234,6 +234,17 @@ function appointment_row_span(array $row): array
  *
  * @param array<string, array<string, mixed>> $bookedByStart
  */
+function appointment_booking_starts_inside(array $row, string $windowStart, string $windowEnd): bool
+{
+    $start = str_replace('T', ' ', trim((string) ($row['starts_at'] ?? '')));
+    if (strlen($start) < 16) {
+        return false;
+    }
+    $start = substr($start, 0, 19);
+
+    return $start >= substr($windowStart, 0, 19) && $start < substr($windowEnd, 0, 19);
+}
+
 function appointment_booking_covering_window(array $bookedByStart, string $startsAt, string $endsAt): ?array
 {
     $found = null;
