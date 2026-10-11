@@ -94,16 +94,80 @@ function appointment_hour_is_next_day(int $hour): bool
     return $hour < 6;
 }
 
+/** @return array{0:int,1:int} */
+function appointment_parse_hour_minute(int|string $hourOrTime): array
+{
+    if (is_int($hourOrTime)) {
+        return [$hourOrTime, 0];
+    }
+    $raw = trim((string) $hourOrTime);
+    if (preg_match('/^(\d{1,2}):(\d{2})$/', $raw, $match)) {
+        return [(int) $match[1], (int) $match[2]];
+    }
+
+    return [(int) $raw, 0];
+}
+
 function appointment_slot_starts_at(string $availabilityDate, int|string $hourOrTime): string
 {
-    $hour = is_int($hourOrTime)
-        ? $hourOrTime
-        : (int) explode(':', (string) $hourOrTime)[0];
+    [$hour, $minute] = appointment_parse_hour_minute($hourOrTime);
+    if ($minute < 0 || $minute > 59) {
+        $minute = 0;
+    }
     $date = $availabilityDate;
     if (appointment_hour_is_next_day($hour)) {
         $date = date('Y-m-d', strtotime($availabilityDate . ' +1 day') ?: time());
     }
-    return $date . ' ' . appointment_hour_to_time($hour) . ':00';
+
+    return $date . ' ' . sprintf('%02d:%02d:00', $hour, $minute);
+}
+
+function appointment_clock_label(string $time): string
+{
+    [$hour, $minute] = appointment_parse_hour_minute($time);
+
+    return to_fa_digits(sprintf('%02d:%02d', $hour, $minute));
+}
+
+function appointment_booking_time_allowed(array $availability, string $time): bool
+{
+    if (!preg_match('/^(\d{2}):(\d{2})$/', $time, $match)) {
+        return false;
+    }
+    $minute = (int) $match[2];
+    if ($minute % 5 !== 0) {
+        return false;
+    }
+
+    return in_array((int) $match[1], appointment_availability_hours($availability), true);
+}
+
+function appointment_minute_select_html(string $id, string $selected = '00'): string
+{
+    $selected = preg_match('/^(?:[0-5][05])$/', $selected) ? $selected : '00';
+    $html = '<label class="label" for="' . e($id) . '">دقیقه</label>';
+    $html .= '<select class="input" id="' . e($id) . '" style="max-width:8rem">';
+    for ($minute = 0; $minute < 60; $minute += 5) {
+        $value = sprintf('%02d', $minute);
+        $html .= '<option value="' . $value . '"' . ($value === $selected ? ' selected' : '') . '>' . e(to_fa_digits($value)) . '</option>';
+    }
+    $html .= '</select>';
+
+    return $html;
+}
+
+function appointment_has_overlap(PDO $pdo, string $doctorId, string $startsAt, string $endsAt): bool
+{
+    $stmt = $pdo->prepare("
+      SELECT id FROM appointments
+      WHERE doctor_id=?
+        AND status IN ('PENDING_APPROVAL','PENDING_PAYMENT','CONFIRMED','COMPLETED')
+        AND starts_at < ? AND ends_at > ?
+      LIMIT 1
+    ");
+    $stmt->execute([$doctorId, $endsAt, $startsAt]);
+
+    return (bool) $stmt->fetchColumn();
 }
 
 function appointment_hour_chip_label(int $hour): string

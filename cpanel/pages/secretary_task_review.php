@@ -96,6 +96,31 @@ ob_start();
 <?php if ($absent): ?>
   <p class="muted" style="margin-top:1rem;font-size:.85rem">این روز حضور نداشته‌اند: <?= e(implode('، ', array_map(static fn (array $s): string => (string) ($s['name'] ?: $s['username']), $absent))) ?></p>
 <?php endif; ?>
+<?php if (staff_app_emad_tasks_can_open($user)): ?>
+  <h2 style="margin-top:1.6rem">کارهای eshahabian، عطیه گارسچی و شیوا</h2>
+  <p class="muted">هر کدام می‌تواند برای دو نفر دیگر کار بفرستد. تیک را خودِ گیرنده می‌زند و با انجام کار، برای فرستنده پیام می‌آید.</p>
+  <?php
+    $peerSelf = (string) ($user['id'] ?? '');
+    foreach (staff_peer_task_people($pdo) as $peer):
+      $peerId = (string) ($peer['id'] ?? '');
+      $peerName = trim((string) ($peer['name'] ?? ''));
+      if ($peerName === '') {
+          $peerName = trim((string) ($peer['username'] ?? ''));
+      }
+      $peerReturn = (string) $reviewBase . '?date=' . rawurlencode($ymd);
+      echo staff_app_emad_tasks_panel_html(
+          $pdo,
+          $ymd,
+          $peerName,
+          $peerSelf !== '' && $peerSelf === $peerId,
+          staff_app_emad_tasks_can_assign($user) && $peerSelf !== $peerId,
+          url('/app/checklist/emad'),
+          $peerId,
+          $peerReturn
+      );
+    endforeach;
+  ?>
+<?php endif; ?>
 <?php
 $html = ob_get_clean();
 $renderReview((string) ($reviewTitle ?? 'وظایف منشی‌ها'), $html);

@@ -66,22 +66,16 @@ if (!$availability) {
     $bookRedirect('/secretary/appointments?tab=new');
 }
 
-$valid = appointment_slots_from_availability($availability);
-if (!in_array($time, $valid, true)) {
-    flash_set('error', 'ساعت نامعتبر است.');
+if (!appointment_booking_time_allowed($availability, $time)) {
+    flash_set('error', 'ساعت یا دقیقه نامعتبر است.');
     $bookRedirect('/secretary/appointments?tab=new');
 }
 
 $startsAt = appointment_slot_starts_at($date, $time);
 $endsAt = date('Y-m-d H:i:s', strtotime($startsAt) + (appointment_slot_minutes() * 60));
 
-$conflict = $pdo->prepare("
-  SELECT id FROM appointments
-  WHERE doctor_id=? AND starts_at=? AND status IN ('PENDING_APPROVAL','PENDING_PAYMENT','CONFIRMED','COMPLETED')
-");
-$conflict->execute([$doctorId, $startsAt]);
-if ($conflict->fetch()) {
-    flash_set('error', 'این ساعت قبلاً رزرو شده است.');
+if (appointment_has_overlap($pdo, $doctorId, $startsAt, $endsAt)) {
+    flash_set('error', 'این ساعت و دقیقه با نوبت دیگری تداخل دارد.');
     $bookRedirect('/secretary/appointments?tab=new');
 }
 

@@ -58,10 +58,9 @@ if (!$availability) {
     exit;
 }
 
-$valid = appointment_slots_from_availability($availability);
-if (!in_array($time, $valid, true)) {
+if (!appointment_booking_time_allowed($availability, $time)) {
     http_response_code(400);
-    echo json_encode(['error' => 'ساعت نامعتبر است.']);
+    echo json_encode(['error' => 'ساعت یا دقیقه نامعتبر است.']);
     exit;
 }
 
@@ -76,14 +75,9 @@ if (strtotime($startsAt) <= time()) {
     exit;
 }
 
-$conflict = $pdo->prepare("
-  SELECT id FROM appointments
-  WHERE doctor_id=? AND starts_at=? AND status IN ('PENDING_APPROVAL','PENDING_PAYMENT','CONFIRMED','COMPLETED')
-");
-$conflict->execute([$doctorId, $startsAt]);
-if ($conflict->fetch()) {
+if (appointment_has_overlap($pdo, $doctorId, $startsAt, $endsAt)) {
     http_response_code(409);
-    echo json_encode(['error' => 'این ساعت قبلاً رزرو شده است.']);
+    echo json_encode(['error' => 'این ساعت و دقیقه قبلاً رزرو شده است.']);
     exit;
 }
 

@@ -1159,7 +1159,7 @@ if ($section === 'chat') {
                 <div class="sapp-row">
                 <a href="<?= e(url('/app/chat/' . (string) $room['id'])) ?>" style="text-decoration:none;color:inherit;display:block">
                   <strong class="sapp-room-name"><span class="sapp-room-label"><i class="sapp-dot" data-online="<?= e(implode(',', $peerMap[(string) $room['id']] ?? [])) ?>" hidden></i><?= e((string) ($room['title'] ?? 'اتاق')) ?></span><b class="sapp-unread" data-room-unread="<?= e((string) $room['id']) ?>"<?= $roomUnread > 0 ? '' : ' hidden' ?>><?= $roomUnread > 0 ? e(to_fa_digits((string) $roomUnread)) : '' ?></b></strong>
-                  <small><?= e($roomKind) ?> · <?= e(to_fa_digits((string) (int) ($room['message_count'] ?? 0))) ?> پیام</small>
+                  <small data-room-unread-note="<?= e((string) $room['id']) ?>" data-room-kind="<?= e($roomKind) ?>" data-room-total="<?= e(to_fa_digits((string) (int) ($room['message_count'] ?? 0))) ?>"><?= e($roomKind) ?> · <?= e(to_fa_digits((string) (int) ($room['message_count'] ?? 0))) ?> پیام<?= $roomUnread > 0 ? ' · ' . e(to_fa_digits((string) $roomUnread)) . ' پیام نخوانده' : '' ?></small>
                 </a>
                 <?php if ($canDeleteChat): ?>
                   <form method="post" action="<?= e(url('/app/chat')) ?>" onsubmit="return confirm('این چت برای همه حذف شود؟');" style="margin-top:8px">
@@ -1474,29 +1474,55 @@ if ($section === 'checklist') {
     };
     $arrowLeft = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14.5 6.5 9 12l5.5 5.5"/></svg>';
     $arrowRight = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 6.5 15 12l-5.5 5.5"/></svg>';
-    $emadTab = staff_app_emad_task_tab();
-    $showEmadTab = !$ownChecklist && staff_app_emad_tasks_can_open($user);
-    $onEmad = $showEmadTab && $requestedSecretary === $emadTab && !in_array($requestedSecretary, $secretaryIds, true);
-    $emadName = $showEmadTab ? staff_app_emad_display_name($pdo) : '';
-    $emadCanTick = $showEmadTab && staff_app_emad_tasks_is_owner($user);
-    $emadCanAssign = $showEmadTab && staff_app_emad_tasks_can_assign($user);
+    $showPeerTabs = !$ownChecklist && staff_app_emad_tasks_can_open($user);
+    $peers = $showPeerTabs ? staff_peer_task_people($pdo) : [];
+    $activePeer = null;
+    if ($showPeerTabs && $requestedSecretary !== '' && !in_array($requestedSecretary, $secretaryIds, true)) {
+        $wantedPeer = staff_peer_task_id_from_tab($requestedSecretary);
+        if ($wantedPeer === '' && $requestedSecretary === staff_app_emad_task_tab()) {
+            foreach ($peers as $peer) {
+                if (staff_app_emad_tasks_is_owner($peer)) {
+                    $wantedPeer = (string) ($peer['id'] ?? '');
+                    break;
+                }
+            }
+        }
+        foreach ($peers as $peer) {
+            if ((string) ($peer['id'] ?? '') === $wantedPeer) {
+                $activePeer = $peer;
+                break;
+            }
+        }
+    }
+    $onPeer = is_array($activePeer);
+    $peerId = $onPeer ? (string) ($activePeer['id'] ?? '') : '';
+    $peerName = '';
+    if ($onPeer) {
+        $peerName = trim((string) ($activePeer['name'] ?? ''));
+        if ($peerName === '') {
+            $peerName = trim((string) ($activePeer['username'] ?? ''));
+        }
+    }
+    $peerTab = $peerId !== '' ? staff_peer_task_tab($peerId) : '';
+    $peerCanTick = $onPeer && $userId !== '' && $userId === $peerId;
+    $peerCanAssign = $onPeer && staff_app_emad_tasks_can_assign($user) && $userId !== $peerId;
     $emadPost = url('/app/checklist/emad');
     ob_start();
     ?>
     <div class="sapp-checklist">
     <h1>لیست کارهای روزانه</h1>
-    <?php if ($onEmad && $emadCanTick): ?>
+    <?php if ($onPeer && $peerCanTick): ?>
       <p class="muted">کارهایی که برای شما فرستاده شده. هر کدام را که انجام دادید تیک بزنید.</p>
-    <?php elseif ($onEmad): ?>
-      <p class="muted">برای همین روز کار بنویسید و بفرستید. تیک را <?= e($emadName) ?> می‌زند.</p>
+    <?php elseif ($onPeer): ?>
+      <p class="muted">برای <?= e($peerName) ?> در همین روز کار بنویسید. تیک را خودش می‌زند و پس از انجام، برای شما پیام می‌آید.</p>
     <?php else: ?>
       <p class="muted">همان فهرست داخل سایت است. پس از انجام هر کار آن را علامت بزنید. اگر کاری امروز لازم نیست، «امروز نیاز نیست» را بزنید.</p>
     <?php endif; ?>
-    <?php if (($secretaries === [] || $selected === null) && !$showEmadTab): ?>
+    <?php if (($secretaries === [] || $selected === null) && !$showPeerTabs): ?>
       <p class="muted">منشی فعالی ثبت نشده است.</p>
     <?php else: ?>
       <?php if (!$ownChecklist): ?>
-      <div class="sapp-check-tabs" role="tablist" aria-label="<?= e($showEmadTab ? 'فهرست‌ها' : 'منشی‌ها') ?>">
+      <div class="sapp-check-tabs" role="tablist" aria-label="<?= e($showPeerTabs ? 'فهرست‌ها' : 'منشی‌ها') ?>">
         <?php foreach ($secretaries as $sec): ?>
           <?php
             $tabId = (string) ($sec['id'] ?? '');
@@ -1507,27 +1533,35 @@ if ($section === 'checklist') {
             if ($tabName === '') {
                 $tabName = 'منشی';
             }
-            $isActive = !$onEmad && $tabId === $selectedId;
+            $isActive = !$onPeer && $tabId === $selectedId;
           ?>
           <a class="sapp-check-tab<?= $isActive ? ' is-active' : '' ?>" role="tab" id="sapp-check-tab-<?= e($tabId) ?>" href="<?= e($checkHref($ymd, $tabId)) ?>" aria-selected="<?= $isActive ? 'true' : 'false' ?>"<?= $isActive ? ' aria-current="page"' : '' ?>><?= e($tabName) ?></a>
         <?php endforeach; ?>
-        <?php if ($showEmadTab): ?>
-          <a class="sapp-check-tab<?= $onEmad ? ' is-active' : '' ?>" role="tab" id="sapp-check-tab-<?= e($emadTab) ?>" href="<?= e($checkHref($ymd, $emadTab)) ?>" aria-selected="<?= $onEmad ? 'true' : 'false' ?>"<?= $onEmad ? ' aria-current="page"' : '' ?>><?= e($emadName) ?></a>
-        <?php endif; ?>
+        <?php foreach ($peers as $peer): ?>
+          <?php
+            $tabId = staff_peer_task_tab((string) ($peer['id'] ?? ''));
+            $tabName = trim((string) ($peer['name'] ?? ''));
+            if ($tabName === '') {
+                $tabName = trim((string) ($peer['username'] ?? ''));
+            }
+            $isActive = $onPeer && $tabId === $peerTab;
+          ?>
+          <a class="sapp-check-tab<?= $isActive ? ' is-active' : '' ?>" role="tab" id="sapp-check-tab-<?= e($tabId) ?>" href="<?= e($checkHref($ymd, $tabId)) ?>" aria-selected="<?= $isActive ? 'true' : 'false' ?>"<?= $isActive ? ' aria-current="page"' : '' ?>><?= e($tabName) ?></a>
+        <?php endforeach; ?>
       </div>
       <?php endif; ?>
-      <?php if ($onEmad): ?>
-        <div class="sapp-check-panel" role="tabpanel" aria-labelledby="sapp-check-tab-<?= e($emadTab) ?>">
+      <?php if ($onPeer): ?>
+        <div class="sapp-check-panel" role="tabpanel" aria-labelledby="sapp-check-tab-<?= e($peerTab) ?>">
           <div class="sapp-daynav">
-            <a class="sapp-daynav-btn" href="<?= e($checkHref($prev, $emadTab)) ?>" aria-label="روز قبل"><?= $arrowLeft ?></a>
+            <a class="sapp-daynav-btn" href="<?= e($checkHref($prev, $peerTab)) ?>" aria-label="روز قبل"><?= $arrowLeft ?></a>
             <strong class="sapp-daynav-date"><?= e(secretary_daily_task_date_label($ymd)) ?></strong>
             <?php if ($next <= $today): ?>
-              <a class="sapp-daynav-btn" href="<?= e($checkHref($next, $emadTab)) ?>" aria-label="روز بعد"><?= $arrowRight ?></a>
+              <a class="sapp-daynav-btn" href="<?= e($checkHref($next, $peerTab)) ?>" aria-label="روز بعد"><?= $arrowRight ?></a>
             <?php else: ?>
               <span class="sapp-daynav-btn is-off" aria-hidden="true"><?= $arrowRight ?></span>
             <?php endif; ?>
           </div>
-          <?= staff_app_emad_tasks_panel_html($pdo, $ymd, $emadName, $emadCanTick, $emadCanAssign, $emadPost) ?>
+          <?= staff_app_emad_tasks_panel_html($pdo, $ymd, $peerName, $peerCanTick, $peerCanAssign, $emadPost, $peerId, '/app/checklist?date=' . rawurlencode($ymd) . '&secretary=' . rawurlencode($peerTab)) ?>
         </div>
       <?php elseif ($selected === null): ?>
         <p class="muted">منشی فعالی ثبت نشده است.</p>

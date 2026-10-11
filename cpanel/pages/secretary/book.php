@@ -73,7 +73,7 @@ ob_start();
   <?php endif; ?>
   <?php if ($slotPrefillActive): ?>
     <p class="muted" style="margin:0 0 1rem;font-size:.9rem">
-      از جدول هفت‌روزه انتخاب شد<?= $preDateJalali !== '' ? ' · تاریخ ' . e(to_fa_digits($preDateJalali)) : '' ?><?= $preTime !== '' ? ' · ساعت ' . e(to_fa_digits(preg_replace('/:00$/', '', $preTime) ?: $preTime)) : '' ?>.
+      از جدول هفت‌روزه انتخاب شد<?= $preDateJalali !== '' ? ' · تاریخ ' . e(to_fa_digits($preDateJalali)) : '' ?><?= $preTime !== '' ? ' · ساعت ' . e(to_fa_digits($preTime)) : '' ?>.
       فقط مراجعه‌کننده را انتخاب کنید.
     </p>
   <?php endif; ?>
@@ -137,6 +137,13 @@ ob_start();
   <div>
     <label class="label">ساعت</label>
     <div class="slots" id="sec-slots"><span class="muted">ابتدا تاریخ را انتخاب کنید</span></div>
+    <?php
+      $preMinute = '00';
+      if (preg_match('/^\d{2}:(\d{2})$/', $preTime, $minuteMatch) && ((int) $minuteMatch[1]) % 5 === 0) {
+          $preMinute = $minuteMatch[1];
+      }
+      echo appointment_minute_select_html('sec-minute', $preMinute);
+    ?>
     <input type="hidden" name="time" id="sec-time" required value="<?= e($preTime) ?>">
   </div>
 
@@ -246,12 +253,26 @@ $secretaryBookScripts = '
   var dateView = document.getElementById("sec-date-view");
   var dateEl = document.getElementById("sec-date");
   var timeEl = document.getElementById("sec-time");
+  var minuteEl = document.getElementById("sec-minute");
   var chipsEl = document.getElementById("sec-date-chips");
   var slotsEl = document.getElementById("sec-slots");
   var errEl = document.getElementById("sec-error");
   var slotsUrl = ' . json_encode(url('/api/slots')) . ';
   var daysUrl = ' . json_encode(url('/api/availability-days')) . ';
   var selectedTime = (timeEl && timeEl.value) ? timeEl.value : "";
+  if (minuteEl) {
+    minuteEl.addEventListener("change", function(){
+      var active = slotsEl.querySelector(".slot-btn.active");
+      if (!active) return;
+      var label = active.querySelector(".hour-chip-time");
+      var shown = label ? label.textContent : active.textContent;
+      var hour = String(timeEl.value || selectedTime || "").slice(0, 2);
+      if (!/^\d{2}$/.test(hour) && shown) {
+        hour = String(shown).replace(/[۰-۹]/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹".indexOf(d); }).slice(0, 2);
+      }
+      if (/^\d{2}$/.test(hour)) applyBookedTime(hour + ":00");
+    });
+  }
   var applyingPrefill = false;
   var refreshTimer = null;
 
@@ -308,9 +329,42 @@ $secretaryBookScripts = '
     return set;
   }
 
+  function minuteKey(value){
+    var match = String(value || "").match(/^(\d{2}):(\d{2})$/);
+    return match ? match[2] : "00";
+  }
+  function fillMinutes(minutes, prefer){
+    if (!minuteEl) return;
+    var list = minutes && minutes.length ? minutes : ["00","05","10","15","20","25","30","35","40","45","50","55"];
+    var keep = list.indexOf(prefer) >= 0 ? prefer : list[0];
+    minuteEl.innerHTML = "";
+    list.forEach(function(min){
+      var opt = document.createElement("option");
+      opt.value = min;
+      opt.textContent = toFa(min);
+      if (min === keep) opt.selected = true;
+      minuteEl.appendChild(opt);
+    });
+  }
+  function hourKey(value){
+    var match = String(value || "").match(/^(\d{2}):(\d{2})$/);
+    return match ? match[1] + ":00" : "";
+  }
+  function applyBookedTime(hourValue){
+    var minute = minuteEl && /^\d{2}$/.test(minuteEl.value) ? minuteEl.value : "00";
+    var hour = hourKey(hourValue);
+    if (!hour) {
+      timeEl.value = "";
+      selectedTime = "";
+      return;
+    }
+    timeEl.value = hour.slice(0, 2) + ":" + minute;
+    selectedTime = timeEl.value;
+  }
   function renderSlotButtons(slots, keepTime, emptyMsg){
     var prev = keepTime ? (timeEl.value || selectedTime) : "";
-    timeEl.value = "";
+    var prevHour = hourKey(prev);
+    if (!keepTime) timeEl.value = "";
     slotsEl.innerHTML = "";
     if (!slots.length) {
       slotsEl.innerHTML = "<span class=\\"muted\\">" + escHtml(emptyMsg || "در این تاریخ درمانگر وقت خالی ندارد") + "</span>";
@@ -318,12 +372,17 @@ $secretaryBookScripts = '
     }
     slots.forEach(function(s){
       var value = typeof s === "string" ? s : (s.value || "");
-      var label = toFa(typeof s === "string" ? value.replace(/:00$/, "") : (s.label || value.replace(/:00$/, "")));
+      var label = toFa(typeof s === "string" ? value : (s.label || value));
       var dateLabel = toFa(typeof s === "object" && s.date_label ? s.date_label : "");
+      var minutes = (typeof s === "object" && s.minutes && s.minutes.length) ? s.minutes : null;
       var b = document.createElement("button");
       b.type = "button";
-      b.className = "slot-btn" + (prev && prev === value ? " active" : "");
-      if (prev && prev === value) timeEl.value = value;
+      b.className = "slot-btn" + (prevHour && prevHour === value ? " active" : "");
+      if (minutes) b.setAttribute("data-minutes", minutes.join(","));
+      if (prevHour && prevHour === value) {
+        fillMinutes(minutes, minuteKey(prev));
+        applyBookedTime(value);
+      }
       if (dateLabel) {
         var timeElChip = document.createElement("span");
         timeElChip.className = "hour-chip-time";
@@ -339,8 +398,8 @@ $secretaryBookScripts = '
       b.onclick = function(){
         Array.prototype.forEach.call(slotsEl.querySelectorAll(".slot-btn"), function(x){ x.classList.remove("active"); });
         b.classList.add("active");
-        timeEl.value = value;
-        selectedTime = value;
+        fillMinutes((b.getAttribute("data-minutes") || "").split(",").filter(Boolean), minuteEl ? minuteEl.value : "00");
+        applyBookedTime(value);
         errEl.style.display = "none";
       };
       slotsEl.appendChild(b);

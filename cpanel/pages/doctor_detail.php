@@ -242,7 +242,7 @@ ob_start();
         <?php endif; ?>
       </div>
       <div>
-        <label class="label">ساعت‌های خالی</label>
+        <label class="label">ساعت و دقیقه</label>
         <div class="slots" id="book-slots">
           <?php if ($dates === []): ?>
             <span class="muted">در این تاریخ درمانگر وقت خالی ندارد</span>
@@ -251,6 +251,7 @@ ob_start();
           <?php endif; ?>
         </div>
       </div>
+      <?= appointment_minute_select_html('book-minute', '00') ?>
       <input type="hidden" id="book-time" value="">
       <?php
         if (!function_exists('appointment_session_mode_pick_html') && is_file(__DIR__ . '/../includes/appointment_session.php')) {
@@ -288,6 +289,8 @@ $pageScripts = '
   var dateEl = document.getElementById("book-date");
   var slotsEl = document.getElementById("book-slots");
   var timeEl = document.getElementById("book-time");
+  var minuteEl = document.getElementById("book-minute");
+  var pickedHour = "";
   var errEl = document.getElementById("book-error");
   var loggedIn = ' . json_encode((bool) $currentUser) . ';
   var isPatient = ' . json_encode(($currentUser['role'] ?? '') === 'PATIENT') . ';
@@ -323,8 +326,37 @@ $pageScripts = '
   function hidePrice(){ if (priceEl) priceEl.hidden = true; }
   function showPrice(){ if (priceEl) priceEl.hidden = false; }
 
+  function faDigits(value){
+    return String(value).replace(/[0-9]/g, function(digit){ return "۰۱۲۳۴۵۶۷۸۹"[digit]; });
+  }
+  function fillMinutes(minutes, prefer){
+    if (!minuteEl) return;
+    var list = minutes && minutes.length ? minutes : ["00","05","10","15","20","25","30","35","40","45","50","55"];
+    var keep = list.indexOf(prefer) >= 0 ? prefer : list[0];
+    minuteEl.innerHTML = "";
+    list.forEach(function(min){
+      var opt = document.createElement("option");
+      opt.value = min;
+      opt.textContent = faDigits(min);
+      if (min === keep) opt.selected = true;
+      minuteEl.appendChild(opt);
+    });
+  }
+  function applyBookedTime(hourValue){
+    pickedHour = hourValue || "";
+    var minute = minuteEl && /^\d{2}$/.test(minuteEl.value) ? minuteEl.value : "00";
+    var match = String(pickedHour).match(/^(\d{2}):/);
+    timeEl.value = match ? match[1] + ":" + minute : "";
+  }
+  if (minuteEl) {
+    minuteEl.addEventListener("change", function(){
+      if (pickedHour) applyBookedTime(pickedHour);
+    });
+  }
+
   function loadSlots(){
     timeEl.value = "";
+    pickedHour = "";
     hidePrice();
     slotsEl.innerHTML = "در حال بارگذاری...";
     if (!dateEl.value) {
@@ -342,11 +374,13 @@ $pageScripts = '
         slotsEl.innerHTML = "";
         slots.forEach(function(s){
           var value = typeof s === "string" ? s : (s.value || "");
-          var label = typeof s === "string" ? value.replace(/:00$/, "") : (s.label || value.replace(/:00$/, ""));
+          var label = typeof s === "string" ? value : (s.label || value);
           var dateLabel = typeof s === "object" && s.date_label ? s.date_label : "";
+          var minutes = (typeof s === "object" && s.minutes && s.minutes.length) ? s.minutes : null;
           var b = document.createElement("button");
           b.type = "button";
           b.className = "slot-btn";
+          if (minutes) b.setAttribute("data-minutes", minutes.join(","));
           if (dateLabel) {
             var timeElChip = document.createElement("span");
             timeElChip.className = "hour-chip-time";
@@ -361,7 +395,10 @@ $pageScripts = '
           }
           b.onclick = function(){
             Array.prototype.forEach.call(slotsEl.querySelectorAll(".slot-btn"), function(x){ x.classList.remove("active"); });
-            b.classList.add("active"); timeEl.value = value; showPrice();
+            b.classList.add("active");
+            fillMinutes((b.getAttribute("data-minutes") || "").split(",").filter(Boolean), minuteEl ? minuteEl.value : "00");
+            applyBookedTime(value);
+            showPrice();
           };
           slotsEl.appendChild(b);
         });

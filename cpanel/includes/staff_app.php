@@ -514,6 +514,7 @@ function staff_app_unread_count(PDO $pdo, string $userId): int
         $stmt = $pdo->prepare("
           SELECT COUNT(*)
           FROM staff_app_messages m
+          JOIN staff_app_rooms rm ON rm.id = m.room_id AND rm.deleted_at IS NULL
           JOIN staff_app_members mem ON mem.room_id = m.room_id AND mem.user_id = ?
           LEFT JOIN staff_app_reads r ON r.room_id = m.room_id AND r.user_id = ?
           WHERE TRIM(m.user_id) <> TRIM(?)
@@ -537,6 +538,7 @@ function staff_app_unread_by_room(PDO $pdo, string $userId): array
         $stmt = $pdo->prepare("
           SELECT m.room_id, COUNT(*) AS unread
           FROM staff_app_messages m
+          JOIN staff_app_rooms rm ON rm.id = m.room_id AND rm.deleted_at IS NULL
           JOIN staff_app_members mem ON mem.room_id = m.room_id AND mem.user_id = ?
           LEFT JOIN staff_app_reads r ON r.room_id = m.room_id AND r.user_id = ?
           WHERE TRIM(m.user_id) <> TRIM(?)
@@ -1949,6 +1951,14 @@ function staff_app_client_script(): string
     });
   }
 
+  function paintNavUnread(count) {
+    var badge = document.getElementById("sapp-nav-unread");
+    if (!badge) return;
+    count = Number(count) || 0;
+    badge.hidden = count < 1;
+    badge.textContent = count > 0 ? faCount(count) : "";
+  }
+
   function paintUnread(map) {
     if (!map || Array.isArray(map)) map = {};
     document.querySelectorAll("[data-room-unread]").forEach(function (el) {
@@ -1961,6 +1971,14 @@ function staff_app_client_script(): string
         el.hidden = true;
         el.textContent = "";
       }
+    });
+    document.querySelectorAll("[data-room-unread-note]").forEach(function (el) {
+      var id = el.getAttribute("data-room-unread-note") || "";
+      var count = Number(map[id] || 0);
+      var kind = el.getAttribute("data-room-kind") || "";
+      var total = el.getAttribute("data-room-total") || "";
+      var extra = count > 0 ? (" · " + faCount(count) + " پیام نخوانده") : "";
+      el.textContent = kind + " · " + total + " پیام" + extra;
     });
   }
 
@@ -2012,6 +2030,7 @@ function staff_app_client_script(): string
 
   function watchUnread(count) {
     count = Number(count) || 0;
+    paintNavUnread(count);
     var bumped = lastUnread !== null && count > lastUnread;
     if (bumped && ownSendRecent()) {
       return;
@@ -2331,8 +2350,9 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-person{display:flex;align-items:center;justify-content:space-between;gap:8px;width:100%;min-height:52px;margin:0 0 8px;padding:10px 12px;border:1px solid #e6eeea;border-radius:14px;background:#fff;color:#1c3d36;font:inherit;font-weight:700;text-align:right;cursor:pointer}
     .sapp-person-name{display:inline-flex;align-items:center;gap:.35rem;min-width:0}
     .sapp-dot{display:inline-block;width:.55rem;height:.55rem;border-radius:999px;background:#1fa855;box-shadow:0 0 0 .18rem rgba(31,168,85,.22);flex:none;vertical-align:middle}
-    .sapp-unread{color:#e23b3b;font-weight:800;font-size:1rem;line-height:1;flex:none}
+    .sapp-unread{min-width:1.35rem;height:1.35rem;padding:0 .4rem;border-radius:999px;background:#e23b3b;color:#fff;font-weight:800;font-size:.78rem;line-height:1;flex:none;display:inline-flex;align-items:center;justify-content:center}
     .sapp-unread[hidden]{display:none !important}
+    .sapp-badge[hidden]{display:none !important}
     .sapp-dot[hidden]{display:none !important}
     .sapp-thread-head{display:flex;align-items:center;justify-content:space-between;gap:.5rem;margin:0 0 .35rem}
     .sapp-thread-head .sapp-thread-title{flex:1 1 auto;min-width:0;margin:0}
@@ -2506,7 +2526,7 @@ function staff_app_render(string $active, string $title, string $description, st
       <a class="<?= $navKey === 'chat' ? 'is-active' : '' ?>" href="<?= e(url('/app/chat')) ?>">
         <span class="sapp-nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17.5 4 20V6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8A2.5 2.5 0 0 1 17.5 17H7z"/></svg></span>
         گفتگو
-        <?php if ($unread > 0): ?><span class="sapp-badge"><?= e(to_fa_digits((string) $unread)) ?></span><?php endif; ?>
+        <span class="sapp-badge" id="sapp-nav-unread"<?= $unread > 0 ? '' : ' hidden' ?>><?= $unread > 0 ? e(to_fa_digits((string) $unread)) : '' ?></span>
       </a>
       <?php if ($isSecretary): ?>
       <span class="is-locked" role="link" aria-disabled="true" tabindex="-1">

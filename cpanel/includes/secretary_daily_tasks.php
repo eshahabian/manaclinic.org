@@ -906,6 +906,13 @@ function secretary_daily_tasks_fragment(PDO $pdo, array $secretary, string $ymd,
     return (string) ob_get_clean();
 }
 
+function secretary_receives_extra_tasks(array $sec): bool
+{
+    $haystack = trim((string) ($sec['name'] ?? '') . ' ' . (string) ($sec['username'] ?? ''));
+
+    return str_contains($haystack, 'شیرخدایی') || str_contains($haystack, 'مرادی');
+}
+
 function secretary_assigned_tasks_can_give(?array $user = null): bool
 {
     $user = secretary_daily_tasks_identity($user);
@@ -1044,6 +1051,9 @@ function secretary_assigned_task_composer_html(
         if (!is_array($sec)) {
             continue;
         }
+        if (!secretary_receives_extra_tasks($sec)) {
+            continue;
+        }
         $id = (string) ($sec['id'] ?? '');
         if ($id === '') {
             continue;
@@ -1080,7 +1090,7 @@ function secretary_assigned_task_composer_html(
         <div>
           <label class="label" for="assigned-secretary">منشی</label>
           <select class="input" id="assigned-secretary" name="secretary_id">
-            <option value="all"<?= $picked === 'all' ? ' selected' : '' ?>>همه منشی‌ها</option>
+            <option value="all"<?= $picked === 'all' ? ' selected' : '' ?>>هر دو منشی</option>
             <?php foreach ($choices as $choice): ?>
               <option value="<?= e($choice['id']) ?>"<?= $choice['id'] === $picked ? ' selected' : '' ?>><?= e($choice['name']) ?></option>
             <?php endforeach; ?>
@@ -1121,6 +1131,9 @@ function secretary_assigned_tasks_handle_create(PDO $pdo, array $user, string $f
     $secretaries = secretary_daily_task_secretaries($pdo);
     $allowed = [];
     foreach ($secretaries as $sec) {
+        if (!secretary_receives_extra_tasks($sec)) {
+            continue;
+        }
         $allowed[(string) ($sec['id'] ?? '')] = true;
     }
     unset($allowed['']);
@@ -1188,6 +1201,93 @@ function staff_app_emad_task_tab(): string
     return 'eshahabian';
 }
 
+function staff_peer_task_tab(string $userId): string
+{
+    return 'peer-' . $userId;
+}
+
+function staff_peer_task_id_from_tab(string $tab): string
+{
+    if (!str_starts_with($tab, 'peer-')) {
+        return '';
+    }
+    $id = substr($tab, 5);
+
+    return preg_match('/^[a-zA-Z0-9_-]+$/', $id) ? $id : '';
+}
+
+/** @return list<array<string, mixed>> */
+function staff_peer_task_people(PDO $pdo): array
+{
+    static $cache = null;
+    if (is_array($cache)) {
+        return $cache;
+    }
+    $cache = [];
+    try {
+        $rows = $pdo->query("SELECT id, name, username, role FROM users WHERE COALESCE(is_disabled,0)=0")->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Throwable $e) {
+        return $cache;
+    }
+    if (!is_array($rows)) {
+        return $cache;
+    }
+    $eshahabian = null;
+    $shiva = null;
+    $garsichi = null;
+    foreach ($rows as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        if ($eshahabian === null && staff_app_emad_tasks_is_owner($row)) {
+            $eshahabian = $row;
+            continue;
+        }
+        if ($shiva === null && staff_app_emad_tasks_matches_doctors($row) && function_exists('doctor_is_shiva') && doctor_is_shiva($row)) {
+            $shiva = $row;
+            continue;
+        }
+        if ($garsichi === null && function_exists('doctor_is_garsichi') && doctor_is_garsichi($row)) {
+            $garsichi = $row;
+        }
+    }
+    foreach ([$eshahabian, $shiva, $garsichi] as $person) {
+        if (is_array($person)) {
+            $cache[] = $person;
+        }
+    }
+
+    return $cache;
+}
+
+function staff_peer_task_by_id(PDO $pdo, string $userId): ?array
+{
+    foreach (staff_peer_task_people($pdo) as $person) {
+        if ((string) ($person['id'] ?? '') === $userId) {
+            return $person;
+        }
+    }
+
+    return null;
+}
+
+function staff_peer_task_safe_return(string $raw, string $fallback): string
+{
+    $raw = trim($raw);
+    if ($raw === '' || !str_starts_with($raw, '/') || str_contains($raw, '://') || str_contains($raw, '\\') || str_contains($raw, "\n")) {
+        return $fallback;
+    }
+    $path = (string) (parse_url($raw, PHP_URL_PATH) ?: '');
+    $allowed = ['/app/checklist', '/doctor/secretary-tasks', '/admin/secretary-tasks', '/secretary/secretary-tasks'];
+    foreach ($allowed as $prefix) {
+        if ($path === $prefix) {
+            return $raw;
+        }
+    }
+
+    return $fallback;
+}
+
 function staff_app_emad_tasks_is_owner(?array $user = null): bool
 {
     $user = secretary_daily_tasks_identity($user);
@@ -1220,11 +1320,8 @@ function staff_app_emad_tasks_matches_doctors(?array $user): bool
 function staff_app_emad_tasks_can_assign(?array $user = null): bool
 {
     $user = secretary_daily_tasks_identity($user);
-    if (!$user || staff_app_emad_tasks_is_owner($user)) {
-        return false;
-    }
 
-    return staff_app_emad_tasks_matches_doctors($user);
+    return $user !== null && (staff_app_emad_tasks_is_owner($user) || staff_app_emad_tasks_matches_doctors($user));
 }
 
 function staff_app_emad_tasks_can_open(?array $user = null): bool
@@ -1264,7 +1361,41 @@ function ensure_staff_app_emad_tasks_schema(PDO $pdo): void
         INDEX idx_emad_task_date (task_date)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
+    $column = $pdo->query("SHOW COLUMNS FROM staff_app_emad_tasks LIKE 'assignee_user_id'")->fetch();
+    if (!$column) {
+        $pdo->exec('ALTER TABLE staff_app_emad_tasks ADD COLUMN assignee_user_id VARCHAR(32) NULL AFTER created_by');
+    }
+    $index = $pdo->query("SHOW INDEX FROM staff_app_emad_tasks WHERE Key_name = 'idx_emad_assignee'")->fetch();
+    if (!$index) {
+        $pdo->exec('ALTER TABLE staff_app_emad_tasks ADD INDEX idx_emad_assignee (assignee_user_id, task_date)');
+    }
     $ready = true;
+    staff_peer_tasks_backfill_assignee($pdo);
+}
+
+function staff_peer_tasks_backfill_assignee(PDO $pdo): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    $pending = $pdo->query("SELECT 1 FROM staff_app_emad_tasks WHERE assignee_user_id IS NULL OR assignee_user_id = '' LIMIT 1")->fetchColumn();
+    if (!$pending) {
+        return;
+    }
+    $eshahabianId = '';
+    foreach (staff_peer_task_people($pdo) as $person) {
+        if (staff_app_emad_tasks_is_owner($person)) {
+            $eshahabianId = (string) ($person['id'] ?? '');
+            break;
+        }
+    }
+    if ($eshahabianId === '') {
+        return;
+    }
+    $pdo->prepare("UPDATE staff_app_emad_tasks SET assignee_user_id = ? WHERE assignee_user_id IS NULL OR assignee_user_id = ''")
+        ->execute([$eshahabianId]);
 }
 
 function staff_app_emad_task_normalize_body(string $raw): string
@@ -1283,27 +1414,35 @@ function staff_app_emad_task_normalize_body(string $raw): string
 }
 
 /** @return list<array<string, mixed>> */
-function staff_app_emad_tasks_for_date(PDO $pdo, string $ymd): array
+function staff_app_emad_tasks_for_date(PDO $pdo, string $ymd, string $assigneeId = ''): array
 {
     ensure_staff_app_emad_tasks_schema($pdo);
+    if ($assigneeId === '') {
+        foreach (staff_peer_task_people($pdo) as $person) {
+            if (staff_app_emad_tasks_is_owner($person)) {
+                $assigneeId = (string) ($person['id'] ?? '');
+                break;
+            }
+        }
+    }
     $stmt = $pdo->prepare('
-      SELECT t.id, t.body, t.created_by, t.created_at, t.done, t.done_at, u.name AS creator_name
+      SELECT t.id, t.body, t.created_by, t.assignee_user_id, t.created_at, t.done, t.done_at, u.name AS creator_name
       FROM staff_app_emad_tasks t
       LEFT JOIN users u ON u.id = t.created_by
-      WHERE t.task_date = ?
+      WHERE t.task_date = ? AND t.assignee_user_id = ?
       ORDER BY t.created_at ASC, t.id ASC
     ');
-    $stmt->execute([$ymd]);
+    $stmt->execute([$ymd, $assigneeId]);
     $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
     return is_array($rows) ? $rows : [];
 }
 
 /** @return array{done:int,required:int,skipped:int} */
-function staff_app_emad_task_progress(PDO $pdo, string $ymd): array
+function staff_app_emad_task_progress(PDO $pdo, string $ymd, string $assigneeId = ''): array
 {
     $done = 0;
-    $rows = staff_app_emad_tasks_for_date($pdo, $ymd);
+    $rows = staff_app_emad_tasks_for_date($pdo, $ymd, $assigneeId);
     foreach ($rows as $row) {
         if ((int) ($row['done'] ?? 0) === 1) {
             $done++;
@@ -1317,21 +1456,25 @@ function staff_app_emad_task_progress(PDO $pdo, string $ymd): array
     ];
 }
 
-function staff_app_emad_task_create(PDO $pdo, string $ymd, string $body, string $createdBy): string
+function staff_app_emad_task_create(PDO $pdo, string $ymd, string $body, string $createdBy, string $assigneeId): string
 {
     ensure_staff_app_emad_tasks_schema($pdo);
     if ($createdBy === '' || strlen($createdBy) > 32 || !preg_match('/^[a-zA-Z0-9_-]+$/', $createdBy)) {
         throw new RuntimeException('فرستنده مشخص نیست.');
     }
+    if ($assigneeId === '' || strlen($assigneeId) > 32 || !preg_match('/^[a-zA-Z0-9_-]+$/', $assigneeId)) {
+        throw new RuntimeException('گیرنده کار مشخص نیست.');
+    }
     $text = staff_app_emad_task_normalize_body($body);
     $id = cuid();
-    $pdo->prepare('INSERT INTO staff_app_emad_tasks (id, task_date, body, created_by, created_at, done, done_at) VALUES (?,?,?,?,?,0,NULL)')
-        ->execute([$id, $ymd, $text, $createdBy, date('Y-m-d H:i:s')]);
+    $pdo->prepare('INSERT INTO staff_app_emad_tasks (id, task_date, body, created_by, assignee_user_id, created_at, done, done_at) VALUES (?,?,?,?,?,?,0,NULL)')
+        ->execute([$id, $ymd, $text, $createdBy, $assigneeId, date('Y-m-d H:i:s')]);
 
     return $id;
 }
 
-function staff_app_emad_task_set(PDO $pdo, string $taskId, string $ymd, string $mark): ?string
+/** @return array{done_at:?string,was_done:bool,body:string,created_by:string,assignee_user_id:string} */
+function staff_app_emad_task_set(PDO $pdo, string $taskId, string $ymd, string $mark, string $actorId = ''): array
 {
     ensure_staff_app_emad_tasks_schema($pdo);
     if (!preg_match('/^[a-f0-9]{24}$/', $taskId)) {
@@ -1340,22 +1483,70 @@ function staff_app_emad_task_set(PDO $pdo, string $taskId, string $ymd, string $
     if (!in_array($mark, ['done', 'pending'], true)) {
         throw new RuntimeException('وضعیت نامعتبر است.');
     }
-    $stmt = $pdo->prepare('SELECT task_date FROM staff_app_emad_tasks WHERE id=? LIMIT 1');
+    $stmt = $pdo->prepare('SELECT task_date, body, created_by, assignee_user_id, done FROM staff_app_emad_tasks WHERE id=? LIMIT 1');
     $stmt->execute([$taskId]);
-    $storedDate = (string) ($stmt->fetchColumn() ?: '');
-    if ($storedDate === '' || $storedDate !== $ymd) {
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row || (string) ($row['task_date'] ?? '') !== $ymd) {
         throw new RuntimeException('این کار پیدا نشد.');
+    }
+    if ($actorId !== '' && (string) ($row['assignee_user_id'] ?? '') !== $actorId) {
+        throw new RuntimeException('تیک هر کار را فقط کسی می‌زند که کار برای او فرستاده شده.');
     }
     $doneAt = $mark === 'done' ? date('Y-m-d H:i:s') : null;
     $pdo->prepare('UPDATE staff_app_emad_tasks SET done=?, done_at=? WHERE id=? AND task_date=?')
         ->execute([$mark === 'done' ? 1 : 0, $doneAt, $taskId, $ymd]);
 
-    return $doneAt;
+    return [
+        'done_at' => $doneAt,
+        'was_done' => (int) ($row['done'] ?? 0) === 1,
+        'body' => (string) ($row['body'] ?? ''),
+        'created_by' => (string) ($row['created_by'] ?? ''),
+        'assignee_user_id' => (string) ($row['assignee_user_id'] ?? ''),
+    ];
 }
 
-function staff_app_emad_task_save_response(PDO $pdo, string $ymd, string $mark, ?string $doneAt): void
+function staff_peer_task_notify_completed(PDO $pdo, array $actor, array $task, string $ymd): void
 {
-    $progress = staff_app_emad_task_progress($pdo, $ymd);
+    if (!function_exists('notify_user') && is_file(__DIR__ . '/notifications.php')) {
+        require_once __DIR__ . '/notifications.php';
+    }
+    if (!function_exists('notify_user')) {
+        return;
+    }
+    $creatorId = trim((string) ($task['created_by'] ?? ''));
+    $actorId = trim((string) ($actor['id'] ?? ''));
+    $assigneeId = trim((string) ($task['assignee_user_id'] ?? ''));
+    if ($creatorId === '' || $actorId === '' || $creatorId === $actorId || $assigneeId !== $actorId) {
+        return;
+    }
+    if (staff_peer_task_by_id($pdo, $creatorId) === null || staff_peer_task_by_id($pdo, $actorId) === null) {
+        return;
+    }
+    $who = trim((string) ($actor['name'] ?? ''));
+    if ($who === '') {
+        $who = trim((string) ($actor['username'] ?? ''));
+    }
+    $text = trim((string) ($task['body'] ?? ''));
+    $when = secretary_daily_task_date_label($ymd);
+    $link = '/app/checklist?date=' . rawurlencode($ymd) . '&secretary=' . rawurlencode(staff_peer_task_tab($assigneeId));
+    try {
+        notify_user(
+            $pdo,
+            $creatorId,
+            'کار انجام شد',
+            $who . ' کار «' . $text . '» را برای ' . $when . ' انجام داد.',
+            $link,
+            'other',
+            $actorId
+        );
+    } catch (Throwable $e) {
+        error_log('peer task done notice: ' . $e->getMessage());
+    }
+}
+
+function staff_app_emad_task_save_response(PDO $pdo, string $ymd, string $assigneeId, string $mark, ?string $doneAt): void
+{
+    $progress = staff_app_emad_task_progress($pdo, $ymd, $assigneeId);
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store');
     echo json_encode([
@@ -1376,7 +1567,12 @@ function staff_app_emad_tasks_handle_post(PDO $pdo, array $user): void
     $userId = (string) ($user['id'] ?? '');
     $ymd = trim((string) post('task_date'));
     $safeDate = (preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymd) && $ymd <= date('Y-m-d')) ? $ymd : date('Y-m-d');
-    $back = '/app/checklist?date=' . rawurlencode($safeDate) . '&secretary=' . rawurlencode(staff_app_emad_task_tab());
+    $postedAssignee = trim((string) post('assignee_id'));
+    $assigneeTab = $postedAssignee !== '' ? staff_peer_task_tab($postedAssignee) : staff_app_emad_task_tab();
+    $back = staff_peer_task_safe_return(
+        (string) post('return'),
+        '/app/checklist?date=' . rawurlencode($safeDate) . '&secretary=' . rawurlencode($assigneeTab)
+    );
     $ajax = secretary_daily_task_request_is_ajax();
     $fail = static function (string $message, int $status = 400) use ($ajax, $back): never {
         if ($ajax) {
@@ -1394,7 +1590,14 @@ function staff_app_emad_tasks_handle_post(PDO $pdo, array $user): void
     try {
         if (post('action') === 'create') {
             if (!staff_app_emad_tasks_can_assign($user)) {
-                $fail('فقط دکتر شیوا و دکتر عطیه می‌توانند کار بفرستند.', 403);
+                $fail('فقط eshahabian، دکتر عطیه گارسچی و دکتر شیوا گرانمایه‌پور می‌توانند برای هم کار بفرستند.', 403);
+            }
+            $assignee = staff_peer_task_by_id($pdo, $postedAssignee);
+            if ($assignee === null) {
+                $fail('گیرنده کار باید یکی از این سه نفر باشد.');
+            }
+            if ($postedAssignee === $userId) {
+                $fail('کار را برای یکی از دو نفر دیگر بفرستید.');
             }
             $bodies = $_POST['body'] ?? [];
             if (!is_array($bodies)) {
@@ -1415,13 +1618,10 @@ function staff_app_emad_tasks_handle_post(PDO $pdo, array $user): void
                 $fail('در هر نوبت حداکثر ۲۰ کار می‌شود.');
             }
             foreach ($texts as $text) {
-                staff_app_emad_task_create($pdo, $ymd, $text, $userId);
+                staff_app_emad_task_create($pdo, $ymd, $text, $userId, $postedAssignee);
             }
             flash_set('success', count($texts) === 1 ? 'کار فرستاده شد.' : to_fa_digits((string) count($texts)) . ' کار فرستاده شد.');
             redirect($back);
-        }
-        if (!staff_app_emad_tasks_is_owner($user)) {
-            $fail('تیک این کارها را فقط عماد شهابیان می‌زند.', 403);
         }
         $mark = secretary_daily_task_posted_mark();
         if ($mark === 'skip') {
@@ -1430,9 +1630,17 @@ function staff_app_emad_tasks_handle_post(PDO $pdo, array $user): void
         if ($mark !== 'done') {
             $mark = 'pending';
         }
-        $doneAt = staff_app_emad_task_set($pdo, strtolower(trim((string) post('task_key'))), $ymd, $mark);
+        $saved = staff_app_emad_task_set($pdo, strtolower(trim((string) post('task_key'))), $ymd, $mark, $userId);
+        if ($mark === 'done' && empty($saved['was_done'])) {
+            staff_peer_task_notify_completed($pdo, $user, $saved, $ymd);
+        }
+        $assigneeTab = staff_peer_task_tab((string) ($saved['assignee_user_id'] ?? $userId));
+        $back = staff_peer_task_safe_return(
+            (string) post('return'),
+            '/app/checklist?date=' . rawurlencode($safeDate) . '&secretary=' . rawurlencode($assigneeTab)
+        );
         if ($ajax) {
-            staff_app_emad_task_save_response($pdo, $ymd, $mark, is_string($doneAt) ? $doneAt : null);
+            staff_app_emad_task_save_response($pdo, $ymd, (string) ($saved['assignee_user_id'] ?? ''), $mark, $saved['done_at']);
         }
         redirect($back);
     } catch (RuntimeException $e) {
@@ -1449,10 +1657,12 @@ function staff_app_emad_tasks_panel_html(
     string $displayName,
     bool $canTick,
     bool $canCreate,
-    string $postUrl
+    string $postUrl,
+    string $assigneeId = '',
+    string $returnPath = ''
 ): string {
     try {
-        $rows = staff_app_emad_tasks_for_date($pdo, $ymd);
+        $rows = staff_app_emad_tasks_for_date($pdo, $ymd, $assigneeId);
     } catch (Throwable $e) {
         error_log('staff app emad tasks list: ' . $e->getMessage());
 
@@ -1493,9 +1703,13 @@ function staff_app_emad_tasks_panel_html(
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="create">
         <input type="hidden" name="task_date" value="<?= e($ymd) ?>">
-        <label class="label" for="emad-task-body">کار</label>
+        <input type="hidden" name="assignee_id" value="<?= e($assigneeId) ?>">
+        <?php if ($returnPath !== ''): ?>
+          <input type="hidden" name="return" value="<?= e($returnPath) ?>">
+        <?php endif; ?>
+        <label class="label" for="peer-task-body-<?= e($assigneeId) ?>">کار برای <?= e($displayName) ?></label>
         <div data-task-lines style="display:grid;gap:.5rem">
-          <input class="input" id="emad-task-body" name="body[]" type="text" maxlength="500" data-task-line autocomplete="off" placeholder="متن کار؛ اینتر کار بعدی را باز می‌کند">
+          <input class="input" id="peer-task-body-<?= e($assigneeId) ?>" name="body[]" type="text" maxlength="500" data-task-line autocomplete="off" placeholder="متن کار؛ اینتر کار بعدی را باز می‌کند">
         </div>
         <button class="btn btn-primary btn-sm" type="submit">فرستادن</button>
       </form>
@@ -1509,6 +1723,10 @@ function staff_app_emad_tasks_panel_html(
       <section class="rx-sheet<?= $live ? '' : ' is-locked' ?>" data-rx-sheet<?= $live ? ' data-rx-live="1" data-rx-url="' . e($postUrl) . '"' : '' ?>>
         <?php if ($live): ?>
           <input type="hidden" data-rx-csrf value="<?= e(csrf_token()) ?>">
+          <input type="hidden" name="assignee_id" value="<?= e($assigneeId) ?>">
+          <?php if ($returnPath !== ''): ?>
+            <input type="hidden" name="return" value="<?= e($returnPath) ?>">
+          <?php endif; ?>
         <?php endif; ?>
         <?php if ($displayName !== ''): ?>
           <div class="rx-head"><strong><?= e($displayName) ?></strong></div>

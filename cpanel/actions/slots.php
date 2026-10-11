@@ -68,15 +68,12 @@ if ($hours === []) {
 $nextDate = date('Y-m-d', strtotime($date . ' +1 day') ?: time());
 
 $takenStmt = $pdo->prepare("
-  SELECT starts_at
+  SELECT starts_at, ends_at
   FROM appointments
   WHERE doctor_id=? AND DATE(starts_at) IN (?, ?) AND status IN ('PENDING_APPROVAL','PENDING_PAYMENT','CONFIRMED','COMPLETED')
 ");
 $takenStmt->execute([$doctorId, $date, $nextDate]);
-$taken = [];
-foreach ($takenStmt->fetchAll(PDO::FETCH_COLUMN) as $startsAt) {
-    $taken[(string) $startsAt] = true;
-}
+$taken = $takenStmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
 
 $staff = current_user();
 $staffCanSeePast = $staff && in_array((string) ($staff['role'] ?? ''), ['SECRETARY', 'ADMIN', 'DOCTOR'], true)
@@ -85,18 +82,34 @@ $staffCanSeePast = $staff && in_array((string) ($staff['role'] ?? ''), ['SECRETA
 $now = time();
 $free = [];
 foreach ($hours as $hour) {
-    $startsAt = appointment_slot_starts_at($date, $hour);
-    if (isset($taken[$startsAt])) {
+    $freeMinutes = [];
+    $anchor = appointment_slot_starts_at($date, $hour);
+    for ($minute = 0; $minute < 60; $minute += 5) {
+        $startsAt = appointment_slot_starts_at($date, sprintf('%02d:%02d', $hour, $minute));
+        $endsAt = date('Y-m-d H:i:s', strtotime($startsAt) + (appointment_slot_minutes() * 60));
+        $blocked = false;
+        foreach ($taken as $row) {
+            $busyStart = (string) ($row['starts_at'] ?? '');
+            $busyEnd = (string) ($row['ends_at'] ?? '');
+            if ($busyStart !== '' && $busyEnd !== '' && $busyStart < $endsAt && $busyEnd > $startsAt) {
+                $blocked = true;
+                break;
+            }
+        }
+        $ts = strtotime($startsAt);
+        if (!$blocked && $ts && ($staffCanSeePast || $ts > $now)) {
+            $freeMinutes[] = sprintf('%02d', $minute);
+        }
+    }
+    if ($freeMinutes === []) {
         continue;
     }
-    $ts = strtotime($startsAt);
-    if ($ts && ($staffCanSeePast || $ts > $now)) {
-        $free[] = [
-            'value' => appointment_hour_to_time($hour),
-            'label' => appointment_hour_chip_label($hour),
-            'date_label' => appointment_short_jalali_date(substr($startsAt, 0, 10)),
-        ];
-    }
+    $free[] = [
+        'value' => appointment_hour_to_time($hour),
+        'label' => appointment_clock_label(appointment_hour_to_time($hour)),
+        'date_label' => appointment_short_jalali_date(substr($anchor, 0, 10)),
+        'minutes' => $freeMinutes,
+    ];
 }
 
 if ($free === []) {
