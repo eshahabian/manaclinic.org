@@ -245,6 +245,10 @@ ob_start();
                           <?php endforeach; ?>
                         </select>
                       </label>
+                      <label>
+                        <span class="label">تاریخ</span>
+                        <input class="input" type="text" name="booking_day" data-jdp data-jdp-only-date readonly autocomplete="off" required style="cursor:pointer;max-width:16rem" value="<?= e(clinic_rooms_jalali_input(substr((string) $row['starts_at'], 0, 10))) ?>">
+                      </label>
                       <div class="room-form-grid">
                         <label>
                           <span class="label">از ساعت</span>
@@ -307,7 +311,7 @@ ob_start();
                       <?php if (trim((string) ($row['series_id'] ?? '')) !== ''): ?>
                         <label class="room-repeat">
                           <input type="checkbox" name="apply_series" value="1">
-                          <span>همین تغییر برای هفته‌های بعدی این تکرار</span>
+                          <span>همین تغییر، از جمله تاریخ، برای هفته‌های بعدی این تکرار</span>
                         </label>
                       <?php endif; ?>
                       <button type="submit" class="btn btn-primary btn-sm">ذخیره ویرایش</button>
@@ -423,7 +427,7 @@ ob_start();
   var dayView = document.getElementById("room-day-view");
   if (dayView && typeof jalaliDatepicker !== "undefined") {
     jalaliDatepicker.startWatch({
-      selector: "#room-day-view",
+      selector: "[data-jdp]",
       time: false,
       hideAfterChange: true,
       showTodayBtn: true,

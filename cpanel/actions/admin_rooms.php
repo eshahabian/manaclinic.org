@@ -31,7 +31,8 @@ try {
             post('workshop_session_id'),
             post('block_title'),
             post('note'),
-            post('apply_series') === '1'
+            post('apply_series') === '1',
+            post('booking_day')
         );
         $count = (int) ($saved['count'] ?? 1);
         $msg = $count > 1

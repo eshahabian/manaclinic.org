@@ -240,6 +240,33 @@ function clinic_rooms_parse_day(?string $raw): string
     return date('Y-m-d');
 }
 
+/** تاریخ میلادی روز رزرو را برای فیلد شمسی فرم برمی‌گرداند. */
+function clinic_rooms_jalali_input(string $ymd): string
+{
+    $ts = strtotime($ymd . ' 12:00:00') ?: time();
+    [$jy, $jm, $jd] = gregorian_to_jalali((int) date('Y', $ts), (int) date('n', $ts), (int) date('j', $ts));
+
+    return sprintf('%04d/%02d/%02d', $jy, $jm, $jd);
+}
+
+/** تاریخ فرم (شمسی یا میلادی). خالی یعنی همان روز فعلی رزرو. */
+function clinic_rooms_resolve_day(string $raw, string $fallback): string
+{
+    $raw = trim($raw);
+    if ($raw === '') {
+        return $fallback;
+    }
+    if (!function_exists('parse_user_date')) {
+        throw new RuntimeException('تاریخ رزرو معتبر نیست.');
+    }
+    $parsed = parse_user_date($raw);
+    if ($parsed === null) {
+        throw new RuntimeException('تاریخ رزرو معتبر نیست.');
+    }
+
+    return $parsed;
+}
+
 /**
  * @return list<array<string, mixed>>
  */
@@ -702,7 +729,8 @@ function clinic_rooms_update(
     string $workshopSessionId,
     string $blockTitle,
     string $note,
-    bool $applySeries
+    bool $applySeries,
+    string $dayRaw = ''
 ): array {
     clinic_rooms_ready($pdo);
     if (!in_array($room, clinic_rooms_numbers(), true)) {
@@ -788,14 +816,18 @@ function clinic_rooms_update(
         throw new RuntimeException('نوع جلسه را انتخاب کنید: تراپی، کارگاه یا سایر.');
     }
 
+    $originalDate = substr((string) $current['starts_at'], 0, 10);
+    $newDate = clinic_rooms_resolve_day($dayRaw, $originalDate);
+    $shiftDays = (int) round((strtotime($newDate . ' 12:00:00') - strtotime($originalDate . ' 12:00:00')) / 86400);
     $targets = [[
         'id' => (string) $current['id'],
-        'date' => substr((string) $current['starts_at'], 0, 10),
+        'date' => $originalDate,
+        'appointment_id' => trim((string) ($current['appointment_id'] ?? '')),
     ]];
     $seriesId = trim((string) ($current['series_id'] ?? ''));
     if ($applySeries && $seriesId !== '') {
         $later = $pdo->prepare("
-          SELECT id, starts_at
+          SELECT id, starts_at, appointment_id
           FROM clinic_room_bookings
           WHERE series_id=? AND starts_at>=? AND ends_at>=NOW()
           ORDER BY starts_at ASC
@@ -806,21 +838,35 @@ function clinic_rooms_update(
             $targets[] = [
                 'id' => (string) $row['id'],
                 'date' => substr((string) $row['starts_at'], 0, 10),
+                'appointment_id' => trim((string) ($row['appointment_id'] ?? '')),
             ];
         }
         if (!$targets) {
             throw new RuntimeException('رزرو تکرارشونده‌ای برای ویرایش پیدا نشد.');
         }
     }
+    foreach ($targets as &$target) {
+        $base = strtotime($target['date'] . ' 12:00:00') ?: 0;
+        $target['date'] = date('Y-m-d', $base + ($shiftDays * 86400));
+        $slotEndTs = strtotime($target['date'] . ' ' . $endClock . ':00') ?: 0;
+        if ($slotEndTs < time()) {
+            throw new RuntimeException('ساعت پایان نباید در گذشته باشد.');
+        }
+    }
+    unset($target);
 
     $patientStore = $patientId !== '' ? $patientId : null;
     $doctorStore = $doctorId !== '' ? $doctorId : null;
     $noteStore = $note !== '' ? $note : null;
+    $skipIds = [];
+    foreach ($targets as $target) {
+        $skipIds[] = (string) $target['id'];
+    }
     $blocked = [];
     foreach ($targets as $target) {
         $slotStart = $target['date'] . ' ' . $startClock . ':00';
         $slotEnd = $target['date'] . ' ' . $endClock . ':00';
-        $clash = clinic_rooms_find_clash($pdo, $room, $slotStart, $slotEnd, $target['id']);
+        $clash = clinic_rooms_find_clash($pdo, $room, $slotStart, $slotEnd, null, $skipIds);
         if ($clash) {
             $blocked[] = to_jalali_label($target['date']);
         }
@@ -834,24 +880,54 @@ function clinic_rooms_update(
       SET room_no=?, kind=?, workshop_session_id=?, workshop_id=?, patient_id=?, doctor_id=?, starts_at=?, ends_at=?, title=?, note=?
       WHERE id=?
     ");
-    foreach ($targets as $target) {
-        $update->execute([
-            $room,
-            $kind,
-            $sessionId,
-            $workshopId,
-            $patientStore,
-            $doctorStore,
-            $target['date'] . ' ' . $startClock . ':00',
-            $target['date'] . ' ' . $endClock . ':00',
-            $title,
-            $noteStore,
-            $target['id'],
-        ]);
+    $syncAppointment = $pdo->prepare('UPDATE appointments SET starts_at=?, ends_at=?, patient_id=?, doctor_id=? WHERE id=?');
+    $syncAppointmentTime = $pdo->prepare('UPDATE appointments SET starts_at=?, ends_at=? WHERE id=?');
+    $ownTx = !$pdo->inTransaction();
+    if ($ownTx) {
+        $pdo->beginTransaction();
+    }
+    try {
+        foreach ($targets as $target) {
+            $slotStart = $target['date'] . ' ' . $startClock . ':00';
+            $slotEnd = $target['date'] . ' ' . $endClock . ':00';
+            $update->execute([
+                $room,
+                $kind,
+                $sessionId,
+                $workshopId,
+                $patientStore,
+                $doctorStore,
+                $slotStart,
+                $slotEnd,
+                $title,
+                $noteStore,
+                $target['id'],
+            ]);
+            $apptId = trim((string) ($target['appointment_id'] ?? ''));
+            if ($apptId === '') {
+                continue;
+            }
+            if ($kind === 'APPOINTMENT' && $patientStore !== null && $doctorStore !== null) {
+                $syncAppointment->execute([$slotStart, $slotEnd, $patientStore, $doctorStore, $apptId]);
+            } else {
+                $syncAppointmentTime->execute([$slotStart, $slotEnd, $apptId]);
+            }
+        }
+        if ($ownTx) {
+            $pdo->commit();
+        }
+    } catch (Throwable $e) {
+        if ($ownTx && $pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        if ($e instanceof RuntimeException) {
+            throw $e;
+        }
+        throw new RuntimeException('ذخیره ویرایش رزرو انجام نشد.');
     }
 
     return [
-        'day' => substr((string) $current['starts_at'], 0, 10),
+        'day' => (string) ($targets[0]['date'] ?? $originalDate),
         'room' => $room,
         'count' => count($targets),
     ];
@@ -877,15 +953,27 @@ function clinic_rooms_existing_id(PDO $pdo, ?string $appointmentId, ?string $ses
     return null;
 }
 
-function clinic_rooms_find_clash(PDO $pdo, int $room, string $startsAt, string $endsAt, ?string $exceptId): ?array
+function clinic_rooms_find_clash(PDO $pdo, int $room, string $startsAt, string $endsAt, ?string $exceptId, array $exceptIds = []): ?array
 {
+    $skip = [];
+    if ($exceptId !== null && $exceptId !== '') {
+        $skip[$exceptId] = $exceptId;
+    }
+    foreach ($exceptIds as $id) {
+        $id = trim((string) $id);
+        if ($id !== '') {
+            $skip[$id] = $id;
+        }
+    }
     $sql = clinic_rooms_select_sql() . "
       WHERE b.room_no = ? AND b.starts_at < ? AND b.ends_at > ?
     ";
     $params = [$room, $endsAt, $startsAt];
-    if ($exceptId) {
-        $sql .= ' AND b.id <> ?';
-        $params[] = $exceptId;
+    if ($skip) {
+        $sql .= ' AND b.id NOT IN (' . implode(',', array_fill(0, count($skip), '?')) . ')';
+        foreach ($skip as $id) {
+            $params[] = $id;
+        }
     }
     $sql .= ' LIMIT 1';
     $stmt = $pdo->prepare($sql);
