@@ -164,7 +164,7 @@ function secretary_panel_daytasks_box($pdo, ?array $user): string
                 <label style="display:flex;flex-direction:row;gap:10px;align-items:flex-start;cursor:pointer">
                   <input type="checkbox" name="done" value="1" style="margin-top:6px;width:18px;height:18px;flex:none"<?= $extraChecked ? ' checked' : '' ?>>
                   <span style="flex:1;min-width:0">
-                    <span style="display:block"><?= e((string) ($extraTask['body'] ?? '')) ?></span>
+                    <span style="display:block;white-space:pre-wrap"><?= e((string) ($extraTask['body'] ?? '')) ?></span>
                     <?php if ($extraFrom !== ''): ?><small style="display:block;color:#6b827a">از طرف <?= e($extraFrom) ?></small><?php endif; ?>
                     <small class="daytask-time"<?= $extraTime === '' ? ' hidden' : '' ?>><?= $extraTime !== '' ? 'ساعت تیک: ' . e($extraTime) : '' ?></small>
                   </span>
@@ -174,7 +174,7 @@ function secretary_panel_daytasks_box($pdo, ?array $user): string
               <label style="display:flex;flex-direction:row;gap:10px;align-items:flex-start">
                 <input type="checkbox" disabled style="margin-top:6px;width:18px;height:18px;flex:none"<?= $extraChecked ? ' checked' : '' ?>>
                 <span style="flex:1;min-width:0">
-                  <span style="display:block"><?= e((string) ($extraTask['body'] ?? '')) ?></span>
+                  <span style="display:block;white-space:pre-wrap"><?= e((string) ($extraTask['body'] ?? '')) ?></span>
                   <?php if ($extraFrom !== ''): ?><small style="display:block;color:#6b827a">از طرف <?= e($extraFrom) ?></small><?php endif; ?>
                 </span>
               </label>

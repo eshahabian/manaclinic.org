@@ -291,6 +291,16 @@ $pageScripts = '
   var timeEl = document.getElementById("book-time");
   var minuteEl = document.getElementById("book-minute");
   var pickedHour = "";
+  if (minuteEl) {
+    minuteEl.addEventListener("click", function(e){
+      var btn = e.target.closest("[data-minute]");
+      if (!btn || btn.hidden) return;
+      Array.prototype.forEach.call(minuteEl.querySelectorAll("[data-minute]"), function(el){
+        el.classList.toggle("is-on", el === btn);
+      });
+      if (pickedHour) applyBookedTime(pickedHour);
+    });
+  }
   var errEl = document.getElementById("book-error");
   var loggedIn = ' . json_encode((bool) $currentUser) . ';
   var isPatient = ' . json_encode(($currentUser['role'] ?? '') === 'PATIENT') . ';
@@ -329,34 +339,85 @@ $pageScripts = '
   function faDigits(value){
     return String(value).replace(/[0-9]/g, function(digit){ return "۰۱۲۳۴۵۶۷۸۹"[digit]; });
   }
+  function currentMinute(){
+    var on = minuteEl && minuteEl.querySelector(".book-minute-btn.is-on");
+    var minute = on ? String(on.getAttribute("data-minute") || "") : "00";
+    return /^\d{2}$/.test(minute) ? minute : "00";
+  }
   function fillMinutes(minutes, prefer){
     if (!minuteEl) return;
-    var list = minutes && minutes.length ? minutes : ["00","05","10","15","20","25","30","35","40","45","50","55"];
-    var keep = list.indexOf(prefer) >= 0 ? prefer : list[0];
-    minuteEl.innerHTML = "";
-    list.forEach(function(min){
-      var opt = document.createElement("option");
-      opt.value = min;
-      opt.textContent = faDigits(min);
-      if (min === keep) opt.selected = true;
-      minuteEl.appendChild(opt);
+    var allowed = null;
+    if (minutes && minutes.length) {
+      allowed = {};
+      minutes.forEach(function(raw){
+        var text = String(raw);
+        if (/^\d$/.test(text)) text = "0" + text;
+        if (/^\d{2}$/.test(text)) allowed[text] = true;
+      });
+      if (!Object.keys(allowed).length) allowed = null;
+    }
+    var buttons = minuteEl.querySelectorAll("[data-minute]");
+    var any = false;
+    Array.prototype.forEach.call(buttons, function(btn){
+      var minute = btn.getAttribute("data-minute") || "";
+      var ok = !allowed || !!allowed[minute];
+      btn.hidden = !ok;
+      if (ok) any = true;
+    });
+    if (!any) {
+      Array.prototype.forEach.call(buttons, function(btn){ btn.hidden = false; });
+    }
+    var keep = prefer && (!allowed || allowed[prefer]) ? prefer : "";
+    if (!keep) {
+      Array.prototype.forEach.call(buttons, function(btn){
+        if (!keep && !btn.hidden) keep = btn.getAttribute("data-minute") || "";
+      });
+    }
+    Array.prototype.forEach.call(buttons, function(btn){
+      btn.classList.toggle("is-on", (btn.getAttribute("data-minute") || "") === keep && !btn.hidden);
+    });
+  }
+  function paintChosenTime(){
+    var readout = document.getElementById("book-minute-readout");
+    var match = String(pickedHour || "").match(/^(\d{2})/);
+    if (!match) {
+      if (readout) { readout.hidden = true; readout.textContent = ""; }
+      return;
+    }
+    var clock = faDigits(match[1] + ":" + currentMinute());
+    if (readout) {
+      readout.hidden = false;
+      readout.textContent = "زمان نوبت: " + clock;
+    }
+    Array.prototype.forEach.call(slotsEl.querySelectorAll(".slot-btn"), function(btn){
+      var chip = btn.querySelector(".hour-chip-time");
+      var base = btn.getAttribute("data-base-label") || "";
+      if (btn.classList.contains("active")) {
+        if (chip) chip.textContent = clock;
+        else if (!btn.querySelector(".hour-chip-date")) btn.textContent = clock;
+      } else if (base) {
+        if (chip) chip.textContent = base;
+        else if (!btn.querySelector(".hour-chip-date")) btn.textContent = base;
+      }
     });
   }
   function applyBookedTime(hourValue){
-    pickedHour = hourValue || "";
-    var minute = minuteEl && /^\d{2}$/.test(minuteEl.value) ? minuteEl.value : "00";
-    var match = String(pickedHour).match(/^(\d{2}):/);
-    timeEl.value = match ? match[1] + ":" + minute : "";
-  }
-  if (minuteEl) {
-    minuteEl.addEventListener("change", function(){
-      if (pickedHour) applyBookedTime(pickedHour);
-    });
+    var match = String(hourValue || "").match(/^(\d{2}):/);
+    if (!match) {
+      pickedHour = "";
+      timeEl.value = "";
+      paintChosenTime();
+      return;
+    }
+    pickedHour = match[1] + ":00";
+    timeEl.value = match[1] + ":" + currentMinute();
+    paintChosenTime();
   }
 
   function loadSlots(){
     timeEl.value = "";
     pickedHour = "";
+    paintChosenTime();
     hidePrice();
     slotsEl.innerHTML = "در حال بارگذاری...";
     if (!dateEl.value) {
@@ -380,6 +441,7 @@ $pageScripts = '
           var b = document.createElement("button");
           b.type = "button";
           b.className = "slot-btn";
+          b.setAttribute("data-base-label", label);
           if (minutes) b.setAttribute("data-minutes", minutes.join(","));
           if (dateLabel) {
             var timeElChip = document.createElement("span");
@@ -396,7 +458,7 @@ $pageScripts = '
           b.onclick = function(){
             Array.prototype.forEach.call(slotsEl.querySelectorAll(".slot-btn"), function(x){ x.classList.remove("active"); });
             b.classList.add("active");
-            fillMinutes((b.getAttribute("data-minutes") || "").split(",").filter(Boolean), minuteEl ? minuteEl.value : "00");
+            fillMinutes((b.getAttribute("data-minutes") || "").split(",").filter(Boolean), currentMinute());
             applyBookedTime(value);
             showPrice();
           };

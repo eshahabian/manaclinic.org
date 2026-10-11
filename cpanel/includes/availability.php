@@ -145,13 +145,30 @@ function appointment_booking_time_allowed(array $availability, string $time): bo
 function appointment_minute_select_html(string $id, string $selected = '00'): string
 {
     $selected = preg_match('/^(?:[0-5][05])$/', $selected) ? $selected : '00';
-    $html = '<label class="label" for="' . e($id) . '">دقیقه</label>';
-    $html .= '<select class="input" id="' . e($id) . '" style="max-width:8rem">';
+    static $styled = false;
+    $html = '';
+    if (!$styled) {
+        $styled = true;
+        $html .= '<style>'
+            . '.book-minute{margin-top:.75rem}'
+            . '.book-minute-list{display:flex;flex-wrap:wrap;gap:.4rem;margin-top:.35rem}'
+            . '.book-minute-btn{min-width:3rem;border:1px solid var(--line,#d5e0da);background:#fff;color:inherit;border-radius:.65rem;padding:.45rem .55rem;font:inherit;font-weight:700;cursor:pointer}'
+            . '.book-minute-btn.is-on{background:var(--primary,#16836d);color:#fff;border-color:var(--primary,#16836d)}'
+            . '.book-minute-btn[hidden]{display:none !important}'
+            . '.book-time-readout{margin:.65rem 0 0;font-weight:800}'
+            . '.book-time-readout[hidden]{display:none !important}'
+            . '</style>';
+    }
+    $html .= '<div class="book-minute">';
+    $html .= '<span class="label">دقیقه</span>';
+    $html .= '<div class="book-minute-list" id="' . e($id) . '" role="listbox" aria-label="دقیقه">';
     for ($minute = 0; $minute < 60; $minute += 5) {
         $value = sprintf('%02d', $minute);
-        $html .= '<option value="' . $value . '"' . ($value === $selected ? ' selected' : '') . '>' . e(to_fa_digits($value)) . '</option>';
+        $html .= '<button type="button" class="book-minute-btn' . ($value === $selected ? ' is-on' : '') . '" data-minute="' . $value . '">' . e(to_fa_digits($value)) . '</button>';
     }
-    $html .= '</select>';
+    $html .= '</div>';
+    $html .= '<p class="book-time-readout" id="' . e($id) . '-readout" hidden></p>';
+    $html .= '</div>';
 
     return $html;
 }

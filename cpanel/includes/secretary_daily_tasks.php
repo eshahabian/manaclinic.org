@@ -771,6 +771,7 @@ function secretary_daily_tasks_table_html(
       .rx-item:last-child{border-bottom:0}
       .rx-task{display:flex;align-items:flex-start;gap:12px;margin:0;cursor:pointer}
       .rx-task input{width:22px;height:22px;flex:none;margin-top:6px;accent-color:#16836d}
+      .rx-title{flex:1;min-width:0;white-space:pre-wrap;overflow-wrap:anywhere}
       .rx-item.is-done .rx-title{text-decoration:line-through;color:#72857e}
       .rx-note,.rx-time,.rx-skip{display:block;margin:2px 34px 0 0;color:#6b827a;font-size:.82rem}
       .rx-skip input{width:15px;height:15px;vertical-align:middle;accent-color:#16836d}
@@ -1032,7 +1033,7 @@ function secretary_task_lines_register_script(): void
         return;
     }
     $done = true;
-    $tag = '<script src="' . e(url('/assets/js/task-lines.js')) . '?v=20261011a"></script>';
+    $tag = '<script src="' . e(url('/assets/js/task-lines.js')) . '?v=20261011b"></script>';
     $current = (string) ($GLOBALS['pageScripts'] ?? '');
     if (!str_contains($current, 'task-lines.js')) {
         $GLOBALS['pageScripts'] = $current . $tag;
@@ -1099,10 +1100,11 @@ function secretary_assigned_task_composer_html(
       <?php else: ?>
         <input type="hidden" name="secretary_id" value="<?= e($choices[0]['id']) ?>">
       <?php endif; ?>
-      <div data-task-lines style="display:grid;gap:.5rem">
-        <input class="input" name="body[]" maxlength="500" data-task-line autocomplete="off" placeholder="متن کار؛ اینتر کار بعدی را باز می‌کند">
+      <div>
+        <label class="label" for="assigned-task-body">متن کار</label>
+        <textarea class="input" id="assigned-task-body" name="body" maxlength="500" rows="4" data-task-line autocomplete="off" placeholder="کل کار در همین کادر می‌ماند؛ اینتر خط جدید همان کار است" style="min-height:6.5rem;resize:vertical;line-height:1.75"></textarea>
       </div>
-      <button class="btn btn-primary" type="submit" style="justify-self:start">فرستادن کارها</button>
+      <button class="btn btn-primary" type="submit" style="justify-self:start">فرستادن کار</button>
     </form>
     <?php
     return (string) ob_get_clean();
@@ -1147,26 +1149,10 @@ function secretary_assigned_tasks_handle_create(PDO $pdo, array $user, string $f
     if ($ids === []) {
         $fail('منشی را انتخاب کنید.');
     }
-    $bodies = $_POST['body'] ?? [];
-    if (!is_array($bodies)) {
-        $bodies = [(string) $bodies];
-    }
-    $texts = [];
-    foreach ($bodies as $raw) {
-        $text = trim(preg_replace('/\s+/u', ' ', strip_tags((string) $raw)) ?? '');
-        if ($text === '') {
-            continue;
-        }
-        if (mb_strlen($text) > 500) {
-            $fail('متن هر کار باید حداکثر ۵۰۰ نویسه باشد.');
-        }
-        $texts[] = $text;
-    }
-    if ($texts === []) {
-        $fail('متن کار را بنویسید.');
-    }
-    if (count($texts) > 20) {
-        $fail('در هر نوبت حداکثر ۲۰ کار می‌شود.');
+    try {
+        $text = staff_app_emad_task_normalize_body(staff_task_posted_body_raw());
+    } catch (RuntimeException $e) {
+        $fail($e->getMessage());
     }
     $createdBy = (string) ($user['id'] ?? '');
     if ($createdBy === '' || !preg_match('/^[a-zA-Z0-9_-]+$/', $createdBy)) {
@@ -1178,10 +1164,8 @@ function secretary_assigned_tasks_handle_create(PDO $pdo, array $user, string $f
     try {
         $pdo->beginTransaction();
         foreach ($ids as $secretaryId) {
-            foreach ($texts as $text) {
-                $insert->execute([cuid(), $secretaryId, $ymd, $text, $createdBy, date('Y-m-d H:i:s')]);
-                $count++;
-            }
+            $insert->execute([cuid(), $secretaryId, $ymd, $text, $createdBy, date('Y-m-d H:i:s')]);
+            $count++;
         }
         $pdo->commit();
     } catch (Throwable $e) {
@@ -1398,11 +1382,34 @@ function staff_peer_tasks_backfill_assignee(PDO $pdo): void
         ->execute([$eshahabianId]);
 }
 
+function staff_task_posted_body_raw(): string
+{
+    $raw = $_POST['body'] ?? '';
+    if (!is_array($raw)) {
+        return (string) $raw;
+    }
+    $parts = [];
+    foreach ($raw as $part) {
+        if (!is_scalar($part)) {
+            continue;
+        }
+        $part = trim(str_replace(["\r\n", "\r"], "\n", (string) $part));
+        if ($part !== '') {
+            $parts[] = $part;
+        }
+    }
+
+    return implode("\n", $parts);
+}
+
 function staff_app_emad_task_normalize_body(string $raw): string
 {
     $body = strip_tags($raw);
-    $body = preg_replace('/\s+/u', ' ', $body);
-    $body = trim((string) $body);
+    $body = str_replace(["\r\n", "\r"], "\n", $body);
+    $body = preg_replace('/[^\S\n]+/u', ' ', $body);
+    $lines = explode("\n", (string) $body);
+    $lines = array_map(static fn (string $line): string => trim($line), $lines);
+    $body = trim(implode("\n", $lines));
     if ($body === '') {
         throw new RuntimeException('متن کار را بنویسید.');
     }
@@ -1599,28 +1606,8 @@ function staff_app_emad_tasks_handle_post(PDO $pdo, array $user): void
             if ($postedAssignee === $userId) {
                 $fail('کار را برای یکی از دو نفر دیگر بفرستید.');
             }
-            $bodies = $_POST['body'] ?? [];
-            if (!is_array($bodies)) {
-                $bodies = [(string) $bodies];
-            }
-            $texts = [];
-            foreach ($bodies as $raw) {
-                $raw = trim((string) $raw);
-                if ($raw === '') {
-                    continue;
-                }
-                $texts[] = $raw;
-            }
-            if ($texts === []) {
-                $fail('متن کار را بنویسید.');
-            }
-            if (count($texts) > 20) {
-                $fail('در هر نوبت حداکثر ۲۰ کار می‌شود.');
-            }
-            foreach ($texts as $text) {
-                staff_app_emad_task_create($pdo, $ymd, $text, $userId, $postedAssignee);
-            }
-            flash_set('success', count($texts) === 1 ? 'کار فرستاده شد.' : to_fa_digits((string) count($texts)) . ' کار فرستاده شد.');
+            staff_app_emad_task_create($pdo, $ymd, staff_task_posted_body_raw(), $userId, $postedAssignee);
+            flash_set('success', 'کار فرستاده شد.');
             redirect($back);
         }
         $mark = secretary_daily_task_posted_mark();
@@ -1691,6 +1678,7 @@ function staff_app_emad_tasks_panel_html(
       .rx-item:last-child{border-bottom:0}
       .rx-task{display:flex;align-items:flex-start;gap:12px;margin:0;cursor:pointer}
       .rx-task input{width:22px;height:22px;flex:none;margin-top:6px;accent-color:#16836d}
+      .rx-title{flex:1;min-width:0;white-space:pre-wrap;overflow-wrap:anywhere}
       .rx-item.is-done .rx-title{text-decoration:line-through;color:#72857e}
       .rx-note,.rx-time{display:block;margin:2px 34px 0 0;color:#6b827a;font-size:.82rem}
       .rx-sheet.is-locked .rx-task{cursor:default}
@@ -1708,9 +1696,7 @@ function staff_app_emad_tasks_panel_html(
           <input type="hidden" name="return" value="<?= e($returnPath) ?>">
         <?php endif; ?>
         <label class="label" for="peer-task-body-<?= e($assigneeId) ?>">کار برای <?= e($displayName) ?></label>
-        <div data-task-lines style="display:grid;gap:.5rem">
-          <input class="input" id="peer-task-body-<?= e($assigneeId) ?>" name="body[]" type="text" maxlength="500" data-task-line autocomplete="off" placeholder="متن کار؛ اینتر کار بعدی را باز می‌کند">
-        </div>
+        <textarea class="input" id="peer-task-body-<?= e($assigneeId) ?>" name="body" maxlength="500" rows="4" data-task-line autocomplete="off" placeholder="کل کار در همین کادر می‌ماند؛ اینتر خط جدید همان کار است" style="min-height:6.5rem;resize:vertical;line-height:1.75"></textarea>
         <button class="btn btn-primary btn-sm" type="submit">فرستادن</button>
       </form>
     <?php endif; ?>

@@ -260,17 +260,15 @@ $secretaryBookScripts = '
   var slotsUrl = ' . json_encode(url('/api/slots')) . ';
   var daysUrl = ' . json_encode(url('/api/availability-days')) . ';
   var selectedTime = (timeEl && timeEl.value) ? timeEl.value : "";
+  var pickedHour = hourFromTime(selectedTime);
   if (minuteEl) {
-    minuteEl.addEventListener("change", function(){
-      var active = slotsEl.querySelector(".slot-btn.active");
-      if (!active) return;
-      var label = active.querySelector(".hour-chip-time");
-      var shown = label ? label.textContent : active.textContent;
-      var hour = String(timeEl.value || selectedTime || "").slice(0, 2);
-      if (!/^\d{2}$/.test(hour) && shown) {
-        hour = String(shown).replace(/[۰-۹]/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹".indexOf(d); }).slice(0, 2);
-      }
-      if (/^\d{2}$/.test(hour)) applyBookedTime(hour + ":00");
+    minuteEl.addEventListener("click", function(e){
+      var btn = e.target.closest("[data-minute]");
+      if (!btn || btn.hidden) return;
+      Array.prototype.forEach.call(minuteEl.querySelectorAll("[data-minute]"), function(el){
+        el.classList.toggle("is-on", el === btn);
+      });
+      if (pickedHour) applyBookedTime(pickedHour);
     });
   }
   var applyingPrefill = false;
@@ -333,33 +331,88 @@ $secretaryBookScripts = '
     var match = String(value || "").match(/^(\d{2}):(\d{2})$/);
     return match ? match[2] : "00";
   }
-  function fillMinutes(minutes, prefer){
-    if (!minuteEl) return;
-    var list = minutes && minutes.length ? minutes : ["00","05","10","15","20","25","30","35","40","45","50","55"];
-    var keep = list.indexOf(prefer) >= 0 ? prefer : list[0];
-    minuteEl.innerHTML = "";
-    list.forEach(function(min){
-      var opt = document.createElement("option");
-      opt.value = min;
-      opt.textContent = toFa(min);
-      if (min === keep) opt.selected = true;
-      minuteEl.appendChild(opt);
-    });
-  }
-  function hourKey(value){
+  function hourFromTime(value){
     var match = String(value || "").match(/^(\d{2}):(\d{2})$/);
     return match ? match[1] + ":00" : "";
   }
-  function applyBookedTime(hourValue){
-    var minute = minuteEl && /^\d{2}$/.test(minuteEl.value) ? minuteEl.value : "00";
-    var hour = hourKey(hourValue);
-    if (!hour) {
-      timeEl.value = "";
-      selectedTime = "";
+  function currentMinute(){
+    var on = minuteEl && minuteEl.querySelector(".book-minute-btn.is-on");
+    var minute = on ? String(on.getAttribute("data-minute") || "") : "00";
+    return /^\d{2}$/.test(minute) ? minute : "00";
+  }
+  function fillMinutes(minutes, prefer){
+    if (!minuteEl) return;
+    var allowed = null;
+    if (minutes && minutes.length) {
+      allowed = {};
+      minutes.forEach(function(raw){
+        var text = String(raw);
+        if (/^\d$/.test(text)) text = "0" + text;
+        if (/^\d{2}$/.test(text)) allowed[text] = true;
+      });
+      if (!Object.keys(allowed).length) allowed = null;
+    }
+    var buttons = minuteEl.querySelectorAll("[data-minute]");
+    var any = false;
+    Array.prototype.forEach.call(buttons, function(btn){
+      var minute = btn.getAttribute("data-minute") || "";
+      var ok = !allowed || !!allowed[minute];
+      btn.hidden = !ok;
+      if (ok) any = true;
+    });
+    if (!any) {
+      Array.prototype.forEach.call(buttons, function(btn){ btn.hidden = false; });
+    }
+    var keep = prefer && (!allowed || allowed[prefer]) ? prefer : "";
+    if (!keep) {
+      Array.prototype.forEach.call(buttons, function(btn){
+        if (!keep && !btn.hidden) keep = btn.getAttribute("data-minute") || "";
+      });
+    }
+    Array.prototype.forEach.call(buttons, function(btn){
+      btn.classList.toggle("is-on", (btn.getAttribute("data-minute") || "") === keep && !btn.hidden);
+    });
+  }
+  function hourKey(value){
+    return hourFromTime(value);
+  }
+  function paintChosenTime(){
+    var readout = document.getElementById("sec-minute-readout");
+    var match = String(pickedHour || "").match(/^(\d{2})/);
+    if (!match) {
+      if (readout) { readout.hidden = true; readout.textContent = ""; }
       return;
     }
-    timeEl.value = hour.slice(0, 2) + ":" + minute;
+    var clock = toFa(match[1] + ":" + currentMinute());
+    if (readout) {
+      readout.hidden = false;
+      readout.textContent = "زمان نوبت: " + clock;
+    }
+    Array.prototype.forEach.call(slotsEl.querySelectorAll(".slot-btn"), function(btn){
+      var chip = btn.querySelector(".hour-chip-time");
+      var base = btn.getAttribute("data-base-label") || "";
+      if (btn.classList.contains("active")) {
+        if (chip) chip.textContent = clock;
+        else if (!btn.querySelector(".hour-chip-date")) btn.textContent = clock;
+      } else if (base) {
+        if (chip) chip.textContent = base;
+        else if (!btn.querySelector(".hour-chip-date")) btn.textContent = base;
+      }
+    });
+  }
+  function applyBookedTime(hourValue){
+    var hour = hourKey(hourValue);
+    if (!hour) {
+      pickedHour = "";
+      timeEl.value = "";
+      selectedTime = "";
+      paintChosenTime();
+      return;
+    }
+    pickedHour = hour;
+    timeEl.value = hour.slice(0, 2) + ":" + currentMinute();
     selectedTime = timeEl.value;
+    paintChosenTime();
   }
   function renderSlotButtons(slots, keepTime, emptyMsg){
     var prev = keepTime ? (timeEl.value || selectedTime) : "";
@@ -378,11 +431,8 @@ $secretaryBookScripts = '
       var b = document.createElement("button");
       b.type = "button";
       b.className = "slot-btn" + (prevHour && prevHour === value ? " active" : "");
+      b.setAttribute("data-base-label", label);
       if (minutes) b.setAttribute("data-minutes", minutes.join(","));
-      if (prevHour && prevHour === value) {
-        fillMinutes(minutes, minuteKey(prev));
-        applyBookedTime(value);
-      }
       if (dateLabel) {
         var timeElChip = document.createElement("span");
         timeElChip.className = "hour-chip-time";
@@ -395,10 +445,14 @@ $secretaryBookScripts = '
       } else {
         b.textContent = label;
       }
+      if (prevHour && prevHour === value) {
+        fillMinutes(minutes, minuteKey(prev));
+        applyBookedTime(value);
+      }
       b.onclick = function(){
         Array.prototype.forEach.call(slotsEl.querySelectorAll(".slot-btn"), function(x){ x.classList.remove("active"); });
         b.classList.add("active");
-        fillMinutes((b.getAttribute("data-minutes") || "").split(",").filter(Boolean), minuteEl ? minuteEl.value : "00");
+        fillMinutes((b.getAttribute("data-minutes") || "").split(",").filter(Boolean), currentMinute());
         applyBookedTime(value);
         errEl.style.display = "none";
       };
@@ -411,6 +465,8 @@ $secretaryBookScripts = '
     if (!opts.keepTime) {
       timeEl.value = "";
       selectedTime = "";
+      pickedHour = "";
+      paintChosenTime();
     }
     if (!doctorEl.value || !dateEl.value) {
       slotsEl.innerHTML = "<span class=\\"muted\\">ابتدا تاریخ را انتخاب کنید</span>";
