@@ -362,7 +362,7 @@ $pageScripts = '
           b.onclick = function(){
             Array.prototype.forEach.call(slotsEl.querySelectorAll(".slot-btn"), function(x){ x.classList.remove("active"); });
             b.classList.add("active");
-            timeEl.value = /^\d{2}:00$/.test(value) ? value : "";
+            timeEl.value = /^\d{2}:\d{2}$/.test(value) ? value : "";
             if (timeEl.value) showPrice();
           };
           slotsEl.appendChild(b);

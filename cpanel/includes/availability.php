@@ -314,6 +314,316 @@ function appointment_hour_chip_label(int $hour): string
     return $n . ' شب';
 }
 
+function appointment_slot_ends_at(string $startsAt): string
+{
+    return date('Y-m-d H:i:s', (strtotime($startsAt) ?: 0) + (appointment_slot_minutes() * 60));
+}
+
+/** @param list<int> $hours */
+function appointment_hours_chronological(array $hours): array
+{
+    $order = array_flip(appointment_booking_hours());
+    $picked = [];
+    foreach ($hours as $hour) {
+        $hour = (int) $hour;
+        if (isset($order[$hour])) {
+            $picked[$hour] = $hour;
+        }
+    }
+    $list = array_values($picked);
+    usort($list, static function (int $a, int $b) use ($order): int {
+        return ($order[$a] ?? 99) <=> ($order[$b] ?? 99);
+    });
+
+    return $list;
+}
+
+/** @param array<int|string, mixed> $bookings */
+function appointment_booking_rows(array $bookings): array
+{
+    $rows = [];
+    foreach ($bookings as $row) {
+        if (is_array($row) && trim((string) ($row['starts_at'] ?? '')) !== '') {
+            $rows[] = $row;
+        }
+    }
+    usort($rows, static function (array $a, array $b): int {
+        return strcmp(
+            str_replace('T', ' ', (string) ($a['starts_at'] ?? '')),
+            str_replace('T', ' ', (string) ($b['starts_at'] ?? ''))
+        );
+    });
+
+    return $rows;
+}
+
+function appointment_booking_mark(array $row): string
+{
+    $id = trim((string) ($row['id'] ?? ''));
+    if ($id !== '') {
+        return 'id:' . $id;
+    }
+    $raw = str_replace('T', ' ', trim((string) ($row['starts_at'] ?? '')));
+
+    return 't:' . substr($raw, 0, 19);
+}
+
+/**
+ * نوبت‌های همین روزِ حضور. ساعت‌های ۰ تا ۵ متعلق به بامداد روز بعد هستند.
+ *
+ * @param array<int|string, mixed> $bookings
+ * @return list<array<string, mixed>>
+ */
+function appointment_bookings_on_availability_day(string $date, array $bookings): array
+{
+    $date = substr($date, 0, 10);
+    $next = date('Y-m-d', strtotime($date . ' +1 day') ?: time());
+    $out = [];
+    foreach (appointment_booking_rows($bookings) as $row) {
+        $raw = str_replace('T', ' ', trim((string) ($row['starts_at'] ?? '')));
+        if (strlen($raw) < 16) {
+            continue;
+        }
+        $startDate = substr($raw, 0, 10);
+        $hour = (int) substr($raw, 11, 2);
+        if ($startDate === $date || ($startDate === $next && appointment_hour_is_next_day($hour))) {
+            $out[] = $row;
+        }
+    }
+
+    return $out;
+}
+
+/**
+ * چیپ‌های قابل‌نمایش یک روز.
+ * اگر هیچ نوبتی خارج از رأس ساعت نباشد، چیپ‌ها روی ساعت‌های اعلام‌شده (:۰۰) می‌مانند.
+ * با اولین شروع غیررأس (مثلاً ۹:۳۰) از همان ساعت به بعد زنجیره ۶۰دقیقه‌ای جابه‌جا می‌شود:
+ * ۹:۳۰، ۱۰:۳۰، ۱۱:۳۰، … ساعت‌های قبل از آن رأس می‌مانند و اسلاتی که با جلسهٔ موجود تداخل دارند خالی نشان داده نمی‌شوند.
+ *
+ * @param list<int> $hours
+ * @param array<int|string, mixed> $bookings
+ * @return list<array{hour:int,minute:int,time:string,starts_at:string,ends_at:string,booking:?array,continuation:bool,shifted:bool}>
+ */
+function appointment_day_display_slots(string $date, array $hours, array $bookings): array
+{
+    $date = substr($date, 0, 10);
+    $hours = appointment_hours_chronological($hours);
+    $dayBookings = appointment_bookings_on_availability_day($date, $bookings);
+    $byStart = [];
+    foreach ($dayBookings as $row) {
+        $raw = str_replace('T', ' ', (string) ($row['starts_at'] ?? ''));
+        $key = substr($raw, 0, 16);
+        if (strlen($key) >= 16) {
+            $byStart[$key] = $row;
+        }
+    }
+
+    $offset = 0;
+    $anchorHour = null;
+    foreach ($dayBookings as $row) {
+        $clock = appointment_clock_from_row($row);
+        if (!preg_match('/^(\d{2}):(\d{2})$/', $clock, $match) || (int) $match[2] === 0) {
+            continue;
+        }
+        $offset = (int) $match[2];
+        $anchorHour = (int) $match[1];
+        break;
+    }
+
+    $order = array_flip(appointment_booking_hours());
+    $anchorOrder = $anchorHour === null ? null : ($order[$anchorHour] ?? null);
+    $shown = [];
+    $slots = [];
+    foreach ($hours as $hour) {
+        $hourOrder = $order[$hour] ?? 99;
+        if ($anchorOrder === null || $hourOrder < $anchorOrder) {
+            $slots[] = appointment_aligned_hour_slot($date, $hour, $byStart, $shown);
+            continue;
+        }
+        $shifted = appointment_shifted_hour_slot($date, $hour, $offset, $byStart, $shown);
+        if ($shifted !== null) {
+            $slots[] = $shifted;
+        }
+    }
+
+    foreach ($dayBookings as $row) {
+        $mark = appointment_booking_mark($row);
+        if (isset($shown[$mark])) {
+            continue;
+        }
+        $shown[$mark] = true;
+        $clock = appointment_clock_from_row($row);
+        [$hour, $minute] = appointment_parse_hour_minute($clock !== '' ? $clock : '00:00');
+        [$spanStart, $spanEnd] = appointment_row_span($row);
+        $startsAt = $spanStart !== '' ? substr($spanStart, 0, 19) : appointment_slot_starts_at($date, sprintf('%02d:%02d', $hour, $minute));
+        $endsAt = $spanEnd !== '' ? substr($spanEnd, 0, 19) : appointment_slot_ends_at($startsAt);
+        $slots[] = appointment_make_display_slot($hour, $minute, $startsAt, $endsAt, $row, false, $anchorHour !== null);
+    }
+
+    usort($slots, static function (array $a, array $b): int {
+        return strcmp((string) ($a['starts_at'] ?? ''), (string) ($b['starts_at'] ?? ''));
+    });
+
+    return $slots;
+}
+
+/**
+ * @param array<string, array<string, mixed>> $byStart
+ * @param array<string, true> $shown
+ * @return array{hour:int,minute:int,time:string,starts_at:string,ends_at:string,booking:?array,continuation:bool,shifted:bool}
+ */
+function appointment_aligned_hour_slot(string $date, int $hour, array $byStart, array &$shown): array
+{
+    $startsAt = appointment_slot_starts_at($date, $hour);
+    $endsAt = appointment_slot_ends_at($startsAt);
+    $owner = null;
+    foreach ($byStart as $row) {
+        if (!is_array($row) || !appointment_booking_starts_inside($row, $startsAt, $endsAt)) {
+            continue;
+        }
+        if (isset($shown[appointment_booking_mark($row)])) {
+            continue;
+        }
+        $owner = $row;
+        break;
+    }
+    if ($owner !== null) {
+        $shown[appointment_booking_mark($owner)] = true;
+
+        return appointment_make_display_slot($hour, 0, $startsAt, $endsAt, $owner, false, false);
+    }
+    $cover = appointment_booking_covering_window($byStart, $startsAt, $endsAt);
+
+    return appointment_make_display_slot($hour, 0, $startsAt, $endsAt, is_array($cover) ? $cover : null, is_array($cover), false);
+}
+
+/**
+ * ساعت اعلام‌شده از لنگر به بعد: شروع روی همان دقیقهٔ نوبتِ غیررأس.
+ * اگر خودِ این ساعت نوبت داشته باشد، چیپ همان ساعت واقعی است و چیپ خالیِ هم‌پوشان ساخته نمی‌شود.
+ *
+ * @param array<string, array<string, mixed>> $byStart
+ * @param array<string, true> $shown
+ * @return ?array{hour:int,minute:int,time:string,starts_at:string,ends_at:string,booking:?array,continuation:bool,shifted:bool}
+ */
+function appointment_shifted_hour_slot(string $date, int $hour, int $offset, array $byStart, array &$shown): ?array
+{
+    $offset = max(0, min(59, $offset));
+    $hourStart = appointment_slot_starts_at($date, $hour);
+    $hourEnd = appointment_slot_ends_at($hourStart);
+    foreach ($byStart as $row) {
+        if (!is_array($row) || !appointment_booking_starts_inside($row, $hourStart, $hourEnd)) {
+            continue;
+        }
+        $mark = appointment_booking_mark($row);
+        if (isset($shown[$mark])) {
+            continue;
+        }
+        $shown[$mark] = true;
+
+        return appointment_display_slot_from_booking($row, true);
+    }
+
+    $time = sprintf('%02d:%02d', $hour, $offset);
+    $startsAt = appointment_slot_starts_at($date, $time);
+    $endsAt = appointment_slot_ends_at($startsAt);
+    $cover = appointment_booking_covering_window($byStart, $startsAt, $endsAt);
+    if (is_array($cover)) {
+        $mark = appointment_booking_mark($cover);
+        if (!isset($shown[$mark])) {
+            $shown[$mark] = true;
+
+            return appointment_display_slot_from_booking($cover, true);
+        }
+
+        return null;
+    }
+
+    return appointment_make_display_slot($hour, $offset, $startsAt, $endsAt, null, false, true);
+}
+
+/** @return array{hour:int,minute:int,time:string,starts_at:string,ends_at:string,booking:?array,continuation:bool,shifted:bool} */
+function appointment_display_slot_from_booking(array $row, bool $shifted): array
+{
+    $clock = appointment_clock_from_row($row);
+    [$hour, $minute] = appointment_parse_hour_minute($clock !== '' ? $clock : '00:00');
+    [$spanStart, $spanEnd] = appointment_row_span($row);
+    $startsAt = $spanStart !== '' ? substr($spanStart, 0, 19) : appointment_slot_starts_at(date('Y-m-d'), sprintf('%02d:%02d', $hour, $minute));
+    $endsAt = $spanEnd !== '' ? substr($spanEnd, 0, 19) : appointment_slot_ends_at($startsAt);
+
+    return appointment_make_display_slot($hour, $minute, $startsAt, $endsAt, $row, false, $shifted);
+}
+
+/** @return array{hour:int,minute:int,time:string,starts_at:string,ends_at:string,booking:?array,continuation:bool,shifted:bool} */
+function appointment_make_display_slot(
+    int $hour,
+    int $minute,
+    string $startsAt,
+    string $endsAt,
+    ?array $booking,
+    bool $continuation,
+    bool $shifted
+): array {
+    $minute = max(0, min(59, $minute));
+
+    return [
+        'hour' => $hour,
+        'minute' => $minute,
+        'time' => sprintf('%02d:%02d', $hour, $minute),
+        'starts_at' => $startsAt,
+        'ends_at' => $endsAt,
+        'booking' => $booking,
+        'continuation' => $continuation,
+        'shifted' => $shifted,
+    ];
+}
+
+function appointment_display_slot_face(array $slot): string
+{
+    if (!empty($slot['continuation'])) {
+        return 'پر';
+    }
+    $minute = (int) ($slot['minute'] ?? 0);
+    $hour = (int) ($slot['hour'] ?? 0);
+    if ($minute === 0) {
+        return appointment_hour_chip_label($hour);
+    }
+
+    return appointment_clock_label((string) ($slot['time'] ?? sprintf('%02d:%02d', $hour, $minute)));
+}
+
+function appointment_time_matches_open_chip(string $date, array $hours, array $bookings, string $time): bool
+{
+    if (!preg_match('/^\d{2}:\d{2}$/', $time)) {
+        return false;
+    }
+    foreach (appointment_day_display_slots($date, $hours, $bookings) as $slot) {
+        if (!empty($slot['continuation']) || is_array($slot['booking'] ?? null)) {
+            continue;
+        }
+        if ((string) ($slot['time'] ?? '') === $time) {
+            return true;
+        }
+    }
+
+    return false;
+}
+
+/** @return list<array<string, mixed>> */
+function appointment_fetch_day_bookings(PDO $pdo, string $doctorId, string $date): array
+{
+    $next = date('Y-m-d', strtotime($date . ' +1 day') ?: time());
+    $stmt = $pdo->prepare("
+      SELECT id, starts_at, ends_at, status, patient_id
+      FROM appointments
+      WHERE doctor_id = ?
+        AND status IN ('PENDING_APPROVAL','PENDING_PAYMENT','CONFIRMED','COMPLETED')
+        AND starts_at < ? AND ends_at > ?
+    ");
+    $stmt->execute([$doctorId, $next . ' 12:00:00', $date . ' 00:00:00']);
+
+    return $stmt->fetchAll(PDO::FETCH_ASSOC) ?: [];
+}
+
 function appointment_short_jalali_date(string $ymd): string
 {
     $parts = jalali_day_parts($ymd . ' 12:00:00');
@@ -759,21 +1069,39 @@ function doctor_weekday_presence_summary(PDO $pdo, string $doctorId): array
 
         $free = [];
         $booked = [];
+        $chips = [];
         if ($nextDate !== null && $hours !== []) {
-            foreach ($hours as $hour) {
-                $hour = (int) $hour;
-                $startsAt = appointment_slot_starts_at($nextDate, $hour);
-                $endsAt = date('Y-m-d H:i:s', (strtotime($startsAt) ?: 0) + (appointment_slot_minutes() * 60));
-                $row = appointment_booking_covering_window($bookedMap, $startsAt, $endsAt);
-                if (is_array($row)) {
-                    $booked[] = [
-                        'hour' => $hour,
-                        'clock' => appointment_clock_from_row($row),
-                        'patient' => trim((string) ($row['patient_name'] ?? '')),
-                        'patient_id' => trim((string) ($row['patient_id'] ?? '')),
-                    ];
+            foreach (appointment_day_display_slots($nextDate, $hours, $bookedMap) as $slot) {
+                $booking = is_array($slot['booking'] ?? null) ? $slot['booking'] : null;
+                $continuation = !empty($slot['continuation']);
+                $clock = $booking ? appointment_clock_from_row($booking) : '';
+                if ($continuation) {
+                    $chipLabel = 'پر';
+                } elseif ($booking && $clock !== '') {
+                    $chipLabel = to_fa_digits($clock);
                 } else {
-                    $free[] = $hour;
+                    $chipLabel = appointment_display_slot_face($slot);
+                }
+                $chips[] = [
+                    'hour' => (int) ($slot['hour'] ?? 0),
+                    'minute' => (int) ($slot['minute'] ?? 0),
+                    'time' => (string) ($slot['time'] ?? ''),
+                    'label' => $chipLabel,
+                    'patient' => ($booking && !$continuation) ? trim((string) ($booking['patient_name'] ?? '')) : '',
+                    'patient_id' => ($booking && !$continuation) ? trim((string) ($booking['patient_id'] ?? '')) : '',
+                    'clock' => $clock,
+                    'continuation' => $continuation,
+                    'taken' => $booking !== null,
+                ];
+                if ($booking && !$continuation) {
+                    $booked[] = [
+                        'hour' => (int) ($slot['hour'] ?? 0),
+                        'clock' => $clock,
+                        'patient' => trim((string) ($booking['patient_name'] ?? '')),
+                        'patient_id' => trim((string) ($booking['patient_id'] ?? '')),
+                    ];
+                } elseif (!$booking) {
+                    $free[] = (int) ($slot['hour'] ?? 0);
                 }
             }
         }
@@ -786,6 +1114,7 @@ function doctor_weekday_presence_summary(PDO $pdo, string $doctorId): array
             'next_label' => $nextDate ? to_jalali_label($nextDate) : '',
             'free' => $free,
             'booked' => $booked,
+            'chips' => $chips,
         ];
     }
 
@@ -951,6 +1280,14 @@ function doctor_availability_render_day_card(
 ): string {
     $savedHours = $item ? appointment_availability_hours($item) : [];
     $hasItem = is_array($item) && (string) ($item['id'] ?? '') !== '';
+    $displaySlots = $hasItem ? appointment_day_display_slots($dayDate, $savedHours, $bookedMap) : [];
+    $dayShifted = false;
+    foreach ($displaySlots as $displaySlot) {
+        if ((int) ($displaySlot['minute'] ?? 0) !== 0) {
+            $dayShifted = true;
+            break;
+        }
+    }
 
     ob_start();
     ?>
@@ -972,6 +1309,44 @@ function doctor_availability_render_day_card(
                 </div>
                 <?php if ($hasItem): ?>
                 <div class="hour-picker hour-picker-readonly" style="margin-top:.75rem">
+                  <?php if ($dayShifted): ?>
+                    <?php foreach ($displaySlots as $displaySlot): ?>
+                      <?php
+                        $booking = is_array($displaySlot['booking'] ?? null) ? $displaySlot['booking'] : null;
+                        $continuation = !empty($displaySlot['continuation']);
+                        $state = ($booking || $continuation) ? 'booked' : 'free';
+                        $patientName = ($booking && !$continuation) ? trim((string) ($booking['patient_name'] ?? '')) : '';
+                        $firstName = $patientName !== '' ? (preg_split('/\s+/u', $patientName)[0] ?? $patientName) : '';
+                        $statusLabel = ($booking && !$continuation) ? appointment_row_status_label($booking) : '';
+                        $patientHref = ($booking && !$continuation) ? url('/doctor/patients/' . (string) ($booking['patient_id'] ?? '')) : '';
+                        $showPhone = can_view_patient_phone() && $booking && !$continuation ? (string) ($booking['phone'] ?? '') : '';
+                        $face = $continuation
+                            ? 'پر'
+                            : (($booking && appointment_clock_from_row($booking) !== '')
+                                ? to_fa_digits(appointment_clock_from_row($booking))
+                                : appointment_display_slot_face($displaySlot));
+                        $slotDate = substr((string) ($displaySlot['starts_at'] ?? $dayDate), 0, 10);
+                      ?>
+                      <button type="button"
+                        class="hour-chip is-<?= e($state) ?>"
+                        data-avail-hour
+                        data-state="<?= e($state) ?>"
+                        data-label="<?= e($face) ?>"
+                        data-date-label="<?= e(appointment_short_jalali_date($slotDate)) ?>"
+                        data-patient="<?= e($patientName) ?>"
+                        data-phone="<?= e($showPhone) ?>"
+                        data-status="<?= e($statusLabel) ?>"
+                        data-href="<?= e($patientHref) ?>">
+                        <span class="hour-chip-time"><?= e($face) ?></span>
+                        <span class="hour-chip-date"><?= e(appointment_short_jalali_date($slotDate)) ?></span>
+                        <?php if ($state === 'booked' && $firstName !== ''): ?>
+                          <span class="hour-chip-who"><?= e((string) $firstName) ?></span>
+                        <?php elseif ($state === 'free'): ?>
+                          <span class="hour-chip-who">خالی</span>
+                        <?php endif; ?>
+                      </button>
+                    <?php endforeach; ?>
+                  <?php else: ?>
                   <?php foreach ($bookingHours as $hour): ?>
                     <?php
                       $hour = (int) $hour;
@@ -1005,6 +1380,7 @@ function doctor_availability_render_day_card(
                       <?php endif; ?>
                     </button>
                   <?php endforeach; ?>
+                  <?php endif; ?>
                 </div>
                 <div class="avail-hour-detail" hidden>
                   <strong class="avail-hour-detail-title"></strong>
@@ -1081,34 +1457,25 @@ function patient_open_slots_between(PDO $pdo, string $fromYmd, string $toYmd): a
         if (therapist_date_is_closed($pdo, $doctorId, $date)) {
             continue;
         }
-        foreach (appointment_availability_hours($availability) as $hour) {
-            $startsAt = appointment_slot_starts_at($date, $hour);
-            $slot = appointment_hour_to_time($hour);
-            $slotDate = substr($startsAt, 0, 10);
-            $endsAt = date('Y-m-d H:i:s', (strtotime($startsAt) ?: 0) + (appointment_slot_minutes() * 60));
-            $blocked = false;
-            foreach ($takenByDoctor[$doctorId] ?? [] as $busy) {
-                [$busyStart, $busyEnd] = appointment_row_span($busy);
-                if ($busyStart !== '' && $busyEnd !== '' && $busyStart < $endsAt && $busyEnd > $startsAt) {
-                    $blocked = true;
-                    break;
-                }
-            }
-            if ($blocked) {
+        $daySlots = appointment_day_display_slots($date, appointment_availability_hours($availability), $takenByDoctor[$doctorId] ?? []);
+        foreach ($daySlots as $slot) {
+            if (!empty($slot['continuation']) || is_array($slot['booking'] ?? null)) {
                 continue;
             }
+            $startsAt = (string) ($slot['starts_at'] ?? '');
             $ts = strtotime($startsAt);
             if (!$ts || $ts <= $now) {
                 continue;
             }
+            $slotDate = substr($startsAt, 0, 10);
             $out[] = [
                 'doctor_id' => $doctorId,
                 'doctor_name' => (string) ($availability['doctor_name'] ?? ''),
                 'specialty' => (string) ($availability['specialty'] ?? ''),
                 'price' => (int) ($availability['session_price'] ?? 0),
                 'date' => $slotDate,
-                'time' => $slot,
-                'label' => appointment_hour_chip_label($hour),
+                'time' => (string) ($slot['time'] ?? ''),
+                'label' => appointment_display_slot_face($slot),
                 'date_label' => appointment_short_jalali_date($slotDate),
                 'starts_at' => $startsAt,
             ];

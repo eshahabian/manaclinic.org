@@ -158,44 +158,37 @@ ob_start();
     <?php
       $row = $summaryByWeekday[(int) $w] ?? null;
       $hours = is_array($row) ? ($row['hours'] ?? []) : [];
-      $bookedMap = [];
-      if (is_array($row)) {
-          foreach ($row['booked'] ?? [] as $b) {
-              $bookedMap[(int) ($b['hour'] ?? -1)] = [
-                  'patient' => trim((string) ($b['patient'] ?? '')),
-                  'patient_id' => trim((string) ($b['patient_id'] ?? '')),
-                  'clock' => trim((string) ($b['clock'] ?? '')),
-              ];
-          }
-      }
+      $chips = is_array($row) && is_array($row['chips'] ?? null) ? $row['chips'] : [];
     ?>
     <div class="avail-summary-one" data-summary-weekday="<?= (int) $w ?>" hidden>
       <?php if ($hours === []): ?>
         <p class="muted avail-summary-empty" style="margin:0">برای «<?= e($label) ?>» هنوز ساعت حضوری ثبت نشده است.</p>
       <?php else: ?>
         <div class="avail-summary-hours" aria-label="ساعت‌های <?= e($label) ?>">
-          <?php foreach ($hours as $hour): ?>
+          <?php foreach ($chips as $chip): ?>
             <?php
-              $hour = (int) $hour;
-              $bookedInfo = $bookedMap[$hour] ?? null;
-              $isBooked = is_array($bookedInfo);
-              $who = $isBooked ? (string) ($bookedInfo['patient'] ?? '') : '';
-              $patientId = $isBooked ? (string) ($bookedInfo['patient_id'] ?? '') : '';
-              $clock = $isBooked ? (string) ($bookedInfo['clock'] ?? '') : '';
-              $face = $clock !== '' ? to_fa_digits($clock) : appointment_hour_chip_label($hour);
-              $title = $isBooked
+              if (!is_array($chip)) {
+                  continue;
+              }
+              $who = trim((string) ($chip['patient'] ?? ''));
+              $patientId = trim((string) ($chip['patient_id'] ?? ''));
+              $clock = trim((string) ($chip['clock'] ?? ''));
+              $face = (string) ($chip['label'] ?? '');
+              $isTaken = !empty($chip['taken']);
+              $text = $who !== '' ? ($face . ' · ' . $who) : $face;
+              $title = $isTaken
                   ? ('رزرو شده' . ($clock !== '' ? ' ' . to_fa_digits($clock) : '') . ($who !== '' ? ' — ' . $who : ''))
                   : 'خالی';
             ?>
-            <?php if ($isBooked && $patientId !== ''): ?>
+            <?php if ($patientId !== ''): ?>
               <a class="avail-hour-pill is-booked"
                  href="<?= e(url('/secretary/patients/' . $patientId)) ?>"
                  title="<?= e($title) ?>">
-                <?= e($who !== '' ? ($face . ' · ' . $who) : $face) ?>
+                <?= e($text) ?>
               </a>
             <?php else: ?>
-              <span class="avail-hour-pill<?= $isBooked ? ' is-booked' : '' ?>" title="<?= e($title) ?>">
-                <?= e($isBooked && $who !== '' ? ($face . ' · ' . $who) : $face) ?>
+              <span class="avail-hour-pill<?= $isTaken ? ' is-booked' : '' ?>" title="<?= e($title) ?>">
+                <?= e($text) ?>
               </span>
             <?php endif; ?>
           <?php endforeach; ?>

@@ -58,14 +58,15 @@ if (!$availability) {
     exit;
 }
 
-if (!preg_match('/^\d{2}:00$/', $time)) {
-    http_response_code(400);
-    echo json_encode(['error' => 'مراجعه‌کننده فقط از ساعت‌های ثابت درمانگر می‌تواند وقت بگیرد.']);
-    exit;
-}
-if (!appointment_booking_time_allowed($availability, $time)) {
+if (!preg_match('/^\d{2}:\d{2}$/', $time)) {
     http_response_code(400);
     echo json_encode(['error' => 'ساعت نامعتبر است.']);
+    exit;
+}
+$dayBookings = appointment_fetch_day_bookings($pdo, $doctorId, $date);
+if (!appointment_time_matches_open_chip($date, appointment_availability_hours($availability), $dayBookings, $time)) {
+    http_response_code(400);
+    echo json_encode(['error' => 'این ساعت برای رزرو باز نیست.']);
     exit;
 }
 

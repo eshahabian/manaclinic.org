@@ -76,59 +76,13 @@ function secretary_week_schedule(PDO $pdo, string $doctorId, int $days = 7): arr
         $parts = jalali_day_parts($date . ' 12:00:00') ?: [];
         $label = (string) ($parts['label'] ?? to_jalali_label($date));
         $weekday = (string) ($parts['weekday'] ?? '');
-        $slots = [];
-        $seenHours = [];
-        $shownIds = [];
         $av = $byDate[$date] ?? null;
         $hours = $av ? appointment_availability_hours($av) : [];
-        foreach ($hours as $hour) {
-            $hour = (int) $hour;
-            $seenHours[$hour] = true;
-            $startsAt = appointment_slot_starts_at($date, $hour);
-            $endsAt = date('Y-m-d H:i:s', (strtotime($startsAt) ?: 0) + (appointment_slot_minutes() * 60));
-            $placed = secretary_week_place_booking($booked, $startsAt, $endsAt, $shownIds);
-            if ($placed['booking'] !== null) {
-                $id = (string) ($placed['booking']['id'] ?? '');
-                if ($id !== '' && empty($placed['continuation'])) {
-                    $shownIds[$id] = true;
-                }
-            }
-            $slots[] = [
-                'hour' => $hour,
-                'time' => appointment_hour_to_time($hour),
-                'label' => secretary_week_slot_label($hour, $placed['booking'], !empty($placed['continuation'])),
-                'starts_at' => $startsAt,
-                'booking' => $placed['booking'],
-                'continuation' => !empty($placed['continuation']),
-            ];
+        $slots = [];
+        foreach (appointment_day_display_slots($date, $hours, $booked) as $slot) {
+            $slot['label'] = secretary_week_slot_label_for($slot);
+            $slots[] = $slot;
         }
-        foreach ($booked as $key => $bookingRow) {
-            if (!str_starts_with($key, $date . ' ')) {
-                continue;
-            }
-            $id = (string) ($bookingRow['id'] ?? '');
-            if ($id !== '' && isset($shownIds[$id])) {
-                continue;
-            }
-            $hour = (int) substr($key, 11, 2);
-            if (isset($seenHours[$hour])) {
-                continue;
-            }
-            $seenHours[$hour] = true;
-            if ($id !== '') {
-                $shownIds[$id] = true;
-            }
-            $startsAt = appointment_slot_starts_at($date, $hour);
-            $slots[] = [
-                'hour' => $hour,
-                'time' => appointment_hour_to_time($hour),
-                'label' => secretary_week_slot_label($hour, $bookingRow, false),
-                'starts_at' => $startsAt,
-                'booking' => $bookingRow,
-                'continuation' => false,
-            ];
-        }
-        usort($slots, static fn(array $a, array $b): int => ((int) $a['hour']) <=> ((int) $b['hour']));
         $out[] = [
             'date' => $date,
             'label' => $label,
@@ -140,47 +94,19 @@ function secretary_week_schedule(PDO $pdo, string $doctorId, int $days = 7): arr
     return $out;
 }
 
-/**
- * نام مراجع فقط روی ساعتی می‌آید که نوبت در آن شروع شده.
- * ساعت بعدی که فقط دنبالهٔ همان جلسه است، دوباره همان نام را نشان نمی‌دهد.
- *
- * @param array<string, array<string, mixed>> $booked
- * @param array<string, true> $shownIds
- * @return array{booking:?array, continuation:bool}
- */
-function secretary_week_place_booking(array $booked, string $startsAt, string $endsAt, array $shownIds): array
+/** نام مراجع فقط روی ساعت شروع نوبت می‌آید؛ دنبالهٔ همان جلسه نام را تکرار نمی‌کند. */
+function secretary_week_slot_label_for(array $slot): string
 {
-    $owner = null;
-    foreach ($booked as $row) {
-        if (!is_array($row) || !appointment_booking_starts_inside($row, $startsAt, $endsAt)) {
-            continue;
-        }
-        $id = (string) ($row['id'] ?? '');
-        if ($id !== '' && isset($shownIds[$id])) {
-            continue;
-        }
-        $owner = $row;
-        break;
-    }
-    if ($owner !== null) {
-        return ['booking' => $owner, 'continuation' => false];
-    }
-    $cover = appointment_booking_covering_window($booked, $startsAt, $endsAt);
-
-    return ['booking' => $cover, 'continuation' => is_array($cover)];
-}
-
-function secretary_week_slot_label(int $hour, ?array $booking, bool $continuation = false): string
-{
-    if ($continuation) {
+    if (!empty($slot['continuation'])) {
         return 'پر';
     }
+    $booking = $slot['booking'] ?? null;
     if (!is_array($booking)) {
-        return appointment_hour_chip_label($hour);
+        return appointment_display_slot_face($slot);
     }
     $clock = appointment_clock_from_row($booking);
     $who = trim((string) ($booking['patient_name'] ?? ''));
-    $label = $clock !== '' ? to_fa_digits($clock) : appointment_hour_chip_label($hour);
+    $label = $clock !== '' ? to_fa_digits($clock) : appointment_display_slot_face($slot);
     if ($who !== '') {
         $label .= ' · ' . $who;
     }

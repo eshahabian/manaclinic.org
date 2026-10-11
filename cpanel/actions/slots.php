@@ -86,50 +86,58 @@ $staffCanSeePast = $isStaff && (string) ($_GET['include_past'] ?? '') === '1';
 $now = time();
 $free = [];
 $booked = [];
-foreach ($hours as $hour) {
-    $anchor = appointment_slot_starts_at($date, $hour);
-    $hourEnd = date('Y-m-d H:i:s', (strtotime($anchor) ?: 0) + (appointment_slot_minutes() * 60));
-    $cover = appointment_booking_covering_window($taken, $anchor, $hourEnd);
+foreach (appointment_day_display_slots($date, $hours, $taken) as $slot) {
+    $startsAt = (string) ($slot['starts_at'] ?? '');
+    $hour = (int) ($slot['hour'] ?? 0);
+    $chipMinute = sprintf('%02d', (int) ($slot['minute'] ?? 0));
+    $booking = is_array($slot['booking'] ?? null) ? $slot['booking'] : null;
+    if (!empty($slot['continuation']) || $booking !== null) {
+        if (!$isStaff) {
+            continue;
+        }
+        if (!empty($slot['continuation'])) {
+            $booked[] = [
+                'value' => (string) ($slot['time'] ?? ''),
+                'clock' => '',
+                'patient' => '',
+                'label' => 'پر',
+                'continuation' => true,
+            ];
+            continue;
+        }
+        $clock = appointment_clock_from_row($booking);
+        $booked[] = [
+            'value' => $clock !== '' ? $clock : (string) ($slot['time'] ?? ''),
+            'clock' => $clock,
+            'patient' => trim((string) ($booking['patient_name'] ?? '')),
+            'label' => $clock !== '' ? appointment_clock_label($clock) : appointment_display_slot_face($slot),
+        ];
+        continue;
+    }
+
     $freeMinutes = [];
     for ($minute = 0; $minute < 60; $minute += 5) {
-        $startsAt = appointment_slot_starts_at($date, sprintf('%02d:%02d', $hour, $minute));
-        $endsAt = date('Y-m-d H:i:s', (strtotime($startsAt) ?: 0) + (appointment_slot_minutes() * 60));
-        $blocked = appointment_booking_covering_window($taken, $startsAt, $endsAt) !== null;
-        $ts = strtotime($startsAt);
+        $candidate = appointment_slot_starts_at($date, sprintf('%02d:%02d', $hour, $minute));
+        $candidateEnd = appointment_slot_ends_at($candidate);
+        $blocked = appointment_booking_covering_window($taken, $candidate, $candidateEnd) !== null;
+        $ts = strtotime($candidate);
         if (!$blocked && $ts && ($staffCanSeePast || $ts > $now)) {
             $freeMinutes[] = sprintf('%02d', $minute);
         }
     }
     if (!$isStaff) {
-        $freeMinutes = in_array('00', $freeMinutes, true) ? ['00'] : [];
-    }
-    if ($freeMinutes === []) {
-        if ($isStaff && is_array($cover)) {
-            $startsHere = appointment_booking_starts_inside($cover, $anchor, $hourEnd);
-            if ($startsHere) {
-                $clock = appointment_clock_from_row($cover);
-                $booked[] = [
-                    'value' => appointment_hour_to_time($hour),
-                    'clock' => $clock,
-                    'patient' => trim((string) ($cover['patient_name'] ?? '')),
-                    'label' => $clock !== '' ? appointment_clock_label($clock) : appointment_hour_chip_label($hour),
-                ];
-            } else {
-                $booked[] = [
-                    'value' => appointment_hour_to_time($hour),
-                    'clock' => '',
-                    'patient' => '',
-                    'label' => 'پر',
-                    'continuation' => true,
-                ];
-            }
+        $chipTs = strtotime($startsAt);
+        if (!$chipTs || $chipTs <= $now || !in_array($chipMinute, $freeMinutes, true)) {
+            continue;
         }
+        $freeMinutes = [$chipMinute];
+    } elseif ($freeMinutes === [] || !in_array($chipMinute, $freeMinutes, true)) {
         continue;
     }
     $free[] = [
-        'value' => appointment_hour_to_time($hour),
-        'label' => appointment_clock_label(appointment_hour_to_time($hour)),
-        'date_label' => appointment_short_jalali_date(substr($anchor, 0, 10)),
+        'value' => (string) ($slot['time'] ?? appointment_hour_to_time($hour)),
+        'label' => appointment_clock_label((string) ($slot['time'] ?? appointment_hour_to_time($hour))),
+        'date_label' => appointment_short_jalali_date(substr($startsAt, 0, 10)),
         'minutes' => $freeMinutes,
     ];
 }
