@@ -152,28 +152,29 @@ function secretary_room_choices_json(): string
     return is_string($json) ? $json : '[]';
 }
 
-/** دکمه‌های اتاق؛ select بومی داخل پنجره نوبت با کلیک روی گزینه صفحه را سفید می‌کند. */
+/** رادیوهای اتاق. مقدار room_no را خود مرورگر نگه می‌دارد و کلیک فرم را نمی‌فرستد. */
 function secretary_room_picker_markup(): string
 {
-    $html = '<div class="sec-room-picks" role="group" aria-label="اتاق">';
-    $html .= '<input type="hidden" name="room_no" value="">';
-    $html .= '<span class="sec-room-current">انتخاب اتاق</span>';
-    $html .= '<span class="sec-room-btns">';
-    $html .= '<button type="button" class="sec-room-pick is-on" data-room="">انتخاب اتاق</button>';
+    $html = '<div class="sec-room-picks" role="radiogroup" aria-label="اتاق">';
+    $html .= '<div class="sec-room-current" data-room-current>انتخاب اتاق</div>';
+    $html .= '<div class="sec-room-btns">';
     foreach (secretary_room_choice_list() as $choice) {
         $value = (string) ($choice['value'] ?? '');
         $label = (string) ($choice['label'] ?? '');
         if (!in_array($value, ['1', '2', '3'], true) || $label === '') {
             continue;
         }
-        $html .= '<button type="button" class="sec-room-pick" data-room="' . e($value) . '">' . e($label) . '</button>';
+        $html .= '<label class="sec-room-pick">';
+        $html .= '<input type="radio" name="room_no" value="' . e($value) . '" data-label="' . e($label) . '">';
+        $html .= '<span>' . e($label) . '</span>';
+        $html .= '</label>';
     }
-    $html .= '</span></div>';
+    $html .= '</div></div>';
 
     return $html;
 }
 
-/** کلیک روی اتاق فقط مقدار مخفی را عوض می‌کند و فرم را ارسال نمی‌کند. */
+/** فقط متن انتخاب را تازه می‌کند. کلیک رادیو را قطع نمی‌کند و فرم را ارسال نمی‌کند. */
 function secretary_room_picker_script(): string
 {
     if (!empty($GLOBALS['mana_room_picker_script_sent'])) {
@@ -186,34 +187,25 @@ function secretary_room_picker_script(): string
 (function(){
   if (window.manaRoomPickReady) return;
   window.manaRoomPickReady = true;
-  document.addEventListener("click", function (e) {
-    var pick = e.target && e.target.closest ? e.target.closest(".sec-room-pick") : null;
-    if (!pick) return;
-    e.preventDefault();
-    e.stopPropagation();
-    var box = pick.closest(".sec-room-picks");
-    if (!box) return;
-    var value = String(pick.getAttribute("data-room") || "");
-    if (value !== "" && value !== "1" && value !== "2" && value !== "3") return;
-    var hidden = box.querySelector("input[name=room_no]");
-    if (hidden) hidden.value = value;
-    box.querySelectorAll(".sec-room-pick").forEach(function (btn) {
-      btn.classList.toggle("is-on", btn === pick);
-    });
-    var current = box.querySelector(".sec-room-current");
-    if (current) current.textContent = (pick.textContent || "انتخاب اتاق").trim();
-  }, true);
+  document.addEventListener("change", function (e) {
+    var input = e.target;
+    if (!input || input.name !== "room_no" || input.type !== "radio") return;
+    var box = input.closest ? input.closest(".sec-room-picks") : null;
+    var current = box ? box.querySelector("[data-room-current]") : null;
+    if (!current) return;
+    var label = input.getAttribute("data-label") || "";
+    current.textContent = label || "انتخاب اتاق";
+  });
   document.addEventListener("submit", function (e) {
     var form = e.target;
     if (!form || !form.getAttribute || form.getAttribute("data-room-required") !== "1") return;
-    var hidden = form.querySelector("input[name=room_no]");
-    var value = hidden ? String(hidden.value || "") : "";
+    var picked = form.querySelector('input[type="radio"][name="room_no"]:checked');
+    var value = picked ? String(picked.value || "") : "";
     if (value === "1" || value === "2" || value === "3") return;
     e.preventDefault();
-    e.stopPropagation();
-    var current = form.querySelector(".sec-room-current");
+    var current = form.querySelector("[data-room-current]");
     if (current) current.textContent = "اتاق را انتخاب کنید";
-  }, true);
+  });
 })();
 </script>
 JS;
@@ -297,11 +289,11 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                           }
                           echo e($chip);
                         ?></button>
-                        <template class="sec-week-slot-actions">
+                        <div class="sec-week-slot-live" hidden>
                           <div class="sec-week-shadow-tools">
                             <?php
                               $nextHold = $deskNext . (str_contains($deskNext, '?') ? '&' : '?') . 'tab=reservations&doctor_id=' . rawurlencode($doctorId);
-                              $roomNext = $deskNext . (str_contains($deskNext, '?') ? '&' : '?') . 'doctor_id=' . rawurlencode($doctorId);
+                              $roomNext = $deskNext . (str_contains($deskNext, '?') ? '&' : '?') . 'tab=upcoming&doctor_id=' . rawurlencode($doctorId);
                             ?>
                             <?php if ($roomNo < 1): ?>
                               <form method="post" action="<?= e(url('/secretary/appointments')) ?>" class="sec-week-room-form sec-room-form" data-room-required="<?= $onlineSession ? '0' : '1' ?>">
@@ -329,7 +321,7 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                               <?= appointment_staff_mark_paid_form_html($booking, $nextHold) ?>
                             <?php endif; ?>
                           </div>
-                        </template>
+                        </div>
                       </div>
                       <?php
                   } else {
@@ -351,13 +343,13 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
           <?php endif; ?>
         </div>
       <?php endforeach; ?>
-      <div class="sec-week-shadow" id="sec-week-shadow" hidden>
-        <div class="sec-week-shadow-card">
-          <button type="button" class="sec-week-shadow-close" aria-label="بستن">×</button>
-          <h3 class="sec-week-shadow-name"></h3>
-          <p class="sec-week-shadow-meta muted"></p>
-          <div class="sec-week-shadow-actions"></div>
-        </div>
+    </div>
+    <div class="sec-week-shadow" id="sec-week-shadow" hidden>
+      <div class="sec-week-shadow-card">
+        <button type="button" class="sec-week-shadow-close" aria-label="بستن">×</button>
+        <h3 class="sec-week-shadow-name"></h3>
+        <p class="sec-week-shadow-meta muted"></p>
+        <div class="sec-week-shadow-actions"></div>
       </div>
     </div>
     <?= secretary_room_picker_script() ?>
@@ -372,11 +364,18 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
       var metaEl = shadow.querySelector(".sec-week-shadow-meta");
       var actionsEl = shadow.querySelector(".sec-week-shadow-actions");
       var closeBtn = shadow.querySelector(".sec-week-shadow-close");
-      function close(){ shadow.hidden = true; }
+      function close(){
+        var open = actionsEl ? actionsEl.querySelector(".sec-week-slot-live") : null;
+        if (open && open._home && open._home.appendChild) {
+          open.hidden = true;
+          open._home.appendChild(open);
+        }
+        shadow.hidden = true;
+      }
       if (closeBtn) closeBtn.addEventListener("click", close);
       shadow.addEventListener("click", function(e){ if (e.target === shadow) close(); });
       root.addEventListener("click", function(e){
-        if (e.target && e.target.closest && e.target.closest(".sec-week-shadow, .sec-room-pick")) return;
+        if (e.target && e.target.closest && e.target.closest(".sec-week-shadow")) return;
         var btn = e.target && e.target.closest ? e.target.closest(".sec-week-hour.is-booked") : null;
         if (!btn || !root.contains(btn)) return;
         e.preventDefault();
@@ -391,11 +390,19 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
         if (nameEl) nameEl.textContent = btn.getAttribute("data-patient") || "مراجعه‌کننده";
         if (metaEl) metaEl.textContent = lines.join(" · ");
         if (actionsEl) {
-          actionsEl.innerHTML = "";
           var wrap = btn.closest(".sec-week-hour-wrap");
-          var tpl = wrap ? wrap.querySelector("template.sec-week-slot-actions") : null;
-          if (tpl && tpl.content) {
-            actionsEl.appendChild(tpl.content.cloneNode(true));
+          if (!btn._slotLive && wrap) btn._slotLive = wrap.querySelector(".sec-week-slot-live");
+          var live = btn._slotLive || null;
+          var already = actionsEl.querySelector(".sec-week-slot-live");
+          if (already && already !== live && already._home) {
+            already.hidden = true;
+            already._home.appendChild(already);
+          }
+          actionsEl.querySelectorAll(".sec-week-shadow-dismiss").forEach(function (node) { node.remove(); });
+          if (live) {
+            if (!live._home && wrap) live._home = wrap;
+            live.hidden = false;
+            actionsEl.insertBefore(live, actionsEl.firstChild);
           }
           var dismiss = document.createElement("button");
           dismiss.type = "button";

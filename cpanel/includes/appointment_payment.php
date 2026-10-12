@@ -682,26 +682,20 @@ function appointment_staff_mark_paid_form_html(array $row, string $next): string
         $fee = (int) ($row['session_price'] ?? 0);
     }
     $online = function_exists('appointment_is_online_mode') && appointment_is_online_mode($row);
-    if (!function_exists('clinic_rooms_numbers') && is_file(__DIR__ . '/clinic_rooms.php')) {
-        require_once __DIR__ . '/clinic_rooms.php';
+    if (!function_exists('secretary_room_picker_markup') && is_file(__DIR__ . '/secretary_week_grid.php')) {
+        require_once __DIR__ . '/secretary_week_grid.php';
     }
-    $roomNumbers = function_exists('clinic_rooms_numbers') ? clinic_rooms_numbers() : [1, 2, 3];
     ob_start();
     ?>
-    <form method="post" action="<?= e(url('/secretary/appointments')) ?>" enctype="multipart/form-data" class="appt-confirm-pay-form" style="display:flex;flex-wrap:wrap;gap:.45rem;align-items:end;margin:0;flex-basis:100%">
+    <form method="post" action="<?= e(url('/secretary/appointments')) ?>" enctype="multipart/form-data" class="appt-confirm-pay-form sec-room-form" data-room-required="<?= $online ? '0' : '1' ?>" style="display:flex;flex-wrap:wrap;gap:.45rem;align-items:end;margin:0;flex-basis:100%">
       <?= csrf_field() ?>
       <input type="hidden" name="action" value="confirm_payment">
       <input type="hidden" name="appointment_id" value="<?= e($id) ?>">
       <input type="hidden" name="next" value="<?= e($next) ?>">
-      <label style="min-width:9rem;margin:0">
+      <div style="min-width:12rem;margin:0;flex:1 1 12rem">
         <span class="label" style="font-size:.75rem">اتاق جلسه<?= $online ? ' (اختیاری)' : '' ?></span>
-        <select class="input" name="room_no"<?= $online ? '' : ' required' ?>>
-          <option value=""><?= $online ? '— بدون اتاق —' : '— انتخاب اتاق —' ?></option>
-          <?php foreach ($roomNumbers as $n): ?>
-            <option value="<?= (int) $n ?>"><?= e(function_exists('clinic_room_label') ? clinic_room_label((int) $n) : ('اتاق ' . (int) $n)) ?></option>
-          <?php endforeach; ?>
-        </select>
-      </label>
+        <?= function_exists('secretary_room_picker_markup') ? secretary_room_picker_markup() : '' ?>
+      </div>
       <label style="flex:1;min-width:12rem;margin:0">
         <span class="label" style="font-size:.75rem">یادداشت منشی</span>
         <textarea class="input" name="note" rows="2" placeholder="مثلاً کارت‌به‌کارت شد، یا پرداخت نقدی در کلینیک"><?= e(trim((string) ($row['staff_payment_note'] ?? ''))) ?></textarea>

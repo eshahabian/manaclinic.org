@@ -350,9 +350,17 @@ function appointment_room_pick_html(string $name = 'room_no', string $id = 'room
 
 function appointment_parse_room_choice(string $raw): int
 {
-    $raw = trim($raw);
+    $raw = strtr(trim($raw), [
+        '۰' => '0', '۱' => '1', '۲' => '2', '۳' => '3', '۴' => '4',
+        '۵' => '5', '۶' => '6', '۷' => '7', '۸' => '8', '۹' => '9',
+        '٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4',
+        '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9',
+    ]);
+    if (preg_match('/[1-3]/', $raw, $match)) {
+        return (int) $match[0];
+    }
 
-    return $raw === '' ? 0 : (int) $raw;
+    return 0;
 }
 
 /** اتاق حضوری اجباری است؛ آنلاین می‌تواند خالی بماند. در صورت تداخل خطا می‌دهد. */
