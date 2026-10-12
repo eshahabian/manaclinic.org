@@ -1608,11 +1608,10 @@ function workshop_home_banners(PDO $pdo, int $limit = 8): array
           " . workshop_active_doctor_join('w') . "
           JOIN users u ON u.id = dp.user_id
           WHERE w.is_published = 1
-            AND w.closed_at IS NULL
             AND w.status IN ('PUBLISHED','COMPLETED')
           ORDER BY
             CASE
-              WHEN w.status = 'COMPLETED' OR (" . workshop_sql_end_in_past('w') . ") THEN 2
+              WHEN w.status = 'COMPLETED' OR w.closed_at IS NOT NULL OR (" . workshop_sql_end_in_past('w') . ") THEN 2
               WHEN w.type = 'OFFLINE' OR w.ends_at IS NULL OR w.ends_at < '1970-01-02' OR (w.starts_at <= NOW() AND w.ends_at >= NOW()) THEN 0
               ELSE 1
             END,
