@@ -179,38 +179,79 @@ function secretary_room_picker_script(): string
       { value: "3", label: "اتاق ۳" }
     ];
   }
+  function roomNumberFrom(opt) {
+    if (!opt) return "";
+    var raw = String(opt.getAttribute("data-value") || opt.getAttribute("value") || opt.value || "").trim();
+    if (raw === "1" || raw === "2" || raw === "3") return raw;
+    var text = String(opt.textContent || opt.label || "");
+    var map = { "۱": "1", "۲": "2", "۳": "3", "1": "1", "2": "2", "3": "3" };
+    var found = "";
+    for (var i = 0; i < text.length; i++) {
+      if (map[text.charAt(i)]) found = map[text.charAt(i)];
+    }
+    return found;
+  }
   function paint(select) {
     if (!select || (select.closest && select.closest("template"))) return;
     if (select.getAttribute("data-room-ready") === "1") return;
     select.setAttribute("data-room-ready", "1");
-    var current = select.value || "";
-    var choices = roomChoices(select);
+    var must = select.getAttribute("data-room-required") === "1";
+    select.required = false;
+    select.removeAttribute("required");
+    select.disabled = false;
+    var keep = roomNumberFrom(select.options[select.selectedIndex]);
     while (select.options.length) select.remove(0);
-    select.add(new Option("انتخاب اتاق", ""));
+    function addOpt(val, label) {
+      var opt = document.createElement("option");
+      opt.value = val;
+      opt.setAttribute("value", val);
+      if (val) opt.setAttribute("data-value", val);
+      opt.textContent = label;
+      select.appendChild(opt);
+    }
+    addOpt("", "انتخاب اتاق");
+    var choices = roomChoices(select);
+    var added = false;
     choices.forEach(function (choice) {
       var label = String(choice.label || "").trim();
       var value = String(choice.value || "").trim();
-      if (!label || !value) return;
-      var opt = new Option(label, value);
-      opt.label = label;
-      select.add(opt);
+      if (value !== "1" && value !== "2" && value !== "3") return;
+      if (!label) label = "اتاق " + value;
+      addOpt(value, label);
+      added = true;
     });
-    if (current) select.value = current;
-    if ((select.value || "") !== current) select.selectedIndex = 0;
-    var face = select.parentNode ? select.parentNode.querySelector(".sec-room-face") : null;
-    function sync() {
-      var opt = select.options[select.selectedIndex] || null;
-      var picked = !!(opt && opt.value);
-      var text = picked ? String(opt.text || opt.label || "").trim() : "انتخاب اتاق";
-      if (!text) text = picked ? ("اتاق " + opt.value) : "انتخاب اتاق";
-      if (face) {
-        face.textContent = text;
-        face.classList.toggle("is-picked", picked);
-      }
-      select.title = text;
+    if (!added) {
+      addOpt("1", "اتاق ۱");
+      addOpt("2", "اتاق ۲");
+      addOpt("3", "اتاق ۳");
     }
-    select.addEventListener("change", sync);
-    sync();
+    if (keep) select.value = keep;
+    else select.selectedIndex = 0;
+    if (must) select.required = true;
+    function commit() {
+      var opt = select.options[select.selectedIndex] || null;
+      var value = roomNumberFrom(opt);
+      if (!value) return "";
+      opt.value = value;
+      opt.setAttribute("value", value);
+      opt.setAttribute("data-value", value);
+      select.value = value;
+      select.setCustomValidity("");
+      return value;
+    }
+    select.addEventListener("change", commit);
+    select.addEventListener("input", commit);
+    var form = select.form || (select.closest ? select.closest("form") : null);
+    if (form && form.getAttribute("data-room-commit") !== "1") {
+      form.setAttribute("data-room-commit", "1");
+      function arm(ev) {
+        var btn = ev.target && ev.target.closest ? ev.target.closest("button, input") : null;
+        if (!btn || !form.contains(btn) || btn.type === "button") return;
+        commit();
+      }
+      form.addEventListener("mousedown", arm, true);
+      form.addEventListener("click", arm, true);
+    }
   }
   window.manaPaintRoomSelect = paint;
   function boot() {
@@ -317,13 +358,12 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                                 <label style="display:block;margin:0 0 .65rem">
                                   <span class="label" style="font-size:.75rem"><?= $onlineSession ? 'اتاق این جلسه هنوز مشخص نیست' : 'اتاق این نوبت حضوری هنوز مشخص نیست' ?></span>
                                   <span class="sec-room-select">
-                                    <select class="input" name="room_no"<?= $onlineSession ? '' : ' required' ?>>
-                                      <option value="" label="انتخاب اتاق">انتخاب اتاق</option>
+                                    <select class="input" name="room_no" data-room-required="<?= $onlineSession ? '0' : '1' ?>" autocomplete="off">
+                                      <option value="">انتخاب اتاق</option>
                                       <?php foreach ($roomChoices as $choice): ?>
-                                        <option value="<?= e((string) $choice['value']) ?>" label="<?= e((string) $choice['label']) ?>"><?= e((string) $choice['label']) ?></option>
+                                        <option value="<?= e((string) $choice['value']) ?>" data-value="<?= e((string) $choice['value']) ?>"><?= e((string) $choice['label']) ?></option>
                                       <?php endforeach; ?>
                                     </select>
-                                    <span class="sec-room-face" aria-hidden="true">انتخاب اتاق</span>
                                   </span>
                                 </label>
                                 <button type="submit" class="btn btn-primary btn-sm">ثبت اتاق</button>
@@ -409,10 +449,11 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
           var wrap = btn.closest(".sec-week-hour-wrap");
           var tpl = wrap ? wrap.querySelector("template.sec-week-slot-actions") : null;
           if (tpl && tpl.content) {
-            actionsEl.appendChild(tpl.content.cloneNode(true));
-            actionsEl.querySelectorAll("select[name=room_no]").forEach(function (sel) {
-              if (window.manaPaintRoomSelect) window.manaPaintRoomSelect(sel);
+            tpl.content.querySelectorAll(".sec-week-room-form select[name=room_no]").forEach(function (sel) {
+              sel.required = false;
+              sel.removeAttribute("required");
             });
+            actionsEl.appendChild(tpl.content.cloneNode(true));
           }
           var dismiss = document.createElement("button");
           dismiss.type = "button";
@@ -422,6 +463,60 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
           actionsEl.appendChild(dismiss);
         }
         shadow.hidden = false;
+        if (actionsEl) {
+          actionsEl.querySelectorAll(".sec-week-room-form select[name=room_no]").forEach(function (sel) {
+            if (window.manaPaintRoomSelect) window.manaPaintRoomSelect(sel);
+            var opts = sel.options;
+            for (var i = 0; i < opts.length; i++) {
+              var opt = opts[i];
+              var text = String(opt.textContent || opt.label || "");
+              var v = String(opt.getAttribute("data-value") || opt.value || "").trim();
+              if (v !== "1" && v !== "2" && v !== "3") {
+                if (text.indexOf("۱") !== -1) v = "1";
+                else if (text.indexOf("۲") !== -1) v = "2";
+                else if (text.indexOf("۳") !== -1) v = "3";
+                else v = "";
+              }
+              opt.value = v;
+              opt.setAttribute("value", v);
+              if (v) opt.setAttribute("data-value", v);
+              else opt.removeAttribute("data-value");
+            }
+            if (!sel.options.length || sel.querySelector("option[value='1']") === null) {
+              sel.innerHTML = "";
+              [["", "انتخاب اتاق"], ["1", "اتاق ۱"], ["2", "اتاق ۲"], ["3", "اتاق ۳"]].forEach(function (pair) {
+                var opt = document.createElement("option");
+                opt.value = pair[0];
+                opt.textContent = pair[1];
+                if (pair[0]) opt.setAttribute("data-value", pair[0]);
+                sel.appendChild(opt);
+              });
+            }
+            if (sel.getAttribute("data-room-required") === "1") sel.required = true;
+            else sel.required = false;
+            var form = sel.closest("form");
+            if (form && form.getAttribute("data-room-force") !== "1") {
+              form.setAttribute("data-room-force", "1");
+              var commit = function () {
+                var chosen = sel.options[sel.selectedIndex];
+                if (!chosen) return;
+                var value = String(chosen.getAttribute("data-value") || chosen.value || "").trim();
+                if (value !== "1" && value !== "2" && value !== "3") return;
+                chosen.value = value;
+                sel.value = value;
+                sel.setCustomValidity("");
+              };
+              form.addEventListener("mousedown", function (ev) {
+                var btn = ev.target && ev.target.closest ? ev.target.closest("button[type=submit]") : null;
+                if (btn && form.contains(btn)) commit();
+              }, true);
+              form.addEventListener("click", function (ev) {
+                var btn = ev.target && ev.target.closest ? ev.target.closest("button[type=submit]") : null;
+                if (btn && form.contains(btn)) commit();
+              }, true);
+            }
+          });
+        }
       });
     })();
     </script>

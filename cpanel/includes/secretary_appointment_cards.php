@@ -80,17 +80,16 @@ $deskNext = $appointmentsDeskNext ?? '/secretary/appointments';
             <label style="margin:0;min-width:12rem">
               <span class="label" style="font-size:.75rem">اتاق این نوبت هنوز مشخص نیست</span>
               <span class="sec-room-select">
-                <select class="input" name="room_no" required>
-                  <option value="" label="انتخاب اتاق">انتخاب اتاق</option>
+                <select class="input" name="room_no" data-room-required="1" autocomplete="off">
+                  <option value="">انتخاب اتاق</option>
                   <?php foreach ($roomNumbers as $n): ?>
                     <?php
                       $n = (int) $n;
                       $optLabel = function_exists('clinic_room_label') ? clinic_room_label($n) : ('اتاق ' . $n);
                     ?>
-                    <option value="<?= $n ?>" label="<?= e($optLabel) ?>"><?= e($optLabel) ?></option>
+                    <option value="<?= $n ?>" data-value="<?= $n ?>"><?= e($optLabel) ?></option>
                   <?php endforeach; ?>
                 </select>
-                <span class="sec-room-face" aria-hidden="true">انتخاب اتاق</span>
               </span>
             </label>
             <button type="submit" class="btn btn-primary btn-sm">ثبت اتاق</button>
