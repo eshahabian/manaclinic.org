@@ -66,32 +66,17 @@ $deskNext = $appointmentsDeskNext ?? '/secretary/appointments';
               && function_exists('appointment_is_online_mode')
               && !appointment_is_online_mode($a)
               && (int) ($a['room_no'] ?? 0) < 1;
-          if ($needsRoom && !function_exists('clinic_rooms_numbers') && is_file(__DIR__ . '/clinic_rooms.php')) {
-              require_once __DIR__ . '/clinic_rooms.php';
-          }
-          $roomNumbers = function_exists('clinic_rooms_numbers') ? clinic_rooms_numbers() : [1, 2, 3];
         ?>
         <?php if ($needsRoom): ?>
-          <form method="post" action="<?= e(url('/secretary/appointments')) ?>" style="display:flex;flex-wrap:wrap;gap:.4rem;align-items:end;margin:0 0 .6rem">
+          <form method="post" action="<?= e(url('/secretary/appointments')) ?>" class="sec-room-form" data-room-required="1" style="display:flex;flex-wrap:wrap;gap:.4rem;align-items:end;margin:0 0 .6rem">
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="set_room">
             <input type="hidden" name="appointment_id" value="<?= e((string) ($a['id'] ?? '')) ?>">
             <input type="hidden" name="next" value="<?= e($deskNext) ?>">
-            <label style="margin:0;min-width:12rem">
+            <div style="margin:0;min-width:12rem;flex:1">
               <span class="label" style="font-size:.75rem">اتاق این نوبت هنوز مشخص نیست</span>
-              <span class="sec-room-select">
-                <select class="input" name="room_no" data-room-required="1" autocomplete="off">
-                  <option value="">انتخاب اتاق</option>
-                  <?php foreach ($roomNumbers as $n): ?>
-                    <?php
-                      $n = (int) $n;
-                      $optLabel = function_exists('clinic_room_label') ? clinic_room_label($n) : ('اتاق ' . $n);
-                    ?>
-                    <option value="<?= $n ?>" data-value="<?= $n ?>"><?= e($optLabel) ?></option>
-                  <?php endforeach; ?>
-                </select>
-              </span>
-            </label>
+              <?= function_exists('secretary_room_picker_markup') ? secretary_room_picker_markup() : '' ?>
+            </div>
             <button type="submit" class="btn btn-primary btn-sm">ثبت اتاق</button>
           </form>
         <?php endif; ?>
