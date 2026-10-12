@@ -28,6 +28,7 @@ function ensure_workshop_schema(PDO $pdo): void
         is_published TINYINT(1) NOT NULL DEFAULT 0,
         enrollment_open TINYINT(1) NOT NULL DEFAULT 1,
         status ENUM('DRAFT','PUBLISHED','CANCELLED','COMPLETED') NOT NULL DEFAULT 'DRAFT',
+        closed_at DATETIME NULL,
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
         INDEX idx_workshop_doctor (doctor_id),
@@ -125,6 +126,10 @@ function workshop_ensure_columns(PDO $pdo): void
     $hasGroupUrl = $pdo->query("SHOW COLUMNS FROM workshops LIKE 'group_url'")->fetch();
     if (!$hasGroupUrl) {
         $pdo->exec('ALTER TABLE workshops ADD COLUMN group_url VARCHAR(500) NULL AFTER content_url');
+    }
+    $hasClosedAt = $pdo->query("SHOW COLUMNS FROM workshops LIKE 'closed_at'")->fetch();
+    if (!$hasClosedAt) {
+        $pdo->exec('ALTER TABLE workshops ADD COLUMN closed_at DATETIME NULL AFTER status');
     }
     $hasCreatedBy = $pdo->query("SHOW COLUMNS FROM workshops LIKE 'created_by_user_id'")->fetch();
     if (!$hasCreatedBy) {
@@ -262,13 +267,35 @@ function workshop_sql_end_in_past(string $alias = 'w'): string
     return "{$type} <> 'OFFLINE' AND {$ends} IS NOT NULL AND {$ends} >= '1970-01-02' AND {$ends} <= NOW()";
 }
 
-/** SQL: هنوز در جریان — آفلاین، بدون تاریخ، یا پایان در آینده */
+/** SQL: هنوز در جریان — آفلاین، بدون تاریخ، یا پایان در آینده، و زودتر بسته نشده */
 function workshop_sql_not_ended(string $alias = 'w'): string
 {
     $type = workshop_sql_col($alias, 'type');
     $ends = workshop_sql_col($alias, 'ends_at');
+    $closed = workshop_sql_col($alias, 'closed_at');
 
-    return "({$type} = 'OFFLINE' OR {$ends} IS NULL OR {$ends} < '1970-01-02' OR {$ends} > NOW())";
+    return "({$type} = 'OFFLINE' OR {$ends} IS NULL OR {$ends} < '1970-01-02' OR {$ends} > NOW()) AND {$closed} IS NULL";
+}
+
+function workshop_closed_at(array $workshop): ?string
+{
+    $raw = trim((string) ($workshop['closed_at'] ?? ''));
+    if ($raw === '' || str_starts_with($raw, '0000-00-00')) {
+        return null;
+    }
+    $ts = workshop_datetime_ts($raw);
+
+    return $ts === null ? null : date('Y-m-d H:i:s', $ts);
+}
+
+function workshop_is_closed(array $workshop): bool
+{
+    return workshop_closed_at($workshop) !== null;
+}
+
+function workshop_close_action_label(array $workshop): string
+{
+    return workshop_is_offline((string) ($workshop['type'] ?? '')) ? 'اتمام دوره' : 'اتمام کارگاه';
 }
 
 /** کارگاه‌هایی که مراجعه‌کننده در لیست «دوره‌های من» می‌بیند (هنوز تمام نشده) */
@@ -287,6 +314,14 @@ function workshop_patient_enrollable_sql(string $alias = 'w'): string
 
 function workshop_can_enroll(array $workshop): bool
 {
+    if (workshop_is_closed($workshop)) {
+        return false;
+    }
+    $status = strtoupper(trim((string) ($workshop['status'] ?? $workshop['workshop_status'] ?? '')));
+    if (in_array($status, ['COMPLETED', 'CANCELLED'], true)) {
+        return false;
+    }
+
     return (bool) ($workshop['enrollment_open'] ?? 1);
 }
 
@@ -1354,6 +1389,43 @@ function complete_workshop(PDO $pdo, string $workshopId, string $doctorProfileId
     return $settled;
 }
 
+/**
+ * پایان زودتر از تاریخ برنامه‌ریزی‌شده. ثبت‌نام‌ها و پرداخت‌ها دست نمی‌خورند.
+ *
+ * @return array<string, mixed>
+ */
+function workshop_close_early(PDO $pdo, string $workshopId, string $actorId, ?string $doctorProfileId = null): array
+{
+    $sql = 'SELECT id, title, type, status, closed_at FROM workshops WHERE id=?';
+    $params = [$workshopId];
+    if ($doctorProfileId !== null && $doctorProfileId !== '') {
+        $sql .= ' AND doctor_id=?';
+        $params[] = $doctorProfileId;
+    }
+    $sql .= ' LIMIT 1';
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $row = $stmt->fetch();
+    if (!$row) {
+        throw new RuntimeException('کارگاه یافت نشد.');
+    }
+    if ((string) ($row['status'] ?? '') === 'CANCELLED') {
+        throw new RuntimeException('کارگاه لغوشده را نمی‌توان تمام کرد.');
+    }
+    if (workshop_is_closed($row) || (string) ($row['status'] ?? '') === 'COMPLETED') {
+        throw new RuntimeException('این مورد قبلاً تمام شده است.');
+    }
+
+    $pdo->prepare('UPDATE workshops SET closed_at=NOW(), enrollment_open=0, updated_by_user_id=? WHERE id=? AND closed_at IS NULL')
+        ->execute([$actorId !== '' ? $actorId : null, $workshopId]);
+
+    $fresh = $pdo->prepare('SELECT id, title, type, status, closed_at FROM workshops WHERE id=? LIMIT 1');
+    $fresh->execute([$workshopId]);
+    $saved = $fresh->fetch();
+
+    return is_array($saved) ? $saved : $row;
+}
+
 function workshop_banner_storage_root(): string
 {
     $root = dirname(__DIR__) . '/uploads/workshops';
@@ -1536,6 +1608,7 @@ function workshop_home_banners(PDO $pdo, int $limit = 8): array
           " . workshop_active_doctor_join('w') . "
           JOIN users u ON u.id = dp.user_id
           WHERE w.is_published = 1
+            AND w.closed_at IS NULL
             AND w.status IN ('PUBLISHED','COMPLETED')
           ORDER BY
             CASE
@@ -1561,6 +1634,9 @@ function workshop_is_archived(array $workshop): bool
         $status = strtoupper(trim((string) ($workshop['status'] ?? '')));
     }
     if (in_array($status, ['COMPLETED', 'CANCELLED', 'ARCHIVE', 'ARCHIVED'], true)) {
+        return true;
+    }
+    if (workshop_is_closed($workshop)) {
         return true;
     }
     if (workshop_is_offline((string) ($workshop['type'] ?? ''))) {
@@ -1721,7 +1797,7 @@ function patient_workshop_tab_data(PDO $pdo, string $patientId): array
     ")->fetchAll();
 
     $mine = $pdo->prepare("
-      SELECT e.*, w.title, w.starts_at, w.ends_at, w.type, w.session_interval, w.status AS workshop_status,
+      SELECT e.*, w.title, w.starts_at, w.ends_at, w.closed_at, w.type, w.session_interval, w.status AS workshop_status,
              w.meeting_url, w.content_url, w.group_url, w.location,
              w.location_lat, w.location_lng, w.items_to_bring, w.description, w.price,
              (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = 'VIDEO') AS video_count,
@@ -1772,6 +1848,7 @@ function patient_workshop_tab_data(PDO $pdo, string $patientId): array
             'status' => (string) ($row['workshop_status'] ?? ''),
             'type' => (string) ($row['type'] ?? ''),
             'ends_at' => (string) ($row['ends_at'] ?? ''),
+            'closed_at' => (string) ($row['closed_at'] ?? ''),
         ])) {
             $enrollmentsByTab['archive'][] = $row;
             continue;

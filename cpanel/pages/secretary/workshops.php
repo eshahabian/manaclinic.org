@@ -104,7 +104,7 @@ ob_start();
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <h1>کارگاه‌ها و دوره‌ها</h1>
-<p class="muted" style="margin-top:.35rem;font-size:.9rem">کارگاه‌ها را از تب‌های رنگی جدا ببینید. کارگاه حضوری و آنلاین پس از پایان زمان، خودکار به آرشیو می‌رود.</p>
+<p class="muted" style="margin-top:.35rem;font-size:.9rem">کارگاه‌ها و دوره‌ها یک فهرست هستند. حضوری و آنلاین پس از پایان زمان به آرشیو می‌روند. اگر زودتر بسته شد، «اتمام کارگاه» یا برای دوره آفلاین «اتمام دوره» را بزنید.</p>
 
 <?php if ($flash): ?>
   <div class="panel" style="margin-top:1rem;font-size:.9rem;border-color:<?= $flash['type'] === 'success' ? 'var(--success)' : 'var(--danger)' ?>;color:<?= $flash['type'] === 'success' ? 'var(--success)' : 'var(--danger)' ?>">
@@ -144,7 +144,7 @@ ob_start();
       <?php $workshopList = $grouped['offline']; $workshopEmpty = 'دوره آفلاین فعالی نیست.'; $workshopRole = 'secretary'; $workshopYmdPrefix = 'sec-off'; $workshopYmdKind = 'manage'; require __DIR__ . '/../../includes/workshop_ymd_list.php'; ?>
     </section>
     <section class="binder-panel<?= $activeBinder === 'archive' ? ' is-active' : '' ?>" data-binder-panel="archive" role="tabpanel"<?= $activeBinder === 'archive' ? '' : ' hidden' ?>>
-      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">کارگاه‌هایی که زمانشان تمام شده، خودکار به آرشیو می‌آیند.</p>
+      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">کارگاه‌ها و دوره‌هایی که زمانشان تمام شده، یا با اتمام زودتر بسته شده‌اند، اینجا می‌مانند. ثبت‌نام‌ها و پرداخت‌ها حذف نمی‌شوند.</p>
       <?php $workshopList = $grouped['archive']; $workshopEmpty = 'هنوز کارگاهی در آرشیو نیست.'; $workshopRole = 'secretary'; $workshopYmdPrefix = 'sec-arch'; $workshopYmdKind = 'manage'; require __DIR__ . '/../../includes/workshop_ymd_list.php'; ?>
     </section>
     <section class="binder-panel<?= $activeBinder === 'enroll' ? ' is-active' : '' ?>" data-binder-panel="enroll" role="tabpanel"<?= $activeBinder === 'enroll' ? '' : ' hidden' ?>>

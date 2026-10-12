@@ -460,9 +460,13 @@ function workshop_path_build_steps(array $sessions, array $notesMap, string $wor
 
 function workshop_path_enrollment_row(PDO $pdo, string $enrollmentId): ?array
 {
+    if (!function_exists('workshop_ensure_columns')) {
+        require_once __DIR__ . '/workshops.php';
+    }
+    workshop_ensure_columns($pdo);
     $stmt = $pdo->prepare("
       SELECT e.id, e.workshop_id, e.patient_id, e.status,
-             w.title, w.type, w.session_interval, w.starts_at, w.ends_at,
+             w.title, w.type, w.session_interval, w.starts_at, w.ends_at, w.closed_at,
              w.status AS workshop_status, w.doctor_id,
              u.name AS patient_name,
              du.name AS doctor_name

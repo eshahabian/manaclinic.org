@@ -62,8 +62,20 @@ $doctorPathBoardById = $doctorPathBoardById ?? [];
               · ثبت‌نام: <?= (int)$workshop['enrolled_count'] ?><?= !empty($workshop['capacity']) ? ' / ' . (int)$workshop['capacity'] : '' ?>
               · <?= $workshop['is_published'] ? 'منتشر شده' : 'پیش‌نویس' ?>
               · <?= !empty($workshop['enrollment_open']) ? 'ثبت‌نام باز' : 'ثبت‌نام بسته' ?>
-              · <?= $workshop['status'] === 'COMPLETED' ? 'آرشیو / برگزار شده' : ($workshop['status'] === 'CANCELLED' ? 'لغو شده' : 'فعال') ?>
+              · <?php
+                $closedAtLabel = function_exists('workshop_closed_at') ? workshop_closed_at($workshop) : null;
+                if (($workshop['status'] ?? '') === 'CANCELLED') {
+                    echo 'لغو شده';
+                } elseif (($workshop['status'] ?? '') === 'COMPLETED' || $closedAtLabel) {
+                    echo 'تمام شده';
+                } else {
+                    echo 'فعال';
+                }
+              ?>
             </div>
+            <?php if (!empty($closedAtLabel)): ?>
+              <div class="muted" style="font-size:.85rem;margin-top:.25rem">تاریخ اتمام: <?= e(format_fa_datetime($closedAtLabel)) ?></div>
+            <?php endif; ?>
           </div>
           <div class="workshop-card-actions">
             <?php if ($workshopRole === 'doctor'): ?>
@@ -84,6 +96,11 @@ $doctorPathBoardById = $doctorPathBoardById ?? [];
                 <input type="hidden" name="action" value="toggle_enrollment">
                 <input type="hidden" name="id" value="<?= e($workshop['id']) ?>">
                 <button class="btn btn-outline btn-sm" type="submit"><?= !empty($workshop['enrollment_open']) ? 'بستن ثبت‌نام' : 'باز کردن ثبت‌نام' ?></button>
+              </form>
+              <form method="post" action="<?= e(url($workshopPostBase)) ?>" onsubmit="return confirm('تمام شود؟ ثبت‌نام جدید بسته می‌شود و در آرشیو می‌ماند.')">
+                <input type="hidden" name="action" value="close">
+                <input type="hidden" name="id" value="<?= e($workshop['id']) ?>">
+                <button class="btn btn-outline btn-sm" type="submit"><?= e(workshop_close_action_label($workshop)) ?></button>
               </form>
             <?php endif; ?>
             <?php if ($workshopRole === 'doctor' && ($workshop['status'] === 'PUBLISHED' || ($workshop['is_published'] && !$archived))): ?>
@@ -209,7 +226,7 @@ $doctorPathBoardById = $doctorPathBoardById ?? [];
               <p class="muted" style="margin:.35rem 0 0">جزئیات دیگری ثبت نشده است.</p>
             <?php endif; ?>
             <?php if ($archived): ?>
-              <p class="muted" style="font-size:.85rem;margin:.7rem 0 0">این کارگاه در آرشیو است.</p>
+              <p class="muted" style="font-size:.85rem;margin:.7rem 0 0">این مورد در آرشیو است.<?php if (!empty($closedAtLabel)): ?> تاریخ اتمام: <?= e(format_fa_datetime($closedAtLabel)) ?><?php endif; ?></p>
             <?php elseif (!$workshop['is_published'] || $workshop['status'] !== 'PUBLISHED'): ?>
               <p style="color:var(--danger);font-size:.85rem;margin:.7rem 0 0">مراجعه‌کنندگان این کارگاه را نمی‌بینند — دکمه «انتشار» را بزنید.</p>
             <?php elseif (empty($workshop['enrollment_open'])): ?>

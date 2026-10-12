@@ -20,7 +20,6 @@ function secretary_nav(): array
         ],
         ['href' => '/secretary/appointments', 'label' => 'نوبت‌ها'],
         ['href' => '/secretary/therapist-days', 'label' => 'روزهای درمانگر'],
-        ['href' => '/secretary/payouts', 'label' => 'پرداخت درمانگرها'],
         ['href' => '/secretary/complaints', 'label' => 'شکایت از درمانگر'],
         ['href' => '/secretary/petty-cash', 'label' => 'تنخواه'],
         ['href' => '/admin/rooms', 'label' => 'اتاق‌ها'],

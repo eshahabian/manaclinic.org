@@ -59,6 +59,9 @@ ob_start();
               $phaseLabel = workshop_promo_phase_label($phase);
               $when = service_workshop_when_label($workshop);
               $applyHref = workshop_apply_url((string) ($workshop['id'] ?? ''));
+              $openForSignup = workshop_can_enroll($workshop)
+                  && $phase !== 'done'
+                  && (string) ($workshop['status'] ?? '') === 'PUBLISHED';
             ?>
             <li class="service-workshop-item">
               <div class="service-workshop-item-main">
@@ -72,7 +75,11 @@ ob_start();
                 </div>
                 <p class="service-workshop-when muted"><?= e($when) ?></p>
               </div>
-              <a class="btn btn-outline btn-sm" href="<?= e($applyHref) ?>">جزئیات و ثبت‌نام</a>
+              <?php if ($openForSignup): ?>
+                <a class="btn btn-outline btn-sm" href="<?= e($applyHref) ?>">جزئیات و ثبت‌نام</a>
+              <?php else: ?>
+                <span class="badge">به پایان رسیده</span>
+              <?php endif; ?>
             </li>
           <?php endforeach; ?>
         </ul>

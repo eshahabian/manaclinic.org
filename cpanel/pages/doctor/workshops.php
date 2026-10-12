@@ -191,7 +191,7 @@ ob_start();
       <?php $peerList = $peerGrouped['offline']; require __DIR__ . '/../../includes/workshop_peer_block.php'; ?>
     </section>
     <section class="binder-panel<?= $activeBinder === 'archive' ? ' is-active' : '' ?>" data-binder-panel="archive" role="tabpanel"<?= $activeBinder === 'archive' ? '' : ' hidden' ?>>
-      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">کارگاه‌هایی که زمانشان تمام شده یا پایان داده شده‌اند، خودکار اینجا می‌آیند.</p>
+      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">کارگاه‌ها و دوره‌هایی که زمانشان تمام شده، یا با «اتمام کارگاه» و «اتمام دوره» زودتر بسته شده‌اند، اینجا می‌مانند.</p>
       <?php $workshopList = $grouped['archive']; $workshopEmpty = 'هنوز کارگاهی در آرشیو نیست.'; $workshopRole = 'doctor'; $workshopYmdPrefix = 'doc-arch'; $workshopYmdKind = 'manage'; require __DIR__ . '/../../includes/workshop_ymd_list.php'; ?>
     </section>
     <section class="binder-panel<?= $activeBinder === 'new' ? ' is-active' : '' ?>" data-binder-panel="new" role="tabpanel"<?= $activeBinder === 'new' ? '' : ' hidden' ?>>

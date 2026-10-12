@@ -88,7 +88,7 @@ $tabParam = $workshopBinderInitial;
 
     <?php if (!$workshopBinderHideArchive): ?>
     <section class="binder-panel<?= $tabParam === 'archive' ? ' is-active' : '' ?>" data-binder-panel="archive" role="tabpanel"<?= $tabParam === 'archive' ? '' : ' hidden' ?>>
-      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">کارگاه‌هایی که زمانشان تمام شده اینجا هستند. ثبت‌نام جدید برای آن‌ها ممکن نیست؛ اگر قبلاً ثبت‌نام کرده باشید، محتوا و لینک جلسه را می‌بینید.</p>
+      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">کارگاه‌ها و دوره‌هایی که به پایان رسیده‌اند اینجا هستند. ثبت‌نام جدید برای آن‌ها ممکن نیست؛ اگر قبلاً ثبت‌نام کرده باشید، محتوا و لینک جلسه را می‌بینید.</p>
       <?php if ($showCatalog): ?>
       <h2 class="binder-sub" style="margin-top:0">کارگاه‌های آرشیو</h2>
       <?php

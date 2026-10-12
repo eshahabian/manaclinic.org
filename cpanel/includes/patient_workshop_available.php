@@ -68,7 +68,8 @@ $emptyAvailable = $emptyAvailable ?? 'کارگاه فعالی برای ثبت‌
               <div class="muted" style="font-size:.8rem;margin-top:.25rem"><?= e((string) $w['description']) ?></div>
             <?php endif; ?>
             <?php if ($archiveView): ?>
-              <p class="muted" style="font-size:.8rem;margin-top:.5rem">زمان این کارگاه تمام شده و در آرشیو است.</p>
+              <?php $endedAt = function_exists('workshop_closed_at') ? workshop_closed_at($w) : null; ?>
+              <p class="muted" style="font-size:.8rem;margin-top:.5rem"><?= $endedAt ? 'این مورد در ' . e(format_fa_datetime($endedAt)) . ' به پایان رسیده است.' : 'زمان این کارگاه تمام شده و در آرشیو است.' ?></p>
             <?php endif; ?>
           </div>
           <div class="workshop-card-actions">

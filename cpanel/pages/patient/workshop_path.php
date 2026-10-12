@@ -24,6 +24,7 @@ $archived = function_exists('workshop_is_archived') && workshop_is_archived([
     'status' => (string) ($enrollment['workshop_status'] ?? ''),
     'type' => (string) ($enrollment['type'] ?? ''),
     'ends_at' => (string) ($enrollment['ends_at'] ?? ''),
+    'closed_at' => (string) ($enrollment['closed_at'] ?? ''),
 ]);
 $backTab = $archived
     ? 'archive'

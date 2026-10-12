@@ -752,7 +752,7 @@ function doctor_patient_enrollments_for_doctor(PDO $pdo, string $doctorId, strin
           SELECT e.id, e.status, e.enrolled_at,
                  e.enrolled_at AS created_at,
                  w.id AS workshop_id, w.title, w.type, w.status AS workshop_status,
-                 w.session_interval, w.starts_at, w.ends_at,
+                 w.session_interval, w.starts_at, w.ends_at, w.closed_at,
                  (SELECT COUNT(*) FROM workshop_sessions s WHERE s.workshop_id = w.id) AS session_count
           FROM workshop_enrollments e
           " . doctor_enrollment_workshop_join() . "
@@ -768,7 +768,7 @@ function doctor_patient_enrollments_for_doctor(PDO $pdo, string $doctorId, strin
               SELECT e.id, e.status, e.enrolled_at,
                      e.enrolled_at AS created_at,
                      w.id AS workshop_id, w.title, w.type, w.status AS workshop_status,
-                     w.session_interval, w.starts_at, w.ends_at,
+                     w.session_interval, w.starts_at, w.ends_at, w.closed_at,
                      0 AS session_count
               FROM workshop_enrollments e
               JOIN workshops w ON w.id = e.workshop_id

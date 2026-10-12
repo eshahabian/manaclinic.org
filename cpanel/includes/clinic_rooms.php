@@ -504,6 +504,12 @@ function clinic_rooms_open_appointments(PDO $pdo): array
  */
 function clinic_rooms_open_workshop_sessions(PDO $pdo): array
 {
+    if (!function_exists('workshop_ensure_columns')) {
+        require_once __DIR__ . '/workshops.php';
+    }
+    if (function_exists('workshop_ensure_columns')) {
+        workshop_ensure_columns($pdo);
+    }
     if (!function_exists('ensure_workshop_sessions_schema')) {
         require_once __DIR__ . '/workshop_sessions.php';
     }
@@ -520,6 +526,7 @@ function clinic_rooms_open_workshop_sessions(PDO $pdo): array
       JOIN users du ON du.id = dp.user_id
       WHERE w.type = 'IN_PERSON'
         AND w.status <> 'CANCELLED'
+        AND w.closed_at IS NULL
         AND ws.session_date >= ? AND ws.session_date <= ?
       ORDER BY ws.session_date ASC, w.title ASC
       LIMIT 150

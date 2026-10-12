@@ -18,6 +18,7 @@ $emptyEnrollments = $emptyEnrollments ?? 'هنوز در کارگاهی از ای
             'status' => (string) ($e['workshop_status'] ?? ''),
             'type' => (string) ($e['type'] ?? ''),
             'ends_at' => (string) ($e['ends_at'] ?? ''),
+            'closed_at' => (string) ($e['closed_at'] ?? ''),
         ]);
         $canManage = in_array($e['status'], ['PENDING_PAYMENT', 'CONFIRMED'], true) && !$archivedEnroll;
         $confirmed = $e['status'] === 'CONFIRMED' || $e['status'] === 'COMPLETED';
@@ -61,6 +62,10 @@ $emptyEnrollments = $emptyEnrollments ?? 'هنوز در کارگاهی از ای
           <?php endif; ?>
           <?php if ($e['status'] === 'PENDING_PAYMENT' && $e['type'] === 'OFFLINE'): ?>
             <p class="muted" style="font-size:.8rem;margin-top:.35rem">پس از تأیید عضویت، محتوای آفلاین فعال می‌شود.</p>
+          <?php endif; ?>
+          <?php $endedAt = function_exists('workshop_closed_at') ? workshop_closed_at($e) : null; ?>
+          <?php if ($endedAt): ?>
+            <p class="muted" style="font-size:.8rem;margin-top:.35rem">این <?= ($e['type'] ?? '') === 'OFFLINE' ? 'دوره' : 'کارگاه' ?> در <?= e(format_fa_datetime($endedAt)) ?> به پایان رسیده است.</p>
           <?php endif; ?>
         </div>
         <div class="enrollment-card-actions">

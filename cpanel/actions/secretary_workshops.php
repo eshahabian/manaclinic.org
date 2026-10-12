@@ -294,12 +294,28 @@ if ($action === 'toggle') {
     }
     flash_set('success', $pub ? 'کارگاه منتشر شد.' : 'انتشار لغو شد.');
 } elseif ($action === 'toggle_enrollment') {
-    $row = $pdo->prepare('SELECT enrollment_open FROM workshops WHERE id=?');
+    $row = $pdo->prepare('SELECT enrollment_open, closed_at, status FROM workshops WHERE id=?');
     $row->execute([$id]);
-    $open = !(bool) $row->fetchColumn();
+    $workshopRow = $row->fetch() ?: [];
+    if (workshop_is_closed($workshopRow) || (string) ($workshopRow['status'] ?? '') === 'COMPLETED') {
+        flash_set('error', 'این مورد تمام شده و ثبت‌نامش باز نمی‌شود.');
+        redirect($base);
+    }
+    $open = !((int) ($workshopRow['enrollment_open'] ?? 0));
     $pdo->prepare('UPDATE workshops SET enrollment_open=?, updated_by_user_id=? WHERE id=?')->execute([$open ? 1 : 0, $user['id'], $id]);
     staff_log_action($pdo, (string) $user['id'], $open ? 'workshop_enroll_open' : 'workshop_enroll_close', 'workshop', $id);
     flash_set('success', $open ? 'ثبت‌نام باز شد.' : 'ثبت‌نام بسته شد.');
+} elseif ($action === 'close') {
+    try {
+        $closed = workshop_close_early($pdo, $id, (string) ($user['id'] ?? ''));
+        staff_log_action($pdo, (string) $user['id'], 'workshop_close', 'workshop', $id);
+        $doneLabel = workshop_is_offline((string) ($closed['type'] ?? '')) ? 'دوره' : 'کارگاه';
+        flash_set('success', $doneLabel . ' تمام شد. ثبت‌نام جدید بسته است و در آرشیو می‌ماند.');
+        redirect($base . '?tab=archive');
+    } catch (RuntimeException $e) {
+        flash_set('error', $e->getMessage());
+        redirect($base);
+    }
 } elseif ($action === 'delete') {
     $pdo->prepare('DELETE FROM workshops WHERE id=?')->execute([$id]);
     staff_log_action($pdo, (string) $user['id'], 'workshop_delete', 'workshop', $id);

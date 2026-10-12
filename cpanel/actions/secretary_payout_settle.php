@@ -5,6 +5,10 @@ require_once __DIR__ . '/../includes/therapist_payouts.php';
 require_once __DIR__ . '/../includes/secretary_patient.php';
 
 $user = require_login(['SECRETARY', 'ACCOUNTANT']);
+if ((string) ($user['role'] ?? '') === 'SECRETARY') {
+    flash_set('error', 'پرداخت درمانگرها برای منشی در دسترس نیست.');
+    redirect('/secretary/messages');
+}
 csrf_verify();
 
 $base = ((string) ($user['role'] ?? '')) === 'ACCOUNTANT' ? '/accountant/payouts' : '/secretary/payouts';

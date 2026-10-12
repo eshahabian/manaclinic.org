@@ -8,6 +8,7 @@ require_once __DIR__ . '/../../includes/workshop_media.php';
 require_once __DIR__ . '/../../includes/workshop_path.php';
 require_once __DIR__ . '/../../includes/workshop_path.php';
 
+ensure_workshop_schema($pdo);
 ensure_workshop_media_schema($pdo);
 $enrollmentId = trim((string) ($_GET['enrollment'] ?? ''));
 if ($enrollmentId === '') {
@@ -42,6 +43,7 @@ $backTab = workshop_is_archived([
     'status' => (string) ($enrollment['workshop_status'] ?? ''),
     'type' => (string) ($enrollment['type'] ?? ''),
     'ends_at' => (string) ($enrollment['ends_at'] ?? ''),
+    'closed_at' => (string) ($enrollment['closed_at'] ?? ''),
 ]) ? 'archive' : workshop_courses_tab_for_type((string) $enrollment['type']);
 $backUrl = url('/dashboard/workshops/mine?type=' . $backTab);
 

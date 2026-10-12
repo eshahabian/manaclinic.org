@@ -75,7 +75,15 @@ ob_start();
     <?php elseif ($enrollment && in_array((string) ($enrollment['status'] ?? ''), ['CONFIRMED', 'COMPLETED'], true)): ?>
       <a class="btn btn-primary" href="<?= e(url('/dashboard/workshops/mine')) ?>">ورود به دوره من</a>
     <?php else: ?>
-      <p class="muted">ثبت‌نام این دوره فعلاً باز نیست.</p>
+      <?php if (workshop_is_closed($workshop) || workshop_is_archived($workshop)): ?>
+        <?php
+          $endedNoun = workshop_is_offline((string) ($workshop['type'] ?? '')) ? 'دوره' : 'کارگاه';
+          $endedAt = workshop_closed_at($workshop);
+        ?>
+        <p class="muted">این <?= e($endedNoun) ?> به پایان رسیده است<?= $endedAt ? ' (' . e(format_fa_datetime($endedAt)) . ')' : '' ?>.</p>
+      <?php else: ?>
+        <p class="muted">ثبت‌نام این دوره فعلاً باز نیست.</p>
+      <?php endif; ?>
     <?php endif; ?>
   </div>
 <?php
