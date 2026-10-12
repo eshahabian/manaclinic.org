@@ -105,10 +105,15 @@ if ($action === 'set_room') {
         $roomNo = appointment_parse_room_choice((string) post('room_no'));
         $roomNo = appointment_assert_room_choice($pdo, $row, $roomNo);
         if ($roomNo < 1) {
+            if (function_exists('appointment_is_online_mode') && appointment_is_online_mode($row)) {
+                flash_set('success', 'جلسه آنلاین است و بدون اتاق می‌ماند.');
+                redirect($next);
+            }
             throw new RuntimeException('اتاق را انتخاب کنید.');
         }
         appointment_save_room($pdo, $user, $row, $roomNo);
-        flash_set('success', 'اتاق این نوبت ثبت شد.');
+        $savedRoom = function_exists('clinic_room_label') ? clinic_room_label($roomNo) : ('اتاق ' . $roomNo);
+        flash_set('success', $savedRoom . ' برای این نوبت ثبت شد.');
     } catch (Throwable $e) {
         flash_set('error', $e->getMessage());
     }

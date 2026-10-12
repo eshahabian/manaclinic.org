@@ -3559,6 +3559,77 @@ html[data-theme="dark"] .appt-search-bar {
   margin: 0 0 .75rem;
   padding-bottom: .75rem;
   border-bottom: 1px solid var(--line, #e5e7eb);
+  width: 100%;
+  flex: 1 1 100%;
+}
+.sec-room-select {
+  position: relative;
+  display: block;
+  width: 100%;
+  min-width: 12rem;
+}
+.sec-room-select > select.input {
+  width: 100%;
+  min-height: 2.75rem;
+  color: #1a2e28;
+  -webkit-text-fill-color: #1a2e28;
+  background-color: var(--surface, #fff);
+  font-size: 1rem;
+  line-height: 1.45;
+  text-align: right;
+  text-align-last: right;
+  direction: rtl;
+  unicode-bidi: normal;
+  opacity: 1;
+  color-scheme: light;
+}
+.sec-room-select > select.input option {
+  color: #1a2e28;
+  -webkit-text-fill-color: #1a2e28;
+  background-color: #fff;
+  font-size: 1rem;
+  direction: rtl;
+}
+.sec-room-face {
+  position: absolute;
+  z-index: 1;
+  top: 2px;
+  bottom: 2px;
+  right: .7rem;
+  left: 2.45rem;
+  display: flex;
+  align-items: center;
+  justify-content: flex-start;
+  direction: rtl;
+  padding: 0 .15rem;
+  pointer-events: none;
+  user-select: none;
+  background: var(--surface, #fff);
+  color: #5a6f66;
+  font-size: 1rem;
+  line-height: 1.4;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  border-radius: .4rem;
+}
+.sec-room-face.is-picked {
+  color: #1a2e28;
+  font-weight: 700;
+}
+html[data-theme="dark"] .sec-room-select > select.input,
+html[data-theme="dark"] .sec-room-select > select.input option {
+  color: #e7f0ec;
+  -webkit-text-fill-color: #e7f0ec;
+  background-color: #1c2824;
+  color-scheme: dark;
+}
+html[data-theme="dark"] .sec-room-face {
+  background: #1c2824;
+  color: #9aafa6;
+}
+html[data-theme="dark"] .sec-room-face.is-picked {
+  color: #e7f0ec;
 }
 .sec-week-hour.is-awaiting {
   background: #d97706;

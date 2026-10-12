@@ -114,10 +114,120 @@ function secretary_week_slot_label_for(array $slot): string
     return $label;
 }
 
+function secretary_room_choice_list(): array
+{
+    if (!function_exists('clinic_rooms_numbers') && is_file(__DIR__ . '/clinic_rooms.php')) {
+        require_once __DIR__ . '/clinic_rooms.php';
+    }
+    $numbers = function_exists('clinic_rooms_numbers') ? clinic_rooms_numbers() : [1, 2, 3];
+    $choices = [];
+    foreach ($numbers as $n) {
+        $n = (int) $n;
+        if ($n < 1) {
+            continue;
+        }
+        $choices[] = [
+            'value' => (string) $n,
+            'label' => function_exists('clinic_room_label') ? clinic_room_label($n) : ('اتاق ' . $n),
+        ];
+    }
+    if ($choices === []) {
+        $choices = [
+            ['value' => '1', 'label' => 'اتاق ۱'],
+            ['value' => '2', 'label' => 'اتاق ۲'],
+            ['value' => '3', 'label' => 'اتاق ۳'],
+        ];
+    }
+
+    return $choices;
+}
+
+function secretary_room_choices_json(): string
+{
+    $json = json_encode(
+        secretary_room_choice_list(),
+        JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS
+    );
+
+    return is_string($json) ? $json : '[]';
+}
+
+/** گزینه‌های اتاق را بعد از کپی از template دوباره می‌سازد تا برچسب فارسی دیده شود. */
+function secretary_room_picker_script(): string
+{
+    if (!empty($GLOBALS['mana_room_picker_script_sent'])) {
+        return '';
+    }
+    $GLOBALS['mana_room_picker_script_sent'] = true;
+
+    return <<<'JS'
+<script>
+(function(){
+  if (window.manaPaintRoomSelect) return;
+  function roomChoices(select) {
+    var node = select && select.closest ? select.closest("[data-room-choices]") : null;
+    var raw = node ? node.getAttribute("data-room-choices") : "";
+    if (raw) {
+      try {
+        var parsed = JSON.parse(raw);
+        if (parsed && parsed.length) return parsed;
+      } catch (err) {}
+    }
+    return [
+      { value: "1", label: "اتاق ۱" },
+      { value: "2", label: "اتاق ۲" },
+      { value: "3", label: "اتاق ۳" }
+    ];
+  }
+  function paint(select) {
+    if (!select || (select.closest && select.closest("template"))) return;
+    if (select.getAttribute("data-room-ready") === "1") return;
+    select.setAttribute("data-room-ready", "1");
+    var current = select.value || "";
+    var choices = roomChoices(select);
+    while (select.options.length) select.remove(0);
+    select.add(new Option("انتخاب اتاق", ""));
+    choices.forEach(function (choice) {
+      var label = String(choice.label || "").trim();
+      var value = String(choice.value || "").trim();
+      if (!label || !value) return;
+      var opt = new Option(label, value);
+      opt.label = label;
+      select.add(opt);
+    });
+    if (current) select.value = current;
+    if ((select.value || "") !== current) select.selectedIndex = 0;
+    var face = select.parentNode ? select.parentNode.querySelector(".sec-room-face") : null;
+    function sync() {
+      var opt = select.options[select.selectedIndex] || null;
+      var picked = !!(opt && opt.value);
+      var text = picked ? String(opt.text || opt.label || "").trim() : "انتخاب اتاق";
+      if (!text) text = picked ? ("اتاق " + opt.value) : "انتخاب اتاق";
+      if (face) {
+        face.textContent = text;
+        face.classList.toggle("is-picked", picked);
+      }
+      select.title = text;
+    }
+    select.addEventListener("change", sync);
+    sync();
+  }
+  window.manaPaintRoomSelect = paint;
+  function boot() {
+    document.querySelectorAll(".sec-room-select select[name=room_no]").forEach(paint);
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", boot);
+  else boot();
+})();
+</script>
+JS;
+}
+
 function secretary_week_grid_html(array $week, string $doctorId, string $bookBaseUrl, ?string $deskNext = null): string
 {
     $deskNext = $deskNext ?: '/secretary/appointments';
     $nextUpcoming = $deskNext . (str_contains($deskNext, '?') ? '&' : '?') . 'tab=upcoming&doctor_id=' . rawurlencode($doctorId);
+    $roomChoices = secretary_room_choice_list();
     ob_start();
     ?>
     <div class="sec-week-grid" data-sec-week data-doctor-id="<?= e($doctorId) ?>">
@@ -160,10 +270,6 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                       if ($roomNo > 0) {
                           $roomLabel = function_exists('clinic_room_label') ? clinic_room_label($roomNo) : ('اتاق ' . $roomNo);
                       }
-                      if (!function_exists('clinic_rooms_numbers') && is_file(__DIR__ . '/clinic_rooms.php')) {
-                          require_once __DIR__ . '/clinic_rooms.php';
-                      }
-                      $roomNumbers = function_exists('clinic_rooms_numbers') ? clinic_rooms_numbers() : [1, 2, 3];
                       $title = trim(
                           (string) ($booking['patient_name'] ?? '')
                           . "\n" . $status
@@ -189,7 +295,13 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                           data-when="<?= e(to_fa_digits(appointment_clock_from_row($booking))) ?>"
                           data-appt="<?= e((string) ($booking['id'] ?? '')) ?>"
                           title="<?= e($title) ?>"
-                        ><?= e((string) ($slot['label'] ?? $time)) ?></button>
+                        ><?php
+                          $chip = (string) ($slot['label'] ?? $time);
+                          if (!$continuation && $roomLabel !== '') {
+                              $chip .= ' · ' . $roomLabel;
+                          }
+                          echo e($chip);
+                        ?></button>
                         <template class="sec-week-slot-actions">
                           <div class="sec-week-shadow-tools">
                             <?php
@@ -204,12 +316,15 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                                 <input type="hidden" name="next" value="<?= e($roomNext) ?>">
                                 <label style="display:block;margin:0 0 .65rem">
                                   <span class="label" style="font-size:.75rem"><?= $onlineSession ? 'اتاق این جلسه هنوز مشخص نیست' : 'اتاق این نوبت حضوری هنوز مشخص نیست' ?></span>
-                                  <select class="input" name="room_no"<?= $onlineSession ? '' : ' required' ?>>
-                                    <option value="">— انتخاب اتاق —</option>
-                                    <?php foreach ($roomNumbers as $n): ?>
-                                      <option value="<?= (int) $n ?>"><?= e(function_exists('clinic_room_label') ? clinic_room_label((int) $n) : ('اتاق ' . (int) $n)) ?></option>
-                                    <?php endforeach; ?>
-                                  </select>
+                                  <span class="sec-room-select">
+                                    <select class="input" name="room_no"<?= $onlineSession ? '' : ' required' ?>>
+                                      <option value="" label="انتخاب اتاق">انتخاب اتاق</option>
+                                      <?php foreach ($roomChoices as $choice): ?>
+                                        <option value="<?= e((string) $choice['value']) ?>" label="<?= e((string) $choice['label']) ?>"><?= e((string) $choice['label']) ?></option>
+                                      <?php endforeach; ?>
+                                    </select>
+                                    <span class="sec-room-face" aria-hidden="true">انتخاب اتاق</span>
+                                  </span>
                                 </label>
                                 <button type="submit" class="btn btn-primary btn-sm">ثبت اتاق</button>
                               </form>
@@ -260,6 +375,7 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
         </div>
       </div>
     </div>
+    <?= secretary_room_picker_script() ?>
     <script>
     (function(){
       var root = document.querySelector("[data-sec-week]");
@@ -294,6 +410,9 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
           var tpl = wrap ? wrap.querySelector("template.sec-week-slot-actions") : null;
           if (tpl && tpl.content) {
             actionsEl.appendChild(tpl.content.cloneNode(true));
+            actionsEl.querySelectorAll("select[name=room_no]").forEach(function (sel) {
+              if (window.manaPaintRoomSelect) window.manaPaintRoomSelect(sel);
+            });
           }
           var dismiss = document.createElement("button");
           dismiss.type = "button";

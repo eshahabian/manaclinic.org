@@ -77,14 +77,21 @@ $deskNext = $appointmentsDeskNext ?? '/secretary/appointments';
             <input type="hidden" name="action" value="set_room">
             <input type="hidden" name="appointment_id" value="<?= e((string) ($a['id'] ?? '')) ?>">
             <input type="hidden" name="next" value="<?= e($deskNext) ?>">
-            <label style="margin:0;min-width:9rem">
+            <label style="margin:0;min-width:12rem">
               <span class="label" style="font-size:.75rem">اتاق این نوبت هنوز مشخص نیست</span>
-              <select class="input" name="room_no" required>
-                <option value="">— انتخاب اتاق —</option>
-                <?php foreach ($roomNumbers as $n): ?>
-                  <option value="<?= (int) $n ?>"><?= e(function_exists('clinic_room_label') ? clinic_room_label((int) $n) : ('اتاق ' . (int) $n)) ?></option>
-                <?php endforeach; ?>
-              </select>
+              <span class="sec-room-select">
+                <select class="input" name="room_no" required>
+                  <option value="" label="انتخاب اتاق">انتخاب اتاق</option>
+                  <?php foreach ($roomNumbers as $n): ?>
+                    <?php
+                      $n = (int) $n;
+                      $optLabel = function_exists('clinic_room_label') ? clinic_room_label($n) : ('اتاق ' . $n);
+                    ?>
+                    <option value="<?= $n ?>" label="<?= e($optLabel) ?>"><?= e($optLabel) ?></option>
+                  <?php endforeach; ?>
+                </select>
+                <span class="sec-room-face" aria-hidden="true">انتخاب اتاق</span>
+              </span>
             </label>
             <button type="submit" class="btn btn-primary btn-sm">ثبت اتاق</button>
           </form>
@@ -106,3 +113,8 @@ $deskNext = $appointmentsDeskNext ?? '/secretary/appointments';
     <?php endforeach; ?>
   </div>
 <?php endif; ?>
+<?php
+if (function_exists('secretary_room_picker_script')) {
+    echo secretary_room_picker_script();
+}
+?>
