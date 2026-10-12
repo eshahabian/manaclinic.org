@@ -68,7 +68,7 @@ $deskNext = $appointmentsDeskNext ?? '/secretary/appointments';
               && (int) ($a['room_no'] ?? 0) < 1;
         ?>
         <?php if ($needsRoom): ?>
-          <form method="post" action="<?= e(url('/secretary/appointments')) ?>" class="sec-room-form" data-room-required="1" style="display:flex;flex-wrap:wrap;gap:.4rem;align-items:end;margin:0 0 .6rem">
+          <form method="post" action="<?= e(url('/secretary/appointments')) ?>" class="sec-room-form" style="display:flex;flex-wrap:wrap;gap:.4rem;align-items:end;margin:0 0 .6rem">
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="set_room">
             <input type="hidden" name="appointment_id" value="<?= e((string) ($a['id'] ?? '')) ?>">

@@ -152,12 +152,10 @@ function secretary_room_choices_json(): string
     return is_string($json) ? $json : '[]';
 }
 
-/** رادیوهای اتاق. مقدار room_no را خود مرورگر نگه می‌دارد و کلیک فرم را نمی‌فرستد. */
+/** رادیوهای اتاق داخل همان فرمی که دکمه ثبت اتاق دارد. */
 function secretary_room_picker_markup(): string
 {
     $html = '<div class="sec-room-picks" role="radiogroup" aria-label="اتاق">';
-    $html .= '<div class="sec-room-current" data-room-current>انتخاب اتاق</div>';
-    $html .= '<div class="sec-room-btns">';
     foreach (secretary_room_choice_list() as $choice) {
         $value = (string) ($choice['value'] ?? '');
         $label = (string) ($choice['label'] ?? '');
@@ -165,50 +163,19 @@ function secretary_room_picker_markup(): string
             continue;
         }
         $html .= '<label class="sec-room-pick">';
-        $html .= '<input type="radio" name="room_no" value="' . e($value) . '" data-label="' . e($label) . '">';
+        $html .= '<input type="radio" name="room_no" value="' . $value . '">';
         $html .= '<span>' . e($label) . '</span>';
         $html .= '</label>';
     }
-    $html .= '</div></div>';
+    $html .= '</div>';
 
     return $html;
 }
 
-/** فقط متن انتخاب را تازه می‌کند. کلیک رادیو را قطع نمی‌کند و فرم را ارسال نمی‌کند. */
+/** شنونده‌ای که ارسال فرم را قطع کند اینجا نمی‌ماند. */
 function secretary_room_picker_script(): string
 {
-    if (!empty($GLOBALS['mana_room_picker_script_sent'])) {
-        return '';
-    }
-    $GLOBALS['mana_room_picker_script_sent'] = true;
-
-    return <<<'JS'
-<script>
-(function(){
-  if (window.manaRoomPickReady) return;
-  window.manaRoomPickReady = true;
-  document.addEventListener("change", function (e) {
-    var input = e.target;
-    if (!input || input.name !== "room_no" || input.type !== "radio") return;
-    var box = input.closest ? input.closest(".sec-room-picks") : null;
-    var current = box ? box.querySelector("[data-room-current]") : null;
-    if (!current) return;
-    var label = input.getAttribute("data-label") || "";
-    current.textContent = label || "انتخاب اتاق";
-  });
-  document.addEventListener("submit", function (e) {
-    var form = e.target;
-    if (!form || !form.getAttribute || form.getAttribute("data-room-required") !== "1") return;
-    var picked = form.querySelector('input[type="radio"][name="room_no"]:checked');
-    var value = picked ? String(picked.value || "") : "";
-    if (value === "1" || value === "2" || value === "3") return;
-    e.preventDefault();
-    var current = form.querySelector("[data-room-current]");
-    if (current) current.textContent = "اتاق را انتخاب کنید";
-  });
-})();
-</script>
-JS;
+    return '';
 }
 
 function secretary_week_grid_html(array $week, string $doctorId, string $bookBaseUrl, ?string $deskNext = null): string
@@ -296,7 +263,7 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                               $roomNext = $deskNext . (str_contains($deskNext, '?') ? '&' : '?') . 'tab=upcoming&doctor_id=' . rawurlencode($doctorId);
                             ?>
                             <?php if ($roomNo < 1): ?>
-                              <form method="post" action="<?= e(url('/secretary/appointments')) ?>" class="sec-week-room-form sec-room-form" data-room-required="<?= $onlineSession ? '0' : '1' ?>">
+                              <form method="post" action="<?= e(url('/secretary/appointments')) ?>" class="sec-week-room-form sec-room-form">
                                 <?= csrf_field() ?>
                                 <input type="hidden" name="action" value="set_room">
                                 <input type="hidden" name="appointment_id" value="<?= e((string) ($booking['id'] ?? '')) ?>">

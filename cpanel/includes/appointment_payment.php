@@ -687,7 +687,7 @@ function appointment_staff_mark_paid_form_html(array $row, string $next): string
     }
     ob_start();
     ?>
-    <form method="post" action="<?= e(url('/secretary/appointments')) ?>" enctype="multipart/form-data" class="appt-confirm-pay-form sec-room-form" data-room-required="<?= $online ? '0' : '1' ?>" style="display:flex;flex-wrap:wrap;gap:.45rem;align-items:end;margin:0;flex-basis:100%">
+    <form method="post" action="<?= e(url('/secretary/appointments')) ?>" enctype="multipart/form-data" class="appt-confirm-pay-form sec-room-form" style="display:flex;flex-wrap:wrap;gap:.45rem;align-items:end;margin:0;flex-basis:100%">
       <?= csrf_field() ?>
       <input type="hidden" name="action" value="confirm_payment">
       <input type="hidden" name="appointment_id" value="<?= e($id) ?>">

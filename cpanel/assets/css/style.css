@@ -3563,30 +3563,11 @@ html[data-theme="dark"] .appt-search-bar {
   flex: 1 1 100%;
 }
 .sec-room-picks {
-  display: block;
-  width: 100%;
-  margin: 0 0 .65rem;
-}
-.sec-room-current {
-  display: block;
-  width: 100%;
-  min-height: 2.75rem;
-  margin: 0 0 .45rem;
-  padding: .55rem .75rem;
-  border: 1px solid var(--line, #d5e0da);
-  border-radius: 10px;
-  background: #fff;
-  color: #1a2e28;
-  font-size: 1rem;
-  font-weight: 700;
-  line-height: 1.45;
-  text-align: right;
-  direction: rtl;
-}
-.sec-room-btns {
   display: flex;
   flex-wrap: wrap;
   gap: .4rem;
+  width: 100%;
+  margin: 0 0 .65rem;
 }
 .sec-room-pick {
   display: inline-flex;
@@ -3613,7 +3594,6 @@ html[data-theme="dark"] .appt-search-bar {
   border-color: #5b4b8a;
   color: #fff;
 }
-html[data-theme="dark"] .sec-room-current,
 html[data-theme="dark"] .sec-room-pick {
   background: #1c2824;
   color: #e7f0ec;
