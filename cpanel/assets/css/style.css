@@ -3924,7 +3924,7 @@ html[data-theme="dark"] .sec-week-day {
   box-shadow: none;
   min-width: 0;
 }
-.appt-desk > .binder-tile > .binder-tabs > .binder-tab-new.is-active {
+.appt-desk > .binder-tile > .binder-tabs > .binder-tab.is-active {
   height: calc(39px + 4mm);
   margin-bottom: -4mm;
   transform: translateY(-4mm);
