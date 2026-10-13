@@ -292,6 +292,67 @@ function clinic_rooms_between(PDO $pdo, string $from, string $to): array
 }
 
 /**
+ * رزروهای یک روز، به‌علاوه نوبت‌هایی که اتاقشان فقط روی خود نوبت ثبت شده.
+ *
+ * @return list<array<string, mixed>>
+ */
+function clinic_rooms_on_day(PDO $pdo, string $day): array
+{
+    $from = $day . ' 00:00:00';
+    $toTs = strtotime($day . ' +1 day') ?: time();
+    $to = date('Y-m-d H:i:s', $toTs);
+    $rows = clinic_rooms_between($pdo, $from, $to);
+    $seen = [];
+    foreach ($rows as $row) {
+        $aid = trim((string) ($row['appointment_id'] ?? ''));
+        if ($aid !== '') {
+            $seen[$aid] = true;
+        }
+    }
+    if (!function_exists('appointment_ensure_room_schema') && is_file(__DIR__ . '/appointment_session.php')) {
+        require_once __DIR__ . '/appointment_session.php';
+    }
+    if (function_exists('appointment_ensure_room_schema')) {
+        appointment_ensure_room_schema($pdo);
+    }
+    try {
+        $stmt = $pdo->prepare("
+          SELECT a.id AS appointment_id, a.room_no, a.starts_at, a.ends_at, a.status AS appt_status,
+                 a.patient_id, a.doctor_id, a.session_mode,
+                 pu.name AS patient_name, du.name AS doctor_name
+          FROM appointments a
+          LEFT JOIN users pu ON pu.id = a.patient_id
+          LEFT JOIN doctor_profiles dp ON dp.id = a.doctor_id
+          LEFT JOIN users du ON du.id = dp.user_id
+          WHERE a.room_no BETWEEN 1 AND 3
+            AND a.starts_at < ? AND a.ends_at > ?
+            AND a.status <> 'CANCELLED'
+        ");
+        $stmt->execute([$to, $from]);
+        foreach ($stmt->fetchAll() ?: [] as $extra) {
+            if (!is_array($extra)) {
+                continue;
+            }
+            $aid = trim((string) ($extra['appointment_id'] ?? ''));
+            if ($aid === '' || isset($seen[$aid])) {
+                continue;
+            }
+            $extra['id'] = 'appt-' . $aid;
+            $extra['kind'] = 'APPOINTMENT';
+            $extra['booked_by_name'] = '';
+            $extra['title'] = '';
+            $rows[] = $extra;
+        }
+    } catch (Throwable $ignored) {
+    }
+    usort($rows, static function (array $a, array $b): int {
+        return strcmp((string) ($a['starts_at'] ?? ''), (string) ($b['starts_at'] ?? ''));
+    });
+
+    return $rows;
+}
+
+/**
  * @return list<array<string, mixed>>
  */
 function clinic_rooms_past(PDO $pdo, int $limit = 400): array

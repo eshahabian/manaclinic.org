@@ -41,41 +41,31 @@ for ($h = 6; $h <= 22; $h++) {
         $clockChoices[] = sprintf('%02d:30', $h);
     }
 }
-$past = clinic_rooms_past($pdo);
-
-$pastByRoom = [];
-$pastByPerson = [];
-$heldRows = [];
+$outDay = array_key_exists('out', $_GET) ? clinic_rooms_parse_day((string) $_GET['out']) : $day;
+$outRoom = (int) ($_GET['room'] ?? 1);
+if (!in_array($outRoom, clinic_rooms_numbers(), true)) {
+    $outRoom = 1;
+}
+[$outGy, $outGm, $outGd] = array_map('intval', explode('-', $outDay));
+[$outJy, $outJm, $outJd] = gregorian_to_jalali($outGy, $outGm, $outGd);
+$outJalali = sprintf('%04d/%02d/%02d', $outJy, $outJm, $outJd);
+$outParts = jalali_day_parts($outDay . ' 12:00:00') ?: ['label' => $outDay];
+$outWeekday = '';
+foreach (clinic_rooms_week_days($outDay) as $item) {
+    if ($item['date'] === $outDay) {
+        $outWeekday = (string) $item['weekday'];
+    }
+}
+$outByRoom = [];
 foreach (clinic_rooms_numbers() as $roomNo) {
-    $pastByRoom[$roomNo] = ['total' => 0, 'held' => 0];
+    $outByRoom[$roomNo] = [];
 }
-foreach ($past as $row) {
+foreach (clinic_rooms_on_day($pdo, $outDay) as $row) {
     $roomNo = (int) ($row['room_no'] ?? 0);
-    if (!isset($pastByRoom[$roomNo])) {
-        continue;
-    }
-    $pastByRoom[$roomNo]['total']++;
-    $who = trim((string) ($row['booked_by_name'] ?? ''));
-    if ($who === '') {
-        $who = 'نامشخص';
-    }
-    if (!isset($pastByPerson[$who])) {
-        $pastByPerson[$who] = 0;
-    }
-    $pastByPerson[$who]++;
-    if (clinic_room_was_held($row)) {
-        $pastByRoom[$roomNo]['held']++;
-        $heldRows[] = $row;
+    if (isset($outByRoom[$roomNo])) {
+        $outByRoom[$roomNo][] = $row;
     }
 }
-arsort($pastByPerson);
-$workshopIds = [];
-foreach ($heldRows as $row) {
-    if ((string) ($row['kind'] ?? '') === 'WORKSHOP' && !empty($row['workshop_id'])) {
-        $workshopIds[] = (string) $row['workshop_id'];
-    }
-}
-$workshopPatients = clinic_rooms_workshop_patient_names($pdo, $workshopIds);
 
 $dayParts = jalali_day_parts($day . ' 12:00:00') ?: ['label' => $day];
 $weekdayName = '';
@@ -343,74 +333,55 @@ ob_start();
   </div>
 
   <section class="panel" id="room-report">
-    <h2 style="margin-top:0">خروجی گذشته</h2>
-    <p class="muted" style="margin:0 0 1rem;font-size:.9rem">چند بار هر اتاق رزرو شده، چه کسی رزرو کرده، و اگر جلسه برگزار شده درمانگر و مراجعه‌کننده چه کسانی بوده‌اند.</p>
-    <div class="grid-3" style="margin-bottom:1rem">
+    <h2 style="margin-top:0">خروجی اتاق‌ها</h2>
+    <p class="muted" style="margin:0 0 1rem;font-size:.9rem">هر اتاق تب خودش را دارد. تاریخ را از تقویم انتخاب کنید تا ساعت‌های رزرو همان اتاق در آن روز دیده شود؛ رزروهای آینده، مثل جمعه، هم همین‌جا می‌آیند.</p>
+    <div class="room-out-tabs" role="tablist">
       <?php foreach (clinic_rooms_numbers() as $roomNo): ?>
-        <div class="room-stat">
-          <strong><?= e(clinic_room_label($roomNo)) ?></strong>
-          <div><?= e(to_fa_digits((string) $pastByRoom[$roomNo]['total'])) ?> رزرو گذشته</div>
-          <div class="muted"><?= e(to_fa_digits((string) $pastByRoom[$roomNo]['held'])) ?> جلسه برگزار شده</div>
-        </div>
+        <button type="button" class="btn <?= $outRoom === (int) $roomNo ? 'btn-primary' : 'btn-outline' ?>" data-room-out-tab="<?= (int) $roomNo ?>" aria-selected="<?= $outRoom === (int) $roomNo ? 'true' : 'false' ?>"><?= e(clinic_room_label($roomNo)) ?></button>
       <?php endforeach; ?>
     </div>
-    <?php if ($pastByPerson): ?>
-      <h3 style="font-size:1rem">رزروها بر اساس کسی که اتاق را گرفته</h3>
-      <ul class="room-people">
-        <?php foreach ($pastByPerson as $name => $count): ?>
-          <li><strong><?= e((string) $name) ?></strong> — <?= e(to_fa_digits((string) $count)) ?> بار</li>
-        <?php endforeach; ?>
-      </ul>
-    <?php else: ?>
-      <p class="muted">هنوز رزرو گذشته‌ای ثبت نشده است.</p>
-    <?php endif; ?>
-
-    <h3 style="font-size:1rem;margin-top:1.25rem">جلسه‌های برگزارشده</h3>
-    <?php if (!$heldRows): ?>
-      <p class="muted">جلسه برگزارشده‌ای در اتاق‌ها ثبت نشده است.</p>
-    <?php else: ?>
-      <div class="room-report-table">
-        <div class="room-report-head">
-          <span>اتاق</span>
-          <span>زمان</span>
-          <span>کار</span>
-          <span>درمانگر</span>
-          <span>مراجعه‌کننده</span>
-          <span>رزرو توسط</span>
-        </div>
-        <?php foreach ($heldRows as $row): ?>
-          <?php
-            $kind = (string) ($row['kind'] ?? '');
-            $doctor = $kind === 'WORKSHOP' ? (string) ($row['workshop_doctor_name'] ?? '') : (string) ($row['doctor_name'] ?? '');
-            if ($kind === 'APPOINTMENT') {
-                $with = (string) ($row['patient_name'] ?? '');
-            } elseif ($kind === 'WORKSHOP') {
-                $wid = (string) ($row['workshop_id'] ?? '');
-                $people = $workshopPatients[$wid] ?? [];
-                $with = (string) ($row['workshop_title'] ?? 'کارگاه');
-                if ($people) {
-                    $shown = array_slice($people, 0, 8);
-                    $with .= ' — ' . implode('، ', $shown);
-                    if (count($people) > count($shown)) {
-                        $with .= ' و ' . to_fa_digits((string) (count($people) - count($shown))) . ' نفر دیگر';
-                    }
-                }
-            } else {
-                $doctor = '—';
-                $with = (string) ($row['title'] ?? 'سایر');
-            }
-          ?>
-          <div class="room-report-row">
-            <span><?= e(clinic_room_label((int) ($row['room_no'] ?? 0))) ?></span>
-            <span><?= e(format_fa_datetime((string) $row['starts_at'])) ?></span>
-            <span><?= e($kind === 'WORKSHOP' ? 'کارگاه' : ($kind === 'APPOINTMENT' ? (trim((string) ($row['appointment_id'] ?? '')) === '' ? 'تراپی' : 'نوبت') : 'سایر')) ?></span>
-            <span><?= e($doctor !== '' ? $doctor : '—') ?></span>
-            <span><?= e($with !== '' ? $with : '—') ?></span>
-            <span><?= e((string) ($row['booked_by_name'] ?? '—')) ?></span>
+    <?php foreach (clinic_rooms_numbers() as $roomNo): ?>
+      <?php $outRows = $outByRoom[$roomNo]; ?>
+      <div class="room-out-panel" data-room-out-panel="<?= (int) $roomNo ?>" <?= $outRoom === (int) $roomNo ? '' : 'hidden' ?>>
+        <label class="label" for="room-out-view-<?= (int) $roomNo ?>">تاریخ <?= e(clinic_room_label($roomNo)) ?></label>
+        <input
+          class="input"
+          type="text"
+          id="room-out-view-<?= (int) $roomNo ?>"
+          data-jdp
+          data-jdp-only-date
+          data-room-out="<?= (int) $roomNo ?>"
+          readonly
+          autocomplete="off"
+          placeholder="کلیک کنید تا تقویم باز شود"
+          style="cursor:pointer;max-width:18rem"
+          value="<?= e($outJalali) ?>"
+        >
+        <p class="muted" style="margin:.55rem 0 .85rem;font-size:.9rem"><?= e($outWeekday !== '' ? $outWeekday . ' ' : '') ?><?= e((string) ($outParts['label'] ?? $outDay)) ?> — <?= $outRows ? e(to_fa_digits((string) count($outRows))) . ' رزرو' : 'رزروی نیست' ?></p>
+        <?php if (!$outRows): ?>
+          <p class="muted">در این تاریخ برای <?= e(clinic_room_label($roomNo)) ?> ساعت رزروشده‌ای نیست.</p>
+        <?php else: ?>
+          <div class="room-report-table">
+            <div class="room-report-head room-report-head-hours">
+              <span>ساعت</span>
+              <span>کار</span>
+              <span>وضعیت</span>
+            </div>
+            <?php foreach ($outRows as $row): ?>
+              <?php
+                $startFa = to_fa_digits(date('H:i', strtotime((string) $row['starts_at']) ?: time()));
+                $endFa = to_fa_digits(date('H:i', strtotime((string) $row['ends_at']) ?: time()));
+              ?>
+              <div class="room-report-row room-report-row-hours">
+                <span><?= e($startFa) ?> تا <?= e($endFa) ?></span>
+                <span><?= e(clinic_room_purpose($row)) ?></span>
+                <span><?= e(clinic_room_outcome_label($row)) ?></span>
+              </div>
+            <?php endforeach; ?>
           </div>
-        <?php endforeach; ?>
+        <?php endif; ?>
       </div>
-    <?php endif; ?>
+    <?php endforeach; ?>
   </section>
 </div>
 <script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
@@ -436,6 +407,41 @@ ob_start();
       persianDigits: true,
       zIndex: 100000,
       container: "body"
+    });
+    document.querySelectorAll("[data-room-out]").forEach(function (outView) {
+      outView.addEventListener("jdp:change", function () {
+        var t = faToEn(outView.value).replace(/-/g, "/").trim();
+        var roomNo = outView.getAttribute("data-room-out") || "1";
+        var params = new URLSearchParams(window.location.search);
+        params.set("room", roomNo);
+        if (t === "") {
+          params.delete("out");
+          window.location.href = roomBase + "?" + params.toString();
+          return;
+        }
+        var p = t.split("/");
+        if (p.length !== 3 || typeof jalaali === "undefined") return;
+        var g = jalaali.toGregorian(parseInt(p[0], 10), parseInt(p[1], 10), parseInt(p[2], 10));
+        params.set("out", g.gy + "-" + pad(g.gm) + "-" + pad(g.gd));
+        window.location.href = roomBase + "?" + params.toString();
+      });
+    });
+    document.querySelectorAll("[data-room-out-tab]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var roomNo = btn.getAttribute("data-room-out-tab");
+        document.querySelectorAll("[data-room-out-tab]").forEach(function (other) {
+          var on = other === btn;
+          other.classList.toggle("btn-primary", on);
+          other.classList.toggle("btn-outline", !on);
+          other.setAttribute("aria-selected", on ? "true" : "false");
+        });
+        document.querySelectorAll("[data-room-out-panel]").forEach(function (panel) {
+          panel.hidden = panel.getAttribute("data-room-out-panel") !== roomNo;
+        });
+        var params = new URLSearchParams(window.location.search);
+        params.set("room", roomNo || "1");
+        history.replaceState(null, "", roomBase + "?" + params.toString());
+      });
     });
     dayView.addEventListener("jdp:change", function () {
       var t = faToEn(dayView.value).replace(/-/g, "/").trim();

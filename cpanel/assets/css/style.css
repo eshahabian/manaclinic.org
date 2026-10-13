@@ -7826,6 +7826,8 @@ html.is-native-app body:has([data-livekit-v2]:not([hidden])) .site-chrome-call {
 @media (min-width: 768px) {
   .room-form-grid { grid-template-columns: 10rem 1fr; }
 }
+.room-out-tabs { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
+.room-out-panel[hidden] { display: none !important; }
 .room-stat {
   padding: .75rem .85rem;
   border: 1px solid var(--line);
@@ -7848,6 +7850,12 @@ html.is-native-app body:has([data-livekit-v2]:not([hidden])) .site-chrome-call {
 @media (max-width: 900px) {
   .room-report-head { display: none; }
   .room-report-row { grid-template-columns: 1fr 1fr; }
+}
+.room-report-head-hours,
+.room-report-row-hours { grid-template-columns: 8rem 1fr 8rem; }
+@media (max-width: 900px) {
+  .room-report-head-hours { display: none; }
+  .room-report-row-hours { grid-template-columns: 1fr; }
 }
 
 

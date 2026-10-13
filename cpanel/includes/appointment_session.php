@@ -386,14 +386,19 @@ function appointment_room_pick_html(string $name = 'room_no', string $id = 'room
         echo '<style>
 .appt-room-face{position:relative}
 .appt-room-native{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
-.appt-room-btn{display:flex;align-items:center;width:100%;text-align:right;cursor:pointer;color:#1a2e28;background-image:url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'8\' viewBox=\'0 0 12 8\'%3E%3Cpath fill=\'%23334155\' d=\'M1.4.6 6 5.2 10.6.6 12 2 6 8 0 2z\'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:left .95rem center;background-size:.7rem;padding-left:2.25rem}
-.appt-room-btn:focus{outline:none;border-color:#7c6bb5;box-shadow:0 0 0 3px rgba(124,107,181,.18)}
-.appt-room-shown{font-size:1rem;line-height:1.4}
-.appt-room-shown.is-placeholder{color:#7d8f88}
+button.input.appt-room-btn{display:block;width:100%;direction:rtl;text-align:right;cursor:pointer;color:#1a2e28;-webkit-text-fill-color:#1a2e28;font-size:1rem;line-height:1.45;overflow:visible;background-color:var(--surface,#fff);background-image:url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'8\' viewBox=\'0 0 12 8\'%3E%3Cpath fill=\'%23334155\' d=\'M1.4.6 6 5.2 10.6.6 12 2 6 8 0 2z\'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:left .95rem center;background-size:.7rem;padding:.7rem .9rem .7rem 2.35rem}
+button.input.appt-room-btn:focus{outline:none;border-color:#7c6bb5;box-shadow:0 0 0 3px rgba(124,107,181,.18)}
+button.input.appt-room-btn .appt-room-shown{display:inline;color:#1a2e28;-webkit-text-fill-color:#1a2e28;font-size:1rem;font-weight:700;line-height:1.45;opacity:1;visibility:visible}
+button.input.appt-room-btn .appt-room-shown.is-placeholder{color:#5a6f66;-webkit-text-fill-color:#5a6f66;font-weight:500}
+html[data-theme="dark"] button.input.appt-room-btn,html[data-theme="dark"] button.input.appt-room-btn .appt-room-shown{color:#e7f0ec;-webkit-text-fill-color:#e7f0ec;background-color:var(--surface,#1c2824)}
+html[data-theme="dark"] button.input.appt-room-btn{background-image:url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'8\' viewBox=\'0 0 12 8\'%3E%3Cpath fill=\'%23c5d5ce\' d=\'M1.4.6 6 5.2 10.6.6 12 2 6 8 0 2z\'/%3E%3C/svg%3E")}
+html[data-theme="dark"] button.input.appt-room-btn .appt-room-shown.is-placeholder{color:#9aafa6;-webkit-text-fill-color:#9aafa6}
 .appt-room-menu{position:absolute;z-index:40;inset-inline:0;top:calc(100% + .3rem);background:#fff;border:1px solid var(--line,#d7e0dc);border-radius:.65rem;box-shadow:0 14px 36px rgba(15,23,42,.16);padding:.35rem}
 .appt-room-menu[hidden]{display:none}
 .appt-room-menu button{display:block;width:100%;text-align:right;background:transparent;border:0;border-radius:.45rem;padding:.6rem .8rem;font:inherit;cursor:pointer;color:#1a2e28}
 .appt-room-menu button:hover,.appt-room-menu button.is-selected{background:#efeafc;color:#5b4b8a;font-weight:700}
+html[data-theme="dark"] .appt-room-menu{background:#1c2824}
+html[data-theme="dark"] .appt-room-menu button{color:#e7f0ec}
 </style>
 <script>
 (function(){
@@ -404,16 +409,21 @@ function appointment_room_pick_html(string $name = 'room_no', string $id = 'room
     if (!face) return;
     var shown = face.querySelector(".appt-room-shown");
     var opt = select.options[select.selectedIndex];
-    var empty = !select.value;
+    var empty = !String(select.value || "");
+    var label = empty ? "انتخاب اتاق" : ((opt && opt.textContent) ? String(opt.textContent).replace(/\s+/g, " ").trim() : "انتخاب اتاق");
+    if (!label) label = empty ? "انتخاب اتاق" : ("اتاق " + select.value);
     if (shown) {
-      shown.textContent = empty ? "انتخاب اتاق" : ((opt && opt.textContent) ? opt.textContent.trim() : "انتخاب اتاق");
+      shown.textContent = label;
       shown.classList.toggle("is-placeholder", empty);
     }
     face.querySelectorAll("[data-room-value]").forEach(function(btn){
-      btn.classList.toggle("is-selected", btn.getAttribute("data-room-value") === select.value);
+      btn.classList.toggle("is-selected", btn.getAttribute("data-room-value") === String(select.value || ""));
     });
     var trigger = face.querySelector(".appt-room-btn");
-    if (trigger) trigger.disabled = !!select.disabled;
+    if (trigger) {
+      trigger.disabled = !!select.disabled;
+      trigger.setAttribute("data-room-label", label);
+    }
   }
   document.addEventListener("change", function(e){
     var t = e.target;
