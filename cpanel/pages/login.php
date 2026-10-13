@@ -2,10 +2,11 @@
 declare(strict_types=1);
 if (current_user()) {
     $next = safe_next_path((string) ($_GET['next'] ?? ''));
-    $role = (string) (current_user()['role'] ?? '');
-    $username = strtolower(trim((string) (current_user()['username'] ?? '')));
-    if ($next && is_staff_app_next($next) && ($role === 'DOCTOR' || $role === 'SECRETARY' || $username === 'eshahabian')) {
-        redirect($next);
+    if ($next && is_staff_app_next($next)) {
+        require_once __DIR__ . '/../includes/staff_app.php';
+        if (staff_app_allowed(current_user())) {
+            redirect($next);
+        }
     }
     $href = panel_href_for(current_user()) ?: '/';
     redirect($href);
@@ -34,6 +35,7 @@ ob_start();
 require __DIR__ . '/../includes/auth_gate.php';
 $content = ob_get_clean();
 if ($staffAppLogin) {
+    $content = staff_app_install_html() . $content;
     $GLOBALS['pageScripts'] = ($GLOBALS['pageScripts'] ?? '') . staff_app_pwa_script();
 }
 $pageScripts = $GLOBALS['pageScripts'] ?? '';

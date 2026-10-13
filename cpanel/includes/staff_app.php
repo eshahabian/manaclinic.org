@@ -21,11 +21,23 @@ function staff_app_sections(): array
 function staff_app_allowed(array $user): bool
 {
     $role = (string) ($user['role'] ?? '');
-    if ($role === 'DOCTOR' || $role === 'SECRETARY') {
+    if ($role === 'SECRETARY') {
         return true;
     }
+    $username = strtolower(trim((string) ($user['username'] ?? '')));
+    if ($username === 'eshahabian') {
+        return true;
+    }
+    $name = (string) ($user['name'] ?? '');
+    if (str_contains($name, 'عماد') && str_contains($name, 'شهابیان')) {
+        return true;
+    }
+    if ((!function_exists('doctor_is_shiva') || !function_exists('doctor_is_garsichi')) && is_file(__DIR__ . '/doctor_profile_fields.php')) {
+        require_once __DIR__ . '/doctor_profile_fields.php';
+    }
 
-    return strtolower(trim((string) ($user['username'] ?? ''))) === 'eshahabian';
+    return (function_exists('doctor_is_shiva') && doctor_is_shiva($user))
+        || (function_exists('doctor_is_garsichi') && doctor_is_garsichi($user));
 }
 
 function staff_app_logout_href(): string
@@ -45,7 +57,7 @@ function staff_app_user(): array
     }
     $user = require_login();
     if (!staff_app_allowed($user)) {
-        staff_app_render('home', 'برنامه داخلی', 'این برنامه فقط برای درمانگرها و منشی‌های مانا کلینیک است.', '<h1>برنامه داخلی</h1><p>این بخش فقط برای درمانگرها و منشی‌هاست.</p>', true);
+        staff_app_render('home', 'برنامه داخلی', 'این برنامه فقط برای عماد شهابیان، شیوا گرانمایه‌پور، عطیه گارسچی و منشی‌هاست.', '<h1>برنامه داخلی</h1><p>ورود این برنامه فقط برای عماد شهابیان، شیوا گرانمایه‌پور، عطیه گارسچی و منشی‌هاست.</p>', true);
         exit;
     }
 
@@ -1900,7 +1912,7 @@ function staff_app_room_board(PDO $pdo, ?string $from = null, ?string $to = null
 function staff_app_pwa_head(): string
 {
     $icon = e(url('/assets/img/staff-icon-180.png')) . '?v=20261008icon';
-    $manifest = e(url('/assets/staff-app.webmanifest')) . '?v=20261008icon';
+    $manifest = e(url('/assets/staff-app.webmanifest')) . '?v=20261013desk';
 
     return '<meta name="mobile-web-app-capable" content="yes">'
         . '<meta name="apple-mobile-web-app-capable" content="yes">'
@@ -1909,6 +1921,16 @@ function staff_app_pwa_head(): string
         . '<meta name="theme-color" content="#1a9a8a">'
         . '<link rel="apple-touch-icon" href="' . $icon . '">'
         . '<link rel="manifest" href="' . $manifest . '">';
+}
+
+function staff_app_install_html(): string
+{
+    return '<style>#sapp-install{display:flex;align-items:center;gap:.7rem;flex-wrap:wrap;width:min(36rem,calc(100% - 1.5rem));margin:.6rem auto;padding:.75rem .9rem;border-radius:1rem;background:#fff;box-shadow:0 .35rem 1.1rem rgba(28,70,58,.08);font-size:.95rem;line-height:1.6}#sapp-install[hidden]{display:none!important}#sapp-install p{margin:0;flex:1;min-width:12rem}#sapp-install button{border:0;border-radius:999px;background:#1a9a8a;color:#fff;font:inherit;font-weight:800;min-height:2.4rem;padding:0 .95rem;cursor:pointer}#sapp-install-x{background:#e7f6f3;color:#15796c}</style>'
+        . '<div class="sapp-install" id="sapp-install" hidden>'
+        . '<p id="sapp-install-text"><strong>نصب برنامه</strong> روی لپ‌تاپ یا گوشی نصب می‌شود و ورود همان حساب کارکنان است.</p>'
+        . '<button type="button" id="sapp-install-go" hidden>نصب</button>'
+        . '<button type="button" id="sapp-install-x">بعداً</button>'
+        . '</div>';
 }
 
 function staff_app_pwa_script(): string
@@ -1922,13 +1944,22 @@ function staff_app_pwa_script(): string
 
     return '<script>(function(){'
         . 'if("serviceWorker" in navigator){var cfg=' . $cfg . ';navigator.serviceWorker.register(cfg.src,{scope:cfg.scope}).catch(function(){});}'
-        . 'var box=document.getElementById("sapp-install");if(!box)return;'
+        . 'var box=document.getElementById("sapp-install");'
+        . 'var text=document.getElementById("sapp-install-text");'
+        . 'var go=document.getElementById("sapp-install-go");'
+        . 'var close=document.getElementById("sapp-install-x");'
+        . 'var deferred=null;'
         . 'var ios=/iPad|iPhone|iPod/.test(navigator.userAgent)||(navigator.platform==="MacIntel"&&navigator.maxTouchPoints>1);'
         . 'var standalone=window.matchMedia("(display-mode: standalone)").matches||window.navigator.standalone===true;'
-        . 'var seen=false;try{seen=localStorage.getItem("sapp-ios-install")==="1";}catch(e){}'
-        . 'if(!ios||standalone||seen)return;box.hidden=false;'
-        . 'var close=document.getElementById("sapp-install-x");'
-        . 'if(close)close.addEventListener("click",function(){box.hidden=true;try{localStorage.setItem("sapp-ios-install","1");}catch(e){}});'
+        . 'function later(){try{return localStorage.getItem("sapp-install-later")==="1";}catch(e){return false;}}'
+        . 'function show(html,withGo){if(!box||standalone||later())return;if(text)text.innerHTML=html;if(go)go.hidden=!withGo;box.hidden=false;}'
+        . 'window.addEventListener("beforeinstallprompt",function(e){e.preventDefault();deferred=e;show("<strong>نصب روی این دستگاه</strong> برنامه کارکنان روی لپ‌تاپ یا گوشی نصب می‌شود. ورود همان حساب کارکنان است.",true);});'
+        . 'window.addEventListener("appinstalled",function(){deferred=null;if(box)box.hidden=true;});'
+        . 'if(go)go.addEventListener("click",function(){if(!deferred)return;deferred.prompt();var wait=deferred.userChoice||Promise.resolve();wait.finally(function(){deferred=null;if(box)box.hidden=true;});});'
+        . 'if(close)close.addEventListener("click",function(){if(box)box.hidden=true;try{localStorage.setItem("sapp-install-later","1");}catch(e){}});'
+        . 'if(standalone||later())return;'
+        . 'if(ios){show("<strong>نصب روی آیفون</strong> دکمه اشتراک‌گذاری را بزنید و «افزودن به صفحهٔ اصلی» را انتخاب کنید.",false);return;}'
+        . 'setTimeout(function(){if(deferred||(box&&!box.hidden))return;show("<strong>نصب روی لپ‌تاپ</strong> در کروم یا اج، آیکون نصب را در نوار آدرس بزنید یا از منوی مرورگر «نصب مانا کارکنان» را انتخاب کنید.",false);},1600);'
         . '})();</script>'
         . staff_app_client_script();
 }
@@ -2554,10 +2585,7 @@ function staff_app_render(string $active, string $title, string $description, st
     <button type="button" class="sapp-notify-no" id="sapp-notify-no">بعداً</button>
   </div>
   <?php endif; ?>
-  <div class="sapp-install" id="sapp-install" hidden>
-    <p><strong>نصب روی آیفون</strong> دکمه اشتراک‌گذاری را بزنید و «افزودن به صفحهٔ اصلی» را انتخاب کنید. آیفون مثل اندروید خودش پنجره نصب نشان نمی‌دهد.</p>
-    <button type="button" id="sapp-install-x">فهمیدم</button>
-  </div>
+  <?= staff_app_install_html() ?>
   <main class="sapp-main">
     <?php if (is_array($flash) && trim((string) ($flash['message'] ?? '')) !== ''): ?>
       <p class="sapp-flash"><?= e((string) $flash['message']) ?></p>

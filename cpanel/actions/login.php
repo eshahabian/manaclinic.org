@@ -50,7 +50,11 @@ if (!empty($user['must_change_password'])) {
 }
 
 if ($next && is_staff_app_next($next)) {
-    redirect($next);
+    require_once __DIR__ . '/../includes/staff_app.php';
+    if (staff_app_allowed(current_user() ?? $user)) {
+        redirect($next);
+    }
+    flash_set('error', 'ورود این برنامه فقط برای عماد شهابیان، شیوا گرانمایه‌پور، عطیه گارسچی و منشی‌هاست.');
 }
 
 if (($user['role'] ?? '') === 'DOCTOR' && function_exists('doctor_must_complete_profile') && doctor_must_complete_profile($pdo, current_user() ?? $user)) {
