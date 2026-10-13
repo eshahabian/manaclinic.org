@@ -46,12 +46,8 @@ if (therapist_date_is_closed($pdo, $doctorId, $date)) {
 }
 
 if ($patientId === '') {
-    $created = secretary_create_patient_from_post($pdo, $user, ['fallback_doctor_id' => $doctorId]);
-    if (empty($created['ok'])) {
-        flash_set('error', (string) ($created['error'] ?? 'ثبت مراجعه‌کننده ممکن نشد.'));
-        $bookRedirect('/secretary/appointments?tab=new');
-    }
-    $patientId = (string) $created['id'];
+    flash_set('error', 'مراجعه‌کننده را انتخاب کنید.');
+    $bookRedirect('/secretary/appointments?tab=new');
 }
 
 if (str_starts_with($patientId, 'outreach:')) {
@@ -82,7 +78,10 @@ if (post('patient_id') !== '') {
         require_once __DIR__ . '/../includes/user_referral.php';
     }
     if (user_referral_of($pdo, $patientId) === null) {
-        $referralToSave = user_referral_normalize((string) post('new_referral_source'));
+        $referralToSave = user_referral_normalize((string) post('legacy_referral'));
+        if ($referralToSave === null) {
+            $referralToSave = user_referral_normalize((string) post('new_referral_source'));
+        }
         if ($referralToSave === null) {
             flash_set('error', 'معرف را انتخاب کنید.');
             $bookRedirect('/secretary/appointments?tab=new');

@@ -96,11 +96,53 @@ ob_start();
   <p style="margin:0;font-weight:600">مراجعه‌کننده جدید</p>
   <?php
     $secretaryPatientHint = 'بدون گرفتن نوبت هم می‌توانید نفر جدید ثبت کنید. با تایپ نام فارسی، معادل انگلیسی پیشنهاد می‌شود. اگر صفحه بسته شود یا نت قطع شود، اطلاعات همین‌جا می‌ماند.';
+    $secretaryPatientKindSwitch = true;
     require __DIR__ . '/../../includes/secretary_new_patient_fields.php';
   ?>
   <p id="sec-patient-error" style="color:var(--danger);display:none;font-size:.9rem"></p>
-  <button class="btn btn-primary" type="submit">ثبت مراجعه‌کننده</button>
+  <button class="btn btn-primary" type="submit" id="patient-entry-submit">ثبت مراجعه‌کننده</button>
 </form>
+<div id="patient-entry-inactive" hidden>
+  <p class="muted" style="margin:.85rem 0 0;line-height:1.8">
+    فقط نام و شماره ذخیره می‌شود و همان نفر در فهرست با وضعیت غیرفعال دیده می‌شود.
+    پیامک در صف: <?= e(to_fa_digits((string) $smsPending)) ?>
+  </p>
+  <div class="grid-2" style="margin-top:1rem">
+    <form class="panel" method="post" action="<?= e(url('/secretary/patients')) ?>" style="margin:0">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="add_inactive">
+      <h2 style="margin:0 0 .75rem;font-size:1rem">یک نفر</h2>
+      <label>
+        <span class="label">نام</span>
+        <input class="input" name="name" required>
+      </label>
+      <label style="display:block;margin-top:.6rem">
+        <span class="label">شماره تماس</span>
+        <input class="input" name="phone" required dir="ltr" inputmode="tel">
+      </label>
+      <label style="display:block;margin-top:.6rem">
+        <span class="label">یادداشت</span>
+        <input class="input" name="note">
+      </label>
+      <button class="btn btn-primary" type="submit" style="margin-top:.8rem">ذخیره</button>
+    </form>
+    <form class="panel" method="post" action="<?= e(url('/secretary/patients')) ?>" style="margin:0">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="import_inactive">
+      <h2 style="margin:0 0 .75rem;font-size:1rem">چند نفر با هم</h2>
+      <p class="muted" style="margin:0 0 .5rem;font-size:.85rem">هر خط: نام و بعد شماره. مثلاً «مهراد بابایی ۰۹۱۲۱۲۳۴۵۶۷»</p>
+      <textarea class="input" name="lines" rows="6" required></textarea>
+      <button class="btn btn-primary" type="submit" style="margin-top:.8rem">افزودن فهرست</button>
+    </form>
+  </div>
+  <form class="panel" method="post" action="<?= e(url('/secretary/patients')) ?>" style="margin-top:1rem">
+    <?= csrf_field() ?>
+    <input type="hidden" name="action" value="queue_inactive">
+    <h2 style="margin:0 0 .5rem;font-size:1rem">پیامک دستی به همین فهرست</h2>
+    <textarea class="input" name="body" rows="3" required placeholder="متن پیامک، مثلاً اعلام یک کارگاه"></textarea>
+    <button class="btn btn-primary" type="submit" style="margin-top:.75rem">گذاشتن در صف پیامک</button>
+  </form>
+</div>
 
 <div style="margin-top:1.25rem;max-width:22rem">
   <label class="label" for="patient-filter">جستجو</label>
@@ -224,48 +266,6 @@ ob_start();
   </table>
 </div>
 <p class="muted" id="patient-filter-empty" hidden>موردی با این جستجو نیست.</p>
-</div>
-
-<div id="outreach-tools">
-  <p class="muted" style="margin:1.25rem 0 0;line-height:1.8">
-    اگر فقط نام و شماره دارید، اینجا ذخیره می‌شود و همان نفر بالای فهرست با وضعیت غیرفعال دیده می‌شود.
-    پیامک در صف: <?= e(to_fa_digits((string) $smsPending)) ?>
-  </p>
-  <div class="grid-2" style="margin-top:1rem">
-    <form class="panel" method="post" action="<?= e(url('/secretary/patients')) ?>" style="margin:0">
-      <?= csrf_field() ?>
-      <input type="hidden" name="action" value="add_inactive">
-      <h2 style="margin:0 0 .75rem;font-size:1rem">یک نفر</h2>
-      <label>
-        <span class="label">نام</span>
-        <input class="input" name="name" required>
-      </label>
-      <label style="display:block;margin-top:.6rem">
-        <span class="label">شماره تماس</span>
-        <input class="input" name="phone" required dir="ltr" inputmode="tel">
-      </label>
-      <label style="display:block;margin-top:.6rem">
-        <span class="label">یادداشت</span>
-        <input class="input" name="note">
-      </label>
-      <button class="btn btn-primary" type="submit" style="margin-top:.8rem">ذخیره</button>
-    </form>
-    <form class="panel" method="post" action="<?= e(url('/secretary/patients')) ?>" style="margin:0">
-      <?= csrf_field() ?>
-      <input type="hidden" name="action" value="import_inactive">
-      <h2 style="margin:0 0 .75rem;font-size:1rem">چند نفر با هم</h2>
-      <p class="muted" style="margin:0 0 .5rem;font-size:.85rem">هر خط: نام و بعد شماره. مثلاً «مهراد بابایی ۰۹۱۲۱۲۳۴۵۶۷»</p>
-      <textarea class="input" name="lines" rows="6" required></textarea>
-      <button class="btn btn-primary" type="submit" style="margin-top:.8rem">افزودن فهرست</button>
-    </form>
-  </div>
-  <form class="panel" method="post" action="<?= e(url('/secretary/patients')) ?>" style="margin-top:1rem">
-    <?= csrf_field() ?>
-    <input type="hidden" name="action" value="queue_inactive">
-    <h2 style="margin:0 0 .5rem;font-size:1rem">پیامک دستی به همین فهرست</h2>
-    <textarea class="input" name="body" rows="3" required placeholder="متن پیامک، مثلاً اعلام یک کارگاه"></textarea>
-    <button class="btn btn-primary" type="submit" style="margin-top:.75rem">گذاشتن در صف پیامک</button>
-  </form>
 </div>
 <script type="application/json" id="patient-more-data"><?= json_encode($patientMore, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_FORCE_OBJECT) ?></script>
 <div class="patient-more-modal" id="patient-more-modal" hidden>
@@ -412,8 +412,41 @@ $pageScripts = '
     draftKey: "mana.secretary.patient.create",
     clearParams: ["added"]
   });
+  var activeBox = document.getElementById("patient-entry-active");
+  var inactiveBox = document.getElementById("patient-entry-inactive");
+  var submitBtn = document.getElementById("patient-entry-submit");
+  function showEntryKind(kind) {
+    var active = kind !== "inactive";
+    if (activeBox) {
+      activeBox.hidden = !active;
+      activeBox.disabled = !active;
+    }
+    if (inactiveBox) inactiveBox.hidden = active;
+    if (submitBtn) submitBtn.hidden = !active;
+    if (errEl && !active) errEl.style.display = "none";
+    document.querySelectorAll("[data-entry-kind]").forEach(function (btn) {
+      var on = btn.getAttribute("data-entry-kind") === (active ? "active" : "inactive");
+      btn.classList.toggle("btn-primary", on);
+      btn.classList.toggle("btn-outline", !on);
+      btn.setAttribute("aria-selected", on ? "true" : "false");
+    });
+  }
+  document.querySelectorAll("[data-entry-kind]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      showEntryKind(btn.getAttribute("data-entry-kind") || "active");
+    });
+  });
+  var startInactive = location.hash === "#patient-entry-inactive" || location.hash === "#outreach-tools";
+  showEntryKind(startInactive ? "inactive" : "active");
+  if (startInactive && inactiveBox && inactiveBox.scrollIntoView) {
+    inactiveBox.scrollIntoView({ block: "nearest" });
+  }
   if (form) {
     form.addEventListener("submit", function(e){
+      if (inactiveBox && !inactiveBox.hidden) {
+        e.preventDefault();
+        return;
+      }
       if (!validateSecretaryNewPatient(errEl)) e.preventDefault();
     });
   }

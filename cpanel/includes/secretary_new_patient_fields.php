@@ -12,13 +12,22 @@ $secretaryPatientHint = $secretaryPatientHint ?? 'مراجعه‌کننده با
         <input class="input input-rtl" name="new_first_name" id="new_first_name" dir="rtl" autocomplete="given-name" placeholder="نام">
       </div>
       <div>
+        <label class="label" for="new_last_name">نام خانوادگی</label>
+        <input class="input input-rtl" name="new_last_name" id="new_last_name" dir="rtl" autocomplete="family-name" placeholder="نام خانوادگی">
+      </div>
+    </div>
+    <?php if (!empty($secretaryPatientKindSwitch)): ?>
+    <div class="secretary-kind-switch" role="tablist" style="margin:.9rem 0 .35rem">
+      <button type="button" class="btn btn-primary" data-entry-kind="active" aria-selected="true">فعال</button>
+      <button type="button" class="btn btn-outline" data-entry-kind="inactive" aria-selected="false">غیرفعال</button>
+    </div>
+    <fieldset id="patient-entry-active" style="border:0;margin:0;padding:0;min-width:0">
+    <?php endif; ?>
+    <div class="grid-2">
+      <div>
         <label class="label label-ltr" for="new_name_en">name</label>
         <input class="input" name="new_name_en" id="new_name_en" dir="ltr" lang="en" autocomplete="off" placeholder="name">
         <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">از دیتابیس نام‌ها و جستجوی آنلاین پیشنهاد می‌شود؛ در صورت نیاز ویرایش کنید.</p>
-      </div>
-      <div>
-        <label class="label" for="new_last_name">نام خانوادگی</label>
-        <input class="input input-rtl" name="new_last_name" id="new_last_name" dir="rtl" autocomplete="family-name" placeholder="نام خانوادگی">
       </div>
       <div>
         <label class="label label-ltr" for="new_surname">surname</label>
@@ -65,3 +74,6 @@ $secretaryPatientHint = $secretaryPatientHint ?? 'مراجعه‌کننده با
         <input class="input" name="new_password_confirm" id="new_password_confirm" type="password" dir="ltr" minlength="6" autocomplete="new-password" placeholder="تکرار رمز">
       </div>
     </div>
+    <?php if (!empty($secretaryPatientKindSwitch)): ?>
+    </fieldset>
+    <?php endif; ?>

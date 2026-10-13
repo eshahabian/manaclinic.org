@@ -10,7 +10,7 @@ csrf_verify();
 $action = (string) post('action');
 if (in_array($action, ['add_inactive', 'import_inactive', 'delete_inactive', 'queue_inactive'], true)) {
     ensure_outreach_schema($pdo);
-    $back = '/secretary/patients#outreach-tools';
+    $back = '/secretary/patients#patient-entry-inactive';
     if ($action === 'add_inactive') {
         $ok = outreach_save_contact($pdo, (string) post('name'), (string) post('phone'), (string) post('note'));
         flash_set($ok ? 'success' : 'error', $ok ? 'شماره ذخیره شد.' : 'نام و شماره معتبر وارد کنید.');

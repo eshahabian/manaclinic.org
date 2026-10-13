@@ -8,8 +8,6 @@ if (empty($secretaryBookEmbedded)) {
 
 $patients = secretary_patient_directory($pdo);
 $doctors = secretary_active_doctors($pdo);
-$nameDict = build_name_transliterations_client_map($pdo);
-
 $preDoctorId = trim((string) ($_GET['doctor_id'] ?? ''));
 $preDate = trim((string) ($_GET['date'] ?? ''));
 $preTime = trim((string) ($_GET['time'] ?? ''));
@@ -140,51 +138,6 @@ ob_start();
     </div>
   </div>
 
-  <div class="panel" style="background:var(--bg-soft);border-style:dashed">
-    <p style="margin:0 0 .75rem;font-weight:600">وارد کردن مراجعه‌کننده</p>
-    <div class="secretary-kind-switch" role="tablist" style="margin-top:0">
-      <button type="button" class="btn btn-primary" data-book-kind="active" aria-selected="true">فعال</button>
-      <button type="button" class="btn btn-outline" data-book-kind="inactive" aria-selected="false">غیرفعال</button>
-    </div>
-    <div id="book-new-active">
-      <p style="margin:.85rem 0 .75rem;font-weight:600">ثبت‌نام</p>
-      <fieldset id="book-new-active-fields" style="border:0;margin:0;padding:0;min-width:0">
-        <?php
-          $secretaryPatientHint = 'مراجعه‌کننده با نام کاربری و رمز زیر می‌تواند بعداً وارد شود. با تایپ نام فارسی، معادل انگلیسی پیشنهاد می‌شود. اگر نت قطع شود، اطلاعات واردشده روی همین دستگاه می‌ماند.';
-          require __DIR__ . '/../../includes/secretary_new_patient_fields.php';
-        ?>
-      </fieldset>
-    </div>
-    <div id="book-new-inactive" hidden>
-      <p style="margin:.85rem 0 .35rem;font-weight:600">کاربران غیرفعال</p>
-      <p class="muted" style="margin:0 0 .75rem;font-size:.85rem;line-height:1.7">این‌ها هنوز برای نوبت باز نیستند. انتخابشان یادآوری می‌کند اول فعال شوند.</p>
-      <label class="label" for="book-inactive-filter">جستجو</label>
-      <input class="input" type="search" id="book-inactive-filter" placeholder="نام یا موبایل" autocomplete="off">
-      <div id="book-inactive-list" style="margin-top:.7rem">
-        <?php
-          $inactiveShown = 0;
-          foreach ($patients as $p) {
-              if (!function_exists('secretary_patient_is_inactive') || !secretary_patient_is_inactive($p)) {
-                  continue;
-              }
-              $inactiveShown++;
-              $iname = trim((string) ($p['name'] ?? ''));
-              $iphone = trim((string) ($p['phone'] ?? ''));
-              $iuser = trim((string) ($p['username'] ?? ''));
-              $ihay = mb_strtolower(trim($iname . ' ' . $iphone . ' ' . $iuser));
-              ?>
-              <button type="button" class="btn btn-outline book-inactive-person" data-search="<?= e($ihay) ?>" style="display:flex;width:100%;justify-content:space-between;gap:.6rem;margin-top:.4rem;text-align:right">
-                <span><?= e($iname !== '' ? $iname : 'بدون نام') ?></span>
-                <span class="muted" dir="ltr"><?= e($iphone !== '' ? $iphone : ($iuser !== '' ? $iuser : 'بدون حساب')) ?></span>
-              </button>
-              <?php
-          }
-        ?>
-      </div>
-      <p class="muted" id="book-inactive-empty"<?= $inactiveShown > 0 ? ' hidden' : '' ?> style="margin:.75rem 0 0">کاربر غیرفعالی نیست.</p>
-    </div>
-  </div>
-
   <div>
     <label class="label">دکتر</label>
     <select class="input" name="doctor_id" id="doctor_id" required>
@@ -266,9 +219,6 @@ $secretaryBookFormHtml = ob_get_clean();
 
 $secretaryBookScripts = '
 <script src="' . e(url('/assets/js/search-select.js')) . '?v=20261013pat"></script>
-<script src="' . e(url('/assets/js/name-transliterate.js')) . '?v=20260906p"></script>
-<script src="' . e(url('/assets/js/form-draft.js')) . '?v=20260906p"></script>
-<script src="' . e(url('/assets/js/secretary-patient-form.js')) . '?v=20261007ref"></script>
 <script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
 <script>
@@ -278,16 +228,6 @@ $secretaryBookScripts = '
   var form = document.getElementById("secretary-book-form");
   var doctorEl = document.getElementById("doctor_id");
   var patientEl = document.getElementById("patient_id");
-  var firstNameEl = document.getElementById("new_first_name");
-  var lastNameEl = document.getElementById("new_last_name");
-  var nameEnEl = document.getElementById("new_name_en");
-  var surnameEl = document.getElementById("new_surname");
-  var preferredDoctorEl = document.getElementById("new_preferred_doctor_id");
-  var newUserEl = document.getElementById("new_username");
-  var newPassEl = document.getElementById("new_password");
-  var newPassConfirmEl = document.getElementById("new_password_confirm");
-  var newPhoneEl = document.getElementById("new_phone");
-  var usernameHint = document.getElementById("username-hint");
 
   var doctorSearchApi = null;
   if (window.enhanceSearchSelect) {
@@ -295,82 +235,6 @@ $secretaryBookScripts = '
     doctorSearchApi = enhanceSearchSelect(doctorEl, { placeholder: "جستجو یا انتخاب دکتر" });
   }
 
-  var bound = bindSecretaryPatientFields({
-    form: form,
-    transliterateUrl: ' . json_encode(url('/api/transliterate-name')) . ',
-    nameDict: ' . json_encode($nameDict, JSON_UNESCAPED_UNICODE) . ',
-    draftKey: "mana.secretary.book.new-patient",
-    clearParams: ["booked", "date"],
-    enhanceSelects: true,
-    draftFields: [
-      "new_first_name", "new_last_name", "new_name_en", "new_surname",
-      "new_preferred_doctor_id", "new_referral_source", "new_phone", "new_username",
-      "new_password", "new_password_confirm", "notes"
-    ]
-  });
-
-  function selectedPatientReferral() {
-    if (!patientEl || !patientEl.value) return "";
-    var opt = patientEl.options[patientEl.selectedIndex];
-    return opt ? (opt.getAttribute("data-referral") || "") : "";
-  }
-  function patientReferralKnown(value) {
-    return value === "clinic" || value === "therapist";
-  }
-  function referralLabel(value) {
-    if (value === "clinic") return "ارجاع از سمت کلینیک";
-    if (value === "therapist") return "ارجاع از سمت درمانگر";
-    return "";
-  }
-  function syncReferralRule() {
-    var referralEl = document.getElementById("new_referral_source");
-    var hint = document.getElementById("new-referral-hint");
-    if (!referralEl) return;
-    var opt = patientEl && patientEl.options[patientEl.selectedIndex];
-    if (opt && opt.getAttribute("data-needs-setup") === "1") {
-      referralEl.required = false;
-      referralEl.disabled = true;
-      if (hint) hint.hidden = true;
-      return;
-    }
-    var saved = selectedPatientReferral();
-    if (patientReferralKnown(saved)) {
-      referralEl.required = false;
-      referralEl.disabled = true;
-      referralEl.value = saved;
-      if (hint) {
-        hint.hidden = false;
-        hint.textContent = "معرف این مراجعه‌کننده قبلاً ثبت شده (" + referralLabel(saved) + ") و برای این نوبت دوباره لازم نیست.";
-      }
-      return;
-    }
-    var wasLocked = referralEl.disabled;
-    referralEl.disabled = false;
-    referralEl.required = true;
-    if (patientEl && patientEl.value) {
-      referralEl.value = "";
-      if (hint) {
-        hint.hidden = false;
-        hint.textContent = "برای این مراجعه‌کننده هنوز معرف ثبت نشده؛ انتخابش لازم است.";
-      }
-      return;
-    }
-    if (wasLocked) referralEl.value = "";
-    if (hint) {
-      hint.hidden = true;
-      hint.textContent = "";
-    }
-  }
-  function clearExistingPatient() {
-    if (patientEl.value) patientEl.value = "";
-    syncReferralRule();
-    syncLegacySetup();
-  }
-  [firstNameEl, lastNameEl, nameEnEl, surnameEl, preferredDoctorEl, newUserEl, newPassEl, newPassConfirmEl, newPhoneEl].forEach(function(el){
-    if (!el) return;
-    el.addEventListener("input", clearExistingPatient);
-    el.addEventListener("change", clearExistingPatient);
-  });
   var legacyBox = document.getElementById("legacy-patient-setup");
   var legacyPhone = document.getElementById("legacy-phone");
   var legacyDoctor = document.getElementById("legacy-doctor");
@@ -417,80 +281,14 @@ $secretaryBookScripts = '
       if (e.key === "Escape" && !inactiveModal.hidden) closeInactiveModal();
     });
   }
-  var bookActivePanel = document.getElementById("book-new-active");
-  var bookInactivePanel = document.getElementById("book-new-inactive");
-  var bookActiveFields = document.getElementById("book-new-active-fields");
-  var bookKindButtons = document.querySelectorAll("[data-book-kind]");
-  function showBookKind(kind) {
-    var active = kind !== "inactive";
-    if (bookActivePanel) bookActivePanel.hidden = !active;
-    if (bookInactivePanel) bookInactivePanel.hidden = active;
-    if (bookActiveFields) bookActiveFields.disabled = !active;
-    bookKindButtons.forEach(function (btn) {
-      var on = btn.getAttribute("data-book-kind") === (active ? "active" : "inactive");
-      btn.classList.toggle("btn-primary", on);
-      btn.classList.toggle("btn-outline", !on);
-      btn.setAttribute("aria-selected", on ? "true" : "false");
-    });
-    if (active && typeof syncReferralRule === "function") syncReferralRule();
-  }
-  bookKindButtons.forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      showBookKind(btn.getAttribute("data-book-kind") || "active");
-    });
-  });
-  var bookInactiveFilter = document.getElementById("book-inactive-filter");
-  var bookInactivePeople = document.querySelectorAll(".book-inactive-person");
-  var bookInactiveEmpty = document.getElementById("book-inactive-empty");
-  function applyInactiveFilter() {
-    var q = bookInactiveFilter ? String(bookInactiveFilter.value || "").trim().toLowerCase() : "";
-    var shown = 0;
-    bookInactivePeople.forEach(function (btn) {
-      var hay = String(btn.getAttribute("data-search") || "").toLowerCase();
-      var on = !q || hay.indexOf(q) !== -1;
-      btn.hidden = !on;
-      if (on) shown++;
-    });
-    if (bookInactiveEmpty) bookInactiveEmpty.hidden = shown > 0;
-  }
-  if (bookInactiveFilter) {
-    bookInactiveFilter.addEventListener("input", applyInactiveFilter);
-    bookInactiveFilter.addEventListener("search", applyInactiveFilter);
-  }
-  bookInactivePeople.forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      openInactiveModal();
-    });
-  });
   patientEl.addEventListener("change", function(){
     if (selectedPatientInactive()) {
       openInactiveModal();
       patientEl.value = "";
       syncLegacySetup();
-      syncReferralRule();
       return;
     }
     syncLegacySetup();
-    if (patientEl.value) {
-      firstNameEl.value = "";
-      lastNameEl.value = "";
-      nameEnEl.value = "";
-      surnameEl.value = "";
-      preferredDoctorEl.value = "";
-      newUserEl.value = "";
-      newPassEl.value = "";
-      newPassConfirmEl.value = "";
-      newPhoneEl.value = "";
-      if (bound && bound.names) bound.names.reset();
-      if (usernameHint) usernameHint.textContent = "";
-    }
-    syncReferralRule();
-  });
-
-  doctorEl.addEventListener("change", function(){
-    if (!patientEl.value && !preferredDoctorEl.value && doctorEl.value) {
-      preferredDoctorEl.value = doctorEl.value;
-    }
   });
 
   var dateView = document.getElementById("sec-date-view");
@@ -871,26 +669,11 @@ $secretaryBookScripts = '
       patientEl.value = "";
       return;
     }
-    var newName = ((firstNameEl.value || "").trim() + " " + (lastNameEl.value || "").trim()).trim();
-    if (!patientId && !newName) {
+    if (!patientId) {
       e.preventDefault();
-      errEl.textContent = "مراجعه‌کننده را انتخاب کنید یا نام و نام خانوادگی مراجعه‌کننده جدید را وارد کنید.";
+      errEl.textContent = "مراجعه‌کننده را انتخاب کنید.";
       errEl.style.display = "block";
       return;
-    }
-    if (!patientId && !validateSecretaryNewPatient(errEl)) {
-      e.preventDefault();
-      return;
-    }
-    if (patientId && !patientReferralKnown(selectedPatientReferral())) {
-      var referralEl = document.getElementById("new_referral_source");
-      if (!referralEl || !referralEl.value) {
-        e.preventDefault();
-        errEl.textContent = "معرف را انتخاب کنید.";
-        errEl.style.display = "block";
-        if (referralEl && referralEl.focus) referralEl.focus();
-        return;
-      }
     }
     if (!doctorEl.value) {
       e.preventDefault();
@@ -943,7 +726,6 @@ $secretaryBookScripts = '
         doctorEl.value = preDoctor;
       }
     }
-    if (preferredDoctorEl && doctorEl.value && !preferredDoctorEl.value) preferredDoctorEl.value = doctorEl.value;
     if (preTime) {
       selectedTime = preTime;
       timeEl.value = preTime;
@@ -1017,7 +799,6 @@ $secretaryBookScripts = '
     el.addEventListener("change", syncRoomRule);
   });
   syncRoomRule();
-  syncReferralRule();
   syncLegacySetup();
 })();
 </script>
