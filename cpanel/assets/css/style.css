@@ -3693,9 +3693,41 @@ html[data-theme="dark"] .sec-room-select > select.input option {
   display: none !important;
   pointer-events: none !important;
 }
+.sec-week-edit {
+  width: 100%;
+}
+.sec-week-edit > summary {
+  list-style: none;
+  cursor: pointer;
+}
+.sec-week-edit > summary::-webkit-details-marker {
+  display: none;
+}
+.sec-week-edit-body {
+  display: flex;
+  flex-direction: column;
+  gap: .7rem;
+  width: 100%;
+  margin-top: .7rem;
+  padding-top: .7rem;
+  border-top: 1px solid var(--line, #d7e0dc);
+}
+.sec-week-edit-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: .4rem;
+  align-items: center;
+  margin: 0;
+}
+.sec-week-edit-row .input {
+  width: auto;
+  min-width: 7rem;
+  padding: .35rem .55rem;
+  font-size: .85rem;
+}
 .sec-week-shadow-card {
   position: relative;
-  width: min(26rem, 100%);
+  width: min(32rem, 100%);
   padding: 1.25rem 1.35rem 1.1rem;
   border-radius: 1rem;
   background: var(--bg, #fff);

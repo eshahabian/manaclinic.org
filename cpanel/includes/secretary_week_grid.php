@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/availability.php';
 require_once __DIR__ . '/appointment_session.php';
+require_once __DIR__ . '/appointment_cancel.php';
 if (is_file(__DIR__ . '/appointment_payment.php')) {
     require_once __DIR__ . '/appointment_payment.php';
 }
@@ -153,7 +154,7 @@ function secretary_room_choices_json(): string
 }
 
 /** رادیوهای اتاق داخل همان فرمی که دکمه ثبت اتاق دارد. */
-function secretary_room_picker_markup(): string
+function secretary_room_picker_markup(string $selected = ''): string
 {
     $html = '<div class="sec-room-picks" role="radiogroup" aria-label="اتاق">';
     foreach (secretary_room_choice_list() as $choice) {
@@ -163,7 +164,7 @@ function secretary_room_picker_markup(): string
             continue;
         }
         $html .= '<label class="sec-room-pick">';
-        $html .= '<input type="radio" name="room_no" value="' . $value . '">';
+        $html .= '<input type="radio" name="room_no" value="' . $value . '"' . ($value === $selected ? ' checked' : '') . '>';
         $html .= '<span>' . e($label) . '</span>';
         $html .= '</label>';
     }
@@ -262,6 +263,50 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                               $nextHold = $deskNext . (str_contains($deskNext, '?') ? '&' : '?') . 'tab=reservations&doctor_id=' . rawurlencode($doctorId);
                               $roomNext = $deskNext . (str_contains($deskNext, '?') ? '&' : '?') . 'tab=upcoming&doctor_id=' . rawurlencode($doctorId);
                             ?>
+                            <?php
+                              $canEditAppt = !in_array((string) ($booking['status'] ?? ''), ['CANCELLED', 'COMPLETED'], true);
+                              $modeId = 'week-mode-' . preg_replace('/[^a-zA-Z0-9_-]/', '', (string) ($booking['id'] ?? ''));
+                            ?>
+                            <?php if ($canEditAppt): ?>
+                              <details class="sec-week-edit">
+                                <summary class="btn btn-outline btn-sm">ویرایش نوبت</summary>
+                                <div class="sec-week-edit-body">
+                                  <form method="post" action="<?= e(url('/secretary/appointments')) ?>" class="sec-week-edit-row">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="action" value="set_session_mode">
+                                    <input type="hidden" name="appointment_id" value="<?= e((string) ($booking['id'] ?? '')) ?>">
+                                    <input type="hidden" name="next" value="<?= e($roomNext) ?>">
+                                    <label class="muted" for="<?= e($modeId) ?>">نوع جلسه</label>
+                                    <select class="input" name="session_mode" id="<?= e($modeId) ?>">
+                                      <option value="IN_PERSON"<?= appointment_normalize_session_mode((string) ($booking['session_mode'] ?? '')) === 'IN_PERSON' ? ' selected' : '' ?>>حضوری</option>
+                                      <option value="ONLINE"<?= appointment_normalize_session_mode((string) ($booking['session_mode'] ?? '')) === 'ONLINE' ? ' selected' : '' ?>>آنلاین</option>
+                                    </select>
+                                    <button type="submit" class="btn btn-outline btn-sm">ذخیره نوع</button>
+                                  </form>
+                                  <?= function_exists('appointment_time_edit_form_html') ? appointment_time_edit_form_html($booking, $roomNext) : '' ?>
+                                  <form method="post" action="<?= e(url('/secretary/appointments')) ?>" class="sec-room-form sec-week-edit-row">
+                                    <?= csrf_field() ?>
+                                    <input type="hidden" name="action" value="set_room">
+                                    <input type="hidden" name="appointment_id" value="<?= e((string) ($booking['id'] ?? '')) ?>">
+                                    <input type="hidden" name="next" value="<?= e($roomNext) ?>">
+                                    <span class="label">اتاق</span>
+                                    <?= secretary_room_picker_markup($roomNo > 0 ? (string) $roomNo : '') ?>
+                                    <button type="submit" class="btn btn-outline btn-sm">ذخیره اتاق</button>
+                                  </form>
+                                </div>
+                              </details>
+                            <?php endif; ?>
+                            <?php if (function_exists('secretary_patient_cancel_form')): ?>
+                              <?php $cancelForm = secretary_patient_cancel_form((string) ($booking['id'] ?? ''), (string) ($booking['status'] ?? ''), $roomNext); ?>
+                              <?php if ($cancelForm !== ''): ?>
+                                <details class="sec-week-edit">
+                                  <summary class="btn btn-outline btn-sm">کنسل شدن وقت</summary>
+                                  <div class="sec-week-edit-body">
+                                    <?= $cancelForm ?>
+                                  </div>
+                                </details>
+                              <?php endif; ?>
+                            <?php endif; ?>
                             <?php if ($roomNo < 1 && empty($onlineSession)): ?>
                               <form method="post" action="<?= e(url('/secretary/appointments')) ?>" class="sec-week-room-form sec-room-form">
                                 <?= csrf_field() ?>
