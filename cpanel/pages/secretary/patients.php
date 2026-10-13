@@ -387,7 +387,10 @@ ob_start();
         </div>
         <div>
           <label class="label" for="act_password">رمز عبور</label>
-          <input class="input" name="new_password" id="act_password" type="password" dir="ltr" minlength="6" required>
+          <div style="display:flex;gap:.5rem;align-items:stretch">
+            <input class="input" name="new_password" id="act_password" type="password" dir="ltr" minlength="6" required style="flex:1">
+            <button type="button" class="btn btn-outline" data-password-suggest data-password-target="act_password" data-password-confirm-target="act_password_confirm">پیشنهاد</button>
+          </div>
         </div>
         <div>
           <label class="label" for="act_password_confirm">تکرار رمز عبور</label>
@@ -520,7 +523,7 @@ $pageScripts = '
   if (statusFilter) statusFilter.addEventListener("change", applyAccountFilter);
   if (doctorFilter) doctorFilter.addEventListener("change", applyAccountFilter);
   rows.forEach(function(row){
-    var doctorSelect = row.querySelector('select[name="preferred_doctor_id"]');
+    var doctorSelect = row.querySelector("select[name=preferred_doctor_id]");
     if (!doctorSelect) return;
     doctorSelect.addEventListener("change", function(){
       row.setAttribute("data-doctor", doctorSelect.value || "");

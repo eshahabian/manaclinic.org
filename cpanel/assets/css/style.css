@@ -5700,6 +5700,8 @@ body.patient-more-locked { overflow: hidden; }
 .form-draft-hint { color: var(--primary-dark); }
 
 .password-field { display: grid; gap: .35rem; }
+.password-suggest{justify-self:start;border:1px solid rgba(26,46,40,.18);background:#fff;color:#1a5c4a;border-radius:999px;font:inherit;font-size:.82rem;cursor:pointer;padding:.28rem .75rem}
+.password-suggest:hover{background:rgba(26,92,74,.08)}
 .password-field-box { position: relative; }
 .password-field-box .input { padding-left: 2.6rem; }
 .auth-card .password-field-box .input { padding-left: .2rem; padding-right: 2.2rem; }

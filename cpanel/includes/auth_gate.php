@@ -104,6 +104,7 @@ $nameDict = isset($pdo) ? build_name_transliterations_client_map($pdo) : [];
               'minlength' => password_min_length(),
               'rules' => false,
               'placeholder' => '',
+              'suggest' => true,
           ]) ?>
           <?= password_field_html('password_confirm', 'password_confirm', [
               'label' => 'تکرار رمز عبور',

@@ -68,7 +68,10 @@ $secretaryPatientHint = $secretaryPatientHint ?? 'مراجعه‌کننده با
       </div>
       <div>
         <label class="label" for="new_password">رمز عبور</label>
-        <input class="input" name="new_password" id="new_password" type="password" dir="ltr" minlength="6" autocomplete="new-password" placeholder="حداقل ۶ کاراکتر">
+        <div style="display:flex;gap:.5rem;align-items:stretch">
+          <input class="input" name="new_password" id="new_password" type="password" dir="ltr" minlength="6" autocomplete="new-password" placeholder="حداقل ۶ کاراکتر" style="flex:1">
+          <button type="button" class="btn btn-outline" data-password-suggest data-password-target="new_password" data-password-confirm-target="new_password_confirm">پیشنهاد</button>
+        </div>
       </div>
       <div>
         <label class="label" for="new_password_confirm">تکرار رمز عبور</label>

@@ -523,7 +523,7 @@ $overviewJs = __DIR__ . '/../assets/js/workshop-overview.js';
 ?>
 <script><?php if (is_file($overviewJs)) { echo file_get_contents($overviewJs); } ?></script>
 <script src="<?= e(url('/assets/js/particles.js')) ?>?v=20260904t"></script>
-<script src="<?= e(url('/assets/js/password-field.js')) ?>?v=20260908a"></script>
+<script src="<?= e(url('/assets/js/password-field.js')) ?>?v=20261014p"></script>
 <script src="<?= e(url('/assets/js/mobile-nav.js')) ?>?v=20260922a"></script>
 <script src="<?= e(url('/assets/js/site-chrome.js')) ?>?v=20260930look"></script>
 <script src="<?= e(url('/assets/js/mana-look.js')) ?>?v=20260930a"></script>

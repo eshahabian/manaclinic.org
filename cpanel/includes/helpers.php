@@ -50,6 +50,9 @@ function password_field_html(string $id, string $name, array $opts = []): string
           <svg class="password-toggle-hide" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path stroke-linecap="round" stroke-linejoin="round" d="M3 3l18 18M10.6 10.6A3.1 3.1 0 0 0 12 15.1a3.1 3.1 0 0 0 3.1-3.1M6.5 6.7C4.4 8.2 2.8 10.4 2.4 12c0 0 3.6 6.2 9.6 6.2 1.7 0 3.2-.4 4.5-1M17.5 8.2C19.4 9.6 20.8 11.3 21.6 12c0 0-1.3 2.2-3.6 4"/></svg>
         </button>
       </div>
+      <?php if (!empty($opts['suggest'])): ?>
+        <button type="button" class="password-suggest" data-password-suggest>پیشنهاد رمز</button>
+      <?php endif; ?>
       <?php if ($showRules && $min > 0): ?>
         <p class="password-rules muted">حداقل <?= e(to_fa_digits((string) $min)) ?> کاراکتر، با حروف و اعداد انگلیسی.</p>
       <?php endif; ?>
