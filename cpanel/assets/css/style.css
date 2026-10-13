@@ -1958,26 +1958,30 @@ body.home-workshop-locked { overflow: hidden; }
   display: grid;
   gap: 1.25rem;
   margin-top: 1.5rem;
-  align-items: stretch;
+  align-items: start;
 }
-.contact-request { padding: 0; }
-.contact-request > summary {
+.contact-accord { display: grid; gap: .55rem; }
+.contact-fold {
+  border: 1px solid var(--line);
+  border-radius: .9rem;
+  background: var(--bg-soft, #f7f4fb);
+  overflow: hidden;
+}
+.contact-fold > summary {
   cursor: pointer;
   list-style: none;
-  padding: 1rem 1.15rem;
+  padding: .8rem .95rem;
   font-weight: 800;
-  font-size: 1.15rem;
 }
-.contact-request > summary::-webkit-details-marker { display: none; }
-.contact-request > summary::after {
+.contact-fold > summary::-webkit-details-marker { display: none; }
+.contact-fold > summary::after {
   content: "▾";
   float: left;
   color: var(--primary);
-  font-size: 1rem;
 }
-.contact-request:not([open]) > summary::after { content: "▸"; }
-.contact-request-body { padding: 0 1.15rem 1.15rem; }
-.contact-kind { display: grid; grid-template-columns: 1fr 1fr; gap: .5rem; margin-bottom: .85rem; }
+.contact-fold:not([open]) > summary::after { content: "▸"; }
+.contact-fold[open] > summary { color: var(--primary); background: #efeafc; }
+.contact-fold .footer-consult { padding: .85rem .95rem 1rem; }
 .consult-form-card h2 { margin: 0 0 .35rem; font-size: 1.2rem; }
 .consult-form-lead { margin: 0 0 .9rem; line-height: 1.75; font-size: .9rem; }
 @media (min-width: 860px) {

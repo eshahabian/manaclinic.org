@@ -11,7 +11,7 @@ ob_start();
   <h1>تماس با ما</h1>
   <p class="muted" style="margin-top:.5rem;line-height:1.9">
     برای پرسش درباره نوبت‌ها و خدمات از راه‌های زیر با ما در ارتباط باشید.
-    برای مشاوره یا همکاری، بخش ثبت درخواست را باز کنید و نوع درخواست را انتخاب کنید.
+    برای مشاوره یا همکاری، در بخش ثبت درخواست همان مورد را باز کنید و فرم را پر کنید.
   </p>
 
   <div class="contact-layout">
@@ -48,86 +48,63 @@ ob_start();
     </div>
   </div>
   <div class="stack">
-    <details class="panel consult-form-card contact-request" id="collaborate-request">
-      <summary>ثبت درخواست</summary>
-      <div class="contact-request-body">
-        <p class="muted consult-form-lead" id="contact-request-lead">نوع درخواست را انتخاب کنید. نام، شماره تماس و توضیح برای مشاوره لازم است.</p>
-        <div class="contact-kind" role="tablist" aria-label="نوع درخواست">
-          <button type="button" class="btn btn-primary" data-request-kind="consult" aria-pressed="true">درخواست مشاوره</button>
-          <button type="button" class="btn btn-outline" data-request-kind="collab" aria-pressed="false">درخواست همکاری</button>
-        </div>
-        <form class="footer-consult" id="contact-request-form" method="post" action="<?= e(url('/consult-request')) ?>">
-          <?= csrf_field() ?>
-          <input type="hidden" name="next" value="/contact">
-          <input class="footer-consult-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
-          <input class="footer-consult-hp" type="text" name="mana_hp" tabindex="-1" autocomplete="off" aria-hidden="true">
-          <label class="sr-only" for="contact-request-name">نام و نام خانوادگی، الزامی</label>
-          <input class="input" id="contact-request-name" name="name" required aria-required="true" maxlength="120" placeholder="نام و نام خانوادگی *" autocomplete="name">
-          <label class="sr-only" for="contact-request-phone">شماره تماس، الزامی</label>
-          <input class="input input-rtl" id="contact-request-phone" name="phone" required aria-required="true" inputmode="tel" maxlength="20" dir="rtl" placeholder="شماره تماس *" autocomplete="tel">
-          <div id="contact-specialty-wrap" hidden>
-            <label class="sr-only" for="contact-request-specialty">تخصص یا زمینه همکاری، الزامی</label>
-            <input class="input" id="contact-request-specialty" name="specialty" maxlength="160" placeholder="تخصص یا زمینه همکاری *" disabled>
-          </div>
-          <label class="sr-only" for="contact-request-message">توضیح درخواست، الزامی</label>
-          <textarea class="input" id="contact-request-message" name="message" required aria-required="true" maxlength="1000" rows="4" placeholder="توضیح مختصر درباره درخواست شما *"></textarea>
-          <button type="submit" class="btn btn-primary" id="contact-request-submit">ارسال درخواست مشاوره</button>
-        </form>
+    <div class="panel consult-form-card contact-request" id="collaborate-request">
+      <h2>ثبت درخواست</h2>
+      <p class="muted consult-form-lead">یکی را باز کنید. درخواست مشاوره از اول باز است؛ برای همکاری همان ردیف را باز کنید.</p>
+      <div class="contact-accord">
+        <details class="contact-fold" data-fold="consult" open>
+          <summary>درخواست مشاوره</summary>
+          <form class="footer-consult" method="post" action="<?= e(url('/consult-request')) ?>">
+            <?= csrf_field() ?>
+            <input type="hidden" name="next" value="/contact">
+            <input class="footer-consult-hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+            <label class="sr-only" for="contact-consult-name">نام و نام خانوادگی، الزامی</label>
+            <input class="input" id="contact-consult-name" name="name" required maxlength="100" placeholder="نام و نام خانوادگی *" autocomplete="name">
+            <label class="sr-only" for="contact-consult-phone">شماره تماس، الزامی</label>
+            <input class="input input-rtl" id="contact-consult-phone" name="phone" required inputmode="tel" maxlength="20" dir="rtl" placeholder="شماره تماس *" autocomplete="tel">
+            <label class="sr-only" for="contact-consult-message">توضیح درخواست، الزامی</label>
+            <textarea class="input" id="contact-consult-message" name="message" required maxlength="1000" rows="4" placeholder="توضیح مختصر درباره درخواست شما *"></textarea>
+            <button type="submit" class="btn btn-primary">ارسال درخواست مشاوره</button>
+          </form>
+        </details>
+        <details class="contact-fold" data-fold="collab">
+          <summary>درخواست همکاری</summary>
+          <form class="footer-consult" method="post" action="<?= e(url('/collaborate')) ?>">
+            <?= csrf_field() ?>
+            <input type="hidden" name="next" value="/contact">
+            <input class="footer-consult-hp" type="text" name="mana_hp" tabindex="-1" autocomplete="off" aria-hidden="true">
+            <label class="sr-only" for="contact-collab-name">نام و نام خانوادگی، الزامی</label>
+            <input class="input" id="contact-collab-name" name="name" required maxlength="120" placeholder="نام و نام خانوادگی *" autocomplete="name">
+            <label class="sr-only" for="contact-collab-phone">شماره تماس، الزامی</label>
+            <input class="input input-rtl" id="contact-collab-phone" name="phone" required inputmode="tel" maxlength="20" dir="rtl" placeholder="شماره تماس *" autocomplete="tel">
+            <label class="sr-only" for="contact-collab-specialty">تخصص یا زمینه همکاری، الزامی</label>
+            <input class="input" id="contact-collab-specialty" name="specialty" required maxlength="160" placeholder="تخصص یا زمینه همکاری *">
+            <label class="sr-only" for="contact-collab-message">توضیح درخواست، الزامی</label>
+            <textarea class="input" id="contact-collab-message" name="message" required maxlength="2000" rows="4" placeholder="توضیح سابقه، روزهای حضور یا نوع همکاری *"></textarea>
+            <button type="submit" class="btn btn-primary">ارسال درخواست همکاری</button>
+          </form>
+        </details>
       </div>
-    </details>
+    </div>
   </div>
   </div>
 </div>
 <script>
 (function () {
-  var root = document.getElementById("collaborate-request");
-  var form = document.getElementById("contact-request-form");
-  var lead = document.getElementById("contact-request-lead");
-  var specialtyWrap = document.getElementById("contact-specialty-wrap");
-  var specialty = document.getElementById("contact-request-specialty");
-  var message = document.getElementById("contact-request-message");
-  var submit = document.getElementById("contact-request-submit");
-  if (!root || !form) return;
-  var actions = {
-    consult: <?= json_encode(url('/consult-request')) ?>,
-    collab: <?= json_encode(url('/collaborate')) ?>
-  };
-  function applyKind(kind) {
-    var collab = kind === "collab";
-    form.action = actions[collab ? "collab" : "consult"];
-    if (specialtyWrap) specialtyWrap.hidden = !collab;
-    if (specialty) {
-      specialty.disabled = !collab;
-      specialty.required = collab;
-    }
-    if (message) {
-      message.maxLength = collab ? 2000 : 1000;
-      message.placeholder = collab
-        ? "توضیح سابقه، روزهای حضور یا نوع همکاری *"
-        : "توضیح مختصر درباره درخواست شما *";
-    }
-    if (lead) {
-      lead.textContent = collab
-        ? "برای همکاری، نام، شماره تماس، تخصص و توضیح را بنویسید."
-        : "برای مشاوره، نام، شماره تماس و توضیح درخواست لازم است.";
-    }
-    if (submit) submit.textContent = collab ? "ارسال درخواست همکاری" : "ارسال درخواست مشاوره";
-    root.querySelectorAll("[data-request-kind]").forEach(function (btn) {
-      var on = btn.getAttribute("data-request-kind") === (collab ? "collab" : "consult");
-      btn.classList.toggle("btn-primary", on);
-      btn.classList.toggle("btn-outline", !on);
-      btn.setAttribute("aria-pressed", on ? "true" : "false");
+  var folds = document.querySelectorAll(".contact-fold");
+  function only(openFold) {
+    folds.forEach(function (fold) {
+      if (fold !== openFold) fold.open = false;
     });
   }
-  root.querySelectorAll("[data-request-kind]").forEach(function (btn) {
-    btn.addEventListener("click", function () {
-      root.open = true;
-      applyKind(btn.getAttribute("data-request-kind") || "consult");
+  folds.forEach(function (fold) {
+    fold.addEventListener("toggle", function () {
+      if (fold.open) only(fold);
     });
   });
   if (window.location.hash === "#collaborate-request") {
-    root.open = true;
-    applyKind("collab");
+    var collab = document.querySelector('.contact-fold[data-fold="collab"]');
+    if (collab) collab.open = true;
   }
 })();
 </script>
