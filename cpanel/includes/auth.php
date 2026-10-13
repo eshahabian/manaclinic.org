@@ -100,6 +100,8 @@ function registration_username_reserved(string $username): bool
         'secretary',
         'secretary1',
         'secretary2',
+        'secretary3',
+        'secretary4',
         'doctor',
         'patient',
         'shgeranmaye',

@@ -285,6 +285,8 @@ try {
         $patientId = 'patient001mana01';
         $secretaryId = 'secretary001mana';
         $secretary2Id = 'secretary002mana';
+        $secretary3Id = 'secretary003mana';
+        $secretary4Id = 'secretary004mana';
         $pass123 = password_hash('123', PASSWORD_DEFAULT);
         $bio = "مشاوره تخصصی: فردی، خانواده (پیش از ازدواج و زناشویی)، کودک و نوجوان، تحصیلی و شغلی\nروان‌درمانی: درمان اضطراب، افسردگی و وسواس";
 
@@ -309,6 +311,8 @@ try {
         $upsertUser($patientId, 'patient', 'علی رضایی', 'PATIENT', '09123333333');
         $upsertUser($secretaryId, 'secretary1', 'منشی ۱', 'SECRETARY', '09124444444');
         $upsertUser($secretary2Id, 'secretary2', 'منشی ۲', 'SECRETARY', '09124444445');
+        $upsertUser($secretary3Id, 'secretary3', 'منشی ۳', 'SECRETARY', '09124444446');
+        $upsertUser($secretary4Id, 'secretary4', 'منشی ۴', 'SECRETARY', '09124444447');
 
         $doctorRow = $pdo->query("SELECT id FROM users WHERE username IN ('shgeranmaye','doctor') ORDER BY CASE username WHEN 'shgeranmaye' THEN 0 ELSE 1 END LIMIT 1")->fetch();
         if ($doctorRow) {

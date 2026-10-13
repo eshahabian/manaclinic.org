@@ -240,6 +240,31 @@ function ensure_secretary_accounts(PDO $pdo): void
                 user_remember_password_plain($pdo, 'secretary002mana', '123');
             }
         }
+
+        $extraSecretaries = [
+            ['secretary003mana', 'secretary3', 'منشی ۳', '09124444446'],
+            ['secretary004mana', 'secretary4', 'منشی ۴', '09124444447'],
+        ];
+        $insertSecretary = $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,must_change_password) VALUES (?,?,?,?,?,?,?,1)');
+        $findSecretary = $pdo->prepare('SELECT id FROM users WHERE username=? LIMIT 1');
+        foreach ($extraSecretaries as [$secId, $secUser, $secName, $secPhone]) {
+            $findSecretary->execute([$secUser]);
+            if ($findSecretary->fetch()) {
+                continue;
+            }
+            $insertSecretary->execute([
+                $secId,
+                $secUser,
+                $secName,
+                $secUser . '@manaclinic.local',
+                $secPhone,
+                password_hash('123', PASSWORD_DEFAULT),
+                'SECRETARY',
+            ]);
+            if (function_exists('user_remember_password_plain')) {
+                user_remember_password_plain($pdo, $secId, '123');
+            }
+        }
         foreach ([1, 2] as $slot) {
             $saved = trim((string) (staff_slot_labels($pdo)[$slot] ?? ''));
             $fallback = staff_slot_default_label($slot);
