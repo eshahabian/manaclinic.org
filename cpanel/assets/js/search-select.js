@@ -70,6 +70,7 @@
           value: opt.value,
           text: optionText(opt),
           search: optionSearchText(opt),
+          muted: opt.getAttribute("data-muted") === "1",
         };
       });
     }
@@ -135,7 +136,7 @@
       allItems().forEach(function (item) {
         if (qRaw && !matchesQuery(item, qRaw, qNorm)) return;
         var li = document.createElement("li");
-        li.className = "search-select-option" + (item.value === current ? " is-selected" : "");
+        li.className = "search-select-option" + (item.value === current ? " is-selected" : "") + (item.muted ? " is-muted" : "");
         li.setAttribute("role", "option");
         li.dataset.value = item.value;
         li.textContent = item.text || "—";

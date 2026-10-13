@@ -12,50 +12,48 @@ users_backfill_created_by($pdo);
 
 $doctors = secretary_active_doctors($pdo);
 $nameDict = build_name_transliterations_client_map($pdo);
-$tab = (string) ($_GET['tab'] ?? 'active');
-if ($tab !== 'inactive') {
-    $tab = 'active';
-}
 ensure_outreach_schema($pdo);
 ensure_user_referral_schema($pdo);
-$inactiveContacts = outreach_contacts($pdo);
 $smsPending = 0;
 try {
     $smsPending = (int) $pdo->query("SELECT COUNT(*) FROM sms_outbox WHERE status='PENDING'")->fetchColumn();
 } catch (Throwable $ignored) {
     $smsPending = 0;
 }
-$disabledPatients = $pdo->query("
-  SELECT id, name, username, phone
-  FROM users
-  WHERE role='PATIENT' AND is_disabled=1
-  ORDER BY name ASC
-")->fetchAll() ?: [];
-$accountUsers = $pdo->query("
-  SELECT u.id, u.username, u.name, u.role, u.phone, u.created_at, u.last_login_at,
-         u.referral_source, u.preferred_doctor_id,
-         cu.name AS created_by_name, cu.username AS created_by_username, cu.role AS created_by_role
-  FROM users u
-  LEFT JOIN users cu ON cu.id = u.created_by_user_id
-  WHERE u.is_disabled = 0
-    AND (
-      u.role = 'PATIENT'
-      OR LOWER(u.username) = 'eshahabian'
-      OR (u.name LIKE '%عماد%' AND u.name LIKE '%شهابیان%')
-    )
-  ORDER BY u.created_at DESC
-")->fetchAll() ?: [];
+$accountUsers = secretary_patient_directory($pdo);
 
 $doctorNameById = [];
 foreach ($doctors as $doctor) {
     $doctorNameById[(string) ($doctor['id'] ?? '')] = (string) ($doctor['name'] ?? '');
 }
-$accountIds = array_map(static fn (array $row): string => (string) ($row['id'] ?? ''), $accountUsers);
+$accountIds = [];
+foreach ($accountUsers as $row) {
+    if (($row['kind'] ?? '') === 'user' && (string) ($row['id'] ?? '') !== '') {
+        $accountIds[] = (string) $row['id'];
+    }
+}
 $patientNotes = patient_secretary_notes_grouped($pdo, $accountIds);
 $patientAppts = patient_secretary_appointment_briefs($pdo, $accountIds);
 $patientMore = [];
+$activatePeople = [];
 foreach ($accountUsers as $row) {
     $pid = (string) ($row['id'] ?? '');
+    if ($pid !== '' && secretary_patient_is_inactive($row) && secretary_patient_profile_missing($row)) {
+        $parts = secretary_person_name_parts((string) ($row['name'] ?? ''));
+        $activatePeople[$pid] = [
+            'kind' => (string) ($row['kind'] ?? 'user'),
+            'id' => $pid,
+            'name' => (string) ($row['name'] ?? ''),
+            'first' => $parts['first'],
+            'last' => $parts['last'],
+            'phone' => trim((string) ($row['phone'] ?? '')),
+            'doctor' => (string) ($row['preferred_doctor_id'] ?? ''),
+            'referral' => (string) ($row['referral_source'] ?? ''),
+        ];
+    }
+    if (($row['kind'] ?? '') !== 'user') {
+        continue;
+    }
     $docId = (string) ($row['preferred_doctor_id'] ?? '');
     $createdAt = trim((string) ($row['created_at'] ?? ''));
     $lastLogin = trim((string) ($row['last_login_at'] ?? ''));
@@ -88,15 +86,11 @@ ob_start();
 <div class="secretary-patients-head">
   <div>
     <h1>مراجعه‌کنندگان</h1>
-    <p class="muted" style="margin-top:.35rem;font-size:.9rem">فعال حساب کاربری دارد. غیر فعال فقط نام و شماره است و حساب ساخته نمی‌شود.</p>
+    <p class="muted" style="margin-top:.35rem;font-size:.9rem">همه در همین فهرست هستند. دکمه روشن، وضعیت فعلی است. کاربر غیرفعال تا فعال نشود و پروفایلش ساخته نشود نوبت نمی‌گیرد.</p>
   </div>
 </div>
-<div class="secretary-kind-switch" role="tablist">
-  <button type="button" class="btn <?= $tab === 'active' ? 'btn-primary' : 'btn-outline' ?>" data-patient-kind="active" aria-selected="<?= $tab === 'active' ? 'true' : 'false' ?>">فعال</button>
-  <button type="button" class="btn <?= $tab === 'inactive' ? 'btn-primary' : 'btn-outline' ?>" data-patient-kind="inactive" aria-selected="<?= $tab === 'inactive' ? 'true' : 'false' ?>">غیر فعال</button>
-</div>
 
-<div id="patients-active" <?= $tab === 'inactive' ? 'hidden' : '' ?>>
+<div id="patients-active">
 <form class="panel form-stack secretary-add-patient" method="post" action="<?= e(url('/secretary/patients')) ?>" id="secretary-patient-form">
   <?= csrf_field() ?>
   <p style="margin:0;font-weight:600">مراجعه‌کننده جدید</p>
@@ -113,8 +107,8 @@ ob_start();
   <input class="input" type="search" id="patient-filter" placeholder="نام، فامیل، نام کاربری یا موبایل" autocomplete="off" aria-controls="secretary-account-edit">
 </div>
 
-<h2 style="margin:1rem 0 .35rem;font-size:1.05rem">ویرایش حساب فعال</h2>
-<p class="muted" style="margin:0 0 .75rem;font-size:.9rem">درمانگر، معرف و موبایل همین حساب‌ها از اینجا عوض می‌شود.</p>
+<h2 style="margin:1rem 0 .35rem;font-size:1.05rem">فهرست مراجعه‌کنندگان</h2>
+<p class="muted" style="margin:0 0 .75rem;font-size:.9rem">درمانگر، معرف و موبایل حساب‌های ساخته‌شده از اینجا عوض می‌شود. برای کسی که هنوز پروفایل ندارد، دکمه فعال فرم ثبت‌نام را باز می‌کند.</p>
 <div class="panel admin-users-board" style="padding:0;overflow:auto">
   <table class="table" id="secretary-account-edit">
     <thead>
@@ -144,14 +138,24 @@ ob_start();
               (string) ($u['username'] ?? '') . ' ' . $accountPhone . ' ' . $accountPhoneDigits
           ));
         ?>
-        <tr class="secretary-account-row" data-search="<?= e($accountSearch) ?>">
+        <?php
+          $isUser = ($u['kind'] ?? '') === 'user';
+          $isPatient = strtoupper((string) ($u['role'] ?? '')) === 'PATIENT';
+          $inactive = secretary_patient_is_inactive($u);
+          $needsProfile = secretary_patient_profile_missing($u);
+          $canToggle = $isPatient || !$isUser;
+        ?>
+        <tr class="secretary-account-row<?= $inactive ? ' is-inactive-person' : '' ?>" data-search="<?= e($accountSearch) ?>">
           <td>
             <div class="patient-name-cell">
-              <button type="button" class="patient-more-btn" data-patient-open="<?= e($uid) ?>" aria-label="توضیحات بیشتر درباره <?= e((string) $u['name']) ?>">⋯</button>
+              <?php if ($isUser): ?>
+                <button type="button" class="patient-more-btn" data-patient-open="<?= e($uid) ?>" aria-label="توضیحات بیشتر درباره <?= e((string) $u['name']) ?>">⋯</button>
+              <?php endif; ?>
               <span><?= e((string) $u['name']) ?></span>
             </div>
           </td>
-          <td dir="ltr"><?= e((string) $u['username']) ?></td>
+          <td dir="ltr"><?= $isUser ? e((string) $u['username']) : '<span class="muted">بدون حساب</span>' ?></td>
+          <?php if ($isUser): ?>
           <td>
             <select class="input" name="preferred_doctor_id" form="<?= e($formId) ?>" required aria-label="درمانگر" style="<?= e($compact) ?>">
               <option value="">انتخاب درمانگر</option>
@@ -170,58 +174,61 @@ ob_start();
           <td>
             <input class="input" name="phone" form="<?= e($formId) ?>" dir="ltr" inputmode="tel" value="<?= e((string) ($u['phone'] ?? '')) ?>" required aria-label="موبایل" style="min-width:8rem;padding:.35rem .5rem;font-size:.85rem">
           </td>
+          <?php else: ?>
+          <td class="muted">بعد از فعال‌سازی</td>
+          <td class="muted">بعد از فعال‌سازی</td>
+          <td dir="ltr"><?= e($accountPhone) ?></td>
+          <?php endif; ?>
           <td>
-            <form id="<?= e($formId) ?>" method="post" action="<?= e(url('/secretary/users')) ?>" style="margin:0;display:flex;gap:.35rem;flex-wrap:wrap">
+            <?php if ($isUser): ?>
+            <form id="<?= e($formId) ?>" method="post" action="<?= e(url('/secretary/users')) ?>" style="margin:0 0 .35rem">
               <?= csrf_field() ?>
               <input type="hidden" name="user_id" value="<?= e($uid) ?>">
               <button class="btn btn-primary btn-sm sec-account-action" type="submit">ذخیره</button>
             </form>
-            <form method="post" action="<?= e(url('/secretary/users')) ?>" style="margin:.35rem 0 0">
-              <?= csrf_field() ?>
-              <input type="hidden" name="action" value="set_disabled">
-              <input type="hidden" name="user_id" value="<?= e($uid) ?>">
-              <input type="hidden" name="disabled" value="1">
-              <button class="btn btn-outline btn-sm sec-account-action" type="submit">غیرفعال</button>
-            </form>
+            <?php endif; ?>
+            <?php if ($canToggle): ?>
+            <div class="sec-state-switch" role="group" aria-label="وضعیت <?= e($accountName) ?>">
+              <?php if (!$inactive): ?>
+                <span class="sec-state-btn is-on">فعال</span>
+                <form method="post" action="<?= e(url('/secretary/users')) ?>">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="action" value="set_disabled">
+                  <input type="hidden" name="user_id" value="<?= e($uid) ?>">
+                  <input type="hidden" name="disabled" value="1">
+                  <button class="sec-state-btn" type="submit">غیرفعال</button>
+                </form>
+              <?php else: ?>
+                <?php if ($needsProfile): ?>
+                  <button class="sec-state-btn" type="button" data-open-activate="<?= e($uid) ?>">فعال</button>
+                <?php else: ?>
+                  <form method="post" action="<?= e(url('/secretary/users')) ?>">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="set_disabled">
+                    <input type="hidden" name="user_id" value="<?= e($uid) ?>">
+                    <input type="hidden" name="disabled" value="0">
+                    <button class="sec-state-btn" type="submit">فعال</button>
+                  </form>
+                <?php endif; ?>
+                <span class="sec-state-btn is-on is-inactive">غیرفعال</span>
+              <?php endif; ?>
+            </div>
+            <?php endif; ?>
           </td>
         </tr>
       <?php endforeach; ?>
       <?php if (!$accountUsers): ?>
-        <tr><td colspan="6" class="muted" style="text-align:center;padding:1.2rem">حساب فعالی نیست.</td></tr>
+        <tr><td colspan="6" class="muted" style="text-align:center;padding:1.2rem">مراجعه‌کننده‌ای نیست.</td></tr>
       <?php endif; ?>
     </tbody>
   </table>
 </div>
 <p class="muted" id="patient-filter-empty" hidden>موردی با این جستجو نیست.</p>
-<h2 style="margin:1.25rem 0 .35rem;font-size:1.05rem">حساب‌های غیرفعال</h2>
-<p class="muted" style="margin:0 0 .75rem">اگر مراجعه‌کننده مدتی نمی‌آید، حسابش اینجاست. فعال کردن همان حساب را برمی‌گرداند.</p>
-<?php if (!$disabledPatients): ?>
-  <p class="muted">حساب غیرفعالی نیست.</p>
-<?php else: ?>
-  <div class="stack">
-    <?php foreach ($disabledPatients as $inactive): ?>
-      <div class="panel" style="margin:0;display:flex;justify-content:space-between;gap:.75rem;align-items:center">
-        <div>
-          <strong><?= e((string) $inactive['name']) ?></strong>
-          <div class="muted" style="font-size:.85rem"><?= e((string) ($inactive['username'] ?? '')) ?> · <?= e((string) ($inactive['phone'] ?? '')) ?></div>
-        </div>
-        <form method="post" action="<?= e(url('/secretary/users')) ?>" style="margin:0">
-          <?= csrf_field() ?>
-          <input type="hidden" name="action" value="set_disabled">
-          <input type="hidden" name="user_id" value="<?= e((string) $inactive['id']) ?>">
-          <input type="hidden" name="disabled" value="0">
-          <button class="btn btn-primary btn-sm" type="submit">فعال</button>
-        </form>
-      </div>
-    <?php endforeach; ?>
-  </div>
-<?php endif; ?>
 </div>
 
-<div id="patients-inactive" <?= $tab === 'active' ? 'hidden' : '' ?>>
-  <p class="muted" style="margin:1rem 0 0;line-height:1.8">
-    اسم و شماره بدون ساختن حساب کاربری ذخیره می‌شود.
-    اگر بعداً با همین شماره ثبت‌نام کنند، همین ردیف به حسابشان وصل می‌شود.
+<div id="outreach-tools">
+  <p class="muted" style="margin:1.25rem 0 0;line-height:1.8">
+    اگر فقط نام و شماره دارید، اینجا ذخیره می‌شود و همان نفر بالای فهرست با وضعیت غیرفعال دیده می‌شود.
     پیامک در صف: <?= e(to_fa_digits((string) $smsPending)) ?>
   </p>
   <div class="grid-2" style="margin-top:1rem">
@@ -259,40 +266,6 @@ ob_start();
     <textarea class="input" name="body" rows="3" required placeholder="متن پیامک، مثلاً اعلام یک کارگاه"></textarea>
     <button class="btn btn-primary" type="submit" style="margin-top:.75rem">گذاشتن در صف پیامک</button>
   </form>
-  <div class="panel" style="padding:0;overflow:auto;margin-top:1rem">
-    <table class="table">
-      <thead>
-        <tr>
-          <th>نام</th>
-          <th>شماره</th>
-          <th>حساب سایت</th>
-          <th>یادداشت</th>
-          <th></th>
-        </tr>
-      </thead>
-      <tbody>
-        <?php if (!$inactiveContacts): ?>
-          <tr><td colspan="5" class="muted">هنوز شماره‌ای ثبت نشده است.</td></tr>
-        <?php endif; ?>
-        <?php foreach ($inactiveContacts as $row): ?>
-          <tr>
-            <td><?= e((string) $row['name']) ?></td>
-            <td dir="ltr"><?= e((string) $row['phone']) ?></td>
-            <td><?= !empty($row['linked_user_id']) ? 'وصل به ' . e((string) ($row['linked_name'] ?: 'حساب')) : 'هنوز حساب ندارد' ?></td>
-            <td><?= e((string) ($row['note'] ?? '')) ?></td>
-            <td>
-              <form method="post" action="<?= e(url('/secretary/patients')) ?>" onsubmit="return confirm('این شماره از فهرست حذف شود؟');">
-                <?= csrf_field() ?>
-                <input type="hidden" name="action" value="delete_inactive">
-                <input type="hidden" name="id" value="<?= e((string) $row['id']) ?>">
-                <button class="btn btn-outline btn-sm" type="submit">حذف</button>
-              </form>
-            </td>
-          </tr>
-        <?php endforeach; ?>
-      </tbody>
-    </table>
-  </div>
 </div>
 <script type="application/json" id="patient-more-data"><?= json_encode($patientMore, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_FORCE_OBJECT) ?></script>
 <div class="patient-more-modal" id="patient-more-modal" hidden>
@@ -329,6 +302,98 @@ ob_start();
     </form>
   </div>
 </div>
+<script type="application/json" id="patient-activate-data"><?= json_encode($activatePeople, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_FORCE_OBJECT) ?></script>
+<div class="patient-more-modal" id="patient-activate-modal" hidden>
+  <div class="patient-more-backdrop" data-activate-close></div>
+  <div class="patient-more-panel" role="dialog" aria-modal="true" aria-labelledby="patient-activate-title">
+    <div class="patient-more-head">
+      <h2 id="patient-activate-title">ثبت‌نام و ساخت پروفایل</h2>
+      <button type="button" class="patient-more-close" data-activate-close aria-label="بستن">×</button>
+    </div>
+    <p class="muted" id="patient-activate-lead" style="margin:.7rem 0 0;line-height:1.7">تا این فرم ذخیره نشود، کاربر فعال نمی‌شود و نوبت برایش ثبت نمی‌شود.</p>
+    <form id="patient-activate-register" class="form-stack" method="post" action="<?= e(url('/secretary/patients')) ?>" hidden style="margin-top:1rem">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="activate_contact">
+      <input type="hidden" name="outreach_id" id="act-outreach-id" value="">
+      <div class="grid-2">
+        <div>
+          <label class="label" for="act_first_name">نام</label>
+          <input class="input" name="new_first_name" id="act_first_name" required>
+        </div>
+        <div>
+          <label class="label" for="act_name_en">name</label>
+          <input class="input" name="new_name_en" id="act_name_en" dir="ltr" required>
+        </div>
+        <div>
+          <label class="label" for="act_last_name">نام خانوادگی</label>
+          <input class="input" name="new_last_name" id="act_last_name" required>
+        </div>
+        <div>
+          <label class="label" for="act_surname">surname</label>
+          <input class="input" name="new_surname" id="act_surname" dir="ltr" required>
+        </div>
+        <div style="grid-column:1/-1">
+          <label class="label" for="act_doctor">درمانگر</label>
+          <select class="input" name="new_preferred_doctor_id" id="act_doctor" required>
+            <option value="">انتخاب درمانگر</option>
+            <?php foreach ($doctors as $doctor): ?>
+              <option value="<?= e((string) $doctor['id']) ?>"><?= e((string) $doctor['name']) ?></option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <div style="grid-column:1/-1">
+          <label class="label" for="act_referral">معرف</label>
+          <?php echo user_referral_options_html('new_referral_source', 'act_referral', '', true); ?>
+        </div>
+        <div style="grid-column:1/-1">
+          <label class="label" for="act_phone">موبایل</label>
+          <input class="input" name="new_phone" id="act_phone" dir="ltr" inputmode="tel" required>
+        </div>
+        <div style="grid-column:1/-1">
+          <label class="label" for="act_username">نام کاربری</label>
+          <div style="display:flex;gap:.5rem">
+            <input class="input" name="new_username" id="act_username" dir="ltr" required style="flex:1">
+            <button type="button" class="btn btn-outline" id="act-suggest-username">پیشنهاد</button>
+          </div>
+          <p class="muted" id="act-username-hint" style="margin:.4rem 0 0;font-size:.8rem"></p>
+        </div>
+        <div>
+          <label class="label" for="act_password">رمز عبور</label>
+          <input class="input" name="new_password" id="act_password" type="password" dir="ltr" minlength="6" required>
+        </div>
+        <div>
+          <label class="label" for="act_password_confirm">تکرار رمز عبور</label>
+          <input class="input" name="new_password_confirm" id="act_password_confirm" type="password" dir="ltr" minlength="6" required>
+        </div>
+      </div>
+      <p id="act-register-error" style="color:var(--danger);display:none;font-size:.9rem"></p>
+      <button class="btn btn-primary" type="submit">ساخت پروفایل و فعال‌سازی</button>
+    </form>
+    <form id="patient-activate-profile" class="form-stack" method="post" action="<?= e(url('/secretary/patients')) ?>" hidden style="margin-top:1rem">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="activate_profile">
+      <input type="hidden" name="user_id" id="act-user-id" value="">
+      <label>
+        <span class="label">موبایل</span>
+        <input class="input" name="legacy_phone" id="act-legacy-phone" dir="ltr" inputmode="tel" required>
+      </label>
+      <label style="display:block;margin-top:.6rem">
+        <span class="label">درمانگر</span>
+        <select class="input" name="legacy_doctor_id" id="act-legacy-doctor" required>
+          <option value="">انتخاب درمانگر</option>
+          <?php foreach ($doctors as $doctor): ?>
+            <option value="<?= e((string) $doctor['id']) ?>"><?= e((string) $doctor['name']) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </label>
+      <label style="display:block;margin-top:.6rem">
+        <span class="label">معرف</span>
+        <?php echo user_referral_options_html('legacy_referral', 'act-legacy-referral', '', true); ?>
+      </label>
+      <button class="btn btn-primary" type="submit" style="margin-top:.9rem">ذخیره پروفایل و فعال‌سازی</button>
+    </form>
+  </div>
+</div>
 <?php
 $inner = ob_get_clean();
 $pageScripts = '
@@ -352,25 +417,6 @@ $pageScripts = '
       if (!validateSecretaryNewPatient(errEl)) e.preventDefault();
     });
   }
-
-  var activePanel = document.getElementById("patients-active");
-  var inactivePanel = document.getElementById("patients-inactive");
-  var kindButtons = document.querySelectorAll("[data-patient-kind]");
-  function showKind(kind){
-    if (activePanel) activePanel.hidden = kind !== "active";
-    if (inactivePanel) inactivePanel.hidden = kind !== "inactive";
-    kindButtons.forEach(function(btn){
-      var on = btn.getAttribute("data-patient-kind") === kind;
-      btn.classList.toggle("btn-primary", on);
-      btn.classList.toggle("btn-outline", !on);
-      btn.setAttribute("aria-selected", on ? "true" : "false");
-    });
-  }
-  kindButtons.forEach(function(btn){
-    btn.addEventListener("click", function(){
-      showKind(btn.getAttribute("data-patient-kind") || "active");
-    });
-  });
 
   var input = document.getElementById("patient-filter");
   var rows = document.querySelectorAll("#secretary-account-edit .secretary-account-row");
@@ -498,9 +544,127 @@ $pageScripts = '
   if (openId && more[openId]) openMore(openId);
 })();
 </script>
+<script>
+(function(){
+  var dataEl = document.getElementById("patient-activate-data");
+  var modal = document.getElementById("patient-activate-modal");
+  var registerForm = document.getElementById("patient-activate-register");
+  var profileForm = document.getElementById("patient-activate-profile");
+  var title = document.getElementById("patient-activate-title");
+  var lead = document.getElementById("patient-activate-lead");
+  var people = {};
+  if (!dataEl || !modal || !registerForm || !profileForm) return;
+  try { people = JSON.parse(dataEl.textContent || "{}") || {}; } catch (err) { people = {}; }
+  if (window.bindNameTransliteration) {
+    bindNameTransliteration({
+      firstName: document.getElementById("act_first_name"),
+      lastName: document.getElementById("act_last_name"),
+      nameEn: document.getElementById("act_name_en"),
+      surname: document.getElementById("act_surname"),
+      username: document.getElementById("act_username"),
+      usernameHint: document.getElementById("act-username-hint"),
+      suggestBtn: document.getElementById("act-suggest-username"),
+      transliterateUrl: ' . json_encode(url('/api/transliterate-name')) . ',
+      nameDict: ' . json_encode($nameDict, JSON_UNESCAPED_UNICODE) . '
+    });
+  }
+  if (window.enhanceSearchSelect) {
+    enhanceSearchSelect(document.getElementById("act_doctor"), { placeholder: "جستجو یا انتخاب درمانگر" });
+    enhanceSearchSelect(document.getElementById("act-legacy-doctor"), { placeholder: "جستجو یا انتخاب درمانگر" });
+  }
+  function closeActivate() {
+    modal.hidden = true;
+    modal.classList.remove("is-open");
+    if (!document.getElementById("patient-more-modal") || document.getElementById("patient-more-modal").hidden) {
+      document.body.classList.remove("patient-more-locked");
+    }
+  }
+  function openActivate(id) {
+    var row = people[id];
+    if (!row) return;
+    var outreach = row.kind === "outreach";
+    registerForm.hidden = !outreach;
+    profileForm.hidden = outreach;
+    if (title) title.textContent = outreach ? "ثبت‌نام و ساخت پروفایل" : "تکمیل پروفایل و فعال‌سازی";
+    if (lead) {
+      lead.textContent = outreach
+        ? "این نفر هنوز حساب ندارد. تا این فرم ذخیره نشود فعال نمی‌شود و نوبت برایش ثبت نمی‌شود."
+        : "پروفایل این حساب ناقص است. درمانگر، معرف و موبایل را ذخیره کنید تا فعال شود.";
+    }
+    if (outreach) {
+      var outreachId = document.getElementById("act-outreach-id");
+      var first = document.getElementById("act_first_name");
+      var last = document.getElementById("act_last_name");
+      var phone = document.getElementById("act_phone");
+      if (outreachId) outreachId.value = row.id || "";
+      if (first) first.value = row.first || "";
+      if (last) last.value = row.last || "";
+      if (phone) phone.value = row.phone || "";
+      if (first) first.dispatchEvent(new Event("input", { bubbles: true }));
+      if (last) last.dispatchEvent(new Event("input", { bubbles: true }));
+    } else {
+      var userId = document.getElementById("act-user-id");
+      var legacyPhone = document.getElementById("act-legacy-phone");
+      var legacyDoctor = document.getElementById("act-legacy-doctor");
+      var legacyReferral = document.getElementById("act-legacy-referral");
+      if (userId) userId.value = row.id || "";
+      if (legacyPhone) legacyPhone.value = row.phone || "";
+      if (legacyDoctor) legacyDoctor.value = row.doctor || "";
+      if (legacyReferral) legacyReferral.value = row.referral || "";
+    }
+    modal.hidden = false;
+    modal.classList.add("is-open");
+    document.body.classList.add("patient-more-locked");
+  }
+  document.querySelectorAll("[data-open-activate]").forEach(function(btn){
+    btn.addEventListener("click", function(){
+      openActivate(btn.getAttribute("data-open-activate") || "");
+    });
+  });
+  modal.querySelectorAll("[data-activate-close]").forEach(function(el){
+    el.addEventListener("click", closeActivate);
+  });
+  document.addEventListener("keydown", function(e){
+    if (e.key === "Escape" && !modal.hidden) closeActivate();
+  });
+  registerForm.addEventListener("submit", function(e){
+    var err = document.getElementById("act-register-error");
+    function fail(msg, el) {
+      e.preventDefault();
+      if (err) { err.textContent = msg; err.style.display = "block"; }
+      if (el && el.focus) el.focus();
+    }
+    var first = document.getElementById("act_first_name");
+    var last = document.getElementById("act_last_name");
+    var nameEn = document.getElementById("act_name_en");
+    var surname = document.getElementById("act_surname");
+    var doctor = document.getElementById("act_doctor");
+    var referral = document.getElementById("act_referral");
+    var phone = document.getElementById("act_phone");
+    var username = document.getElementById("act_username");
+    var pass = document.getElementById("act_password");
+    var pass2 = document.getElementById("act_password_confirm");
+    if (!first || !first.value.trim() || !last || !last.value.trim()) return fail("نام و نام خانوادگی لازم است.", first && first.value.trim() ? last : first);
+    if (!nameEn || !nameEn.value.trim() || !surname || !surname.value.trim()) return fail("name و surname لازم است.", nameEn);
+    if (!doctor || !doctor.value) return fail("درمانگر را انتخاب کنید.", doctor);
+    if (!referral || !referral.value) return fail("معرف را انتخاب کنید.", referral);
+    if (!phone || !window.manaIsValidPhone || !manaIsValidPhone(phone.value.trim())) return fail("موبایل معتبر وارد کنید.", phone);
+    var user = username ? username.value.trim().toLowerCase() : "";
+    if (!/^[a-z0-9._-]{3,32}$/.test(user)) return fail("نام کاربری انگلیسی، ۳ تا ۳۲ کاراکتر.", username);
+    if (!pass || pass.value.length < 6) return fail("رمز حداقل ۶ کاراکتر باشد.", pass);
+    if (!pass2 || pass.value !== pass2.value) return fail("رمز و تکرار آن یکسان نیست.", pass2);
+    if (err) err.style.display = "none";
+  });
+})();
+</script>
 ';
 $pageHead = ($pageHead ?? '') . '<style>
 #secretary-account-edit .sec-account-action{width:6.25rem;height:2.4rem;flex:0 0 6.25rem;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;text-align:center;white-space:nowrap;line-height:1.2;padding:.35rem .5rem}
+.sec-state-switch{display:inline-flex;border:1px solid rgba(26,46,40,.16);border-radius:999px;overflow:hidden;background:#f3f6f5}
+.sec-state-switch form{margin:0;display:flex}
+.sec-state-btn{border:0;background:transparent;color:#3d5560;padding:.4rem .75rem;font:inherit;font-size:.82rem;cursor:pointer;min-width:4.4rem}
+.sec-state-btn.is-on{background:#1a5c4a;color:#fff;cursor:default}
+.sec-state-btn.is-on.is-inactive{background:#8b9390;color:#fff}
 .patient-name-cell{display:flex;align-items:center;justify-content:flex-start;gap:.35rem}
 .patient-more-btn{border:0;background:transparent;color:#3d5560;font-size:1.25rem;line-height:1;padding:.1rem .35rem;border-radius:.45rem;cursor:pointer;letter-spacing:.08em}
 .patient-more-btn:hover,.patient-more-btn:focus-visible{background:rgba(26,92,74,.1);outline:none}

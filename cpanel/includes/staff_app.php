@@ -2322,7 +2322,7 @@ function staff_app_render(string $active, string $title, string $description, st
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20261012form">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20261013pat">
   <?php if (!empty($GLOBALS['pageHead'])): ?>
     <?= $GLOBALS['pageHead'] ?>
   <?php endif; ?>

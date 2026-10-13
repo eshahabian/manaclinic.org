@@ -54,6 +54,20 @@ if ($patientId === '') {
     $patientId = (string) $created['id'];
 }
 
+if (str_starts_with($patientId, 'outreach:')) {
+    flash_set('error', 'این کاربر غیرفعال است. اول از فهرست مراجعه‌کنندگان فعالش کنید.');
+    $bookRedirect('/secretary/appointments?tab=new');
+}
+if ($patientId !== '') {
+    $account = $pdo->prepare('SELECT is_disabled FROM users WHERE id=? LIMIT 1');
+    $account->execute([$patientId]);
+    $accountRow = $account->fetch();
+    if ($accountRow && (int) ($accountRow['is_disabled'] ?? 0) === 1) {
+        flash_set('error', 'این کاربر غیرفعال است. اول از فهرست مراجعه‌کنندگان فعالش کنید.');
+        $bookRedirect('/secretary/appointments?tab=new');
+    }
+}
+
 if ($patientId !== '' && function_exists('secretary_complete_patient_profile')) {
     $setupError = secretary_complete_patient_profile($pdo, $patientId);
     if ($setupError !== null) {

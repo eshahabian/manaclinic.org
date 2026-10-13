@@ -6,7 +6,7 @@ if (empty($secretaryBookEmbedded)) {
     redirect('/secretary/appointments?tab=new');
 }
 
-$patients = secretary_bookable_patients($pdo);
+$patients = secretary_patient_directory($pdo);
 $doctors = secretary_active_doctors($pdo);
 $nameDict = build_name_transliterations_client_map($pdo);
 
@@ -101,12 +101,15 @@ ob_start();
           $savedReferral = function_exists('user_referral_normalize')
               ? (user_referral_normalize((string) ($p['referral_source'] ?? '')) ?? '')
               : '';
-          $needsSetup = function_exists('secretary_patient_needs_setup') && secretary_patient_needs_setup($p);
-          if ($needsSetup) {
-              $label .= ' — غیرفعال، تکمیل پروفایل لازم است';
+          $inactive = function_exists('secretary_patient_is_inactive') && secretary_patient_is_inactive($p);
+          $needsSetup = !$inactive && function_exists('secretary_patient_needs_setup') && secretary_patient_needs_setup($p);
+          if ($inactive) {
+              $label .= ' — غیرفعال';
+          } elseif ($needsSetup) {
+              $label .= ' — تکمیل پروفایل لازم است';
           }
         ?>
-        <option value="<?= e($p['id']) ?>" data-search="<?= e($searchBits) ?>" data-referral="<?= e($savedReferral) ?>" data-needs-setup="<?= $needsSetup ? '1' : '0' ?>" data-phone="<?= e($phone) ?>" data-doctor="<?= e((string) ($p['preferred_doctor_id'] ?? '')) ?>"><?= e($label) ?></option>
+        <option value="<?= e((string) ($p['book_id'] ?? $p['id'])) ?>" data-search="<?= e($searchBits) ?>" data-referral="<?= e($savedReferral) ?>" data-needs-setup="<?= $needsSetup ? '1' : '0' ?>" data-inactive="<?= $inactive ? '1' : '0' ?>" data-muted="<?= $inactive ? '1' : '0' ?>" data-phone="<?= e($phone) ?>" data-doctor="<?= e((string) ($p['preferred_doctor_id'] ?? '')) ?>"><?= e($label) ?></option>
       <?php endforeach; ?>
     </select>
     <p class="muted" style="margin:.35rem 0 0;font-size:.8rem">در باکس بالا نام، نام کاربری یا شماره موبایل را تایپ کنید.</p>
@@ -210,11 +213,22 @@ ob_start();
   <p id="sec-error" style="color:var(--danger);display:none;font-size:.9rem"></p>
   <button class="btn btn-primary" type="submit">ثبت نوبت (تأیید شده)</button>
 </form>
+<div class="patient-more-modal" id="inactive-patient-modal" hidden>
+  <div class="patient-more-backdrop" data-inactive-close></div>
+  <div class="patient-more-panel" role="dialog" aria-modal="true" aria-labelledby="inactive-patient-title">
+    <div class="patient-more-head">
+      <h2 id="inactive-patient-title">اول کاربر را فعال کنید</h2>
+      <button type="button" class="patient-more-close" data-inactive-close aria-label="بستن">×</button>
+    </div>
+    <p style="margin:.8rem 0 0;line-height:1.8">این مراجعه‌کننده غیرفعال است. تا از فهرست مراجعه‌کنندگان دکمه فعال زده شود و پروفایلش ساخته شود، نوبت ثبت نمی‌شود.</p>
+    <p style="margin:1rem 0 0"><a class="btn btn-primary btn-sm" href="<?= e(url('/secretary/patients')) ?>">رفتن به مراجعه‌کنندگان</a></p>
+  </div>
+</div>
 <?php
 $secretaryBookFormHtml = ob_get_clean();
 
 $secretaryBookScripts = '
-<script src="' . e(url('/assets/js/search-select.js')) . '?v=20260916c"></script>
+<script src="' . e(url('/assets/js/search-select.js')) . '?v=20261013pat"></script>
 <script src="' . e(url('/assets/js/name-transliterate.js')) . '?v=20260906p"></script>
 <script src="' . e(url('/assets/js/form-draft.js')) . '?v=20260906p"></script>
 <script src="' . e(url('/assets/js/secretary-patient-form.js')) . '?v=20261007ref"></script>
@@ -340,7 +354,40 @@ $secretaryBookScripts = '
       if (legacyReferral && opt.getAttribute("data-referral")) legacyReferral.value = opt.getAttribute("data-referral");
     }
   }
+  var inactiveModal = document.getElementById("inactive-patient-modal");
+  function selectedPatientInactive() {
+    if (!patientEl || !patientEl.value) return false;
+    var opt = patientEl.options[patientEl.selectedIndex];
+    return !!(opt && (opt.getAttribute("data-inactive") === "1" || String(patientEl.value).indexOf("outreach:") === 0));
+  }
+  function closeInactiveModal() {
+    if (!inactiveModal) return;
+    inactiveModal.hidden = true;
+    inactiveModal.classList.remove("is-open");
+    document.body.classList.remove("patient-more-locked");
+  }
+  function openInactiveModal() {
+    if (!inactiveModal) return;
+    inactiveModal.hidden = false;
+    inactiveModal.classList.add("is-open");
+    document.body.classList.add("patient-more-locked");
+  }
+  if (inactiveModal) {
+    inactiveModal.querySelectorAll("[data-inactive-close]").forEach(function (el) {
+      el.addEventListener("click", closeInactiveModal);
+    });
+    document.addEventListener("keydown", function (e) {
+      if (e.key === "Escape" && !inactiveModal.hidden) closeInactiveModal();
+    });
+  }
   patientEl.addEventListener("change", function(){
+    if (selectedPatientInactive()) {
+      openInactiveModal();
+      patientEl.value = "";
+      syncLegacySetup();
+      syncReferralRule();
+      return;
+    }
     syncLegacySetup();
     if (patientEl.value) {
       firstNameEl.value = "";
@@ -736,6 +783,12 @@ $secretaryBookScripts = '
 
   form.addEventListener("submit", function(e){
     var patientId = patientEl.value;
+    if (selectedPatientInactive() || String(patientId || "").indexOf("outreach:") === 0) {
+      e.preventDefault();
+      openInactiveModal();
+      patientEl.value = "";
+      return;
+    }
     var newName = ((firstNameEl.value || "").trim() + " " + (lastNameEl.value || "").trim()).trim();
     if (!patientId && !newName) {
       e.preventDefault();

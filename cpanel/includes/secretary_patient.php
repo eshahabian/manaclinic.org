@@ -150,6 +150,172 @@ function secretary_bookable_patients(PDO $pdo): array
     ")->fetchAll() ?: [];
 }
 
+function secretary_person_name_key(string $name): string
+{
+    $name = str_replace(["\u{200c}", 'ي', 'ك', 'ة', 'أ', 'إ', 'آ'], [' ', 'ی', 'ک', 'ه', 'ا', 'ا', 'ا'], trim($name));
+    $name = preg_replace('/\s+/u', ' ', $name) ?? $name;
+
+    return mb_strtolower($name);
+}
+
+/** @return array{first:string,last:string} */
+function secretary_person_name_parts(string $name): array
+{
+    $parts = preg_split('/\s+/u', trim($name), 2, PREG_SPLIT_NO_EMPTY) ?: [];
+
+    return [
+        'first' => (string) ($parts[0] ?? ''),
+        'last' => (string) ($parts[1] ?? ''),
+    ];
+}
+
+function secretary_patient_is_inactive(array $row): bool
+{
+    if (($row['kind'] ?? '') === 'outreach' || str_starts_with((string) ($row['book_id'] ?? ''), 'outreach:')) {
+        return true;
+    }
+
+    return (int) ($row['is_disabled'] ?? 0) === 1;
+}
+
+/** درمانگر، معرف یا موبایل ندارد، یا هنوز اصلاً حساب ساخته نشده. */
+function secretary_patient_profile_missing(array $row): bool
+{
+    if (($row['kind'] ?? '') === 'outreach') {
+        return true;
+    }
+    if (strtoupper((string) ($row['role'] ?? '')) !== 'PATIENT') {
+        return false;
+    }
+    if (trim((string) ($row['phone'] ?? '')) === '') {
+        return true;
+    }
+    if (trim((string) ($row['preferred_doctor_id'] ?? '')) === '') {
+        return true;
+    }
+    if (!function_exists('user_referral_normalize')) {
+        require_once __DIR__ . '/user_referral.php';
+    }
+
+    return user_referral_normalize((string) ($row['referral_source'] ?? '')) === null;
+}
+
+/**
+ * یک فهرست برای همه: حساب فعال، حساب غیرفعال، و نام‌وشماره بدون حساب.
+ * اگر همان شخص هم حساب دارد و هم در فهرست نام‌وشماره مانده، فقط حسابش برمی‌گردد.
+ *
+ * @return list<array<string,mixed>>
+ */
+function secretary_patient_directory(PDO $pdo): array
+{
+    if (!function_exists('ensure_user_referral_schema')) {
+        require_once __DIR__ . '/user_referral.php';
+    }
+    ensure_user_referral_schema($pdo);
+    if (!function_exists('ensure_outreach_schema')) {
+        require_once __DIR__ . '/outreach.php';
+    }
+    ensure_outreach_schema($pdo);
+
+    $users = $pdo->query("
+      SELECT u.id, u.username, u.name, u.role, u.phone, u.is_disabled, u.created_at, u.last_login_at,
+             u.referral_source, u.preferred_doctor_id,
+             du.name AS doctor_name,
+             cu.name AS created_by_name, cu.username AS created_by_username, cu.role AS created_by_role
+      FROM users u
+      LEFT JOIN users cu ON cu.id = u.created_by_user_id
+      LEFT JOIN doctor_profiles dp ON dp.id = u.preferred_doctor_id
+      LEFT JOIN users du ON du.id = dp.user_id
+      WHERE u.role = 'PATIENT'
+         OR LOWER(u.username) = 'eshahabian'
+         OR (u.name LIKE '%عماد%' AND u.name LIKE '%شهابیان%')
+      ORDER BY u.name ASC
+    ")->fetchAll() ?: [];
+
+    $rows = [];
+    $byId = [];
+    $byPhone = [];
+    $nameOwners = [];
+    foreach ($users as $user) {
+        if (!is_array($user)) {
+            continue;
+        }
+        $id = (string) ($user['id'] ?? '');
+        if ($id === '') {
+            continue;
+        }
+        $user['kind'] = 'user';
+        $user['book_id'] = $id;
+        $rows[] = $user;
+        $byId[$id] = true;
+        $phone = normalize_phone((string) ($user['phone'] ?? ''));
+        if ($phone !== '') {
+            $byPhone[$phone] = $id;
+        }
+        $nameKey = secretary_person_name_key((string) ($user['name'] ?? ''));
+        if ($nameKey !== '') {
+            $nameOwners[$nameKey][] = $id;
+        }
+    }
+
+    foreach (outreach_contacts($pdo) as $contact) {
+        if (!is_array($contact)) {
+            continue;
+        }
+        $contactId = (string) ($contact['id'] ?? '');
+        $linked = trim((string) ($contact['linked_user_id'] ?? ''));
+        $phone = normalize_phone((string) ($contact['phone'] ?? ''));
+        $nameKey = secretary_person_name_key((string) ($contact['name'] ?? ''));
+        $matchedUser = '';
+        $matchByPhone = false;
+        if ($linked !== '' && isset($byId[$linked])) {
+            $matchedUser = $linked;
+        } elseif ($phone !== '' && isset($byPhone[$phone])) {
+            $matchedUser = $byPhone[$phone];
+            $matchByPhone = true;
+        } elseif ($nameKey !== '' && count($nameOwners[$nameKey] ?? []) === 1) {
+            $matchedUser = (string) $nameOwners[$nameKey][0];
+        }
+        if ($matchedUser !== '') {
+            if ($matchByPhone && $linked !== $matchedUser && $contactId !== '') {
+                try {
+                    $pdo->prepare('UPDATE outreach_contacts SET linked_user_id=? WHERE id=?')->execute([$matchedUser, $contactId]);
+                } catch (Throwable $ignored) {
+                }
+            }
+            continue;
+        }
+        if ($contactId === '') {
+            continue;
+        }
+        $rows[] = [
+            'kind' => 'outreach',
+            'id' => $contactId,
+            'book_id' => 'outreach:' . $contactId,
+            'username' => '',
+            'name' => (string) ($contact['name'] ?? ''),
+            'role' => '',
+            'phone' => (string) ($contact['phone'] ?? ''),
+            'is_disabled' => 1,
+            'created_at' => (string) ($contact['created_at'] ?? ''),
+            'last_login_at' => '',
+            'referral_source' => '',
+            'preferred_doctor_id' => '',
+            'doctor_name' => '',
+            'created_by_name' => '',
+            'created_by_username' => '',
+            'created_by_role' => '',
+            'note' => (string) ($contact['note'] ?? ''),
+        ];
+    }
+
+    usort($rows, static function (array $a, array $b): int {
+        return strnatcasecmp((string) ($a['name'] ?? ''), (string) ($b['name'] ?? ''));
+    });
+
+    return $rows;
+}
+
 /** حساب قدیمی، غیرفعال، یا بدون درمانگر و معرف و موبایل. */
 function secretary_patient_needs_setup(array $row): bool
 {
