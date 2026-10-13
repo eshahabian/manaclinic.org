@@ -32,6 +32,62 @@ foreach ($rows as $row) {
     }
 }
 $maxYear = doctor_current_jalali_year();
+if (!function_exists('build_name_transliterations_client_map')) {
+    require_once __DIR__ . '/../../includes/name_transliterations.php';
+}
+$nameDict = build_name_transliterations_client_map($pdo);
+ensure_doctor_profile_schema($pdo);
+if (function_exists('ensure_users_gender_schema')) {
+    ensure_users_gender_schema($pdo);
+}
+$editId = trim((string) ($_GET['edit'] ?? ''));
+$editForm = null;
+if ($editId !== '') {
+    $editStmt = $pdo->prepare("SELECT id, username, name, email, phone, gender FROM users WHERE id=? AND role='DOCTOR' LIMIT 1");
+    $editStmt->execute([$editId]);
+    $editUser = $editStmt->fetch();
+    if (!$editUser) {
+        flash_set('error', 'درمانگر پیدا نشد.');
+        redirect('/secretary/therapists');
+    }
+    $profileStmt = $pdo->prepare('SELECT * FROM doctor_profiles WHERE user_id=? LIMIT 1');
+    $profileStmt->execute([$editId]);
+    $editProfile = $profileStmt->fetch() ?: [];
+    $editName = trim((string) ($editUser['name'] ?? ''));
+    $editParts = preg_split('/\s+/u', $editName, 2, PREG_SPLIT_NO_EMPTY) ?: [];
+    $editFirst = (string) ($editParts[0] ?? '');
+    $editLast = (string) ($editParts[1] ?? '');
+    $editNameEn = ($editFirst !== '' && function_exists('transliterate_persian_name'))
+        ? (string) transliterate_persian_name($pdo, $editFirst, 'first')
+        : '';
+    $editSurname = ($editLast !== '' && function_exists('transliterate_persian_name'))
+        ? (string) transliterate_persian_name($pdo, $editLast, 'last')
+        : '';
+    $editYear = (int) ($editProfile['started_year'] ?? 0);
+    $editPrice = (int) ($editProfile['session_price'] ?? 0);
+    $editForm = [
+        'id' => $editId,
+        'first_name' => $editFirst,
+        'last_name' => $editLast,
+        'name_en' => $editNameEn,
+        'surname' => $editSurname,
+        'phone' => (string) ($editUser['phone'] ?? ''),
+        'email' => (string) ($editUser['email'] ?? ''),
+        'username' => (string) ($editUser['username'] ?? ''),
+        'gender' => (string) ($editUser['gender'] ?? ''),
+        'degree' => (string) ($editProfile['degree'] ?? ''),
+        'license_no' => (string) ($editProfile['license_no'] ?? ''),
+        'started_year' => $editYear > 0 ? (string) $editYear : '',
+        'session_price' => $editPrice > 0 ? (string) $editPrice : '',
+        'courses' => (string) ($editProfile['courses'] ?? ''),
+        'bio' => (string) ($editProfile['bio'] ?? ''),
+        'avatar_url' => (string) ($editProfile['avatar_url'] ?? ''),
+        'approaches' => doctor_profile_json_list($editProfile['approaches_json'] ?? ''),
+        'domains' => doctor_profile_json_list($editProfile['domains_json'] ?? ''),
+        'focus' => doctor_profile_json_list($editProfile['focus_json'] ?? ''),
+    ];
+}
+$showForm = $editForm !== null || $showAdd;
 
 ob_start();
 ?>
@@ -65,12 +121,15 @@ ob_start();
           <em>غیرفعال</em>
         </div>
       <?php endif; ?>
-      <form method="post" action="<?= e(url('/secretary/therapists')) ?>">
-        <?= csrf_field() ?>
-        <input type="hidden" name="user_id" value="<?= e((string) $row['user_id']) ?>">
-        <input type="hidden" name="active" value="<?= $on ? '0' : '1' ?>">
-        <button class="btn btn-outline btn-sm" type="submit"><?= $on ? 'غیرفعال' : 'فعال' ?></button>
-      </form>
+      <div class="therapist-card-actions">
+        <a class="btn btn-outline btn-sm" href="<?= e(url('/secretary/therapists?edit=' . rawurlencode((string) $row['user_id']))) ?>">ویرایش</a>
+        <form method="post" action="<?= e(url('/secretary/therapists')) ?>">
+          <?= csrf_field() ?>
+          <input type="hidden" name="user_id" value="<?= e((string) $row['user_id']) ?>">
+          <input type="hidden" name="active" value="<?= $on ? '0' : '1' ?>">
+          <button class="btn btn-outline btn-sm" type="submit"><?= $on ? 'غیرفعال' : 'فعال' ?></button>
+        </form>
+      </div>
     </article>
   <?php endforeach; ?>
   <?php if (!$rows): ?>
@@ -110,65 +169,90 @@ ob_start();
   </div>
 <?php endif; ?>
 
-<?php if ($showAdd): ?>
+<?php if ($showForm): ?>
+  <?php
+    $isEdit = $editForm !== null;
+    $formValue = static function (string $key) use ($editForm): string {
+        return $editForm !== null ? (string) ($editForm[$key] ?? '') : '';
+    };
+    $selectedApproaches = $isEdit ? (array) $editForm['approaches'] : [];
+    $selectedDomains = $isEdit ? (array) $editForm['domains'] : [];
+    $selectedFocus = $isEdit ? (array) $editForm['focus'] : [];
+    $hasAvatar = $isEdit && trim((string) $editForm['avatar_url']) !== '';
+  ?>
   <div class="therapist-shadow" id="therapist-add-shadow">
     <a class="therapist-shadow-backdrop" href="<?= e(url('/secretary/therapists')) ?>" aria-label="بستن"></a>
     <div class="therapist-shadow-card" role="dialog" aria-modal="true" aria-labelledby="therapist-add-title">
       <div class="therapist-shadow-head">
-        <h2 id="therapist-add-title">درمانگر جدید</h2>
+        <h2 id="therapist-add-title"><?= $isEdit ? 'ویرایش درمانگر' : 'درمانگر جدید' ?></h2>
         <a class="therapist-shadow-close" href="<?= e(url('/secretary/therapists')) ?>" aria-label="بستن">×</a>
       </div>
-      <p class="muted" style="margin:0 0 .8rem">همان اطلاعاتی که درمانگر هنگام ساخت حساب و تکمیل پروفایل وارد می‌کند.</p>
-      <form class="form-stack" method="post" action="<?= e(url('/secretary/therapists')) ?>" enctype="multipart/form-data">
+      <p class="muted" style="margin:0 0 .8rem"><?= $isEdit ? 'اطلاعات همین درمانگر را عوض کنید. رمز و عکس را فقط وقتی پر کنید که می‌خواهید عوض شوند.' : 'همان اطلاعاتی که درمانگر هنگام ساخت حساب و تکمیل پروفایل وارد می‌کند.' ?></p>
+      <form class="form-stack" method="post" action="<?= e(url('/secretary/therapists')) ?>" enctype="multipart/form-data"<?= $isEdit ? ' data-therapist-edit="1"' : '' ?>>
         <?= csrf_field() ?>
-        <input type="hidden" name="action" value="create">
+        <input type="hidden" name="action" value="<?= $isEdit ? 'update' : 'create' ?>">
+        <?php if ($isEdit): ?>
+          <input type="hidden" name="user_id" value="<?= e($formValue('id')) ?>">
+        <?php endif; ?>
         <div class="doc-profile-grid">
-          <label><span class="label">نام</span><input class="input" name="first_name" required></label>
-          <label><span class="label">نام انگلیسی</span><input class="input" name="name_en" required dir="ltr"></label>
-          <label><span class="label">نام خانوادگی</span><input class="input" name="last_name" required></label>
-          <label><span class="label">نام خانوادگی انگلیسی</span><input class="input" name="surname" required dir="ltr"></label>
-          <label><span class="label">موبایل</span><input class="input" name="phone" required dir="ltr" inputmode="tel"></label>
-          <label><span class="label">ایمیل</span><input class="input" name="email" type="email" required dir="ltr"></label>
-          <label><span class="label">نام کاربری</span><input class="input" name="username" dir="ltr" placeholder="خالی بماند تا از نام انگلیسی ساخته شود"></label>
+          <label><span class="label">نام</span><input class="input" name="first_name" id="th_first_name" required value="<?= e($formValue('first_name')) ?>"></label>
+          <label><span class="label">نام انگلیسی</span><input class="input" name="name_en" id="th_name_en" required dir="ltr" lang="en" autocomplete="off" placeholder="name" value="<?= e($formValue('name_en')) ?>"></label>
+          <label><span class="label">نام خانوادگی</span><input class="input" name="last_name" id="th_last_name" required value="<?= e($formValue('last_name')) ?>"></label>
+          <label><span class="label">نام خانوادگی انگلیسی</span><input class="input" name="surname" id="th_surname" required dir="ltr" lang="en" autocomplete="off" placeholder="surname" value="<?= e($formValue('surname')) ?>"></label>
+          <label><span class="label">موبایل</span><input class="input" name="phone" required dir="ltr" inputmode="tel" value="<?= e($formValue('phone')) ?>"></label>
+          <label><span class="label">ایمیل</span><input class="input" name="email" type="email" required dir="ltr" value="<?= e($formValue('email')) ?>"></label>
+          <label><span class="label">نام کاربری</span><input class="input" name="username" id="th_username" dir="ltr" <?= $isEdit ? 'required' : '' ?> placeholder="<?= $isEdit ? '' : 'خالی بماند تا از نام انگلیسی ساخته شود' ?>" value="<?= e($formValue('username')) ?>"></label>
           <label>
             <span class="label">جنسیت</span>
             <select class="input" name="gender" required>
               <option value="">انتخاب کنید</option>
-              <option value="female">زن</option>
-              <option value="male">مرد</option>
+              <option value="female"<?= $formValue('gender') === 'female' ? ' selected' : '' ?>>زن</option>
+              <option value="male"<?= $formValue('gender') === 'male' ? ' selected' : '' ?>>مرد</option>
             </select>
           </label>
-          <label><span class="label">رمز عبور</span><input class="input" name="password" type="password" required dir="ltr" minlength="<?= (int) password_min_length() ?>" autocomplete="new-password"></label>
-          <label><span class="label">تکرار رمز</span><input class="input" name="password_confirm" type="password" required dir="ltr" minlength="<?= (int) password_min_length() ?>" autocomplete="new-password"></label>
+          <label>
+            <span class="label">رمز عبور</span>
+            <span style="display:flex;gap:.5rem;align-items:stretch">
+              <input class="input" name="password" id="th_password" type="password" <?= $isEdit ? '' : 'required' ?> dir="ltr" minlength="<?= (int) password_min_length() ?>" autocomplete="new-password" style="flex:1" placeholder="<?= $isEdit ? 'خالی بماند تا رمز عوض نشود' : '' ?>">
+              <button type="button" class="btn btn-outline" data-password-suggest data-password-target="th_password" data-password-confirm-target="th_password_confirm">پیشنهاد</button>
+            </span>
+          </label>
+          <label><span class="label">تکرار رمز</span><input class="input" name="password_confirm" id="th_password_confirm" type="password" <?= $isEdit ? '' : 'required' ?> dir="ltr" minlength="<?= (int) password_min_length() ?>" autocomplete="new-password" placeholder="<?= $isEdit ? 'تکرار رمز جدید' : '' ?>"></label>
           <label>
             <span class="label">آخرین مدرک</span>
             <select class="input" name="degree" required>
               <option value="">انتخاب کنید</option>
               <?php foreach (doctor_degree_options() as $key => $label): ?>
-                <option value="<?= e($key) ?>"><?= e($label) ?></option>
+                <option value="<?= e($key) ?>"<?= $formValue('degree') === $key ? ' selected' : '' ?>><?= e($label) ?></option>
               <?php endforeach; ?>
             </select>
           </label>
-          <label><span class="label">شماره پروانه نظام</span><input class="input" name="license_no" required dir="ltr"></label>
-          <label><span class="label">سال شروع فعالیت</span><input class="input" name="started_year" type="number" required dir="ltr" min="1330" max="<?= (int) $maxYear ?>"></label>
-          <label><span class="label">هزینه جلسه (تومان)</span><input class="input" name="session_price" type="number" required dir="ltr" min="1" value="3000000"></label>
+          <label><span class="label">شماره پروانه نظام</span><input class="input" name="license_no" required dir="ltr" value="<?= e($formValue('license_no')) ?>"></label>
+          <label><span class="label">سال شروع فعالیت</span><input class="input" name="started_year" type="text" required dir="ltr" inputmode="numeric" autocomplete="off" placeholder="مثلاً <?= e(to_fa_digits((string) max(1330, $maxYear - 8))) ?>" value="<?= e($formValue('started_year')) ?>"></label>
+          <label><span class="label">هزینه جلسه (تومان)</span><input class="input" name="session_price" type="text" required dir="ltr" inputmode="numeric" autocomplete="off" placeholder="مبلغ را بنویسید" value="<?= e($formValue('session_price')) ?>"></label>
         </div>
         <div>
           <span class="label">رویکرد درمانی</span>
-          <?= doctor_chip_picker_html('approaches', doctor_approach_options(), []) ?>
+          <?= doctor_chip_picker_html('approaches', doctor_approach_options(), $selectedApproaches) ?>
         </div>
         <div>
           <span class="label">حوزه درمان</span>
-          <?= doctor_chip_picker_html('domains', doctor_domain_options(), []) ?>
+          <?= doctor_chip_picker_html('domains', doctor_domain_options(), $selectedDomains) ?>
         </div>
         <div>
           <span class="label">زمینه تخصصی</span>
-          <?= doctor_chip_picker_html('focus', doctor_focus_options(), []) ?>
+          <?= doctor_chip_picker_html('focus', doctor_focus_options(), $selectedFocus) ?>
         </div>
-        <label><span class="label">دوره‌های تخصصی، هر دوره یک خط</span><textarea class="input" name="courses" rows="4" required></textarea></label>
-        <label><span class="label">درباره درمانگر</span><textarea class="input" name="bio" rows="4" required minlength="20"></textarea></label>
-        <label><span class="label">عکس پروفایل</span><input class="input" type="file" name="avatar" accept="image/jpeg,image/png,image/webp" required></label>
-        <button class="btn btn-primary" type="submit">ساخت حساب درمانگر</button>
+        <label><span class="label">دوره‌های تخصصی، هر دوره یک خط</span><textarea class="input" name="courses" rows="4" required><?= e($formValue('courses')) ?></textarea></label>
+        <label><span class="label">درباره درمانگر</span><textarea class="input" name="bio" rows="4" required minlength="20"><?= e($formValue('bio')) ?></textarea></label>
+        <label>
+          <span class="label">عکس پروفایل</span>
+          <input class="input" type="file" name="avatar" accept="image/jpeg,image/png,image/webp"<?= $hasAvatar ? '' : ' required' ?>>
+          <?php if ($hasAvatar): ?>
+            <span class="muted" style="display:block;margin-top:.35rem;font-size:.82rem">عکس فعلی می‌ماند، مگر عکس جدید انتخاب کنید.</span>
+          <?php endif; ?>
+        </label>
+        <button class="btn btn-primary" type="submit"><?= $isEdit ? 'ذخیره تغییرات' : 'ساخت حساب درمانگر' ?></button>
       </form>
     </div>
   </div>
@@ -179,6 +263,8 @@ $pageHead = '<style>
 .therapist-desk-head{display:flex;justify-content:space-between;gap:1rem;align-items:flex-end;flex-wrap:wrap}
 .therapist-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(14rem,1fr));gap:.75rem;margin-top:1rem}
 .therapist-card{margin:0;display:flex;flex-direction:column;gap:.7rem}
+.therapist-card-actions{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap}
+.therapist-card-actions form{margin:0}
 .therapist-card-hit{display:flex;flex-direction:column;gap:.2rem;color:inherit;text-decoration:none}
 .therapist-card-hit span,.therapist-card-hit em{font-style:normal;color:var(--muted);font-size:.85rem}
 .therapist-shadow{position:fixed;inset:0;z-index:80;background:rgba(16,24,22,.55)}
@@ -221,6 +307,30 @@ $pageScripts = '
       window.location.href = ' . json_encode(url('/secretary/therapists')) . ';
     }
   });
+})();
+</script>
+<script src="' . e(url('/assets/js/name-transliterate.js')) . '?v=20261014t"></script>
+<script>
+(function(){
+  if (!window.bindNameTransliteration) return;
+  if (!document.getElementById("th_first_name")) return;
+  bindNameTransliteration({
+    firstName: document.getElementById("th_first_name"),
+    lastName: document.getElementById("th_last_name"),
+    nameEn: document.getElementById("th_name_en"),
+    surname: document.getElementById("th_surname"),
+    username: document.getElementById("th_username"),
+    transliterateUrl: ' . json_encode(url('/api/transliterate-name')) . ',
+    nameDict: ' . json_encode($nameDict, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) . '
+  });
+  if (document.querySelector("[data-therapist-edit]")) {
+    var savedUser = document.getElementById("th_username");
+    if (savedUser && savedUser.value) savedUser.dispatchEvent(new Event("input", { bubbles: true }));
+    ["th_name_en", "th_surname"].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el && el.value) el.dispatchEvent(new Event("input", { bubbles: true }));
+    });
+  }
 })();
 </script>';
 
