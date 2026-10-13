@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/secretary_patient.php';
 require_once __DIR__ . '/../includes/user_referral.php';
+require_once __DIR__ . '/../includes/outreach.php';
 
 require_login(['SECRETARY']);
 csrf_verify();
@@ -80,6 +81,51 @@ if (post('action') === 'add_patient_note') {
         ->execute([cuid(), $userId, $body, $actorId]);
     flash_set('success', 'یادداشت برای «' . (string) $patient['name'] . '» ثبت شد.');
     redirect('/secretary/patients?open=' . rawurlencode($userId));
+}
+
+if (post('action') === 'send_patient_sms') {
+    $userId = trim((string) post('user_id'));
+    $body = trim((string) post('body'));
+    $body = str_replace(["\r\n", "\r"], "\n", $body);
+    $back = '/secretary/patients' . ($userId !== '' ? '?open=' . rawurlencode($userId) : '');
+    if ($userId === '' || !preg_match('/^[a-zA-Z0-9_-]{1,64}$/', $userId)) {
+        flash_set('error', 'این مراجعه‌کننده از اینجا قابل پیامک نیست.');
+        redirect('/secretary/patients');
+    }
+    if ($body === '') {
+        flash_set('error', 'متن پیامک را بنویسید.');
+        redirect($back);
+    }
+    if (mb_strlen($body) > 500) {
+        flash_set('error', 'پیامک حداکثر ۵۰۰ نویسه است.');
+        redirect($back);
+    }
+    $stmt = $pdo->prepare("
+      SELECT id, name, phone FROM users
+      WHERE id=?
+        AND (
+          role='PATIENT'
+          OR LOWER(username)='eshahabian'
+          OR (name LIKE '%عماد%' AND name LIKE '%شهابیان%')
+        )
+      LIMIT 1
+    ");
+    $stmt->execute([$userId]);
+    $patient = $stmt->fetch();
+    if (!$patient) {
+        flash_set('error', 'این مراجعه‌کننده از اینجا قابل پیامک نیست.');
+        redirect('/secretary/patients');
+    }
+    $phone = (string) ($patient['phone'] ?? '');
+    if (!sms_queue_one($pdo, $phone, $body, 'manual')) {
+        flash_set('error', 'برای «' . (string) $patient['name'] . '» موبایل معتبری ثبت نشده. پیامک ارسال نشد.');
+        redirect($back);
+    }
+    $tail = sms_panel_enabled()
+        ? ' به پنل پیامک سپرده شد.'
+        : ' در صف ماند. تا روشن شدن پنل پیامک ارسال نمی‌شود.';
+    flash_set('success', 'پیامک برای «' . (string) $patient['name'] . '»' . $tail);
+    redirect($back);
 }
 
 $userId = trim((string) post('user_id'));

@@ -216,6 +216,22 @@ function sms_queue(PDO $pdo, string $phone, string $body, string $kind = 'manual
         ->execute([cuid(), $phone, $body, $kind]);
 }
 
+/** یک گیرنده. false یعنی شماره یا متن برای صف معتبر نیست. */
+function sms_queue_one(PDO $pdo, string $phone, string $body, string $kind = 'manual'): bool
+{
+    $phone = normalize_phone($phone);
+    $body = trim($body);
+    if ($phone === '' || $body === '' || !is_valid_phone($phone)) {
+        return false;
+    }
+    sms_queue($pdo, $phone, $body, $kind);
+    if (sms_panel_enabled() && function_exists('sms_dispatch_pending')) {
+        sms_dispatch_pending($pdo);
+    }
+
+    return true;
+}
+
 function outreach_queue_message(PDO $pdo, string $body, string $kind = 'manual'): int
 {
     $count = 0;

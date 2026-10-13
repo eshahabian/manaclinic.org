@@ -316,9 +316,24 @@ ob_start();
       <div><dt>آخرین نوبت</dt><dd id="patient-more-last"></dd></div>
     </dl>
     <p style="margin:.85rem 0 0"><a class="btn btn-outline btn-sm" id="patient-more-profile" href="#">پرونده نوبت‌ها و کارگاه‌ها</a></p>
+    <h3 class="patient-more-notes-title">پیامک</h3>
+    <p class="muted" id="patient-more-sms-hint" style="margin:0 0 .55rem;line-height:1.7">این پیام فقط برای همین شخص است.</p>
+    <?php if (!sms_panel_enabled()): ?>
+      <p class="muted" style="margin:0 0 .55rem;line-height:1.7">تا روشن شدن پنل پیامک، متن در صف می‌ماند و ارسال نمی‌شود.</p>
+    <?php endif; ?>
+    <form class="patient-more-note-form" id="patient-more-sms-form" method="post" action="<?= e(url('/secretary/users')) ?>">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="send_patient_sms">
+      <input type="hidden" name="user_id" id="patient-more-sms-user" value="">
+      <label>
+        <span class="label">متن پیامک</span>
+        <textarea class="input" name="body" id="patient-more-sms-body" rows="3" maxlength="500" required placeholder="پیام کوتاه برای همین مراجعه‌کننده"></textarea>
+      </label>
+      <button class="btn btn-primary btn-sm" type="submit" id="patient-more-sms-send">ارسال پیامک</button>
+    </form>
     <h3 class="patient-more-notes-title">یادداشت‌ها</h3>
     <div id="patient-more-notes"></div>
-    <form class="patient-more-note-form" method="post" action="<?= e(url('/secretary/users')) ?>">
+    <form class="patient-more-note-form" id="patient-more-note-form" method="post" action="<?= e(url('/secretary/users')) ?>">
       <?= csrf_field() ?>
       <input type="hidden" name="action" value="add_patient_note">
       <input type="hidden" name="user_id" id="patient-more-user" value="">
@@ -549,7 +564,7 @@ $pageScripts = '
   var modal = document.getElementById("patient-more-modal");
   var notesBox = document.getElementById("patient-more-notes");
   var userInput = document.getElementById("patient-more-user");
-  var noteForm = modal ? modal.querySelector("form") : null;
+  var noteForm = document.getElementById("patient-more-note-form");
   var more = {};
   if (!dataEl || !modal) return;
   try { more = JSON.parse(dataEl.textContent || "{}") || {}; } catch (err) { more = {}; }
@@ -588,6 +603,22 @@ $pageScripts = '
       profile.setAttribute("href", ok ? href : "#");
     }
     if (userInput) userInput.value = id;
+    var smsUser = document.getElementById("patient-more-sms-user");
+    var smsBody = document.getElementById("patient-more-sms-body");
+    var smsHint = document.getElementById("patient-more-sms-hint");
+    var smsSend = document.getElementById("patient-more-sms-send");
+    var phoneOk = !!(row.phone && window.manaIsValidPhone && manaIsValidPhone(String(row.phone)));
+    if (smsUser) smsUser.value = id;
+    if (smsBody) {
+      smsBody.value = "";
+      smsBody.disabled = !phoneOk;
+    }
+    if (smsSend) smsSend.disabled = !phoneOk;
+    if (smsHint) {
+      smsHint.textContent = phoneOk
+        ? "این پیام فقط برای همین شخص، به شماره خودش، فرستاده می‌شود."
+        : "برای این مراجعه‌کننده موبایل معتبری ثبت نشده. پیامک ارسال نمی‌شود.";
+    }
     if (noteForm) {
       var area = noteForm.querySelector("textarea");
       if (area) area.value = "";
