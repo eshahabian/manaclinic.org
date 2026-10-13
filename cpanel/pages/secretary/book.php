@@ -141,11 +141,48 @@ ob_start();
   </div>
 
   <div class="panel" style="background:var(--bg-soft);border-style:dashed">
-    <p style="margin:0 0 .75rem;font-weight:600">یا مراجعه‌کننده جدید</p>
-    <?php
-      $secretaryPatientHint = 'مراجعه‌کننده با نام کاربری و رمز زیر می‌تواند بعداً وارد شود. با تایپ نام فارسی، معادل انگلیسی پیشنهاد می‌شود. اگر نت قطع شود، اطلاعات واردشده روی همین دستگاه می‌ماند.';
-      require __DIR__ . '/../../includes/secretary_new_patient_fields.php';
-    ?>
+    <p style="margin:0 0 .75rem;font-weight:600">وارد کردن مراجعه‌کننده</p>
+    <div class="secretary-kind-switch" role="tablist" style="margin-top:0">
+      <button type="button" class="btn btn-primary" data-book-kind="active" aria-selected="true">فعال</button>
+      <button type="button" class="btn btn-outline" data-book-kind="inactive" aria-selected="false">غیرفعال</button>
+    </div>
+    <div id="book-new-active">
+      <p style="margin:.85rem 0 .75rem;font-weight:600">ثبت‌نام</p>
+      <fieldset id="book-new-active-fields" style="border:0;margin:0;padding:0;min-width:0">
+        <?php
+          $secretaryPatientHint = 'مراجعه‌کننده با نام کاربری و رمز زیر می‌تواند بعداً وارد شود. با تایپ نام فارسی، معادل انگلیسی پیشنهاد می‌شود. اگر نت قطع شود، اطلاعات واردشده روی همین دستگاه می‌ماند.';
+          require __DIR__ . '/../../includes/secretary_new_patient_fields.php';
+        ?>
+      </fieldset>
+    </div>
+    <div id="book-new-inactive" hidden>
+      <p style="margin:.85rem 0 .35rem;font-weight:600">کاربران غیرفعال</p>
+      <p class="muted" style="margin:0 0 .75rem;font-size:.85rem;line-height:1.7">این‌ها هنوز برای نوبت باز نیستند. انتخابشان یادآوری می‌کند اول فعال شوند.</p>
+      <label class="label" for="book-inactive-filter">جستجو</label>
+      <input class="input" type="search" id="book-inactive-filter" placeholder="نام یا موبایل" autocomplete="off">
+      <div id="book-inactive-list" style="margin-top:.7rem">
+        <?php
+          $inactiveShown = 0;
+          foreach ($patients as $p) {
+              if (!function_exists('secretary_patient_is_inactive') || !secretary_patient_is_inactive($p)) {
+                  continue;
+              }
+              $inactiveShown++;
+              $iname = trim((string) ($p['name'] ?? ''));
+              $iphone = trim((string) ($p['phone'] ?? ''));
+              $iuser = trim((string) ($p['username'] ?? ''));
+              $ihay = mb_strtolower(trim($iname . ' ' . $iphone . ' ' . $iuser));
+              ?>
+              <button type="button" class="btn btn-outline book-inactive-person" data-search="<?= e($ihay) ?>" style="display:flex;width:100%;justify-content:space-between;gap:.6rem;margin-top:.4rem;text-align:right">
+                <span><?= e($iname !== '' ? $iname : 'بدون نام') ?></span>
+                <span class="muted" dir="ltr"><?= e($iphone !== '' ? $iphone : ($iuser !== '' ? $iuser : 'بدون حساب')) ?></span>
+              </button>
+              <?php
+          }
+        ?>
+      </div>
+      <p class="muted" id="book-inactive-empty"<?= $inactiveShown > 0 ? ' hidden' : '' ?> style="margin:.75rem 0 0">کاربر غیرفعالی نیست.</p>
+    </div>
   </div>
 
   <div>
@@ -380,6 +417,51 @@ $secretaryBookScripts = '
       if (e.key === "Escape" && !inactiveModal.hidden) closeInactiveModal();
     });
   }
+  var bookActivePanel = document.getElementById("book-new-active");
+  var bookInactivePanel = document.getElementById("book-new-inactive");
+  var bookActiveFields = document.getElementById("book-new-active-fields");
+  var bookKindButtons = document.querySelectorAll("[data-book-kind]");
+  function showBookKind(kind) {
+    var active = kind !== "inactive";
+    if (bookActivePanel) bookActivePanel.hidden = !active;
+    if (bookInactivePanel) bookInactivePanel.hidden = active;
+    if (bookActiveFields) bookActiveFields.disabled = !active;
+    bookKindButtons.forEach(function (btn) {
+      var on = btn.getAttribute("data-book-kind") === (active ? "active" : "inactive");
+      btn.classList.toggle("btn-primary", on);
+      btn.classList.toggle("btn-outline", !on);
+      btn.setAttribute("aria-selected", on ? "true" : "false");
+    });
+    if (active && typeof syncReferralRule === "function") syncReferralRule();
+  }
+  bookKindButtons.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      showBookKind(btn.getAttribute("data-book-kind") || "active");
+    });
+  });
+  var bookInactiveFilter = document.getElementById("book-inactive-filter");
+  var bookInactivePeople = document.querySelectorAll(".book-inactive-person");
+  var bookInactiveEmpty = document.getElementById("book-inactive-empty");
+  function applyInactiveFilter() {
+    var q = bookInactiveFilter ? String(bookInactiveFilter.value || "").trim().toLowerCase() : "";
+    var shown = 0;
+    bookInactivePeople.forEach(function (btn) {
+      var hay = String(btn.getAttribute("data-search") || "").toLowerCase();
+      var on = !q || hay.indexOf(q) !== -1;
+      btn.hidden = !on;
+      if (on) shown++;
+    });
+    if (bookInactiveEmpty) bookInactiveEmpty.hidden = shown > 0;
+  }
+  if (bookInactiveFilter) {
+    bookInactiveFilter.addEventListener("input", applyInactiveFilter);
+    bookInactiveFilter.addEventListener("search", applyInactiveFilter);
+  }
+  bookInactivePeople.forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      openInactiveModal();
+    });
+  });
   patientEl.addEventListener("change", function(){
     if (selectedPatientInactive()) {
       openInactiveModal();
