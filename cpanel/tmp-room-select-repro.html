@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="fa" dir="rtl">
+<head>
+<meta charset="utf-8">
+<style>
+:root { --fg: #1a2e28; --surface: #fff; --line: #d5e0da; --font: Vazirmatn, Tahoma, sans-serif; }
+body { font-family: var(--font); background: #fff; padding: 2rem; }
+.input, textarea, select {
+  width: 100%; border: 1px solid var(--line); background: var(--surface);
+  border-radius: .65rem; padding: .7rem .9rem; font-family: inherit; font-size: 1rem;
+}
+select.input, select {
+  appearance: none; -webkit-appearance: none; -moz-appearance: none;
+  color: var(--fg); background-color: var(--surface);
+  padding-left: 2.25rem;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath fill='%23334155' d='M1.4.6 6 5.2 10.6.6 12 2 6 8 0 2z'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: left 0.95rem center;
+  background-size: 0.7rem;
+  cursor: pointer;
+}
+html[dir="rtl"] select.input, html[dir="rtl"] select {
+  direction: rtl; text-align: right; unicode-bidi: isolate;
+}
+select option { color: var(--fg); background-color: var(--surface); direction: rtl; }
+.label { display: block; margin: 1rem 0 .35rem; }
+.fixed {
+  color: #1a2e28; -webkit-text-fill-color: #1a2e28;
+  text-align: right; text-align-last: right; direction: rtl;
+  unicode-bidi: normal; opacity: 1; color-scheme: light;
+  appearance: menulist; -webkit-appearance: menulist; -moz-appearance: menulist;
+  background-image: none;
+}
+.bidi-only { unicode-bidi: normal !important; }
+</style>
+</head>
+<body>
+<label class="label">current (selected اتاق ۲)</label>
+<select class="input" id="a">
+  <option value="">— انتخاب اتاق —</option>
+  <option value="1">اتاق ۱</option>
+  <option value="2" selected>اتاق ۲</option>
+  <option value="3">اتاق ۳</option>
+</select>
+<label class="label">menulist fix</label>
+<select class="input fixed" id="b">
+  <option value="">— انتخاب اتاق —</option>
+  <option value="1">اتاق ۱</option>
+  <option value="2" selected>اتاق ۲</option>
+  <option value="3">اتاق ۳</option>
+</select>
+<label class="label">bidi normal only</label>
+<select class="input bidi-only" id="c">
+  <option value="">— انتخاب اتاق —</option>
+  <option value="1">اتاق ۱</option>
+  <option value="2" selected>اتاق ۲</option>
+  <option value="3">اتاق ۳</option>
+</select>
+<p id="out"></p>
+<script>
+document.getElementById("out").textContent = [a,b,c].map(function(s){
+  var cs = getComputedStyle(s);
+  return s.id + " val=" + s.value + " appearance=" + cs.appearance + " color=" + cs.color + " bidi=" + cs.unicodeBidi + " text=" + (s.options[s.selectedIndex]||{}).text;
+}).join(" | ");
+</script>
+</body>
+</html>

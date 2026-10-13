@@ -2,17 +2,16 @@
 declare(strict_types=1);
 
 $pageTitle = 'تماس با ما';
-$pageDescription = 'تماس با مانا کلینیک سعادت‌آباد: ۰۹۱۰۱۳۸۷۸۳۸ و ۰۲۱۲۲۰۶۵۷۷۴. آدرس مطب و موقعیت روی نقشه.';
+$pageDescription = 'تماس با مانا کلینیک سعادت‌آباد: ۰۹۱۰۱۳۸۷۸۳۸ و ۰۲۱۲۲۰۶۵۷۷۴. آدرس مطب، درخواست مشاوره و درخواست همکاری درمانگران.';
 $pageCanonical = url('/contact');
-$pageKeywords = 'تماس مانا کلینیک, آدرس مانا کلینیک, روانشناس سعادت آباد';
-$mapUrl = 'https://www.google.com/maps?q=35.772637,51.377568';
-$mapEmbed = 'https://maps.google.com/maps?q=35.772637,51.377568&z=16&output=embed';
+$pageKeywords = 'تماس مانا کلینیک, آدرس مانا کلینیک, روانشناس سعادت آباد, درخواست همکاری';
 ob_start();
 ?>
 <div class="container-page section contact-page">
   <h1>تماس با ما</h1>
   <p class="muted" style="margin-top:.5rem;line-height:1.9">
-    برای پرسش درباره نوبت‌ها و خدمات از راه‌های زیر با ما در ارتباط باشید. همکاری درمانگران از <a href="<?= e(url('/collaborate')) ?>">فرم درخواست همکاری</a> است.
+    برای پرسش درباره نوبت‌ها و خدمات از راه‌های زیر با ما در ارتباط باشید.
+    برای همکاری درمانگران، فرم درخواست همکاری را در همین صفحه پر کنید.
   </p>
 
   <div class="contact-layout">
@@ -48,30 +47,28 @@ ob_start();
       </p>
     </div>
   </div>
-  <div class="panel consult-form-card">
-    <h2>درخواست مشاوره</h2>
-    <p class="muted consult-form-lead">فرم را پر کنید؛ در اولین فرصت با شما تماس می‌گیریم. نام، شماره تماس و توضیح درخواست الزامی است.</p>
-    <?php
-      if (!function_exists('consult_request_form_html')) {
-          require_once dirname(__DIR__) . '/includes/consult_requests.php';
-      }
-      echo consult_request_form_html('page-consult');
-    ?>
+  <div class="stack">
+    <div class="panel consult-form-card">
+      <h2>درخواست مشاوره</h2>
+      <p class="muted consult-form-lead">فرم را پر کنید؛ در اولین فرصت با شما تماس می‌گیریم. نام، شماره تماس و توضیح درخواست الزامی است.</p>
+      <?php
+        if (!function_exists('consult_request_form_html')) {
+            require_once dirname(__DIR__) . '/includes/consult_requests.php';
+        }
+        echo consult_request_form_html('page-consult');
+      ?>
+    </div>
+    <div class="panel consult-form-card" id="collaborate-request">
+      <h2>درخواست همکاری</h2>
+      <p class="muted consult-form-lead">اگر مایل به همکاری با مانا کلینیک هستید، نام، شماره تماس، تخصص و توضیح را بنویسید.</p>
+      <?php
+        if (!function_exists('collaboration_request_form_html')) {
+            require_once dirname(__DIR__) . '/includes/collaboration.php';
+        }
+        echo collaboration_request_form_html('page-collab');
+      ?>
+    </div>
   </div>
-  </div>
-
-  <div class="panel" style="margin-top:1.25rem;overflow:hidden;padding:0">
-    <iframe
-      title="موقعیت مانا کلینیک روی نقشه"
-      src="<?= e($mapEmbed) ?>"
-      loading="lazy"
-      referrerpolicy="no-referrer-when-downgrade"
-      style="display:block;width:100%;height:min(22rem,50vw);border:0"
-      allowfullscreen
-    ></iframe>
-    <p style="margin:0;padding:.85rem 1rem">
-      <a href="<?= e($mapUrl) ?>" target="_blank" rel="noopener noreferrer" style="color:var(--primary);font-weight:600">باز کردن در گوگل‌مپ</a>
-    </p>
   </div>
 </div>
 <?php

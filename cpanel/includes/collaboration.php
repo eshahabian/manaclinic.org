@@ -92,8 +92,12 @@ function collaboration_recipient_ids(PDO $pdo): array
         require_once __DIR__ . '/seed_articles.php';
     }
     if (function_exists('find_doctor_atiyeh_garsichi_id')) {
-        $found = find_doctor_atiyeh_garsichi_id($pdo);
-        $atiyeh = $found !== null && $found !== '' ? $found : null;
+        try {
+            $found = find_doctor_atiyeh_garsichi_id($pdo);
+            $atiyeh = is_string($found) && $found !== '' ? $found : null;
+        } catch (Throwable $e) {
+            $atiyeh = null;
+        }
     }
     $atiyeh ??= collaboration_user_id(
         $pdo,

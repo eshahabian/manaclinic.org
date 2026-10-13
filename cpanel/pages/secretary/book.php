@@ -711,6 +711,17 @@ $secretaryBookScripts = '
       e.preventDefault();
       errEl.textContent = "تاریخ و ساعت را انتخاب کنید.";
       errEl.style.display = "block";
+      return;
+    }
+    var roomPick = document.getElementById("sec-room");
+    var modePick = form.querySelector("input[name=session_mode]:checked");
+    var roomOnline = !!(modePick && modePick.value === "ONLINE");
+    if (!roomOnline && roomPick && !roomPick.value) {
+      e.preventDefault();
+      errEl.textContent = "برای جلسه حضوری اتاق را انتخاب کنید.";
+      errEl.style.display = "block";
+      var roomBtn = document.getElementById("sec-room-btn");
+      if (roomBtn) roomBtn.focus();
     }
   });
 
@@ -779,9 +790,10 @@ $secretaryBookScripts = '
     if (!roomEl) return;
     var picked = form.querySelector("input[name=session_mode]:checked");
     var online = !!(picked && picked.value === "ONLINE");
-    roomEl.required = !online;
+    roomEl.required = false;
     roomEl.disabled = online;
     if (online) roomEl.value = "";
+    roomEl.dispatchEvent(new Event("change", { bubbles: true }));
     if (roomBox) roomBox.hidden = online;
     if (roomHint) {
       roomHint.textContent = online

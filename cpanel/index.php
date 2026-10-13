@@ -313,6 +313,7 @@ $routes = [
     'GET /doctor/intakes' => 'pages/doctor/intakes.php',
     'GET /doctor/notifications' => 'pages/doctor/notifications.php',
     'GET /doctor/consult-requests' => 'pages/consult_requests.php',
+    'GET /doctor/collaboration-requests' => 'pages/doctor/collaboration_requests.php',
     'GET /doctor/profile' => 'pages/doctor/profile.php',
     'POST /doctor/profile' => 'actions/doctor_profile.php',
     'GET /doctor/availability' => 'pages/doctor/availability.php',

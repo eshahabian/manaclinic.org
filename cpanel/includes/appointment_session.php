@@ -342,20 +342,126 @@ function appointment_room_pick_html(string $name = 'room_no', string $id = 'room
     }
     $numbers = function_exists('clinic_rooms_numbers') ? clinic_rooms_numbers() : [1, 2, 3];
     $selected = trim($selected);
+    $shown = 'انتخاب اتاق';
+    $shownEmpty = true;
     ob_start();
     ?>
     <div class="appt-room-pick" data-appt-room-pick>
-      <label class="label" for="<?= e($id) ?>">اتاق جلسه</label>
-      <select class="input" name="<?= e($name) ?>" id="<?= e($id) ?>">
-        <option value="">— انتخاب اتاق —</option>
-        <?php foreach ($numbers as $n): ?>
-          <?php $n = (int) $n; ?>
-          <option value="<?= $n ?>"<?= $selected === (string) $n ? ' selected' : '' ?>><?= e(function_exists('clinic_room_label') ? clinic_room_label($n) : ('اتاق ' . $n)) ?></option>
-        <?php endforeach; ?>
-      </select>
+      <label class="label" id="<?= e($id) ?>-label" for="<?= e($id) ?>-btn">اتاق جلسه</label>
+      <div class="appt-room-face">
+        <select class="appt-room-native" name="<?= e($name) ?>" id="<?= e($id) ?>" tabindex="-1" aria-hidden="true">
+          <option value="">انتخاب اتاق</option>
+          <?php foreach ($numbers as $n): ?>
+            <?php
+              $n = (int) $n;
+              $label = function_exists('clinic_room_label') ? clinic_room_label($n) : ('اتاق ' . $n);
+              $on = $selected === (string) $n;
+              if ($on) {
+                  $shown = $label;
+                  $shownEmpty = false;
+              }
+            ?>
+            <option value="<?= $n ?>"<?= $on ? ' selected' : '' ?>><?= e($label) ?></option>
+          <?php endforeach; ?>
+        </select>
+        <button type="button" class="input appt-room-btn" id="<?= e($id) ?>-btn" aria-haspopup="listbox" aria-expanded="false" aria-labelledby="<?= e($id) ?>-label">
+          <span class="appt-room-shown<?= $shownEmpty ? ' is-placeholder' : '' ?>"><?= e($shown) ?></span>
+        </button>
+        <div class="appt-room-menu" role="listbox" hidden>
+          <?php foreach ($numbers as $n): ?>
+            <?php
+              $n = (int) $n;
+              $label = function_exists('clinic_room_label') ? clinic_room_label($n) : ('اتاق ' . $n);
+            ?>
+            <button type="button" data-room-value="<?= $n ?>"<?= $selected === (string) $n ? ' class="is-selected"' : '' ?>><?= e($label) ?></button>
+          <?php endforeach; ?>
+        </div>
+      </div>
       <p class="muted appt-room-hint" id="<?= e($id) ?>-hint" style="margin:.35rem 0 0;font-size:.8rem">برای جلسه حضوری انتخاب اتاق لازم است. اگر جلسه آنلاین باشد، اتاق اجباری نیست.</p>
     </div>
     <?php
+    static $roomPickScript = false;
+    if (!$roomPickScript) {
+        $roomPickScript = true;
+        echo '<style>
+.appt-room-face{position:relative}
+.appt-room-native{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+.appt-room-btn{display:flex;align-items:center;width:100%;text-align:right;cursor:pointer;color:#1a2e28;background-image:url("data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'12\' height=\'8\' viewBox=\'0 0 12 8\'%3E%3Cpath fill=\'%23334155\' d=\'M1.4.6 6 5.2 10.6.6 12 2 6 8 0 2z\'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:left .95rem center;background-size:.7rem;padding-left:2.25rem}
+.appt-room-btn:focus{outline:none;border-color:#7c6bb5;box-shadow:0 0 0 3px rgba(124,107,181,.18)}
+.appt-room-shown{font-size:1rem;line-height:1.4}
+.appt-room-shown.is-placeholder{color:#7d8f88}
+.appt-room-menu{position:absolute;z-index:40;inset-inline:0;top:calc(100% + .3rem);background:#fff;border:1px solid var(--line,#d7e0dc);border-radius:.65rem;box-shadow:0 14px 36px rgba(15,23,42,.16);padding:.35rem}
+.appt-room-menu[hidden]{display:none}
+.appt-room-menu button{display:block;width:100%;text-align:right;background:transparent;border:0;border-radius:.45rem;padding:.6rem .8rem;font:inherit;cursor:pointer;color:#1a2e28}
+.appt-room-menu button:hover,.appt-room-menu button.is-selected{background:#efeafc;color:#5b4b8a;font-weight:700}
+</style>
+<script>
+(function(){
+  if (window.manaRoomPickReady) return;
+  window.manaRoomPickReady = true;
+  function paint(select){
+    var face = select.closest(".appt-room-face");
+    if (!face) return;
+    var shown = face.querySelector(".appt-room-shown");
+    var opt = select.options[select.selectedIndex];
+    var empty = !select.value;
+    if (shown) {
+      shown.textContent = empty ? "انتخاب اتاق" : ((opt && opt.textContent) ? opt.textContent.trim() : "انتخاب اتاق");
+      shown.classList.toggle("is-placeholder", empty);
+    }
+    face.querySelectorAll("[data-room-value]").forEach(function(btn){
+      btn.classList.toggle("is-selected", btn.getAttribute("data-room-value") === select.value);
+    });
+    var trigger = face.querySelector(".appt-room-btn");
+    if (trigger) trigger.disabled = !!select.disabled;
+  }
+  document.addEventListener("change", function(e){
+    var t = e.target;
+    if (t && t.matches && t.matches("select.appt-room-native")) paint(t);
+  });
+  document.addEventListener("click", function(e){
+    var optBtn = e.target.closest && e.target.closest("[data-room-value]");
+    if (optBtn) {
+      var face = optBtn.closest(".appt-room-face");
+      var select = face && face.querySelector("select.appt-room-native");
+      if (!select || select.disabled) return;
+      select.value = optBtn.getAttribute("data-room-value") || "";
+      select.dispatchEvent(new Event("change", { bubbles: true }));
+      var menu = face.querySelector(".appt-room-menu");
+      if (menu) menu.hidden = true;
+      var trigger = face.querySelector(".appt-room-btn");
+      if (trigger) trigger.setAttribute("aria-expanded", "false");
+      return;
+    }
+    var triggerBtn = e.target.closest && e.target.closest(".appt-room-btn");
+    if (triggerBtn) {
+      var face2 = triggerBtn.closest(".appt-room-face");
+      var select2 = face2 && face2.querySelector("select.appt-room-native");
+      if (!select2 || select2.disabled) return;
+      var menu2 = face2.querySelector(".appt-room-menu");
+      if (!menu2) return;
+      var willOpen = menu2.hidden;
+      document.querySelectorAll(".appt-room-menu").forEach(function(m){ m.hidden = true; });
+      document.querySelectorAll(".appt-room-btn").forEach(function(b){ b.setAttribute("aria-expanded", "false"); });
+      menu2.hidden = !willOpen;
+      triggerBtn.setAttribute("aria-expanded", willOpen ? "true" : "false");
+      return;
+    }
+    if (!e.target.closest || !e.target.closest(".appt-room-face")) {
+      document.querySelectorAll(".appt-room-menu").forEach(function(m){ m.hidden = true; });
+      document.querySelectorAll(".appt-room-btn").forEach(function(b){ b.setAttribute("aria-expanded", "false"); });
+    }
+  });
+  document.addEventListener("keydown", function(e){
+    if (e.key !== "Escape") return;
+    document.querySelectorAll(".appt-room-menu").forEach(function(m){ m.hidden = true; });
+    document.querySelectorAll(".appt-room-btn").forEach(function(b){ b.setAttribute("aria-expanded", "false"); });
+  });
+  document.querySelectorAll("select.appt-room-native").forEach(paint);
+})();
+</script>';
+    }
+
     return (string) ob_get_clean();
 }
 
