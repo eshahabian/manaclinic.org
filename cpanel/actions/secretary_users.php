@@ -24,6 +24,51 @@ if (post('action') === 'set_disabled') {
     redirect('/secretary/patients');
 }
 
+if (post('action') === 'add_patient_note') {
+    $userId = trim((string) post('user_id'));
+    $body = trim((string) post('body'));
+    $body = str_replace(["\r\n", "\r"], "\n", $body);
+    if ($userId === '' || !preg_match('/^[a-zA-Z0-9_-]{1,64}$/', $userId)) {
+        flash_set('error', 'این مراجعه‌کننده از اینجا قابل تغییر نیست.');
+        redirect('/secretary/patients');
+    }
+    if ($body === '') {
+        flash_set('error', 'متن یادداشت را بنویسید.');
+        redirect('/secretary/patients?open=' . rawurlencode($userId));
+    }
+    if (mb_strlen($body) > 1000) {
+        flash_set('error', 'یادداشت حداکثر هزار نویسه است.');
+        redirect('/secretary/patients?open=' . rawurlencode($userId));
+    }
+    $stmt = $pdo->prepare("
+      SELECT id, name FROM users
+      WHERE id=? AND is_disabled=0
+        AND (
+          role='PATIENT'
+          OR LOWER(username)='eshahabian'
+          OR (name LIKE '%عماد%' AND name LIKE '%شهابیان%')
+        )
+      LIMIT 1
+    ");
+    $stmt->execute([$userId]);
+    $patient = $stmt->fetch();
+    if (!$patient) {
+        flash_set('error', 'این مراجعه‌کننده از اینجا قابل تغییر نیست.');
+        redirect('/secretary/patients');
+    }
+    $actor = current_user();
+    $actorId = trim((string) ($actor['id'] ?? ''));
+    if ($actorId === '') {
+        flash_set('error', 'یادداشت ذخیره نشد.');
+        redirect('/secretary/patients?open=' . rawurlencode($userId));
+    }
+    ensure_patient_secretary_notes_schema($pdo);
+    $pdo->prepare('INSERT INTO patient_secretary_notes (id, patient_user_id, body, created_by) VALUES (?,?,?,?)')
+        ->execute([cuid(), $userId, $body, $actorId]);
+    flash_set('success', 'یادداشت برای «' . (string) $patient['name'] . '» ثبت شد.');
+    redirect('/secretary/patients?open=' . rawurlencode($userId));
+}
+
 $userId = trim((string) post('user_id'));
 $doctorId = trim((string) post('preferred_doctor_id'));
 $phone = normalize_phone((string) post('phone'));

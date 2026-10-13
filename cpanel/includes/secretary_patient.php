@@ -269,3 +269,106 @@ function user_created_by_label(?array $creatorRow, ?string $fallback = 'نامش
 
     return $label;
 }
+
+function ensure_patient_secretary_notes_schema(PDO $pdo): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $pdo->exec("
+      CREATE TABLE IF NOT EXISTS patient_secretary_notes (
+        id VARCHAR(32) PRIMARY KEY,
+        patient_user_id VARCHAR(32) NOT NULL,
+        body VARCHAR(1000) NOT NULL,
+        created_by VARCHAR(32) NOT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_patient_sec_note (patient_user_id, created_at)
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
+    $ready = true;
+}
+
+/** @param list<string> $ids */
+function patient_secretary_note_ids(array $ids): array
+{
+    $out = [];
+    foreach ($ids as $id) {
+        $id = trim((string) $id);
+        if ($id !== '' && preg_match('/^[a-zA-Z0-9_-]{1,64}$/', $id)) {
+            $out[$id] = $id;
+        }
+    }
+
+    return array_values($out);
+}
+
+/** @param list<string> $patientIds @return array<string, list<array{body:string,at:string,by:string}>> */
+function patient_secretary_notes_grouped(PDO $pdo, array $patientIds): array
+{
+    ensure_patient_secretary_notes_schema($pdo);
+    $ids = patient_secretary_note_ids($patientIds);
+    $grouped = [];
+    if (!$ids) {
+        return $grouped;
+    }
+    $marks = implode(',', array_fill(0, count($ids), '?'));
+    $stmt = $pdo->prepare("
+      SELECT n.patient_user_id, n.body, n.created_at, u.name AS author_name
+      FROM patient_secretary_notes n
+      LEFT JOIN users u ON u.id = n.created_by
+      WHERE n.patient_user_id IN ($marks)
+      ORDER BY n.created_at DESC
+    ");
+    $stmt->execute($ids);
+    foreach ($stmt->fetchAll() ?: [] as $row) {
+        $pid = (string) ($row['patient_user_id'] ?? '');
+        if (!isset($grouped[$pid])) {
+            $grouped[$pid] = [];
+        }
+        if (count($grouped[$pid]) >= 20) {
+            continue;
+        }
+        $at = trim((string) ($row['created_at'] ?? ''));
+        $grouped[$pid][] = [
+            'body' => (string) ($row['body'] ?? ''),
+            'at' => $at !== '' ? format_fa_datetime($at) : '',
+            'by' => trim((string) ($row['author_name'] ?? '')),
+        ];
+    }
+
+    return $grouped;
+}
+
+/** @param list<string> $patientIds @return array<string, array{next:string,last:string,upcoming:string}> */
+function patient_secretary_appointment_briefs(PDO $pdo, array $patientIds): array
+{
+    $ids = patient_secretary_note_ids($patientIds);
+    $out = [];
+    if (!$ids) {
+        return $out;
+    }
+    $marks = implode(',', array_fill(0, count($ids), '?'));
+    $stmt = $pdo->prepare("
+      SELECT patient_id,
+        MIN(CASE WHEN starts_at >= NOW() AND status <> 'CANCELLED' THEN starts_at END) AS next_at,
+        MAX(CASE WHEN starts_at < NOW() AND status <> 'CANCELLED' THEN starts_at END) AS last_at,
+        SUM(CASE WHEN starts_at >= NOW() AND status <> 'CANCELLED' THEN 1 ELSE 0 END) AS upcoming_count
+      FROM appointments
+      WHERE patient_id IN ($marks)
+      GROUP BY patient_id
+    ");
+    $stmt->execute($ids);
+    foreach ($stmt->fetchAll() ?: [] as $row) {
+        $pid = (string) ($row['patient_id'] ?? '');
+        $next = trim((string) ($row['next_at'] ?? ''));
+        $last = trim((string) ($row['last_at'] ?? ''));
+        $out[$pid] = [
+            'next' => $next !== '' ? format_fa_datetime($next) : '',
+            'last' => $last !== '' ? format_fa_datetime($last) : '',
+            'upcoming' => to_fa_digits((string) (int) ($row['upcoming_count'] ?? 0)),
+        ];
+    }
+
+    return $out;
+}
