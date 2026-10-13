@@ -150,5 +150,6 @@ ob_start();
     </table>
   </div>
 <?php endif; ?>
+<?= petty_cash_datepicker_assets() ?>
 <?php
 render_accountant_page('خارج از روال', ob_get_clean());

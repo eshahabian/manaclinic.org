@@ -114,7 +114,6 @@ ob_start();
       <input class="input" id="petty-in-amount" name="amount" inputmode="numeric" required placeholder="تومان" data-money>
       <p class="muted" data-money-words style="margin:.35rem 0 0;font-size:.85rem"></p>
     </div>
-    <p class="muted" style="margin:0">تاریخ این مبلغ: <?= e(to_jalali_label(sprintf('%04d-%02d-%02d', (int) date('Y'), (int) date('n'), (int) date('j')))) ?></p>
     <?= petty_cash_date_fields((int) $todayY, (int) $todayM, (int) $todayD) ?>
     <div>
       <label class="label" for="petty-in-note">توضیح</label>
@@ -306,6 +305,7 @@ ob_start();
   });
 })();
 </script>
+<?= petty_cash_datepicker_assets() ?>
 <?php
 $html = ob_get_clean();
 if ($embedded) {

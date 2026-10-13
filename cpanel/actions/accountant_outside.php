@@ -48,7 +48,10 @@ $title = trim((string) post('title'));
 $party = trim((string) post('party_name'));
 $note = trim((string) post('note'));
 $amount = parse_user_money((string) post('amount'));
-$paidOn = petty_cash_parse_parts((int) post('entry_jy'), (int) post('entry_jm'), (int) post('entry_jd'));
+$paidOn = function_exists('parse_user_date') ? parse_user_date((string) post('entry_date')) : null;
+if ($paidOn === null) {
+    $paidOn = petty_cash_parse_parts((int) post('entry_jy'), (int) post('entry_jm'), (int) post('entry_jd'));
+}
 if ($direction === '' || $method === '' || $title === '' || $amount <= 0 || $paidOn === null) {
     flash_set('error', 'نوع، روش، بابت، مبلغ و تاریخ را کامل وارد کنید.');
     redirect($back);

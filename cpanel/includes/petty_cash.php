@@ -176,43 +176,31 @@ function petty_cash_parse_parts(int $jy, int $jm, int $jd): ?string
 
 function petty_cash_date_fields(int $jy, int $jm, int $jd): string
 {
-    [$baseY] = gregorian_to_jalali((int) date('Y'), (int) date('n'), (int) date('j'));
-    $years = [];
-    for ($y = (int) $baseY - 1; $y <= (int) $baseY + 1; $y++) {
-        $years[] = $y;
-    }
-    if (!in_array($jy, $years, true)) {
-        $years[] = $jy;
-        sort($years);
-    }
+    static $n = 0;
+    $n++;
+    $id = 'petty-entry-date-' . $n;
+    $value = to_fa_digits(sprintf('%04d/%02d/%02d', $jy, $jm, $jd));
     ob_start();
     ?>
     <div>
-      <label class="label">سال</label>
-      <select class="input" name="entry_jy" required>
-        <?php foreach ($years as $y): ?>
-          <option value="<?= (int) $y ?>"<?= (int) $y === $jy ? ' selected' : '' ?>><?= e(to_fa_digits((string) $y)) ?></option>
-        <?php endforeach; ?>
-      </select>
-    </div>
-    <div>
-      <label class="label">ماه</label>
-      <select class="input" name="entry_jm" required>
-        <?php for ($m = 1; $m <= 12; $m++): ?>
-          <option value="<?= $m ?>"<?= $m === $jm ? ' selected' : '' ?>><?= e(petty_cash_month_name($m)) ?></option>
-        <?php endfor; ?>
-      </select>
-    </div>
-    <div>
-      <label class="label">روز</label>
-      <select class="input" name="entry_jd" required>
-        <?php for ($d = 1; $d <= 31; $d++): ?>
-          <option value="<?= $d ?>"<?= $d === $jd ? ' selected' : '' ?>><?= e(to_fa_digits((string) $d)) ?></option>
-        <?php endfor; ?>
-      </select>
+      <label class="label" for="<?= e($id) ?>">تاریخ</label>
+      <input class="input" id="<?= e($id) ?>" name="entry_date" type="text" data-jdp data-jdp-only-date readonly autocomplete="off" required style="cursor:pointer" value="<?= e($value) ?>" placeholder="تاریخ شمسی">
     </div>
     <?php
     return (string) ob_get_clean();
+}
+
+function petty_cash_datepicker_assets(): string
+{
+    static $done = false;
+    if ($done) {
+        return '';
+    }
+    $done = true;
+
+    return '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">'
+        . '<script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>'
+        . '<script>if(window.jalaliDatepicker){jalaliDatepicker.startWatch({selector:"[data-jdp]",time:false,hideAfterChange:true,showTodayBtn:true,showEmptyBtn:true,autoReadOnlyInput:true,persianDigits:true,zIndex:100000,container:"body"});}</script>';
 }
 
 /** @return array{in:int,out:int,items:list<array<string,mixed>>,entries:list<array<string,mixed>>} */
@@ -289,9 +277,9 @@ function petty_cash_apply_post(PDO $pdo, array $user): string
     }
 
     $kind = post('action') === 'in' ? 'IN' : (post('action') === 'out' ? 'OUT' : '');
-    $date = petty_cash_parse_parts((int) post('entry_jy'), (int) post('entry_jm'), (int) post('entry_jd'));
-    if ($date === null && function_exists('parse_user_date')) {
-        $date = parse_user_date((string) post('entry_date'));
+    $date = function_exists('parse_user_date') ? parse_user_date((string) post('entry_date')) : null;
+    if ($date === null) {
+        $date = petty_cash_parse_parts((int) post('entry_jy'), (int) post('entry_jm'), (int) post('entry_jd'));
     }
     $note = trim((string) post('note'));
     if ($kind === '' || $date === null) {
