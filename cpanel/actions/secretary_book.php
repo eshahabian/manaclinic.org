@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/../includes/appointment_session.php';
+require_once __DIR__ . '/../includes/secretary_patient.php';
 $user = require_login(['SECRETARY']);
 csrf_verify();
 $actorId = (string) $user['id'];
@@ -51,6 +52,14 @@ if ($patientId === '') {
         $bookRedirect('/secretary/appointments?tab=new');
     }
     $patientId = (string) $created['id'];
+}
+
+if ($patientId !== '' && function_exists('secretary_complete_patient_profile')) {
+    $setupError = secretary_complete_patient_profile($pdo, $patientId);
+    if ($setupError !== null) {
+        flash_set('error', $setupError);
+        $bookRedirect('/secretary/appointments?tab=new');
+    }
 }
 
 $referralToSave = null;

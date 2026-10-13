@@ -137,18 +137,87 @@ function secretary_bookable_patients(PDO $pdo): array
     ensure_user_referral_schema($pdo);
 
     return $pdo->query("
-      SELECT u.id, u.name, u.username, u.phone, u.preferred_doctor_id, u.referral_source, du.name AS doctor_name
+      SELECT u.id, u.name, u.username, u.phone, u.role, u.is_disabled, u.preferred_doctor_id, u.referral_source, du.name AS doctor_name
       FROM users u
       LEFT JOIN doctor_profiles dp ON dp.id = u.preferred_doctor_id
       LEFT JOIN users du ON du.id = dp.user_id
-      WHERE u.is_disabled = 0
-        AND (
+      WHERE (
           u.role = 'PATIENT'
           OR LOWER(u.username) = 'eshahabian'
           OR (u.name LIKE '%عماد%' AND u.name LIKE '%شهابیان%')
         )
-      ORDER BY u.name ASC
+      ORDER BY u.is_disabled ASC, u.name ASC
     ")->fetchAll() ?: [];
+}
+
+/** حساب قدیمی، غیرفعال، یا بدون درمانگر و معرف و موبایل. */
+function secretary_patient_needs_setup(array $row): bool
+{
+    if ((int) ($row['is_disabled'] ?? 0) === 1) {
+        return true;
+    }
+    if (strtoupper((string) ($row['role'] ?? '')) !== 'PATIENT') {
+        return false;
+    }
+    if (trim((string) ($row['phone'] ?? '')) === '') {
+        return true;
+    }
+    if (trim((string) ($row['preferred_doctor_id'] ?? '')) === '') {
+        return true;
+    }
+    if (!function_exists('user_referral_normalize')) {
+        require_once __DIR__ . '/user_referral.php';
+    }
+
+    return user_referral_normalize((string) ($row['referral_source'] ?? '')) === null;
+}
+
+/** قبل از نوبت، کاربر غیرفعال را فعال می‌کند و پروفایل ناقص را کامل می‌کند. */
+function secretary_complete_patient_profile(PDO $pdo, string $patientId): ?string
+{
+    $stmt = $pdo->prepare('SELECT id, name, phone, is_disabled, preferred_doctor_id, referral_source, role FROM users WHERE id=? LIMIT 1');
+    $stmt->execute([$patientId]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        return 'مراجعه‌کننده پیدا نشد.';
+    }
+    if (!secretary_patient_needs_setup($row)) {
+        return null;
+    }
+    $phone = normalize_phone((string) post('legacy_phone'));
+    if ($phone === '') {
+        $phone = normalize_phone((string) ($row['phone'] ?? ''));
+    }
+    $doctorId = trim((string) post('legacy_doctor_id'));
+    if ($doctorId === '') {
+        $doctorId = trim((string) ($row['preferred_doctor_id'] ?? ''));
+    }
+    if (!function_exists('user_referral_normalize')) {
+        require_once __DIR__ . '/user_referral.php';
+    }
+    $referral = user_referral_normalize((string) post('legacy_referral'));
+    if ($referral === null) {
+        $referral = user_referral_normalize((string) ($row['referral_source'] ?? ''));
+    }
+    if (!is_valid_phone($phone)) {
+        return 'برای فعال کردن «' . (string) $row['name'] . '» موبایل معتبر لازم است.';
+    }
+    $doc = $pdo->prepare('SELECT id FROM doctor_profiles WHERE id=? AND is_active=1 AND is_approved=1 LIMIT 1');
+    $doc->execute([$doctorId]);
+    if (!$doc->fetch()) {
+        return 'برای فعال کردن «' . (string) $row['name'] . '» درمانگر پروفایل را انتخاب کنید.';
+    }
+    if ($referral === null) {
+        return 'برای فعال کردن «' . (string) $row['name'] . '» معرف را انتخاب کنید.';
+    }
+    $pdo->prepare('UPDATE users SET is_disabled=0, phone=?, preferred_doctor_id=?, referral_source=? WHERE id=?')
+        ->execute([$phone, $doctorId, $referral, $patientId]);
+    if (function_exists('ensure_wallet')) {
+        require_once __DIR__ . '/wallet.php';
+        ensure_wallet($pdo, $patientId);
+    }
+
+    return null;
 }
 
 /**

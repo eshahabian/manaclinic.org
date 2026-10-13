@@ -101,11 +101,40 @@ ob_start();
           $savedReferral = function_exists('user_referral_normalize')
               ? (user_referral_normalize((string) ($p['referral_source'] ?? '')) ?? '')
               : '';
+          $needsSetup = function_exists('secretary_patient_needs_setup') && secretary_patient_needs_setup($p);
+          if ($needsSetup) {
+              $label .= ' — غیرفعال، تکمیل پروفایل لازم است';
+          }
         ?>
-        <option value="<?= e($p['id']) ?>" data-search="<?= e($searchBits) ?>" data-referral="<?= e($savedReferral) ?>"><?= e($label) ?></option>
+        <option value="<?= e($p['id']) ?>" data-search="<?= e($searchBits) ?>" data-referral="<?= e($savedReferral) ?>" data-needs-setup="<?= $needsSetup ? '1' : '0' ?>" data-phone="<?= e($phone) ?>" data-doctor="<?= e((string) ($p['preferred_doctor_id'] ?? '')) ?>"><?= e($label) ?></option>
       <?php endforeach; ?>
     </select>
     <p class="muted" style="margin:.35rem 0 0;font-size:.8rem">در باکس بالا نام، نام کاربری یا شماره موبایل را تایپ کنید.</p>
+    <div id="legacy-patient-setup" class="panel" hidden style="margin-top:.75rem;background:#fff8e8;border-color:#e6c56a">
+      <p style="margin:0 0 .7rem;font-weight:700">این کاربر قدیمی و غیرفعال است یا پروفایل کامل ندارد. تا فعال نشود و این موارد پر نشود، نوبت ثبت نمی‌شود.</p>
+      <label>
+        <span class="label">موبایل</span>
+        <input class="input" name="legacy_phone" id="legacy-phone" dir="ltr" inputmode="tel" autocomplete="tel">
+      </label>
+      <label style="display:block;margin-top:.6rem">
+        <span class="label">درمانگر</span>
+        <select class="input" name="legacy_doctor_id" id="legacy-doctor">
+          <option value="">انتخاب درمانگر</option>
+          <?php foreach ($doctors as $d): ?>
+            <option value="<?= e((string) $d['id']) ?>"><?= e((string) $d['name']) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </label>
+      <label style="display:block;margin-top:.6rem">
+        <span class="label">معرف</span>
+        <?php
+          if (!function_exists('user_referral_options_html')) {
+              require_once __DIR__ . '/../../includes/user_referral.php';
+          }
+          echo user_referral_options_html('legacy_referral', 'legacy-referral', '', false);
+        ?>
+      </label>
+    </div>
   </div>
 
   <div class="panel" style="background:var(--bg-soft);border-style:dashed">
@@ -246,6 +275,13 @@ $secretaryBookScripts = '
     var referralEl = document.getElementById("new_referral_source");
     var hint = document.getElementById("new-referral-hint");
     if (!referralEl) return;
+    var opt = patientEl && patientEl.options[patientEl.selectedIndex];
+    if (opt && opt.getAttribute("data-needs-setup") === "1") {
+      referralEl.required = false;
+      referralEl.disabled = true;
+      if (hint) hint.hidden = true;
+      return;
+    }
     var saved = selectedPatientReferral();
     if (patientReferralKnown(saved)) {
       referralEl.required = false;
@@ -277,13 +313,35 @@ $secretaryBookScripts = '
   function clearExistingPatient() {
     if (patientEl.value) patientEl.value = "";
     syncReferralRule();
+    syncLegacySetup();
   }
   [firstNameEl, lastNameEl, nameEnEl, surnameEl, preferredDoctorEl, newUserEl, newPassEl, newPassConfirmEl, newPhoneEl].forEach(function(el){
     if (!el) return;
     el.addEventListener("input", clearExistingPatient);
     el.addEventListener("change", clearExistingPatient);
   });
+  var legacyBox = document.getElementById("legacy-patient-setup");
+  var legacyPhone = document.getElementById("legacy-phone");
+  var legacyDoctor = document.getElementById("legacy-doctor");
+  var legacyReferral = document.getElementById("legacy-referral");
+  function syncLegacySetup() {
+    if (!legacyBox || !patientEl) return;
+    var opt = patientEl.options[patientEl.selectedIndex];
+    var needs = !!(opt && opt.getAttribute("data-needs-setup") === "1");
+    legacyBox.hidden = !needs;
+    [legacyPhone, legacyDoctor, legacyReferral].forEach(function (el) {
+      if (!el) return;
+      el.required = needs;
+      el.disabled = !needs;
+    });
+    if (needs && opt) {
+      if (legacyPhone && !legacyPhone.value) legacyPhone.value = opt.getAttribute("data-phone") || "";
+      if (legacyDoctor && opt.getAttribute("data-doctor")) legacyDoctor.value = opt.getAttribute("data-doctor");
+      if (legacyReferral && opt.getAttribute("data-referral")) legacyReferral.value = opt.getAttribute("data-referral");
+    }
+  }
   patientEl.addEventListener("change", function(){
+    syncLegacySetup();
     if (patientEl.value) {
       firstNameEl.value = "";
       lastNameEl.value = "";
@@ -825,6 +883,7 @@ $secretaryBookScripts = '
   });
   syncRoomRule();
   syncReferralRule();
+  syncLegacySetup();
 })();
 </script>
 ';
