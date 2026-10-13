@@ -25,6 +25,12 @@ try {
 } catch (Throwable $ignored) {
     $smsPending = 0;
 }
+$disabledPatients = $pdo->query("
+  SELECT id, name, username, phone
+  FROM users
+  WHERE role='PATIENT' AND is_disabled=1
+  ORDER BY name ASC
+")->fetchAll() ?: [];
 $accountUsers = $pdo->query("
   SELECT u.id, u.username, u.name, u.role, u.phone, u.created_at, u.last_login_at,
          u.referral_source, u.preferred_doctor_id,
@@ -123,10 +129,17 @@ ob_start();
             <input class="input" name="phone" form="<?= e($formId) ?>" dir="ltr" inputmode="tel" value="<?= e((string) ($u['phone'] ?? '')) ?>" required aria-label="موبایل" style="min-width:8rem;padding:.35rem .5rem;font-size:.85rem">
           </td>
           <td>
-            <form id="<?= e($formId) ?>" method="post" action="<?= e(url('/secretary/users')) ?>" style="margin:0">
+            <form id="<?= e($formId) ?>" method="post" action="<?= e(url('/secretary/users')) ?>" style="margin:0;display:flex;gap:.35rem;flex-wrap:wrap">
               <?= csrf_field() ?>
               <input type="hidden" name="user_id" value="<?= e($uid) ?>">
               <button class="btn btn-primary btn-sm" type="submit">ذخیره</button>
+            </form>
+            <form method="post" action="<?= e(url('/secretary/users')) ?>" style="margin:.35rem 0 0">
+              <?= csrf_field() ?>
+              <input type="hidden" name="action" value="set_disabled">
+              <input type="hidden" name="user_id" value="<?= e($uid) ?>">
+              <input type="hidden" name="disabled" value="1">
+              <button class="btn btn-outline btn-sm" type="submit">غیرفعال</button>
             </form>
           </td>
         </tr>
@@ -138,6 +151,29 @@ ob_start();
   </table>
 </div>
 <p class="muted" id="patient-filter-empty" hidden>موردی با این جستجو نیست.</p>
+<h2 style="margin:1.25rem 0 .35rem;font-size:1.05rem">حساب‌های غیرفعال</h2>
+<p class="muted" style="margin:0 0 .75rem">اگر مراجعه‌کننده مدتی نمی‌آید، حسابش اینجاست. فعال کردن همان حساب را برمی‌گرداند.</p>
+<?php if (!$disabledPatients): ?>
+  <p class="muted">حساب غیرفعالی نیست.</p>
+<?php else: ?>
+  <div class="stack">
+    <?php foreach ($disabledPatients as $inactive): ?>
+      <div class="panel" style="margin:0;display:flex;justify-content:space-between;gap:.75rem;align-items:center">
+        <div>
+          <strong><?= e((string) $inactive['name']) ?></strong>
+          <div class="muted" style="font-size:.85rem"><?= e((string) ($inactive['username'] ?? '')) ?> · <?= e((string) ($inactive['phone'] ?? '')) ?></div>
+        </div>
+        <form method="post" action="<?= e(url('/secretary/users')) ?>" style="margin:0">
+          <?= csrf_field() ?>
+          <input type="hidden" name="action" value="set_disabled">
+          <input type="hidden" name="user_id" value="<?= e((string) $inactive['id']) ?>">
+          <input type="hidden" name="disabled" value="0">
+          <button class="btn btn-primary btn-sm" type="submit">فعال</button>
+        </form>
+      </div>
+    <?php endforeach; ?>
+  </div>
+<?php endif; ?>
 </div>
 
 <div id="patients-inactive" <?= $tab === 'active' ? 'hidden' : '' ?>>

@@ -8,8 +8,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['submit_register'])) 
 
 $postedRole = strtoupper(trim(post('role')));
 if (in_array($postedRole, ['DOCTOR', 'ADMIN', 'SECRETARY'], true)) {
-    flash_set('error', 'ثبت‌نام درمانگر و کارکنان از سایت بسته است. این حساب‌ها را فقط مدیر کلینیک می‌سازد.');
-    redirect('/register');
+    flash_set('error', 'ثبت‌نام درمانگر برداشته شده است. برای همکاری، فرم درخواست همکاری را بفرستید.');
+    redirect('/collaborate');
 }
 if (trim((string) ($_POST['mana_hp'] ?? '')) !== '') {
     throttle_hit('register', 600);

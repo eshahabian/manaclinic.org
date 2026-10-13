@@ -6,6 +6,7 @@ require_once __DIR__ . '/secretary_week_grid.php';
 require_once __DIR__ . '/secretary_patient.php';
 require_once __DIR__ . '/availability.php';
 require_once __DIR__ . '/appointment_session.php';
+require_once __DIR__ . '/appointment_cancel.php';
 
 if (function_exists('appointment_restore_auto_cancelled_unpaid')) {
     appointment_restore_auto_cancelled_unpaid($pdo);
@@ -105,6 +106,7 @@ ob_start();
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
 <h1>نوبت‌ها</h1>
 <p class="muted" style="margin-top:.35rem;font-size:.9rem">نوبت جدید را از تب صورتی ثبت کنید. درخواست‌های مراجعه‌کننده در «لیست رزرو» جدا هستند و تا یک ساعت نگه داشته می‌شوند. پیش‌رو فقط نوبت‌های رزروشده است.</p>
+<?= appointment_debts_html($pdo) ?>
 <?php if (!empty($appointmentsDeskAdminTools)): ?>
   <div class="appt-toolbar">
     <form method="post" action="<?= e(url('/admin/appointments')) ?>" onsubmit="return confirm('همه نوبت‌ها برای همیشه حذف شوند؟');">
@@ -160,7 +162,9 @@ ob_start();
         <?php
           $appointmentList = $upcomingFiltered;
           $appointmentEmpty = 'با این جستجو نوبت پیش‌رویی پیدا نشد.';
+          $appointmentSingleEdit = true;
           require __DIR__ . '/secretary_appointment_cards.php';
+          $appointmentSingleEdit = false;
         ?>
       <?php else: ?>
         <form method="get" action="<?= e($deskAction) ?>" class="sec-week-doctor-pick" style="display:flex;flex-wrap:wrap;gap:.55rem;align-items:end;margin:1.25rem 0 1rem">

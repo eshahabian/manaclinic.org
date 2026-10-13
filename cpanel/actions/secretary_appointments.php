@@ -150,11 +150,15 @@ if ($action === 'cancel_patient') {
     $appointmentId = post('appointment_id');
     $note = post('note');
     try {
-        $result = secretary_mark_patient_cancelled($pdo, $appointmentId, $user, $note);
+        $result = secretary_mark_patient_cancelled($pdo, $appointmentId, $user, $note, (string) post('cancel_side'));
         if (!str_contains($next, 'tab=')) {
             $next .= (str_contains($next, '?') ? '&' : '?') . 'tab=cancelled';
         }
-        flash_set('success', 'کنسلی مراجع برای «' . (string) $result['patient_name'] . '» ثبت شد.');
+        $sideText = ((string) ($result['side'] ?? '')) === 'clinic' ? 'کلینیک' : 'مراجع';
+        $refundText = (int) ($result['refundAmount'] ?? 0) > 0
+            ? ' ' . format_price((int) $result['refundAmount']) . ' به کیف پول برگشت.'
+            : '';
+        flash_set('success', 'کنسلی از سمت ' . $sideText . ' برای «' . (string) $result['patient_name'] . '» ثبت شد.' . $refundText);
     } catch (Throwable $e) {
         flash_set('error', $e->getMessage());
         if (!str_contains($next, 'tab=')) {

@@ -1776,11 +1776,13 @@ function staff_app_appointment_rows(PDO $pdo, array $user): array
     if (!function_exists('clinic_rooms_between') && is_file(__DIR__ . '/clinic_rooms.php')) {
         require_once __DIR__ . '/clinic_rooms.php';
     }
-    if (function_exists('ensure_clinic_rooms_schema')) {
-        ensure_clinic_rooms_schema($pdo);
-    }
-    if (!function_exists('appointment_restore_auto_cancelled_unpaid') && is_file(__DIR__ . '/appointment_session.php')) {
+    if (!function_exists('appointment_ensure_room_schema') && is_file(__DIR__ . '/appointment_session.php')) {
         require_once __DIR__ . '/appointment_session.php';
+    }
+    if (function_exists('appointment_ensure_room_schema')) {
+        appointment_ensure_room_schema($pdo);
+    } elseif (function_exists('ensure_clinic_rooms_schema')) {
+        ensure_clinic_rooms_schema($pdo);
     }
     if (function_exists('appointment_restore_auto_cancelled_unpaid')) {
         try {
@@ -1804,9 +1806,13 @@ function staff_app_appointment_rows(PDO $pdo, array $user): array
     $stmt = $pdo->prepare("
       SELECT a.*,
              pu.name AS patient_name, du.name AS doctor_name,
-             (SELECT rb.room_no FROM clinic_room_bookings rb
+             COALESCE((SELECT rb.room_no FROM clinic_room_bookings rb
                WHERE rb.appointment_id = a.id
-               ORDER BY rb.starts_at DESC LIMIT 1) AS room_no
+               ORDER BY rb.starts_at DESC LIMIT 1), a.room_no) AS room_no,
+             pu.phone AS patient_phone,
+             (SELECT p.status FROM payments p WHERE p.appointment_id = a.id LIMIT 1) AS pay_status,
+             (SELECT p.amount FROM payments p WHERE p.appointment_id = a.id LIMIT 1) AS amount,
+             (SELECT p.ref_id FROM payments p WHERE p.appointment_id = a.id LIMIT 1) AS pay_ref
       FROM appointments a
       JOIN users pu ON pu.id = a.patient_id
       JOIN doctor_profiles dp ON dp.id = a.doctor_id

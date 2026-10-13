@@ -53,7 +53,7 @@ $nameDict = isset($pdo) ? build_name_transliterations_client_map($pdo) : [];
         <input class="footer-consult-hp" type="text" name="mana_hp" tabindex="-1" autocomplete="off" aria-hidden="true">
         <h1 class="auth-form-title">ثبت‌نام</h1>
         <?php if ($askedDoctor): ?>
-          <p class="auth-hint">حساب درمانگر از این صفحه ساخته نمی‌شود. درمانگر را مدیر کلینیک اضافه می‌کند. این فرم فقط برای مراجعه‌کننده است.</p>
+          <p class="auth-hint">ثبت‌نام درمانگر برداشته شده است. برای همکاری <a href="<?= e(url('/collaborate')) ?>">فرم درخواست همکاری</a> را بفرستید. این فرم فقط برای مراجعه‌کننده است.</p>
         <?php endif; ?>
         <div class="auth-grid">
           <label class="auth-line">

@@ -108,10 +108,13 @@ ob_start();
     <input type="hidden" name="action" value="in">
     <input type="hidden" name="jy" value="<?= (int) $range['year'] ?>">
     <input type="hidden" name="jm" value="<?= (int) $range['month'] ?>">
+    <?= petty_cash_select_html('pay_account', 'petty-in-account', 'حساب ورودی', petty_cash_in_accounts()) ?>
     <div>
       <label class="label" for="petty-in-amount">مبلغ</label>
-      <input class="input" id="petty-in-amount" name="amount" inputmode="numeric" required placeholder="تومان">
+      <input class="input" id="petty-in-amount" name="amount" inputmode="numeric" required placeholder="تومان" data-money>
+      <p class="muted" data-money-words style="margin:.35rem 0 0;font-size:.85rem"></p>
     </div>
+    <p class="muted" style="margin:0">تاریخ این مبلغ: <?= e(to_jalali_label(sprintf('%04d-%02d-%02d', (int) date('Y'), (int) date('n'), (int) date('j')))) ?></p>
     <?= petty_cash_date_fields((int) $todayY, (int) $todayM, (int) $todayD) ?>
     <div>
       <label class="label" for="petty-in-note">توضیح</label>
@@ -133,7 +136,7 @@ ob_start();
       </div>
       <div>
         <label class="label" for="petty-out-amount">مبلغ</label>
-        <input class="input" id="petty-out-amount" name="amount[]" inputmode="numeric" required placeholder="تومان">
+        <input class="input" id="petty-out-amount" name="amount[]" inputmode="numeric" required placeholder="تومان" data-money>
       </div>
     </div>
   </div>
@@ -211,6 +214,65 @@ ob_start();
 </div>
 <script>
 (function () {
+  var ones = ["", "یک", "دو", "سه", "چهار", "پنج", "شش", "هفت", "هشت", "نه"];
+  var teens = ["ده", "یازده", "دوازده", "سیزده", "چهارده", "پانزده", "شانزده", "هفده", "هجده", "نوزده"];
+  var tens = ["", "", "بیست", "سی", "چهل", "پنجاه", "شصت", "هفتاد", "هشتاد", "نود"];
+  var hundreds = ["", "صد", "دویست", "سیصد", "چهارصد", "پانصد", "ششصد", "هفتصد", "هشتصد", "نهصد"];
+  var scales = ["", "هزار", "میلیون", "میلیارد"];
+  function faDigits(s) {
+    return String(s).replace(/[0-9]/g, function (d) { return "۰۱۲۳۴۵۶۷۸۹"[d]; });
+  }
+  function three(n) {
+    var parts = [];
+    var h = Math.floor(n / 100);
+    var r = n % 100;
+    if (h) parts.push(hundreds[h]);
+    if (r >= 10 && r < 20) parts.push(teens[r - 10]);
+    else {
+      var t = Math.floor(r / 10);
+      var o = r % 10;
+      if (t) parts.push(tens[t]);
+      if (o) parts.push(ones[o]);
+    }
+    return parts.join(" و ");
+  }
+  function words(n) {
+    if (!n) return "";
+    var parts = [];
+    var i = 0;
+    while (n > 0 && i < scales.length) {
+      var chunk = n % 1000;
+      if (chunk) parts.unshift(three(chunk) + (scales[i] ? " " + scales[i] : ""));
+      n = Math.floor(n / 1000);
+      i++;
+    }
+    return parts.join(" و ") + " تومان";
+  }
+  function bindMoney(input) {
+    if (!input || input.getAttribute("data-money-bound") === "1") return;
+    input.setAttribute("data-money-bound", "1");
+    var out = input.parentNode ? input.parentNode.querySelector("[data-money-words]") : null;
+    if (!out) {
+      out = document.createElement("p");
+      out.className = "muted";
+      out.setAttribute("data-money-words", "");
+      out.style.cssText = "margin:.35rem 0 0;font-size:.85rem";
+      input.insertAdjacentElement("afterend", out);
+    }
+    function paint() {
+      var digits = String(input.value || "").replace(/[^\d۰-۹٠-٩]/g, "").replace(/[۰-۹]/g, function (d) { return "۰۱۲۳۴۵۶۷۸۹".indexOf(d); }).replace(/[٠-٩]/g, function (d) { return "٠١٢٣٤٥٦٧٨٩".indexOf(d); });
+      if (!digits) {
+        out.textContent = "";
+        return;
+      }
+      var grouped = digits.replace(/\B(?=(\d{3})+(?!\d))/g, "٬");
+      input.value = faDigits(grouped);
+      out.textContent = words(parseInt(digits, 10));
+    }
+    input.addEventListener("input", paint);
+  }
+  document.querySelectorAll("[data-money]").forEach(bindMoney);
+  window.manaBindMoney = bindMoney;
   document.querySelectorAll('[data-petty-tab]').forEach(function (tab) {
     tab.addEventListener('click', function () {
       var id = tab.getAttribute('data-petty-tab');
@@ -233,11 +295,12 @@ ob_start();
     row.className = 'petty-line';
     row.style.cssText = 'display:grid;grid-template-columns:minmax(0,1.6fr) minmax(7.5rem,.9fr) auto;gap:.5rem;align-items:center';
     row.innerHTML = '<input class="input" name="item_name[]" maxlength="120" placeholder="قلم بعدی" aria-label="قلم هزینه">'
-      + '<input class="input" name="amount[]" inputmode="numeric" placeholder="تومان" aria-label="مبلغ">'
+      + '<span><input class="input" name="amount[]" inputmode="numeric" placeholder="تومان" aria-label="مبلغ" data-money></span>'
       + '<button type="button" class="btn btn-outline" aria-label="حذف این قلم" style="min-width:2.75rem;font-size:1.2rem;line-height:1;padding:.45rem .7rem">×</button>';
     var remove = row.querySelector('button');
     if (remove) remove.addEventListener('click', function () { row.remove(); });
     box.appendChild(row);
+    if (window.manaBindMoney) row.querySelectorAll("[data-money]").forEach(window.manaBindMoney);
     var field = row.querySelector('input');
     if (field) field.focus();
   });

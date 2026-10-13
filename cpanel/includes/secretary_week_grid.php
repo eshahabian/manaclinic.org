@@ -262,7 +262,7 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                               $nextHold = $deskNext . (str_contains($deskNext, '?') ? '&' : '?') . 'tab=reservations&doctor_id=' . rawurlencode($doctorId);
                               $roomNext = $deskNext . (str_contains($deskNext, '?') ? '&' : '?') . 'tab=upcoming&doctor_id=' . rawurlencode($doctorId);
                             ?>
-                            <?php if ($roomNo < 1): ?>
+                            <?php if ($roomNo < 1 && empty($onlineSession)): ?>
                               <form method="post" action="<?= e(url('/secretary/appointments')) ?>" class="sec-week-room-form sec-room-form">
                                 <?= csrf_field() ?>
                                 <input type="hidden" name="action" value="set_room">

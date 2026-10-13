@@ -3,29 +3,48 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/wallet.php';
 
-/** نرخ بازگشت وجه: 1 = کامل، 0.5 = نصف، 0 = بدون بازگشت */
+/** نرخ بازگشت وجه از سمت مراجع: فقط اگر بیش از ۲۴ ساعت مانده باشد کاملِ سهم درمانگر، وگرنه صفر. */
 function appointment_refund_rate(string $startsAt): float
 {
     $secondsLeft = strtotime($startsAt) - time();
-    if ($secondsLeft >= 24 * 3600) {
-        return 1.0;
+
+    return $secondsLeft >= 24 * 3600 ? 1.0 : 0.0;
+}
+
+/**
+ * مبلغی که به کیف پول برمی‌گردد.
+ * مراجع و بیش از ۲۴ ساعت: سهم درمانگر (مبلغ منهای سهم کلینیک، اگر ثبت شده باشد).
+ * کلینیک یا درمانگر: کل مبلغ پرداخت‌شده.
+ */
+function appointment_cancel_refund_amount(array $row, string $side): int
+{
+    if ((string) ($row['pay_status'] ?? '') !== 'PAID') {
+        return 0;
     }
-    if ($secondsLeft >= 3 * 3600) {
-        return 0.5;
+    $amount = (int) ($row['amount'] ?? 0);
+    if ($amount <= 0) {
+        return 0;
     }
-    return 0.0;
+    if ($side === 'clinic') {
+        return $amount;
+    }
+    if (appointment_refund_rate((string) ($row['starts_at'] ?? '')) < 1) {
+        return 0;
+    }
+    if (array_key_exists('clinic_share_amount', $row) && $row['clinic_share_amount'] !== null && $row['clinic_share_amount'] !== '') {
+        return max(0, $amount - (int) $row['clinic_share_amount']);
+    }
+
+    return $amount;
 }
 
 function appointment_refund_hint(string $startsAt): string
 {
-    $rate = appointment_refund_rate($startsAt);
-    if ($rate >= 1.0) {
-        return 'کل مبلغ به کیف پول شما بازمی‌گردد.';
+    if (appointment_refund_rate($startsAt) >= 1.0) {
+        return 'با توجه به هزینه درمانگر، مبلغ به کیف پول برمی‌گردد.';
     }
-    if ($rate >= 0.5) {
-        return '۵۰٪ مبلغ به کیف پول شما بازمی‌گردد.';
-    }
-    return 'بازگشت وجه امکان‌پذیر نیست.';
+
+    return 'کمتر از ۲۴ ساعت مانده است و مبلغی به کیف پول برنمی‌گردد.';
 }
 
 function patient_can_cancel_appointment(string $status): bool
@@ -35,8 +54,12 @@ function patient_can_cancel_appointment(string $status): bool
 
 function cancel_patient_appointment(PDO $pdo, string $appointmentId, string $patientId): array
 {
+    if (!function_exists('ensure_user_referral_schema')) {
+        require_once __DIR__ . '/user_referral.php';
+    }
+    ensure_user_referral_schema($pdo);
     $stmt = $pdo->prepare("
-      SELECT a.*, p.id AS payment_id, p.amount, p.status AS pay_status
+      SELECT a.*, p.id AS payment_id, p.amount, p.status AS pay_status, p.clinic_share_amount
       FROM appointments a
       LEFT JOIN payments p ON p.appointment_id = a.id
       WHERE a.id = ? AND a.patient_id = ?
@@ -52,12 +75,11 @@ function cancel_patient_appointment(PDO $pdo, string $appointmentId, string $pat
     }
 
     $refundAmount = 0;
-    $rate = 0.0;
+    $rate = appointment_refund_rate((string) ($row['starts_at'] ?? ''));
 
-    if ($row['status'] === 'CONFIRMED' && ($row['pay_status'] ?? '') === 'PAID') {
-        $rate = appointment_refund_rate((string) $row['starts_at']);
-        $refundAmount = (int) round(((int) $row['amount']) * $rate);
-        if ($refundAmount > 0) {
+    if ($row['status'] === 'CONFIRMED') {
+        $refundAmount = appointment_cancel_refund_amount($row, 'patient');
+        if ($refundAmount > 0 && !appointment_refund_already($pdo, $appointmentId)) {
             wallet_credit_balance(
                 $pdo,
                 $patientId,
@@ -65,8 +87,10 @@ function cancel_patient_appointment(PDO $pdo, string $appointmentId, string $pat
                 'REFUND',
                 'appointment',
                 $appointmentId,
-                'لغو نوبت — ' . appointment_refund_hint((string) $row['starts_at'])
+                'لغو نوبت از سمت مراجع — ' . appointment_refund_hint((string) $row['starts_at'])
             );
+        } else {
+            $refundAmount = 0;
         }
     }
 
@@ -91,24 +115,44 @@ function cancel_patient_appointment(PDO $pdo, string $appointmentId, string $pat
     ];
 }
 
+function appointment_refund_already(PDO $pdo, string $appointmentId): bool
+{
+    if ($appointmentId === '') {
+        return false;
+    }
+    ensure_wallet_schema($pdo);
+    $stmt = $pdo->prepare("SELECT COUNT(*) FROM wallet_transactions WHERE reference_type='appointment' AND reference_id=? AND kind='REFUND'");
+    $stmt->execute([$appointmentId]);
+
+    return (int) $stmt->fetchColumn() > 0;
+}
+
 function staff_can_mark_patient_cancelled(string $status): bool
 {
     return in_array($status, ['PENDING_PAYMENT', 'CONFIRMED'], true);
 }
 
-function secretary_mark_patient_cancelled(PDO $pdo, string $appointmentId, array $actor, string $note): array
+function secretary_mark_patient_cancelled(PDO $pdo, string $appointmentId, array $actor, string $note, string $side = 'patient'): array
 {
+    $side = $side === 'clinic' ? 'clinic' : 'patient';
     $note = trim($note);
     if ($note === '') {
-        $note = 'مراجعه‌کننده کنسل کرد.';
+        $note = $side === 'clinic' ? 'از سمت کلینیک کنسل شد.' : 'مراجعه‌کننده کنسل کرد.';
     }
 
+    if (!function_exists('ensure_user_referral_schema')) {
+        require_once __DIR__ . '/user_referral.php';
+    }
+    ensure_user_referral_schema($pdo);
+
     $stmt = $pdo->prepare("
-      SELECT a.*, pu.name AS patient_name, du.name AS doctor_name
+      SELECT a.*, pu.name AS patient_name, du.name AS doctor_name,
+             p.amount, p.status AS pay_status, p.clinic_share_amount
       FROM appointments a
       JOIN users pu ON pu.id = a.patient_id
       JOIN doctor_profiles dp ON dp.id = a.doctor_id
       JOIN users du ON du.id = dp.user_id
+      LEFT JOIN payments p ON p.appointment_id = a.id
       WHERE a.id = ?
       LIMIT 1
     ");
@@ -121,7 +165,24 @@ function secretary_mark_patient_cancelled(PDO $pdo, string $appointmentId, array
         throw new RuntimeException('این نوبت قابل ثبت کنسلی نیست.');
     }
 
-    if (in_array((string) ($row['status'] ?? ''), ['PENDING_APPROVAL', 'PENDING_PAYMENT'], true)) {
+    $refundAmount = appointment_cancel_refund_amount($row, $side);
+    if ($refundAmount > 0 && !appointment_refund_already($pdo, $appointmentId)) {
+        wallet_credit_balance(
+            $pdo,
+            (string) $row['patient_id'],
+            $refundAmount,
+            'REFUND',
+            'appointment',
+            $appointmentId,
+            $side === 'clinic'
+                ? 'کنسلی از سمت کلینیک — کل مبلغ برگشت'
+                : 'کنسلی از سمت مراجع — بازگشت با توجه به هزینه درمانگر'
+        );
+    } else {
+        $refundAmount = 0;
+    }
+
+    if (in_array((string) ($row['status'] ?? ''), ['PENDING_APPROVAL', 'PENDING_PAYMENT'], true) || (string) ($row['pay_status'] ?? '') === 'PENDING') {
         $pdo->prepare("UPDATE payments SET status='FAILED' WHERE appointment_id=? AND status='PENDING'")
             ->execute([$appointmentId]);
     }
@@ -129,32 +190,62 @@ function secretary_mark_patient_cancelled(PDO $pdo, string $appointmentId, array
     $pdo->prepare("
       UPDATE appointments
       SET status='CANCELLED',
-          cancel_reason='patient',
+          cancel_reason=?,
           cancellation_note=?,
           cancelled_by_user_id=?,
           cancelled_at=NOW()
       WHERE id=?
-    ")->execute([$note, (string) ($actor['id'] ?? ''), $appointmentId]);
+    ")->execute([$side === 'clinic' ? 'clinic' : 'patient', $note, (string) ($actor['id'] ?? ''), $appointmentId]);
+    if (function_exists('clinic_rooms_ready') || is_file(__DIR__ . '/clinic_rooms.php')) {
+        if (!function_exists('clinic_rooms_ready')) {
+            require_once __DIR__ . '/clinic_rooms.php';
+        }
+        clinic_rooms_ready($pdo);
+        $pdo->prepare('DELETE FROM clinic_room_bookings WHERE appointment_id=?')->execute([$appointmentId]);
+    }
+    try {
+        $pdo->prepare('UPDATE appointments SET room_no=NULL WHERE id=?')->execute([$appointmentId]);
+    } catch (Throwable $ignored) {
+    }
 
     $patientName = (string) ($row['patient_name'] ?? 'مراجعه‌کننده');
     $when = format_fa_datetime((string) ($row['starts_at'] ?? ''));
     $actorName = staff_actor_label($actor);
-    staff_log_action($pdo, (string) ($actor['id'] ?? ''), 'cancel_patient', 'appointment', $appointmentId, $patientName . ' — ' . $note);
+    $sideLabel = $side === 'clinic' ? 'کلینیک' : 'مراجع';
+    staff_log_action($pdo, (string) ($actor['id'] ?? ''), 'cancel_patient', 'appointment', $appointmentId, $patientName . ' — ' . $sideLabel . ' — ' . $note);
     notify_role(
         $pdo,
         'SECRETARY',
-        'کنسلی مراجع',
-        "نوبت «{$patientName}» برای {$when} توسط {$actorName} به‌عنوان کنسلی مراجع ثبت شد.",
+        'کنسلی از سمت ' . $sideLabel,
+        "نوبت «{$patientName}» برای {$when} توسط {$actorName} به‌عنوان کنسلی {$sideLabel} ثبت شد.",
         '/secretary/appointments?tab=cancelled',
         'appointment'
     );
     notify_doctor_profile(
         $pdo,
         (string) $row['doctor_id'],
-        'کنسلی مراجع',
-        "مراجعه‌کننده «{$patientName}» نوبت {$when} را کنسل کرد. یادداشت: {$note}",
+        'کنسلی از سمت ' . $sideLabel,
+        "نوبت «{$patientName}» در {$when} از سمت {$sideLabel} کنسل شد. یادداشت: {$note}",
         '/doctor/appointments?tab=cancelled',
         'appointment'
+    );
+    if (!function_exists('notify_user')) {
+        require_once __DIR__ . '/notifications.php';
+    }
+    $patientNote = $side === 'clinic'
+        ? "نوبت {$when} از سمت کلینیک لغو شد."
+        : "نوبت {$when} از سمت شما لغو شد.";
+    if ($refundAmount > 0) {
+        $patientNote .= ' ' . format_price($refundAmount) . ' به کیف پول شما برگشت.';
+    }
+    notify_user(
+        $pdo,
+        (string) $row['patient_id'],
+        'نوبت لغو شد',
+        $patientNote,
+        '/dashboard/appointments',
+        'appointment',
+        (string) ($actor['id'] ?? '') ?: null
     );
 
     return [
@@ -162,6 +253,8 @@ function secretary_mark_patient_cancelled(PDO $pdo, string $appointmentId, array
         'patient_name' => $patientName,
         'starts_at' => (string) ($row['starts_at'] ?? ''),
         'note' => $note,
+        'side' => $side,
+        'refundAmount' => $refundAmount,
     ];
 }
 
@@ -176,9 +269,12 @@ function appointment_notes_html(array $row): string
         $cancelTitle = match ($reason) {
             'rejected' => 'رد درخواست:',
             'unpaid_timeout' => 'لغو مهلت:',
+            'clinic' => 'کنسلی کلینیک:',
             default => 'کنسلی مراجع:',
         };
         $html .= '<div class="appt-note appt-note-cancel"><strong>' . e($cancelTitle) . '</strong> ' . e($cancel) . '</div>';
+    } elseif ($status === 'CANCELLED' && $reason === 'clinic') {
+        $html .= '<div class="appt-note appt-note-cancel">از سمت کلینیک کنسل شد.</div>';
     } elseif ($status === 'CANCELLED' && $reason === 'patient') {
         $html .= '<div class="appt-note appt-note-cancel">مراجعه‌کننده کنسل کرد.</div>';
     } elseif ($status === 'CANCELLED' && $reason === 'rejected') {
@@ -212,10 +308,68 @@ function secretary_patient_cancel_form(string $appointmentId, string $status, st
       <input type="hidden" name="action" value="cancel_patient">
       <input type="hidden" name="appointment_id" value="<?= e($appointmentId) ?>">
       <input type="hidden" name="next" value="<?= e($next) ?>">
+      <label class="label" for="cancel-side-<?= e($appointmentId) ?>">کنسلی از کدام سمت است؟</label>
+      <select class="input" id="cancel-side-<?= e($appointmentId) ?>" name="cancel_side" required>
+        <option value="patient">از سمت مراجع — اگر بیش از ۲۴ ساعت مانده باشد، با توجه به هزینه درمانگر به کیف پول برمی‌گردد</option>
+        <option value="clinic">از سمت کلینیک یا درمانگر — کل مبلغ به کیف پول برمی‌گردد</option>
+      </select>
       <label class="label" for="cancel-note-<?= e($appointmentId) ?>">یادداشت کنسلی</label>
-      <textarea class="input" id="cancel-note-<?= e($appointmentId) ?>" name="note" rows="2" required placeholder="مثلاً: سر وقت آمد ولی کنسل کرد">مراجعه‌کننده کنسل کرد.</textarea>
-      <button type="submit" class="btn btn-outline btn-sm">ثبت کنسلی مراجع</button>
+      <textarea class="input" id="cancel-note-<?= e($appointmentId) ?>" name="note" rows="2" required placeholder="مثلاً: مراجع خبر داد، یا درمانگر کنسل کرد">مراجعه‌کننده کنسل کرد.</textarea>
+      <button type="submit" class="btn btn-outline btn-sm">ثبت کنسلی</button>
     </form>
+    <?php
+    return (string) ob_get_clean();
+}
+
+/** بدهی‌های «بعداً پرداخت می‌کند» که منشی روی نوبت گذاشته است. */
+function appointment_open_debts(PDO $pdo): array
+{
+    try {
+        $rows = $pdo->query("
+          SELECT p.amount, p.created_at, p.ref_id, a.starts_at, a.staff_payment_note,
+                 pu.name AS patient_name, du.name AS doctor_name, cu.name AS actor_name
+          FROM payments p
+          JOIN appointments a ON a.id = p.appointment_id
+          JOIN users pu ON pu.id = a.patient_id
+          JOIN doctor_profiles dp ON dp.id = a.doctor_id
+          JOIN users du ON du.id = dp.user_id
+          LEFT JOIN users cu ON cu.id = p.recorded_by_user_id
+          WHERE p.status = 'PENDING' AND p.ref_id = 'LATER' AND a.status <> 'CANCELLED'
+          ORDER BY a.starts_at ASC
+          LIMIT 80
+        ")->fetchAll();
+
+        return $rows ?: [];
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+function appointment_debts_html(PDO $pdo): string
+{
+    $rows = appointment_open_debts($pdo);
+    ob_start();
+    ?>
+    <div class="panel" style="margin-top:1rem">
+      <h2 style="margin:0 0 .4rem;font-size:1rem">بدهکاران</h2>
+      <p class="muted" style="margin:0 0 .7rem;font-size:.85rem">نوبت‌هایی که منشی «بعداً پرداخت می‌کند» زده است: چه کسی، از کجا، چه تاریخی و چرا.</p>
+      <?php if (!$rows): ?>
+        <p class="muted" style="margin:0">بدهی بازی نیست.</p>
+      <?php else: ?>
+        <?php foreach ($rows as $debt): ?>
+          <p style="margin:.4rem 0;line-height:1.7">
+            <strong><?= e((string) ($debt['patient_name'] ?? '')) ?></strong>
+            · <?= e(format_price((int) ($debt['amount'] ?? 0))) ?>
+            · نوبت با <?= e((string) ($debt['doctor_name'] ?? '')) ?>
+            · <?= e(format_fa_datetime((string) ($debt['starts_at'] ?? ''))) ?>
+            · <?= e(trim((string) ($debt['staff_payment_note'] ?? '')) !== '' ? (string) $debt['staff_payment_note'] : 'پرداخت بعدی') ?>
+            <?php if (trim((string) ($debt['actor_name'] ?? '')) !== ''): ?>
+              · ثبت <?= e((string) $debt['actor_name']) ?>
+            <?php endif; ?>
+          </p>
+        <?php endforeach; ?>
+      <?php endif; ?>
+    </div>
     <?php
     return (string) ob_get_clean();
 }

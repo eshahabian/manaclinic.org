@@ -300,6 +300,16 @@ if ($method === 'POST' && $path === '/app/petty-cash') {
     redirect($back);
 }
 
+if ($method === 'POST' && $path === '/app/therapists') {
+    if ($role !== 'SECRETARY') {
+        flash_set('error', 'فهرست درمانگرها با منشی است.');
+        redirect('/app');
+    }
+    $_POST['next'] = '/app/therapists';
+    require __DIR__ . '/../actions/secretary_therapists.php';
+    exit;
+}
+
 if ($method === 'POST' && $path === '/app/appointments') {
     if ($role !== 'SECRETARY') {
         flash_set('error', 'ثبت وقت با منشی است.');
@@ -318,7 +328,17 @@ if ($method === 'POST' && $path === '/app/rooms') {
     require_once __DIR__ . '/../includes/clinic_rooms.php';
     $day = clinic_rooms_parse_day(post('day'));
     try {
-        if (post('action') === 'release') {
+        if (post('hour_only') === '1') {
+            $hourEnd = clinic_rooms_hour_end((string) post('start_time'));
+            if ($hourEnd === null) {
+                throw new RuntimeException('ساعت را از فهرست انتخاب کنید.');
+            }
+            $_POST['end_time'] = $hourEnd;
+        }
+        if (post('action') === 'release_hour') {
+            $day = clinic_rooms_release_hour($pdo, (string) post('booking_id'), (string) post('slice_start'));
+            flash_set('success', 'همان یک ساعت آزاد شد.');
+        } elseif (post('action') === 'release') {
             $day = clinic_rooms_release($pdo, post('booking_id'));
             flash_set('success', 'ساعت اتاق آزاد شد.');
         } elseif (post('action') === 'update') {
@@ -426,6 +446,7 @@ $section = match ($path) {
     '/app/checklist' => 'checklist',
     '/app/petty-cash' => 'petty',
     '/app/complaints' => 'complaints',
+    '/app/therapists' => 'therapists',
     '/app/profile' => 'profile',
     default => '',
 };
@@ -446,6 +467,7 @@ $descriptions = [
     'checklist' => 'لیست کارهای روزانه منشی‌ها در کلینیک مانا، همان فهرست داخل سایت.',
     'petty' => 'تنخواه کلینیک مانا؛ ثبت هزینه، حساب پرداخت و تاییدکننده، همان فهرست داخل سایت.',
     'complaints' => 'ثبت و دیدن شکایت مراجع از جلسه درمانگر در برنامه داخلی مانا.',
+    'therapists' => 'درمانگرهای کلینیک مانا؛ فعال و غیرفعال، و درخواست‌های همکاری.',
     'profile' => 'پروفایل درمانگر یا منشی در برنامه داخلی مانا کلینیک.',
 ];
 
@@ -479,6 +501,13 @@ if ($section === 'home') {
         <strong>درخواست مشاوره</strong>
         <em>Consult Requests</em>
       </a>
+      <?php if ($role === 'SECRETARY'): ?>
+      <a class="sapp-tile" href="<?= e(url('/app/therapists')) ?>">
+        <span class="sapp-ico sapp-ico-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="2.4"/><circle cx="16" cy="9" r="2"/><path d="M4.8 18.2a4.4 4.4 0 0 1 8.4 0M13.2 18.2a3.6 3.6 0 0 1 6-2.2"/></svg></span>
+        <strong>درمانگرها</strong>
+        <em>Therapists</em>
+      </a>
+      <?php endif; ?>
       <a class="sapp-tile" href="<?= e(url('/app/checklist')) ?>">
         <span class="sapp-ico sapp-ico-pink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="16" rx="3"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg></span>
         <strong>لیست کارهای روزانه</strong>
@@ -500,6 +529,71 @@ if ($section === 'home') {
     </div>
     <?php
     staff_app_render('home', 'Mana Staff', $descriptions['home'], ob_get_clean());
+    exit;
+}
+
+if ($section === 'therapists') {
+    if ($role !== 'SECRETARY') {
+        flash_set('error', 'فهرست درمانگرها با منشی است.');
+        redirect('/app');
+    }
+    require_once __DIR__ . '/../includes/collaboration.php';
+    $rows = $pdo->query("
+      SELECT u.id, u.name, u.phone, u.is_disabled, dp.id AS profile_id, dp.specialty, dp.is_active, dp.is_approved
+      FROM users u
+      LEFT JOIN doctor_profiles dp ON dp.user_id = u.id
+      WHERE u.role = 'DOCTOR'
+      ORDER BY u.name ASC
+    ")->fetchAll() ?: [];
+    $requests = collaboration_requests($pdo);
+    ob_start();
+    ?>
+    <h1>درمانگرها</h1>
+    <p class="muted">فعال یعنی در نوبت‌دهی دیده می‌شود. با فعال شدن، پروفایل درمانگر ساخته می‌شود.</p>
+    <div class="sapp-list">
+      <?php foreach ($rows as $row): ?>
+        <?php
+          $on = (int) ($row['is_disabled'] ?? 0) === 0
+              && (string) ($row['profile_id'] ?? '') !== ''
+              && (int) ($row['is_active'] ?? 0) === 1
+              && (int) ($row['is_approved'] ?? 0) === 1;
+        ?>
+        <article class="sapp-row">
+          <div style="display:flex;justify-content:space-between;gap:.6rem;align-items:center">
+            <div>
+              <strong><?= e((string) $row['name']) ?></strong>
+              <div><?= e(trim((string) ($row['specialty'] ?? '')) !== '' ? (string) $row['specialty'] : 'بدون تخصص') ?></div>
+              <small><?= $on ? 'فعال' : 'غیرفعال' ?></small>
+            </div>
+            <form method="post" action="<?= e(url('/app/therapists')) ?>" style="margin:0">
+              <?= csrf_field() ?>
+              <input type="hidden" name="user_id" value="<?= e((string) $row['id']) ?>">
+              <input type="hidden" name="active" value="<?= $on ? '0' : '1' ?>">
+              <button class="btn btn-outline btn-sm" type="submit"><?= $on ? 'غیرفعال' : 'فعال' ?></button>
+            </form>
+          </div>
+        </article>
+      <?php endforeach; ?>
+      <?php if (!$rows): ?>
+        <p class="muted">درمانگری ثبت نشده است.</p>
+      <?php endif; ?>
+    </div>
+    <h2 class="sapp-day">درخواست‌های همکاری</h2>
+    <?php if (!$requests): ?>
+      <p class="muted">درخواستی نرسیده است.</p>
+    <?php else: ?>
+      <div class="sapp-list">
+        <?php foreach ($requests as $request): ?>
+          <article class="sapp-row">
+            <strong><?= e((string) $request['name']) ?></strong>
+            <div><?= e((string) $request['specialty']) ?> · <?= e((string) $request['phone']) ?></div>
+            <small><?= e((string) $request['message']) ?></small>
+          </article>
+        <?php endforeach; ?>
+      </div>
+    <?php endif; ?>
+    <?php
+    staff_app_render('therapists', 'درمانگرها', $descriptions['therapists'], ob_get_clean());
     exit;
 }
 
@@ -533,6 +627,12 @@ if ($section === 'appointments') {
     ?>
     <?php if ($bookForm !== ''): ?>
       <h1>ثبت وقت</h1>
+      <?php
+        if (!function_exists('appointment_debts_html')) {
+            require_once __DIR__ . '/../includes/appointment_cancel.php';
+        }
+        echo appointment_debts_html($pdo);
+      ?>
       <?= $bookForm ?>
       <h2 class="sapp-day">وقت‌های دو هفته آینده</h2>
     <?php else: ?>
@@ -569,10 +669,34 @@ if ($section === 'appointments') {
             ?>
             <article class="sapp-row">
               <strong><?= e(format_fa_time((string) $row['starts_at'])) ?> تا <?= e(format_fa_time((string) $row['ends_at'])) ?></strong>
-              <div><?= e($whoLine) ?></div>
-              <small><?= e($detail) ?></small>
+              <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem">
+                <span><?= e($whoLine) ?></span>
+                <?php if (!$roomOnly): ?>
+                  <details class="name-more">
+                    <summary aria-label="توضیحات بیشتر">⋯</summary>
+                    <div class="panel" style="margin-top:.45rem;font-size:.82rem;line-height:1.7">
+                      <?php $phone = trim((string) ($row['patient_phone'] ?? '')); ?>
+                      <div>تلفن: <?= $phone !== '' ? e($phone) : 'ثبت نشده' ?></div>
+                      <div><?= e($detail) ?></div>
+                      <?php if ((int) ($row['amount'] ?? 0) > 0): ?>
+                        <div>مبلغ: <?= e(format_price((int) $row['amount'])) ?>
+                          <?php if ((string) ($row['pay_ref'] ?? '') === 'LATER'): ?> · پرداخت بعدی<?php elseif ((string) ($row['pay_status'] ?? '') === 'PAID'): ?> · پرداخت شده<?php endif; ?>
+                        </div>
+                      <?php endif; ?>
+                      <?php $note = trim((string) ($row['notes'] ?? '')); ?>
+                      <?php if ($note !== ''): ?><div>یادداشت: <?= e($note) ?></div><?php endif; ?>
+                    </div>
+                  </details>
+                <?php endif; ?>
+              </div>
+              <small><?= e($detail) ?><?php if (!$roomOnly && $roomNo < 1 && (string) ($row['session_mode'] ?? '') !== 'ONLINE'): ?> · اتاق هنوز انتخاب نشده<?php endif; ?></small>
               <?php if ($role === 'SECRETARY' && !$roomOnly && trim((string) ($row['id'] ?? '')) !== '' && function_exists('appointment_time_edit_form_html')): ?>
-                <?= appointment_time_edit_form_html($row, '/app/appointments') ?>
+                <details class="appt-one-edit">
+                  <summary class="btn btn-outline btn-sm">ویرایش</summary>
+                  <div style="margin-top:.55rem">
+                    <?= appointment_time_edit_form_html($row, '/app/appointments') ?>
+                  </div>
+                </details>
               <?php endif; ?>
             </article>
           <?php endforeach; ?>
@@ -633,6 +757,18 @@ if ($section === 'rooms') {
             $byRoom[$number] = [];
         }
         $byRoom[$number][] = $row;
+    }
+    if (function_exists('clinic_rooms_hour_slices')) {
+        foreach ($byRoom as $number => $items) {
+            $slices = [];
+            foreach ($items as $row) {
+                foreach (clinic_rooms_hour_slices($row) as $slice) {
+                    $slices[] = $slice;
+                }
+            }
+            usort($slices, static fn(array $a, array $b): int => strcmp((string) ($a['slice_start'] ?? ''), (string) ($b['slice_start'] ?? '')));
+            $byRoom[$number] = $slices;
+        }
     }
     $clockChoices = [];
     for ($hour = 8; $hour <= 21; $hour++) {
@@ -764,13 +900,16 @@ if ($section === 'rooms') {
             <?php foreach ($items as $row): ?>
               <?php
                 $now = time();
-                $start = strtotime((string) ($row['starts_at'] ?? '')) ?: 0;
-                $end = strtotime((string) ($row['ends_at'] ?? '')) ?: 0;
+                $start = strtotime((string) ($row['slice_start'] ?? $row['starts_at'] ?? '')) ?: 0;
+                $end = strtotime((string) ($row['slice_end'] ?? $row['ends_at'] ?? '')) ?: 0;
+                $wholeStart = strtotime((string) ($row['starts_at'] ?? '')) ?: $start;
+                $wholeEnd = strtotime((string) ($row['ends_at'] ?? '')) ?: $end;
+                $oneHour = ($wholeEnd - $wholeStart) <= 3700;
                 $state = ($now >= $start && $now < $end) ? 'الان' : ($start > $now ? 'رزرو شده' : 'تمام شده');
                 $purposeText = function_exists('clinic_room_purpose') ? clinic_room_purpose($row) : trim((string) ($row['title'] ?? ''));
               ?>
               <article class="sapp-row">
-                <strong><?= e($state) ?> · <?= e(format_fa_time((string) $row['starts_at'])) ?> تا <?= e(format_fa_time((string) $row['ends_at'])) ?></strong>
+                <strong><?= e($state) ?> · <?= e(format_fa_time(date('Y-m-d H:i:s', $start))) ?> تا <?= e(format_fa_time(date('Y-m-d H:i:s', $end))) ?></strong>
                 <div><?= e($purposeText !== '' ? $purposeText : 'بدون توضیح') ?></div>
                 <?php if ($role === 'SECRETARY' && $end >= $now): ?>
                   <?php
@@ -790,11 +929,13 @@ if ($section === 'rooms') {
                     $editSessionId = trim((string) ($row['workshop_session_id'] ?? ''));
                   ?>
                   <div style="display:flex;gap:.45rem;flex-wrap:wrap;align-items:flex-start;margin-top:.55rem">
+                    <?php if ($oneHour): ?>
                     <details class="room-edit">
                       <summary class="btn btn-outline btn-sm">ویرایش</summary>
                       <form class="panel" method="post" action="<?= e(url('/app/rooms')) ?>" data-room-book style="margin-top:.7rem;display:flex;flex-direction:column;gap:.55rem">
                         <?= csrf_field() ?>
                         <input type="hidden" name="action" value="update">
+                        <input type="hidden" name="hour_only" value="1">
                         <input type="hidden" name="booking_id" value="<?= e((string) ($row['id'] ?? '')) ?>">
                         <input type="hidden" name="day" value="<?= e($roomDay) ?>">
                         <label class="label">اتاق
@@ -807,8 +948,14 @@ if ($section === 'rooms') {
                         <label class="label">تاریخ
                           <input class="input" type="text" name="booking_day" data-jdp data-jdp-only-date readonly autocomplete="off" required style="cursor:pointer" value="<?= e(function_exists('clinic_rooms_jalali_input') ? clinic_rooms_jalali_input(substr((string) ($row['starts_at'] ?? ''), 0, 10)) : '') ?>">
                         </label>
-                        <label class="label">از ساعت<input class="input" name="start_time" value="<?= e($editStart) ?>" list="room-clock-options" inputmode="decimal" autocomplete="off" required></label>
-                        <label class="label">تا ساعت<input class="input" name="end_time" value="<?= e($editEnd) ?>" list="room-clock-options" inputmode="decimal" autocomplete="off" required></label>
+                        <label class="label">ساعت
+                          <select class="input" name="start_time" required>
+                            <?php foreach ($clockChoices as $clock): ?>
+                              <?php if (!str_ends_with($clock, ':00')) { continue; } ?>
+                              <option value="<?= e($clock) ?>"<?= $editStart === $clock ? ' selected' : '' ?>><?= e(to_fa_digits($clock)) ?></option>
+                            <?php endforeach; ?>
+                          </select>
+                        </label>
                         <label class="label">برای چیست؟
                           <select class="input" name="purpose" data-purpose>
                             <option value="therapy" <?= $editPurpose === 'therapy' ? 'selected' : '' ?>>تراپی</option>
@@ -857,11 +1004,13 @@ if ($section === 'rooms') {
                         <button class="btn btn-primary btn-sm" type="submit">ذخیره ویرایش</button>
                       </form>
                     </details>
+                    <?php endif; ?>
                     <form method="post" action="<?= e(url('/app/rooms')) ?>" style="margin:0">
                       <?= csrf_field() ?>
-                      <input type="hidden" name="action" value="release">
+                      <input type="hidden" name="action" value="release_hour">
                       <input type="hidden" name="day" value="<?= e($roomDay) ?>">
                       <input type="hidden" name="booking_id" value="<?= e((string) ($row['id'] ?? '')) ?>">
+                      <input type="hidden" name="slice_start" value="<?= e(date('Y-m-d H:i:s', $start)) ?>">
                       <button class="btn btn-outline btn-sm" type="submit">آزاد کردن این ساعت</button>
                     </form>
                   </div>
@@ -874,11 +1023,20 @@ if ($section === 'rooms') {
           <form class="sapp-compose panel" method="post" action="<?= e(url('/app/rooms')) ?>" data-room-book>
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="assign">
+            <input type="hidden" name="hour_only" value="1">
             <input type="hidden" name="day" value="<?= e($roomDay) ?>">
             <input type="hidden" name="room_no" value="<?= (int) $number ?>">
             <strong>رزرو <?= e(function_exists('clinic_room_label') ? clinic_room_label((int) $number) : '') ?></strong>
-            <label class="label">از ساعت<input class="input" name="start_time" list="room-clock-options" inputmode="decimal" autocomplete="off" placeholder="مثلاً ۹ یا ۱۴:۳۰" required></label>
-            <label class="label">تا ساعت<input class="input" name="end_time" list="room-clock-options" inputmode="decimal" autocomplete="off" placeholder="مثلاً ۱۰:۳۰" required></label>
+            <label class="label">ساعت
+              <select class="input" name="start_time" required>
+                <option value="">یک ساعت را انتخاب کنید</option>
+                <?php foreach ($clockChoices as $clock): ?>
+                  <?php if (!str_ends_with($clock, ':00')) { continue; } ?>
+                  <option value="<?= e($clock) ?>"><?= e(to_fa_digits($clock)) ?> تا <?= e(to_fa_digits(sprintf('%02d:00', ((int) substr($clock, 0, 2)) + 1))) ?></option>
+                <?php endforeach; ?>
+              </select>
+            </label>
+            <p class="muted" style="margin:0;font-size:.8rem">هر رزرو فقط یک ساعت است و از ساعت کناری جدا می‌ماند.</p>
             <label class="label">برای چیست؟
               <select class="input" name="purpose" data-purpose required>
                 <option value="">انتخاب کنید</option>

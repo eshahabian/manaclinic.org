@@ -48,6 +48,15 @@ function petty_cash_pay_accounts(): array
     ];
 }
 
+/** مبلغ ورودی فقط به بلو کارت یا پارسیان می‌نشیند. @return array<string, string> */
+function petty_cash_in_accounts(): array
+{
+    return [
+        'blue' => 'بلو کارت',
+        'parsian' => 'پارسیان',
+    ];
+}
+
 /** @return array<string, string> */
 function petty_cash_approvers(): array
 {
@@ -294,7 +303,12 @@ function petty_cash_apply_post(PDO $pdo, array $user): string
 
     $payAccount = '';
     $approver = '';
-    if ($kind === 'OUT') {
+    if ($kind === 'IN') {
+        $payAccount = trim((string) post('pay_account'));
+        if (!isset(petty_cash_in_accounts()[$payAccount])) {
+            throw new RuntimeException('مبلغ ورودی فقط برای بلو کارت یا پارسیان ثبت می‌شود.');
+        }
+    } elseif ($kind === 'OUT') {
         $payAccount = trim((string) post('pay_account'));
         $approver = trim((string) post('approver'));
         if (!isset(petty_cash_pay_accounts()[$payAccount])) {

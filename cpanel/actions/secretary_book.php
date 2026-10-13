@@ -96,6 +96,29 @@ if (appointment_has_overlap($pdo, $doctorId, $startsAt, $endsAt)) {
     $bookRedirect('/secretary/appointments?tab=new');
 }
 
+$payMethod = (string) post('pay_method');
+if (!in_array($payMethod, ['wallet', 'card', 'later'], true)) {
+    $payMethod = !empty($_FILES['receipt']['name']) ? 'card' : 'later';
+}
+$amount = (int) $doctor['session_price'];
+if ($amount <= 0) {
+    flash_set('error', 'هزینه جلسه این درمانگر مشخص نیست.');
+    $bookRedirect('/secretary/appointments?tab=new');
+}
+if ($payMethod === 'card' && empty($_FILES['receipt']['name'])) {
+    flash_set('error', 'برای کارت به کارت، فیش را بارگذاری کنید.');
+    $bookRedirect('/secretary/appointments?tab=new');
+}
+if ($payMethod === 'wallet') {
+    require_once __DIR__ . '/../includes/wallet.php';
+    ensure_wallet_schema($pdo);
+    $wallet = ensure_wallet($pdo, $patientId);
+    if ((int) ($wallet['balance'] ?? 0) < $amount) {
+        flash_set('error', 'موجودی کیف پول مراجع برای این نوبت کافی نیست.');
+        $bookRedirect('/secretary/appointments?tab=new');
+    }
+}
+
 $roomDraft = [
     'id' => '',
     'starts_at' => $startsAt,
@@ -113,17 +136,31 @@ try {
 
 $appointmentId = cuid();
 $paymentId = cuid();
+ensure_appointment_session_schema($pdo);
+appointment_ensure_room_schema($pdo);
 $pdo->beginTransaction();
 try {
     $receiptPath = null;
-    if (!empty($_FILES['receipt']['name'])) {
+    if ($payMethod === 'card' && !empty($_FILES['receipt']['name'])) {
         $receiptPath = staff_save_receipt($_FILES['receipt'], $paymentId);
     }
-    ensure_appointment_session_schema($pdo);
-    $pdo->prepare('INSERT INTO appointments (id,doctor_id,patient_id,starts_at,ends_at,status,notes,session_mode,created_by_user_id) VALUES (?,?,?,?,?,?,?,?,?)')
-        ->execute([$appointmentId, $doctorId, $patientId, $startsAt, $endsAt, 'CONFIRMED', $notes, $sessionMode, $actorId]);
+    $payStatus = $payMethod === 'later' ? 'PENDING' : 'PAID';
+    $payRef = $payMethod === 'wallet' ? 'WALLET' : ($payMethod === 'card' ? 'CARD' : 'LATER');
+    $payNote = $payMethod === 'later' ? 'پرداخت بعدی؛ بدهی نوبت منشی' : null;
+    $pdo->prepare('INSERT INTO appointments (id,doctor_id,patient_id,starts_at,ends_at,status,notes,session_mode,room_no,created_by_user_id,staff_payment_note) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+        ->execute([$appointmentId, $doctorId, $patientId, $startsAt, $endsAt, 'CONFIRMED', $notes, $sessionMode, $roomNo > 0 ? $roomNo : null, $actorId, $payNote]);
     $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,status,ref_id,recorded_by_user_id,receipt_path) VALUES (?,?,?,?,?,?,?)')
-        ->execute([$paymentId, $appointmentId, (int)$doctor['session_price'], 'PAID', 'SECRETARY', $actorId, $receiptPath]);
+        ->execute([$paymentId, $appointmentId, $amount, $payStatus, $payRef, $actorId, $receiptPath]);
+    if ($payMethod === 'wallet') {
+        wallet_debit_balance(
+            $pdo,
+            $patientId,
+            $amount,
+            'appointment',
+            $appointmentId,
+            'پرداخت نوبت از کیف پول، ثبت منشی'
+        );
+    }
     if (!function_exists('user_referral_stamp_payment')) {
         require_once __DIR__ . '/../includes/user_referral.php';
     }
@@ -167,7 +204,12 @@ try {
         'appointment'
     );
 
-    flash_set('success', 'نوبت با موفقیت ثبت و تأیید شد.');
+    $payBit = match ($payMethod) {
+        'wallet' => ' مبلغ از کیف پول کم شد.',
+        'card' => ' پرداخت کارت به کارت با فیش ثبت شد.',
+        default => ' پرداخت بعدی به‌عنوان بدهی ماند.',
+    };
+    flash_set('success', 'نوبت با موفقیت ثبت و تأیید شد.' . $payBit . ($roomNo > 0 && function_exists('clinic_room_label') ? ' ' . clinic_room_label($roomNo) . ' هم روی نوبت است.' : ''));
     $desk = is_admin_user($user) ? '/admin/appointments' : '/secretary/appointments';
     $bookRedirect($desk . '?tab=upcoming&booked=1');
 } catch (Throwable $e) {

@@ -163,9 +163,19 @@ ob_start();
   </div>
 
   <div>
-    <label class="label" for="receipt">رسید پرداخت (اختیاری)</label>
+    <label class="label" for="sec-pay-method">نوع پرداخت</label>
+    <select class="input" name="pay_method" id="sec-pay-method" required>
+      <option value="wallet">از کیف پول مراجع</option>
+      <option value="card">کارت به کارت، با آپلود فیش</option>
+      <option value="later">بعداً پرداخت می‌کند</option>
+    </select>
+    <p class="muted" id="sec-pay-hint" style="margin:.35rem 0 0;font-size:.8rem">مبلغ حق جلسه از کیف پول مراجع کم می‌شود.</p>
+  </div>
+
+  <div id="sec-receipt-box">
+    <label class="label" for="receipt">فیش کارت به کارت</label>
     <input class="input" type="file" name="receipt" id="receipt" accept="image/jpeg,image/png,image/webp,application/pdf">
-    <p class="muted" style="margin:.4rem 0 0;font-size:.8rem">تصویر یا PDF تا ۵ مگابایت. بعداً هم می‌توانید از تب نوبت‌ها آپلود کنید.</p>
+    <p class="muted" style="margin:.4rem 0 0;font-size:.8rem">برای کارت به کارت، تصویر یا PDF فیش لازم است.</p>
   </div>
 
   <p id="sec-error" style="color:var(--danger);display:none;font-size:.9rem"></p>
@@ -764,17 +774,40 @@ $secretaryBookScripts = '
 
   var roomEl = document.getElementById("sec-room");
   var roomHint = document.getElementById("sec-room-hint");
+  var roomBox = roomEl ? roomEl.closest("[data-appt-room-pick]") : null;
   function syncRoomRule() {
     if (!roomEl) return;
     var picked = form.querySelector("input[name=session_mode]:checked");
     var online = !!(picked && picked.value === "ONLINE");
     roomEl.required = !online;
+    roomEl.disabled = online;
+    if (online) roomEl.value = "";
+    if (roomBox) roomBox.hidden = online;
     if (roomHint) {
       roomHint.textContent = online
         ? "جلسه آنلاین است؛ انتخاب اتاق لازم نیست."
         : "برای جلسه حضوری اتاق را انتخاب کنید.";
     }
   }
+  var payEl = document.getElementById("sec-pay-method");
+  var payHint = document.getElementById("sec-pay-hint");
+  var receiptBox = document.getElementById("sec-receipt-box");
+  var receiptEl = document.getElementById("receipt");
+  function syncPayRule() {
+    var method = payEl ? payEl.value : "wallet";
+    var card = method === "card";
+    if (receiptBox) receiptBox.hidden = !card;
+    if (receiptEl) {
+      receiptEl.required = card;
+      receiptEl.disabled = !card;
+    }
+    if (!payHint) return;
+    if (method === "card") payHint.textContent = "فیش کارت به کارت را همین‌جا بارگذاری کنید.";
+    else if (method === "later") payHint.textContent = "نوبت ثبت می‌شود و مبلغ به‌عنوان بدهی می‌ماند: نام، تاریخ و دلیل در فهرست بدهکاران دیده می‌شود.";
+    else payHint.textContent = "مبلغ حق جلسه از کیف پول مراجع کم می‌شود. اگر موجودی کافی نباشد، نوبت ثبت نمی‌شود.";
+  }
+  if (payEl) payEl.addEventListener("change", syncPayRule);
+  syncPayRule();
   form.querySelectorAll("input[name=session_mode]").forEach(function (el) {
     el.addEventListener("change", syncRoomRule);
   });

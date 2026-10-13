@@ -7,6 +7,23 @@ require_once __DIR__ . '/../includes/user_referral.php';
 require_login(['SECRETARY']);
 csrf_verify();
 
+if (post('action') === 'set_disabled') {
+    $userId = trim((string) post('user_id'));
+    $disabled = post('disabled') === '1' ? 1 : 0;
+    $stmt = $pdo->prepare("SELECT id, name FROM users WHERE id=? AND role='PATIENT' LIMIT 1");
+    $stmt->execute([$userId]);
+    $patient = $stmt->fetch();
+    if (!$patient) {
+        flash_set('error', 'این مراجعه‌کننده از اینجا قابل تغییر نیست.');
+        redirect('/secretary/patients');
+    }
+    $pdo->prepare('UPDATE users SET is_disabled=? WHERE id=?')->execute([$disabled, $userId]);
+    flash_set('success', $disabled
+        ? 'حساب «' . (string) $patient['name'] . '» غیرفعال شد.'
+        : 'حساب «' . (string) $patient['name'] . '» دوباره فعال شد.');
+    redirect('/secretary/patients');
+}
+
 $userId = trim((string) post('user_id'));
 $doctorId = trim((string) post('preferred_doctor_id'));
 $phone = normalize_phone((string) post('phone'));

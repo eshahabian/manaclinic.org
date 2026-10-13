@@ -297,7 +297,7 @@ function appointment_room_no_sql(string $alias = 'a'): string
         $alias = 'a';
     }
 
-    return '(SELECT rb.room_no FROM clinic_room_bookings rb WHERE rb.appointment_id = ' . $alias . '.id ORDER BY rb.starts_at DESC LIMIT 1) AS room_no';
+    return 'COALESCE((SELECT rb.room_no FROM clinic_room_bookings rb WHERE rb.appointment_id = ' . $alias . '.id ORDER BY rb.starts_at DESC LIMIT 1), ' . $alias . '.room_no) AS room_no';
 }
 
 function appointment_ensure_room_schema(PDO $pdo): void
@@ -307,6 +307,17 @@ function appointment_ensure_room_schema(PDO $pdo): void
     }
     if (function_exists('clinic_rooms_ready')) {
         clinic_rooms_ready($pdo);
+    }
+    try {
+        $has = $pdo->query("SHOW COLUMNS FROM appointments LIKE 'room_no'")->fetch();
+        if (!$has) {
+            try {
+                $pdo->exec('ALTER TABLE appointments ADD COLUMN room_no TINYINT NULL AFTER session_mode');
+            } catch (Throwable $ignored) {
+                $pdo->exec('ALTER TABLE appointments ADD COLUMN room_no TINYINT NULL');
+            }
+        }
+    } catch (Throwable $ignored) {
     }
 }
 
@@ -427,6 +438,7 @@ function appointment_save_room(PDO $pdo, array $actor, array $appointment, int $
             $actorId,
             $existing,
         ]);
+        $pdo->prepare('UPDATE appointments SET room_no=? WHERE id=?')->execute([$room, $apptId]);
 
         return;
     }
@@ -445,6 +457,7 @@ function appointment_save_room(PDO $pdo, array $actor, array $appointment, int $
         $ends,
         $actorId,
     ]);
+    $pdo->prepare('UPDATE appointments SET room_no=? WHERE id=?')->execute([$room, $apptId]);
 }
 
 /**

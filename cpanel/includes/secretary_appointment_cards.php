@@ -30,6 +30,21 @@ $deskNext = $appointmentsDeskNext ?? '/secretary/appointments';
         <div class="appt-card-top">
           <div>
             <strong><?= e($a['patient_name']) ?> → <?= e($a['doctor_name']) ?></strong>
+            <details class="name-more">
+              <summary aria-label="توضیحات بیشتر">⋯</summary>
+              <div class="panel" style="margin-top:.4rem;font-size:.82rem;line-height:1.75;font-weight:400">
+                <div>تلفن: <?= trim((string) ($a['phone'] ?? '')) !== '' ? e((string) $a['phone']) : 'ثبت نشده' ?></div>
+                <div>وضعیت: <?= e(appointment_row_status_label($a)) ?></div>
+                <?php if ($a['amount'] !== null): ?>
+                  <div>مبلغ: <?= e(format_price((int) $a['amount'])) ?> · <?= e(appointment_pay_status_display($a)) ?></div>
+                <?php endif; ?>
+                <?php if ((string) ($a['ref_id'] ?? '') === 'LATER'): ?>
+                  <div>بدهی: پرداخت بعدی، از نوبت منشی</div>
+                <?php endif; ?>
+                <?php $roomShown = (int) ($a['room_no'] ?? 0); ?>
+                <div>اتاق: <?= $roomShown > 0 ? e(function_exists('clinic_room_label') ? clinic_room_label($roomShown) : ('اتاق ' . $roomShown)) : (((string) ($a['session_mode'] ?? '') === 'ONLINE') ? 'آنلاین، بدون اتاق' : 'هنوز انتخاب نشده') ?></div>
+              </div>
+            </details>
             <div class="muted" style="font-size:.85rem;margin-top:.35rem;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center">
               <?= e(format_fa_datetime($a['starts_at'])) ?>
               <?= function_exists('appointment_session_mode_badge_html') ? appointment_session_mode_badge_html((string) ($a['session_mode'] ?? 'IN_PERSON')) : '' ?>
@@ -48,6 +63,8 @@ $deskNext = $appointmentsDeskNext ?? '/secretary/appointments';
             <?php if (function_exists('appointment_patient_phase_html')): ?>
               <?= appointment_patient_phase_html($a) ?>
             <?php endif; ?>
+        <?php $oneEdit = !empty($appointmentSingleEdit); ?>
+        <?php if ($oneEdit): ?><details class="appt-one-edit"><summary class="btn btn-outline btn-sm">ویرایش</summary><div style="margin-top:.55rem"><?php endif; ?>
         <form class="appt-mode-form" method="post" action="<?= e(url('/secretary/appointments')) ?>" style="display:flex;flex-wrap:wrap;gap:.4rem;align-items:center">
           <?= csrf_field() ?>
           <input type="hidden" name="action" value="set_session_mode">
@@ -80,6 +97,7 @@ $deskNext = $appointmentsDeskNext ?? '/secretary/appointments';
             <button type="submit" class="btn btn-primary btn-sm">ثبت اتاق</button>
           </form>
         <?php endif; ?>
+        <?php if ($oneEdit): ?></div></details><?php endif; ?>
         <div class="appt-card-actions">
           <?php if ($awaitingApproval): ?>
             <?= appointment_approval_actions_html($a, $deskNext) ?>

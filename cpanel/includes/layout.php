@@ -299,6 +299,9 @@ if ($user) {
           سعادت‌آباد، خیابان ۳۱ شرقی (جندونی)، روبروی ساختمان پزشکان روزبه، پلاک ۴، واحد ۵، طبقه ۵
         </p>
         <p class="footer-contact muted">
+          <a href="<?= e(url('/collaborate')) ?>">درخواست همکاری</a>
+        </p>
+        <p class="footer-contact muted">
           <a href="tel:09101387838" dir="ltr">۰۹۱۰ ۱۳۸ ۷۸۳۸</a>
           ·
           <a href="tel:02122065774" dir="ltr">۰۲۱ ۲۲۰۶ ۵۷۷۴</a>

@@ -24,6 +24,7 @@ $urls = [
     ['loc' => seo_absolute_url('/faq'), 'priority' => '0.7', 'changefreq' => 'monthly'],
     ['loc' => seo_absolute_url('/rules'), 'priority' => '0.7', 'changefreq' => 'monthly'],
     ['loc' => seo_absolute_url('/contact'), 'priority' => '0.8', 'changefreq' => 'monthly'],
+    ['loc' => seo_absolute_url('/collaborate'), 'priority' => '0.6', 'changefreq' => 'monthly'],
     ['loc' => seo_absolute_url('/issues'), 'priority' => '0.85', 'changefreq' => 'weekly'],
 ];
 

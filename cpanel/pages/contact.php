@@ -12,7 +12,7 @@ ob_start();
 <div class="container-page section contact-page">
   <h1>تماس با ما</h1>
   <p class="muted" style="margin-top:.5rem;line-height:1.9">
-    برای پرسش درباره نوبت‌ها، خدمات یا همکاری، از راه‌های زیر با ما در ارتباط باشید.
+    برای پرسش درباره نوبت‌ها و خدمات از راه‌های زیر با ما در ارتباط باشید. همکاری درمانگران از <a href="<?= e(url('/collaborate')) ?>">فرم درخواست همکاری</a> است.
   </p>
 
   <div class="contact-layout">

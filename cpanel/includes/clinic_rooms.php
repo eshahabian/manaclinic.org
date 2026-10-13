@@ -1008,6 +1008,109 @@ function clinic_rooms_find_clash(PDO $pdo, int $room, string $startsAt, string $
     return $row ?: null;
 }
 
+/** هر بازه را به تکه‌های حداکثر یک‌ساعته می‌شکند تا ساعت‌های اتاق جدا دیده شوند. */
+function clinic_rooms_hour_slices(array $row): array
+{
+    $start = strtotime((string) ($row['starts_at'] ?? '')) ?: 0;
+    $end = strtotime((string) ($row['ends_at'] ?? '')) ?: 0;
+    if ($start <= 0 || $end <= $start) {
+        $row['slice_start'] = (string) ($row['starts_at'] ?? '');
+        $row['slice_end'] = (string) ($row['ends_at'] ?? '');
+
+        return [$row];
+    }
+    $slices = [];
+    $cursor = $start;
+    for ($guard = 0; $cursor < $end && $guard < 24; $guard++) {
+        $sliceEnd = min($end, $cursor + 3600);
+        $slice = $row;
+        $slice['slice_start'] = date('Y-m-d H:i:s', $cursor);
+        $slice['slice_end'] = date('Y-m-d H:i:s', $sliceEnd);
+        $slices[] = $slice;
+        if ($sliceEnd <= $cursor) {
+            break;
+        }
+        $cursor = $sliceEnd;
+    }
+
+    return $slices;
+}
+
+function clinic_rooms_hour_end(string $startClock): ?string
+{
+    $startClock = clinic_rooms_parse_clock($startClock);
+    if ($startClock === null) {
+        return null;
+    }
+    $ts = strtotime('2000-01-01 ' . $startClock . ':00');
+    if ($ts === false) {
+        return null;
+    }
+
+    return date('H:i', $ts + 3600);
+}
+
+/** فقط همان یک ساعت را از رزرو برمی‌دارد؛ بقیه ساعت‌ها سر جایشان می‌مانند. */
+function clinic_rooms_release_hour(PDO $pdo, string $bookingId, string $sliceStart): string
+{
+    clinic_rooms_ready($pdo);
+    $stmt = $pdo->prepare('SELECT * FROM clinic_room_bookings WHERE id=? LIMIT 1');
+    $stmt->execute([$bookingId]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        throw new RuntimeException('رزرو یافت نشد.');
+    }
+    $start = strtotime((string) $row['starts_at']) ?: 0;
+    $end = strtotime((string) $row['ends_at']) ?: 0;
+    $cut = strtotime($sliceStart) ?: 0;
+    if ($start <= 0 || $end <= $start || $cut < $start || $cut >= $end) {
+        throw new RuntimeException('این ساعت در رزرو نیست.');
+    }
+    $cutEnd = min($end, $cut + 3600);
+    if ($cutEnd <= time()) {
+        throw new RuntimeException('ساعت گذشته برای گزارش می‌ماند و حذف نمی‌شود.');
+    }
+    $day = substr((string) $row['starts_at'], 0, 10);
+    if ($cut <= $start && $cutEnd >= $end) {
+        $pdo->prepare('DELETE FROM clinic_room_bookings WHERE id=?')->execute([$bookingId]);
+
+        return $day;
+    }
+    if ($cut <= $start) {
+        $pdo->prepare('UPDATE clinic_room_bookings SET starts_at=? WHERE id=?')->execute([date('Y-m-d H:i:s', $cutEnd), $bookingId]);
+
+        return $day;
+    }
+    if ($cutEnd >= $end) {
+        $pdo->prepare('UPDATE clinic_room_bookings SET ends_at=? WHERE id=?')->execute([date('Y-m-d H:i:s', $cut), $bookingId]);
+
+        return $day;
+    }
+    $pdo->prepare('UPDATE clinic_room_bookings SET ends_at=? WHERE id=?')->execute([date('Y-m-d H:i:s', $cut), $bookingId]);
+    $pdo->prepare('
+      INSERT INTO clinic_room_bookings
+        (id, room_no, kind, appointment_id, workshop_session_id, workshop_id, patient_id, doctor_id, starts_at, ends_at, title, note, booked_by_user_id, series_id)
+      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+    ')->execute([
+        cuid(),
+        (int) $row['room_no'],
+        (string) $row['kind'],
+        $row['appointment_id'] ?: null,
+        $row['workshop_session_id'] ?: null,
+        $row['workshop_id'] ?: null,
+        $row['patient_id'] ?: null,
+        $row['doctor_id'] ?: null,
+        date('Y-m-d H:i:s', $cutEnd),
+        date('Y-m-d H:i:s', $end),
+        $row['title'] ?: null,
+        $row['note'] ?: null,
+        (string) $row['booked_by_user_id'],
+        $row['series_id'] ?: null,
+    ]);
+
+    return $day;
+}
+
 function clinic_rooms_release(PDO $pdo, string $bookingId): string
 {
     clinic_rooms_ready($pdo);
