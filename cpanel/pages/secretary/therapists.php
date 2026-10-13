@@ -78,7 +78,7 @@ if ($editId !== '') {
         'degree' => (string) ($editProfile['degree'] ?? ''),
         'license_no' => (string) ($editProfile['license_no'] ?? ''),
         'started_year' => $editYear > 0 ? (string) $editYear : '',
-        'session_price' => $editPrice > 0 ? (string) $editPrice : '',
+        'session_price' => $editPrice > 0 ? to_fa_digits(number_format($editPrice)) : '',
         'courses' => (string) ($editProfile['courses'] ?? ''),
         'bio' => (string) ($editProfile['bio'] ?? ''),
         'avatar_url' => (string) ($editProfile['avatar_url'] ?? ''),
@@ -229,7 +229,10 @@ ob_start();
           </label>
           <label><span class="label">شماره پروانه نظام</span><input class="input" name="license_no" required dir="ltr" value="<?= e($formValue('license_no')) ?>"></label>
           <label><span class="label">سال شروع فعالیت</span><input class="input" name="started_year" type="text" required dir="ltr" inputmode="numeric" autocomplete="off" placeholder="مثلاً <?= e(to_fa_digits((string) max(1330, $maxYear - 8))) ?>" value="<?= e($formValue('started_year')) ?>"></label>
-          <label><span class="label">هزینه جلسه (تومان)</span><input class="input" name="session_price" type="text" required dir="ltr" inputmode="numeric" autocomplete="off" placeholder="مبلغ را بنویسید" value="<?= e($formValue('session_price')) ?>"></label>
+          <label>
+            <span class="label">هزینه جلسه (تومان)</span>
+            <input class="input" name="session_price" type="text" required dir="ltr" inputmode="numeric" autocomplete="off" placeholder="مبلغ را بنویسید" data-money value="<?= e($formValue('session_price')) ?>">
+          </label>
         </div>
         <div>
           <span class="label">رویکرد درمانی</span>
@@ -310,6 +313,7 @@ $pageScripts = '
 })();
 </script>
 <script src="' . e(url('/assets/js/name-transliterate.js')) . '?v=20261014t"></script>
+<script src="' . e(url('/assets/js/money-words.js')) . '?v=20261014m"></script>
 <script>
 (function(){
   if (!window.bindNameTransliteration) return;
