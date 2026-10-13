@@ -23,8 +23,14 @@ try {
 $accountUsers = secretary_patient_directory($pdo);
 
 $doctorNameById = [];
+$activeDoctorIds = [];
 foreach ($doctors as $doctor) {
-    $doctorNameById[(string) ($doctor['id'] ?? '')] = (string) ($doctor['name'] ?? '');
+    $doctorId = (string) ($doctor['id'] ?? '');
+    if ($doctorId === '') {
+        continue;
+    }
+    $doctorNameById[$doctorId] = (string) ($doctor['name'] ?? '');
+    $activeDoctorIds[] = $doctorId;
 }
 $accountIds = [];
 foreach ($accountUsers as $row) {
@@ -38,7 +44,8 @@ $patientMore = [];
 $activatePeople = [];
 foreach ($accountUsers as $row) {
     $pid = (string) ($row['id'] ?? '');
-    if ($pid !== '' && secretary_patient_is_inactive($row) && secretary_patient_profile_missing($row)) {
+    $profileGaps = secretary_patient_profile_gaps($row, $activeDoctorIds);
+    if ($pid !== '' && secretary_patient_is_inactive($row) && secretary_patient_profile_missing($row, $activeDoctorIds)) {
         $parts = secretary_person_name_parts((string) ($row['name'] ?? ''));
         $activatePeople[$pid] = [
             'kind' => (string) ($row['kind'] ?? 'user'),
@@ -49,6 +56,7 @@ foreach ($accountUsers as $row) {
             'phone' => trim((string) ($row['phone'] ?? '')),
             'doctor' => (string) ($row['preferred_doctor_id'] ?? ''),
             'referral' => (string) ($row['referral_source'] ?? ''),
+            'missing' => ($row['kind'] ?? '') === 'outreach' ? [] : $profileGaps,
         ];
     }
     if (($row['kind'] ?? '') !== 'user') {
@@ -151,7 +159,7 @@ ob_start();
 </div>
 
 <h2 style="margin:1rem 0 .35rem;font-size:1.05rem">فهرست مراجعه‌کنندگان</h2>
-<p class="muted" style="margin:0 0 .75rem;font-size:.9rem">درمانگر، معرف و موبایل حساب‌های ساخته‌شده از اینجا عوض می‌شود. برای کسی که هنوز پروفایل ندارد، دکمه فعال فرم ثبت‌نام را باز می‌کند.</p>
+<p class="muted" style="margin:0 0 .75rem;font-size:.9rem">درمانگر، معرف و موبایل حساب‌های ساخته‌شده از اینجا عوض می‌شود. برای کسی که هنوز حساب ندارد، دکمه فعال فرم ثبت‌نام را باز می‌کند. اگر حساب دارد و دوباره فعال می‌شود، فقط موردهای ناقص پروفایل پرسیده می‌شود.</p>
 <div class="panel admin-users-board" style="padding:0;overflow:auto">
   <table class="table" id="secretary-account-edit">
     <thead>
@@ -185,7 +193,7 @@ ob_start();
           $isUser = ($u['kind'] ?? '') === 'user';
           $isPatient = strtoupper((string) ($u['role'] ?? '')) === 'PATIENT';
           $inactive = secretary_patient_is_inactive($u);
-          $needsProfile = secretary_patient_profile_missing($u);
+          $needsProfile = secretary_patient_profile_missing($u, $activeDoctorIds);
           $canToggle = $isPatient || !$isUser;
         ?>
         <tr class="secretary-account-row<?= $inactive ? ' is-inactive-person' : '' ?>" data-search="<?= e($accountSearch) ?>">
@@ -374,22 +382,22 @@ ob_start();
       <?= csrf_field() ?>
       <input type="hidden" name="action" value="activate_profile">
       <input type="hidden" name="user_id" id="act-user-id" value="">
-      <label>
+      <label class="act-gap" data-gap="phone">
         <span class="label">موبایل</span>
-        <input class="input" name="legacy_phone" id="act-legacy-phone" dir="ltr" inputmode="tel" required>
+        <input class="input" name="legacy_phone" id="act-legacy-phone" dir="ltr" inputmode="tel">
       </label>
-      <label style="display:block;margin-top:.6rem">
+      <label class="act-gap" data-gap="doctor">
         <span class="label">درمانگر</span>
-        <select class="input" name="legacy_doctor_id" id="act-legacy-doctor" required>
+        <select class="input" name="legacy_doctor_id" id="act-legacy-doctor">
           <option value="">انتخاب درمانگر</option>
           <?php foreach ($doctors as $doctor): ?>
             <option value="<?= e((string) $doctor['id']) ?>"><?= e((string) $doctor['name']) ?></option>
           <?php endforeach; ?>
         </select>
       </label>
-      <label style="display:block;margin-top:.6rem">
+      <label class="act-gap" data-gap="referral">
         <span class="label">معرف</span>
-        <?php echo user_referral_options_html('legacy_referral', 'act-legacy-referral', '', true); ?>
+        <?php echo user_referral_options_html('legacy_referral', 'act-legacy-referral', '', false); ?>
       </label>
       <button class="btn btn-primary" type="submit" style="margin-top:.9rem">ذخیره پروفایل و فعال‌سازی</button>
     </form>
@@ -606,6 +614,12 @@ $pageScripts = '
     enhanceSearchSelect(document.getElementById("act_doctor"), { placeholder: "جستجو یا انتخاب درمانگر" });
     enhanceSearchSelect(document.getElementById("act-legacy-doctor"), { placeholder: "جستجو یا انتخاب درمانگر" });
   }
+  function joinFa(items) {
+    if (!items.length) return "";
+    if (items.length === 1) return items[0];
+    if (items.length === 2) return items[0] + " و " + items[1];
+    return items.slice(0, -1).join("، ") + " و " + items[items.length - 1];
+  }
   function closeActivate() {
     modal.hidden = true;
     modal.classList.remove("is-open");
@@ -620,10 +634,8 @@ $pageScripts = '
     registerForm.hidden = !outreach;
     profileForm.hidden = outreach;
     if (title) title.textContent = outreach ? "ثبت‌نام و ساخت پروفایل" : "تکمیل پروفایل و فعال‌سازی";
-    if (lead) {
-      lead.textContent = outreach
-        ? "این نفر هنوز حساب ندارد. تا این فرم ذخیره نشود فعال نمی‌شود و نوبت برایش ثبت نمی‌شود."
-        : "پروفایل این حساب ناقص است. درمانگر، معرف و موبایل را ذخیره کنید تا فعال شود.";
+    if (lead && outreach) {
+      lead.textContent = "این نفر هنوز حساب ندارد. تا این فرم ذخیره نشود فعال نمی‌شود و نوبت برایش ثبت نمی‌شود.";
     }
     if (outreach) {
       var outreachId = document.getElementById("act-outreach-id");
@@ -645,6 +657,26 @@ $pageScripts = '
       if (legacyPhone) legacyPhone.value = row.phone || "";
       if (legacyDoctor) legacyDoctor.value = row.doctor || "";
       if (legacyReferral) legacyReferral.value = row.referral || "";
+      var gapLabels = { phone: "موبایل", doctor: "درمانگر", referral: "معرف" };
+      var missing = Array.isArray(row.missing) ? row.missing : ["phone", "doctor", "referral"];
+      var shown = [];
+      profileForm.querySelectorAll("[data-gap]").forEach(function (box) {
+        var key = box.getAttribute("data-gap") || "";
+        var show = missing.indexOf(key) !== -1;
+        box.hidden = !show;
+        if (show && gapLabels[key]) shown.push(gapLabels[key]);
+        box.querySelectorAll("input, select, textarea").forEach(function (el) {
+          el.disabled = !show;
+          if (!el.classList.contains("search-select-input")) el.required = show;
+        });
+      });
+      if (lead) {
+        lead.textContent = shown.length === 1
+          ? "در پروفایل این حساب، " + shown[0] + " ناقص است. فقط همین را کامل کنید تا فعال شود."
+          : (shown.length
+            ? "در پروفایل این حساب، " + joinFa(shown) + " ناقص هستند. فقط همین‌ها را کامل کنید تا فعال شود."
+            : "پروفایل این حساب کامل است.");
+      }
     }
     modal.hidden = false;
     modal.classList.add("is-open");
@@ -719,6 +751,8 @@ body.patient-more-locked{overflow:hidden}
 .patient-more-note p{margin:0;white-space:pre-wrap;line-height:1.7}
 .patient-more-note .muted{font-size:.78rem;margin-top:.3rem}
 .patient-more-note-form{display:grid;gap:.55rem;margin-top:.85rem}
+.act-gap{display:block;margin-top:.6rem}
+.act-gap[hidden]{display:none !important}
 @media (max-width:640px){.patient-more-facts{grid-template-columns:1fr}}
 </style>';
 render_secretary_page('مراجعه‌کنندگان', $inner);

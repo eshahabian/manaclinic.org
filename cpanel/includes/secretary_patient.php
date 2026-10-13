@@ -178,8 +178,39 @@ function secretary_patient_is_inactive(array $row): bool
     return (int) ($row['is_disabled'] ?? 0) === 1;
 }
 
+/**
+ * موردهای ناقص پروفایل برای فعال‌سازی دوباره.
+ * اگر فهرست درمانگرهای فعال داده شود، درمانگر حذف‌شده هم ناقص حساب می‌شود.
+ *
+ * @param list<string> $activeDoctorIds
+ * @return list<'phone'|'doctor'|'referral'>
+ */
+function secretary_patient_profile_gaps(array $row, array $activeDoctorIds = []): array
+{
+    $gaps = [];
+    if (!is_valid_phone((string) ($row['phone'] ?? ''))) {
+        $gaps[] = 'phone';
+    }
+    $doctorId = trim((string) ($row['preferred_doctor_id'] ?? ''));
+    $doctorOk = $doctorId !== '';
+    if ($doctorOk && $activeDoctorIds !== []) {
+        $doctorOk = in_array($doctorId, $activeDoctorIds, true);
+    }
+    if (!$doctorOk) {
+        $gaps[] = 'doctor';
+    }
+    if (!function_exists('user_referral_normalize')) {
+        require_once __DIR__ . '/user_referral.php';
+    }
+    if (user_referral_normalize((string) ($row['referral_source'] ?? '')) === null) {
+        $gaps[] = 'referral';
+    }
+
+    return $gaps;
+}
+
 /** درمانگر، معرف یا موبایل ندارد، یا هنوز اصلاً حساب ساخته نشده. */
-function secretary_patient_profile_missing(array $row): bool
+function secretary_patient_profile_missing(array $row, array $activeDoctorIds = []): bool
 {
     if (($row['kind'] ?? '') === 'outreach') {
         return true;
@@ -187,17 +218,8 @@ function secretary_patient_profile_missing(array $row): bool
     if (strtoupper((string) ($row['role'] ?? '')) !== 'PATIENT') {
         return false;
     }
-    if (trim((string) ($row['phone'] ?? '')) === '') {
-        return true;
-    }
-    if (trim((string) ($row['preferred_doctor_id'] ?? '')) === '') {
-        return true;
-    }
-    if (!function_exists('user_referral_normalize')) {
-        require_once __DIR__ . '/user_referral.php';
-    }
 
-    return user_referral_normalize((string) ($row['referral_source'] ?? '')) === null;
+    return secretary_patient_profile_gaps($row, $activeDoctorIds) !== [];
 }
 
 /**

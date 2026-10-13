@@ -10,12 +10,25 @@ csrf_verify();
 if (post('action') === 'set_disabled') {
     $userId = trim((string) post('user_id'));
     $disabled = post('disabled') === '1' ? 1 : 0;
-    $stmt = $pdo->prepare("SELECT id, name FROM users WHERE id=? AND role='PATIENT' LIMIT 1");
-    $stmt->execute([$userId]);
+    $stmt = $pdo->prepare('SELECT id, name, phone, preferred_doctor_id, referral_source, role FROM users WHERE id=? AND role=? LIMIT 1');
+    $stmt->execute([$userId, 'PATIENT']);
     $patient = $stmt->fetch();
     if (!$patient) {
         flash_set('error', 'این مراجعه‌کننده از اینجا قابل تغییر نیست.');
         redirect('/secretary/patients');
+    }
+    if ($disabled === 0) {
+        $doctorIds = [];
+        foreach (secretary_active_doctors($pdo) as $doctor) {
+            $doctorId = (string) ($doctor['id'] ?? '');
+            if ($doctorId !== '') {
+                $doctorIds[] = $doctorId;
+            }
+        }
+        if (secretary_patient_profile_gaps($patient, $doctorIds) !== []) {
+            flash_set('error', 'پروفایل «' . (string) $patient['name'] . '» ناقص است. با دکمه فعال، فقط موردهای ناقص را کامل کنید.');
+            redirect('/secretary/patients');
+        }
     }
     $pdo->prepare('UPDATE users SET is_disabled=? WHERE id=?')->execute([$disabled, $userId]);
     flash_set('success', $disabled
