@@ -153,9 +153,28 @@ ob_start();
   </form>
 </div>
 
-<div style="margin-top:1.25rem;max-width:22rem">
-  <label class="label" for="patient-filter">جستجو</label>
-  <input class="input" type="search" id="patient-filter" placeholder="نام، فامیل، نام کاربری یا موبایل" autocomplete="off" aria-controls="secretary-account-edit">
+<div class="patient-list-filters">
+  <div>
+    <label class="label" for="patient-filter">جستجو</label>
+    <input class="input" type="search" id="patient-filter" placeholder="نام، فامیل، نام کاربری یا موبایل" autocomplete="off" aria-controls="secretary-account-edit">
+  </div>
+  <div>
+    <label class="label" for="patient-status-filter">وضعیت</label>
+    <select class="input" id="patient-status-filter" aria-controls="secretary-account-edit">
+      <option value="">همه</option>
+      <option value="active">فعال</option>
+      <option value="inactive">غیرفعال</option>
+    </select>
+  </div>
+  <div>
+    <label class="label" for="patient-doctor-filter">درمانگر</label>
+    <select class="input" id="patient-doctor-filter" aria-controls="secretary-account-edit">
+      <option value="">همه درمانگرها</option>
+      <?php foreach ($doctors as $doctor): ?>
+        <option value="<?= e((string) ($doctor['id'] ?? '')) ?>"><?= e((string) ($doctor['name'] ?? '')) ?></option>
+      <?php endforeach; ?>
+    </select>
+  </div>
 </div>
 
 <h2 style="margin:1rem 0 .35rem;font-size:1.05rem">فهرست مراجعه‌کنندگان</h2>
@@ -196,7 +215,7 @@ ob_start();
           $needsProfile = secretary_patient_profile_missing($u, $activeDoctorIds);
           $canToggle = $isPatient || !$isUser;
         ?>
-        <tr class="secretary-account-row<?= $inactive ? ' is-inactive-person' : '' ?>" data-search="<?= e($accountSearch) ?>">
+        <tr class="secretary-account-row<?= $inactive ? ' is-inactive-person' : '' ?>" data-search="<?= e($accountSearch) ?>" data-status="<?= $inactive ? 'inactive' : 'active' ?>" data-doctor="<?= e((string) ($u['preferred_doctor_id'] ?? '')) ?>">
           <td>
             <div class="patient-name-cell">
               <?php if ($isUser): ?>
@@ -274,7 +293,7 @@ ob_start();
     </tbody>
   </table>
 </div>
-<p class="muted" id="patient-filter-empty" hidden>موردی با این جستجو نیست.</p>
+<p class="muted" id="patient-filter-empty" hidden>موردی با این جستجو یا فیلتر نیست.</p>
 </div>
 <script type="application/json" id="patient-more-data"><?= json_encode($patientMore, JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_FORCE_OBJECT) ?></script>
 <div class="patient-more-modal" id="patient-more-modal" hidden>
@@ -461,9 +480,11 @@ $pageScripts = '
   }
 
   var input = document.getElementById("patient-filter");
+  var statusFilter = document.getElementById("patient-status-filter");
+  var doctorFilter = document.getElementById("patient-doctor-filter");
   var rows = document.querySelectorAll("#secretary-account-edit .secretary-account-row");
   var empty = document.getElementById("patient-filter-empty");
-  if (!input) return;
+  if (!input && !statusFilter && !doctorFilter) return;
   function faToEn(str){
     return String(str || "").replace(/[۰-۹]/g, function(d){ return String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)); })
       .replace(/[٠-٩]/g, function(d){ return String("٠١٢٣٤٥٦٧٨٩".indexOf(d)); });
@@ -472,22 +493,40 @@ $pageScripts = '
     return faToEn(str).trim().toLowerCase().replace(/ي/g, "ی").replace(/ك/g, "ک");
   }
   function applyAccountFilter(){
-    var q = norm(input.value || "");
+    var q = norm(input ? input.value : "");
     var qDigits = q.replace(/\D+/g, "");
+    var status = statusFilter ? statusFilter.value : "";
+    var doctor = doctorFilter ? doctorFilter.value : "";
     var shown = 0;
     rows.forEach(function(row){
       var hay = norm(row.getAttribute("data-search") || "");
       var hayDigits = hay.replace(/\D+/g, "");
-      var on = !q || hay.indexOf(q) !== -1 || (qDigits.length >= 3 && hayDigits.indexOf(qDigits) !== -1);
+      var textOn = !q || hay.indexOf(q) !== -1 || (qDigits.length >= 3 && hayDigits.indexOf(qDigits) !== -1);
+      var statusOn = !status || (row.getAttribute("data-status") || "") === status;
+      var doctorOn = !doctor || (row.getAttribute("data-doctor") || "") === doctor;
+      var on = textOn && statusOn && doctorOn;
       row.classList.toggle("is-search-hidden", !on);
       row.hidden = !on;
       row.style.display = on ? "" : "none";
       if (on) shown++;
     });
-    if (empty) empty.hidden = !q || shown > 0 || rows.length === 0;
+    var filtering = !!q || !!status || !!doctor;
+    if (empty) empty.hidden = !filtering || shown > 0 || rows.length === 0;
   }
-  input.addEventListener("input", applyAccountFilter);
-  input.addEventListener("search", applyAccountFilter);
+  if (input) {
+    input.addEventListener("input", applyAccountFilter);
+    input.addEventListener("search", applyAccountFilter);
+  }
+  if (statusFilter) statusFilter.addEventListener("change", applyAccountFilter);
+  if (doctorFilter) doctorFilter.addEventListener("change", applyAccountFilter);
+  rows.forEach(function(row){
+    var doctorSelect = row.querySelector('select[name="preferred_doctor_id"]');
+    if (!doctorSelect) return;
+    doctorSelect.addEventListener("change", function(){
+      row.setAttribute("data-doctor", doctorSelect.value || "");
+      applyAccountFilter();
+    });
+  });
 })();
 </script>
 <script>
@@ -730,6 +769,8 @@ $pageScripts = '
 </script>
 ';
 $pageHead = ($pageHead ?? '') . '<style>
+.patient-list-filters{display:grid;grid-template-columns:minmax(14rem,1.5fr) minmax(9rem,.7fr) minmax(12rem,1fr);gap:.75rem;margin-top:1.25rem;align-items:end}
+@media (max-width:760px){.patient-list-filters{grid-template-columns:1fr}}
 #secretary-account-edit .sec-account-action{width:6.25rem;height:2.4rem;flex:0 0 6.25rem;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;text-align:center;white-space:nowrap;line-height:1.2;padding:.35rem .5rem}
 .sec-state-switch{display:inline-flex;border:1px solid rgba(26,46,40,.16);border-radius:999px;overflow:hidden;background:#f3f6f5}
 .sec-state-switch form{margin:0;display:flex}
