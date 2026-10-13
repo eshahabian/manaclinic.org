@@ -3924,6 +3924,13 @@ html[data-theme="dark"] .sec-week-day {
   box-shadow: none;
   min-width: 0;
 }
+.appt-desk:has(> .binder-tile[data-binder-tone="new"]) > .appt-desk-title,
+.appt-desk:has(> .binder-tile[data-binder-tone="new"]) > .appt-desk-lead {
+  transform: translateY(-4mm);
+}
+.binder-tile[data-binder-tone="new"] > .binder-body > [data-binder-panel="new"].is-active {
+  transform: translateY(-4mm);
+}
 .binder-tile--nested {
   margin-top: .35rem;
 }

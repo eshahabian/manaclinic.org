@@ -104,9 +104,9 @@ $deskAction = url($appointmentsDeskNext);
 ob_start();
 ?>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
-<h1>نوبت‌ها</h1>
-<p class="muted" style="margin-top:.35rem;font-size:.9rem">نوبت جدید را از تب صورتی ثبت کنید. درخواست‌های مراجعه‌کننده در «لیست رزرو» جدا هستند و تا یک ساعت نگه داشته می‌شوند. پیش‌رو فقط نوبت‌های رزروشده است.</p>
-<?= appointment_debts_html($pdo) ?>
+<div class="appt-desk">
+<h1 class="appt-desk-title">نوبت‌ها</h1>
+<p class="muted appt-desk-lead" style="margin-top:.35rem;font-size:.9rem">نوبت جدید را از تب صورتی ثبت کنید. درخواست‌های مراجعه‌کننده در «لیست رزرو» جدا هستند و تا یک ساعت نگه داشته می‌شوند. پیش‌رو فقط نوبت‌های رزروشده است.</p>
 <?php if (!empty($appointmentsDeskAdminTools)): ?>
   <div class="appt-toolbar">
     <form method="post" action="<?= e(url('/admin/appointments')) ?>" onsubmit="return confirm('همه نوبت‌ها برای همیشه حذف شوند؟');">
@@ -217,6 +217,7 @@ ob_start();
       ?>
     </section>
   </div>
+</div>
 </div>
 <?php
 $appointmentsDeskHtml = ob_get_clean();
