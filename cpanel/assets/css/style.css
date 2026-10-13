@@ -5686,7 +5686,9 @@ body.patient-more-locked { overflow: hidden; }
 .patient-more-head h2 { margin: 0; font-size: 1.2rem; line-height: 1.5; }
 .patient-more-close { border: 0; background: transparent; font-size: 1.6rem; line-height: 1; cursor: pointer; color: #4a6670; }
 #patients-active[hidden],
-#patients-inactive[hidden] {
+#patients-inactive[hidden],
+#patient-entry-active[hidden],
+#patient-entry-inactive[hidden] {
   display: none !important;
 }
 .secretary-add-patient { margin-top: 1rem; max-width: none; width: 100%; }

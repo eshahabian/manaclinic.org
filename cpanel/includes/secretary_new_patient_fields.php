@@ -4,6 +4,14 @@ declare(strict_types=1);
 $doctors = $doctors ?? [];
 $secretaryPatientHint = $secretaryPatientHint ?? 'مراجعه‌کننده با نام کاربری و رمز زیر می‌تواند بعداً وارد شود. با تایپ نام فارسی، معادل انگلیسی پیشنهاد می‌شود.';
 ?>
+    <?php if (!empty($secretaryPatientKindSwitch)): ?>
+    <p style="margin:0 0 .35rem;font-weight:600">اول مشخص کنید این مراجعه‌کننده فعال است یا غیرفعال.</p>
+    <div class="secretary-kind-switch" role="tablist" style="margin:0 0 .9rem">
+      <button type="button" class="btn btn-outline" data-entry-kind="active" aria-selected="false">فعال</button>
+      <button type="button" class="btn btn-outline" data-entry-kind="inactive" aria-selected="false">غیرفعال</button>
+    </div>
+    <fieldset id="patient-entry-active" hidden style="border:0;margin:0;padding:0;min-width:0">
+    <?php endif; ?>
     <p class="muted" style="margin:0 0 .75rem;font-size:.85rem;line-height:1.7"><?= e($secretaryPatientHint) ?></p>
     <p class="muted form-draft-hint" data-form-draft-status style="margin:0 0 .75rem;font-size:.8rem;line-height:1.6" hidden></p>
     <div class="grid-2">
@@ -16,14 +24,7 @@ $secretaryPatientHint = $secretaryPatientHint ?? 'مراجعه‌کننده با
         <input class="input input-rtl" name="new_last_name" id="new_last_name" dir="rtl" autocomplete="family-name" placeholder="نام خانوادگی">
       </div>
     </div>
-    <?php if (!empty($secretaryPatientKindSwitch)): ?>
-    <div class="secretary-kind-switch" role="tablist" style="margin:.9rem 0 .35rem">
-      <button type="button" class="btn btn-primary" data-entry-kind="active" aria-selected="true">فعال</button>
-      <button type="button" class="btn btn-outline" data-entry-kind="inactive" aria-selected="false">غیرفعال</button>
-    </div>
-    <fieldset id="patient-entry-active" style="border:0;margin:0;padding:0;min-width:0">
-    <?php endif; ?>
-    <div class="grid-2">
+    <div class="grid-2" style="margin-top:.75rem">
       <div>
         <label class="label label-ltr" for="new_name_en">name</label>
         <input class="input" name="new_name_en" id="new_name_en" dir="ltr" lang="en" autocomplete="off" placeholder="name">
@@ -74,6 +75,3 @@ $secretaryPatientHint = $secretaryPatientHint ?? 'مراجعه‌کننده با
         <input class="input" name="new_password_confirm" id="new_password_confirm" type="password" dir="ltr" minlength="6" autocomplete="new-password" placeholder="تکرار رمز">
       </div>
     </div>
-    <?php if (!empty($secretaryPatientKindSwitch)): ?>
-    </fieldset>
-    <?php endif; ?>

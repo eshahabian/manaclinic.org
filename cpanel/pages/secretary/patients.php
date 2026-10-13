@@ -101,6 +101,7 @@ ob_start();
   ?>
   <p id="sec-patient-error" style="color:var(--danger);display:none;font-size:.9rem"></p>
   <button class="btn btn-primary" type="submit" id="patient-entry-submit">ثبت مراجعه‌کننده</button>
+  <?php if (!empty($secretaryPatientKindSwitch)): ?></fieldset><?php endif; ?>
 </form>
 <div id="patient-entry-inactive" hidden>
   <p class="muted" style="margin:.85rem 0 0;line-height:1.8">
@@ -437,7 +438,7 @@ $pageScripts = '
     });
   });
   var startInactive = location.hash === "#patient-entry-inactive" || location.hash === "#outreach-tools";
-  showEntryKind(startInactive ? "inactive" : "active");
+  if (startInactive) showEntryKind("inactive");
   if (startInactive && inactiveBox && inactiveBox.scrollIntoView) {
     inactiveBox.scrollIntoView({ block: "nearest" });
   }
