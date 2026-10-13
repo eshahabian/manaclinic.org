@@ -11,7 +11,7 @@ function staff_app_sections(): array
         'rooms' => ['href' => '/app/rooms', 'label' => 'اتاق‌ها', 'title' => 'شرایط اتاق‌ها'],
         'chat' => ['href' => '/app/chat', 'label' => 'چت', 'title' => 'چت کارکنان'],
         'hours' => ['href' => '/app/hours', 'label' => 'ساعت کار', 'title' => 'ساعت کار منشی‌ها'],
-        'consult' => ['href' => '/app/consult', 'label' => 'مشاوره', 'title' => 'درخواست مشاوره'],
+        'consult' => ['href' => '/app/consult', 'label' => 'مشاوره و همکاری', 'title' => 'درخواست مشاوره/درخواست همکاری'],
         'checklist' => ['href' => '/app/checklist', 'label' => 'کارهای روزانه', 'title' => 'لیست کارهای روزانه'],
         'petty' => ['href' => '/app/petty-cash', 'label' => 'تنخواه', 'title' => 'تنخواه'],
         'complaints' => ['href' => '/app/complaints', 'label' => 'شکایت', 'title' => 'شکایت‌ها'],

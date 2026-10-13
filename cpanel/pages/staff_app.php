@@ -463,7 +463,7 @@ $descriptions = [
     'rooms' => 'وضعیت اتاق‌های کلینیک در هفت روز پیش‌رو؛ الان، رزروشده یا تمام‌شده.',
     'chat' => 'چت کلی درمانگرها و منشی‌ها و اتاق‌های جدا، با امکان فرستادن فایل.',
     'hours' => 'ساعت ورود و خروج منشی‌های مانا کلینیک و مدت حضور هر روز.',
-    'consult' => 'درخواست‌های مشاوره که از فرم سایت مانا کلینیک رسیده است.',
+    'consult' => 'درخواست مشاوره و درخواست همکاری که از فرم سایت مانا کلینیک رسیده است.',
     'checklist' => 'لیست کارهای روزانه منشی‌ها در کلینیک مانا، همان فهرست داخل سایت.',
     'petty' => 'تنخواه کلینیک مانا؛ ثبت هزینه، حساب پرداخت و تاییدکننده، همان فهرست داخل سایت.',
     'complaints' => 'ثبت و دیدن شکایت مراجع از جلسه درمانگر در برنامه داخلی مانا.',
@@ -473,7 +473,11 @@ $descriptions = [
 
 if ($section === 'home') {
     $hello = $name !== '' ? $name : staff_app_role_label($role);
-    $consultOpen = function_exists('consult_request_new_count') ? consult_request_new_count() : 0;
+    if (!function_exists('collaboration_request_new_count')) {
+        require_once __DIR__ . '/../includes/collaboration.php';
+    }
+    $consultOpen = (function_exists('consult_request_new_count') ? consult_request_new_count() : 0)
+        + (function_exists('collaboration_request_new_count') ? collaboration_request_new_count() : 0);
     ob_start();
     ?>
     <div class="sapp-hello">
@@ -498,8 +502,8 @@ if ($section === 'home') {
       </a>
       <a class="sapp-tile" href="<?= e(url('/app/consult')) ?>">
         <span class="sapp-ico sapp-ico-teal sapp-consult-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8.2 4.8h2.1a1 1 0 0 1 1 .76l.5 2.4a1 1 0 0 1-.5 1.05l-1.35.7a7.6 7.6 0 0 0 3.74 3.74l.7-1.35a1 1 0 0 1 1.05-.5l2.4.5a1 1 0 0 1 .76 1V15.4A1.6 1.6 0 0 1 17 17 11.2 11.2 0 0 1 7 7a1.6 1.6 0 0 1 1.2-2.2z"/></svg><?php if ($consultOpen > 0): ?><span class="sapp-consult-badge"><?= e(to_fa_digits((string) $consultOpen)) ?></span><?php endif; ?></span>
-        <strong>درخواست مشاوره</strong>
-        <em>Consult Requests</em>
+        <strong>درخواست مشاوره/درخواست همکاری</strong>
+        <em>Consult &amp; Collaboration</em>
       </a>
       <?php if ($role === 'SECRETARY'): ?>
       <a class="sapp-tile" href="<?= e(url('/app/therapists')) ?>">
@@ -1651,11 +1655,18 @@ if ($section === 'hours') {
 
 if ($section === 'consult') {
     require_once __DIR__ . '/../includes/consult_requests.php';
+    require_once __DIR__ . '/../includes/collaboration.php';
     $rows = [];
+    $collabRows = [];
     try {
         $rows = consult_request_list($pdo);
     } catch (Throwable $e) {
         error_log('staff app consult: ' . $e->getMessage());
+    }
+    try {
+        $collabRows = collaboration_requests($pdo, 80);
+    } catch (Throwable $e) {
+        error_log('staff app collaboration: ' . $e->getMessage());
     }
     $openRows = [];
     $doneRows = [];
@@ -1667,10 +1678,13 @@ if ($section === 'consult') {
         }
     }
     $newCount = consult_request_new_count();
+    $collabNew = collaboration_request_new_count();
+    $badgeCount = $newCount + $collabNew;
     ob_start();
     ?>
-    <h1>درخواست مشاوره<?php if ($newCount > 0): ?><span class="sapp-consult-badge sapp-consult-badge-inline"><?= e(to_fa_digits((string) $newCount)) ?></span><?php endif; ?></h1>
-    <p class="muted">این‌ها را از فرم پایین سایت فرستاده‌اند. روی شماره بزنید تا تماس بگیرید.<?= $newCount ? ' ' . e(to_fa_digits((string) $newCount)) . ' درخواست پیگیری نشده است.' : '' ?></p>
+    <h1>درخواست مشاوره/درخواست همکاری<?php if ($badgeCount > 0): ?><span class="sapp-consult-badge sapp-consult-badge-inline"><?= e(to_fa_digits((string) $badgeCount)) ?></span><?php endif; ?></h1>
+    <p class="muted">هر دو از فرم سایت آمده‌اند. روی شماره بزنید تا تماس بگیرید.<?= $newCount ? ' ' . e(to_fa_digits((string) $newCount)) . ' درخواست مشاوره پیگیری نشده است.' : '' ?></p>
+    <h2 class="sapp-day">درخواست مشاوره</h2>
     <?php if (!$rows): ?>
       <p class="sapp-row">هنوز درخواست مشاوره‌ای از سایت نرسیده است.</p>
     <?php endif; ?>
@@ -1711,8 +1725,29 @@ if ($section === 'consult') {
         <?php endif; ?>
       </article>
     <?php endforeach; ?>
+    <h2 class="sapp-day">درخواست همکاری</h2>
+    <p class="muted">این‌ها را از فرم همکاری سایت فرستاده‌اند.</p>
+    <?php if (!$collabRows): ?>
+      <p class="sapp-row">هنوز درخواست همکاری از سایت نرسیده است.</p>
+    <?php endif; ?>
+    <?php foreach ($collabRows as $request): ?>
+      <?php
+        $collabPhone = (string) ($request['phone'] ?? '');
+        $collabName = trim((string) ($request['name'] ?? ''));
+        $collabOpen = strtolower(trim((string) ($request['status'] ?? 'new'))) === '' || strtolower(trim((string) ($request['status'] ?? 'new'))) === 'new';
+      ?>
+      <article class="sapp-consult<?= $collabOpen ? ' is-new' : '' ?>">
+        <header>
+          <strong><?= e($collabName !== '' ? $collabName : 'بدون نام') ?></strong>
+          <span><?= e(trim((string) ($request['specialty'] ?? '')) !== '' ? (string) $request['specialty'] : 'همکاری') ?></span>
+        </header>
+        <a href="tel:<?= e($collabPhone) ?>" dir="ltr"><?= e(to_fa_digits($collabPhone)) ?></a>
+        <p><?= e((string) ($request['message'] ?? '')) ?></p>
+        <small class="muted"><?= e(format_fa_datetime((string) ($request['created_at'] ?? ''))) ?></small>
+      </article>
+    <?php endforeach; ?>
     <?php
-    staff_app_render('consult', 'درخواست مشاوره', $descriptions['consult'], ob_get_clean());
+    staff_app_render('consult', 'درخواست مشاوره/درخواست همکاری', $descriptions['consult'], ob_get_clean());
     exit;
 }
 

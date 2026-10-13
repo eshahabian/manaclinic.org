@@ -22,6 +22,24 @@ function ensure_collaboration_schema(PDO $pdo): void
     $ready = true;
 }
 
+function collaboration_request_new_count(): int
+{
+    $db = $GLOBALS['pdo'] ?? null;
+    if (!$db instanceof PDO) {
+        return 0;
+    }
+    try {
+        ensure_collaboration_schema($db);
+
+        return (int) $db->query("
+          SELECT COUNT(*) FROM collaboration_requests
+          WHERE status IS NULL OR TRIM(status) = '' OR LOWER(TRIM(status)) = 'new'
+        ")->fetchColumn();
+    } catch (Throwable $e) {
+        return 0;
+    }
+}
+
 function collaboration_requests(PDO $pdo, int $limit = 40): array
 {
     ensure_collaboration_schema($pdo);
