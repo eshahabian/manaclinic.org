@@ -1960,8 +1960,8 @@ body.home-workshop-locked { overflow: hidden; }
   margin-top: 1.5rem;
   align-items: start;
 }
-.contact-request .search-select { margin-bottom: .9rem; }
-.contact-request .footer-consult { margin-top: .85rem; }
+.contact-request-fields > .search-select,
+.contact-request-fields form.footer-consult { margin: 0; }
 .consult-form-card h2 { margin: 0 0 .35rem; font-size: 1.2rem; }
 .consult-form-lead { margin: 0 0 .9rem; line-height: 1.75; font-size: .9rem; }
 @media (min-width: 860px) {

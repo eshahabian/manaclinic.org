@@ -51,6 +51,7 @@ ob_start();
     <div class="panel consult-form-card contact-request" id="collaborate-request">
       <h2>ثبت درخواست</h2>
       <label class="label" for="contact-kind-input">نوع درخواست</label>
+      <div class="footer-consult contact-request-fields">
       <div class="search-select" id="contact-kind-pick">
         <input class="input search-select-input" id="contact-kind-input" type="text" readonly placeholder="انتخاب کنید" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="contact-kind-list" style="cursor:pointer">
         <ul class="search-select-list" id="contact-kind-list" hidden>
@@ -58,7 +59,7 @@ ob_start();
           <li class="search-select-option" role="option" data-value="collab">درخواست همکاری</li>
         </ul>
       </div>
-      <div id="contact-consult-pane" hidden>
+      <div id="contact-consult-pane">
           <form class="footer-consult" method="post" action="<?= e(url('/consult-request')) ?>">
             <?= csrf_field() ?>
             <input type="hidden" name="next" value="/contact">
@@ -87,6 +88,7 @@ ob_start();
             <textarea class="input" id="contact-collab-message" name="message" required maxlength="2000" rows="4" placeholder="توضیح سابقه، روزهای حضور یا نوع همکاری *"></textarea>
             <button type="submit" class="btn btn-primary">ارسال درخواست همکاری</button>
           </form>
+      </div>
       </div>
     </div>
   </div>
