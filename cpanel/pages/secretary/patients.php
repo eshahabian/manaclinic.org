@@ -320,7 +320,7 @@ ob_start();
       <button type="button" class="patient-more-close" data-activate-close aria-label="بستن">×</button>
     </div>
     <p class="muted" id="patient-activate-lead" style="margin:.7rem 0 0;line-height:1.7">تا این فرم ذخیره نشود، کاربر فعال نمی‌شود و نوبت برایش ثبت نمی‌شود.</p>
-    <form id="patient-activate-register" class="form-stack" method="post" action="<?= e(url('/secretary/patients')) ?>" hidden style="margin-top:1rem">
+    <form id="patient-activate-register" class="form-stack" method="post" action="<?= e(url('/secretary/patients')) ?>" hidden style="display:none;margin-top:1rem">
       <?= csrf_field() ?>
       <input type="hidden" name="action" value="activate_contact">
       <input type="hidden" name="outreach_id" id="act-outreach-id" value="">
@@ -378,7 +378,7 @@ ob_start();
       <p id="act-register-error" style="color:var(--danger);display:none;font-size:.9rem"></p>
       <button class="btn btn-primary" type="submit">ساخت پروفایل و فعال‌سازی</button>
     </form>
-    <form id="patient-activate-profile" class="form-stack" method="post" action="<?= e(url('/secretary/patients')) ?>" hidden style="margin-top:1rem">
+    <form id="patient-activate-profile" class="form-stack" method="post" action="<?= e(url('/secretary/patients')) ?>" hidden style="display:none;margin-top:1rem">
       <?= csrf_field() ?>
       <input type="hidden" name="action" value="activate_profile">
       <input type="hidden" name="user_id" id="act-user-id" value="">
@@ -627,12 +627,17 @@ $pageScripts = '
       document.body.classList.remove("patient-more-locked");
     }
   }
+  function setActivateForm(form, show) {
+    if (!form) return;
+    form.hidden = !show;
+    form.style.setProperty("display", show ? "grid" : "none", "important");
+  }
   function openActivate(id) {
     var row = people[id];
     if (!row) return;
     var outreach = row.kind === "outreach";
-    registerForm.hidden = !outreach;
-    profileForm.hidden = outreach;
+    setActivateForm(registerForm, outreach);
+    setActivateForm(profileForm, !outreach);
     if (title) title.textContent = outreach ? "ثبت‌نام و ساخت پروفایل" : "تکمیل پروفایل و فعال‌سازی";
     if (lead && outreach) {
       lead.textContent = "این نفر هنوز حساب ندارد. تا این فرم ذخیره نشود فعال نمی‌شود و نوبت برایش ثبت نمی‌شود.";
@@ -753,6 +758,8 @@ body.patient-more-locked{overflow:hidden}
 .patient-more-note-form{display:grid;gap:.55rem;margin-top:.85rem}
 .act-gap{display:block;margin-top:.6rem}
 .act-gap[hidden]{display:none !important}
+#patient-activate-register[hidden],
+#patient-activate-profile[hidden]{display:none !important}
 @media (max-width:640px){.patient-more-facts{grid-template-columns:1fr}}
 </style>';
 render_secretary_page('مراجعه‌کنندگان', $inner);
