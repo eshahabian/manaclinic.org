@@ -11,7 +11,7 @@ ob_start();
   <h1>تماس با ما</h1>
   <p class="muted" style="margin-top:.5rem;line-height:1.9">
     برای پرسش درباره نوبت‌ها و خدمات از راه‌های زیر با ما در ارتباط باشید.
-    برای مشاوره یا همکاری، در بخش ثبت درخواست همان مورد را باز کنید و فرم را پر کنید.
+    برای مشاوره یا همکاری، در بخش ثبت درخواست نوع درخواست را انتخاب کنید.
   </p>
 
   <div class="contact-layout">
@@ -50,10 +50,15 @@ ob_start();
   <div class="stack">
     <div class="panel consult-form-card contact-request" id="collaborate-request">
       <h2>ثبت درخواست</h2>
-      <p class="muted consult-form-lead">یکی را باز کنید. درخواست مشاوره از اول باز است؛ برای همکاری همان ردیف را باز کنید.</p>
-      <div class="contact-accord">
-        <details class="contact-fold" data-fold="consult" open>
-          <summary>درخواست مشاوره</summary>
+      <label class="label" for="contact-kind-input">نوع درخواست</label>
+      <div class="search-select" id="contact-kind-pick">
+        <input class="input search-select-input" id="contact-kind-input" type="text" readonly placeholder="انتخاب کنید" autocomplete="off" role="combobox" aria-expanded="false" aria-controls="contact-kind-list" style="cursor:pointer">
+        <ul class="search-select-list" id="contact-kind-list" hidden>
+          <li class="search-select-option" role="option" data-value="consult">درخواست مشاوره</li>
+          <li class="search-select-option" role="option" data-value="collab">درخواست همکاری</li>
+        </ul>
+      </div>
+      <div id="contact-consult-pane" hidden>
           <form class="footer-consult" method="post" action="<?= e(url('/consult-request')) ?>">
             <?= csrf_field() ?>
             <input type="hidden" name="next" value="/contact">
@@ -66,9 +71,8 @@ ob_start();
             <textarea class="input" id="contact-consult-message" name="message" required maxlength="1000" rows="4" placeholder="توضیح مختصر درباره درخواست شما *"></textarea>
             <button type="submit" class="btn btn-primary">ارسال درخواست مشاوره</button>
           </form>
-        </details>
-        <details class="contact-fold" data-fold="collab">
-          <summary>درخواست همکاری</summary>
+      </div>
+      <div id="contact-collab-pane" hidden>
           <form class="footer-consult" method="post" action="<?= e(url('/collaborate')) ?>">
             <?= csrf_field() ?>
             <input type="hidden" name="next" value="/contact">
@@ -83,7 +87,6 @@ ob_start();
             <textarea class="input" id="contact-collab-message" name="message" required maxlength="2000" rows="4" placeholder="توضیح سابقه، روزهای حضور یا نوع همکاری *"></textarea>
             <button type="submit" class="btn btn-primary">ارسال درخواست همکاری</button>
           </form>
-        </details>
       </div>
     </div>
   </div>
@@ -91,20 +94,54 @@ ob_start();
 </div>
 <script>
 (function () {
-  var folds = document.querySelectorAll(".contact-fold");
-  function only(openFold) {
-    folds.forEach(function (fold) {
-      if (fold !== openFold) fold.open = false;
-    });
+  var pick = document.getElementById("contact-kind-pick");
+  var input = document.getElementById("contact-kind-input");
+  var list = document.getElementById("contact-kind-list");
+  var consult = document.getElementById("contact-consult-pane");
+  var collab = document.getElementById("contact-collab-pane");
+  if (!pick || !input || !list) return;
+  function close() {
+    list.hidden = true;
+    input.setAttribute("aria-expanded", "false");
+    pick.classList.remove("is-open");
   }
-  folds.forEach(function (fold) {
-    fold.addEventListener("toggle", function () {
-      if (fold.open) only(fold);
+  function open() {
+    list.hidden = false;
+    input.setAttribute("aria-expanded", "true");
+    pick.classList.add("is-open");
+  }
+  function choose(value, label) {
+    input.value = label;
+    if (consult) consult.hidden = value !== "consult";
+    if (collab) collab.hidden = value !== "collab";
+    list.querySelectorAll(".search-select-option").forEach(function (item) {
+      item.classList.toggle("is-selected", item.getAttribute("data-value") === value);
+    });
+    close();
+  }
+  input.addEventListener("click", function () {
+    if (list.hidden) open();
+    else close();
+  });
+  input.addEventListener("keydown", function (e) {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      if (list.hidden) open();
+      else close();
+    }
+    if (e.key === "Escape") close();
+  });
+  list.querySelectorAll(".search-select-option").forEach(function (item) {
+    item.addEventListener("mousedown", function (e) {
+      e.preventDefault();
+      choose(item.getAttribute("data-value") || "", item.textContent.trim());
     });
   });
+  document.addEventListener("click", function (e) {
+    if (!pick.contains(e.target)) close();
+  });
   if (window.location.hash === "#collaborate-request") {
-    var collab = document.querySelector('.contact-fold[data-fold="collab"]');
-    if (collab) collab.open = true;
+    choose("collab", "درخواست همکاری");
   }
 })();
 </script>

@@ -1960,28 +1960,8 @@ body.home-workshop-locked { overflow: hidden; }
   margin-top: 1.5rem;
   align-items: start;
 }
-.contact-accord { display: grid; gap: .55rem; }
-.contact-fold {
-  border: 1px solid var(--line);
-  border-radius: .9rem;
-  background: var(--bg-soft, #f7f4fb);
-  overflow: hidden;
-}
-.contact-fold > summary {
-  cursor: pointer;
-  list-style: none;
-  padding: .8rem .95rem;
-  font-weight: 800;
-}
-.contact-fold > summary::-webkit-details-marker { display: none; }
-.contact-fold > summary::after {
-  content: "▾";
-  float: left;
-  color: var(--primary);
-}
-.contact-fold:not([open]) > summary::after { content: "▸"; }
-.contact-fold[open] > summary { color: var(--primary); background: #efeafc; }
-.contact-fold .footer-consult { padding: .85rem .95rem 1rem; }
+.contact-request .search-select { margin-bottom: .9rem; }
+.contact-request .footer-consult { margin-top: .85rem; }
 .consult-form-card h2 { margin: 0 0 .35rem; font-size: 1.2rem; }
 .consult-form-lead { margin: 0 0 .9rem; line-height: 1.75; font-size: .9rem; }
 @media (min-width: 860px) {
