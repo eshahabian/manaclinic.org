@@ -57,6 +57,12 @@ function admin_nav(): array {
     if ($user && function_exists('outreach_user_allowed') && outreach_user_allowed($user)) {
         $nav[] = ['href' => '/admin/outreach', 'label' => 'مراجعه‌کنندگان قدیمی'];
     }
+    if (!function_exists('clinic_can_add_therapist') && is_file(__DIR__ . '/doctor_profile_fields.php')) {
+        require_once __DIR__ . '/doctor_profile_fields.php';
+    }
+    if ($user && (string) ($user['role'] ?? '') === 'ADMIN' && function_exists('clinic_can_add_therapist') && clinic_can_add_therapist($user)) {
+        $nav[] = ['href' => '/secretary/therapists', 'label' => 'درمانگرها و روزها'];
+    }
     $nav = array_merge($nav, [
         ['href' => '/admin/doctors', 'label' => 'درمانگرها', 'badge' => admin_pending_doctor_count()],
         ['href' => '/admin/appointments', 'label' => 'نوبت‌ها'],

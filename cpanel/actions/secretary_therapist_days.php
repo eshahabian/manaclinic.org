@@ -5,22 +5,22 @@ require_once __DIR__ . '/../includes/secretary_patient.php';
 require_once __DIR__ . '/../includes/availability.php';
 require_once __DIR__ . '/../includes/therapist_presence.php';
 
-$user = require_login(['SECRETARY']);
+require_once __DIR__ . '/../includes/doctor_profile_fields.php';
+$user = require_login(['SECRETARY', 'DOCTOR', 'ADMIN']);
+if (!clinic_can_add_therapist($user)) {
+    flash_set('error', 'ثبت روز درمانگر فقط برای منشی‌ها، شیوا گرانمایه‌پور، عطیه گارسچی و عماد شهابیان است.');
+    redirect('/login');
+}
 csrf_verify();
 
 $doctorId = trim((string) post('doctor_id'));
 $action = (string) post('action');
-$back = '/secretary/therapist-days' . ($doctorId !== '' ? '?doctor=' . rawurlencode($doctorId) : '');
-$allowed = false;
-foreach (secretary_active_doctors($pdo) as $doctor) {
-    if ((string) ($doctor['id'] ?? '') === $doctorId) {
-        $allowed = true;
-        break;
-    }
-}
-if (!$allowed) {
+$back = '/secretary/therapists' . ($doctorId !== '' ? '?open=' . rawurlencode($doctorId) : '');
+$allowed = $pdo->prepare('SELECT id FROM doctor_profiles WHERE id=? LIMIT 1');
+$allowed->execute([$doctorId]);
+if (!$allowed->fetch()) {
     flash_set('error', 'درمانگر را انتخاب کنید.');
-    redirect('/secretary/therapist-days');
+    redirect('/secretary/therapists');
 }
 
 ensure_availability_schema($pdo);

@@ -214,8 +214,33 @@ function doctor_is_garsichi(?array $user): bool
     if (!$user) {
         return false;
     }
+    $name = (string) ($user['name'] ?? '');
 
-    return str_contains((string) ($user['name'] ?? ''), 'گارسچی');
+    return str_contains($name, 'گارسچی') || str_contains($name, 'گرسچی');
+}
+
+/** افزودن درمانگر: منشی‌ها، شیوا گرانمایه‌پور، عطیه گارسچی و عماد شهابیان. */
+function clinic_can_add_therapist(?array $user = null): bool
+{
+    if ($user === null && function_exists('current_user')) {
+        $user = current_user();
+    }
+    if (!is_array($user)) {
+        return false;
+    }
+    if ((string) ($user['role'] ?? '') === 'SECRETARY') {
+        return true;
+    }
+    if (doctor_is_shiva($user) || doctor_is_garsichi($user)) {
+        return true;
+    }
+    $username = strtolower(trim((string) ($user['username'] ?? '')));
+    if ($username === 'eshahabian') {
+        return true;
+    }
+    $name = (string) ($user['name'] ?? '');
+
+    return str_contains($name, 'عماد') && str_contains($name, 'شهابیان');
 }
 
 /** دکتر شیوا گرانمایه‌پور و دکتر عطیه گارسچی؛ منشی‌ها شامل این دسترسی نیستند. */

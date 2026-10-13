@@ -3,12 +3,140 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/secretary_panel.php';
 require_once __DIR__ . '/../includes/doctor_panel.php';
+require_once __DIR__ . '/../includes/doctor_profile_fields.php';
 
-$user = require_login(['SECRETARY']);
+$user = require_login(['SECRETARY', 'DOCTOR', 'ADMIN']);
+if (!clinic_can_add_therapist($user)) {
+    flash_set('error', 'این بخش فقط برای منشی‌ها، شیوا گرانمایه‌پور، عطیه گارسچی و عماد شهابیان است.');
+    redirect('/login');
+}
 csrf_verify();
 $back = safe_next_path(post('next'));
 if ($back !== '/app/therapists' && $back !== '/secretary/therapists') {
     $back = '/secretary/therapists';
+}
+
+if (post('action') === 'create') {
+    $fail = '/secretary/therapists?add=1';
+    $firstName = trim((string) post('first_name'));
+    $lastName = trim((string) post('last_name'));
+    $nameEn = trim((string) post('name_en'));
+    $surname = trim((string) post('surname'));
+    $name = trim($firstName . ' ' . $lastName);
+    $phone = normalize_phone((string) post('phone'));
+    $email = mb_strtolower(trim((string) post('email')));
+    $username = mb_strtolower(trim((string) post('username')));
+    $password = (string) ($_POST['password'] ?? '');
+    $passwordConfirm = (string) ($_POST['password_confirm'] ?? '');
+    $gender = strtolower(trim((string) post('gender')));
+    $bio = trim((string) post('bio'));
+    $license = trim((string) post('license_no'));
+    $degree = trim((string) post('degree'));
+    $courses = trim((string) post('courses'));
+    $year = (int) post('started_year');
+    $price = (int) post('session_price');
+    $approaches = doctor_profile_filter_keys((array) ($_POST['approaches'] ?? []), doctor_approach_options());
+    $domains = doctor_profile_filter_keys((array) ($_POST['domains'] ?? []), doctor_domain_options());
+    $focus = doctor_profile_filter_keys((array) ($_POST['focus'] ?? []), doctor_focus_options());
+    $maxYear = doctor_current_jalali_year();
+    $bioLen = mb_strlen($bio);
+    $minPass = password_min_length();
+    if ($nameEn === '' && $firstName !== '' && function_exists('transliterate_persian_name')) {
+        $nameEn = transliterate_persian_name($pdo, $firstName, 'first');
+    }
+    if ($surname === '' && $lastName !== '' && function_exists('transliterate_persian_name')) {
+        $surname = transliterate_persian_name($pdo, $lastName, 'last');
+    }
+    if ($username === '' && function_exists('username_base_from_names') && function_exists('unique_username')) {
+        $username = unique_username($pdo, username_base_from_names($nameEn, $surname, $firstName, $lastName));
+    }
+    if ($firstName === '' || $lastName === '' || $nameEn === '' || $surname === '' || !is_valid_phone($phone)) {
+        flash_set('error', 'نام، نام انگلیسی، نام خانوادگی و موبایل را کامل کنید.');
+        redirect($fail);
+    }
+    if ($gender !== 'male' && $gender !== 'female') {
+        flash_set('error', 'جنسیت را انتخاب کنید.');
+        redirect($fail);
+    }
+    if (!function_exists('mail_is_real_email')) {
+        require_once __DIR__ . '/../includes/mail.php';
+    }
+    if (!mail_is_real_email($email)) {
+        flash_set('error', 'یک ایمیل واقعی وارد کنید.');
+        redirect($fail);
+    }
+    if (strlen($password) < $minPass || $password !== $passwordConfirm || preg_match('/[^\x00-\x7F]/', $password)) {
+        flash_set('error', 'رمز عبور انگلیسی باشد، حداقل ' . to_fa_digits((string) $minPass) . ' کاراکتر، و با تکرارش یکی باشد.');
+        redirect($fail);
+    }
+    if (!preg_match('/^[a-z0-9._-]{3,32}$/', $username)) {
+        flash_set('error', 'نام کاربری نامعتبر است.');
+        redirect($fail);
+    }
+    if ($bioLen < 20 || $license === '' || !isset(doctor_degree_options()[$degree]) || doctor_courses_list($courses) === [] || $year < 1330 || $year > $maxYear || $price <= 0 || $approaches === [] || $domains === [] || $focus === []) {
+        flash_set('error', 'مدرک، پروانه، سال شروع، رویکرد، حوزه، زمینه، دوره‌ها، معرفی و هزینه جلسه را کامل کنید.');
+        redirect($fail);
+    }
+    $taken = $pdo->prepare('SELECT id FROM users WHERE LOWER(email)=? OR LOWER(username)=? OR phone=? LIMIT 1');
+    $taken->execute([$email, $username, $phone]);
+    if ($taken->fetch()) {
+        flash_set('error', 'این ایمیل، نام کاربری یا موبایل قبلاً ثبت شده است.');
+        redirect($fail);
+    }
+    $id = cuid();
+    $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,preferred_doctor_id,must_change_password) VALUES (?,?,?,?,?,?,?,?,1)')
+        ->execute([$id, $username, $name, $email, $phone, password_hash($password, PASSWORD_DEFAULT), 'DOCTOR', null]);
+    try {
+        $pdo->prepare('UPDATE users SET gender=? WHERE id=?')->execute([$gender, $id]);
+    } catch (Throwable $ignored) {
+    }
+    if (function_exists('user_remember_password_plain')) {
+        user_remember_password_plain($pdo, $id, $password);
+    }
+    if (function_exists('remember_registration_name_transliterations')) {
+        remember_registration_name_transliterations($pdo, $firstName, $lastName, $nameEn, $surname);
+    }
+    $profile = doctor_ensure_profile($pdo, $id, [
+        'specialty' => implode('، ', doctor_profile_labels($domains, doctor_domain_options())),
+        'bio' => $bio,
+        'session_price' => $price,
+        'is_approved' => 1,
+        'is_active' => 1,
+    ]);
+    if (!$profile) {
+        flash_set('error', 'حساب ساخته شد ولی پروفایل درمانگر ساخته نشد.');
+        redirect('/secretary/therapists');
+    }
+    $avatarUrl = '';
+    try {
+        $avatarUrl = doctor_save_photo((string) ($profile['id'] ?? ''), $_FILES['avatar'] ?? []);
+    } catch (RuntimeException $e) {
+        flash_set('error', $e->getMessage());
+        redirect('/secretary/therapists?open=' . rawurlencode((string) ($profile['id'] ?? '')));
+    }
+    $pdo->prepare('
+      UPDATE doctor_profiles
+      SET specialty=?, bio=?, avatar_url=?, session_price=?,
+          approaches_json=?, domains_json=?, focus_json=?,
+          license_no=?, started_year=?, courses=?, degree=?, profile_completed=?, is_active=1, is_approved=1
+      WHERE id=?
+    ')->execute([
+        implode('، ', doctor_profile_labels($domains, doctor_domain_options())),
+        $bio,
+        $avatarUrl !== '' ? $avatarUrl : null,
+        $price,
+        json_encode($approaches, JSON_UNESCAPED_UNICODE),
+        json_encode($domains, JSON_UNESCAPED_UNICODE),
+        json_encode($focus, JSON_UNESCAPED_UNICODE),
+        $license,
+        $year,
+        $courses,
+        $degree,
+        $avatarUrl !== '' ? 1 : 0,
+        $profile['id'],
+    ]);
+    flash_set('success', 'درمانگر «' . $name . '» ساخته شد. نام کاربری: ' . $username);
+    redirect('/secretary/therapists?open=' . rawurlencode((string) $profile['id']));
 }
 
 $doctorUserId = trim((string) post('user_id'));

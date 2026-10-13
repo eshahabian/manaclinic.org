@@ -88,6 +88,12 @@ function doctor_nav(): array
         $nav[] = ['type' => 'link', 'href' => '/admin/rooms', 'label' => 'اتاق‌ها'];
         $nav[] = ['type' => 'link', 'href' => '/admin/outreach', 'label' => 'مراجعه‌کنندگان قدیمی'];
     }
+    if (!function_exists('clinic_can_add_therapist') && is_file(__DIR__ . '/doctor_profile_fields.php')) {
+        require_once __DIR__ . '/doctor_profile_fields.php';
+    }
+    if ($deskUser && (string) ($deskUser['role'] ?? '') === 'DOCTOR' && function_exists('clinic_can_add_therapist') && clinic_can_add_therapist($deskUser)) {
+        $nav[] = ['type' => 'link', 'href' => '/secretary/therapists', 'label' => 'درمانگرها'];
+    }
 
     if (!function_exists('secretary_daily_tasks_can_review') && is_file(__DIR__ . '/secretary_daily_tasks.php')) {
         require_once __DIR__ . '/secretary_daily_tasks.php';

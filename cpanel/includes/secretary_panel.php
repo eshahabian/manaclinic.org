@@ -19,7 +19,6 @@ function secretary_nav(): array
             'badge_tone' => 'new',
         ],
         ['href' => '/secretary/appointments', 'label' => 'نوبت‌ها'],
-        ['href' => '/secretary/therapist-days', 'label' => 'روزهای درمانگر'],
         ['href' => '/secretary/therapists', 'label' => 'درمانگرها'],
         ['href' => '/secretary/complaints', 'label' => 'شکایت از درمانگر'],
         ['href' => '/secretary/petty-cash', 'label' => 'تنخواه'],
