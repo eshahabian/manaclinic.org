@@ -428,7 +428,7 @@ ob_start();
 <?php
 $inner = ob_get_clean();
 $pageScripts = '
-<script src="' . e(url('/assets/js/search-select.js')) . '?v=20260906p"></script>
+<script src="' . e(url('/assets/js/search-select.js')) . '?v=20261014doc"></script>
 <script src="' . e(url('/assets/js/name-transliterate.js')) . '?v=20260906p"></script>
 <script src="' . e(url('/assets/js/form-draft.js')) . '?v=20260906p"></script>
 <script src="' . e(url('/assets/js/secretary-patient-form.js')) . '?v=20261007ref"></script>
@@ -522,6 +522,17 @@ $pageScripts = '
   }
   if (statusFilter) statusFilter.addEventListener("change", applyAccountFilter);
   if (doctorFilter) doctorFilter.addEventListener("change", applyAccountFilter);
+  if (doctorFilter && window.enhanceSearchSelect) {
+    enhanceSearchSelect(doctorFilter, { placeholder: "همه درمانگرها" });
+    var doctorBox = doctorFilter.parentNode;
+    var doctorInput = doctorBox ? doctorBox.querySelector(".search-select-input") : null;
+    if (doctorInput) {
+      doctorInput.type = "text";
+      doctorInput.setAttribute("dir", "rtl");
+      var picked = doctorFilter.options[doctorFilter.selectedIndex];
+      doctorInput.value = picked ? String(picked.textContent || "").trim() : "";
+    }
+  }
   rows.forEach(function(row){
     var doctorSelect = row.querySelector("select[name=preferred_doctor_id]");
     if (!doctorSelect) return;
@@ -772,7 +783,9 @@ $pageScripts = '
 </script>
 ';
 $pageHead = ($pageHead ?? '') . '<style>
-.patient-list-filters{display:grid;grid-template-columns:minmax(14rem,1.5fr) minmax(9rem,.7fr) minmax(12rem,1fr);gap:.75rem;margin-top:1.25rem;align-items:end}
+.patient-list-filters{display:grid;grid-template-columns:minmax(14rem,1.4fr) minmax(8.5rem,.6fr) minmax(16rem,1.3fr);gap:.75rem;margin-top:1.25rem;align-items:end}
+.patient-list-filters .search-select{width:100%}
+.patient-list-filters .search-select-input{direction:rtl;text-align:right;color:var(--fg)}
 @media (max-width:760px){.patient-list-filters{grid-template-columns:1fr}}
 #secretary-account-edit .sec-account-action{width:6.25rem;height:2.4rem;flex:0 0 6.25rem;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;text-align:center;white-space:nowrap;line-height:1.2;padding:.35rem .5rem}
 .sec-state-switch{display:inline-flex;border:1px solid rgba(26,46,40,.16);border-radius:999px;overflow:hidden;background:#f3f6f5}

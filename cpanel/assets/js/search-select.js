@@ -25,7 +25,8 @@
 
   function selectedText(select) {
     var opt = select.options[select.selectedIndex];
-    return opt && opt.value ? optionText(opt) : "";
+    if (!opt) return "";
+    return optionText(opt);
   }
 
   function enhanceSearchSelect(select, options) {
