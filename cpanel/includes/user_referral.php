@@ -47,8 +47,8 @@ function user_referral_of(PDO $pdo, string $userId): ?string
 function user_referral_label(?string $source): string
 {
     return match (user_referral_normalize((string) $source)) {
-        'clinic' => 'ارجاع از سمت کلینیک',
-        'therapist' => 'ارجاع از سمت درمانگر',
+        'clinic' => 'کلینیک',
+        'therapist' => 'درمانگر',
         default => '',
     };
 }
@@ -115,7 +115,7 @@ function user_referral_options_html(string $name, string $id, ?string $current, 
     $req = $required ? ' required' : '';
     $html = '<select class="input" name="' . e($name) . '" id="' . e($id) . '"' . $req . '>';
     $html .= '<option value="">انتخاب معرف</option>';
-    foreach (['clinic', 'therapist'] as $key) {
+    foreach (['therapist', 'clinic'] as $key) {
         $selected = $current === $key ? ' selected' : '';
         $html .= '<option value="' . e($key) . '"' . $selected . '>' . e(user_referral_label($key)) . '</option>';
     }

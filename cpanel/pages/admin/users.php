@@ -203,8 +203,8 @@ ob_start();
               <input type="hidden" name="return_to" value="<?= e($usersDisabledPage ? '/admin/users-disabled' : '/admin/users') ?>">
               <select class="input" name="referral_source" aria-label="معرف" onchange="this.form.submit()" style="min-width:9rem;padding:.35rem .5rem">
                 <option value="">انتخاب معرف</option>
-                <option value="clinic"<?= (($u['referral_source'] ?? '') === 'clinic') ? ' selected' : '' ?>>ارجاع از سمت کلینیک</option>
-                <option value="therapist"<?= (($u['referral_source'] ?? '') === 'therapist') ? ' selected' : '' ?>>ارجاع از سمت درمانگر</option>
+                <option value="therapist"<?= (($u['referral_source'] ?? '') === 'therapist') ? ' selected' : '' ?>>درمانگر</option>
+                <option value="clinic"<?= (($u['referral_source'] ?? '') === 'clinic') ? ' selected' : '' ?>>کلینیک</option>
               </select>
             </form>
           </td>
