@@ -6,6 +6,7 @@ require_once __DIR__ . '/../../includes/doctor_panel.php';
 require_once __DIR__ . '/../../includes/doctor_profile_fields.php';
 require_once __DIR__ . '/../../includes/collaboration.php';
 require_once __DIR__ . '/../../includes/therapist_weekday_panel.php';
+require_once __DIR__ . '/../../includes/availability.php';
 
 $user = require_login(['SECRETARY', 'DOCTOR', 'ADMIN']);
 if (!clinic_can_add_therapist($user)) {
@@ -187,7 +188,7 @@ ob_start();
         <h2 id="therapist-add-title"><?= $isEdit ? 'ویرایش درمانگر' : 'درمانگر جدید' ?></h2>
         <a class="therapist-shadow-close" href="<?= e(url('/secretary/therapists')) ?>" aria-label="بستن">×</a>
       </div>
-      <p class="muted" style="margin:0 0 .8rem"><?= $isEdit ? 'اطلاعات همین درمانگر را عوض کنید. رمز و عکس را فقط وقتی پر کنید که می‌خواهید عوض شوند.' : 'همان اطلاعاتی که درمانگر هنگام ساخت حساب و تکمیل پروفایل وارد می‌کند.' ?></p>
+      <p class="muted" style="margin:0 0 .8rem"><?= $isEdit ? 'فقط نام، نام خانوادگی و موبایل لازم است. بقیه را اگر خواستید پر کنید.' : 'فقط نام، نام خانوادگی و موبایل لازم است. بقیه فیلدها اختیاری است.' ?></p>
       <form class="form-stack" method="post" action="<?= e(url('/secretary/therapists')) ?>" enctype="multipart/form-data"<?= $isEdit ? ' data-therapist-edit="1"' : '' ?>>
         <?= csrf_field() ?>
         <input type="hidden" name="action" value="<?= $isEdit ? 'update' : 'create' ?>">
@@ -196,15 +197,15 @@ ob_start();
         <?php endif; ?>
         <div class="doc-profile-grid">
           <label><span class="label">نام</span><input class="input" name="first_name" id="th_first_name" required value="<?= e($formValue('first_name')) ?>"></label>
-          <label><span class="label">نام انگلیسی</span><input class="input" name="name_en" id="th_name_en" required dir="ltr" lang="en" autocomplete="off" placeholder="name" value="<?= e($formValue('name_en')) ?>"></label>
+          <label><span class="label">نام انگلیسی</span><input class="input" name="name_en" id="th_name_en" dir="ltr" lang="en" autocomplete="off" placeholder="name" value="<?= e($formValue('name_en')) ?>"></label>
           <label><span class="label">نام خانوادگی</span><input class="input" name="last_name" id="th_last_name" required value="<?= e($formValue('last_name')) ?>"></label>
-          <label><span class="label">نام خانوادگی انگلیسی</span><input class="input" name="surname" id="th_surname" required dir="ltr" lang="en" autocomplete="off" placeholder="surname" value="<?= e($formValue('surname')) ?>"></label>
+          <label><span class="label">نام خانوادگی انگلیسی</span><input class="input" name="surname" id="th_surname" dir="ltr" lang="en" autocomplete="off" placeholder="surname" value="<?= e($formValue('surname')) ?>"></label>
           <label><span class="label">موبایل</span><input class="input" name="phone" required dir="ltr" inputmode="tel" value="<?= e($formValue('phone')) ?>"></label>
-          <label><span class="label">ایمیل</span><input class="input" name="email" type="email" required dir="ltr" value="<?= e($formValue('email')) ?>"></label>
-          <label><span class="label">نام کاربری</span><input class="input" name="username" id="th_username" dir="ltr" <?= $isEdit ? 'required' : '' ?> placeholder="<?= $isEdit ? '' : 'خالی بماند تا از نام انگلیسی ساخته شود' ?>" value="<?= e($formValue('username')) ?>"></label>
+          <label><span class="label">ایمیل</span><input class="input" name="email" type="email" dir="ltr" value="<?= e($formValue('email')) ?>"></label>
+          <label><span class="label">نام کاربری</span><input class="input" name="username" id="th_username" dir="ltr" placeholder="خالی بماند تا ساخته شود" value="<?= e($formValue('username')) ?>"></label>
           <label>
             <span class="label">جنسیت</span>
-            <select class="input" name="gender" required>
+            <select class="input" name="gender">
               <option value="">انتخاب کنید</option>
               <option value="female"<?= $formValue('gender') === 'female' ? ' selected' : '' ?>>زن</option>
               <option value="male"<?= $formValue('gender') === 'male' ? ' selected' : '' ?>>مرد</option>
@@ -213,25 +214,25 @@ ob_start();
           <label>
             <span class="label">رمز عبور</span>
             <span style="display:flex;gap:.5rem;align-items:stretch">
-              <input class="input" name="password" id="th_password" type="password" <?= $isEdit ? '' : 'required' ?> dir="ltr" minlength="<?= (int) password_min_length() ?>" autocomplete="new-password" style="flex:1" placeholder="<?= $isEdit ? 'خالی بماند تا رمز عوض نشود' : '' ?>">
+              <input class="input" name="password" id="th_password" type="password" dir="ltr" minlength="<?= (int) password_min_length() ?>" autocomplete="new-password" style="flex:1" placeholder="اختیاری">
               <button type="button" class="btn btn-outline" data-password-suggest data-password-target="th_password" data-password-confirm-target="th_password_confirm">پیشنهاد</button>
             </span>
           </label>
-          <label><span class="label">تکرار رمز</span><input class="input" name="password_confirm" id="th_password_confirm" type="password" <?= $isEdit ? '' : 'required' ?> dir="ltr" minlength="<?= (int) password_min_length() ?>" autocomplete="new-password" placeholder="<?= $isEdit ? 'تکرار رمز جدید' : '' ?>"></label>
+          <label><span class="label">تکرار رمز</span><input class="input" name="password_confirm" id="th_password_confirm" type="password" dir="ltr" minlength="<?= (int) password_min_length() ?>" autocomplete="new-password" placeholder="اختیاری"></label>
           <label>
             <span class="label">آخرین مدرک</span>
-            <select class="input" name="degree" required>
+            <select class="input" name="degree">
               <option value="">انتخاب کنید</option>
               <?php foreach (doctor_degree_options() as $key => $label): ?>
                 <option value="<?= e($key) ?>"<?= $formValue('degree') === $key ? ' selected' : '' ?>><?= e($label) ?></option>
               <?php endforeach; ?>
             </select>
           </label>
-          <label><span class="label">شماره پروانه نظام</span><input class="input" name="license_no" required dir="ltr" value="<?= e($formValue('license_no')) ?>"></label>
-          <label><span class="label">سال شروع فعالیت</span><input class="input" name="started_year" type="text" required dir="ltr" inputmode="numeric" autocomplete="off" placeholder="مثلاً <?= e(to_fa_digits((string) max(1330, $maxYear - 8))) ?>" value="<?= e($formValue('started_year')) ?>"></label>
+          <label><span class="label">شماره پروانه نظام</span><input class="input" name="license_no" dir="ltr" value="<?= e($formValue('license_no')) ?>"></label>
+          <label><span class="label">سال شروع فعالیت</span><input class="input" name="started_year" type="text" dir="ltr" inputmode="numeric" autocomplete="off" placeholder="مثلاً <?= e(to_fa_digits((string) max(1330, $maxYear - 8))) ?>" value="<?= e($formValue('started_year')) ?>"></label>
           <label>
             <span class="label">هزینه جلسه (تومان)</span>
-            <input class="input" name="session_price" type="text" required dir="ltr" inputmode="numeric" autocomplete="off" placeholder="مبلغ را بنویسید" data-money value="<?= e($formValue('session_price')) ?>">
+            <input class="input" name="session_price" type="text" dir="ltr" inputmode="numeric" autocomplete="off" placeholder="مبلغ را بنویسید" data-money value="<?= e($formValue('session_price')) ?>">
           </label>
         </div>
         <div>
@@ -246,15 +247,56 @@ ob_start();
           <span class="label">زمینه تخصصی</span>
           <?= doctor_chip_picker_html('focus', doctor_focus_options(), $selectedFocus) ?>
         </div>
-        <label><span class="label">دوره‌های تخصصی، هر دوره یک خط</span><textarea class="input" name="courses" rows="4" required><?= e($formValue('courses')) ?></textarea></label>
-        <label><span class="label">درباره درمانگر</span><textarea class="input" name="bio" rows="4" required minlength="20"><?= e($formValue('bio')) ?></textarea></label>
+        <label><span class="label">دوره‌های تخصصی، هر دوره یک خط</span><textarea class="input" name="courses" rows="4"><?= e($formValue('courses')) ?></textarea></label>
+        <label><span class="label">درباره درمانگر</span><textarea class="input" name="bio" rows="4"><?= e($formValue('bio')) ?></textarea></label>
         <label>
           <span class="label">عکس پروفایل</span>
-          <input class="input" type="file" name="avatar" accept="image/jpeg,image/png,image/webp"<?= $hasAvatar ? '' : ' required' ?>>
+          <input class="input" type="file" name="avatar" accept="image/jpeg,image/png,image/webp">
           <?php if ($hasAvatar): ?>
             <span class="muted" style="display:block;margin-top:.35rem;font-size:.82rem">عکس فعلی می‌ماند، مگر عکس جدید انتخاب کنید.</span>
           <?php endif; ?>
         </label>
+        <?php
+          $presenceSlots = [];
+          for ($presenceHour = 11; $presenceHour <= 17; $presenceHour++) {
+              $presenceSlots[] = $presenceHour . ':00';
+              if ($presenceHour < 17) {
+                  $presenceSlots[] = $presenceHour . ':30';
+              }
+          }
+        ?>
+        <div>
+          <span class="label">ساعات حضور</span>
+          <p class="muted" style="margin:.2rem 0 .6rem;font-size:.85rem;line-height:1.7">روزها را انتخاب کنید و بازه را از منوی کرکره‌ای بردارید. از ۱۱ تا ۱۷، هر نیم‌ساعت. اگر خالی بماند، ساعتی ثبت نمی‌شود. نوبت‌دهی ساعتی است، پس نیم‌ساعت به همان ساعت کامل گرد می‌شود.</p>
+          <div class="therapist-presence-days">
+            <?php foreach (doctor_weekdays_sat_first() as $presenceDay => $presenceLabel): ?>
+              <label class="pick-chip">
+                <input type="checkbox" name="presence_days[]" value="<?= (int) $presenceDay ?>">
+                <span><?= e($presenceLabel) ?></span>
+              </label>
+            <?php endforeach; ?>
+          </div>
+          <div class="doc-profile-grid" style="margin-top:.7rem">
+            <label>
+              <span class="label">از ساعت</span>
+              <select class="input" name="presence_from">
+                <option value="">انتخاب ساعت</option>
+                <?php foreach ($presenceSlots as $presenceSlot): ?>
+                  <option value="<?= e($presenceSlot) ?>"><?= e(to_fa_digits($presenceSlot)) ?></option>
+                <?php endforeach; ?>
+              </select>
+            </label>
+            <label>
+              <span class="label">تا ساعت</span>
+              <select class="input" name="presence_to">
+                <option value="">انتخاب ساعت</option>
+                <?php foreach ($presenceSlots as $presenceSlot): ?>
+                  <option value="<?= e($presenceSlot) ?>"><?= e(to_fa_digits($presenceSlot)) ?></option>
+                <?php endforeach; ?>
+              </select>
+            </label>
+          </div>
+        </div>
         <button class="btn btn-primary" type="submit"><?= $isEdit ? 'ذخیره تغییرات' : 'ساخت حساب درمانگر' ?></button>
       </form>
     </div>
@@ -277,6 +319,7 @@ $pageHead = '<style>
 .therapist-shadow-head h2{margin:0}
 .therapist-shadow-close{font-size:1.6rem;line-height:1;text-decoration:none;color:#4a6670}
 .doc-profile-grid{display:grid;grid-template-columns:1fr 1fr;gap:.7rem}
+.therapist-presence-days{display:flex;flex-wrap:wrap;gap:.4rem}
 @media(max-width:700px){.doc-profile-grid{grid-template-columns:1fr}}
 </style>';
 $pageScripts = '
