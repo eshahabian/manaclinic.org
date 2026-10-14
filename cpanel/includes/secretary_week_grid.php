@@ -438,6 +438,7 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
       root.setAttribute("data-inited", "1");
       var shadow = document.getElementById("sec-week-shadow");
       if (!shadow) return;
+      if (shadow.parentNode !== document.body) document.body.appendChild(shadow);
       var nameEl = shadow.querySelector(".sec-week-shadow-name");
       var metaEl = shadow.querySelector(".sec-week-shadow-meta");
       var actionsEl = shadow.querySelector(".sec-week-shadow-actions");
@@ -489,6 +490,7 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
           dismiss.addEventListener("click", close);
           actionsEl.appendChild(dismiss);
         }
+        if (shadow.parentNode !== document.body) document.body.appendChild(shadow);
         shadow.hidden = false;
       });
       var openAppt = "";
