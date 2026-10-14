@@ -14,6 +14,7 @@ if (!petty_cash_user_allowed($user)) {
 $role = (string) ($user['role'] ?? '');
 $asSecretary = $role === 'SECRETARY';
 $asAccountant = $role === 'ACCOUNTANT';
+$canEnter = petty_cash_user_can_enter($user);
 if ($embedded) {
     $cashPath = '/app/petty-cash';
 } elseif ($asAccountant) {
@@ -85,27 +86,7 @@ ob_start();
   </div>
 </div>
 
-<form class="panel form-stack" method="get" action="<?= e(url($cashPath)) ?>" style="margin-top:1rem">
-  <p style="margin:0;font-weight:600">ماه گزارش</p>
-  <div>
-    <label class="label" for="petty-view-year">سال</label>
-    <select class="input" id="petty-view-year" name="jy">
-      <?php foreach ($viewYears as $y): ?>
-        <option value="<?= (int) $y ?>"<?= (int) $y === (int) $range['year'] ? ' selected' : '' ?>><?= e(to_fa_digits((string) $y)) ?></option>
-      <?php endforeach; ?>
-    </select>
-  </div>
-  <div>
-    <label class="label" for="petty-view-month">ماه</label>
-    <select class="input" id="petty-view-month" name="jm">
-      <?php for ($m = 1; $m <= 12; $m++): ?>
-        <option value="<?= $m ?>"<?= $m === (int) $range['month'] ? ' selected' : '' ?>><?= e(petty_cash_month_name($m)) ?></option>
-      <?php endfor; ?>
-    </select>
-  </div>
-  <button class="btn btn-outline" type="submit" style="justify-self:start">نمایش این ماه</button>
-</form>
-
+<?php if ($canEnter): ?>
 <div class="panel" id="petty-entry-box" style="margin-top:1rem">
   <style>#petty-entry-box [hidden]{display:none !important}</style>
   <div class="binder-tabs" role="tablist" aria-label="ثبت تنخواه">
@@ -166,6 +147,26 @@ ob_start();
     <button class="btn btn-primary" type="submit" style="justify-self:start">ثبت هزینه</button>
   </form>
 </div>
+<?php endif; ?>
+
+<form class="panel" method="get" action="<?= e(url($cashPath)) ?>" style="margin-top:1rem">
+  <p style="margin:0 0 .75rem;font-weight:600">گزارش ماه</p>
+  <div style="display:flex;flex-wrap:wrap;align-items:center;gap:.55rem .75rem">
+    <label class="label" for="petty-view-year" style="margin:0">سال</label>
+    <select class="input" id="petty-view-year" name="jy" style="width:auto;min-width:7rem">
+      <?php foreach ($viewYears as $y): ?>
+        <option value="<?= (int) $y ?>"<?= (int) $y === (int) $range['year'] ? ' selected' : '' ?>><?= e(to_fa_digits((string) $y)) ?></option>
+      <?php endforeach; ?>
+    </select>
+    <label class="label" for="petty-view-month" style="margin:0">ماه</label>
+    <select class="input" id="petty-view-month" name="jm" style="width:auto;min-width:8rem">
+      <?php for ($m = 1; $m <= 12; $m++): ?>
+        <option value="<?= $m ?>"<?= $m === (int) $range['month'] ? ' selected' : '' ?>><?= e(petty_cash_month_name($m)) ?></option>
+      <?php endfor; ?>
+    </select>
+    <button class="btn btn-outline" type="submit">نمایش این ماه</button>
+  </div>
+</form>
 
 <div class="panel" style="margin-top:1rem">
   <h2 style="margin:0 0 .75rem;font-size:1rem">جمع قلم‌ها در <?= e($range['label']) ?></h2>
@@ -221,6 +222,7 @@ ob_start();
     <?php endforeach; ?>
   <?php endif; ?>
 </div>
+<?php if ($canEnter): ?>
 <script>
 (function () {
   var ones = ["", "یک", "دو", "سه", "چهار", "پنج", "شش", "هفت", "هشت", "نه"];
@@ -316,6 +318,7 @@ ob_start();
 })();
 </script>
 <?= petty_cash_datepicker_assets() ?>
+<?php endif; ?>
 <?php
 $html = ob_get_clean();
 if ($embedded) {

@@ -35,15 +35,22 @@ function ensure_petty_cash_schema(PDO $pdo): void
     $ready = true;
 }
 
-/** @return array<string, string> */
+/** حساب‌های مجاز برای هزینه جدید. @return array<string, string> */
 function petty_cash_pay_accounts(): array
 {
     return [
         'blue' => 'تنخواه بلو بانک',
         'parsian' => 'تنخواه پارسیان',
+        'garsichi' => 'عطیه گارسچی',
+    ];
+}
+
+/** حساب‌های حذف‌شده از فرم؛ فقط برای نمایش ردیف‌های قبلی. @return array<string, string> */
+function petty_cash_legacy_pay_accounts(): array
+{
+    return [
         'shirkhodaei' => 'عطیه شیرخدایی',
         'moradi' => 'هستی مرادی',
-        'garsichi' => 'عطیه گارسچی',
         'geranmaye' => 'شیوا گرانمایه',
     ];
 }
@@ -99,11 +106,12 @@ function petty_cash_entry_account_label(string $kind, string $stored): string
         return '';
     }
 
-    $label = petty_cash_option_label(petty_cash_pay_accounts(), $stored);
+    $labels = petty_cash_pay_accounts() + petty_cash_legacy_pay_accounts();
+    $label = petty_cash_option_label($labels, $stored);
     if ($label !== '') {
         return $label;
     }
-    if (in_array($folded, array_values(petty_cash_pay_accounts()), true)) {
+    if (in_array($folded, array_values($labels), true)) {
         return $folded;
     }
 
@@ -192,6 +200,20 @@ function petty_cash_user_allowed(?array $user = null): bool
     }
     $role = (string) ($user['role'] ?? '');
     if ($role === 'SECRETARY' || $role === 'ACCOUNTANT') {
+        return true;
+    }
+
+    return petty_cash_doctor_allowed($user);
+}
+
+/** ثبت ورودی و هزینه: دکتر شیوا گرانمایه‌پور، دکتر عطیه گارسچی، و کاربر با نقش حسابدار. */
+function petty_cash_user_can_enter(?array $user = null): bool
+{
+    $user = $user ?? (function_exists('current_user') ? current_user() : null);
+    if (!is_array($user)) {
+        return false;
+    }
+    if ((string) ($user['role'] ?? '') === 'ACCOUNTANT') {
         return true;
     }
 
@@ -360,6 +382,9 @@ function petty_cash_apply_post(PDO $pdo, array $user): string
     }
 
     $kind = post('action') === 'in' ? 'IN' : (post('action') === 'out' ? 'OUT' : '');
+    if (($kind === 'IN' || $kind === 'OUT') && !petty_cash_user_can_enter($user)) {
+        throw new RuntimeException('ثبت ورودی و هزینه فقط برای دکتر شیوا گرانمایه‌پور، دکتر عطیه گارسچی و حسابدار است.');
+    }
     $date = function_exists('parse_user_date') ? parse_user_date((string) post('entry_date')) : null;
     if ($date === null) {
         $date = petty_cash_parse_parts((int) post('entry_jy'), (int) post('entry_jm'), (int) post('entry_jd'));
@@ -383,7 +408,7 @@ function petty_cash_apply_post(PDO $pdo, array $user): string
         $payAccount = trim((string) post('pay_account'));
         $approver = trim((string) post('approver'));
         if (!isset(petty_cash_pay_accounts()[$payAccount])) {
-            throw new RuntimeException('حساب پرداخت را انتخاب کنید.');
+            throw new RuntimeException('هزینه فقط از تنخواه بلو بانک، تنخواه پارسیان یا عطیه گارسچی ثبت می‌شود.');
         }
         if (!isset(petty_cash_approvers()[$approver])) {
             throw new RuntimeException('تاییدکننده را انتخاب کنید.');
