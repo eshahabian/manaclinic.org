@@ -4,8 +4,14 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/secretary_patient.php';
 require_once __DIR__ . '/../includes/user_referral.php';
 require_once __DIR__ . '/../includes/outreach.php';
+require_once __DIR__ . '/../includes/patient_fee.php';
+require_once __DIR__ . '/../includes/doctor_profile_fields.php';
 
-require_login(['SECRETARY']);
+$actor = require_login(['SECRETARY', 'DOCTOR', 'ADMIN']);
+if (!patient_fee_can_edit($actor)) {
+    flash_set('error', 'این بخش برای این حساب باز نیست.');
+    redirect('/login');
+}
 csrf_verify();
 
 if (post('action') === 'set_disabled') {
@@ -163,8 +169,35 @@ if ($referral !== null && !user_referral_save($pdo, $userId, $referral)) {
     redirect('/secretary/patients');
 }
 
-$pdo->prepare('UPDATE users SET preferred_doctor_id=?, phone=? WHERE id=?')
-    ->execute([$doctorId, $phone, $userId]);
+patient_fee_ensure_schema($pdo);
+$customOn = post('custom_fee_on') === '1' ? 1 : 0;
+$foreignOn = post('foreign_fee_on') === '1' ? 1 : 0;
+$customToman = $customOn ? patient_fee_parse_toman((string) post('custom_fee_toman')) : 0;
+$foreignUsd = $foreignOn ? patient_fee_parse_usd((string) post('foreign_fee_usd')) : null;
+if ($customOn && $customToman <= 0) {
+    flash_set('error', 'برای مبلغ سفارشی، مبلغ تومان را وارد کنید.');
+    redirect('/secretary/patients');
+}
+if ($foreignOn && $foreignUsd === null) {
+    flash_set('error', 'برای پرداخت دلاری، مبلغ دلار را وارد کنید.');
+    redirect('/secretary/patients');
+}
+
+$pdo->prepare('
+  UPDATE users
+  SET preferred_doctor_id=?, phone=?,
+      custom_fee_on=?, custom_fee_toman=?,
+      foreign_fee_on=?, foreign_fee_usd=?
+  WHERE id=?
+')->execute([
+    $doctorId,
+    $phone,
+    $customOn,
+    $customOn ? $customToman : null,
+    $foreignOn,
+    $foreignOn ? $foreignUsd : null,
+    $userId,
+]);
 
 flash_set('success', 'تغییرات کاربر ذخیره شد.');
 redirect('/secretary/patients');

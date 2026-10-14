@@ -5,8 +5,15 @@ require_once __DIR__ . '/../../includes/secretary_panel.php';
 require_once __DIR__ . '/../../includes/secretary_patient.php';
 require_once __DIR__ . '/../../includes/user_referral.php';
 require_once __DIR__ . '/../../includes/outreach.php';
+require_once __DIR__ . '/../../includes/patient_fee.php';
+require_once __DIR__ . '/../../includes/doctor_profile_fields.php';
 
-$user = require_login(['SECRETARY']);
+$user = require_login(['SECRETARY', 'DOCTOR', 'ADMIN']);
+if (!patient_fee_can_edit($user)) {
+    flash_set('error', 'فهرست مراجعه‌کنندگان کلینیک فقط برای منشی‌ها، شیوا گرانمایه‌پور و عطیه گارسچی است.');
+    redirect((string) ($user['role'] ?? '') === 'DOCTOR' ? '/doctor/patients' : '/login');
+}
+$canEditFees = true;
 
 users_backfill_created_by($pdo);
 
@@ -175,10 +182,19 @@ ob_start();
       <?php endforeach; ?>
     </select>
   </div>
+  <div>
+    <label class="label" for="patient-fee-filter">پرداخت</label>
+    <select class="input" id="patient-fee-filter" aria-controls="secretary-account-edit">
+      <option value="">همه</option>
+      <option value="default">قیمت درمانگر</option>
+      <option value="custom">مبلغ سفارشی</option>
+      <option value="foreign">پرداخت دلاری</option>
+    </select>
+  </div>
 </div>
 
 <h2 style="margin:1rem 0 .35rem;font-size:1.05rem">فهرست مراجعه‌کنندگان</h2>
-<p class="muted" style="margin:0 0 .75rem;font-size:.9rem">درمانگر، معرف و موبایل حساب‌های ساخته‌شده از اینجا عوض می‌شود. برای کسی که هنوز حساب ندارد، دکمه فعال فرم ثبت‌نام را باز می‌کند. اگر حساب دارد و دوباره فعال می‌شود، فقط موردهای ناقص پروفایل پرسیده می‌شود.</p>
+<p class="muted" style="margin:0 0 .75rem;font-size:.9rem">درمانگر، معرف، موبایل و نوع پرداخت حساب‌های ساخته‌شده از اینجا عوض می‌شود. اگر مبلغ سفارشی روشن نباشد، همان قیمت پنل درمانگر برای نوبت گرفته می‌شود.</p>
 <div class="panel admin-users-board" style="padding:0;overflow:auto">
   <table class="table" id="secretary-account-edit">
     <thead>
@@ -188,6 +204,7 @@ ob_start();
         <th>درمانگر</th>
         <th>معرف</th>
         <th>موبایل</th>
+        <th>پرداخت</th>
         <th></th>
       </tr>
     </thead>
@@ -215,7 +232,17 @@ ob_start();
           $needsProfile = secretary_patient_profile_missing($u, $activeDoctorIds);
           $canToggle = $isPatient || !$isUser;
         ?>
-        <tr class="secretary-account-row<?= $inactive ? ' is-inactive-person' : '' ?>" data-search="<?= e($accountSearch) ?>" data-status="<?= $inactive ? 'inactive' : 'active' ?>" data-doctor="<?= e((string) ($u['preferred_doctor_id'] ?? '')) ?>">
+        <?php
+          $feeKey = patient_fee_filter_key($u);
+          $customOn = (int) ($u['custom_fee_on'] ?? 0) === 1;
+          $customToman = (int) ($u['custom_fee_toman'] ?? 0);
+          $foreignOn = (int) ($u['foreign_fee_on'] ?? 0) === 1;
+          $foreignUsd = trim((string) ($u['foreign_fee_usd'] ?? ''));
+          if ($foreignUsd !== '' && is_numeric($foreignUsd)) {
+              $foreignUsd = rtrim(rtrim(number_format((float) $foreignUsd, 2, '.', ''), '0'), '.');
+          }
+        ?>
+        <tr class="secretary-account-row<?= $inactive ? ' is-inactive-person' : '' ?>" data-search="<?= e($accountSearch) ?>" data-status="<?= $inactive ? 'inactive' : 'active' ?>" data-doctor="<?= e((string) ($u['preferred_doctor_id'] ?? '')) ?>" data-fee="<?= e($feeKey) ?>">
           <td>
             <div class="patient-name-cell">
               <?php if ($isUser): ?>
@@ -244,10 +271,25 @@ ob_start();
           <td>
             <input class="input" name="phone" form="<?= e($formId) ?>" dir="ltr" inputmode="tel" value="<?= e((string) ($u['phone'] ?? '')) ?>" required aria-label="موبایل" style="min-width:8rem;padding:.35rem .5rem;font-size:.85rem">
           </td>
+          <td class="patient-fee-cell">
+            <div class="patient-fee-stack" data-fee-stack>
+              <label class="patient-fee-line">
+                <input type="checkbox" name="custom_fee_on" value="1" form="<?= e($formId) ?>" data-fee-toggle="custom"<?= $customOn ? ' checked' : '' ?>>
+                <span>مبلغ سفارشی</span>
+              </label>
+              <input class="input patient-fee-amount" name="custom_fee_toman" form="<?= e($formId) ?>" dir="ltr" inputmode="numeric" data-fee-input="custom" placeholder="تومان" value="<?= $customOn && $customToman > 0 ? e(to_fa_digits(number_format($customToman))) : '' ?>"<?= $customOn ? '' : ' disabled' ?> aria-label="مبلغ سفارشی تومان" data-money>
+              <label class="patient-fee-line">
+                <input type="checkbox" name="foreign_fee_on" value="1" form="<?= e($formId) ?>" data-fee-toggle="foreign"<?= $foreignOn ? ' checked' : '' ?>>
+                <span>خارج از ایران</span>
+              </label>
+              <input class="input patient-fee-amount" name="foreign_fee_usd" form="<?= e($formId) ?>" dir="ltr" inputmode="decimal" data-fee-input="foreign" placeholder="دلار" value="<?= $foreignOn && $foreignUsd !== '' ? e(to_fa_digits($foreignUsd)) : '' ?>"<?= $foreignOn ? '' : ' disabled' ?> aria-label="مبلغ دلار">
+            </div>
+          </td>
           <?php else: ?>
           <td class="muted">بعد از فعال‌سازی</td>
           <td class="muted">بعد از فعال‌سازی</td>
           <td dir="ltr"><?= e($accountPhone) ?></td>
+          <td class="muted">بعد از فعال‌سازی</td>
           <?php endif; ?>
           <td>
             <?php if ($isUser): ?>
@@ -444,6 +486,7 @@ ob_start();
 $inner = ob_get_clean();
 $pageScripts = '
 <script src="' . e(url('/assets/js/search-select.js')) . '?v=20261014doc"></script>
+<script src="' . e(url('/assets/js/money-words.js')) . '?v=20261014fee"></script>
 <script src="' . e(url('/assets/js/name-transliterate.js')) . '?v=20260906p"></script>
 <script src="' . e(url('/assets/js/form-draft.js')) . '?v=20260906p"></script>
 <script src="' . e(url('/assets/js/secretary-patient-form.js')) . '?v=20261007ref"></script>
@@ -500,9 +543,10 @@ $pageScripts = '
   var input = document.getElementById("patient-filter");
   var statusFilter = document.getElementById("patient-status-filter");
   var doctorFilter = document.getElementById("patient-doctor-filter");
+  var feeFilter = document.getElementById("patient-fee-filter");
   var rows = document.querySelectorAll("#secretary-account-edit .secretary-account-row");
   var empty = document.getElementById("patient-filter-empty");
-  if (!input && !statusFilter && !doctorFilter) return;
+  if (!input && !statusFilter && !doctorFilter && !feeFilter) return;
   function faToEn(str){
     return String(str || "").replace(/[۰-۹]/g, function(d){ return String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)); })
       .replace(/[٠-٩]/g, function(d){ return String("٠١٢٣٤٥٦٧٨٩".indexOf(d)); });
@@ -510,11 +554,32 @@ $pageScripts = '
   function norm(str){
     return faToEn(str).trim().toLowerCase().replace(/ي/g, "ی").replace(/ك/g, "ک");
   }
+  function syncFeeRow(row){
+    var stack = row.querySelector("[data-fee-stack]");
+    if (!stack) return;
+    var customBox = stack.querySelector("[data-fee-toggle=custom]");
+    var foreignBox = stack.querySelector("[data-fee-toggle=foreign]");
+    var customOn = !!(customBox && customBox.checked);
+    var foreignOn = !!(foreignBox && foreignBox.checked);
+    var customInput = stack.querySelector("[data-fee-input=custom]");
+    var foreignInput = stack.querySelector("[data-fee-input=foreign]");
+    if (customInput) {
+      customInput.disabled = !customOn;
+      if (!customOn) customInput.value = "";
+    }
+    if (foreignInput) {
+      foreignInput.disabled = !foreignOn;
+      if (!foreignOn) foreignInput.value = "";
+    }
+    var fee = foreignOn ? "foreign" : (customOn ? "custom" : "default");
+    row.setAttribute("data-fee", fee);
+  }
   function applyAccountFilter(){
     var q = norm(input ? input.value : "");
     var qDigits = q.replace(/\D+/g, "");
     var status = statusFilter ? statusFilter.value : "";
     var doctor = doctorFilter ? doctorFilter.value : "";
+    var fee = feeFilter ? feeFilter.value : "";
     var shown = 0;
     rows.forEach(function(row){
       var hay = norm(row.getAttribute("data-search") || "");
@@ -522,13 +587,14 @@ $pageScripts = '
       var textOn = !q || hay.indexOf(q) !== -1 || (qDigits.length >= 3 && hayDigits.indexOf(qDigits) !== -1);
       var statusOn = !status || (row.getAttribute("data-status") || "") === status;
       var doctorOn = !doctor || (row.getAttribute("data-doctor") || "") === doctor;
-      var on = textOn && statusOn && doctorOn;
+      var feeOn = !fee || (row.getAttribute("data-fee") || "default") === fee;
+      var on = textOn && statusOn && doctorOn && feeOn;
       row.classList.toggle("is-search-hidden", !on);
       row.hidden = !on;
       row.style.display = on ? "" : "none";
       if (on) shown++;
     });
-    var filtering = !!q || !!status || !!doctor;
+    var filtering = !!q || !!status || !!doctor || !!fee;
     if (empty) empty.hidden = !filtering || shown > 0 || rows.length === 0;
   }
   if (input) {
@@ -537,6 +603,7 @@ $pageScripts = '
   }
   if (statusFilter) statusFilter.addEventListener("change", applyAccountFilter);
   if (doctorFilter) doctorFilter.addEventListener("change", applyAccountFilter);
+  if (feeFilter) feeFilter.addEventListener("change", applyAccountFilter);
   if (doctorFilter && window.enhanceSearchSelect) {
     enhanceSearchSelect(doctorFilter, { placeholder: "همه درمانگرها" });
     var doctorBox = doctorFilter.parentNode;
@@ -549,11 +616,19 @@ $pageScripts = '
     }
   }
   rows.forEach(function(row){
+    syncFeeRow(row);
     var doctorSelect = row.querySelector("select[name=preferred_doctor_id]");
-    if (!doctorSelect) return;
-    doctorSelect.addEventListener("change", function(){
-      row.setAttribute("data-doctor", doctorSelect.value || "");
-      applyAccountFilter();
+    if (doctorSelect) {
+      doctorSelect.addEventListener("change", function(){
+        row.setAttribute("data-doctor", doctorSelect.value || "");
+        applyAccountFilter();
+      });
+    }
+    row.querySelectorAll("[data-fee-toggle]").forEach(function(box){
+      box.addEventListener("change", function(){
+        syncFeeRow(row);
+        applyAccountFilter();
+      });
     });
   });
 })();
@@ -814,11 +889,18 @@ $pageScripts = '
 </script>
 ';
 $pageHead = ($pageHead ?? '') . '<style>
-.patient-list-filters{display:grid;grid-template-columns:minmax(14rem,1.4fr) minmax(8.5rem,.6fr) minmax(16rem,1.3fr);gap:.75rem;margin-top:1.25rem;align-items:end}
+.patient-list-filters{display:grid;grid-template-columns:minmax(12rem,1.3fr) minmax(7.5rem,.55fr) minmax(12rem,1.1fr) minmax(9rem,.7fr);gap:.75rem;margin-top:1.25rem;align-items:end}
 .patient-list-filters .search-select{width:100%}
 .patient-list-filters .search-select-input{direction:rtl;text-align:right;color:var(--fg)}
-@media (max-width:760px){.patient-list-filters{grid-template-columns:1fr}}
+@media (max-width:900px){.patient-list-filters{grid-template-columns:1fr 1fr}}
+@media (max-width:560px){.patient-list-filters{grid-template-columns:1fr}}
 #secretary-account-edit .sec-account-action{width:6.25rem;height:2.4rem;flex:0 0 6.25rem;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;text-align:center;white-space:nowrap;line-height:1.2;padding:.35rem .5rem}
+#secretary-account-edit .patient-fee-cell{min-width:9.5rem;vertical-align:top}
+#secretary-account-edit .patient-fee-stack{display:flex;flex-direction:column;gap:.28rem;min-width:9rem}
+#secretary-account-edit .patient-fee-line{display:flex;align-items:center;gap:.35rem;font-size:.78rem;line-height:1.3;margin:0;cursor:pointer;white-space:nowrap}
+#secretary-account-edit .patient-fee-line input{margin:0;flex:none}
+#secretary-account-edit .patient-fee-amount{min-width:0;width:100%;padding:.28rem .45rem;font-size:.8rem}
+#secretary-account-edit .patient-fee-amount:disabled{opacity:.45;background:#f3f5f4}
 .sec-state-switch{display:inline-flex;border:1px solid rgba(26,46,40,.16);border-radius:999px;overflow:hidden;background:#f3f6f5}
 .sec-state-switch form{margin:0;display:flex}
 .sec-state-btn{border:0;background:transparent;color:#3d5560;padding:.4rem .75rem;font:inherit;font-size:.82rem;cursor:pointer;min-width:4.4rem}
@@ -850,4 +932,14 @@ body.patient-more-locked{overflow:hidden}
 #patient-activate-profile[hidden]{display:none !important}
 @media (max-width:640px){.patient-more-facts{grid-template-columns:1fr}}
 </style>';
-render_secretary_page('مراجعه‌کنندگان', $inner);
+$role = (string) ($user['role'] ?? '');
+if ($role === 'ADMIN') {
+    require_once __DIR__ . '/../../includes/admin_panel.php';
+    render_admin_page('مراجعه‌کنندگان', $inner);
+} elseif ($role === 'DOCTOR') {
+    require_once __DIR__ . '/../../includes/doctor_panel.php';
+    $GLOBALS['doctor_ctx'] = require_doctor_profile($pdo);
+    render_doctor_page('مراجعه‌کنندگان', $inner);
+} else {
+    render_secretary_page('مراجعه‌کنندگان', $inner);
+}

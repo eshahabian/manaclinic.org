@@ -98,6 +98,14 @@ function db_ensure_schema(PDO $pdo): void
     }
 
     try {
+        if (!function_exists('patient_fee_ensure_schema')) {
+            require_once __DIR__ . '/patient_fee.php';
+        }
+        patient_fee_ensure_schema($pdo);
+    } catch (Throwable $ignored) {
+    }
+
+    try {
         if (!function_exists('ensure_therapist_presence_schema')) {
             require_once __DIR__ . '/therapist_presence.php';
         }

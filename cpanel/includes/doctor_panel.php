@@ -139,8 +139,14 @@ function doctor_nav(): array
     if (!function_exists('doctor_has_shiva_access') && is_file(__DIR__ . '/doctor_profile_fields.php')) {
         require_once __DIR__ . '/doctor_profile_fields.php';
     }
+    if (!function_exists('patient_fee_can_edit') && is_file(__DIR__ . '/patient_fee.php')) {
+        require_once __DIR__ . '/patient_fee.php';
+    }
     if (petty_cash_user_allowed()) {
         $tail[] = ['type' => 'link', 'href' => '/doctor/petty-cash', 'label' => 'تنخواه'];
+    }
+    if (function_exists('patient_fee_can_edit') && patient_fee_can_edit($deskUser) && (string) ($deskUser['role'] ?? '') === 'DOCTOR') {
+        $tail[] = ['type' => 'link', 'href' => '/secretary/patients', 'label' => 'مراجعه‌کنندگان'];
     }
     $tail = array_merge($tail, [
         ['type' => 'link', 'href' => '/doctor/availability', 'label' => 'روزهای خالی'],

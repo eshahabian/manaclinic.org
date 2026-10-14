@@ -238,10 +238,15 @@ function secretary_patient_directory(PDO $pdo): array
         require_once __DIR__ . '/outreach.php';
     }
     ensure_outreach_schema($pdo);
+    if (!function_exists('patient_fee_ensure_schema')) {
+        require_once __DIR__ . '/patient_fee.php';
+    }
+    patient_fee_ensure_schema($pdo);
 
     $users = $pdo->query("
       SELECT u.id, u.username, u.name, u.role, u.phone, u.is_disabled, u.created_at, u.last_login_at,
              u.referral_source, u.preferred_doctor_id,
+             u.custom_fee_on, u.custom_fee_toman, u.foreign_fee_on, u.foreign_fee_usd,
              du.name AS doctor_name,
              cu.name AS created_by_name, cu.username AS created_by_username, cu.role AS created_by_role
       FROM users u
@@ -323,6 +328,10 @@ function secretary_patient_directory(PDO $pdo): array
             'last_login_at' => '',
             'referral_source' => '',
             'preferred_doctor_id' => '',
+            'custom_fee_on' => 0,
+            'custom_fee_toman' => null,
+            'foreign_fee_on' => 0,
+            'foreign_fee_usd' => null,
             'doctor_name' => '',
             'created_by_name' => '',
             'created_by_username' => '',

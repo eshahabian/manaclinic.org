@@ -393,6 +393,13 @@ function wallet_charge_held_visit(PDO $pdo, string $appointmentId): void
     $amount = (int) ($row['amount'] ?? 0);
     if ($amount <= 0) {
         $amount = (int) ($row['session_price'] ?? 0);
+        if (!function_exists('patient_fee_resolve_toman')) {
+            require_once __DIR__ . '/patient_fee.php';
+        }
+        $pid = (string) ($row['patient_id'] ?? '');
+        if ($pid !== '') {
+            $amount = patient_fee_resolve_toman(patient_fee_load($pdo, $pid), $amount);
+        }
     }
     if ($amount <= 0) {
         return;

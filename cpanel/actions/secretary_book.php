@@ -123,6 +123,13 @@ if (!in_array($payMethod, ['wallet', 'card', 'later'], true)) {
     $payMethod = !empty($_FILES['receipt']['name']) ? 'card' : 'later';
 }
 $amount = (int) $doctor['session_price'];
+if (!function_exists('patient_fee_resolve_toman')) {
+    require_once __DIR__ . '/../includes/patient_fee.php';
+}
+if ($patientId !== '') {
+    $feeRow = patient_fee_load($pdo, $patientId);
+    $amount = patient_fee_resolve_toman($feeRow, $amount);
+}
 if ($amount <= 0) {
     flash_set('error', 'هزینه جلسه این درمانگر مشخص نیست.');
     $bookRedirect('/secretary/appointments?tab=new');

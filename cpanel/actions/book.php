@@ -90,6 +90,10 @@ if (appointment_has_overlap($pdo, $doctorId, $startsAt, $endsAt)) {
 $appointmentId = cuid();
 $paymentId = cuid();
 $amount = (int) $doctor['session_price'];
+if (!function_exists('patient_fee_resolve_toman')) {
+    require_once __DIR__ . '/../includes/patient_fee.php';
+}
+$amount = patient_fee_resolve_toman(patient_fee_load($pdo, (string) $user['id']), $amount);
 
 ensure_appointment_session_schema($pdo);
 require_once __DIR__ . '/../includes/wallet.php';
