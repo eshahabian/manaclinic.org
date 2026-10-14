@@ -180,6 +180,21 @@ ob_start();
   ?>
 
   <div>
+    <label class="label" for="sec-repeat">تکرار این نوبت</label>
+    <select class="input" name="repeat_every" id="sec-repeat">
+      <option value="">بدون تکرار</option>
+      <option value="week">هر هفته</option>
+      <option value="biweek">هر دو هفته</option>
+      <option value="month">هر ماه</option>
+    </select>
+    <div id="sec-repeat-count" style="display:none;margin-top:.65rem">
+      <label class="label" for="sec-repeat-n">چند نوبت پشت‌سرهم، همین ساعت</label>
+      <input class="input" id="sec-repeat-n" name="repeat_count" type="text" inputmode="numeric" autocomplete="off" value="4" style="max-width:8rem">
+      <p class="muted" style="margin:.35rem 0 0;font-size:.82rem;line-height:1.7">نوبت اول با همین پرداخت ثبت می‌شود. نوبت‌های بعدی پرداخت‌بعدی می‌مانند. اگر در یکی از روزها درمانگر نباشد یا اتاق پر باشد، همان نوبت رد می‌شود و بقیه ثبت می‌شوند.</p>
+    </div>
+  </div>
+
+  <div>
     <label class="label">یادداشت (اختیاری)</label>
     <textarea class="input" name="notes" id="notes" rows="3" data-emoji-field></textarea>
   </div>
@@ -700,6 +715,15 @@ $secretaryBookScripts = '
       if (roomBtn) roomBtn.focus();
     }
   });
+
+  var repeatEl = document.getElementById("sec-repeat");
+  var repeatBox = document.getElementById("sec-repeat-count");
+  function syncRepeat() {
+    if (!repeatEl || !repeatBox) return;
+    repeatBox.style.setProperty("display", repeatEl.value === "" ? "none" : "block", "important");
+  }
+  if (repeatEl) repeatEl.addEventListener("change", syncRepeat);
+  syncRepeat();
 
   if (doctorEl.value) {
     dateView.disabled = false;

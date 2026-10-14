@@ -156,6 +156,75 @@ try {
     $bookRedirect('/secretary/appointments?tab=new');
 }
 
+$repeatEvery = (string) post('repeat_every');
+if (!in_array($repeatEvery, ['week', 'biweek', 'month'], true)) {
+    $repeatEvery = '';
+}
+$repeatCount = 1;
+if ($repeatEvery !== '') {
+    $repeatDigits = preg_replace('/\D+/', '', strtr((string) post('repeat_count'), [
+        '۰' => '0', '۱' => '1', '۲' => '2', '۳' => '3', '۴' => '4',
+        '۵' => '5', '۶' => '6', '۷' => '7', '۸' => '8', '۹' => '9',
+    ])) ?? '';
+    $repeatCount = (int) $repeatDigits;
+    if ($repeatCount < 2) {
+        $repeatCount = 2;
+    }
+    if ($repeatCount > 12) {
+        $repeatCount = 12;
+    }
+}
+$repeatDates = [$date];
+if ($repeatEvery !== '' && $repeatCount > 1) {
+    $cursor = new DateTimeImmutable($date . ' 12:00:00');
+    $anchorDay = (int) $cursor->format('j');
+    for ($step = 1; $step < $repeatCount; $step++) {
+        if ($repeatEvery === 'month') {
+            $shifted = $cursor->modify('first day of this month')->modify('+' . $step . ' months');
+            $lastDay = (int) $shifted->format('t');
+            $cursorDate = $shifted->setDate((int) $shifted->format('Y'), (int) $shifted->format('n'), min($anchorDay, $lastDay));
+        } else {
+            $days = $repeatEvery === 'biweek' ? 14 * $step : 7 * $step;
+            $cursorDate = $cursor->modify('+' . $days . ' days');
+        }
+        $repeatDates[] = $cursorDate->format('Y-m-d');
+    }
+}
+$slotMinutes = appointment_slot_minutes();
+$occurrences = [];
+$skipped = [];
+foreach ($repeatDates as $index => $occurDate) {
+    $occurStart = appointment_slot_starts_at($occurDate, $time);
+    $occurEnd = date('Y-m-d H:i:s', strtotime($occurStart) + ($slotMinutes * 60));
+    if ($index === 0) {
+        $occurrences[] = ['starts' => $occurStart, 'ends' => $occurEnd, 'date' => $occurDate];
+        continue;
+    }
+    $whenLabel = function_exists('to_jalali_label') ? to_jalali_label($occurDate) : $occurDate;
+    if (therapist_date_is_closed($pdo, $doctorId, $occurDate)) {
+        $skipped[] = $whenLabel . ' (درمانگر حضور ندارد)';
+        continue;
+    }
+    if (appointment_has_overlap($pdo, $doctorId, $occurStart, $occurEnd)) {
+        $skipped[] = $whenLabel . ' (تداخل با نوبت دیگر)';
+        continue;
+    }
+    try {
+        appointment_assert_room_choice($pdo, [
+            'id' => '',
+            'starts_at' => $occurStart,
+            'ends_at' => $occurEnd,
+            'session_mode' => $sessionMode,
+            'patient_id' => $patientId,
+            'doctor_id' => $doctorId,
+        ], $roomNo);
+    } catch (Throwable $e) {
+        $skipped[] = $whenLabel . ' (' . $e->getMessage() . ')';
+        continue;
+    }
+    $occurrences[] = ['starts' => $occurStart, 'ends' => $occurEnd, 'date' => $occurDate];
+}
+
 $appointmentId = cuid();
 $paymentId = cuid();
 ensure_appointment_session_schema($pdo);
@@ -166,23 +235,39 @@ try {
     if ($payMethod === 'card' && !empty($_FILES['receipt']['name'])) {
         $receiptPath = staff_save_receipt($_FILES['receipt'], $paymentId);
     }
-    $payStatus = $payMethod === 'later' ? 'PENDING' : 'PAID';
-    $payRef = $payMethod === 'wallet' ? 'WALLET' : ($payMethod === 'card' ? 'CARD' : 'LATER');
-    $payNote = $payMethod === 'later' ? 'پرداخت بعدی؛ بدهی نوبت منشی' : null;
-    $pdo->prepare('INSERT INTO appointments (id,doctor_id,patient_id,starts_at,ends_at,status,notes,session_mode,room_no,created_by_user_id,staff_payment_note) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
-        ->execute([$appointmentId, $doctorId, $patientId, $startsAt, $endsAt, 'CONFIRMED', $notes, $sessionMode, $roomNo > 0 ? $roomNo : null, $actorId, $payNote]);
-    $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,status,ref_id,recorded_by_user_id,receipt_path) VALUES (?,?,?,?,?,?,?)')
-        ->execute([$paymentId, $appointmentId, $amount, $payStatus, $payRef, $actorId, $receiptPath]);
-    if ($payMethod === 'wallet') {
-        wallet_debit_balance(
-            $pdo,
-            $patientId,
-            $amount,
-            'appointment',
-            $appointmentId,
-            'پرداخت نوبت از کیف پول، ثبت منشی'
-        );
+    $firstId = '';
+    foreach ($occurrences as $index => $occur) {
+        $rowId = $index === 0 ? $appointmentId : cuid();
+        $rowPayId = $index === 0 ? $paymentId : cuid();
+        if ($index === 0) {
+            $firstId = $rowId;
+        }
+        $isFirst = $index === 0;
+        $payStatus = (!$isFirst || $payMethod === 'later') ? 'PENDING' : 'PAID';
+        $payRef = !$isFirst ? 'LATER' : ($payMethod === 'wallet' ? 'WALLET' : ($payMethod === 'card' ? 'CARD' : 'LATER'));
+        $payNote = (!$isFirst || $payMethod === 'later')
+            ? ($isFirst ? 'پرداخت بعدی؛ بدهی نوبت منشی' : 'پرداخت بعدی؛ تکرار نوبت')
+            : null;
+        $pdo->prepare('INSERT INTO appointments (id,doctor_id,patient_id,starts_at,ends_at,status,notes,session_mode,room_no,created_by_user_id,staff_payment_note) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
+            ->execute([$rowId, $doctorId, $patientId, $occur['starts'], $occur['ends'], 'CONFIRMED', $notes, $sessionMode, $roomNo > 0 ? $roomNo : null, $actorId, $payNote]);
+        $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,status,ref_id,recorded_by_user_id,receipt_path) VALUES (?,?,?,?,?,?,?)')
+            ->execute([$rowPayId, $rowId, $amount, $payStatus, $payRef, $actorId, $isFirst ? $receiptPath : null]);
+        if ($isFirst && $payMethod === 'wallet') {
+            wallet_debit_balance(
+                $pdo,
+                $patientId,
+                $amount,
+                'appointment',
+                $rowId,
+                'پرداخت نوبت از کیف پول، ثبت منشی'
+            );
+        }
+        $roomDraft['id'] = $rowId;
+        $roomDraft['starts_at'] = $occur['starts'];
+        $roomDraft['ends_at'] = $occur['ends'];
+        appointment_save_room($pdo, $user, $roomDraft, $roomNo);
     }
+    $appointmentId = $firstId !== '' ? $firstId : $appointmentId;
     if (!function_exists('user_referral_stamp_payment')) {
         require_once __DIR__ . '/../includes/user_referral.php';
     }
@@ -190,8 +275,6 @@ try {
         throw new RuntimeException('معرف ذخیره نشد.');
     }
     user_referral_stamp_payment($pdo, $paymentId, $patientId, (int) $doctor['session_price']);
-    $roomDraft['id'] = $appointmentId;
-    appointment_save_room($pdo, $user, $roomDraft, $roomNo);
     $pdo->commit();
 
     $patientNameStmt = $pdo->prepare('SELECT name FROM users WHERE id = ?');
@@ -199,11 +282,19 @@ try {
     $patientName = (string) ($patientNameStmt->fetchColumn() ?: 'مراجعه‌کننده');
     staff_log_action($pdo, $actorId, 'book_appointment', 'appointment', $appointmentId, $patientName);
     $when = format_fa_datetime($startsAt);
+    $bookedCount = count($occurrences);
+    $repeatLabel = match ($repeatEvery) {
+        'week' => 'هر هفته',
+        'biweek' => 'هر دو هفته',
+        'month' => 'هر ماه',
+        default => '',
+    };
+    $seriesBit = $bookedCount > 1 ? ' (' . to_fa_digits((string) $bookedCount) . ' نوبت، ' . $repeatLabel . ')' : '';
     notify_role(
         $pdo,
         'SECRETARY',
         'نوبت جدید توسط منشی',
-        "نوبت «{$patientName}» برای {$when} توسط {$actorName} ثبت و تأیید شد.",
+        "نوبت «{$patientName}» برای {$when}{$seriesBit} توسط {$actorName} ثبت و تأیید شد.",
         '/secretary/appointments',
         'appointment'
     );
@@ -212,7 +303,7 @@ try {
         $pdo,
         $patientId,
         'نوبت شما ثبت شد',
-        "نوبت شما برای {$when}{$roomBit} توسط {$actorName} ثبت شد و در پنل شما و درمانگر دیده می‌شود.",
+        "نوبت شما برای {$when}{$roomBit}{$seriesBit} توسط {$actorName} ثبت شد و در پنل شما و درمانگر دیده می‌شود.",
         '/dashboard/appointments',
         'appointment',
         $actorId
@@ -221,17 +312,21 @@ try {
         $pdo,
         $doctorId,
         'نوبت جدید توسط منشی',
-        "نوبت «{$patientName}» برای {$when}{$roomBit} توسط {$actorName} ثبت و تأیید شد.",
+        "نوبت «{$patientName}» برای {$when}{$roomBit}{$seriesBit} توسط {$actorName} ثبت و تأیید شد.",
         '/doctor/appointments',
         'appointment'
     );
 
     $payBit = match ($payMethod) {
-        'wallet' => ' مبلغ از کیف پول کم شد.',
-        'card' => ' پرداخت کارت به کارت با فیش ثبت شد.',
+        'wallet' => ' مبلغ نوبت اول از کیف پول کم شد.',
+        'card' => ' پرداخت کارت به کارت نوبت اول با فیش ثبت شد.',
         default => ' پرداخت بعدی به‌عنوان بدهی ماند.',
     };
-    flash_set('success', 'نوبت با موفقیت ثبت و تأیید شد.' . $payBit . ($roomNo > 0 && function_exists('clinic_room_label') ? ' ' . clinic_room_label($roomNo) . ' هم روی نوبت است.' : ''));
+    $seriesMsg = $bookedCount > 1
+        ? ' ' . to_fa_digits((string) $bookedCount) . ' نوبت ' . $repeatLabel . ' ثبت شد. نوبت‌های بعدی پرداخت‌بعدی ماندند.'
+        : '';
+    $skipMsg = $skipped !== [] ? ' ثبت نشد: ' . implode('، ', $skipped) . '.' : '';
+    flash_set('success', 'نوبت با موفقیت ثبت و تأیید شد.' . $seriesMsg . $payBit . ($roomNo > 0 && function_exists('clinic_room_label') ? ' ' . clinic_room_label($roomNo) . ' هم روی نوبت است.' : '') . $skipMsg);
     $desk = is_admin_user($user) ? '/admin/appointments' : '/secretary/appointments';
     $bookRedirect($desk . '?tab=upcoming&booked=1');
 } catch (Throwable $e) {
