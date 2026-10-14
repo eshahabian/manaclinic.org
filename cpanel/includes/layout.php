@@ -18,9 +18,17 @@ $content = $GLOBALS['content'] ?? ($content ?? '');
 
 $user = current_user();
 $pdoRef = $GLOBALS['pdo'] ?? ($pdo ?? null);
+$headerWalletBalance = null;
 if ($user && $pdoRef instanceof PDO) {
     require_once __DIR__ . '/user_avatar.php';
     $user = user_hydrate_session_avatar($pdoRef, $user);
+    try {
+        require_once __DIR__ . '/wallet.php';
+        $headerWallet = ensure_wallet($pdoRef, (string) ($user['id'] ?? ''));
+        $headerWalletBalance = (int) ($headerWallet['balance'] ?? 0);
+    } catch (Throwable $e) {
+        $headerWalletBalance = null;
+    }
 }
 $panelHref = panel_href_for($user);
 $flash = flash_get();
@@ -89,7 +97,7 @@ if ($user) {
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20261014front">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20261014wallet">
   <link rel="stylesheet" href="<?= e(url('/assets/css/mana-look.css')) ?>?v=20260930b">
   <?php
     // آزمایش سبک حس روان‌تر — برای خاموش کردن: false
@@ -201,6 +209,12 @@ if ($user) {
         </button>
         <?php if ($user): ?>
           <span class="user-name"><?= e($user['name']) ?></span>
+          <a class="header-wallet" href="<?= e(url('/dashboard/wallet')) ?>">
+            کیف پول
+            <?php if ($headerWalletBalance !== null): ?>
+              <span><?= e(format_price($headerWalletBalance)) ?></span>
+            <?php endif; ?>
+          </a>
           <a class="btn btn-outline" href="<?= e(url('/logout')) ?>">خروج</a>
         <?php else: ?>
           <a class="btn btn-outline" href="<?= e(url('/login')) ?>">ورود</a>
@@ -236,6 +250,9 @@ if ($user) {
           <a class="<?= e(trim($mobileHere('/faq'))) ?>" href="<?= e(url('/faq')) ?>">سوالات متداول</a>
           <a class="<?= e(trim($mobileHere('/rules'))) ?>" href="<?= e(url('/rules')) ?>">قوانین</a>
           <a class="<?= e(trim($mobileHere('/contact'))) ?>" href="<?= e(url('/contact')) ?>">تماس با ما</a>
+          <?php if ($user): ?>
+            <a href="<?= e(url('/dashboard/wallet')) ?>">کیف پول<?= $headerWalletBalance !== null ? ' · ' . e(format_price($headerWalletBalance)) : '' ?></a>
+          <?php endif; ?>
           <?php if ($panelHref): ?>
             <a class="<?= e(trim($mobileHere($panelHref))) ?>" href="<?= e(url($panelHref)) ?>">پنل من</a>
           <?php endif; ?>

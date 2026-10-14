@@ -1,8 +1,7 @@
 <?php
 declare(strict_types=1);
 
-$user = require_login(['PATIENT']);
-require_once __DIR__ . '/../../includes/patient_panel.php';
+$user = require_login();
 require_once __DIR__ . '/../../includes/wallet.php';
 
 ensure_wallet_schema($pdo);
@@ -21,12 +20,12 @@ ob_start();
 ?>
 <div class="stack">
   <h1>کیف پول</h1>
-  <p class="muted">موجودی برای پرداخت کارگاه‌ها و بازگشت وجه لغو قبل از ۲۴ ساعت.</p>
+  <p class="muted">مانده کیف پول و تراکنش‌ها اینجاست. اگر نوبت پرداخت نشده باشد مانده منفی می‌شود و با تأیید فیش یا کنسلی کلینیک برمی‌گردد.</p>
 
   <div class="panel" style="display:grid;gap:1rem;grid-template-columns:repeat(auto-fit,minmax(180px,1fr))">
     <div>
       <div class="muted" style="font-size:.85rem">موجودی قابل استفاده</div>
-      <div style="font-size:1.5rem;font-weight:700;color:var(--primary);margin-top:.25rem"><?= e(format_price((int)$wallet['balance'])) ?></div>
+      <div style="font-size:1.5rem;font-weight:700;color:<?= (int) $wallet['balance'] < 0 ? 'var(--danger)' : 'var(--primary)' ?>;margin-top:.25rem"><?= e(format_price((int)$wallet['balance'])) ?></div>
     </div>
     <div>
       <div class="muted" style="font-size:.85rem">در انتظار تسویه (امانی)</div>
@@ -68,4 +67,21 @@ ob_start();
   </div>
 </div>
 <?php
-render_patient_page('کیف پول', ob_get_clean());
+$walletHtml = ob_get_clean();
+$walletRole = (string) ($user['role'] ?? '');
+if ($walletRole === 'ADMIN') {
+    require_once __DIR__ . '/../../includes/admin_panel.php';
+    render_admin_page('کیف پول', $walletHtml);
+} elseif ($walletRole === 'SECRETARY') {
+    require_once __DIR__ . '/../../includes/secretary_panel.php';
+    render_secretary_page('کیف پول', $walletHtml);
+} elseif ($walletRole === 'DOCTOR') {
+    require_once __DIR__ . '/../../includes/doctor_panel.php';
+    render_doctor_page('کیف پول', $walletHtml);
+} elseif ($walletRole === 'ACCOUNTANT') {
+    require_once __DIR__ . '/../../includes/accountant.php';
+    render_accountant_page('کیف پول', $walletHtml);
+} else {
+    require_once __DIR__ . '/../../includes/patient_panel.php';
+    render_patient_page('کیف پول', $walletHtml);
+}
