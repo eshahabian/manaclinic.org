@@ -39,16 +39,22 @@ ob_start();
     <?php if ($transactions): ?>
       <table class="table">
         <thead>
-          <tr><th>تاریخ</th><th>نوع</th><th>مبلغ</th><th>توضیح</th></tr>
+          <tr><th>تاریخ</th><th>نوع</th><th>مبلغ</th><th>مانده بعد از آن</th><th>توضیح</th></tr>
         </thead>
         <tbody>
           <?php foreach ($transactions as $t): ?>
+            <?php
+              $amount = (int) $t['amount'];
+              $after = (int) ($t['balance_after'] ?? 0);
+              $sign = $amount > 0 ? '+' : ($amount < 0 ? '−' : '');
+            ?>
             <tr>
               <td><?= e(format_fa_datetime($t['created_at'])) ?></td>
               <td><?= e(wallet_kind_label($t['kind'])) ?></td>
-              <td style="direction:ltr;text-align:right;color:<?= (int)$t['amount'] >= 0 ? 'var(--success)' : 'var(--danger)' ?>">
-                <?= (int)$t['amount'] >= 0 ? '+' : '' ?><?= e(format_price(abs((int)$t['amount']))) ?>
+              <td style="direction:ltr;text-align:right;color:<?= $amount >= 0 ? 'var(--success)' : 'var(--danger)' ?>">
+                <?= e($sign . format_price(abs($amount))) ?>
               </td>
+              <td style="color:<?= $after < 0 ? 'var(--danger)' : 'inherit' ?>"><?= e(format_price($after)) ?></td>
               <td class="muted" style="font-size:.85rem"><?= e((string)$t['description']) ?></td>
             </tr>
           <?php endforeach; ?>
