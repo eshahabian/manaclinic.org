@@ -3767,18 +3767,67 @@ html[data-theme="dark"] .sec-room-select > select.input option {
 }
 .sec-week-shadow-actions {
   display: flex;
-  flex-wrap: wrap;
-  justify-content: flex-end;
-  gap: .5rem;
-  align-items: center;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  justify-content: flex-start;
+  align-items: stretch;
+  gap: .65rem;
+  width: 100%;
 }
 .sec-week-shadow-tools {
   display: flex;
-  flex-wrap: wrap;
-  gap: .45rem;
-  align-items: center;
+  flex-direction: column;
+  flex-wrap: nowrap;
+  align-items: stretch;
+  gap: .75rem;
   width: 100%;
   margin-bottom: .35rem;
+}
+.sec-week-shadow .sec-week-slot-live,
+.sec-week-shadow .sec-week-edit,
+.sec-week-shadow .sec-week-edit-body,
+.sec-week-shadow .appt-cancel-form,
+.sec-week-shadow .staff-receipt-form {
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+}
+.sec-week-shadow .sec-week-edit > summary {
+  width: 100%;
+}
+.sec-week-shadow .sec-week-edit-body > form,
+.sec-week-shadow .sec-week-edit-row {
+  display: flex !important;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: flex-start;
+  width: 100% !important;
+  gap: .55rem .65rem;
+  margin: 0;
+}
+.sec-week-shadow .sec-week-edit-body > form > label {
+  flex: 1 1 8rem;
+  margin: 0;
+}
+.sec-week-shadow .sec-week-edit-body > form > span.label,
+.sec-week-shadow .sec-week-edit-body > form > .sec-room-picks,
+.sec-week-shadow .sec-room-picks {
+  flex: 1 1 100%;
+  width: 100%;
+}
+.sec-week-shadow .sec-week-edit-body select.input,
+.sec-week-shadow .sec-week-edit-row .input,
+.sec-week-shadow .appt-cancel-form .input {
+  width: 100% !important;
+  min-width: 0 !important;
+  box-sizing: border-box;
+}
+.sec-week-shadow .staff-receipt-form {
+  display: flex;
+  justify-content: flex-start;
+}
+.sec-week-shadow .sec-week-shadow-dismiss {
+  align-self: flex-start;
 }
 .sec-week-confirm-form {
   display: flex;

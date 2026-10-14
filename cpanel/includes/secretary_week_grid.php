@@ -8,6 +8,67 @@ if (is_file(__DIR__ . '/appointment_payment.php')) {
     require_once __DIR__ . '/appointment_payment.php';
 }
 
+/** نوبت انجام‌شده: وضعیت COMPLETED یا ساعت شروع گذشته. لغوشده‌ها این‌جا نیستند. */
+function secretary_appointment_is_done_slot(array $row, ?int $now = null): bool
+{
+    $status = (string) ($row['status'] ?? '');
+    if ($status === 'CANCELLED') {
+        return false;
+    }
+    if ($status === 'COMPLETED') {
+        return true;
+    }
+    $now = $now ?? time();
+    $start = strtotime(str_replace('T', ' ', (string) ($row['starts_at'] ?? ''))) ?: 0;
+
+    return $start > 0 && $start < $now;
+}
+
+/**
+ * بعد از ذخیره، همان تب و درمانگر و نوبت بماند.
+ * تب خالی یعنی تب فعلی آدرس؛ برای تب انجام‌شده تب را صریح بدهید.
+ */
+function secretary_appointment_stay_next(string $deskNext, ?string $tab = null, ?string $doctorId = null, string $appointmentId = ''): string
+{
+    $allowed = ['new', 'reservations', 'upcoming', 'done', 'cancelled'];
+    if ($tab === null || $tab === '') {
+        $tab = trim((string) ($_GET['tab'] ?? ''));
+    }
+    if (!in_array($tab, $allowed, true)) {
+        $tab = 'upcoming';
+    }
+    $stayBase = $deskNext;
+    $stayParams = [];
+    $stayQ = strpos($stayBase, '?');
+    if ($stayQ !== false) {
+        parse_str((string) substr($stayBase, $stayQ + 1), $stayExisting);
+        $stayBase = substr($stayBase, 0, $stayQ);
+        foreach ($stayExisting as $stayKey => $stayVal) {
+            if (is_scalar($stayVal) && (string) $stayVal !== '') {
+                $stayParams[(string) $stayKey] = (string) $stayVal;
+            }
+        }
+    }
+    $stayParams['tab'] = $tab;
+    if ($doctorId === null) {
+        $doctorId = trim((string) ($_GET['doctor_id'] ?? ''));
+    }
+    if ($doctorId !== '') {
+        $stayParams['doctor_id'] = $doctorId;
+    }
+    foreach (['q', 'day'] as $stayKey) {
+        $stayVal = trim((string) ($_GET[$stayKey] ?? ''));
+        if ($stayVal !== '') {
+            $stayParams[$stayKey] = $stayVal;
+        }
+    }
+    if ($appointmentId !== '') {
+        $stayParams['appt'] = $appointmentId;
+    }
+
+    return $stayBase . '?' . http_build_query($stayParams);
+}
+
 /**
  * نقشه نوبت‌های اشغال برای یک درمانگر در بازه تاریخ (با جزئیات پرداخت و نوع جلسه)
  *
@@ -211,6 +272,10 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                           ? appointment_session_mode_label((string) ($booking['session_mode'] ?? ''))
                           : '';
                       $status = appointment_status_label((string) ($booking['status'] ?? ''));
+                      $slotDone = secretary_appointment_is_done_slot($booking);
+                      if ($slotDone && function_exists('appointment_status_label_is_reserved') && appointment_status_label_is_reserved($status)) {
+                          $status = '';
+                      }
                       $amount = isset($booking['amount']) ? format_price((int) $booking['amount']) : '';
                       $canConfirmPay = function_exists('appointment_staff_can_mark_paid')
                           ? appointment_staff_can_mark_paid($booking)
@@ -227,7 +292,7 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                       }
                       $title = trim(
                           (string) ($booking['patient_name'] ?? '')
-                          . "\n" . $status
+                          . ($status !== '' ? "\n" . $status : '')
                           . ($pay !== '' ? "\nپرداخت: " . $pay : '')
                           . ($mode !== '' ? "\nنوع: " . $mode : '')
                           . ($roomLabel !== '' ? "\n" . $roomLabel : "\nاتاق مشخص نشده")
@@ -262,9 +327,10 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                             <?php
                               $nextHold = $deskNext . (str_contains($deskNext, '?') ? '&' : '?') . 'tab=reservations&doctor_id=' . rawurlencode($doctorId);
                               $roomNext = $deskNext . (str_contains($deskNext, '?') ? '&' : '?') . 'tab=upcoming&doctor_id=' . rawurlencode($doctorId);
+                              $stayNext = secretary_appointment_stay_next($deskNext, null, $doctorId, (string) ($booking['id'] ?? ''));
                             ?>
                             <?php
-                              $canEditAppt = !in_array((string) ($booking['status'] ?? ''), ['CANCELLED', 'COMPLETED'], true);
+                              $canEditAppt = !$slotDone;
                               $modeId = 'week-mode-' . preg_replace('/[^a-zA-Z0-9_-]/', '', (string) ($booking['id'] ?? ''));
                             ?>
                             <?php if ($canEditAppt): ?>
@@ -296,7 +362,7 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                                 </div>
                               </details>
                             <?php endif; ?>
-                            <?php if (function_exists('secretary_patient_cancel_form')): ?>
+                            <?php if (!$slotDone && function_exists('secretary_patient_cancel_form')): ?>
                               <?php $cancelForm = secretary_patient_cancel_form((string) ($booking['id'] ?? ''), (string) ($booking['status'] ?? ''), $roomNext); ?>
                               <?php if ($cancelForm !== ''): ?>
                                 <details class="sec-week-edit">
@@ -307,7 +373,7 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                                 </details>
                               <?php endif; ?>
                             <?php endif; ?>
-                            <?php if ($roomNo < 1 && empty($onlineSession)): ?>
+                            <?php if (!$slotDone && $roomNo < 1 && empty($onlineSession)): ?>
                               <form method="post" action="<?= e(url('/secretary/appointments')) ?>" class="sec-week-room-form sec-room-form">
                                 <?= csrf_field() ?>
                                 <input type="hidden" name="action" value="set_room">
@@ -318,18 +384,18 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                                 <button type="submit" class="btn btn-primary btn-sm">ثبت اتاق</button>
                               </form>
                             <?php endif; ?>
-                            <?php if ($awaitingApproval && function_exists('appointment_approval_actions_html')): ?>
+                            <?php if (!$slotDone && $awaitingApproval && function_exists('appointment_approval_actions_html')): ?>
                               <?= appointment_approval_actions_html($booking, $nextHold) ?>
-                            <?php elseif ($openHold && function_exists('appointment_hold_reject_form_html')): ?>
+                            <?php elseif (!$slotDone && $openHold && function_exists('appointment_hold_reject_form_html')): ?>
                               <?= appointment_hold_reject_form_html($booking, $nextHold) ?>
                             <?php endif; ?>
                             <?= staff_receipt_view_html(
                                 isset($booking['payment_id']) ? (string) $booking['payment_id'] : null,
                                 $hasReceipt ? (string) $booking['receipt_path'] : null,
                                 true,
-                                $nextHold
+                                $stayNext
                             ) ?>
-                            <?php if ($canConfirmPay && function_exists('appointment_staff_mark_paid_form_html')): ?>
+                            <?php if (!$slotDone && $canConfirmPay && function_exists('appointment_staff_mark_paid_form_html')): ?>
                               <?= appointment_staff_mark_paid_form_html($booking, $nextHold) ?>
                             <?php endif; ?>
                           </div>
@@ -425,6 +491,25 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
         }
         shadow.hidden = false;
       });
+      var openAppt = "";
+      var openTab = "";
+      try {
+        var openParams = new URLSearchParams(window.location.search);
+        openAppt = openParams.get("appt") || "";
+        openTab = openParams.get("tab") || "";
+      } catch (err) {
+        openAppt = "";
+        openTab = "";
+      }
+      if (openAppt && (openTab === "" || openTab === "upcoming")) {
+        var bookedButtons = root.querySelectorAll(".sec-week-hour.is-booked");
+        for (var i = 0; i < bookedButtons.length; i++) {
+          if (bookedButtons[i].getAttribute("data-appt") === openAppt) {
+            bookedButtons[i].click();
+            break;
+          }
+        }
+      }
     })();
     </script>
     <?php

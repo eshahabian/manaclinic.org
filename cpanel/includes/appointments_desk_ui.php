@@ -199,7 +199,9 @@ ob_start();
       <?php
         $appointmentList = $doneFiltered;
         $appointmentEmpty = $filterActive ? 'با این جستجو نوبت انجام‌شده‌ای پیدا نشد.' : 'نوبت انجام‌شده‌ای نیست.';
+        $appointmentDoneView = true;
         require __DIR__ . '/secretary_appointment_cards.php';
+        $appointmentDoneView = false;
       ?>
     </section>
     <section class="binder-panel<?= $binderInitial === 'cancelled' ? ' is-active' : '' ?>" data-binder-panel="cancelled" role="tabpanel"<?= $binderInitial === 'cancelled' ? '' : ' hidden' ?>>

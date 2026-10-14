@@ -13,6 +13,7 @@ if (!function_exists('appointment_session_mode_badge_html') && is_file(__DIR__ .
 $appointmentList = $appointmentList ?? [];
 $appointmentEmpty = $appointmentEmpty ?? 'نوبتی نیست.';
 $deskNext = $appointmentsDeskNext ?? '/secretary/appointments';
+$appointmentDoneView = !empty($appointmentDoneView);
 ?>
 <?php if (!$appointmentList): ?>
   <p class="muted binder-empty"><?= e($appointmentEmpty) ?></p>
@@ -25,6 +26,14 @@ $deskNext = $appointmentsDeskNext ?? '/secretary/appointments';
             : appointment_payment_can_upload_receipt($a);
         $awaitingApproval = appointment_awaiting_secretary_approval($a);
         $openHold = function_exists('appointment_is_open_hold') && appointment_is_open_hold($a);
+        $displayStatus = appointment_row_status_label($a);
+        $hideReservedStatus = $appointmentDoneView
+            && function_exists('appointment_status_label_is_reserved')
+            && appointment_status_label_is_reserved($displayStatus);
+        $receiptNext = $deskNext;
+        if ($appointmentDoneView && function_exists('secretary_appointment_stay_next')) {
+            $receiptNext = secretary_appointment_stay_next($deskNext, 'done', null, (string) ($a['id'] ?? ''));
+        }
       ?>
       <div class="panel appt-card">
         <div class="appt-card-top">
@@ -34,7 +43,9 @@ $deskNext = $appointmentsDeskNext ?? '/secretary/appointments';
               <summary aria-label="توضیحات بیشتر">⋯</summary>
               <div class="panel" style="margin-top:.4rem;font-size:.82rem;line-height:1.75;font-weight:400">
                 <div>تلفن: <?= trim((string) ($a['phone'] ?? '')) !== '' ? e((string) $a['phone']) : 'ثبت نشده' ?></div>
-                <div>وضعیت: <?= e(appointment_row_status_label($a)) ?></div>
+                <?php if (!$hideReservedStatus): ?>
+                  <div>وضعیت: <?= e($displayStatus) ?></div>
+                <?php endif; ?>
                 <?php if ($a['amount'] !== null): ?>
                   <div>مبلغ: <?= e(format_price((int) $a['amount'])) ?> · <?= e(appointment_pay_status_display($a)) ?></div>
                 <?php endif; ?>
@@ -53,7 +64,9 @@ $deskNext = $appointmentsDeskNext ?? '/secretary/appointments';
             <?= appointment_booked_by_html($a) ?>
           </div>
           <div class="appt-card-meta">
-            <span class="badge"><?= e(appointment_row_status_label($a)) ?></span>
+            <?php if (!$hideReservedStatus): ?>
+              <span class="badge"><?= e($displayStatus) ?></span>
+            <?php endif; ?>
             <?php if ($a['amount'] !== null): ?>
               <div class="appt-pay-status muted"><?= e(appointment_pay_status_display($a)) ?></div>
             <?php endif; ?>
@@ -61,9 +74,10 @@ $deskNext = $appointmentsDeskNext ?? '/secretary/appointments';
         </div>
             <?= appointment_notes_html($a) ?>
             <?php if (function_exists('appointment_patient_phase_html')): ?>
-              <?= appointment_patient_phase_html($a) ?>
+              <?= appointment_patient_phase_html($a, $appointmentDoneView) ?>
             <?php endif; ?>
-        <?php $oneEdit = !empty($appointmentSingleEdit); ?>
+        <?php $oneEdit = !$appointmentDoneView && !empty($appointmentSingleEdit); ?>
+        <?php if (!$appointmentDoneView): ?>
         <?php if ($oneEdit): ?><details class="appt-one-edit"><summary class="btn btn-outline btn-sm">ویرایش</summary><div style="margin-top:.55rem"><?php endif; ?>
         <form class="appt-mode-form" method="post" action="<?= e(url('/secretary/appointments')) ?>" style="display:flex;flex-wrap:wrap;gap:.4rem;align-items:center">
           <?= csrf_field() ?>
@@ -98,18 +112,21 @@ $deskNext = $appointmentsDeskNext ?? '/secretary/appointments';
           </form>
         <?php endif; ?>
         <?php if ($oneEdit): ?></div></details><?php endif; ?>
+        <?php endif; ?>
         <div class="appt-card-actions">
-          <?php if ($awaitingApproval): ?>
+          <?php if (!$appointmentDoneView && $awaitingApproval): ?>
             <?= appointment_approval_actions_html($a, $deskNext) ?>
-          <?php elseif ($openHold && function_exists('appointment_hold_reject_form_html')): ?>
+          <?php elseif (!$appointmentDoneView && $openHold && function_exists('appointment_hold_reject_form_html')): ?>
             <?= appointment_hold_reject_form_html($a, $deskNext) ?>
           <?php endif; ?>
-          <?= staff_receipt_view_html($a['payment_id'] ?? null, $a['receipt_path'] ?? null, true, $deskNext) ?>
-          <?php if ($canConfirmPay && function_exists('appointment_staff_mark_paid_form_html')): ?>
+          <?= staff_receipt_view_html($a['payment_id'] ?? null, $a['receipt_path'] ?? null, true, $receiptNext) ?>
+          <?php if (!$appointmentDoneView && $canConfirmPay && function_exists('appointment_staff_mark_paid_form_html')): ?>
             <?= appointment_staff_mark_paid_form_html($a, $deskNext) ?>
           <?php endif; ?>
-          <?= secretary_patient_cancel_form((string) ($a['id'] ?? ''), (string) ($a['status'] ?? ''), $deskNext) ?>
-          <?= admin_appointment_delete_form((string) ($a['id'] ?? ''), $deskNext) ?>
+          <?php if (!$appointmentDoneView): ?>
+            <?= secretary_patient_cancel_form((string) ($a['id'] ?? ''), (string) ($a['status'] ?? ''), $deskNext) ?>
+            <?= admin_appointment_delete_form((string) ($a['id'] ?? ''), $deskNext) ?>
+          <?php endif; ?>
         </div>
       </div>
     <?php endforeach; ?>

@@ -163,6 +163,13 @@ function appointment_row_status_label(array $row): string
     return appointment_status_label((string) ($row['status'] ?? ''), isset($row['cancel_reason']) ? (string) $row['cancel_reason'] : null);
 }
 
+function appointment_status_label_is_reserved(string $label): bool
+{
+    $compact = preg_replace('/\s+/u', '', $label) ?? $label;
+
+    return $compact === 'رزروشده';
+}
+
 function payment_status_label(string $status): string
 {
     return match ($status) {

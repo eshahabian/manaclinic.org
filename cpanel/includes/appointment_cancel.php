@@ -136,9 +136,6 @@ function secretary_mark_patient_cancelled(PDO $pdo, string $appointmentId, array
 {
     $side = $side === 'clinic' ? 'clinic' : 'patient';
     $note = trim($note);
-    if ($note === '') {
-        $note = $side === 'clinic' ? 'از سمت کلینیک کنسل شد.' : 'مراجعه‌کننده کنسل کرد.';
-    }
 
     if (!function_exists('ensure_user_referral_schema')) {
         require_once __DIR__ . '/user_referral.php';
@@ -162,6 +159,10 @@ function secretary_mark_patient_cancelled(PDO $pdo, string $appointmentId, array
         throw new RuntimeException('نوبت یافت نشد.');
     }
     if (!staff_can_mark_patient_cancelled((string) $row['status'])) {
+        throw new RuntimeException('این نوبت قابل ثبت کنسلی نیست.');
+    }
+    $startAt = strtotime(str_replace('T', ' ', (string) ($row['starts_at'] ?? ''))) ?: 0;
+    if ((string) ($row['status'] ?? '') === 'COMPLETED' || ($startAt > 0 && $startAt < time())) {
         throw new RuntimeException('این نوبت قابل ثبت کنسلی نیست.');
     }
 
@@ -225,7 +226,9 @@ function secretary_mark_patient_cancelled(PDO $pdo, string $appointmentId, array
         $pdo,
         (string) $row['doctor_id'],
         'کنسلی از سمت ' . $sideLabel,
-        "نوبت «{$patientName}» در {$when} از سمت {$sideLabel} کنسل شد. یادداشت: {$note}",
+        $note !== ''
+            ? "نوبت «{$patientName}» در {$when} از سمت {$sideLabel} کنسل شد. یادداشت: {$note}"
+            : "نوبت «{$patientName}» در {$when} از سمت {$sideLabel} کنسل شد.",
         '/doctor/appointments?tab=cancelled',
         'appointment'
     );
@@ -275,8 +278,6 @@ function appointment_notes_html(array $row): string
         $html .= '<div class="appt-note appt-note-cancel"><strong>' . e($cancelTitle) . '</strong> ' . e($cancel) . '</div>';
     } elseif ($status === 'CANCELLED' && $reason === 'clinic') {
         $html .= '<div class="appt-note appt-note-cancel">از سمت کلینیک کنسل شد.</div>';
-    } elseif ($status === 'CANCELLED' && $reason === 'patient') {
-        $html .= '<div class="appt-note appt-note-cancel">مراجعه‌کننده کنسل کرد.</div>';
     } elseif ($status === 'CANCELLED' && $reason === 'rejected') {
         $html .= '<div class="appt-note appt-note-cancel">درخواست توسط منشی رد شد.</div>';
     } elseif ($status === 'CANCELLED' && $reason === 'unpaid_timeout') {
@@ -310,11 +311,11 @@ function secretary_patient_cancel_form(string $appointmentId, string $status, st
       <input type="hidden" name="next" value="<?= e($next) ?>">
       <label class="label" for="cancel-side-<?= e($appointmentId) ?>">کنسلی از کدام سمت است؟</label>
       <select class="input" id="cancel-side-<?= e($appointmentId) ?>" name="cancel_side" required>
-        <option value="patient">از سمت مراجع — اگر بیش از ۲۴ ساعت مانده باشد، با توجه به هزینه درمانگر به کیف پول برمی‌گردد</option>
+        <option value="patient">از سمت مراجع-بیش از 24 ساعت مانده به جلسه ،کل مبلغ به کیف پول برمیگردد</option>
         <option value="clinic">از سمت کلینیک یا درمانگر — کل مبلغ به کیف پول برمی‌گردد</option>
       </select>
       <label class="label" for="cancel-note-<?= e($appointmentId) ?>">یادداشت کنسلی</label>
-      <textarea class="input" id="cancel-note-<?= e($appointmentId) ?>" name="note" rows="2" required placeholder="مثلاً: مراجع خبر داد، یا درمانگر کنسل کرد">مراجعه‌کننده کنسل کرد.</textarea>
+      <textarea class="input" id="cancel-note-<?= e($appointmentId) ?>" name="note" rows="2" placeholder="یادداشت کنسلی را بنویسید"></textarea>
       <button type="submit" class="btn btn-outline btn-sm">ثبت کنسلی</button>
     </form>
     <?php

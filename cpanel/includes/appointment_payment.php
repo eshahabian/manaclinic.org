@@ -613,7 +613,7 @@ function appointment_hold_times_html(array $row): string
     return '<div class="appt-hold-times muted" style="font-size:.8rem;margin-top:.35rem">' . e(implode(' · ', $parts)) . '</div>';
 }
 
-function appointment_patient_phase_html(array $row): string
+function appointment_patient_phase_html(array $row, bool $omitReservedLabel = false): string
 {
     $status = (string) ($row['status'] ?? '');
     $requestedRaw = trim((string) ($row['requested_at'] ?? ''));
@@ -631,8 +631,11 @@ function appointment_patient_phase_html(array $row): string
         [$reviewing, $status === 'PENDING_PAYMENT', 'در حال بررسی', ''],
         [$reserved, false, 'رزرو شده', $confirmed !== '' ? format_fa_time($confirmed) : ''],
     ];
-    $html = '<ol class="appt-phases">';
+    $html = '';
     foreach ($items as [$done, $current, $label, $time]) {
+        if ($omitReservedLabel && $label === 'رزرو شده') {
+            continue;
+        }
         $cls = $done ? 'is-done' : ($current ? 'is-current' : '');
         if (!$done && $current) {
             $cls = 'is-current';
@@ -644,9 +647,11 @@ function appointment_patient_phase_html(array $row): string
         $text = $label . ($time !== '' ? ' · ' . $time : '');
         $html .= '<li class="' . e($cls) . '">' . e($text) . '</li>';
     }
-    $html .= '</ol>';
+    if ($html === '') {
+        return '';
+    }
 
-    return $html;
+    return '<ol class="appt-phases">' . $html . '</ol>';
 }
 
 function appointment_hold_reject_form_html(array $row, string $next): string
