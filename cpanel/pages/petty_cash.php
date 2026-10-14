@@ -53,6 +53,7 @@ $jy = (int) ($_GET['jy'] ?? ($meta['year'] ?? $todayY));
 $jm = (int) ($_GET['jm'] ?? ($meta['month'] ?? $todayM));
 $range = petty_cash_month_range($jy, $jm);
 $report = petty_cash_month_report($pdo, $range['start'], $range['end']);
+$balances = petty_cash_account_balances($pdo, $range['start'], $range['end']);
 $viewYears = [];
 for ($y = (int) $todayY - 1; $y <= (int) $todayY + 1; $y++) {
     $viewYears[] = $y;
@@ -73,7 +74,16 @@ ob_start();
     <strong style="font-size:1.3rem;line-height:1.6"><?= e(format_price($report['out'])) ?></strong>
   </div>
 </div>
-<p class="muted" style="margin:.75rem 0 0">مانده این ماه: <?= e(format_price($report['in'] - $report['out'])) ?></p>
+<div class="grid-2" style="margin-top:.75rem">
+  <div class="panel" style="margin:0">
+    <div class="muted">مانده این ماه · بلو بانک</div>
+    <strong style="font-size:1.3rem;line-height:1.6"><?= e(format_price((int) $balances['blue'])) ?></strong>
+  </div>
+  <div class="panel" style="margin:0">
+    <div class="muted">مانده این ماه · پارسیان</div>
+    <strong style="font-size:1.3rem;line-height:1.6"><?= e(format_price((int) $balances['parsian'])) ?></strong>
+  </div>
+</div>
 
 <form class="panel form-stack" method="get" action="<?= e(url($cashPath)) ?>" style="margin-top:1rem">
   <p style="margin:0;font-weight:600">ماه گزارش</p>
@@ -185,7 +195,7 @@ ob_start();
             · <?= e(to_jalali_label(substr((string) $entry['entry_date'], 0, 10))) ?>
             · <?= e((string) $entry['created_by_name']) ?>
             <?php
-              $accountLabel = petty_cash_option_label(petty_cash_pay_accounts(), (string) ($entry['pay_account'] ?? ''));
+              $accountLabel = petty_cash_entry_account_label((string) ($entry['kind'] ?? ''), (string) ($entry['pay_account'] ?? ''));
               $approverLabel = petty_cash_option_label(petty_cash_approvers(), (string) ($entry['approver'] ?? ''));
             ?>
             <?php if ($accountLabel !== ''): ?>

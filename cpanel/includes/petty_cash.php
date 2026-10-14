@@ -48,13 +48,96 @@ function petty_cash_pay_accounts(): array
     ];
 }
 
-/** مبلغ ورودی فقط به بلو کارت یا پارسیان می‌نشیند. @return array<string, string> */
+/** مبلغ ورودی فقط به بلو بانک یا پارسیان می‌نشیند. @return array<string, string> */
 function petty_cash_in_accounts(): array
 {
     return [
-        'blue' => 'بلو کارت',
+        'blue' => 'بلو بانک',
         'parsian' => 'پارسیان',
     ];
+}
+
+/**
+ * حساب مانده تنخواه. blue همان بلو بانک است و برچسب قدیمی «بلو کارت» را هم می‌گیرد.
+ * ردیف بدون حساب، یا حسابی غیر از این دو، در مانده نمی‌آید.
+ */
+function petty_cash_balance_account(string $stored): ?string
+{
+    $stored = trim(str_replace(['ي', 'ك'], ['ی', 'ک'], $stored));
+    if ($stored === '') {
+        return null;
+    }
+    if (in_array($stored, ['blue', 'بلو کارت', 'بلو بانک', 'تنخواه بلو بانک'], true)) {
+        return 'blue';
+    }
+    if (in_array($stored, ['parsian', 'پارسیان', 'تنخواه پارسیان'], true)) {
+        return 'parsian';
+    }
+
+    return null;
+}
+
+function petty_cash_entry_account_label(string $kind, string $stored): string
+{
+    $stored = trim($stored);
+    if ($stored === '') {
+        return '';
+    }
+    $folded = str_replace(['ي', 'ك'], ['ی', 'ک'], $stored);
+    if ($folded === 'بلو کارت') {
+        return 'بلو بانک';
+    }
+    if ($kind === 'IN') {
+        $bucket = petty_cash_balance_account($stored);
+        if ($bucket === 'blue') {
+            return 'بلو بانک';
+        }
+        if ($bucket === 'parsian') {
+            return 'پارسیان';
+        }
+
+        return '';
+    }
+
+    $label = petty_cash_option_label(petty_cash_pay_accounts(), $stored);
+    if ($label !== '') {
+        return $label;
+    }
+    if (in_array($folded, array_values(petty_cash_pay_accounts()), true)) {
+        return $folded;
+    }
+
+    return '';
+}
+
+/** مانده همین بازه: ورودی همان حساب منهای هزینه همان حساب. @return array{blue:int,parsian:int} */
+function petty_cash_account_balances(PDO $pdo, string $start, string $end): array
+{
+    ensure_petty_cash_schema($pdo);
+    $balances = ['blue' => 0, 'parsian' => 0];
+    $stmt = $pdo->prepare("
+      SELECT kind, pay_account, COALESCE(SUM(amount), 0) AS total
+      FROM petty_cash_entries
+      WHERE entry_date BETWEEN ? AND ?
+        AND pay_account IS NOT NULL
+        AND pay_account <> ''
+      GROUP BY kind, pay_account
+    ");
+    $stmt->execute([$start, $end]);
+    foreach ($stmt->fetchAll() as $row) {
+        $account = petty_cash_balance_account((string) ($row['pay_account'] ?? ''));
+        if ($account === null) {
+            continue;
+        }
+        $total = (int) $row['total'];
+        if (($row['kind'] ?? '') === 'IN') {
+            $balances[$account] += $total;
+        } elseif (($row['kind'] ?? '') === 'OUT') {
+            $balances[$account] -= $total;
+        }
+    }
+
+    return $balances;
 }
 
 /** @return array<string, string> */
@@ -294,7 +377,7 @@ function petty_cash_apply_post(PDO $pdo, array $user): string
     if ($kind === 'IN') {
         $payAccount = trim((string) post('pay_account'));
         if (!isset(petty_cash_in_accounts()[$payAccount])) {
-            throw new RuntimeException('مبلغ ورودی فقط برای بلو کارت یا پارسیان ثبت می‌شود.');
+            throw new RuntimeException('مبلغ ورودی فقط برای بلو بانک یا پارسیان ثبت می‌شود.');
         }
     } elseif ($kind === 'OUT') {
         $payAccount = trim((string) post('pay_account'));
