@@ -291,41 +291,43 @@ ob_start();
           <td dir="ltr"><?= e($accountPhone) ?></td>
           <td class="muted">بعد از فعال‌سازی</td>
           <?php endif; ?>
-          <td>
-            <?php if ($isUser): ?>
-            <form id="<?= e($formId) ?>" method="post" action="<?= e(url('/secretary/users')) ?>" style="margin:0 0 .35rem">
-              <?= csrf_field() ?>
-              <input type="hidden" name="user_id" value="<?= e($uid) ?>">
-              <button class="btn btn-primary btn-sm sec-account-action" type="submit">ذخیره</button>
-            </form>
-            <?php endif; ?>
-            <?php if ($canToggle): ?>
-            <div class="sec-state-switch" role="group" aria-label="وضعیت <?= e($accountName) ?>">
-              <?php if (!$inactive): ?>
-                <span class="sec-state-btn is-on">فعال</span>
-                <form method="post" action="<?= e(url('/secretary/users')) ?>">
-                  <?= csrf_field() ?>
-                  <input type="hidden" name="action" value="set_disabled">
-                  <input type="hidden" name="user_id" value="<?= e($uid) ?>">
-                  <input type="hidden" name="disabled" value="1">
-                  <button class="sec-state-btn" type="submit">غیرفعال</button>
-                </form>
-              <?php else: ?>
-                <?php if ($needsProfile): ?>
-                  <button class="sec-state-btn" type="button" data-open-activate="<?= e($uid) ?>">فعال</button>
-                <?php else: ?>
+          <td class="patient-account-actions">
+            <div class="patient-account-actions-inner">
+              <?php if ($isUser): ?>
+              <form id="<?= e($formId) ?>" method="post" action="<?= e(url('/secretary/users')) ?>" class="patient-account-save-form">
+                <?= csrf_field() ?>
+                <input type="hidden" name="user_id" value="<?= e($uid) ?>">
+                <button class="btn btn-primary btn-sm sec-account-action" type="submit">ذخیره</button>
+              </form>
+              <?php endif; ?>
+              <?php if ($canToggle): ?>
+              <div class="sec-state-switch" role="group" aria-label="وضعیت <?= e($accountName) ?>">
+                <?php if (!$inactive): ?>
+                  <span class="sec-state-btn is-on">فعال</span>
                   <form method="post" action="<?= e(url('/secretary/users')) ?>">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="set_disabled">
                     <input type="hidden" name="user_id" value="<?= e($uid) ?>">
-                    <input type="hidden" name="disabled" value="0">
-                    <button class="sec-state-btn" type="submit">فعال</button>
+                    <input type="hidden" name="disabled" value="1">
+                    <button class="sec-state-btn" type="submit">غیرفعال</button>
                   </form>
+                <?php else: ?>
+                  <?php if ($needsProfile): ?>
+                    <button class="sec-state-btn" type="button" data-open-activate="<?= e($uid) ?>">فعال</button>
+                  <?php else: ?>
+                    <form method="post" action="<?= e(url('/secretary/users')) ?>">
+                      <?= csrf_field() ?>
+                      <input type="hidden" name="action" value="set_disabled">
+                      <input type="hidden" name="user_id" value="<?= e($uid) ?>">
+                      <input type="hidden" name="disabled" value="0">
+                      <button class="sec-state-btn" type="submit">فعال</button>
+                    </form>
+                  <?php endif; ?>
+                  <span class="sec-state-btn is-on is-inactive">غیرفعال</span>
                 <?php endif; ?>
-                <span class="sec-state-btn is-on is-inactive">غیرفعال</span>
+              </div>
               <?php endif; ?>
             </div>
-            <?php endif; ?>
           </td>
         </tr>
       <?php endforeach; ?>
@@ -895,7 +897,10 @@ $pageHead = ($pageHead ?? '') . '<style>
 .patient-list-filters .search-select-input{direction:rtl;text-align:right;color:var(--fg);width:100%;box-sizing:border-box}
 @media (max-width:900px){.patient-list-filters{grid-template-columns:1fr 1fr}}
 @media (max-width:560px){.patient-list-filters{grid-template-columns:1fr}}
-#secretary-account-edit .sec-account-action{width:6.25rem;height:2.4rem;flex:0 0 6.25rem;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;text-align:center;white-space:nowrap;line-height:1.2;padding:.35rem .5rem}
+#secretary-account-edit .patient-account-actions{vertical-align:middle;text-align:center}
+#secretary-account-edit .patient-account-actions-inner{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.4rem;min-height:100%}
+#secretary-account-edit .patient-account-save-form{margin:0;display:flex;justify-content:center}
+#secretary-account-edit .sec-account-action{width:6.25rem;height:2.4rem;flex:0 0 6.25rem;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;text-align:center;white-space:nowrap;line-height:1.2;padding:.35rem .5rem;margin:0 auto}
 #secretary-account-edit .patient-fee-cell{min-width:9.5rem;vertical-align:top}
 #secretary-account-edit .patient-fee-stack{display:flex;flex-direction:column;gap:.28rem;min-width:9rem}
 #secretary-account-edit .patient-fee-line{display:flex;align-items:center;gap:.35rem;font-size:.78rem;line-height:1.3;margin:0;cursor:pointer;white-space:nowrap}
