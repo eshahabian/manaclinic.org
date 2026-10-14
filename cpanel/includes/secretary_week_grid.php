@@ -393,7 +393,8 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                                 isset($booking['payment_id']) ? (string) $booking['payment_id'] : null,
                                 $hasReceipt ? (string) $booking['receipt_path'] : null,
                                 true,
-                                $stayNext
+                                $stayNext,
+                                !$slotDone && (string) ($booking['pay_status'] ?? '') !== 'PAID'
                             ) ?>
                             <?php if (!$slotDone && $canConfirmPay && function_exists('appointment_staff_mark_paid_form_html')): ?>
                               <?= appointment_staff_mark_paid_form_html($booking, $nextHold) ?>

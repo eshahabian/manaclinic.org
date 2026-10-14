@@ -3,18 +3,18 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/wallet.php';
 
-/** نرخ بازگشت وجه از سمت مراجع: فقط اگر بیش از ۲۴ ساعت مانده باشد کاملِ سهم درمانگر، وگرنه صفر. */
+/** بیش از ۲۴ ساعت مانده باشد کل مبلغ، وگرنه ۷۰٪ (۳۰٪ کسر می‌شود). */
 function appointment_refund_rate(string $startsAt): float
 {
     $secondsLeft = strtotime($startsAt) - time();
 
-    return $secondsLeft >= 24 * 3600 ? 1.0 : 0.0;
+    return $secondsLeft >= 24 * 3600 ? 1.0 : 0.7;
 }
 
 /**
- * مبلغی که به کیف پول برمی‌گردد.
- * مراجع و بیش از ۲۴ ساعت: سهم درمانگر (مبلغ منهای سهم کلینیک، اگر ثبت شده باشد).
- * کلینیک یا درمانگر: کل مبلغ پرداخت‌شده.
+ * فقط نوبت پرداخت‌شده به کیف پول برمی‌گردد.
+ * مراجع و بیش از ۲۴ ساعت: کل مبلغ. کمتر از ۲۴ ساعت: ۷۰٪.
+ * منشی یا کلینیک: همیشه کل مبلغ.
  */
 function appointment_cancel_refund_amount(array $row, string $side): int
 {
@@ -28,23 +28,18 @@ function appointment_cancel_refund_amount(array $row, string $side): int
     if ($side === 'clinic') {
         return $amount;
     }
-    if (appointment_refund_rate((string) ($row['starts_at'] ?? '')) < 1) {
-        return 0;
-    }
-    if (array_key_exists('clinic_share_amount', $row) && $row['clinic_share_amount'] !== null && $row['clinic_share_amount'] !== '') {
-        return max(0, $amount - (int) $row['clinic_share_amount']);
-    }
+    $rate = appointment_refund_rate((string) ($row['starts_at'] ?? ''));
 
-    return $amount;
+    return (int) floor($amount * $rate);
 }
 
 function appointment_refund_hint(string $startsAt): string
 {
     if (appointment_refund_rate($startsAt) >= 1.0) {
-        return 'با توجه به هزینه درمانگر، مبلغ به کیف پول برمی‌گردد.';
+        return 'بیش از ۲۴ ساعت مانده است و کل مبلغ به کیف پول برمی‌گردد.';
     }
 
-    return 'کمتر از ۲۴ ساعت مانده است و مبلغی به کیف پول برنمی‌گردد.';
+    return 'کمتر از ۲۴ ساعت مانده است؛ ۳۰٪ کسر می‌شود و ۷۰٪ به کیف پول برمی‌گردد.';
 }
 
 function patient_can_cancel_appointment(string $status): bool
@@ -169,19 +164,19 @@ function secretary_mark_patient_cancelled(PDO $pdo, string $appointmentId, array
         throw new RuntimeException('این نوبت قابل ثبت کنسلی نیست.');
     }
 
-    $refundAmount = 0;
-    $visitAmount = (int) ($row['amount'] ?? 0);
     if ((string) ($row['pay_status'] ?? '') !== 'PAID') {
         wallet_release_open_visit($pdo, $appointmentId, $side === 'clinic'
-            ? 'برگشت بدهی؛ کنسلی از سمت کلینیک'
+            ? 'برگشت بدهی؛ کنسلی از سمت منشی'
             : 'برگشت بدهی؛ کنسلی از سمت مراجع');
     }
-    if ($side === 'patient') {
-        $refundAmount = $visitAmount;
-    } else {
-        $refundAmount = appointment_cancel_refund_amount($row, 'clinic');
-    }
+    $refundAmount = appointment_cancel_refund_amount($row, $side);
     if ($refundAmount > 0 && !appointment_refund_already($pdo, $appointmentId)) {
+        $kept = max(0, (int) ($row['amount'] ?? 0) - $refundAmount);
+        $noteBit = $side === 'clinic'
+            ? 'کنسلی از سمت منشی — کل مبلغ به کیف پول برگشت'
+            : ($kept > 0
+                ? 'کنسلی از سمت مراجع — ۳۰٪ کسر شد و بقیه به کیف پول برگشت'
+                : 'کنسلی از سمت مراجع — کل مبلغ به کیف پول برگشت');
         wallet_credit_balance(
             $pdo,
             (string) $row['patient_id'],
@@ -189,9 +184,7 @@ function secretary_mark_patient_cancelled(PDO $pdo, string $appointmentId, array
             'REFUND',
             'appointment',
             $appointmentId,
-            $side === 'clinic'
-                ? 'کنسلی از سمت کلینیک — کل مبلغ به کیف پول برگشت'
-                : 'کنسلی از سمت مراجع — کل مبلغ به کیف پول برگشت'
+            $noteBit
         );
     } else {
         $refundAmount = 0;
@@ -324,8 +317,8 @@ function secretary_patient_cancel_form(string $appointmentId, string $status, st
       <input type="hidden" name="next" value="<?= e($next) ?>">
       <label class="label" for="cancel-side-<?= e($appointmentId) ?>">کنسلی از کدام سمت است؟</label>
       <select class="input" id="cancel-side-<?= e($appointmentId) ?>" name="cancel_side" required>
-        <option value="patient">از سمت مراجع-بیش از 24 ساعت مانده به جلسه ،کل مبلغ به کیف پول برمیگردد</option>
-        <option value="clinic">از سمت کلینیک یا درمانگر — کل مبلغ به کیف پول برمی‌گردد</option>
+        <option value="patient">از سمت مراجع — بیش از ۲۴ ساعت کل مبلغ، کمتر از ۲۴ ساعت ۳۰٪ کسر و بقیه به کیف پول</option>
+        <option value="clinic">از سمت منشی — حتی یک دقیقه مانده باشد کل مبلغ به کیف پول برمی‌گردد</option>
       </select>
       <label class="label" for="cancel-note-<?= e($appointmentId) ?>">یادداشت کنسلی</label>
       <textarea class="input" id="cancel-note-<?= e($appointmentId) ?>" name="note" rows="2" placeholder="یادداشت کنسلی را بنویسید"></textarea>

@@ -120,6 +120,20 @@ if ($action === 'set_room') {
     redirect($next);
 }
 
+if ($action === 'confirm_receipt') {
+    $paymentId = trim((string) post('payment_id'));
+    try {
+        if (!function_exists('staff_confirm_receipt_payment')) {
+            require_once __DIR__ . '/../includes/appointment_payment.php';
+        }
+        $result = staff_confirm_receipt_payment($pdo, $paymentId, $user);
+        flash_set('success', 'فیش «' . (string) $result['patient_name'] . '» تأیید شد و وقت به‌عنوان پرداخت‌شده ثبت گردید.');
+    } catch (Throwable $e) {
+        flash_set('error', $e->getMessage());
+    }
+    redirect($next);
+}
+
 if ($action === 'confirm_payment') {
     $appointmentId = trim((string) post('appointment_id'));
     try {

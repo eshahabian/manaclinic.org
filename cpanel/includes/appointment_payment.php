@@ -601,6 +601,100 @@ function appointment_staff_can_mark_paid(array $row): bool
     return in_array((string) ($row['status'] ?? ''), ['PENDING_APPROVAL', 'PENDING_PAYMENT'], true);
 }
 
+/** فیش بارگذاری شده و هنوز تأیید نشده؛ روی نوبت قطعی هم دکمه تأیید دیده می‌شود. */
+function appointment_staff_can_confirm_receipt(array $row): bool
+{
+    if (in_array((string) ($row['status'] ?? ''), ['CANCELLED', 'COMPLETED'], true)) {
+        return false;
+    }
+    if ((string) ($row['pay_status'] ?? '') === 'PAID') {
+        return false;
+    }
+
+    return trim((string) ($row['receipt_path'] ?? '')) !== '';
+}
+
+/**
+ * منشی فیش را تأیید می‌کند: وقت ثبت می‌شود و پرداخت‌شده به حساب می‌آید.
+ * بدهی قبلی کیف پول صفر می‌شود، چون پول با فیش پرداخت شده است.
+ */
+function staff_confirm_receipt_payment(PDO $pdo, string $paymentId, array $actor): array
+{
+    if (!function_exists('wallet_release_visit_charge')) {
+        require_once __DIR__ . '/wallet.php';
+    }
+    $stmt = $pdo->prepare("
+      SELECT a.*, p.id AS payment_id, p.status AS pay_status, p.receipt_path, p.amount,
+             pu.name AS patient_name, pu.id AS patient_user_id
+      FROM payments p
+      JOIN appointments a ON a.id = p.appointment_id
+      JOIN users pu ON pu.id = a.patient_id
+      WHERE p.id = ?
+      LIMIT 1
+    ");
+    $stmt->execute([$paymentId]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        throw new RuntimeException('پرداخت یافت نشد.');
+    }
+    if (in_array((string) ($row['status'] ?? ''), ['CANCELLED', 'COMPLETED'], true)) {
+        throw new RuntimeException('این نوبت دیگر قابل تأیید فیش نیست.');
+    }
+    if ((string) ($row['pay_status'] ?? '') === 'PAID') {
+        throw new RuntimeException('فیش این نوبت قبلاً تأیید شده است.');
+    }
+    if (trim((string) ($row['receipt_path'] ?? '')) === '') {
+        throw new RuntimeException('اول فیش پرداختی را بارگذاری کنید، بعد تأیید فیش را بزنید.');
+    }
+
+    $appointmentId = (string) $row['id'];
+    $staffUserId = (string) ($actor['id'] ?? '');
+    $amount = (int) ($row['amount'] ?? 0);
+    $pdo->prepare("UPDATE payments SET status='PAID', ref_id='SECRETARY', recorded_by_user_id=? WHERE id=? AND status<>'PAID'")
+        ->execute([$staffUserId, $paymentId]);
+    $pdo->prepare("
+      UPDATE appointments
+      SET status='CONFIRMED',
+          payment_confirmed_at=NOW(),
+          reviewed_at=COALESCE(reviewed_at, NOW())
+      WHERE id=? AND status<>'CANCELLED'
+    ")->execute([$appointmentId]);
+    wallet_release_visit_charge(
+        $pdo,
+        (string) ($row['patient_user_id'] ?? ''),
+        $appointmentId,
+        $amount,
+        'تسویه بدهی؛ تأیید فیش بانکی'
+    );
+    if (!function_exists('user_referral_stamp_payment')) {
+        require_once __DIR__ . '/user_referral.php';
+    }
+    user_referral_stamp_payment($pdo, $paymentId, (string) ($row['patient_user_id'] ?? ''), $amount);
+    if (function_exists('staff_log_action')) {
+        staff_log_action($pdo, $staffUserId, 'appointment_confirm_payment', 'appointment', $appointmentId, (string) ($row['patient_name'] ?? ''));
+    }
+
+    $patientName = (string) ($row['patient_name'] ?? 'مراجعه‌کننده');
+    $when = format_fa_datetime((string) ($row['starts_at'] ?? ''));
+    if (function_exists('notify_user')) {
+        notify_user(
+            $pdo,
+            (string) ($row['patient_user_id'] ?? ''),
+            'پرداخت نوبت تأیید شد',
+            "فیش نوبت {$when} تأیید شد و وقت شما ثبت گردید.",
+            '/dashboard/appointments',
+            'appointment',
+            $staffUserId !== '' ? $staffUserId : null
+        );
+    }
+
+    return [
+        'appointment_id' => $appointmentId,
+        'patient_name' => $patientName,
+        'starts_at' => (string) ($row['starts_at'] ?? ''),
+    ];
+}
+
 function appointment_hold_requested_at(array $row): string
 {
     $requested = trim((string) ($row['requested_at'] ?? ''));

@@ -1374,7 +1374,7 @@ function staff_receipt_user_can_view(PDO $pdo, array $user, string $paymentId): 
     return (bool) $ws->fetch();
 }
 
-function staff_receipt_view_html(?string $paymentId, ?string $receiptPath, bool $canUpload = false, ?string $next = null): string
+function staff_receipt_view_html(?string $paymentId, ?string $receiptPath, bool $canUpload = false, ?string $next = null, bool $canConfirm = false): string
 {
     if (!$paymentId) {
         return '';
@@ -1402,6 +1402,23 @@ function staff_receipt_view_html(?string $paymentId, ?string $receiptPath, bool 
             <input type="file" name="receipt" accept="image/jpeg,image/png,image/webp,application/pdf" required onchange="this.form.submit()">
           </label>
         </form>
+        <?php
+    }
+    if ($canConfirm && $receiptPath) {
+        ?>
+        <form method="post" action="<?= e(url('/secretary/appointments')) ?>" style="display:inline">
+          <?= csrf_field() ?>
+          <input type="hidden" name="action" value="confirm_receipt">
+          <input type="hidden" name="payment_id" value="<?= e($paymentId) ?>">
+          <?php if ($next): ?>
+            <input type="hidden" name="next" value="<?= e($next) ?>">
+          <?php endif; ?>
+          <button type="submit" class="btn btn-primary btn-sm" onclick="return confirm('فیش تأیید شود و این وقت به‌عنوان پرداخت‌شده ثبت گردد؟');">تأیید فیش</button>
+        </form>
+        <?php
+    } elseif ($canUpload && !$receiptPath) {
+        ?>
+        <span class="muted" style="font-size:.8rem">بعد از بارگذاری فیش، دکمه تأیید فیش را بزنید تا وقت ثبت شود.</span>
         <?php
     }
     return trim((string) ob_get_clean());
