@@ -109,6 +109,10 @@ function appointment_expire_unpaid_holds(PDO $pdo): int
             continue;
         }
         try {
+            if (!function_exists('wallet_release_open_visit')) {
+                require_once __DIR__ . '/wallet.php';
+            }
+            wallet_release_open_visit($pdo, $id, 'برگشت بدهی؛ مهلت پرداخت تمام شد');
             $pdo->prepare("UPDATE payments SET status='FAILED' WHERE appointment_id=? AND status='PENDING'")
                 ->execute([$id]);
             $updated = $pdo->prepare("

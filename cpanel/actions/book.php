@@ -92,12 +92,23 @@ $paymentId = cuid();
 $amount = (int) $doctor['session_price'];
 
 ensure_appointment_session_schema($pdo);
+require_once __DIR__ . '/../includes/wallet.php';
+ensure_wallet($pdo, (string) $user['id']);
 $pdo->beginTransaction();
 try {
     $pdo->prepare('INSERT INTO appointments (id,doctor_id,patient_id,starts_at,ends_at,status,notes,session_mode,created_by_user_id,requested_at) VALUES (?,?,?,?,?,?,?,?,?,NOW())')
         ->execute([$appointmentId, $doctorId, $user['id'], $startsAt, $endsAt, 'PENDING_PAYMENT', null, $sessionMode, (string) $user['id']]);
-    $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,status) VALUES (?,?,?,?)')
-        ->execute([$paymentId, $appointmentId, $amount, 'PENDING']);
+    $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,status,ref_id) VALUES (?,?,?,?,?)')
+        ->execute([$paymentId, $appointmentId, $amount, 'PENDING', 'LATER']);
+    if ($amount > 0) {
+        wallet_charge_visit(
+            $pdo,
+            (string) $user['id'],
+            $appointmentId,
+            $amount,
+            'بدهی حق ویزیت تا تأیید پرداخت منشی'
+        );
+    }
     if (!function_exists('user_referral_stamp_payment')) {
         require_once __DIR__ . '/../includes/user_referral.php';
     }
@@ -126,7 +137,7 @@ try {
     echo json_encode([
         'appointmentId' => $appointmentId,
         'awaitingApproval' => true,
-        'message' => 'درخواست شما ارسال شد و در حال بررسی است. تا یک ساعت این وقت برای شما می‌ماند. وقتی منشی پرداخت را تأیید کند، نوبت رزرو می‌شود.',
+        'message' => 'درخواست شما ارسال شد. تا تأیید فیش توسط منشی، حق ویزیت از کیف پول کم می‌شود و موجودی می‌تواند منفی باشد. تا یک ساعت این وقت برای شما می‌ماند.',
     ], JSON_UNESCAPED_UNICODE);
 } catch (Throwable $e) {
     $pdo->rollBack();

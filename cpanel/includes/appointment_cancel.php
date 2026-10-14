@@ -94,6 +94,9 @@ function cancel_patient_appointment(PDO $pdo, string $appointmentId, string $pat
         }
     }
 
+    if ((string) ($row['pay_status'] ?? '') !== 'PAID') {
+        wallet_release_open_visit($pdo, $appointmentId, 'برگشت بدهی؛ نوبت لغو شد');
+    }
     if (in_array((string) $row['status'], ['PENDING_APPROVAL', 'PENDING_PAYMENT'], true) && !empty($row['payment_id'])) {
         $pdo->prepare("UPDATE payments SET status='FAILED' WHERE id=? AND status='PENDING'")
             ->execute([$row['payment_id']]);
@@ -183,6 +186,11 @@ function secretary_mark_patient_cancelled(PDO $pdo, string $appointmentId, array
         $refundAmount = 0;
     }
 
+    if ((string) ($row['pay_status'] ?? '') !== 'PAID') {
+        wallet_release_open_visit($pdo, $appointmentId, $side === 'clinic'
+            ? 'برگشت بدهی؛ کنسلی از سمت کلینیک'
+            : 'برگشت بدهی؛ کنسلی از سمت مراجع');
+    }
     if (in_array((string) ($row['status'] ?? ''), ['PENDING_APPROVAL', 'PENDING_PAYMENT'], true) || (string) ($row['pay_status'] ?? '') === 'PENDING') {
         $pdo->prepare("UPDATE payments SET status='FAILED' WHERE appointment_id=? AND status='PENDING'")
             ->execute([$appointmentId]);

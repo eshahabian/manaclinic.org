@@ -131,11 +131,11 @@ if ($payMethod === 'card' && empty($_FILES['receipt']['name'])) {
     flash_set('error', 'برای کارت به کارت، فیش را بارگذاری کنید.');
     $bookRedirect('/secretary/appointments?tab=new');
 }
-if ($payMethod === 'wallet') {
+if ($payMethod === 'wallet' || $payMethod === 'later') {
     require_once __DIR__ . '/../includes/wallet.php';
     ensure_wallet_schema($pdo);
     $wallet = ensure_wallet($pdo, $patientId);
-    if ((int) ($wallet['balance'] ?? 0) < $amount) {
+    if ($payMethod === 'wallet' && (int) ($wallet['balance'] ?? 0) < $amount) {
         flash_set('error', 'موجودی کیف پول مراجع برای این نوبت کافی نیست.');
         $bookRedirect('/secretary/appointments?tab=new');
     }
@@ -261,6 +261,17 @@ try {
                 $rowId,
                 'پرداخت نوبت از کیف پول، ثبت منشی'
             );
+        } elseif (!$isFirst || $payMethod === 'later') {
+            if (!function_exists('wallet_charge_visit')) {
+                require_once __DIR__ . '/../includes/wallet.php';
+            }
+            wallet_charge_visit(
+                $pdo,
+                $patientId,
+                $rowId,
+                $amount,
+                'بدهی حق ویزیت؛ پرداخت بعدی'
+            );
         }
         $roomDraft['id'] = $rowId;
         $roomDraft['starts_at'] = $occur['starts'];
@@ -320,7 +331,7 @@ try {
     $payBit = match ($payMethod) {
         'wallet' => ' مبلغ نوبت اول از کیف پول کم شد.',
         'card' => ' پرداخت کارت به کارت نوبت اول با فیش ثبت شد.',
-        default => ' پرداخت بعدی به‌عنوان بدهی ماند.',
+        default => ' حق ویزیت از کیف پول کم شد و تا تأیید فیش می‌تواند منفی بماند.',
     };
     $seriesMsg = $bookedCount > 1
         ? ' ' . to_fa_digits((string) $bookedCount) . ' نوبت ' . $repeatLabel . ' ثبت شد. نوبت‌های بعدی پرداخت‌بعدی ماندند.'

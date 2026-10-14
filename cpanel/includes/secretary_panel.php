@@ -24,6 +24,7 @@ function secretary_nav(): array
         ['href' => '/secretary/petty-cash', 'label' => 'تنخواه'],
         ['href' => '/admin/rooms', 'label' => 'اتاق‌ها'],
         ['href' => '/secretary/patients', 'label' => 'مراجعه‌کنندگان'],
+        ['href' => '/secretary/balances', 'label' => 'بدهکاران و بستانکاران'],
         ['href' => '/secretary/board', 'label' => 'یادداشت مشترک'],
         ['href' => '/secretary/secretary-tasks', 'label' => 'لیست کارهای روزانه'],
         ['href' => '/secretary/articles', 'label' => 'مقالات'],

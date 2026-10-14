@@ -277,6 +277,7 @@ $routes = [
     'POST /accountant/payouts' => 'actions/secretary_payout_settle.php',
     'GET /accountant/petty-cash' => 'pages/petty_cash.php',
     'POST /accountant/petty-cash' => 'actions/petty_cash.php',
+    'GET /secretary/balances' => 'pages/secretary/balances.php',
     'GET /secretary/petty-cash' => 'pages/petty_cash.php',
     'POST /secretary/petty-cash' => 'actions/petty_cash.php',
     'GET /secretary/messages' => 'pages/secretary/messages.php',

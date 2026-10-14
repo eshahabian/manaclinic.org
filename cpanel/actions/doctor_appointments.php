@@ -33,6 +33,14 @@ $status = post('status');
 if (in_array($status, ['CANCELLED', 'COMPLETED', 'CONFIRMED'], true)) {
     $pdo->prepare('UPDATE appointments SET status=? WHERE id=? AND doctor_id=?')
         ->execute([$status, $id, $ctx['profile']['id']]);
+    if ($status === 'COMPLETED') {
+        require_once __DIR__ . '/../includes/wallet.php';
+        try {
+            wallet_charge_held_visit($pdo, $id);
+        } catch (Throwable $e) {
+            error_log('wallet charge held visit: ' . $e->getMessage());
+        }
+    }
     flash_set('success', 'وضعیت به‌روز شد.');
 }
 redirect($next);

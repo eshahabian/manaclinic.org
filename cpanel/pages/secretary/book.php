@@ -7,6 +7,14 @@ if (empty($secretaryBookEmbedded)) {
 }
 
 $patients = secretary_patient_directory($pdo);
+$walletMap = [];
+try {
+    require_once __DIR__ . '/../../includes/wallet.php';
+    wallet_ensure_patient_wallets($pdo);
+    $walletMap = wallet_balance_map($pdo);
+} catch (Throwable $e) {
+    $walletMap = [];
+}
 $doctors = secretary_active_doctors($pdo);
 $preDoctorId = trim((string) ($_GET['doctor_id'] ?? ''));
 $preDate = trim((string) ($_GET['date'] ?? ''));
@@ -99,6 +107,8 @@ ob_start();
           $savedReferral = function_exists('user_referral_normalize')
               ? (user_referral_normalize((string) ($p['referral_source'] ?? '')) ?? '')
               : '';
+          $bookKey = (string) ($p['book_id'] ?? $p['id'] ?? '');
+          $walletAttr = array_key_exists($bookKey, $walletMap) ? (string) (int) $walletMap[$bookKey] : '';
           $inactive = function_exists('secretary_patient_is_inactive') && secretary_patient_is_inactive($p);
           $needsSetup = !$inactive && function_exists('secretary_patient_needs_setup') && secretary_patient_needs_setup($p);
           if ($inactive) {
@@ -107,7 +117,7 @@ ob_start();
               $label .= ' — تکمیل پروفایل لازم است';
           }
         ?>
-        <option value="<?= e((string) ($p['book_id'] ?? $p['id'])) ?>" data-search="<?= e($searchBits) ?>" data-referral="<?= e($savedReferral) ?>" data-needs-setup="<?= $needsSetup ? '1' : '0' ?>" data-inactive="<?= $inactive ? '1' : '0' ?>" data-muted="<?= $inactive ? '1' : '0' ?>" data-phone="<?= e($phone) ?>" data-doctor="<?= e((string) ($p['preferred_doctor_id'] ?? '')) ?>"><?= e($label) ?></option>
+        <option value="<?= e((string) ($p['book_id'] ?? $p['id'])) ?>" data-search="<?= e($searchBits) ?>" data-referral="<?= e($savedReferral) ?>" data-needs-setup="<?= $needsSetup ? '1' : '0' ?>" data-inactive="<?= $inactive ? '1' : '0' ?>" data-muted="<?= $inactive ? '1' : '0' ?>" data-phone="<?= e($phone) ?>" data-doctor="<?= e((string) ($p['preferred_doctor_id'] ?? '')) ?>" data-wallet="<?= e($walletAttr) ?>"><?= e($label) ?></option>
       <?php endforeach; ?>
     </select>
     <p class="muted" style="margin:.35rem 0 0;font-size:.8rem">در باکس بالا نام، نام کاربری یا شماره موبایل را تایپ کنید.</p>
@@ -216,6 +226,7 @@ ob_start();
   </div>
 
   <p id="sec-error" style="color:var(--danger);display:none;font-size:.9rem"></p>
+  <p id="sec-wallet-line" style="display:none;margin:0 0 .75rem;font-weight:800;line-height:1.7"></p>
   <button class="btn btn-primary" type="submit">ثبت نوبت (تأیید شده)</button>
 </form>
 <div class="patient-more-modal" id="inactive-patient-modal" hidden>
@@ -296,15 +307,57 @@ $secretaryBookScripts = '
       if (e.key === "Escape" && !inactiveModal.hidden) closeInactiveModal();
     });
   }
+  var walletLine = document.getElementById("sec-wallet-line");
+  function faMoney(n) {
+    var s = String(Math.abs(n));
+    var grouped = "";
+    var count = 0;
+    var i;
+    for (i = s.length - 1; i >= 0; i--) {
+      grouped = s.charAt(i) + grouped;
+      count++;
+      if (count === 3 && i > 0) {
+        grouped = "," + grouped;
+        count = 0;
+      }
+    }
+    var map = "۰۱۲۳۴۵۶۷۸۹";
+    var out = "";
+    for (i = 0; i < grouped.length; i++) {
+      var ch = grouped.charAt(i);
+      out += (ch >= "0" && ch <= "9") ? map.charAt(parseInt(ch, 10)) : ch;
+    }
+    return out;
+  }
+  function syncWalletLine() {
+    if (!walletLine || !patientEl) return;
+    var opt = patientEl.options[patientEl.selectedIndex];
+    var raw = opt ? opt.getAttribute("data-wallet") : "";
+    if (!opt || !opt.value || raw === null || raw === "") {
+      walletLine.style.setProperty("display", "none", "important");
+      walletLine.textContent = "";
+      return;
+    }
+    var amount = parseInt(raw, 10);
+    if (isNaN(amount)) amount = 0;
+    var state = amount < 0 ? "بدهکار" : (amount > 0 ? "بستانکار" : "تسویه");
+    var sign = amount < 0 ? "−" : "";
+    walletLine.textContent = "کیف پول: " + sign + faMoney(amount) + " تومان (" + state + ")";
+    walletLine.style.color = amount < 0 ? "#a33b3b" : (amount > 0 ? "#1a7a45" : "");
+    walletLine.style.setProperty("display", "block", "important");
+  }
   patientEl.addEventListener("change", function(){
     if (selectedPatientInactive()) {
       openInactiveModal();
       patientEl.value = "";
       syncLegacySetup();
+      syncWalletLine();
       return;
     }
     syncLegacySetup();
+    syncWalletLine();
   });
+  syncWalletLine();
 
   var dateView = document.getElementById("sec-date-view");
   var dateEl = document.getElementById("sec-date");
@@ -814,7 +867,7 @@ $secretaryBookScripts = '
     }
     if (!payHint) return;
     if (method === "card") payHint.textContent = "فیش کارت به کارت را همین‌جا بارگذاری کنید.";
-    else if (method === "later") payHint.textContent = "نوبت ثبت می‌شود و مبلغ به‌عنوان بدهی می‌ماند: نام، تاریخ و دلیل در فهرست بدهکاران دیده می‌شود.";
+    else if (method === "later") payHint.textContent = "نوبت ثبت می‌شود و به اندازه حق ویزیت همین درمانگر از کیف پول کم می‌شود. موجودی می‌تواند منفی شود تا فیش تأیید گردد.";
     else payHint.textContent = "مبلغ حق جلسه از کیف پول مراجع کم می‌شود. اگر موجودی کافی نباشد، نوبت ثبت نمی‌شود.";
   }
   if (payEl) payEl.addEventListener("change", syncPayRule);

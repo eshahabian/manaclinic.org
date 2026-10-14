@@ -115,6 +115,10 @@ function staff_confirm_appointment_payment(
     $paymentId = (string) $row['payment_id'];
     $staffUserId = (string) ($actor['id'] ?? '');
     $hasFile = (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE);
+    $hasReceipt = $hasFile || trim((string) ($row['receipt_path'] ?? '')) !== '';
+    if (!$alreadyPaid && !$hasReceipt) {
+        throw new RuntimeException('برای تأیید پرداخت شده، فیش بانکی را بارگذاری کنید.');
+    }
 
     if ($alreadyPaid && !$hasFile) {
         $pdo->prepare('UPDATE payments SET recorded_by_user_id=? WHERE id=?')
@@ -142,6 +146,19 @@ function staff_confirm_appointment_payment(
         require_once __DIR__ . '/user_referral.php';
     }
     user_referral_stamp_payment($pdo, $paymentId, (string) ($row['patient_user_id'] ?? ''), (int) ($row['amount'] ?? 0));
+    if (!$alreadyPaid) {
+        if (!function_exists('wallet_release_visit_charge')) {
+            require_once __DIR__ . '/wallet.php';
+        }
+        $settledAmount = (int) ($row['amount'] ?? 0);
+        wallet_release_visit_charge(
+            $pdo,
+            (string) ($row['patient_user_id'] ?? ''),
+            $appointmentId,
+            $settledAmount,
+            'تسویه بدهی نوبت با فیش بانکی'
+        );
+    }
 
     if (function_exists('ensure_appointment_hold_columns')) {
         ensure_appointment_hold_columns($pdo);
@@ -268,12 +285,11 @@ function staff_confirm_appointment_unpaid(
 
     $pdo->beginTransaction();
     try {
-        $balanceAfter = wallet_debit_balance_allow_negative(
+        $balanceAfter = wallet_charge_visit(
             $pdo,
             $patientUserId,
-            $amount,
-            'appointment',
             $appointmentId,
+            $amount,
             'حق مشاوره پرداخت‌نشده — نوبت ' . $when
         );
         $payUpdated = $pdo->prepare("
@@ -474,6 +490,10 @@ function staff_reject_appointment_booking(PDO $pdo, string $appointmentId, array
         throw new RuntimeException('این درخواست دیگر در انتظار بررسی نیست.');
     }
 
+    if (!function_exists('wallet_release_open_visit')) {
+        require_once __DIR__ . '/wallet.php';
+    }
+    wallet_release_open_visit($pdo, $appointmentId, 'برگشت بدهی؛ درخواست نوبت رد شد');
     $pdo->prepare("UPDATE payments SET status='FAILED' WHERE appointment_id=? AND status='PENDING'")
         ->execute([$appointmentId]);
     $updated = $pdo->prepare("
@@ -705,14 +725,14 @@ function appointment_staff_mark_paid_form_html(array $row, string $next): string
         <span class="label" style="font-size:.75rem">یادداشت منشی</span>
         <textarea class="input" name="note" rows="2" placeholder="مثلاً کارت‌به‌کارت شد، یا پرداخت نقدی در کلینیک"><?= e(trim((string) ($row['staff_payment_note'] ?? ''))) ?></textarea>
       </label>
-      <label class="btn btn-outline btn-sm staff-receipt-pick" title="اختیاری">
-        فیش پرداخت (اختیاری)
+      <label class="btn btn-outline btn-sm staff-receipt-pick" title="برای پرداخت شده لازم است">
+        فیش بانکی
         <input type="file" name="receipt" accept="image/jpeg,image/png,image/webp,application/pdf">
       </label>
-      <button type="submit" class="btn btn-primary btn-sm" name="pay_choice" value="paid" onclick="return confirm('پرداخت شده ثبت شود و این وقت رزرو گردد؟');">پرداخت شده</button>
+      <button type="submit" class="btn btn-primary btn-sm" name="pay_choice" value="paid" onclick="var f=this.form.querySelector(&quot;input[name=receipt]&quot;); if(!f||!f.value){ alert(&quot;برای پرداخت شده، فیش بانکی را بارگذاری کنید.&quot;); return false; } return confirm(&quot;پرداخت شده ثبت شود و این وقت رزرو گردد؟&quot;);">پرداخت شده</button>
       <button type="submit" class="btn btn-outline btn-sm" name="pay_choice" value="unpaid" onclick="return confirm(<?= json_encode('پرداخت نشده: ' . format_price($fee) . ' حق مشاوره از کیف پول مراجع کم شود؟ موجودی می‌تواند منفی شود و وقت رزرو می‌گردد.', JSON_UNESCAPED_UNICODE) ?>);">پرداخت نشده</button>
     </form>
-    <p class="muted" style="font-size:.75rem;margin:0;flex-basis:100%"><?= $online ? 'جلسه آنلاین است و اتاق اجباری نیست. ' : 'برای جلسه حضوری قبل از تأیید، اتاق را انتخاب کنید. ' ?>بدون فیش هم «پرداخت شده» را می‌توانید بزنید. «پرداخت نشده» وقت را رزرو می‌کند و حق مشاوره را از کیف پول کم می‌کند، حتی اگر موجودی منفی شود.</p>
+    <p class="muted" style="font-size:.75rem;margin:0;flex-basis:100%"><?= $online ? 'جلسه آنلاین است و اتاق اجباری نیست. ' : 'برای جلسه حضوری قبل از تأیید، اتاق را انتخاب کنید. ' ?>«پرداخت شده» فقط با بارگذاری فیش بانکی ثبت می‌شود و بدهی کیف پول را صفر می‌کند. «پرداخت نشده» وقت را رزرو می‌کند و حق ویزیت را از کیف پول کم می‌کند، حتی اگر موجودی منفی شود.</p>
     <?php
     return (string) ob_get_clean();
 }

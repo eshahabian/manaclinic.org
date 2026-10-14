@@ -457,6 +457,7 @@ $section = match ($path) {
     '/app/consult' => 'consult',
     '/app/checklist' => 'checklist',
     '/app/petty-cash' => 'petty',
+    '/app/balances' => 'balances',
     '/app/complaints' => 'complaints',
     '/app/therapists' => 'therapists',
     '/app/profile' => 'profile',
@@ -478,6 +479,7 @@ $descriptions = [
     'consult' => 'درخواست مشاوره و درخواست همکاری که از فرم سایت مانا کلینیک رسیده است.',
     'checklist' => 'لیست کارهای روزانه منشی‌ها در کلینیک مانا، همان فهرست داخل سایت.',
     'petty' => 'تنخواه کلینیک مانا؛ ثبت هزینه، حساب پرداخت و تاییدکننده، همان فهرست داخل سایت.',
+    'balances' => 'بدهکاران و بستانکاران مراجعه‌کنندگان بر اساس مانده کیف پول.',
     'complaints' => 'ثبت انتقاد یا پیشنهاد مراجع؛ برای دکتر شیوا گرانمایه‌پور و دکتر عطیه گارسچی.',
     'therapists' => 'درمانگرهای کلینیک مانا؛ فعال و غیرفعال، و درخواست‌های همکاری.',
     'profile' => 'پروفایل درمانگر یا منشی در برنامه داخلی مانا کلینیک.',
@@ -518,6 +520,11 @@ if ($section === 'home') {
         <em>Consult &amp; Collaboration</em>
       </a>
       <?php if ($role === 'SECRETARY'): ?>
+      <a class="sapp-tile" href="<?= e(url('/app/balances')) ?>">
+        <span class="sapp-ico sapp-ico-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14v11H5z"/><path d="M8 7V5h8v2"/><path d="M8 12h8"/></svg></span>
+        <strong>بدهکاران و بستانکاران</strong>
+        <em>Wallet Balance</em>
+      </a>
       <a class="sapp-tile" href="<?= e(url('/app/therapists')) ?>">
         <span class="sapp-ico sapp-ico-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="2.4"/><circle cx="16" cy="9" r="2"/><path d="M4.8 18.2a4.4 4.4 0 0 1 8.4 0M13.2 18.2a3.6 3.6 0 0 1 6-2.2"/></svg></span>
         <strong>درمانگرها</strong>
@@ -1997,6 +2004,19 @@ if ($section === 'profile') {
     </div>
     <?php
     staff_app_render('profile', 'پروفایل', $descriptions['profile'], ob_get_clean());
+    exit;
+}
+
+if ($section === 'balances') {
+    if ($role !== 'SECRETARY') {
+        flash_set('error', 'بدهکاران و بستانکاران با منشی است.');
+        redirect('/app');
+    }
+    $balanceEmbedded = true;
+    $balanceBase = '/app/balances';
+    $balanceHtml = '';
+    require __DIR__ . '/secretary/balances.php';
+    staff_app_render('balances', 'بدهکاران و بستانکاران', $descriptions['balances'], $balanceHtml);
     exit;
 }
 

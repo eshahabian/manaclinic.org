@@ -242,6 +242,195 @@ function wallet_settle_doctor_hold(
     wallet_log_tx($pdo, $wallet['id'], 'SETTLE', $amount, $balanceAfter, $heldAfter, 'workshop_enrollment', $referenceId, $description);
 }
 
+/** برای هر مراجعه‌کنندهٔ فعال یک کیف پول می‌سازد تا مانده صفر هم ثبت شده باشد. */
+function wallet_ensure_patient_wallets(PDO $pdo): int
+{
+    ensure_wallet_schema($pdo);
+    if ($pdo->inTransaction()) {
+        return 0;
+    }
+    $ids = $pdo->query("
+      SELECT u.id
+      FROM users u
+      LEFT JOIN wallets w ON w.user_id = u.id
+      WHERE w.id IS NULL
+        AND COALESCE(u.is_disabled, 0) = 0
+        AND (
+          u.role = 'PATIENT'
+          OR LOWER(u.username) = 'eshahabian'
+          OR (u.name LIKE '%عماد%' AND u.name LIKE '%شهابیان%')
+        )
+    ")->fetchAll(PDO::FETCH_COLUMN) ?: [];
+    $insert = $pdo->prepare('INSERT INTO wallets (id, user_id) VALUES (?, ?)');
+    $made = 0;
+    foreach ($ids as $userId) {
+        $userId = (string) $userId;
+        if ($userId === '') {
+            continue;
+        }
+        $insert->execute([cuid(), $userId]);
+        $made++;
+    }
+
+    return $made;
+}
+
+/** @return array<string, int> */
+function wallet_balance_map(PDO $pdo): array
+{
+    ensure_wallet_schema($pdo);
+    $rows = $pdo->query('SELECT user_id, balance FROM wallets')->fetchAll() ?: [];
+    $map = [];
+    foreach ($rows as $row) {
+        $map[(string) ($row['user_id'] ?? '')] = (int) ($row['balance'] ?? 0);
+    }
+
+    return $map;
+}
+
+function wallet_appointment_has_tx(PDO $pdo, string $appointmentId, string $kind): bool
+{
+    if ($appointmentId === '') {
+        return false;
+    }
+    ensure_wallet_schema($pdo);
+    $stmt = $pdo->prepare("
+      SELECT COUNT(*)
+      FROM wallet_transactions
+      WHERE reference_type = 'appointment' AND reference_id = ? AND kind = ?
+    ");
+    $stmt->execute([$appointmentId, $kind]);
+
+    return (int) $stmt->fetchColumn() > 0;
+}
+
+/** حق ویزیت را یک بار از کیف پول کم می‌کند؛ موجودی می‌تواند منفی شود. */
+function wallet_charge_visit(PDO $pdo, string $userId, string $appointmentId, int $amount, string $description): int
+{
+    if ($userId === '' || $appointmentId === '' || $amount <= 0) {
+        return 0;
+    }
+    if (wallet_appointment_has_tx($pdo, $appointmentId, 'PAYMENT')) {
+        $wallet = ensure_wallet($pdo, $userId);
+
+        return (int) ($wallet['balance'] ?? 0);
+    }
+    ensure_wallet($pdo, $userId);
+
+    return wallet_debit_balance_allow_negative($pdo, $userId, $amount, 'appointment', $appointmentId, $description);
+}
+
+/** بدهی همین نوبت را برمی‌گرداند؛ اگر قبلاً تسویه یا استرداد شده باشد دوباره واریز نمی‌کند. */
+function wallet_release_visit_charge(PDO $pdo, string $userId, string $appointmentId, int $amount, string $description): void
+{
+    if ($userId === '' || $appointmentId === '' || $amount <= 0) {
+        return;
+    }
+    if (!wallet_appointment_has_tx($pdo, $appointmentId, 'PAYMENT')) {
+        return;
+    }
+    if (wallet_appointment_has_tx($pdo, $appointmentId, 'ADJUSTMENT') || wallet_appointment_has_tx($pdo, $appointmentId, 'REFUND')) {
+        return;
+    }
+    wallet_credit_balance($pdo, $userId, $amount, 'ADJUSTMENT', 'appointment', $appointmentId, $description);
+}
+
+/**
+ * اگر جلسه برگزار شده و هنوز از کیف پول کم نشده و پرداخت نقدی با فیش هم نبوده، حق ویزیت کسر می‌شود.
+ */
+function wallet_release_open_visit(PDO $pdo, string $appointmentId, string $description): void
+{
+    if ($appointmentId === '') {
+        return;
+    }
+    $stmt = $pdo->prepare("
+      SELECT a.patient_id, p.amount, p.status AS pay_status
+      FROM appointments a
+      LEFT JOIN payments p ON p.appointment_id = a.id
+      WHERE a.id = ?
+      LIMIT 1
+    ");
+    $stmt->execute([$appointmentId]);
+    $row = $stmt->fetch();
+    if (!$row || (string) ($row['pay_status'] ?? '') === 'PAID') {
+        return;
+    }
+    wallet_release_visit_charge(
+        $pdo,
+        (string) ($row['patient_id'] ?? ''),
+        $appointmentId,
+        (int) ($row['amount'] ?? 0),
+        $description
+    );
+}
+
+function wallet_charge_held_visit(PDO $pdo, string $appointmentId): void
+{
+    if ($appointmentId === '') {
+        return;
+    }
+    $stmt = $pdo->prepare("
+      SELECT a.patient_id, a.starts_at, p.amount, p.status AS pay_status, p.ref_id, dp.session_price
+      FROM appointments a
+      LEFT JOIN payments p ON p.appointment_id = a.id
+      LEFT JOIN doctor_profiles dp ON dp.id = a.doctor_id
+      WHERE a.id = ?
+      LIMIT 1
+    ");
+    $stmt->execute([$appointmentId]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        return;
+    }
+    if (wallet_appointment_has_tx($pdo, $appointmentId, 'PAYMENT')) {
+        return;
+    }
+    $ref = (string) ($row['ref_id'] ?? '');
+    $paidCash = (string) ($row['pay_status'] ?? '') === 'PAID' && in_array($ref, ['CARD', 'SECRETARY', 'RECEIPT'], true);
+    if ($paidCash) {
+        return;
+    }
+    $amount = (int) ($row['amount'] ?? 0);
+    if ($amount <= 0) {
+        $amount = (int) ($row['session_price'] ?? 0);
+    }
+    if ($amount <= 0) {
+        return;
+    }
+    $when = function_exists('format_fa_datetime') ? format_fa_datetime((string) ($row['starts_at'] ?? '')) : '';
+    wallet_charge_visit(
+        $pdo,
+        (string) ($row['patient_id'] ?? ''),
+        $appointmentId,
+        $amount,
+        'کسر حق ویزیت پس از برگزاری جلسه' . ($when !== '' ? ' — ' . $when : '')
+    );
+}
+
+/** @return list<array<string, mixed>> */
+function wallet_party_rows(PDO $pdo, string $side): array
+{
+    wallet_ensure_patient_wallets($pdo);
+    $cmp = $side === 'credit' ? '>' : '<';
+    $order = $side === 'credit' ? 'DESC' : 'ASC';
+    $sql = "
+      SELECT u.name, u.phone, u.username, w.balance, du.name AS doctor_name
+      FROM wallets w
+      JOIN users u ON u.id = w.user_id
+      LEFT JOIN doctor_profiles dp ON dp.id = u.preferred_doctor_id
+      LEFT JOIN users du ON du.id = dp.user_id
+      WHERE w.balance {$cmp} 0
+        AND (
+          u.role = 'PATIENT'
+          OR LOWER(u.username) = 'eshahabian'
+          OR (u.name LIKE '%عماد%' AND u.name LIKE '%شهابیان%')
+        )
+      ORDER BY w.balance {$order}, u.name ASC
+    ";
+
+    return $pdo->query($sql)->fetchAll() ?: [];
+}
+
 function wallet_kind_label(string $kind): string
 {
     return match ($kind) {
