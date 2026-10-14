@@ -21,6 +21,6 @@ ob_start();
 ?>
 <h1>انتقادات و پیشنهادات</h1>
 <p class="muted">مواردی که مراجعه‌کننده یا منشی ثبت کرده اینجاست. زمان جلسه اگر خالی باشد یعنی اعلام نشده است.</p>
-<?= session_feedback_list_html($rows, 'هنوز انتقاد یا پیشنهادی ثبت نشده است.') ?>
+<?= session_feedback_list_html($rows, 'هنوز انتقاد یا پیشنهادی ثبت نشده است.', '/doctor/feedback', true) ?>
 <?php
 render_doctor_page('انتقادات و پیشنهادات', ob_get_clean());

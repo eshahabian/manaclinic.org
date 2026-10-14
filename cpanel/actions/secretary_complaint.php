@@ -6,6 +6,18 @@ require_once __DIR__ . '/../includes/session_complaints.php';
 $user = require_login(['SECRETARY']);
 csrf_verify();
 
+if (post('action') === 'follow') {
+    try {
+        session_feedback_save_follow($pdo, $user, trim((string) post('id')), (string) post('follow_result'));
+        flash_set('success', 'پیگیری پیشنهاد ثبت شد.');
+    } catch (RuntimeException $e) {
+        flash_set('error', $e->getMessage());
+    } catch (Throwable $e) {
+        flash_set('error', 'ثبت پیگیری انجام نشد.');
+    }
+    redirect('/secretary/complaints');
+}
+
 try {
     session_complaint_create(
         $pdo,

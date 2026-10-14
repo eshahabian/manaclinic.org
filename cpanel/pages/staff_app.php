@@ -400,6 +400,17 @@ if ($method === 'POST' && $path === '/app/rooms') {
 if ($method === 'POST' && $path === '/app/complaints') {
     require_once __DIR__ . '/../includes/session_complaints.php';
     csrf_verify();
+    if (post('action') === 'follow') {
+        try {
+            session_feedback_save_follow($pdo, $user, trim((string) post('id')), (string) post('follow_result'));
+            flash_set('success', 'پیگیری پیشنهاد ثبت شد.');
+        } catch (RuntimeException $e) {
+            flash_set('error', $e->getMessage());
+        } catch (Throwable $e) {
+            flash_set('error', 'ثبت پیگیری انجام نشد.');
+        }
+        redirect('/app/complaints');
+    }
     if ($role !== 'SECRETARY') {
         flash_set('error', 'ثبت انتقاد و پیشنهاد در برنامه، با منشی است.');
         redirect('/app/complaints');
@@ -2012,7 +2023,7 @@ ob_start();
 <?php if ($role === 'SECRETARY'): ?>
   <?= session_feedback_form_html('/app/complaints', true, $patients, '', '', '') ?>
 <?php endif; ?>
-<?= session_feedback_list_html($complaints, 'هنوز انتقاد یا پیشنهادی ثبت نشده است.') ?>
+<?= session_feedback_list_html($complaints, 'هنوز انتقاد یا پیشنهادی ثبت نشده است.', '/app/complaints', $role === 'SECRETARY' || session_feedback_can_review($user)) ?>
 <?php
 if ($role === 'SECRETARY') {
     $GLOBALS['pageScripts'] = session_feedback_assets(true);

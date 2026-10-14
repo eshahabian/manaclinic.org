@@ -325,6 +325,7 @@ $routes = [
     'POST /doctor/petty-cash' => 'actions/petty_cash.php',
     'GET /doctor/appointment-history' => 'pages/doctor/appointment_history.php',
     'GET /doctor/feedback' => 'pages/doctor/feedback.php',
+    'POST /doctor/feedback' => 'actions/doctor_feedback.php',
     'GET /doctor/appointments' => 'pages/doctor/appointments.php',
     'GET /doctor/session-note' => 'pages/doctor/session_shared_note.php',
     'POST /doctor/session-note' => 'actions/appointment_shared_note.php',

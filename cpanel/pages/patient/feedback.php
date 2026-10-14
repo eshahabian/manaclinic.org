@@ -39,7 +39,7 @@ ob_start();
     trim((string) ($user['phone'] ?? '')),
     $doctorName
 ) ?>
-<?= session_feedback_list_html($mine, 'هنوز موردی ثبت نکرده‌اید.') ?>
+<?= session_feedback_list_html($mine, 'هنوز موردی ثبت نکرده‌اید.', '/dashboard/feedback', true) ?>
 <?php
 $GLOBALS['pageScripts'] = session_feedback_assets(false);
 render_patient_page('انتقادات و پیشنهادات', ob_get_clean());

@@ -25,7 +25,7 @@ ob_start();
 <h1>انتقادات و پیشنهادات</h1>
 <p class="muted">این فرم را خود مراجعه‌کننده یا منشی پر می‌کند. مورد ثبت‌شده برای دکتر شیوا گرانمایه‌پور و دکتر عطیه گارسچی می‌رود.</p>
 <?= session_feedback_form_html('/secretary/complaints', true, $patients, '', '', '') ?>
-<?= session_feedback_list_html($complaints, 'هنوز انتقاد یا پیشنهادی نوشته نشده است.') ?>
+<?= session_feedback_list_html($complaints, 'هنوز انتقاد یا پیشنهادی نوشته نشده است.', '/secretary/complaints', true) ?>
 <?php
 $GLOBALS['pageScripts'] = session_feedback_assets(true);
 render_secretary_page('انتقادات و پیشنهادات', ob_get_clean());

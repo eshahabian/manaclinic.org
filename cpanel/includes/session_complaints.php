@@ -25,6 +25,9 @@ function ensure_session_complaints_schema(PDO $pdo): void
         'session_at' => 'ALTER TABLE session_complaints ADD COLUMN session_at DATETIME NULL AFTER doctor_id',
         'reason' => "ALTER TABLE session_complaints ADD COLUMN reason VARCHAR(80) NOT NULL DEFAULT '' AFTER session_at",
         'kind' => "ALTER TABLE session_complaints ADD COLUMN kind VARCHAR(20) NOT NULL DEFAULT 'criticism' AFTER id",
+        'follow_result' => 'ALTER TABLE session_complaints ADD COLUMN follow_result TEXT NULL AFTER body',
+        'followed_at' => 'ALTER TABLE session_complaints ADD COLUMN followed_at DATETIME NULL AFTER follow_result',
+        'followed_by' => 'ALTER TABLE session_complaints ADD COLUMN followed_by VARCHAR(32) NULL AFTER followed_at',
     ] as $column => $sql) {
         $has = $pdo->query("SHOW COLUMNS FROM session_complaints LIKE " . $pdo->quote($column))->fetch();
         if (!$has) {
@@ -71,6 +74,16 @@ function session_complaint_reasons(): array
     ];
 }
 
+/** @return list<string> */
+function session_suggestion_reasons(): array
+{
+    return [
+        'برگزاری دوره',
+        'تغییر ساعت دوره',
+        'سایر',
+    ];
+}
+
 function session_complaint_create(
     PDO $pdo,
     string $actorId,
@@ -87,11 +100,9 @@ function session_complaint_create(
     }
     $body = trim($body);
     $reason = trim($reason);
-    if ($kind === 'criticism' && !in_array($reason, session_complaint_reasons(), true)) {
+    $allowedReasons = $kind === 'suggestion' ? session_suggestion_reasons() : session_complaint_reasons();
+    if (!in_array($reason, $allowedReasons, true)) {
         throw new RuntimeException('علت را انتخاب کنید.');
-    }
-    if ($kind === 'suggestion') {
-        $reason = in_array($reason, session_complaint_reasons(), true) ? $reason : '';
     }
     if ($body === '') {
         throw new RuntimeException('توضیحات را بنویسید.');
@@ -223,12 +234,96 @@ function session_feedback_notify_owners(PDO $pdo, string $kind, string $patientN
     }
 }
 
+function session_feedback_can_follow(array $actor, array $row): bool
+{
+    $role = (string) ($actor['role'] ?? '');
+    if ($role === 'SECRETARY' || session_feedback_can_review($actor)) {
+        return true;
+    }
+    $actorId = (string) ($actor['id'] ?? '');
+
+    return $actorId !== '' && $actorId === (string) ($row['patient_id'] ?? '');
+}
+
+function session_feedback_save_follow(PDO $pdo, array $actor, string $id, string $result): void
+{
+    ensure_session_complaints_schema($pdo);
+    if (!preg_match('/^[a-zA-Z0-9_-]{8,40}$/', $id)) {
+        throw new RuntimeException('این پیشنهاد پیدا نشد.');
+    }
+    $result = trim($result);
+    if ($result === '') {
+        throw new RuntimeException('نتیجه پیگیری را بنویسید.');
+    }
+    if (mb_strlen($result) > 4000) {
+        throw new RuntimeException('نتیجه پیگیری طولانی است.');
+    }
+    $stmt = $pdo->prepare('SELECT id, kind, patient_id FROM session_complaints WHERE id=? LIMIT 1');
+    $stmt->execute([$id]);
+    $row = $stmt->fetch();
+    if (!$row || (string) ($row['kind'] ?? '') !== 'suggestion') {
+        throw new RuntimeException('پیگیری فقط برای پیشنهاد است.');
+    }
+    if (!session_feedback_can_follow($actor, $row)) {
+        throw new RuntimeException('ثبت پیگیری برای شما مجاز نیست.');
+    }
+    $pdo->prepare('UPDATE session_complaints SET follow_result=?, followed_at=NOW(), followed_by=? WHERE id=?')
+        ->execute([$result, (string) ($actor['id'] ?? ''), $id]);
+
+    $patientId = (string) ($row['patient_id'] ?? '');
+    $patientName = '';
+    if ($patientId !== '') {
+        $nameStmt = $pdo->prepare('SELECT name FROM users WHERE id=? LIMIT 1');
+        $nameStmt->execute([$patientId]);
+        $patientName = trim((string) ($nameStmt->fetchColumn() ?: ''));
+    }
+    $who = $patientName !== '' ? $patientName : 'مراجعه‌کننده';
+    $note = 'پیگیری پیشنهاد «' . $who . '» ثبت شد: ' . $result;
+    if (function_exists('notify_user') || is_file(__DIR__ . '/notifications.php')) {
+        if (!function_exists('notify_user')) {
+            require_once __DIR__ . '/notifications.php';
+        }
+        $actorId = (string) ($actor['id'] ?? '');
+        if ($patientId !== '' && $patientId !== $actorId) {
+            notify_user($pdo, $patientId, 'پیگیری پیشنهاد', $note, '/dashboard/feedback', 'other', $actorId !== '' ? $actorId : null);
+        }
+    }
+    session_feedback_notify_follow_owners($pdo, $note, (string) ($actor['id'] ?? ''));
+}
+
+function session_feedback_notify_follow_owners(PDO $pdo, string $note, string $actorId): void
+{
+    if (!function_exists('notify_doctor_profile') && is_file(__DIR__ . '/notifications.php')) {
+        require_once __DIR__ . '/notifications.php';
+    }
+    if (!function_exists('notify_doctor_profile') || !function_exists('doctor_is_shiva')) {
+        return;
+    }
+    $rows = $pdo->query("
+      SELECT dp.id, dp.user_id, u.name, u.username
+      FROM doctor_profiles dp
+      JOIN users u ON u.id = dp.user_id
+      WHERE u.role = 'DOCTOR' AND u.is_disabled = 0
+    ")->fetchAll() ?: [];
+    foreach ($rows as $row) {
+        if ((string) ($row['user_id'] ?? '') === $actorId) {
+            continue;
+        }
+        $person = ['name' => (string) ($row['name'] ?? ''), 'username' => (string) ($row['username'] ?? ''), 'role' => 'DOCTOR'];
+        if (!doctor_is_shiva($person) && !doctor_is_garsichi($person)) {
+            continue;
+        }
+        notify_doctor_profile($pdo, (string) $row['id'], 'پیگیری پیشنهاد', $note, '/doctor/feedback', 'other');
+    }
+}
+
 /** @return list<array<string, mixed>> */
 function session_complaint_list(PDO $pdo, ?string $patientId = null): array
 {
     ensure_session_complaints_schema($pdo);
     $sql = "
       SELECT c.id, c.kind, c.body, c.reason, c.created_at, c.session_at,
+             c.patient_id, c.follow_result, c.followed_at,
              p.name AS patient_name, p.phone AS patient_phone,
              d.name AS doctor_name,
              s.name AS secretary_name
@@ -250,7 +345,7 @@ function session_complaint_list(PDO $pdo, ?string $patientId = null): array
     return $stmt->fetchAll() ?: [];
 }
 
-function session_feedback_list_html(array $rows, string $empty): string
+function session_feedback_list_html(array $rows, string $empty, string $followAction = '', bool $canFollow = false): string
 {
     ob_start();
     ?>
@@ -260,10 +355,18 @@ function session_feedback_list_html(array $rows, string $empty): string
         <p class="muted"><?= e($empty) ?></p>
       <?php else: ?>
         <?php foreach ($rows as $row): ?>
-          <?php $kindLabel = session_feedback_kinds()[(string) ($row['kind'] ?? 'criticism')] ?? 'انتقاد'; ?>
+          <?php
+            $kind = (string) ($row['kind'] ?? 'criticism');
+            $kindLabel = session_feedback_kinds()[$kind] ?? 'انتقاد';
+            $followed = trim((string) ($row['followed_at'] ?? '')) !== '';
+            $followResult = trim((string) ($row['follow_result'] ?? ''));
+          ?>
           <article class="panel" style="margin-top:.75rem">
             <strong><?= e($kindLabel) ?></strong>
             <span class="muted"> · <?= e((string) ($row['patient_name'] ?? '')) ?></span>
+            <?php if ($kind === 'suggestion' && $followed): ?>
+              <span class="muted"> · پیگیری شد</span>
+            <?php endif; ?>
             <p class="muted" style="margin:.35rem 0 0;font-size:.85rem;line-height:1.7">
               <?php if (trim((string) ($row['patient_phone'] ?? '')) !== ''): ?>
                 موبایل <?= e((string) $row['patient_phone']) ?> ·
@@ -278,6 +381,23 @@ function session_feedback_list_html(array $rows, string $empty): string
               · ثبت <?= e(format_fa_datetime((string) $row['created_at'])) ?>
             </p>
             <p style="margin:.6rem 0 0;line-height:1.8;white-space:pre-wrap"><?= e((string) ($row['body'] ?? '')) ?></p>
+            <?php if ($kind === 'suggestion'): ?>
+              <?php if ($followResult !== ''): ?>
+                <p style="margin:.7rem 0 0;line-height:1.8"><strong>نتیجه پیگیری:</strong> <?= e($followResult) ?></p>
+              <?php elseif (!$canFollow): ?>
+                <p class="muted" style="margin:.7rem 0 0">هنوز پیگیری نشده است.</p>
+              <?php endif; ?>
+              <?php if ($canFollow && $followAction !== ''): ?>
+                <form method="post" action="<?= e(url($followAction)) ?>" class="form-stack" style="margin-top:.75rem">
+                  <?= csrf_field() ?>
+                  <input type="hidden" name="action" value="follow">
+                  <input type="hidden" name="id" value="<?= e((string) ($row['id'] ?? '')) ?>">
+                  <label class="label" for="follow-<?= e((string) ($row['id'] ?? '')) ?>">نتیجه پیگیری</label>
+                  <textarea class="input" id="follow-<?= e((string) ($row['id'] ?? '')) ?>" name="follow_result" rows="3" required placeholder="نتیجه پیگیری را بنویسید"><?= e($followResult) ?></textarea>
+                  <button class="btn btn-primary" type="submit" style="justify-self:start">پیگیری شد</button>
+                </form>
+              <?php endif; ?>
+            <?php endif; ?>
           </article>
         <?php endforeach; ?>
       <?php endif; ?>
@@ -341,6 +461,7 @@ function session_feedback_form_html(string $action, bool $pickPatient, array $pa
               <option value="<?= e($reason) ?>"><?= e($reason) ?></option>
             <?php endforeach; ?>
           </select>
+          <script type="application/json" id="feedback-reason-sets"><?= json_encode(['criticism' => session_complaint_reasons(), 'suggestion' => session_suggestion_reasons()], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
         </div>
         <div>
           <label class="label" for="feedback-body">توضیحات</label>
@@ -392,16 +513,30 @@ function session_feedback_assets(bool $withPatientSearch): string
       });
       var kindInput = document.getElementById("feedback-kind");
       if (kindInput) kindInput.value = kind;
-      var reasonBox = document.getElementById("feedback-reason-box");
       var reason = document.getElementById("feedback-reason");
-      var criticism = kind === "criticism";
-      if (reasonBox) reasonBox.hidden = !criticism;
-      if (reason) {
-        reason.required = criticism;
-        reason.disabled = !criticism;
+      var setsEl = document.getElementById("feedback-reason-sets");
+      var sets = {};
+      try { sets = setsEl ? JSON.parse(setsEl.textContent || "{}") : {}; } catch (err) { sets = {}; }
+      if (reason && sets[kind]) {
+        reason.innerHTML = "";
+        var empty = document.createElement("option");
+        empty.value = "";
+        empty.textContent = "انتخاب علت";
+        reason.appendChild(empty);
+        sets[kind].forEach(function (label) {
+          var opt = document.createElement("option");
+          opt.value = label;
+          opt.textContent = label;
+          reason.appendChild(opt);
+        });
+        reason.value = "";
+        reason.required = true;
+        reason.disabled = false;
+        var visible = reason.parentNode ? reason.parentNode.querySelector(".search-select-input") : null;
+        if (visible) visible.value = "";
       }
       var submit = document.getElementById("feedback-submit");
-      if (submit) submit.textContent = criticism ? "ثبت انتقاد" : "ثبت پیشنهاد";
+      if (submit) submit.textContent = kind === "criticism" ? "ثبت انتقاد" : "ثبت پیشنهاد";
     });
   });
   var patient = document.getElementById("feedback-patient");
