@@ -423,11 +423,11 @@ ob_start();
 $inner = ob_get_clean();
 $pageHead = '<style>
 .therapist-desk-head{display:flex;justify-content:space-between;gap:1rem;align-items:flex-end;flex-wrap:wrap}
-.therapist-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(14rem,1fr));gap:.75rem;margin-top:1rem}
-.therapist-card{margin:0;display:flex;flex-direction:column;gap:.7rem}
-.therapist-card-actions{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap}
+.therapist-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(14rem,1fr));gap:.75rem;margin-top:1rem;align-items:stretch}
+.therapist-card{margin:0;height:100%;display:flex;flex-direction:column;gap:.7rem}
+.therapist-card-actions{display:flex;gap:.4rem;align-items:center;flex-wrap:wrap;margin-top:auto;padding-top:.35rem}
 .therapist-card-actions form{margin:0}
-.therapist-card-hit{display:flex;flex-direction:column;gap:.2rem;color:inherit;text-decoration:none}
+.therapist-card-hit{display:flex;flex-direction:column;gap:.2rem;color:inherit;text-decoration:none;flex:1 1 auto}
 .therapist-card-hit span,.therapist-card-hit em{font-style:normal;color:var(--muted);font-size:.85rem}
 .therapist-card-hours{display:flex;flex-direction:column;gap:.12rem;margin:.35rem 0 0;padding:0;list-style:none}
 .therapist-card-hours li{color:var(--fg);font-size:.8rem;line-height:1.6}
