@@ -7,14 +7,7 @@ $user = require_login(['PATIENT']);
 csrf_verify();
 
 if (post('action') === 'follow') {
-    try {
-        session_feedback_save_follow($pdo, $user, trim((string) post('id')), (string) post('follow_result'));
-        flash_set('success', 'پیگیری پیشنهاد ثبت شد.');
-    } catch (RuntimeException $e) {
-        flash_set('error', $e->getMessage());
-    } catch (Throwable $e) {
-        flash_set('error', 'ثبت پیگیری انجام نشد.');
-    }
+    flash_set('error', 'پیگیری فقط با منشی، دکتر شیوا گرانمایه‌پور یا دکتر عطیه گارسچی ثبت می‌شود.');
     redirect('/dashboard/feedback');
 }
 

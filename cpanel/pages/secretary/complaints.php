@@ -15,7 +15,7 @@ try {
     $patients = [];
 }
 try {
-    $complaints = session_complaint_list($pdo);
+    $complaints = session_complaint_list($pdo, null, current_user());
 } catch (Throwable $e) {
     $complaints = [];
 }

@@ -28,6 +28,7 @@ function ensure_session_complaints_schema(PDO $pdo): void
         'follow_result' => 'ALTER TABLE session_complaints ADD COLUMN follow_result TEXT NULL AFTER body',
         'followed_at' => 'ALTER TABLE session_complaints ADD COLUMN followed_at DATETIME NULL AFTER follow_result',
         'followed_by' => 'ALTER TABLE session_complaints ADD COLUMN followed_by VARCHAR(32) NULL AFTER followed_at',
+        'seen_at' => 'ALTER TABLE session_complaints ADD COLUMN seen_at DATETIME NULL AFTER followed_by',
     ] as $column => $sql) {
         $has = $pdo->query("SHOW COLUMNS FROM session_complaints LIKE " . $pdo->quote($column))->fetch();
         if (!$has) {
@@ -234,15 +235,31 @@ function session_feedback_notify_owners(PDO $pdo, string $kind, string $patientN
     }
 }
 
+function session_feedback_can_manage(?array $user): bool
+{
+    if (!$user) {
+        return false;
+    }
+
+    return (string) ($user['role'] ?? '') === 'SECRETARY' || session_feedback_can_review($user);
+}
+
 function session_feedback_can_follow(array $actor, array $row): bool
 {
-    $role = (string) ($actor['role'] ?? '');
-    if ($role === 'SECRETARY' || $role === 'ADMIN' || session_feedback_can_review($actor)) {
-        return true;
-    }
-    $actorId = (string) ($actor['id'] ?? '');
+    return session_feedback_can_manage($actor);
+}
 
-    return $actorId !== '' && $actorId === (string) ($row['patient_id'] ?? '');
+function session_feedback_status_label(array $row): string
+{
+    $followed = trim((string) ($row['followed_at'] ?? '')) !== '' || trim((string) ($row['follow_result'] ?? '')) !== '';
+    if ($followed) {
+        return 'پیگیری شد';
+    }
+    if (trim((string) ($row['seen_at'] ?? '')) !== '') {
+        return 'دیده شده · در حال پیگیری';
+    }
+
+    return 'هنوز دیده نشده';
 }
 
 function session_feedback_save_follow(PDO $pdo, array $actor, string $id, string $result): void
@@ -319,12 +336,15 @@ function session_feedback_notify_follow_owners(PDO $pdo, string $note, string $a
 }
 
 /** @return list<array<string, mixed>> */
-function session_complaint_list(PDO $pdo, ?string $patientId = null): array
+function session_complaint_list(PDO $pdo, ?string $patientId = null, ?array $viewer = null): array
 {
     ensure_session_complaints_schema($pdo);
+    if ($viewer && session_feedback_can_manage($viewer)) {
+        $pdo->exec('UPDATE session_complaints SET seen_at = NOW() WHERE seen_at IS NULL');
+    }
     $sql = "
       SELECT c.id, c.kind, c.body, c.reason, c.created_at, c.session_at,
-             c.patient_id, c.follow_result, c.followed_at,
+             c.patient_id, c.follow_result, c.followed_at, c.seen_at,
              p.name AS patient_name, p.phone AS patient_phone,
              d.name AS doctor_name,
              s.name AS secretary_name
@@ -360,12 +380,11 @@ function session_feedback_list_html(array $rows, string $empty, string $followAc
             $kind = (string) ($row['kind'] ?? 'criticism');
             $kindLabel = session_feedback_kinds()[$kind] ?? 'انتقاد';
             $followResult = trim((string) ($row['follow_result'] ?? ''));
-            $followed = trim((string) ($row['followed_at'] ?? '')) !== '' || $followResult !== '';
           ?>
           <article class="panel" style="margin-top:.75rem">
             <strong><?= e($kindLabel) ?></strong>
             <span class="muted"> · <?= e((string) ($row['patient_name'] ?? '')) ?></span>
-            <span class="muted"> · <?= $followed ? 'پیگیری شد' : 'در حال پیگیری' ?></span>
+            <span class="muted"> · <?= e(session_feedback_status_label($row)) ?></span>
             <p class="muted" style="margin:.35rem 0 0;font-size:.85rem;line-height:1.7">
               <?php if (trim((string) ($row['patient_phone'] ?? '')) !== ''): ?>
                 موبایل <?= e((string) $row['patient_phone']) ?> ·

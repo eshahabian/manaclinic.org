@@ -12,7 +12,7 @@ if (!session_feedback_can_review($user)) {
 
 $rows = [];
 try {
-    $rows = session_complaint_list($pdo);
+    $rows = session_complaint_list($pdo, null, $user);
 } catch (Throwable $e) {
     $rows = [];
 }

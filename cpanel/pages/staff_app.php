@@ -2004,7 +2004,7 @@ require_once __DIR__ . '/../includes/session_complaints.php';
 $complaints = [];
 $patients = [];
 try {
-    $complaints = session_complaint_list($pdo);
+    $complaints = session_complaint_list($pdo, null, $user);
 } catch (Throwable $e) {
     $complaints = [];
 }
@@ -2023,7 +2023,7 @@ ob_start();
 <?php if ($role === 'SECRETARY'): ?>
   <?= session_feedback_form_html('/app/complaints', true, $patients, '', '', '') ?>
 <?php endif; ?>
-<?= session_feedback_list_html($complaints, 'هنوز انتقاد یا پیشنهادی ثبت نشده است.', '/app/complaints', $role === 'SECRETARY' || $role === 'ADMIN' || session_feedback_can_review($user)) ?>
+<?= session_feedback_list_html($complaints, 'هنوز انتقاد یا پیشنهادی ثبت نشده است.', '/app/complaints', session_feedback_can_manage($user)) ?>
 <?php
 if ($role === 'SECRETARY') {
     $GLOBALS['pageScripts'] = session_feedback_assets(true);
