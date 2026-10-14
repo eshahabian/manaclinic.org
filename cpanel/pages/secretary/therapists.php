@@ -8,6 +8,47 @@ require_once __DIR__ . '/../../includes/collaboration.php';
 require_once __DIR__ . '/../../includes/therapist_weekday_panel.php';
 require_once __DIR__ . '/../../includes/availability.php';
 
+if (!function_exists('secretary_therapist_presence_span')) {
+    /** بازهٔ نمایشی از ساعت‌های ذخیره‌شده. پایان، ساعت بعد از آخرین ساعت کامل است. */
+    function secretary_therapist_presence_span(array $hours): string
+    {
+        $picked = [];
+        foreach ($hours as $hour) {
+            $hour = (int) $hour;
+            if ($hour >= 0 && $hour <= 23) {
+                $picked[$hour] = $hour;
+            }
+        }
+        if ($picked === []) {
+            return '';
+        }
+        $picked = array_values($picked);
+        sort($picked);
+        $parts = [];
+        $start = $picked[0];
+        $prev = $picked[0];
+        $count = count($picked);
+        for ($i = 1; $i <= $count; $i++) {
+            $hour = $i < $count ? $picked[$i] : null;
+            if ($hour !== null && $hour === $prev + 1) {
+                $prev = $hour;
+                continue;
+            }
+            $from = sprintf('%02d:00', $start);
+            $endHour = $prev + 1;
+            $to = $endHour >= 24 ? '24:00' : sprintf('%02d:00', $endHour);
+            $parts[] = to_fa_digits($from) . ' تا ' . to_fa_digits($to);
+            if ($hour === null) {
+                break;
+            }
+            $start = $hour;
+            $prev = $hour;
+        }
+
+        return implode('، ', $parts);
+    }
+}
+
 $user = require_login(['SECRETARY', 'DOCTOR', 'ADMIN']);
 if (!clinic_can_add_therapist($user)) {
     flash_set('error', 'این بخش فقط برای منشی‌ها، شیوا گرانمایه‌پور، عطیه گارسچی و عماد شهابیان است.');
@@ -22,6 +63,74 @@ $rows = $pdo->query("
   WHERE u.role = 'DOCTOR'
   ORDER BY u.name ASC
 ")->fetchAll() ?: [];
+$presenceByProfile = [];
+$presenceProfileIds = [];
+foreach ($rows as $presenceRow) {
+    $presenceProfileId = trim((string) ($presenceRow['profile_id'] ?? ''));
+    if ($presenceProfileId !== '') {
+        $presenceProfileIds[$presenceProfileId] = $presenceProfileId;
+    }
+}
+if ($presenceProfileIds !== []) {
+    ensure_doctor_weekly_hours_schema($pdo);
+    $presenceMarks = implode(',', array_fill(0, count($presenceProfileIds), '?'));
+    $presenceStmt = $pdo->prepare('SELECT doctor_id, weekday, available_hours FROM doctor_weekly_hours WHERE doctor_id IN (' . $presenceMarks . ')');
+    $presenceStmt->execute(array_values($presenceProfileIds));
+    $presenceWeekdays = doctor_weekdays_sat_first();
+    $presenceGrouped = [];
+    foreach ($presenceStmt->fetchAll() ?: [] as $presenceHourRow) {
+        $presenceDoctorId = (string) ($presenceHourRow['doctor_id'] ?? '');
+        $presenceWeekday = (int) ($presenceHourRow['weekday'] ?? -1);
+        if ($presenceDoctorId === '' || !isset($presenceWeekdays[$presenceWeekday])) {
+            continue;
+        }
+        $presenceSpan = secretary_therapist_presence_span(appointment_hours_decode((string) ($presenceHourRow['available_hours'] ?? '')));
+        if ($presenceSpan === '') {
+            continue;
+        }
+        $presenceGrouped[$presenceDoctorId][$presenceWeekday] = $presenceSpan;
+    }
+    foreach ($presenceGrouped as $presenceDoctorId => $presenceByDay) {
+        ksort($presenceByDay);
+        $presenceLines = [];
+        $presenceRunDays = [];
+        $presenceRunSpan = '';
+        $presencePush = static function () use (&$presenceLines, &$presenceRunDays, &$presenceRunSpan, $presenceWeekdays): void {
+            if ($presenceRunDays === [] || $presenceRunSpan === '') {
+                $presenceRunDays = [];
+                $presenceRunSpan = '';
+                return;
+            }
+            $presenceFirst = (string) ($presenceWeekdays[$presenceRunDays[0]] ?? '');
+            $presenceLast = (string) ($presenceWeekdays[$presenceRunDays[count($presenceRunDays) - 1]] ?? '');
+            if ($presenceFirst === '') {
+                $presenceRunDays = [];
+                $presenceRunSpan = '';
+                return;
+            }
+            $presenceDayLabel = count($presenceRunDays) > 1 && $presenceLast !== ''
+                ? $presenceFirst . ' تا ' . $presenceLast
+                : $presenceFirst;
+            $presenceLines[] = $presenceDayLabel . ' ' . $presenceRunSpan;
+            $presenceRunDays = [];
+            $presenceRunSpan = '';
+        };
+        foreach ($presenceByDay as $presenceWeekday => $presenceSpan) {
+            $presencePrev = $presenceRunDays === [] ? null : $presenceRunDays[count($presenceRunDays) - 1];
+            if ($presenceRunSpan !== '' && $presenceSpan === $presenceRunSpan && $presencePrev !== null && (int) $presenceWeekday === (int) $presencePrev + 1) {
+                $presenceRunDays[] = (int) $presenceWeekday;
+                continue;
+            }
+            $presencePush();
+            $presenceRunDays = [(int) $presenceWeekday];
+            $presenceRunSpan = $presenceSpan;
+        }
+        $presencePush();
+        if ($presenceLines !== []) {
+            $presenceByProfile[$presenceDoctorId] = $presenceLines;
+        }
+    }
+}
 $requests = collaboration_requests($pdo);
 $openId = trim((string) ($_GET['open'] ?? ''));
 $showAdd = isset($_GET['add']) && (string) $_GET['add'] === '1';
@@ -113,6 +222,14 @@ ob_start();
         <a class="therapist-card-hit" href="<?= e(url('/secretary/therapists?open=' . rawurlencode($profileId))) ?>">
           <strong><?= e((string) $row['name']) ?></strong>
           <span><?= e(trim((string) ($row['specialty'] ?? '')) !== '' ? (string) $row['specialty'] : 'بدون تخصص') ?></span>
+          <?php $presenceLines = $presenceByProfile[$profileId] ?? []; ?>
+          <?php if ($presenceLines): ?>
+            <ul class="therapist-card-hours">
+              <?php foreach ($presenceLines as $presenceLine): ?>
+                <li><?= e($presenceLine) ?></li>
+              <?php endforeach; ?>
+            </ul>
+          <?php endif; ?>
           <em><?= $on ? 'فعال' : 'غیرفعال' ?></em>
         </a>
       <?php else: ?>
@@ -235,27 +352,6 @@ ob_start();
             <input class="input" name="session_price" type="text" dir="ltr" inputmode="numeric" autocomplete="off" placeholder="مبلغ را بنویسید" data-money value="<?= e($formValue('session_price')) ?>">
           </label>
         </div>
-        <div>
-          <span class="label">رویکرد درمانی</span>
-          <?= doctor_chip_picker_html('approaches', doctor_approach_options(), $selectedApproaches) ?>
-        </div>
-        <div>
-          <span class="label">حوزه درمان</span>
-          <?= doctor_chip_picker_html('domains', doctor_domain_options(), $selectedDomains) ?>
-        </div>
-        <div>
-          <span class="label">زمینه تخصصی</span>
-          <?= doctor_chip_picker_html('focus', doctor_focus_options(), $selectedFocus) ?>
-        </div>
-        <label><span class="label">دوره‌های تخصصی، هر دوره یک خط</span><textarea class="input" name="courses" rows="4"><?= e($formValue('courses')) ?></textarea></label>
-        <label><span class="label">درباره درمانگر</span><textarea class="input" name="bio" rows="4"><?= e($formValue('bio')) ?></textarea></label>
-        <label>
-          <span class="label">عکس پروفایل</span>
-          <input class="input" type="file" name="avatar" accept="image/jpeg,image/png,image/webp">
-          <?php if ($hasAvatar): ?>
-            <span class="muted" style="display:block;margin-top:.35rem;font-size:.82rem">عکس فعلی می‌ماند، مگر عکس جدید انتخاب کنید.</span>
-          <?php endif; ?>
-        </label>
         <?php
           $presenceSlots = [];
           for ($presenceHour = 11; $presenceHour <= 17; $presenceHour++) {
@@ -297,6 +393,27 @@ ob_start();
             </label>
           </div>
         </div>
+        <div>
+          <span class="label">رویکرد درمانی</span>
+          <?= doctor_chip_picker_html('approaches', doctor_approach_options(), $selectedApproaches) ?>
+        </div>
+        <div>
+          <span class="label">حوزه درمان</span>
+          <?= doctor_chip_picker_html('domains', doctor_domain_options(), $selectedDomains) ?>
+        </div>
+        <div>
+          <span class="label">زمینه تخصصی</span>
+          <?= doctor_chip_picker_html('focus', doctor_focus_options(), $selectedFocus) ?>
+        </div>
+        <label><span class="label">دوره‌های تخصصی، هر دوره یک خط</span><textarea class="input" name="courses" rows="4"><?= e($formValue('courses')) ?></textarea></label>
+        <label><span class="label">درباره درمانگر</span><textarea class="input" name="bio" rows="4"><?= e($formValue('bio')) ?></textarea></label>
+        <label>
+          <span class="label">عکس پروفایل</span>
+          <input class="input" type="file" name="avatar" accept="image/jpeg,image/png,image/webp">
+          <?php if ($hasAvatar): ?>
+            <span class="muted" style="display:block;margin-top:.35rem;font-size:.82rem">عکس فعلی می‌ماند، مگر عکس جدید انتخاب کنید.</span>
+          <?php endif; ?>
+        </label>
         <button class="btn btn-primary" type="submit"><?= $isEdit ? 'ذخیره تغییرات' : 'ساخت حساب درمانگر' ?></button>
       </form>
     </div>
@@ -312,6 +429,8 @@ $pageHead = '<style>
 .therapist-card-actions form{margin:0}
 .therapist-card-hit{display:flex;flex-direction:column;gap:.2rem;color:inherit;text-decoration:none}
 .therapist-card-hit span,.therapist-card-hit em{font-style:normal;color:var(--muted);font-size:.85rem}
+.therapist-card-hours{display:flex;flex-direction:column;gap:.12rem;margin:.35rem 0 0;padding:0;list-style:none}
+.therapist-card-hours li{color:var(--fg);font-size:.8rem;line-height:1.6}
 .therapist-shadow{position:fixed;inset:0;z-index:80;background:rgba(16,24,22,.55)}
 .therapist-shadow-backdrop{position:absolute;inset:0}
 .therapist-shadow-card{position:relative;z-index:1;width:min(46rem,calc(100% - 2rem));max-height:min(86vh,48rem);overflow:auto;margin:6vh auto 0;background:#fff;border-radius:1.1rem;box-shadow:0 24px 64px rgba(0,0,0,.28);padding:1.2rem 1.3rem 1.4rem}

@@ -270,14 +270,17 @@ if (post('action') === 'create') {
         $completed,
         $profile['id'],
     ]);
+    $presenceNote = '';
     try {
         secretary_therapist_apply_presence($pdo, (string) ($profile['id'] ?? ''));
     } catch (Throwable $ignored) {
+        $presenceNote = ' ساعات حضور ذخیره نشد؛ روزها و بازه را دوباره انتخاب کنید.';
     }
     $success = 'درمانگر «' . $name . '» ساخته شد. نام کاربری: ' . $username;
     if ($generatedPassword) {
         $success .= ' رمز عبور خالی بود و یک رمز موقت ساخته شد: ' . $password;
     }
+    $success .= $presenceNote;
     flash_set('success', $success);
     redirect('/secretary/therapists?open=' . rawurlencode((string) $profile['id']));
 }
@@ -437,11 +440,13 @@ if (post('action') === 'update') {
         $completed,
         $profile['id'],
     ]);
+    $presenceNote = '';
     try {
         secretary_therapist_apply_presence($pdo, (string) ($profile['id'] ?? ''));
     } catch (Throwable $ignored) {
+        $presenceNote = ' ساعات حضور ذخیره نشد؛ روزها و بازه را دوباره انتخاب کنید.';
     }
-    flash_set('success', 'اطلاعات «' . $name . '» ذخیره شد.');
+    flash_set('success', 'اطلاعات «' . $name . '» ذخیره شد.' . $presenceNote);
     redirect('/secretary/therapists');
 }
 

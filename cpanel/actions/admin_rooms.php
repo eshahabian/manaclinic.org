@@ -4,6 +4,37 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/admin_panel.php';
 require_once __DIR__ . '/../includes/clinic_rooms.php';
 
+function admin_rooms_return_path(string $day, int $room = 0): string
+{
+    $params = [];
+    foreach (clinic_rooms_numbers() as $n) {
+        $raw = trim((string) ($_GET['d' . $n] ?? ''));
+        if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $raw)) {
+            $params['d' . $n] = $raw;
+        }
+    }
+    if ($room > 0 && preg_match('/^\d{4}-\d{2}-\d{2}$/', $day)) {
+        $params['d' . $room] = $day;
+    } elseif ($params === [] && preg_match('/^\d{4}-\d{2}-\d{2}$/', $day)) {
+        $params['day'] = $day;
+    }
+    $out = trim((string) ($_GET['out'] ?? ''));
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $out)) {
+        $params['out'] = $out;
+    }
+    $reportRoom = (int) ($_GET['room'] ?? 0);
+    if (in_array($reportRoom, clinic_rooms_numbers(), true)) {
+        $params['room'] = (string) $reportRoom;
+    }
+    $qs = http_build_query($params);
+    $path = '/admin/rooms' . ($qs !== '' ? '?' . $qs : '');
+    if ($room > 0) {
+        $path .= '#room-' . $room;
+    }
+
+    return $path;
+}
+
 $user = clinic_rooms_require_user();
 csrf_verify();
 
@@ -16,7 +47,7 @@ try {
             ? clinic_rooms_release_series($pdo, post('booking_id'))
             : clinic_rooms_release($pdo, post('booking_id'));
         flash_set('success', $action === 'release_series' ? 'این رزرو و هفته‌های بعدیِ تکرار آزاد شد.' : 'ساعت اتاق آزاد شد.');
-        redirect('/admin/rooms?day=' . rawurlencode($day));
+        redirect(admin_rooms_return_path($day));
     }
     if ($action === 'update') {
         $saved = clinic_rooms_update(
@@ -39,9 +70,13 @@ try {
             ? 'ویرایش روی ' . to_fa_digits((string) $count) . ' هفتهٔ این تکرار ذخیره شد.'
             : 'رزرو ویرایش شد.';
         flash_set('success', $msg);
-        redirect('/admin/rooms?day=' . rawurlencode((string) $saved['day']) . '#room-' . (int) $saved['room']);
+        redirect(admin_rooms_return_path((string) $saved['day'], (int) $saved['room']));
     }
     if ($action === 'assign') {
+        $pickedDay = trim((string) post('booking_day'));
+        if ($pickedDay !== '') {
+            $day = clinic_rooms_resolve_day($pickedDay, $day);
+        }
         $repeatOn = post('repeat_weekly') === '1';
         $repeatWeeks = $repeatOn ? (int) post('repeat_weeks') : 1;
         if ($repeatOn && $repeatWeeks < 2) {
@@ -68,11 +103,11 @@ try {
             $msg = clinic_room_label((int) $saved['room']) . ' برای ' . to_fa_digits((string) $weeks) . ' هفتهٔ پشت‌سرهم رزرو شد.';
         }
         flash_set('success', $msg);
-        redirect('/admin/rooms?day=' . rawurlencode((string) $saved['day']) . '#room-' . (int) $saved['room']);
+        redirect(admin_rooms_return_path((string) $saved['day'], (int) $saved['room']));
     }
     flash_set('error', 'درخواست نامعتبر است.');
 } catch (Throwable $e) {
     flash_set('error', $e->getMessage());
 }
 
-redirect('/admin/rooms?day=' . rawurlencode($day));
+redirect(admin_rooms_return_path($day, (int) post('room_no')));

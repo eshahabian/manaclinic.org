@@ -7,21 +7,46 @@ require_once __DIR__ . '/../../includes/clinic_rooms.php';
 clinic_rooms_require_user();
 
 $day = clinic_rooms_parse_day((string) ($_GET['day'] ?? ''));
-$week = clinic_rooms_week_days($day);
-[$roomGy, $roomGm, $roomGd] = array_map('intval', explode('-', $day));
-[$roomJy, $roomJm, $roomJd] = gregorian_to_jalali($roomGy, $roomGm, $roomGd);
-$roomJalali = sprintf('%04d/%02d/%02d', $roomJy, $roomJm, $roomJd);
-$dayStart = $day . ' 00:00:00';
-$dayEnd = date('Y-m-d H:i:s', strtotime($day . ' +1 day') ?: time());
-$dayBookings = clinic_rooms_between($pdo, $dayStart, $dayEnd);
+$roomDays = [];
+$roomMeta = [];
+foreach (clinic_rooms_numbers() as $roomNo) {
+    $rawDay = trim((string) ($_GET['d' . $roomNo] ?? ''));
+    $roomDay = $rawDay !== '' ? clinic_rooms_parse_day($rawDay) : $day;
+    $roomDays[$roomNo] = $roomDay;
+    $parts = jalali_day_parts($roomDay . ' 12:00:00') ?: ['label' => $roomDay];
+    $weekday = '';
+    foreach (clinic_rooms_week_days($roomDay) as $item) {
+        if (($item['date'] ?? '') === $roomDay) {
+            $weekday = (string) ($item['weekday'] ?? '');
+            break;
+        }
+    }
+    [$roomGy, $roomGm, $roomGd] = array_map('intval', explode('-', $roomDay));
+    [$roomJy, $roomJm, $roomJd] = gregorian_to_jalali($roomGy, $roomGm, $roomGd);
+    $roomMeta[$roomNo] = [
+        'day' => $roomDay,
+        'jalali' => sprintf('%04d/%02d/%02d', $roomJy, $roomJm, $roomJd),
+        'weekday' => $weekday,
+        'label' => (string) ($parts['label'] ?? $roomDay),
+    ];
+}
 $byRoom = [];
 foreach (clinic_rooms_numbers() as $roomNo) {
     $byRoom[$roomNo] = [];
 }
-foreach ($dayBookings as $row) {
-    $roomNo = (int) ($row['room_no'] ?? 0);
-    if (isset($byRoom[$roomNo])) {
-        $byRoom[$roomNo][] = $row;
+$bookingsByDay = [];
+foreach ($roomDays as $roomNo => $roomDay) {
+    if (!isset($bookingsByDay[$roomDay])) {
+        $bookingsByDay[$roomDay] = clinic_rooms_between(
+            $pdo,
+            $roomDay . ' 00:00:00',
+            date('Y-m-d H:i:s', strtotime($roomDay . ' +1 day') ?: time())
+        );
+    }
+    foreach ($bookingsByDay[$roomDay] as $row) {
+        if ((int) ($row['room_no'] ?? 0) === (int) $roomNo) {
+            $byRoom[$roomNo][] = $row;
+        }
     }
 }
 $assignments = clinic_rooms_active_assignments($pdo);
@@ -67,40 +92,27 @@ foreach (clinic_rooms_on_day($pdo, $outDay) as $row) {
     }
 }
 
-$dayParts = jalali_day_parts($day . ' 12:00:00') ?: ['label' => $day];
-$weekdayName = '';
-foreach ($week as $item) {
-    if ($item['date'] === $day) {
-        $weekdayName = (string) $item['weekday'];
-    }
+$roomsQuery = [];
+foreach ($roomDays as $roomNo => $roomDay) {
+    $roomsQuery['d' . (int) $roomNo] = $roomDay;
 }
+if (array_key_exists('out', $_GET)) {
+    $roomsQuery['out'] = $outDay;
+}
+if (array_key_exists('room', $_GET) && in_array($outRoom, clinic_rooms_numbers(), true)) {
+    $roomsQuery['room'] = $outRoom;
+}
+$roomsAction = url('/admin/rooms') . '?' . http_build_query($roomsQuery);
 
 ob_start();
 ?>
 <div class="stack room-desk">
   <div>
     <h1>اتاق‌های کلینیک</h1>
-    <p class="muted" style="margin:.35rem 0 0">روی هر اتاق ساعت را بنویسید یا از فهرست انتخاب کنید. بعد نوع جلسه را مشخص کنید و برای همان شخص یا کارگاه رزرو کنید. ساعت از قبل پر نمی‌شود.</p>
+    <p class="muted" style="margin:.35rem 0 0">هر اتاق تاریخ رزرو خودش را داخل همان باکس دارد. ساعت را بنویسید یا از فهرست انتخاب کنید، بعد نوع جلسه را مشخص کنید. ساعت از قبل پر نمی‌شود.</p>
   </div>
 
-  <section class="panel room-date">
-    <label class="label" for="room-day-view">تاریخ رزرو</label>
-    <input
-      class="input"
-      type="text"
-      id="room-day-view"
-      data-jdp
-      data-jdp-only-date
-      readonly
-      autocomplete="off"
-      placeholder="کلیک کنید تا تقویم باز شود"
-      style="cursor:pointer;max-width:18rem"
-      value="<?= e($roomJalali) ?>"
-    >
-    <p class="muted" style="margin:.55rem 0 0;font-size:.9rem">روز انتخاب‌شده: <?= e($weekdayName !== '' ? $weekdayName . ' ' : '') ?><?= e((string) ($dayParts['label'] ?? $day)) ?></p>
-  </section>
-
-  <datalist id="room-clock-options">
+  <datalist id="room-clock-options" hidden>
     <?php foreach ($clockChoices as $clock): ?>
       <option value="<?= e($clock) ?>"></option>
     <?php endforeach; ?>
@@ -108,23 +120,44 @@ ob_start();
 
   <div class="grid-3 room-grid">
     <?php foreach (clinic_rooms_numbers() as $roomNo): ?>
-      <?php $rows = $byRoom[$roomNo]; ?>
+      <?php
+        $rows = $byRoom[$roomNo];
+        $meta = $roomMeta[$roomNo];
+        $roomWeekday = (string) ($meta['weekday'] ?? '');
+      ?>
       <section class="panel room-col room-col-<?= (int) $roomNo ?>" id="room-<?= (int) $roomNo ?>">
         <h2><?= e(clinic_room_label($roomNo)) ?></h2>
-        <p class="muted" style="margin:0 0 .75rem;font-size:.85rem"><?= $rows ? e(to_fa_digits((string) count($rows))) . ' رزرو در این روز' : 'در این روز هنوز رزروی نیست' ?></p>
 
-        <form class="room-book" method="post" action="<?= e(url('/admin/rooms')) ?>" data-room-book>
+        <form class="room-book" method="post" action="<?= e($roomsAction) ?>" data-room-book>
           <?= csrf_field() ?>
           <input type="hidden" name="action" value="assign">
-          <input type="hidden" name="day" value="<?= e($day) ?>">
+          <input type="hidden" name="day" value="<?= e((string) $meta['day']) ?>" data-room-day-value="<?= (int) $roomNo ?>">
           <input type="hidden" name="room_no" value="<?= (int) $roomNo ?>">
           <label>
+            <span class="label" for="room-day-<?= (int) $roomNo ?>">تاریخ رزرو</span>
+            <input
+              class="input"
+              type="text"
+              id="room-day-<?= (int) $roomNo ?>"
+              name="booking_day"
+              data-jdp
+              data-jdp-only-date
+              data-room-day="<?= (int) $roomNo ?>"
+              readonly
+              autocomplete="off"
+              placeholder="کلیک کنید تا تقویم باز شود"
+              style="cursor:pointer;max-width:18rem"
+              value="<?= e((string) $meta['jalali']) ?>"
+            >
+          </label>
+          <p class="muted" style="margin:0;font-size:.85rem"><?= e(trim($roomWeekday . ' ' . (string) ($meta['label'] ?? ''))) ?> — <?= $rows ? e(to_fa_digits((string) count($rows))) . ' رزرو در این روز' : 'در این روز هنوز رزروی نیست' ?></p>
+          <label>
             <span class="label">از ساعت</span>
-            <input class="input" name="start_time" data-clock list="room-clock-options" inputmode="numeric" autocomplete="off" placeholder="بنویسید یا انتخاب کنید" required>
+            <input class="input" name="start_time" data-clock inputmode="numeric" autocomplete="off" placeholder="بنویسید یا انتخاب کنید" required>
           </label>
           <label>
             <span class="label">تا ساعت</span>
-            <input class="input" name="end_time" data-clock list="room-clock-options" inputmode="numeric" autocomplete="off" placeholder="بنویسید یا انتخاب کنید" required>
+            <input class="input" name="end_time" data-clock inputmode="numeric" autocomplete="off" placeholder="بنویسید یا انتخاب کنید" required>
           </label>
           <label>
             <span class="label">این ساعت برای چیست؟</span>
@@ -179,7 +212,7 @@ ob_start();
           </div>
           <label class="room-repeat">
             <input type="checkbox" name="repeat_weekly" value="1" data-repeat>
-            <span>تکرار هر هفته، همین روز (<?= e($weekdayName !== '' ? $weekdayName : 'این روز') ?>)</span>
+            <span>تکرار هر هفته، همین روز (<?= e($roomWeekday !== '' ? $roomWeekday : 'این روز') ?>)</span>
           </label>
           <div data-repeat-fields hidden>
             <label>
@@ -222,11 +255,11 @@ ob_start();
                   ?>
                   <details class="room-edit">
                     <summary class="btn btn-outline btn-sm">ویرایش</summary>
-                    <form class="room-book" method="post" action="<?= e(url('/admin/rooms')) ?>" data-room-book>
+                    <form class="room-book" method="post" action="<?= e($roomsAction) ?>" data-room-book>
                       <?= csrf_field() ?>
                       <input type="hidden" name="action" value="update">
                       <input type="hidden" name="booking_id" value="<?= e((string) $row['id']) ?>">
-                      <input type="hidden" name="day" value="<?= e($day) ?>">
+                      <input type="hidden" name="day" value="<?= e((string) $meta['day']) ?>">
                       <label>
                         <span class="label">اتاق</span>
                         <select class="input" name="room_no">
@@ -242,11 +275,11 @@ ob_start();
                       <div class="room-form-grid">
                         <label>
                           <span class="label">از ساعت</span>
-                          <input class="input" name="start_time" value="<?= e($editStart) ?>" data-clock list="room-clock-options" inputmode="numeric" autocomplete="off" required>
+                          <input class="input" name="start_time" value="<?= e($editStart) ?>" data-clock inputmode="numeric" autocomplete="off" required>
                         </label>
                         <label>
                           <span class="label">تا ساعت</span>
-                          <input class="input" name="end_time" value="<?= e($editEnd) ?>" data-clock list="room-clock-options" inputmode="numeric" autocomplete="off" required>
+                          <input class="input" name="end_time" value="<?= e($editEnd) ?>" data-clock inputmode="numeric" autocomplete="off" required>
                         </label>
                       </div>
                       <label>
@@ -307,19 +340,19 @@ ob_start();
                       <button type="submit" class="btn btn-primary btn-sm">ذخیره ویرایش</button>
                     </form>
                   </details>
-                  <form method="post" action="<?= e(url('/admin/rooms')) ?>">
+                  <form method="post" action="<?= e($roomsAction) ?>">
                     <?= csrf_field() ?>
                     <input type="hidden" name="action" value="release">
                     <input type="hidden" name="booking_id" value="<?= e((string) $row['id']) ?>">
-                    <input type="hidden" name="day" value="<?= e($day) ?>">
+                    <input type="hidden" name="day" value="<?= e((string) $meta['day']) ?>">
                     <button type="submit" class="btn btn-outline btn-sm" onclick="return confirm('این رزرو لغو و ساعت آزاد شود؟');">آزاد کردن</button>
                   </form>
                   <?php if (trim((string) ($row['series_id'] ?? '')) !== ''): ?>
-                    <form method="post" action="<?= e(url('/admin/rooms')) ?>">
+                    <form method="post" action="<?= e($roomsAction) ?>">
                       <?= csrf_field() ?>
                       <input type="hidden" name="action" value="release_series">
                       <input type="hidden" name="booking_id" value="<?= e((string) $row['id']) ?>">
-                      <input type="hidden" name="day" value="<?= e($day) ?>">
+                      <input type="hidden" name="day" value="<?= e((string) $meta['day']) ?>">
                       <button type="submit" class="btn btn-outline btn-sm" onclick="return confirm('این هفته و هفته‌های بعدیِ همین تکرار آزاد شود؟');">آزاد کردن تکرار</button>
                     </form>
                   <?php endif; ?>
@@ -390,13 +423,12 @@ ob_start();
 <script>
 (function () {
   var roomBase = <?= json_encode(url('/admin/rooms'), JSON_UNESCAPED_UNICODE) ?>;
-  var currentDay = <?= json_encode($day) ?>;
+  var todayKey = <?= json_encode(date('Y-m-d')) ?>;
   function faToEn(str){
     return String(str || "").replace(/[۰-۹]/g, function (d) { return String("۰۱۲۳۴۵۶۷۸۹".indexOf(d)); });
   }
   function pad(n){ return (n < 10 ? "0" : "") + n; }
-  var dayView = document.getElementById("room-day-view");
-  if (dayView && typeof jalaliDatepicker !== "undefined") {
+  if (typeof jalaliDatepicker !== "undefined") {
     jalaliDatepicker.startWatch({
       selector: "[data-jdp]",
       time: false,
@@ -443,21 +475,31 @@ ob_start();
         history.replaceState(null, "", roomBase + "?" + params.toString());
       });
     });
-    dayView.addEventListener("jdp:change", function () {
-      var t = faToEn(dayView.value).replace(/-/g, "/").trim();
-      if (t === "") {
-        if (currentDay !== <?= json_encode(date('Y-m-d')) ?>) {
-          window.location.href = roomBase;
+    document.querySelectorAll("[data-room-day]").forEach(function (input) {
+      input.addEventListener("jdp:change", function () {
+        var roomNo = input.getAttribute("data-room-day") || "";
+        var hidden = roomNo ? document.querySelector("[data-room-day-value=\"" + roomNo + "\"]") : null;
+        var current = hidden ? hidden.value : "";
+        var t = faToEn(input.value).replace(/-/g, "/").trim();
+        var params = new URLSearchParams(window.location.search);
+        document.querySelectorAll("[data-room-day-value]").forEach(function (field) {
+          var n = field.getAttribute("data-room-day-value") || "";
+          if (n && field.value) params.set("d" + n, field.value);
+        });
+        params.delete("day");
+        var key = todayKey;
+        if (t !== "") {
+          var p = t.split("/");
+          if (p.length !== 3 || typeof jalaali === "undefined") return;
+          var g = jalaali.toGregorian(parseInt(p[0], 10), parseInt(p[1], 10), parseInt(p[2], 10));
+          key = g.gy + "-" + pad(g.gm) + "-" + pad(g.gd);
         }
-        return;
-      }
-      var p = t.split("/");
-      if (p.length !== 3 || typeof jalaali === "undefined") return;
-      var g = jalaali.toGregorian(parseInt(p[0], 10), parseInt(p[1], 10), parseInt(p[2], 10));
-      var key = g.gy + "-" + pad(g.gm) + "-" + pad(g.gd);
-      if (key !== currentDay) {
-        window.location.href = roomBase + "?day=" + key;
-      }
+        if (hidden) hidden.value = key;
+        if (roomNo) params.set("d" + roomNo, key);
+        if (key !== current) {
+          window.location.href = roomBase + "?" + params.toString() + "#room-" + roomNo;
+        }
+      });
     });
   }
 
@@ -473,6 +515,7 @@ ob_start();
       .replace(/\s/g, "");
   }
   document.querySelectorAll("[data-clock]").forEach(function (input) {
+    input.removeAttribute("list");
     var wrap = document.createElement("div");
     wrap.className = "search-select";
     input.parentNode.insertBefore(wrap, input);
