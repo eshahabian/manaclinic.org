@@ -20,7 +20,7 @@ function secretary_nav(): array
         ],
         ['href' => '/secretary/appointments', 'label' => 'نوبت‌ها'],
         ['href' => '/secretary/therapists', 'label' => 'درمانگرها'],
-        ['href' => '/secretary/complaints', 'label' => 'شکایت از درمانگر'],
+        ['href' => '/secretary/complaints', 'label' => 'انتقادات و پیشنهادات'],
         ['href' => '/secretary/petty-cash', 'label' => 'تنخواه'],
         ['href' => '/admin/rooms', 'label' => 'اتاق‌ها'],
         ['href' => '/secretary/patients', 'label' => 'مراجعه‌کنندگان'],

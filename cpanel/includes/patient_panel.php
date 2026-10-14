@@ -28,6 +28,7 @@ function patient_nav(): array
     $nav = array_merge($nav, [
         ['href' => '/dashboard/appointments', 'label' => 'نوبت‌های من'],
         ['href' => '/dashboard/messages', 'label' => 'پیام‌ها', 'badge' => 'messages'],
+        ['href' => '/dashboard/feedback', 'label' => 'انتقادات و پیشنهادات'],
         [
             'href' => '/dashboard/workshops/ongoing',
             'label' => 'کارگاه‌ها',

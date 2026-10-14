@@ -115,6 +115,14 @@ function doctor_nav(): array
     $tail = [
         ['type' => 'group', 'label' => 'درمانگرها'],
         ['type' => 'link', 'href' => '/doctor/path', 'label' => 'اتاق ذهن'],
+    ];
+    if (!function_exists('session_feedback_can_review') && is_file(__DIR__ . '/session_complaints.php')) {
+        require_once __DIR__ . '/session_complaints.php';
+    }
+    if (function_exists('session_feedback_can_review') && session_feedback_can_review($deskUser)) {
+        $tail[] = ['type' => 'link', 'href' => '/doctor/feedback', 'label' => 'انتقادات و پیشنهادات'];
+    }
+    $tail = array_merge($tail, [
         [
             'type' => 'link',
             'href' => '/doctor/notifications',
@@ -124,7 +132,7 @@ function doctor_nav(): array
         ],
         ['type' => 'link', 'href' => '/doctor/appointments', 'label' => 'نوبت‌ها'],
         ['type' => 'link', 'href' => '/doctor/payouts', 'label' => 'پرداخت‌ها'],
-    ];
+    ]);
     if (!function_exists('petty_cash_user_allowed')) {
         require_once __DIR__ . '/petty_cash.php';
     }

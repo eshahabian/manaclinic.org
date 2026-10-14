@@ -14,7 +14,7 @@ function staff_app_sections(): array
         'consult' => ['href' => '/app/consult', 'label' => 'مشاوره و همکاری', 'title' => 'درخواست مشاوره/درخواست همکاری'],
         'checklist' => ['href' => '/app/checklist', 'label' => 'کارهای روزانه', 'title' => 'لیست کارهای روزانه'],
         'petty' => ['href' => '/app/petty-cash', 'label' => 'تنخواه', 'title' => 'تنخواه'],
-        'complaints' => ['href' => '/app/complaints', 'label' => 'شکایت', 'title' => 'شکایت‌ها'],
+        'complaints' => ['href' => '/app/complaints', 'label' => 'انتقاد و پیشنهاد', 'title' => 'انتقادات و پیشنهادات'],
     ];
 }
 

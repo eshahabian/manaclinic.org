@@ -401,7 +401,7 @@ if ($method === 'POST' && $path === '/app/complaints') {
     require_once __DIR__ . '/../includes/session_complaints.php';
     csrf_verify();
     if ($role !== 'SECRETARY') {
-        flash_set('error', 'ثبت شکایت با منشی است.');
+        flash_set('error', 'ثبت انتقاد و پیشنهاد در برنامه، با منشی است.');
         redirect('/app/complaints');
     }
     try {
@@ -409,7 +409,7 @@ if ($method === 'POST' && $path === '/app/complaints') {
             $pdo,
             $userId,
             trim((string) post('patient_id')),
-            trim((string) post('doctor_id')),
+            trim((string) post('kind')),
             trim(trim((string) post('session_date')) . ' ' . trim((string) post('session_time'))),
             (string) post('reason'),
             (string) post('body')
@@ -418,10 +418,11 @@ if ($method === 'POST' && $path === '/app/complaints') {
         flash_set('error', $e->getMessage());
         redirect('/app/complaints');
     } catch (Throwable $e) {
-        flash_set('error', 'ثبت شکایت انجام نشد.');
+        flash_set('error', 'ثبت انجام نشد.');
         redirect('/app/complaints');
     }
-    flash_set('success', 'شکایت ثبت شد.');
+    $kind = session_feedback_kind(trim((string) post('kind')));
+    flash_set('success', ($kind === 'suggestion' ? 'پیشنهاد' : 'انتقاد') . ' ثبت شد.');
     redirect('/app/complaints');
 }
 
@@ -466,7 +467,7 @@ $descriptions = [
     'consult' => 'درخواست مشاوره و درخواست همکاری که از فرم سایت مانا کلینیک رسیده است.',
     'checklist' => 'لیست کارهای روزانه منشی‌ها در کلینیک مانا، همان فهرست داخل سایت.',
     'petty' => 'تنخواه کلینیک مانا؛ ثبت هزینه، حساب پرداخت و تاییدکننده، همان فهرست داخل سایت.',
-    'complaints' => 'ثبت و دیدن شکایت مراجع از جلسه درمانگر در برنامه داخلی مانا.',
+    'complaints' => 'ثبت انتقاد یا پیشنهاد مراجع؛ برای دکتر شیوا گرانمایه‌پور و دکتر عطیه گارسچی.',
     'therapists' => 'درمانگرهای کلینیک مانا؛ فعال و غیرفعال، و درخواست‌های همکاری.',
     'profile' => 'پروفایل درمانگر یا منشی در برنامه داخلی مانا کلینیک.',
 ];
@@ -527,7 +528,7 @@ if ($section === 'home') {
       <?php endif; ?>
       <a class="sapp-tile" href="<?= e(url('/app/complaints')) ?>">
         <span class="sapp-ico sapp-ico-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5 20 19H4L12 4.5z"/><path d="M12 10v4.2"/><path d="M12 16.8h.01"/></svg></span>
-        <strong>شکایات</strong>
+        <strong>انتقادات و پیشنهادات</strong>
         <em>Feedback</em>
       </a>
     </div>
@@ -1989,16 +1990,10 @@ if ($section === 'profile') {
 }
 
 require_once __DIR__ . '/../includes/session_complaints.php';
-$profileId = $role === 'DOCTOR' ? staff_app_doctor_profile_id($pdo, $userId) : '';
 $complaints = [];
 $patients = [];
-$doctors = [];
 try {
-    if ($role === 'DOCTOR' && $profileId === '') {
-        $complaints = [];
-    } else {
-        $complaints = session_complaint_list($pdo, $role === 'DOCTOR' ? $profileId : null);
-    }
+    $complaints = session_complaint_list($pdo);
 } catch (Throwable $e) {
     $complaints = [];
 }
@@ -2009,88 +2004,17 @@ if ($role === 'SECRETARY') {
     } catch (Throwable $e) {
         $patients = [];
     }
-    try {
-        $doctors = secretary_active_doctors($pdo);
-    } catch (Throwable $e) {
-        $doctors = [];
-    }
 }
 ob_start();
 ?>
-<h1>شکایت‌ها</h1>
-<p class="muted"><?= $role === 'SECRETARY' ? 'اگر مراجع بعد از جلسه از درمانگر شکایت داشت، همین‌جا ثبت کنید.' : 'شکایت‌هایی که درباره جلسه‌های شما ثبت شده است.' ?></p>
+<h1>انتقادات و پیشنهادات</h1>
+<p class="muted"><?= $role === 'SECRETARY' ? 'اسم شخص را از فهرست انتخاب کنید تا نام، شماره تماس و درمانگرش مشخص شود. مورد برای دکتر شیوا گرانمایه‌پور و دکتر عطیه گارسچی می‌رود.' : 'انتقادها و پیشنهادهایی که مراجع یا منشی ثبت کرده اینجاست.' ?></p>
 <?php if ($role === 'SECRETARY'): ?>
-  <form class="form-stack panel" method="post" action="<?= e(url('/app/complaints')) ?>" style="margin-top:1rem">
-    <?= csrf_field() ?>
-    <div>
-      <label class="label" for="complaint-patient">اسم مراجعه‌کننده</label>
-      <select class="input" id="complaint-patient" name="patient_id" required>
-        <option value="">انتخاب مراجعه‌کننده</option>
-        <?php foreach ($patients as $row): ?>
-          <?php
-            $pname = trim((string) ($row['name'] ?? ''));
-            $uname = trim((string) ($row['username'] ?? ''));
-            $label = $pname !== '' ? $pname : $uname;
-          ?>
-          <option value="<?= e((string) $row['id']) ?>"><?= e($label) ?></option>
-        <?php endforeach; ?>
-      </select>
-    </div>
-    <div>
-      <label class="label" for="complaint-doctor">درمانگر</label>
-      <select class="input" id="complaint-doctor" name="doctor_id" required>
-        <option value="">انتخاب درمانگر</option>
-        <?php foreach ($doctors as $row): ?>
-          <option value="<?= e((string) $row['id']) ?>"><?= e(trim((string) ($row['name'] ?? 'درمانگر'))) ?></option>
-        <?php endforeach; ?>
-      </select>
-    </div>
-    <div>
-      <label class="label" for="complaint-session-date">زمان جلسه</label>
-      <div style="display:grid;grid-template-columns:minmax(0,1fr) 8.5rem;gap:.5rem">
-        <input class="input" id="complaint-session-date" name="session_date" type="text" data-jdp data-jdp-only-date autocomplete="off" readonly required placeholder="تاریخ شمسی">
-        <input class="input" id="complaint-session-time" name="session_time" type="time" required dir="ltr" aria-label="ساعت جلسه">
-      </div>
-    </div>
-    <div>
-      <label class="label" for="complaint-reason">علت</label>
-      <select class="input" id="complaint-reason" name="reason" required>
-        <option value="">انتخاب علت</option>
-        <?php foreach (session_complaint_reasons() as $reason): ?>
-          <option value="<?= e($reason) ?>"><?= e($reason) ?></option>
-        <?php endforeach; ?>
-      </select>
-    </div>
-    <div>
-      <label class="label" for="complaint-body">توضیحات</label>
-      <textarea class="input" id="complaint-body" name="body" rows="5" required></textarea>
-    </div>
-    <button class="btn btn-primary" type="submit">ثبت شکایت</button>
-  </form>
+  <?= session_feedback_form_html('/app/complaints', true, $patients, '', '', '') ?>
 <?php endif; ?>
-<div class="sapp-list">
-  <h2 class="sapp-day">ثبت‌شده‌ها</h2>
-  <?php if ($complaints === []): ?>
-    <p class="muted">شکایتی ثبت نشده است.</p>
-  <?php endif; ?>
-  <?php foreach ($complaints as $row): ?>
-    <article class="sapp-row">
-      <strong><?= e((string) ($row['patient_name'] ?? '')) ?></strong>
-      <span class="muted"> · <?= e((string) ($row['doctor_name'] ?? '')) ?></span>
-      <small>
-        <?php if (!empty($row['session_at'])): ?>جلسه <?= e(format_fa_datetime((string) $row['session_at'])) ?> · <?php endif; ?>
-        <?php if (trim((string) ($row['reason'] ?? '')) !== ''): ?><?= e((string) $row['reason']) ?> · <?php endif; ?>
-        ثبت <?= e(format_fa_datetime((string) $row['created_at'])) ?>
-      </small>
-      <p style="margin:.55rem 0 0;white-space:pre-wrap"><?= e((string) ($row['body'] ?? '')) ?></p>
-    </article>
-  <?php endforeach; ?>
-</div>
+<?= session_feedback_list_html($complaints, 'هنوز انتقاد یا پیشنهادی ثبت نشده است.') ?>
 <?php
 if ($role === 'SECRETARY') {
-    $GLOBALS['pageHead'] = '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">';
-    $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/search-select.js')) . '?v=20261007cmp"></script>'
-        . '<script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>'
-        . '<script>["complaint-patient","complaint-doctor","complaint-reason"].forEach(function(id){var el=document.getElementById(id);if(el&&window.enhanceSearchSelect)enhanceSearchSelect(el);});if(window.jalaliDatepicker){jalaliDatepicker.startWatch({selector:"#complaint-session-date",time:false,hideAfterChange:true,showTodayBtn:true,showEmptyBtn:true,autoReadOnlyInput:true,persianDigits:true,zIndex:100000,container:"body"});}</script>';
+    $GLOBALS['pageScripts'] = session_feedback_assets(true);
 }
-staff_app_render('complaints', 'شکایت‌ها', $descriptions['complaints'], ob_get_clean());
+staff_app_render('complaints', 'انتقادات و پیشنهادات', $descriptions['complaints'], ob_get_clean());

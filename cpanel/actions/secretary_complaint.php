@@ -11,7 +11,7 @@ try {
         $pdo,
         (string) ($user['id'] ?? ''),
         trim((string) post('patient_id')),
-        trim((string) post('doctor_id')),
+        trim((string) post('kind')),
         trim(trim((string) post('session_date')) . ' ' . trim((string) post('session_time'))),
         (string) post('reason'),
         (string) post('body')
@@ -20,9 +20,10 @@ try {
     flash_set('error', $e->getMessage());
     redirect('/secretary/complaints');
 } catch (Throwable $e) {
-    flash_set('error', 'ثبت شکایت انجام نشد.');
+    flash_set('error', 'ثبت انجام نشد.');
     redirect('/secretary/complaints');
 }
 
-flash_set('success', 'شکایت ثبت شد.');
+$kind = session_feedback_kind(trim((string) post('kind')));
+flash_set('success', ($kind === 'suggestion' ? 'پیشنهاد' : 'انتقاد') . ' ثبت شد.');
 redirect('/secretary/complaints');
