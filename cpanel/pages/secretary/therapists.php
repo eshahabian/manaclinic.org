@@ -353,17 +353,11 @@ ob_start();
           </label>
         </div>
         <?php
-          $presenceSlots = [];
-          for ($presenceHour = 11; $presenceHour <= 17; $presenceHour++) {
-              $presenceSlots[] = $presenceHour . ':00';
-              if ($presenceHour < 17) {
-                  $presenceSlots[] = $presenceHour . ':30';
-              }
-          }
+          $presenceHours = appointment_presence_hours();
         ?>
         <div>
           <span class="label">ساعات حضور</span>
-          <p class="muted" style="margin:.2rem 0 .6rem;font-size:.85rem;line-height:1.7">روزها را انتخاب کنید و ساعت شروع و پایان را از دکمه‌ها بزنید. از ۱۱ تا ۱۷، هر نیم‌ساعت. اگر خالی بماند، ساعتی ثبت نمی‌شود. نوبت‌دهی ساعتی است، پس نیم‌ساعت به همان ساعت کامل گرد می‌شود.</p>
+          <p class="muted" style="margin:.2rem 0 .6rem;font-size:.85rem;line-height:1.7">روزها را انتخاب کنید و ساعت شروع و پایان را از دکمه‌ها بزنید. از ۹ صبح تا ۸ شب. اگر خالی بماند، ساعتی ثبت نمی‌شود.</p>
           <div class="therapist-presence-days">
             <?php foreach (doctor_weekdays_sat_first() as $presenceDay => $presenceLabel): ?>
               <label class="pick-chip">
@@ -378,16 +372,18 @@ ob_start();
             <div>
               <span class="label">از ساعت</span>
               <div class="avail-hour-chips" data-presence-role="from" role="listbox" aria-label="از ساعت">
-                <?php foreach ($presenceSlots as $presenceSlot): ?>
-                  <button type="button" class="avail-hour-chip" data-presence-time="<?= e($presenceSlot) ?>"><?= e(to_fa_digits($presenceSlot)) ?></button>
+                <?php foreach ($presenceHours as $presenceHour): ?>
+                  <?php $presenceSlot = sprintf('%02d:00', (int) $presenceHour); ?>
+                  <button type="button" class="avail-hour-chip" data-presence-time="<?= e($presenceSlot) ?>"><?= e(appointment_hour_chip_label((int) $presenceHour)) ?></button>
                 <?php endforeach; ?>
               </div>
             </div>
             <div style="margin-top:.75rem">
               <span class="label">تا ساعت</span>
               <div class="avail-hour-chips" data-presence-role="to" role="listbox" aria-label="تا ساعت">
-                <?php foreach ($presenceSlots as $presenceSlot): ?>
-                  <button type="button" class="avail-hour-chip" data-presence-time="<?= e($presenceSlot) ?>"><?= e(to_fa_digits($presenceSlot)) ?></button>
+                <?php foreach ($presenceHours as $presenceHour): ?>
+                  <?php $presenceSlot = sprintf('%02d:00', (int) $presenceHour); ?>
+                  <button type="button" class="avail-hour-chip" data-presence-time="<?= e($presenceSlot) ?>"><?= e(appointment_hour_chip_label((int) $presenceHour)) ?></button>
                 <?php endforeach; ?>
               </div>
             </div>

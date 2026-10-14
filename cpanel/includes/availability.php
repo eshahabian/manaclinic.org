@@ -105,6 +105,12 @@ function appointment_booking_hours(): array
     return [6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 0, 1, 2, 3, 4, 5];
 }
 
+/** ساعت‌های قابل انتخاب برای حضور درمانگر — ۹ صبح تا ۸ شب (۲۰) */
+function appointment_presence_hours(): array
+{
+    return [9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20];
+}
+
 function appointment_hour_is_next_day(int $hour): bool
 {
     return $hour < 6;

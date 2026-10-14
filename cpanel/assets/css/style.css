@@ -3121,6 +3121,9 @@ a.doctor-dash-stat:hover {
 .avail-weekday-btn.has-hours {
   border-color: color-mix(in srgb, var(--primary) 45%, var(--line));
 }
+.avail-weekday-btn.is-drafted {
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--primary) 35%, transparent);
+}
 .avail-weekday-dot {
   display: inline-block;
   width: .45rem;

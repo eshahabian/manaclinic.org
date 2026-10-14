@@ -79,21 +79,14 @@ function secretary_therapist_presence_hours(string $from, string $to): array
     if (!preg_match('/^(\d{1,2}):(\d{2})$/', $from, $startMatch) || !preg_match('/^(\d{1,2}):(\d{2})$/', $to, $endMatch)) {
         return [];
     }
-    $startMin = ((int) $startMatch[1]) * 60 + (int) $startMatch[2];
-    $endMin = ((int) $endMatch[1]) * 60 + (int) $endMatch[2];
-    if ($endMin <= $startMin) {
+    $fromHour = (int) $startMatch[1];
+    $toHour = (int) $endMatch[1];
+    $allowed = appointment_presence_hours();
+    if (!in_array($fromHour, $allowed, true) || !in_array($toHour, $allowed, true)) {
         return [];
     }
-    $hours = [];
-    for ($hour = 11; $hour <= 17; $hour++) {
-        $slotStart = $hour * 60;
-        $slotEnd = ($hour + 1) * 60;
-        if ($slotStart < $endMin && $slotEnd > $startMin) {
-            $hours[] = $hour;
-        }
-    }
 
-    return $hours;
+    return appointment_hours_range($fromHour, $toHour);
 }
 
 function secretary_therapist_apply_presence(PDO $pdo, string $profileId): void

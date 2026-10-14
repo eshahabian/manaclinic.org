@@ -9,11 +9,9 @@ ensure_availability_schema($pdo);
 ensure_doctor_weekly_hours_schema($pdo);
 $action = post('action');
 $doctorId = (string) ($ctx['profile']['id'] ?? '');
+$back = '/doctor/availability';
 
-if ($action === 'save_weekday') {
-    $weekday = (int) post('weekday');
-    $fromHour = (int) post('hour_from');
-    $toHour = (int) post('hour_to');
+if ($action === 'save_week' || $action === 'save_weekday') {
     $weeks = (int) post('weeks');
     if ($weeks < 1) {
         $weeks = 12;
@@ -22,31 +20,79 @@ if ($action === 'save_weekday') {
         $weeks = 26;
     }
     $labels = doctor_weekdays_sat_first();
-    if (!isset($labels[$weekday])) {
-        flash_set('error', 'روز هفته نامعتبر است.');
-        redirect('/doctor/availability');
+    $draft = [];
+    if ($action === 'save_weekday') {
+        $weekday = (int) post('weekday');
+        $draft[(string) $weekday] = [
+            'from' => (int) post('hour_from'),
+            'to' => (int) post('hour_to'),
+            'clear' => 0,
+        ];
+    } else {
+        $raw = trim((string) post('draft_json'));
+        $parsed = json_decode($raw, true);
+        if (!is_array($parsed) || $parsed === []) {
+            flash_set('error', 'اول حداقل یک روز را تنظیم کنید، بعد ذخیره تغییرات را بزنید.');
+            redirect($back);
+        }
+        $draft = $parsed;
     }
-    $hours = appointment_hours_range($fromHour, $toHour);
-    if ($hours === []) {
-        flash_set('error', 'بازه ساعت را درست انتخاب کنید (از ساعت باید قبل از تا ساعت باشد).');
-        redirect('/doctor/availability#weekday-' . $weekday);
-    }
+
+    $savedNames = [];
+    $clearedNames = [];
+    $errors = [];
+    $appliedWeeks = 0;
     try {
-        $n = doctor_availability_apply_weekday($pdo, $doctorId, $weekday, $hours, $weeks);
+        foreach ($draft as $key => $item) {
+            if (!is_array($item)) {
+                continue;
+            }
+            $weekday = (int) $key;
+            if (!isset($labels[$weekday])) {
+                continue;
+            }
+            if (!empty($item['clear'])) {
+                doctor_availability_clear_weekday($pdo, $doctorId, $weekday);
+                $clearedNames[] = $labels[$weekday];
+                continue;
+            }
+            $from = (int) ($item['from'] ?? -1);
+            $to = (int) ($item['to'] ?? -1);
+            $allowed = appointment_presence_hours();
+            if (!in_array($from, $allowed, true) || !in_array($to, $allowed, true)) {
+                $errors[] = $labels[$weekday];
+                continue;
+            }
+            $hours = appointment_hours_range($from, $to);
+            if ($hours === []) {
+                $errors[] = $labels[$weekday];
+                continue;
+            }
+            $appliedWeeks = doctor_availability_apply_weekday($pdo, $doctorId, $weekday, $hours, $weeks);
+            $savedNames[] = $labels[$weekday];
+        }
     } catch (Throwable $e) {
         flash_set('error', 'ذخیره انجام نشد. دوباره تلاش کنید.');
-        redirect('/doctor/availability#weekday-' . $weekday);
+        redirect($back);
     }
-    $slotList = implode('، ', array_map(
-        static fn (int $h): string => to_fa_digits((string) $h) . ':۰۰',
-        $hours
-    ));
-    flash_set(
-        'success',
-        'حضور «' . $labels[$weekday] . '» ذخیره شد: ' . to_fa_digits((string) count($hours))
-        . ' اسلات یک‌ساعته (' . $slotList . ') برای ' . to_fa_digits((string) $n) . ' هفته آینده.'
-    );
-    redirect('/doctor/availability#weekday-' . $weekday);
+    if ($savedNames === [] && $clearedNames === []) {
+        flash_set('error', $errors !== []
+            ? 'بازه ساعت این روزها درست نبود: ' . implode('، ', $errors)
+            : 'تغییری برای ذخیره نبود.');
+        redirect($back);
+    }
+    $parts = [];
+    if ($savedNames !== []) {
+        $parts[] = 'روزهای «' . implode('، ', $savedNames) . '» برای ' . to_fa_digits((string) max(1, $appliedWeeks)) . ' هفته ذخیره شد';
+    }
+    if ($clearedNames !== []) {
+        $parts[] = 'روزهای «' . implode('، ', $clearedNames) . '» پاک شد';
+    }
+    if ($errors !== []) {
+        $parts[] = 'این روزها به‌خاطر بازه ساعت رد شد: ' . implode('، ', $errors);
+    }
+    flash_set('success', implode('. ', $parts) . '.');
+    redirect($back);
 }
 
 if ($action === 'clear_weekday') {
@@ -54,12 +100,12 @@ if ($action === 'clear_weekday') {
     $labels = doctor_weekdays_sat_first();
     if (!isset($labels[$weekday])) {
         flash_set('error', 'روز هفته نامعتبر است.');
-        redirect('/doctor/availability');
+        redirect($back);
     }
     $n = doctor_availability_clear_weekday($pdo, $doctorId, $weekday);
     flash_set('success', 'ساعت‌های «' . $labels[$weekday] . '» پاک شد' . ($n > 0 ? ' (' . to_fa_digits((string) $n) . ' روز آینده)' : '') . '.');
-    redirect('/doctor/availability');
+    redirect($back);
 }
 
 flash_set('error', 'درخواست نامعتبر است.');
-redirect('/doctor/availability');
+redirect($back);
