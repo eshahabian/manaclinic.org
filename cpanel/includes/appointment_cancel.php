@@ -33,6 +33,48 @@ function appointment_cancel_refund_amount(array $row, string $side): int
     return (int) floor($amount * $rate);
 }
 
+/** اگر هر پرداخت این نوبت تأیید شده باشد، کنسلی باید وجه را برگرداند. */
+function appointment_cancel_mark_paid(PDO $pdo, array $row, string $appointmentId): array
+{
+    if ((string) ($row['pay_status'] ?? '') === 'PAID' || $appointmentId === '') {
+        return $row;
+    }
+    $stmt = $pdo->prepare("SELECT amount FROM payments WHERE appointment_id = ? AND status = 'PAID' ORDER BY created_at DESC LIMIT 1");
+    $stmt->execute([$appointmentId]);
+    $amount = $stmt->fetchColumn();
+    if ($amount === false) {
+        return $row;
+    }
+    $row['pay_status'] = 'PAID';
+    if ((int) ($row['amount'] ?? 0) <= 0) {
+        $row['amount'] = (int) $amount;
+    }
+
+    return $row;
+}
+
+/** مبلغ ویزیت: اول مبلغ پرداخت، وگرنه همان مبلغی که از کیف پول کم شده است. */
+function appointment_visit_fee_amount(PDO $pdo, array $row, string $appointmentId): int
+{
+    $amount = (int) ($row['amount'] ?? 0);
+    if ($amount > 0) {
+        return $amount;
+    }
+    if ($appointmentId === '') {
+        return 0;
+    }
+    ensure_wallet_schema($pdo);
+    $stmt = $pdo->prepare("
+      SELECT ABS(amount) FROM wallet_transactions
+      WHERE reference_type = 'appointment' AND reference_id = ? AND kind = 'PAYMENT' AND amount < 0
+      ORDER BY created_at DESC
+      LIMIT 1
+    ");
+    $stmt->execute([$appointmentId]);
+
+    return (int) $stmt->fetchColumn();
+}
+
 function appointment_refund_hint(string $startsAt): string
 {
     if (appointment_refund_rate($startsAt) >= 1.0) {
@@ -73,6 +115,8 @@ function cancel_patient_appointment(PDO $pdo, string $appointmentId, string $pat
     $rate = appointment_refund_rate((string) ($row['starts_at'] ?? ''));
 
     if ($row['status'] === 'CONFIRMED') {
+        $row = appointment_cancel_mark_paid($pdo, $row, $appointmentId);
+        $row['amount'] = appointment_visit_fee_amount($pdo, $row, $appointmentId);
         $refundAmount = appointment_cancel_refund_amount($row, 'patient');
         if ($refundAmount > 0 && !appointment_refund_already($pdo, $appointmentId)) {
             wallet_credit_balance(
@@ -82,7 +126,7 @@ function cancel_patient_appointment(PDO $pdo, string $appointmentId, string $pat
                 'REFUND',
                 'appointment',
                 $appointmentId,
-                'لغو نوبت از سمت مراجع — ' . appointment_refund_hint((string) $row['starts_at'])
+                'بازگشت وجه جلسه انجام‌نشده — ' . appointment_refund_hint((string) $row['starts_at'])
             );
         } else {
             $refundAmount = 0;
@@ -159,9 +203,8 @@ function secretary_mark_patient_cancelled(PDO $pdo, string $appointmentId, array
     if (!staff_can_mark_patient_cancelled((string) $row['status'])) {
         throw new RuntimeException('این نوبت قابل ثبت کنسلی نیست.');
     }
-    $startAt = strtotime(str_replace('T', ' ', (string) ($row['starts_at'] ?? ''))) ?: 0;
-    if ((string) ($row['status'] ?? '') === 'COMPLETED' || ($startAt > 0 && $startAt < time())) {
-        throw new RuntimeException('این نوبت قابل ثبت کنسلی نیست.');
+    if ((string) ($row['status'] ?? '') === 'COMPLETED') {
+        throw new RuntimeException('این جلسه برگزار شده و کنسلی ندارد.');
     }
 
     if ((string) ($row['pay_status'] ?? '') !== 'PAID') {
@@ -169,14 +212,16 @@ function secretary_mark_patient_cancelled(PDO $pdo, string $appointmentId, array
             ? 'برگشت بدهی؛ کنسلی از سمت منشی'
             : 'برگشت بدهی؛ کنسلی از سمت مراجع');
     }
+    $row = appointment_cancel_mark_paid($pdo, $row, $appointmentId);
+    $row['amount'] = appointment_visit_fee_amount($pdo, $row, $appointmentId);
     $refundAmount = appointment_cancel_refund_amount($row, $side);
     if ($refundAmount > 0 && !appointment_refund_already($pdo, $appointmentId)) {
         $kept = max(0, (int) ($row['amount'] ?? 0) - $refundAmount);
         $noteBit = $side === 'clinic'
-            ? 'کنسلی از سمت منشی — کل مبلغ به کیف پول برگشت'
+            ? 'بازگشت وجه جلسه انجام‌نشده — کنسلی منشی، کل مبلغ ویزیت'
             : ($kept > 0
-                ? 'کنسلی از سمت مراجع — ۳۰٪ کسر شد و بقیه به کیف پول برگشت'
-                : 'کنسلی از سمت مراجع — کل مبلغ به کیف پول برگشت');
+                ? 'بازگشت وجه جلسه انجام‌نشده — ۳۰٪ کسر شد و بقیه واریز شد'
+                : 'بازگشت وجه جلسه انجام‌نشده — کل مبلغ ویزیت');
         wallet_credit_balance(
             $pdo,
             (string) $row['patient_id'],

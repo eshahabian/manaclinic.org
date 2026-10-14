@@ -123,8 +123,10 @@ $appointmentDoneView = !empty($appointmentDoneView);
           <?php if (!$appointmentDoneView && $canConfirmPay && function_exists('appointment_staff_mark_paid_form_html')): ?>
             <?= appointment_staff_mark_paid_form_html($a, $deskNext) ?>
           <?php endif; ?>
-          <?php if (!$appointmentDoneView): ?>
+          <?php if ((string) ($a['status'] ?? '') !== 'COMPLETED'): ?>
             <?= secretary_patient_cancel_form((string) ($a['id'] ?? ''), (string) ($a['status'] ?? ''), $deskNext) ?>
+          <?php endif; ?>
+          <?php if (!$appointmentDoneView): ?>
             <?= admin_appointment_delete_form((string) ($a['id'] ?? ''), $deskNext) ?>
           <?php endif; ?>
         </div>

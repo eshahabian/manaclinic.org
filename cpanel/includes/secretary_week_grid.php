@@ -362,7 +362,7 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                                 </div>
                               </details>
                             <?php endif; ?>
-                            <?php if (!$slotDone && function_exists('secretary_patient_cancel_form')): ?>
+                            <?php if ((string) ($booking['status'] ?? '') !== 'COMPLETED' && function_exists('secretary_patient_cancel_form')): ?>
                               <?php $cancelForm = secretary_patient_cancel_form((string) ($booking['id'] ?? ''), (string) ($booking['status'] ?? ''), $roomNext); ?>
                               <?php if ($cancelForm !== ''): ?>
                                 <details class="sec-week-edit">
