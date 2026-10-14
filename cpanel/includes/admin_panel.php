@@ -45,6 +45,7 @@ function admin_nav(): array {
         $nav[] = ['href' => '/dashboard/appointments', 'label' => 'نوبت‌های من'];
         $nav[] = ['href' => '/dashboard/path', 'label' => 'اتاق ذهن'];
     }
+    $nav[] = ['href' => '/admin/feedback', 'label' => 'انتقادات و پیشنهادات'];
     $nav[] = [
         'href' => '/admin/consult-requests',
         'label' => 'درخواست مشاوره',

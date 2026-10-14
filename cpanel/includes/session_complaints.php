@@ -237,7 +237,7 @@ function session_feedback_notify_owners(PDO $pdo, string $kind, string $patientN
 function session_feedback_can_follow(array $actor, array $row): bool
 {
     $role = (string) ($actor['role'] ?? '');
-    if ($role === 'SECRETARY' || session_feedback_can_review($actor)) {
+    if ($role === 'SECRETARY' || $role === 'ADMIN' || session_feedback_can_review($actor)) {
         return true;
     }
     $actorId = (string) ($actor['id'] ?? '');
@@ -261,8 +261,8 @@ function session_feedback_save_follow(PDO $pdo, array $actor, string $id, string
     $stmt = $pdo->prepare('SELECT id, kind, patient_id FROM session_complaints WHERE id=? LIMIT 1');
     $stmt->execute([$id]);
     $row = $stmt->fetch();
-    if (!$row || (string) ($row['kind'] ?? '') !== 'suggestion') {
-        throw new RuntimeException('پیگیری فقط برای پیشنهاد است.');
+    if (!$row || !isset(session_feedback_kinds()[(string) ($row['kind'] ?? '')])) {
+        throw new RuntimeException('این مورد پیدا نشد.');
     }
     if (!session_feedback_can_follow($actor, $row)) {
         throw new RuntimeException('ثبت پیگیری برای شما مجاز نیست.');
@@ -278,14 +278,15 @@ function session_feedback_save_follow(PDO $pdo, array $actor, string $id, string
         $patientName = trim((string) ($nameStmt->fetchColumn() ?: ''));
     }
     $who = $patientName !== '' ? $patientName : 'مراجعه‌کننده';
-    $note = 'پیگیری پیشنهاد «' . $who . '» ثبت شد: ' . $result;
+    $kindLabel = session_feedback_kinds()[(string) ($row['kind'] ?? '')] ?? 'بازخورد';
+    $note = 'پیگیری ' . $kindLabel . ' «' . $who . '» ثبت شد: ' . $result;
     if (function_exists('notify_user') || is_file(__DIR__ . '/notifications.php')) {
         if (!function_exists('notify_user')) {
             require_once __DIR__ . '/notifications.php';
         }
         $actorId = (string) ($actor['id'] ?? '');
         if ($patientId !== '' && $patientId !== $actorId) {
-            notify_user($pdo, $patientId, 'پیگیری پیشنهاد', $note, '/dashboard/feedback', 'other', $actorId !== '' ? $actorId : null);
+            notify_user($pdo, $patientId, 'پیگیری ' . $kindLabel, $note, '/dashboard/feedback', 'other', $actorId !== '' ? $actorId : null);
         }
     }
     session_feedback_notify_follow_owners($pdo, $note, (string) ($actor['id'] ?? ''));
@@ -313,7 +314,7 @@ function session_feedback_notify_follow_owners(PDO $pdo, string $note, string $a
         if (!doctor_is_shiva($person) && !doctor_is_garsichi($person)) {
             continue;
         }
-        notify_doctor_profile($pdo, (string) $row['id'], 'پیگیری پیشنهاد', $note, '/doctor/feedback', 'other');
+        notify_doctor_profile($pdo, (string) $row['id'], 'پیگیری بازخورد', $note, '/doctor/feedback', 'other');
     }
 }
 
@@ -358,15 +359,13 @@ function session_feedback_list_html(array $rows, string $empty, string $followAc
           <?php
             $kind = (string) ($row['kind'] ?? 'criticism');
             $kindLabel = session_feedback_kinds()[$kind] ?? 'انتقاد';
-            $followed = trim((string) ($row['followed_at'] ?? '')) !== '';
             $followResult = trim((string) ($row['follow_result'] ?? ''));
+            $followed = trim((string) ($row['followed_at'] ?? '')) !== '' || $followResult !== '';
           ?>
           <article class="panel" style="margin-top:.75rem">
             <strong><?= e($kindLabel) ?></strong>
             <span class="muted"> · <?= e((string) ($row['patient_name'] ?? '')) ?></span>
-            <?php if ($kind === 'suggestion' && $followed): ?>
-              <span class="muted"> · پیگیری شد</span>
-            <?php endif; ?>
+            <span class="muted"> · <?= $followed ? 'پیگیری شد' : 'در حال پیگیری' ?></span>
             <p class="muted" style="margin:.35rem 0 0;font-size:.85rem;line-height:1.7">
               <?php if (trim((string) ($row['patient_phone'] ?? '')) !== ''): ?>
                 موبایل <?= e((string) $row['patient_phone']) ?> ·
@@ -381,13 +380,10 @@ function session_feedback_list_html(array $rows, string $empty, string $followAc
               · ثبت <?= e(format_fa_datetime((string) $row['created_at'])) ?>
             </p>
             <p style="margin:.6rem 0 0;line-height:1.8;white-space:pre-wrap"><?= e((string) ($row['body'] ?? '')) ?></p>
-            <?php if ($kind === 'suggestion'): ?>
-              <?php if ($followResult !== ''): ?>
-                <p style="margin:.7rem 0 0;line-height:1.8"><strong>نتیجه پیگیری:</strong> <?= e($followResult) ?></p>
-              <?php elseif (!$canFollow): ?>
-                <p class="muted" style="margin:.7rem 0 0">هنوز پیگیری نشده است.</p>
-              <?php endif; ?>
-              <?php if ($canFollow && $followAction !== ''): ?>
+            <?php if ($followResult !== ''): ?>
+              <p style="margin:.7rem 0 0;line-height:1.8"><strong>نتیجه پیگیری:</strong> <?= e($followResult) ?></p>
+            <?php endif; ?>
+            <?php if ($canFollow && $followAction !== ''): ?>
                 <form method="post" action="<?= e(url($followAction)) ?>" class="form-stack" style="margin-top:.75rem">
                   <?= csrf_field() ?>
                   <input type="hidden" name="action" value="follow">
@@ -396,7 +392,6 @@ function session_feedback_list_html(array $rows, string $empty, string $followAc
                   <textarea class="input" id="follow-<?= e((string) ($row['id'] ?? '')) ?>" name="follow_result" rows="3" required placeholder="نتیجه پیگیری را بنویسید"><?= e($followResult) ?></textarea>
                   <button class="btn btn-primary" type="submit" style="justify-self:start">پیگیری شد</button>
                 </form>
-              <?php endif; ?>
             <?php endif; ?>
           </article>
         <?php endforeach; ?>

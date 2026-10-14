@@ -2023,7 +2023,7 @@ ob_start();
 <?php if ($role === 'SECRETARY'): ?>
   <?= session_feedback_form_html('/app/complaints', true, $patients, '', '', '') ?>
 <?php endif; ?>
-<?= session_feedback_list_html($complaints, 'هنوز انتقاد یا پیشنهادی ثبت نشده است.', '/app/complaints', $role === 'SECRETARY' || session_feedback_can_review($user)) ?>
+<?= session_feedback_list_html($complaints, 'هنوز انتقاد یا پیشنهادی ثبت نشده است.', '/app/complaints', $role === 'SECRETARY' || $role === 'ADMIN' || session_feedback_can_review($user)) ?>
 <?php
 if ($role === 'SECRETARY') {
     $GLOBALS['pageScripts'] = session_feedback_assets(true);

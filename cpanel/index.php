@@ -358,6 +358,8 @@ $routes = [
     'POST /doctor/mentions' => 'pages/mentions.php',
 
     'GET /admin' => 'pages/admin/dashboard.php',
+    'GET /admin/feedback' => 'pages/admin/feedback.php',
+    'POST /admin/feedback' => 'actions/admin_feedback.php',
     'GET /admin/consult-requests' => 'pages/consult_requests.php',
     'GET /admin/workshop-file-log' => 'pages/admin/workshop_file_log.php',
     'GET /admin/doctors' => 'pages/admin/doctors.php',
