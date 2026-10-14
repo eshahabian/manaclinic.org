@@ -94,6 +94,34 @@ function secretary_therapist_apply_presence(PDO $pdo, string $profileId): void
     if ($profileId === '') {
         return;
     }
+
+    $raw = trim((string) post('presence_draft_json'));
+    if ($raw !== '') {
+        $parsed = json_decode($raw, true);
+        if (is_array($parsed)) {
+            foreach ($parsed as $key => $item) {
+                if (!is_array($item)) {
+                    continue;
+                }
+                $weekday = (int) $key;
+                if ($weekday < 0 || $weekday > 6) {
+                    continue;
+                }
+                $hours = secretary_therapist_presence_hours(
+                    trim((string) ($item['from'] ?? '')),
+                    trim((string) ($item['to'] ?? ''))
+                );
+                if ($hours === []) {
+                    continue;
+                }
+                doctor_availability_apply_weekday($pdo, $profileId, $weekday, $hours, 12);
+            }
+
+            return;
+        }
+    }
+
+    // سازگاری با فرم قدیمی (چند روز + یک بازه مشترک)
     $hours = secretary_therapist_presence_hours(trim((string) post('presence_from')), trim((string) post('presence_to')));
     $days = $_POST['presence_days'] ?? [];
     if ($hours === [] || !is_array($days)) {

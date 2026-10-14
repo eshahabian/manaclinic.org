@@ -177,6 +177,7 @@ if ($editId !== '') {
     $editPrice = (int) ($editProfile['session_price'] ?? 0);
     $editForm = [
         'id' => $editId,
+        'profile_id' => (string) ($editProfile['id'] ?? ''),
         'first_name' => $editFirst,
         'last_name' => $editLast,
         'name_en' => $editNameEn,
@@ -354,19 +355,49 @@ ob_start();
         </div>
         <?php
           $presenceHours = appointment_presence_hours();
+          $presenceDraftInitial = [];
+          $presenceProfileId = $isEdit ? trim((string) ($editForm['profile_id'] ?? '')) : '';
+          if ($presenceProfileId !== '') {
+              ensure_doctor_weekly_hours_schema($pdo);
+              foreach (doctor_weekly_hours_map($pdo, $presenceProfileId) as $presenceWeekday => $presenceSavedHours) {
+                  if (!is_array($presenceSavedHours) || $presenceSavedHours === []) {
+                      continue;
+                  }
+                  $presenceFromH = (int) $presenceSavedHours[0];
+                  $presenceToH = (int) $presenceSavedHours[count($presenceSavedHours) - 1];
+                  if (!in_array($presenceFromH, $presenceHours, true)) {
+                      $presenceFromH = (int) $presenceHours[0];
+                  }
+                  if (!in_array($presenceToH, $presenceHours, true)) {
+                      $presenceToH = $presenceFromH;
+                  }
+                  $presenceDraftInitial[(string) (int) $presenceWeekday] = [
+                      'from' => sprintf('%02d:00', $presenceFromH),
+                      'to' => sprintf('%02d:00', $presenceToH),
+                  ];
+              }
+          }
         ?>
-        <div>
+        <div data-presence-draft-root>
           <span class="label">ساعات حضور</span>
-          <p class="muted" style="margin:.2rem 0 .6rem;font-size:.85rem;line-height:1.7">روزها را انتخاب کنید و ساعت شروع و پایان را از دکمه‌ها بزنید. از ۹ صبح تا ۸ شب. اگر خالی بماند، ساعتی ثبت نمی‌شود.</p>
-          <div class="therapist-presence-days">
+          <p class="muted" style="margin:.2rem 0 .6rem;font-size:.85rem;line-height:1.7">
+            یک روز را بزنید، ساعت شروع و پایان را انتخاب کنید؛ با رفتن به روز دیگر همان ساعت‌ها موقتاً نگه داشته می‌شوند و روی روز جدید ظاهر خالی می‌شود تا ساعت همان روز را وارد کنید.
+            از ۹ صبح تا ۸ شب. در پایان فرم را ذخیره کنید.
+          </p>
+          <input type="hidden" name="presence_draft_json" id="presence_draft_json" value="<?= e(json_encode($presenceDraftInitial, JSON_UNESCAPED_UNICODE)) ?>">
+          <div class="therapist-presence-days" role="tablist" aria-label="روزهای حضور">
             <?php foreach (doctor_weekdays_sat_first() as $presenceDay => $presenceLabel): ?>
-              <label class="pick-chip">
-                <input type="checkbox" name="presence_days[]" value="<?= (int) $presenceDay ?>">
-                <span><?= e($presenceLabel) ?></span>
-              </label>
+              <?php $presenceKey = (string) (int) $presenceDay; ?>
+              <button
+                type="button"
+                class="avail-weekday-btn<?= isset($presenceDraftInitial[$presenceKey]) ? ' has-hours' : '' ?>"
+                data-presence-day="<?= (int) $presenceDay ?>"
+                data-day-label="<?= e($presenceLabel) ?>"
+              ><?= e($presenceLabel) ?></button>
             <?php endforeach; ?>
           </div>
-          <div class="avail-hour-range" data-presence-range style="margin-top:.7rem">
+          <div class="avail-hour-range" data-presence-range style="margin-top:.7rem" hidden>
+            <p class="muted" style="margin:0 0 .55rem;font-size:.85rem" data-presence-active-label>روز را انتخاب کنید.</p>
             <input type="hidden" name="presence_from" id="presence_from" value="">
             <input type="hidden" name="presence_to" id="presence_to" value="">
             <div>
@@ -387,7 +418,11 @@ ob_start();
                 <?php endforeach; ?>
               </div>
             </div>
+            <div style="margin-top:.7rem;display:flex;flex-wrap:wrap;gap:.45rem">
+              <button type="button" class="btn btn-outline btn-sm" data-presence-clear-day>پاک کردن ساعت این روز</button>
+            </div>
           </div>
+          <p class="muted" style="margin:.55rem 0 0;font-size:.82rem;line-height:1.65" data-presence-draft-summary>هنوز ساعتی برای روزها نگه داشته نشده است.</p>
         </div>
         <div>
           <span class="label">رویکرد درمانی</span>
@@ -468,28 +503,137 @@ $pageScripts = '
       window.location.href = ' . json_encode(url('/secretary/therapists')) . ';
     }
   });
-  var presenceRoot = document.querySelector("[data-presence-range]");
-  if (presenceRoot) {
+  var draftRoot = document.querySelector("[data-presence-draft-root]");
+  if (draftRoot) {
+    var presenceRoot = draftRoot.querySelector("[data-presence-range]");
     var fromInput = document.getElementById("presence_from");
     var toInput = document.getElementById("presence_to");
+    var draftInput = document.getElementById("presence_draft_json");
+    var summaryEl = draftRoot.querySelector("[data-presence-draft-summary]");
+    var activeLabel = draftRoot.querySelector("[data-presence-active-label]");
+    var dayBtns = draftRoot.querySelectorAll("[data-presence-day]");
+    var draft = {};
+    var activeDay = null;
+    try { draft = JSON.parse((draftInput && draftInput.value) || "{}") || {}; } catch (e) { draft = {}; }
+    function hourFa(slot){
+      var h = parseInt(String(slot || "").split(":")[0], 10);
+      if (isNaN(h)) return "";
+      if (h === 0) return "۱۲ شب";
+      if (h === 12) return "۱۲ ظهر";
+      var n = String(h).replace(/\d/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹"[d]; });
+      if (h < 12) return n + " صبح";
+      if (h < 17) return n + " بعدازظهر";
+      if (h < 20) return n + " عصر";
+      return n + " شب";
+    }
+    function writeDraft(){
+      if (draftInput) draftInput.value = JSON.stringify(draft);
+      var parts = [];
+      dayBtns.forEach(function(btn){
+        var key = String(btn.getAttribute("data-presence-day") || "");
+        var item = draft[key];
+        var on = !!(item && item.from && item.to);
+        btn.classList.toggle("has-hours", on);
+        btn.classList.toggle("is-active", activeDay !== null && String(activeDay) === key);
+        if (on) {
+          parts.push((btn.getAttribute("data-day-label") || ("روز " + key)) + ": از " + hourFa(item.from) + " تا " + hourFa(item.to));
+        }
+      });
+      if (summaryEl) {
+        summaryEl.textContent = parts.length
+          ? ("آماده ذخیره: " + parts.join(" · "))
+          : "هنوز ساعتی برای روزها نگه داشته نشده است.";
+      }
+    }
     function syncPresence(role, value){
       var box = presenceRoot.querySelector("[data-presence-role=\"" + role + "\"]");
       var input = role === "from" ? fromInput : toInput;
       if (input) input.value = value || "";
       if (!box) return;
       box.querySelectorAll("[data-presence-time]").forEach(function(btn){
-        btn.classList.toggle("is-on", btn.getAttribute("data-presence-time") === value);
+        btn.classList.toggle("is-on", !!value && btn.getAttribute("data-presence-time") === value);
       });
     }
-    presenceRoot.addEventListener("click", function(e){
-      var btn = e.target && e.target.closest ? e.target.closest("[data-presence-time]") : null;
-      if (!btn || !presenceRoot.contains(btn)) return;
-      e.preventDefault();
-      var roleBox = btn.parentNode;
-      var role = roleBox ? roleBox.getAttribute("data-presence-role") : "";
-      if (!role) return;
-      syncPresence(role, btn.getAttribute("data-presence-time") || "");
+    function paintHours(from, to){
+      syncPresence("from", from || "");
+      syncPresence("to", to || "");
+    }
+    function flushActive(){
+      if (activeDay === null) return;
+      var from = fromInput ? String(fromInput.value || "") : "";
+      var to = toInput ? String(toInput.value || "") : "";
+      var key = String(activeDay);
+      if (from && to) {
+        draft[key] = { from: from, to: to };
+      } else if (draft[key] && (!from || !to)) {
+        // keep previous draft until both cleared via clear button
+      }
+      writeDraft();
+    }
+    function openDay(day){
+      if (activeDay !== null && String(activeDay) !== String(day)) {
+        flushActive();
+      }
+      activeDay = String(day);
+      if (presenceRoot) presenceRoot.hidden = false;
+      var item = draft[activeDay] || null;
+      paintHours(item ? item.from : "", item ? item.to : "");
+      var btn = draftRoot.querySelector("[data-presence-day=\"" + activeDay + "\"]");
+      if (activeLabel) {
+        activeLabel.textContent = item && item.from && item.to
+          ? ("ساعت «" + (btn ? btn.getAttribute("data-day-label") : "") + "»: از " + hourFa(item.from) + " تا " + hourFa(item.to) + " — می‌توانید تغییر دهید.")
+          : ("ساعت «" + (btn ? btn.getAttribute("data-day-label") : "") + "» را انتخاب کنید.");
+      }
+      writeDraft();
+    }
+    dayBtns.forEach(function(btn){
+      btn.addEventListener("click", function(){
+        openDay(btn.getAttribute("data-presence-day"));
+      });
     });
+    if (presenceRoot) {
+      presenceRoot.addEventListener("click", function(e){
+        var btn = e.target && e.target.closest ? e.target.closest("[data-presence-time]") : null;
+        if (!btn || !presenceRoot.contains(btn)) return;
+        e.preventDefault();
+        if (activeDay === null) return;
+        var roleBox = btn.closest("[data-presence-role]");
+        var role = roleBox ? roleBox.getAttribute("data-presence-role") : "";
+        if (!role) return;
+        syncPresence(role, btn.getAttribute("data-presence-time") || "");
+        var from = fromInput ? String(fromInput.value || "") : "";
+        var to = toInput ? String(toInput.value || "") : "";
+        if (from && to) {
+          draft[String(activeDay)] = { from: from, to: to };
+          writeDraft();
+          if (activeLabel) {
+            var dayBtn = draftRoot.querySelector("[data-presence-day=\"" + activeDay + "\"]");
+            activeLabel.textContent = "ساعت «" + (dayBtn ? dayBtn.getAttribute("data-day-label") : "") + "» موقتاً نگه داشته شد. روز دیگری را بزنید یا فرم را ذخیره کنید.";
+          }
+        }
+      });
+    }
+    var clearBtn = draftRoot.querySelector("[data-presence-clear-day]");
+    if (clearBtn) {
+      clearBtn.addEventListener("click", function(){
+        if (activeDay === null) return;
+        delete draft[String(activeDay)];
+        paintHours("", "");
+        writeDraft();
+        if (activeLabel) {
+          var dayBtn = draftRoot.querySelector("[data-presence-day=\"" + activeDay + "\"]");
+          activeLabel.textContent = "ساعت «" + (dayBtn ? dayBtn.getAttribute("data-day-label") : "") + "» پاک شد.";
+        }
+      });
+    }
+    var form = draftRoot.closest("form");
+    if (form) {
+      form.addEventListener("submit", function(){
+        flushActive();
+        writeDraft();
+      });
+    }
+    writeDraft();
   }
 })();
 </script>
