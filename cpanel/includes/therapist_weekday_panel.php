@@ -22,7 +22,7 @@ function therapist_weekday_panel_html(PDO $pdo, string $doctorId, string $doctor
     }
     ob_start();
     ?>
-    <p class="muted" style="margin:.2rem 0 .8rem;line-height:1.7">روز هفته را بزنید و ساعت شروع و پایان حضور را انتخاب کنید. اسلات‌ها یک‌ساعته ساخته می‌شوند. گرفتن نوبت فقط تا دو هفته آینده باز است.</p>
+    <p class="muted" style="margin:.2rem 0 .8rem;line-height:1.7">روز هفته را بزنید، بعد ساعت شروع و پایان را از دکمه‌ها انتخاب کنید. اسلات‌ها یک‌ساعته ساخته می‌شوند. گرفتن نوبت فقط تا دو هفته آینده باز است.</p>
     <div class="avail-weekday-row" role="tablist" aria-label="روزهای هفته">
       <?php foreach ($weekdays as $w => $label): ?>
         <?php $has = isset($weeklyMap[$w]); ?>
@@ -50,26 +50,11 @@ function therapist_weekday_panel_html(PDO $pdo, string $doctorId, string $doctor
           <input type="hidden" name="action" value="save_weekday">
           <input type="hidden" name="doctor_id" value="<?= e($doctorId) ?>">
           <input type="hidden" name="weekday" value="<?= (int) $w ?>">
-          <div class="avail-weekday-fields">
-            <label>
-              <span class="label">از ساعت</span>
-              <select class="input" name="hour_from" required>
-                <?php foreach ($bookingHours as $hour): ?>
-                  <option value="<?= (int) $hour ?>"<?= (int) $hour === (int) $defaultFrom ? ' selected' : '' ?>><?= e(appointment_hour_chip_label((int) $hour)) ?></option>
-                <?php endforeach; ?>
-              </select>
-            </label>
-            <label>
-              <span class="label">تا ساعت</span>
-              <select class="input" name="hour_to" required>
-                <?php foreach ($bookingHours as $hour): ?>
-                  <option value="<?= (int) $hour ?>"<?= (int) $hour === (int) $defaultTo ? ' selected' : '' ?>><?= e(appointment_hour_chip_label((int) $hour)) ?></option>
-                <?php endforeach; ?>
-              </select>
-            </label>
+          <?= appointment_hour_range_fields_html($bookingHours, (int) $defaultFrom, (int) $defaultTo, 'hour_from', 'hour_to', 'th-w' . (int) $w) ?>
+          <div class="avail-weekday-fields" style="margin-top:.75rem">
             <label>
               <span class="label">اعمال برای</span>
-              <select class="input" name="weeks">
+              <select class="input avail-native-select" name="weeks">
                 <option value="4">۴ هفته آینده</option>
                 <option value="8">۸ هفته آینده</option>
                 <option value="12" selected>۱۲ هفته آینده</option>
@@ -127,6 +112,7 @@ function therapist_weekday_panel_html(PDO $pdo, string $doctorId, string $doctor
         </div>
       <?php endforeach; ?>
     </section>
+    <?= appointment_hour_range_script() ?>
     <?php
 
     return (string) ob_get_clean();

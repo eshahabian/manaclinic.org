@@ -24,7 +24,7 @@ ob_start();
 ?>
 <h1>روزهای خالی</h1>
 <p class="muted">
-  روز هفته را بزنید، ساعت شروع و پایان حضور را از منوی کرکره‌ای انتخاب کنید.
+  روز هفته را بزنید، ساعت شروع و پایان حضور را از دکمه‌ها انتخاب کنید.
   سیستم به‌صورت خودکار اسلات‌های <strong>یک‌ساعته</strong> می‌سازد تا منشی و مراجعه‌کننده بتوانند رزرو کنند.
 </p>
 
@@ -66,32 +66,14 @@ ob_start();
         <?php endif; ?>
       </div>
       <form method="post" action="<?= e(url('/doctor/availability')) ?>" class="avail-weekday-form">
+        <?= csrf_field() ?>
         <input type="hidden" name="action" value="save_weekday">
         <input type="hidden" name="weekday" value="<?= (int) $w ?>">
-        <div class="avail-weekday-fields">
-          <label>
-            <span class="label">از ساعت</span>
-            <select class="input" name="hour_from" required>
-              <?php foreach ($bookingHours as $hour): ?>
-                <option value="<?= (int) $hour ?>"<?= (int) $hour === (int) $defaultFrom ? ' selected' : '' ?>>
-                  <?= e(appointment_hour_chip_label((int) $hour)) ?>
-                </option>
-              <?php endforeach; ?>
-            </select>
-          </label>
-          <label>
-            <span class="label">تا ساعت</span>
-            <select class="input" name="hour_to" required>
-              <?php foreach ($bookingHours as $hour): ?>
-                <option value="<?= (int) $hour ?>"<?= (int) $hour === (int) $defaultTo ? ' selected' : '' ?>>
-                  <?= e(appointment_hour_chip_label((int) $hour)) ?>
-                </option>
-              <?php endforeach; ?>
-            </select>
-          </label>
+        <?= appointment_hour_range_fields_html($bookingHours, (int) $defaultFrom, (int) $defaultTo, 'hour_from', 'hour_to', 'doc-w' . (int) $w) ?>
+        <div class="avail-weekday-fields" style="margin-top:.75rem">
           <label>
             <span class="label">اعمال برای</span>
-            <select class="input" name="weeks">
+            <select class="input avail-native-select" name="weeks">
               <option value="4">۴ هفته آینده</option>
               <option value="8">۸ هفته آینده</option>
               <option value="12" selected>۱۲ هفته آینده</option>
@@ -108,6 +90,7 @@ ob_start();
       </form>
       <?php if ($saved !== []): ?>
         <form method="post" action="<?= e(url('/doctor/availability')) ?>" style="margin-top:.65rem" onsubmit="return confirm('ساعت‌های این روز هفته پاک شود؟');">
+          <?= csrf_field() ?>
           <input type="hidden" name="action" value="clear_weekday">
           <input type="hidden" name="weekday" value="<?= (int) $w ?>">
           <button class="btn btn-outline btn-sm" type="submit">پاک کردن این روز</button>
@@ -166,7 +149,7 @@ ob_start();
 </section>
 <?php
 $inner = ob_get_clean();
-$pageScripts = '
+$pageScripts = appointment_hour_range_script() . '
 <script>
 (function(){
   var buttons = document.querySelectorAll("[data-weekday-open]");

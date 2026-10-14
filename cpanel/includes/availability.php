@@ -314,6 +314,109 @@ function appointment_hour_chip_label(int $hour): string
     return $n . ' شب';
 }
 
+/**
+ * انتخاب بازه ساعت با دکمه (به‌جای select بومی که داخل مودال RTL خالی می‌ماند).
+ *
+ * @param list<int> $hours
+ */
+function appointment_hour_range_fields_html(
+    array $hours,
+    int $fromHour,
+    int $toHour,
+    string $fromName = 'hour_from',
+    string $toName = 'hour_to',
+    string $idPrefix = 'hr'
+): string {
+    $hours = array_values(array_map('intval', $hours));
+    if ($hours === []) {
+        $hours = appointment_booking_hours();
+    }
+    if (!in_array($fromHour, $hours, true)) {
+        $fromHour = $hours[0];
+    }
+    if (!in_array($toHour, $hours, true)) {
+        $toHour = $hours[min(count($hours) - 1, 4)];
+    }
+    $fromId = $idPrefix . '-from';
+    $toId = $idPrefix . '-to';
+    ob_start();
+    ?>
+    <div class="avail-hour-range" data-hour-range>
+      <input type="hidden" name="<?= e($fromName) ?>" id="<?= e($fromId) ?>" value="<?= (int) $fromHour ?>" required>
+      <input type="hidden" name="<?= e($toName) ?>" id="<?= e($toId) ?>" value="<?= (int) $toHour ?>" required>
+      <div>
+        <span class="label">از ساعت</span>
+        <div class="avail-hour-chips" data-hour-role="from" role="listbox" aria-label="از ساعت">
+          <?php foreach ($hours as $hour): ?>
+            <button type="button" class="avail-hour-chip<?= (int) $hour === (int) $fromHour ? ' is-on' : '' ?>" data-hour="<?= (int) $hour ?>" aria-pressed="<?= (int) $hour === (int) $fromHour ? 'true' : 'false' ?>">
+              <?= e(appointment_hour_chip_label((int) $hour)) ?>
+            </button>
+          <?php endforeach; ?>
+        </div>
+      </div>
+      <div style="margin-top:.75rem">
+        <span class="label">تا ساعت</span>
+        <div class="avail-hour-chips" data-hour-role="to" role="listbox" aria-label="تا ساعت">
+          <?php foreach ($hours as $hour): ?>
+            <button type="button" class="avail-hour-chip<?= (int) $hour === (int) $toHour ? ' is-on' : '' ?>" data-hour="<?= (int) $hour ?>" aria-pressed="<?= (int) $hour === (int) $toHour ? 'true' : 'false' ?>">
+              <?= e(appointment_hour_chip_label((int) $hour)) ?>
+            </button>
+          <?php endforeach; ?>
+        </div>
+      </div>
+    </div>
+    <?php
+
+    return (string) ob_get_clean();
+}
+
+function appointment_hour_range_script(): string
+{
+    static $done = false;
+    if ($done) {
+        return '';
+    }
+    $done = true;
+
+    return '<script>
+(function(){
+  if (window.manaHourRangeReady) return;
+  window.manaHourRangeReady = true;
+  function paint(root){
+    var fromEl = root.querySelector("[data-hour-role=from]");
+    var toEl = root.querySelector("[data-hour-role=to]");
+    if (!fromEl || !toEl) return;
+    var fromInput = root.querySelector("input[name=hour_from]");
+    var toInput = root.querySelector("input[name=hour_to]");
+    var inputs = root.querySelectorAll("input[type=hidden]");
+    if (!fromInput && inputs[0]) fromInput = inputs[0];
+    if (!toInput && inputs[1]) toInput = inputs[1];
+    function sync(role, value){
+      var box = role === "from" ? fromEl : toEl;
+      var input = role === "from" ? fromInput : toInput;
+      if (input) input.value = String(value);
+      box.querySelectorAll("[data-hour]").forEach(function(btn){
+        var on = String(btn.getAttribute("data-hour")) === String(value);
+        btn.classList.toggle("is-on", on);
+        btn.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+    }
+    root.addEventListener("click", function(e){
+      var btn = e.target && e.target.closest ? e.target.closest("[data-hour]") : null;
+      if (!btn || !root.contains(btn)) return;
+      e.preventDefault();
+      var roleBox = btn.closest("[data-hour-role]");
+      var role = roleBox ? roleBox.getAttribute("data-hour-role") : "";
+      var value = btn.getAttribute("data-hour");
+      if (!role || value == null) return;
+      sync(role, value);
+    });
+  }
+  document.querySelectorAll("[data-hour-range]").forEach(paint);
+})();
+</script>';
+}
+
 function appointment_slot_ends_at(string $startsAt): string
 {
     return date('Y-m-d H:i:s', (strtotime($startsAt) ?: 0) + (appointment_slot_minutes() * 60));

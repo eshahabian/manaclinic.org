@@ -363,7 +363,7 @@ ob_start();
         ?>
         <div>
           <span class="label">ساعات حضور</span>
-          <p class="muted" style="margin:.2rem 0 .6rem;font-size:.85rem;line-height:1.7">روزها را انتخاب کنید و بازه را از منوی کرکره‌ای بردارید. از ۱۱ تا ۱۷، هر نیم‌ساعت. اگر خالی بماند، ساعتی ثبت نمی‌شود. نوبت‌دهی ساعتی است، پس نیم‌ساعت به همان ساعت کامل گرد می‌شود.</p>
+          <p class="muted" style="margin:.2rem 0 .6rem;font-size:.85rem;line-height:1.7">روزها را انتخاب کنید و ساعت شروع و پایان را از دکمه‌ها بزنید. از ۱۱ تا ۱۷، هر نیم‌ساعت. اگر خالی بماند، ساعتی ثبت نمی‌شود. نوبت‌دهی ساعتی است، پس نیم‌ساعت به همان ساعت کامل گرد می‌شود.</p>
           <div class="therapist-presence-days">
             <?php foreach (doctor_weekdays_sat_first() as $presenceDay => $presenceLabel): ?>
               <label class="pick-chip">
@@ -372,25 +372,25 @@ ob_start();
               </label>
             <?php endforeach; ?>
           </div>
-          <div class="doc-profile-grid" style="margin-top:.7rem">
-            <label>
+          <div class="avail-hour-range" data-presence-range style="margin-top:.7rem">
+            <input type="hidden" name="presence_from" id="presence_from" value="">
+            <input type="hidden" name="presence_to" id="presence_to" value="">
+            <div>
               <span class="label">از ساعت</span>
-              <select class="input" name="presence_from">
-                <option value="">انتخاب ساعت</option>
+              <div class="avail-hour-chips" data-presence-role="from" role="listbox" aria-label="از ساعت">
                 <?php foreach ($presenceSlots as $presenceSlot): ?>
-                  <option value="<?= e($presenceSlot) ?>"><?= e(to_fa_digits($presenceSlot)) ?></option>
+                  <button type="button" class="avail-hour-chip" data-presence-time="<?= e($presenceSlot) ?>"><?= e(to_fa_digits($presenceSlot)) ?></button>
                 <?php endforeach; ?>
-              </select>
-            </label>
-            <label>
+              </div>
+            </div>
+            <div style="margin-top:.75rem">
               <span class="label">تا ساعت</span>
-              <select class="input" name="presence_to">
-                <option value="">انتخاب ساعت</option>
+              <div class="avail-hour-chips" data-presence-role="to" role="listbox" aria-label="تا ساعت">
                 <?php foreach ($presenceSlots as $presenceSlot): ?>
-                  <option value="<?= e($presenceSlot) ?>"><?= e(to_fa_digits($presenceSlot)) ?></option>
+                  <button type="button" class="avail-hour-chip" data-presence-time="<?= e($presenceSlot) ?>"><?= e(to_fa_digits($presenceSlot)) ?></button>
                 <?php endforeach; ?>
-              </select>
-            </label>
+              </div>
+            </div>
           </div>
         </div>
         <div>
@@ -472,6 +472,29 @@ $pageScripts = '
       window.location.href = ' . json_encode(url('/secretary/therapists')) . ';
     }
   });
+  var presenceRoot = document.querySelector("[data-presence-range]");
+  if (presenceRoot) {
+    var fromInput = document.getElementById("presence_from");
+    var toInput = document.getElementById("presence_to");
+    function syncPresence(role, value){
+      var box = presenceRoot.querySelector("[data-presence-role=\"" + role + "\"]");
+      var input = role === "from" ? fromInput : toInput;
+      if (input) input.value = value || "";
+      if (!box) return;
+      box.querySelectorAll("[data-presence-time]").forEach(function(btn){
+        btn.classList.toggle("is-on", btn.getAttribute("data-presence-time") === value);
+      });
+    }
+    presenceRoot.addEventListener("click", function(e){
+      var btn = e.target && e.target.closest ? e.target.closest("[data-presence-time]") : null;
+      if (!btn || !presenceRoot.contains(btn)) return;
+      e.preventDefault();
+      var roleBox = btn.parentNode;
+      var role = roleBox ? roleBox.getAttribute("data-presence-role") : "";
+      if (!role) return;
+      syncPresence(role, btn.getAttribute("data-presence-time") || "");
+    });
+  }
 })();
 </script>
 <script src="' . e(url('/assets/js/name-transliterate.js')) . '?v=20261014t"></script>
