@@ -2291,18 +2291,6 @@ function staff_app_render(string $active, string $title, string $description, st
         $avatarSrc = user_avatar_src((string) ($user['avatar_url'] ?? ''));
         $avatarInitial = user_avatar_initial($name !== '' ? $name : 'م');
     }
-    $sappWallet = null;
-    if ($user && !$locked && $pdo instanceof PDO) {
-        try {
-            if (!function_exists('ensure_wallet')) {
-                require_once __DIR__ . '/wallet.php';
-            }
-            $sappWalletRow = ensure_wallet($pdo, (string) ($user['id'] ?? ''));
-            $sappWallet = (int) ($sappWalletRow['balance'] ?? 0);
-        } catch (Throwable $e) {
-            $sappWallet = null;
-        }
-    }
     $navKey = match ($active) {
         'chat' => 'chat',
         'profile' => 'profile',
@@ -2349,7 +2337,6 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-avatar{width:38px;height:38px;border-radius:999px;background:#e7eeeb;display:inline-flex;align-items:center;justify-content:center;overflow:hidden;color:#1c3d36;font-weight:800;border:2px solid #fff;box-shadow:0 2px 8px rgba(20,60,50,.08);text-decoration:none}
     .sapp-avatar img{width:100%;height:100%;object-fit:cover;display:block}
     .sapp-logout{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:0 14px;border-radius:999px;background:#1a9a8a;color:#fff;text-decoration:none;font-weight:800;font-size:.92rem}
-    .sapp-wallet{display:inline-flex;align-items:center;min-height:36px;padding:0 12px;border-radius:999px;background:#e7f6f3;color:#128f84;text-decoration:none;font-weight:800;font-size:.82rem;white-space:nowrap}
     .sapp-main{width:100%;max-width:min(32rem,100%);margin:0 auto;padding:.5rem 4vw calc(5.4rem + env(safe-area-inset-bottom))}
     .sapp-hello h1{margin:8px 0 2px;font-size:1.28rem;font-weight:800;line-height:1.45;color:#1c3d36}
     .sapp-hello p{margin:0 0 14px;color:#8aa099;font-size:.92rem}
@@ -2586,9 +2573,6 @@ function staff_app_render(string $active, string $title, string $description, st
               <?= e($avatarInitial) ?>
             <?php endif; ?>
           </a>
-        <?php endif; ?>
-        <?php if (!$locked): ?>
-          <a class="sapp-wallet" href="<?= e(url('/dashboard/wallet')) ?>">کیف پول<?= $sappWallet !== null ? ' ' . e(format_price($sappWallet)) : '' ?></a>
         <?php endif; ?>
         <a class="sapp-logout" href="<?= e(staff_app_logout_href()) ?>">خروج</a>
       </div>

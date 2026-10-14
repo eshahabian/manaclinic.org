@@ -44,6 +44,7 @@ function admin_nav(): array {
     if ($user && strcasecmp(trim((string) ($user['username'] ?? '')), 'eshahabian') === 0) {
         $nav[] = ['href' => '/dashboard/appointments', 'label' => 'نوبت‌های من'];
         $nav[] = ['href' => '/dashboard/path', 'label' => 'اتاق ذهن'];
+        $nav[] = ['href' => '/dashboard/wallet', 'label' => 'کیف پول'];
     }
     $nav[] = ['href' => '/admin/feedback', 'label' => 'انتقادات و پیشنهادات'];
     $nav[] = [
