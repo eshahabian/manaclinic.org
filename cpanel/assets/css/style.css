@@ -3628,6 +3628,8 @@ html[data-theme="dark"] .sec-room-pick:has(input:checked) {
   width: 100%;
   min-width: 12rem;
 }
+/* انتخاب درمانگر جدول هفت‌روزه: همان باگ RTL روی select بومی که مقدار را به اول فهرست برمی‌گرداند */
+.sec-week-doctor-pick select.input,
 .sec-week-room-form select[name="room_no"],
 .sec-room-select > select.input {
   width: 100%;

@@ -90,8 +90,24 @@ $binderInitial = in_array($tabParam, ['new', 'reservations', 'upcoming', 'done',
 
 $doctors = secretary_active_doctors($pdo);
 $weekDoctorId = trim((string) ($_GET['doctor_id'] ?? ''));
-if ($weekDoctorId === '' || !array_filter($doctors, static fn($d) => (string) ($d['id'] ?? '') === $weekDoctorId)) {
-    $weekDoctorId = (string) (($doctors[0]['id'] ?? '') ?: '');
+$doctorIds = [];
+foreach ($doctors as $d) {
+    $id = trim((string) ($d['id'] ?? ''));
+    if ($id !== '') {
+        $doctorIds[$id] = true;
+    }
+}
+if ($weekDoctorId === '' || !isset($doctorIds[$weekDoctorId])) {
+    // اگر از قبل درمانگری در نشست مانده، همان را نگه دار؛ وگرنه اول فهرست.
+    $sessionDoctor = trim((string) ($_SESSION['appointments_week_doctor_id'] ?? ''));
+    if ($sessionDoctor !== '' && isset($doctorIds[$sessionDoctor])) {
+        $weekDoctorId = $sessionDoctor;
+    } else {
+        $weekDoctorId = (string) (($doctors[0]['id'] ?? '') ?: '');
+    }
+}
+if ($weekDoctorId !== '') {
+    $_SESSION['appointments_week_doctor_id'] = $weekDoctorId;
 }
 $weekSchedule = $weekDoctorId !== '' ? secretary_week_schedule($pdo, $weekDoctorId, 7) : [];
 
@@ -167,11 +183,11 @@ ob_start();
           $appointmentSingleEdit = false;
         ?>
       <?php else: ?>
-        <form method="get" action="<?= e($deskAction) ?>" class="sec-week-doctor-pick" style="display:flex;flex-wrap:wrap;gap:.55rem;align-items:end;margin:1.25rem 0 1rem">
+        <form method="get" action="<?= e($deskAction) ?>" class="sec-week-doctor-pick" id="sec-week-doctor-form" style="display:flex;flex-wrap:wrap;gap:.55rem;align-items:end;margin:1.25rem 0 1rem">
           <input type="hidden" name="tab" value="upcoming">
           <div style="flex:1;min-width:12rem">
             <label class="label" for="week_doctor_id">درمانگر (جدول هفت‌روزه)</label>
-            <select class="input" name="doctor_id" id="week_doctor_id" onchange="this.form.submit()">
+            <select class="input" name="doctor_id" id="week_doctor_id" data-week-doctor-pick>
               <?php foreach ($doctors as $d): ?>
                 <option value="<?= e((string) $d['id']) ?>"<?= $weekDoctorId === (string) $d['id'] ? ' selected' : '' ?>>
                   <?= e((string) ($d['name'] ?? '')) ?><?= !empty($d['specialty']) ? ' — ' . e((string) $d['specialty']) : '' ?>
@@ -225,4 +241,25 @@ ob_start();
 $appointmentsDeskHtml = ob_get_clean();
 $appointmentsDeskScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260920a"></script>'
     . appointment_search_datepicker_script(['up', 'dn', 'cn'])
-    . ($secretaryBookScripts ?? '');
+    . ($secretaryBookScripts ?? '')
+    . '<script>
+(function(){
+  var sel = document.getElementById("week_doctor_id");
+  var form = document.getElementById("sec-week-doctor-form");
+  if (!sel || !form) return;
+  var base = form.getAttribute("action") || "";
+  function goDoctor(id){
+    id = String(id || "").trim();
+    if (!id || !base) return;
+    var url = base + (base.indexOf("?") >= 0 ? "&" : "?") + "tab=upcoming&doctor_id=" + encodeURIComponent(id);
+    if (window.location.href.split("#")[0] === url) return;
+    window.location.assign(url);
+  }
+  if (window.enhanceSearchSelect) {
+    enhanceSearchSelect(sel, { placeholder: "جستجو یا انتخاب درمانگر" });
+  }
+  sel.addEventListener("change", function(){
+    goDoctor(sel.value);
+  });
+})();
+</script>';
