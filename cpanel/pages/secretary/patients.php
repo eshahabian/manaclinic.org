@@ -358,6 +358,18 @@ ob_start();
       <div><dt>آخرین نوبت</dt><dd id="patient-more-last"></dd></div>
     </dl>
     <p style="margin:.85rem 0 0"><a class="btn btn-outline btn-sm" id="patient-more-profile" href="#">پرونده نوبت‌ها و کارگاه‌ها</a></p>
+    <h3 class="patient-more-notes-title">یادداشت‌ها</h3>
+    <div id="patient-more-notes"></div>
+    <form class="patient-more-note-form" id="patient-more-note-form" method="post" action="<?= e(url('/secretary/users')) ?>">
+      <?= csrf_field() ?>
+      <input type="hidden" name="action" value="add_patient_note">
+      <input type="hidden" name="user_id" id="patient-more-user" value="">
+      <label>
+        <span class="label">افزودن مورد</span>
+        <textarea class="input" name="body" rows="3" maxlength="1000" required placeholder="یادداشت درباره این مراجعه‌کننده"></textarea>
+      </label>
+      <button class="btn btn-primary btn-sm" type="submit">ثبت یادداشت</button>
+    </form>
     <h3 class="patient-more-notes-title">پیامک</h3>
     <p class="muted" id="patient-more-sms-hint" style="margin:0 0 .55rem;line-height:1.7">این پیام فقط برای همین شخص است.</p>
     <?php if (!sms_panel_enabled()): ?>
@@ -372,18 +384,6 @@ ob_start();
         <textarea class="input" name="body" id="patient-more-sms-body" rows="3" maxlength="500" required placeholder="پیام کوتاه برای همین مراجعه‌کننده"></textarea>
       </label>
       <button class="btn btn-primary btn-sm" type="submit" id="patient-more-sms-send">ارسال پیامک</button>
-    </form>
-    <h3 class="patient-more-notes-title">یادداشت‌ها</h3>
-    <div id="patient-more-notes"></div>
-    <form class="patient-more-note-form" id="patient-more-note-form" method="post" action="<?= e(url('/secretary/users')) ?>">
-      <?= csrf_field() ?>
-      <input type="hidden" name="action" value="add_patient_note">
-      <input type="hidden" name="user_id" id="patient-more-user" value="">
-      <label>
-        <span class="label">افزودن مورد</span>
-        <textarea class="input" name="body" rows="3" maxlength="1000" required placeholder="یادداشت درباره این مراجعه‌کننده"></textarea>
-      </label>
-      <button class="btn btn-primary btn-sm" type="submit">ثبت یادداشت</button>
     </form>
   </div>
 </div>
@@ -889,9 +889,10 @@ $pageScripts = '
 </script>
 ';
 $pageHead = ($pageHead ?? '') . '<style>
-.patient-list-filters{display:grid;grid-template-columns:minmax(12rem,1.3fr) minmax(7.5rem,.55fr) minmax(12rem,1.1fr) minmax(9rem,.7fr);gap:.75rem;margin-top:1.25rem;align-items:end}
-.patient-list-filters .search-select{width:100%}
-.patient-list-filters .search-select-input{direction:rtl;text-align:right;color:var(--fg)}
+.patient-list-filters{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:.75rem;margin-top:1.25rem;align-items:end}
+.patient-list-filters>div{min-width:0}
+.patient-list-filters .input,.patient-list-filters .search-select{width:100%;box-sizing:border-box}
+.patient-list-filters .search-select-input{direction:rtl;text-align:right;color:var(--fg);width:100%;box-sizing:border-box}
 @media (max-width:900px){.patient-list-filters{grid-template-columns:1fr 1fr}}
 @media (max-width:560px){.patient-list-filters{grid-template-columns:1fr}}
 #secretary-account-edit .sec-account-action{width:6.25rem;height:2.4rem;flex:0 0 6.25rem;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;text-align:center;white-space:nowrap;line-height:1.2;padding:.35rem .5rem}
