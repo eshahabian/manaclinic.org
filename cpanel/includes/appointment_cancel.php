@@ -169,7 +169,18 @@ function secretary_mark_patient_cancelled(PDO $pdo, string $appointmentId, array
         throw new RuntimeException('این نوبت قابل ثبت کنسلی نیست.');
     }
 
-    $refundAmount = appointment_cancel_refund_amount($row, $side);
+    $refundAmount = 0;
+    $visitAmount = (int) ($row['amount'] ?? 0);
+    if ((string) ($row['pay_status'] ?? '') !== 'PAID') {
+        wallet_release_open_visit($pdo, $appointmentId, $side === 'clinic'
+            ? 'برگشت بدهی؛ کنسلی از سمت کلینیک'
+            : 'برگشت بدهی؛ کنسلی از سمت مراجع');
+    }
+    if ($side === 'patient') {
+        $refundAmount = $visitAmount;
+    } else {
+        $refundAmount = appointment_cancel_refund_amount($row, 'clinic');
+    }
     if ($refundAmount > 0 && !appointment_refund_already($pdo, $appointmentId)) {
         wallet_credit_balance(
             $pdo,
@@ -179,17 +190,11 @@ function secretary_mark_patient_cancelled(PDO $pdo, string $appointmentId, array
             'appointment',
             $appointmentId,
             $side === 'clinic'
-                ? 'کنسلی از سمت کلینیک — کل مبلغ برگشت'
-                : 'کنسلی از سمت مراجع — بازگشت با توجه به هزینه درمانگر'
+                ? 'کنسلی از سمت کلینیک — کل مبلغ به کیف پول برگشت'
+                : 'کنسلی از سمت مراجع — کل مبلغ به کیف پول برگشت'
         );
     } else {
         $refundAmount = 0;
-    }
-
-    if ((string) ($row['pay_status'] ?? '') !== 'PAID') {
-        wallet_release_open_visit($pdo, $appointmentId, $side === 'clinic'
-            ? 'برگشت بدهی؛ کنسلی از سمت کلینیک'
-            : 'برگشت بدهی؛ کنسلی از سمت مراجع');
     }
     if (in_array((string) ($row['status'] ?? ''), ['PENDING_APPROVAL', 'PENDING_PAYMENT'], true) || (string) ($row['pay_status'] ?? '') === 'PENDING') {
         $pdo->prepare("UPDATE payments SET status='FAILED' WHERE appointment_id=? AND status='PENDING'")
