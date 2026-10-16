@@ -31,9 +31,12 @@ $stmt->execute([$user['id']]);
 $appointments = $stmt->fetchAll();
 $fixedAppointments = [];
 $requestAppointments = [];
+$cancelledAppointments = [];
 foreach ($appointments as $row) {
     $status = (string) ($row['status'] ?? '');
-    if (function_exists('appointment_is_panel_fixed') && appointment_is_panel_fixed($row)) {
+    if ($status === 'CANCELLED') {
+        $cancelledAppointments[] = $row;
+    } elseif (function_exists('appointment_is_panel_fixed') && appointment_is_panel_fixed($row)) {
         $fixedAppointments[] = $row;
     } elseif (in_array($status, ['PENDING_APPROVAL', 'PENDING_PAYMENT'], true)) {
         $requestAppointments[] = $row;
@@ -69,6 +72,20 @@ ob_start();
   <?php endif; ?>
   <p id="pay-error" style="color:var(--danger);font-size:.9rem;display:none"></p>
   <p id="cancel-msg" style="font-size:.9rem;display:none"></p>
+  <div class="binder-tile" data-binder-tabs data-binder-initial="appts" data-binder-tone="appts">
+    <div class="binder-tabs" role="tablist" aria-label="دسته‌بندی نوبت‌ها">
+      <button type="button" id="appointments-tab" class="binder-tab is-active" role="tab" data-binder-tab="appts" aria-controls="appointments-panel" aria-selected="true">
+        نوبت‌ها <span class="binder-tab-count"><?= e(to_fa_digits((string) (count($fixedAppointments) + count($requestAppointments)))) ?></span>
+      </button>
+      <button type="button" id="cancelled-tab" class="binder-tab" role="tab" data-binder-tab="cancelled" aria-controls="cancelled-panel" aria-selected="false">
+        لغوشده‌ها <span class="binder-tab-count"><?= e(to_fa_digits((string) count($cancelledAppointments))) ?></span>
+      </button>
+    </div>
+    <div class="binder-body">
+      <section id="appointments-panel" class="binder-panel is-active" data-binder-panel="appts" role="tabpanel" aria-labelledby="appointments-tab">
+  <?php if (!$fixedAppointments && !$requestAppointments): ?>
+    <p class="muted binder-empty">نوبت ثبت‌شده‌ای ندارید. برای رزرو نوبت جدید به صفحهٔ متخصصان بروید.</p>
+  <?php endif; ?>
   <?php if ($requestAppointments): ?>
     <h2 class="binder-sub">درخواست‌های در انتظار منشی</h2>
     <p class="muted" style="margin:-.35rem 0 .75rem;font-size:.85rem">این وقت‌ها هنوز قطعی نیستند. بعد از تأیید پرداخت منشی، در فهرست نوبت‌های شما و درمانگر دیده می‌شوند.</p>
@@ -79,14 +96,32 @@ ob_start();
       require __DIR__ . '/../../includes/patient_appointment_items.php';
     ?>
   <?php endif; ?>
-  <h2 class="binder-sub">نوبت‌های قطعی</h2>
+  <?php if ($fixedAppointments): ?>
+  <h2 class="binder-sub">نوبت‌های ثبت‌شده</h2>
   <?php
     $appointmentList = $fixedAppointments;
     $appointmentItemMode = 'manage';
     $appointmentOnlinePayEnabled = $onlinePayEnabled;
     require __DIR__ . '/../../includes/patient_appointment_items.php';
   ?>
+  <?php endif; ?>
+      </section>
+      <section id="cancelled-panel" class="binder-panel" data-binder-panel="cancelled" role="tabpanel" aria-labelledby="cancelled-tab" hidden>
+        <?php if (!$cancelledAppointments): ?>
+          <p class="muted binder-empty">نوبت لغوشده‌ای ندارید.</p>
+        <?php else: ?>
+          <?php
+            $appointmentList = $cancelledAppointments;
+            $appointmentItemMode = 'manage';
+            $appointmentOnlinePayEnabled = $onlinePayEnabled;
+            require __DIR__ . '/../../includes/patient_appointment_items.php';
+          ?>
+        <?php endif; ?>
+      </section>
+    </div>
+  </div>
 </div>
+<script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260904u"></script>
 <script>
 (function(){
   var payUrl = <?= json_encode($payUrl, JSON_UNESCAPED_UNICODE) ?>;
