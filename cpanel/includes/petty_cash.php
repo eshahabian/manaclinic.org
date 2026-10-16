@@ -303,8 +303,8 @@ function petty_cash_datepicker_assets(): string
     }
     $done = true;
 
-    return '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">'
-        . '<script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>'
+    return '<link rel="stylesheet" href="/assets/vendor/jalali/jalalidatepicker.min.css">'
+        . '<script src="/assets/vendor/jalali/jalalidatepicker.min.js"></script>'
         . '<script>if(window.jalaliDatepicker){jalaliDatepicker.startWatch({selector:"[data-jdp]",time:false,hideAfterChange:true,showTodayBtn:true,showEmptyBtn:true,autoReadOnlyInput:true,persianDigits:true,zIndex:100000,container:"body"});}</script>';
 }
 

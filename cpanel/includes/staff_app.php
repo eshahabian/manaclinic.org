@@ -2319,9 +2319,6 @@ function staff_app_render(string $active, string $title, string $description, st
   <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
   <?= staff_app_pwa_head() ?>
   <?= seo_render_head() ?>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Vazirmatn:wght@400;500;600;700;800&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20261013pat">
   <?php if (!empty($GLOBALS['pageHead'])): ?>
     <?= $GLOBALS['pageHead'] ?>
@@ -2556,6 +2553,7 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-check-absent{margin:0;padding:1rem 1.05rem;border-radius:1rem;background:#fff;color:#5d746c;box-shadow:0 .35rem 1rem rgba(28,70,58,.05);line-height:1.7}
     body.sapp{padding:0}
   </style>
+  <link rel="stylesheet" href="<?= e(url('/assets/css/local-font.css')) ?>">
 </head>
 <body class="sapp<?= !empty($GLOBALS['staffBodyClass']) ? ' ' . e((string) $GLOBALS['staffBodyClass']) : '' ?>"<?= $user ? ' data-user="' . e((string) ($user['id'] ?? '')) . '" data-session-guard="1" data-session-ping="' . e(url('/session/ping')) . '" data-logout="' . e(staff_app_logout_href()) . '"' : '' ?><?= ($user && !$locked) ? ' data-presence="' . e(url('/app/presence')) . '" data-chat="' . e(url('/app/chat')) . '" data-unread="' . e((string) (int) $unread) . '" data-vapid="' . e($vapidKey) . '" data-push="' . e(url('/app/push/subscribe')) . '"' : '' ?><?= $isSecretary ? ' data-secretary-desk="1" data-no-idle="1" data-heartbeat="' . e(url('/secretary/heartbeat')) . '"' : '' ?>>
   <header class="sapp-top">

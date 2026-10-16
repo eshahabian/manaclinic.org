@@ -190,7 +190,7 @@ ob_start();
   </div>
 </div>
 <?php
-$pageHead = '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">';
+$pageHead = '<link rel="stylesheet" href="/assets/vendor/jalali/jalalidatepicker.min.css">';
 $pageScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260920a"></script>'
     . appointment_search_datepicker_script(['up', 'dn', 'cn']);
 $GLOBALS['pageHead'] = $pageHead;

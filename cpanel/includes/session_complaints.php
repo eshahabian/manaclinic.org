@@ -495,9 +495,9 @@ function session_feedback_assets(bool $withPatientSearch): string
         $watch = '["feedback-patient","feedback-reason"]';
     }
 
-    return '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">'
+    return '<link rel="stylesheet" href="/assets/vendor/jalali/jalalidatepicker.min.css">'
         . '<script src="' . e(url('/assets/js/search-select.js')) . '?v=20261014fb"></script>'
-        . '<script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>'
+        . '<script src="/assets/vendor/jalali/jalalidatepicker.min.js"></script>'
         . '<script>
 (function () {
   ' . $watch . '.forEach(function (id) {

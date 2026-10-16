@@ -253,8 +253,8 @@ $secretaryBookFormHtml = ob_get_clean();
 
 $secretaryBookScripts = '
 <script src="' . e(url('/assets/js/search-select.js')) . '?v=20261013pat"></script>
-<script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
+<script src="/assets/vendor/jalali/jalaali.min.js"></script>
+<script src="/assets/vendor/jalali/jalalidatepicker.min.js"></script>
 <script>
 (function(){
   var availByDoctor = ' . json_encode($availByDoctor, JSON_UNESCAPED_UNICODE) . ';

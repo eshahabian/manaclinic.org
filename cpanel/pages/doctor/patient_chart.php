@@ -600,12 +600,12 @@ ob_start();
 <?php
 $inner = ob_get_clean();
 
-$pageHead = '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">';
+$pageHead = '<link rel="stylesheet" href="/assets/vendor/jalali/jalalidatepicker.min.css">';
 $pageScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260905c"></script>
 <script src="' . e(url('/assets/js/ymd-cascade.js')) . '?v=20260910r"></script>
 <script src="' . e(url('/assets/js/rich-editor.js')) . '?v=20260917soap"></script>
-<script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
+<script src="/assets/vendor/jalali/jalaali.min.js"></script>
+<script src="/assets/vendor/jalali/jalalidatepicker.min.js"></script>
 <script>
 if (window.initSoapRichEditors) { window.initSoapRichEditors(document); }
 if (window.initRichEditor) {

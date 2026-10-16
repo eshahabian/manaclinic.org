@@ -627,7 +627,7 @@ if ($section === 'appointments') {
         $secretaryBookNext = '/app/appointments';
         require __DIR__ . '/secretary/book.php';
         $bookForm = (string) ($secretaryBookFormHtml ?? '');
-        $GLOBALS['pageHead'] = '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">';
+        $GLOBALS['pageHead'] = '<link rel="stylesheet" href="/assets/vendor/jalali/jalalidatepicker.min.css">';
         $GLOBALS['pageScripts'] = (string) ($secretaryBookScripts ?? '');
     }
     if ($role === 'SECRETARY' && !function_exists('appointment_time_edit_form_html')) {
@@ -801,10 +801,10 @@ if ($section === 'rooms') {
         }
     }
     if ($role === 'SECRETARY') {
-        $GLOBALS['pageHead'] = '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">';
+        $GLOBALS['pageHead'] = '<link rel="stylesheet" href="/assets/vendor/jalali/jalalidatepicker.min.css">';
         $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/search-select.js')) . '?v=20261007cmp"></script>'
-            . '<script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>'
-            . '<script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>'
+            . '<script src="/assets/vendor/jalali/jalaali.min.js"></script>'
+            . '<script src="/assets/vendor/jalali/jalalidatepicker.min.js"></script>'
             . '<script>
 (function(){
   function faToEn(v){return String(v||"").replace(/[۰-۹]/g,function(d){return "۰۱۲۳۴۵۶۷۸۹".indexOf(d);}).replace(/[٠-٩]/g,function(d){return "٠١٢٣٤٥٦٧٨٩".indexOf(d);});}

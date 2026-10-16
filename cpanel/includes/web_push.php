@@ -1,6 +1,11 @@
 <?php
 declare(strict_types=1);
 
+function staff_push_enabled(): bool
+{
+    return false; // Browser push requires external provider infrastructure.
+}
+
 function staff_push_b64url(string $bin): string
 {
     return rtrim(strtr(base64_encode($bin), '+/', '-_'), '=');
@@ -59,11 +64,14 @@ function staff_push_keys(PDO $pdo): array
 
 function staff_push_public(PDO $pdo): string
 {
-    return staff_push_keys($pdo)['public_key'];
+    return ''; // Browser push providers are disabled.
 }
 
 function staff_push_save(PDO $pdo, string $userId, string $endpoint, string $p256dh, string $auth): void
 {
+    if (!staff_push_enabled()) {
+        return;
+    }
     if ($userId === '' || !str_starts_with($endpoint, 'https://') || strlen($endpoint) > 2000) {
         throw new RuntimeException('نشانی اعلان معتبر نیست.');
     }
@@ -105,6 +113,9 @@ function staff_push_endpoint_hash(string $endpoint, string $stored = ''): string
 
 function staff_push_notify_room(PDO $pdo, string $roomId, string $senderId, string $senderName, string $body): void
 {
+    if (!staff_push_enabled()) {
+        return;
+    }
     try {
         $senderId = trim($senderId);
         $roomId = trim($roomId);
@@ -183,6 +194,9 @@ function staff_push_notify_room(PDO $pdo, string $roomId, string $senderId, stri
 /** @param array<string, mixed> $row @param array{public_key: string, private_pem: string} $keys */
 function staff_push_send(PDO $pdo, array $row, array $keys, string $payload): void
 {
+    if (!staff_push_enabled()) {
+        return;
+    }
     $endpoint = (string) ($row['endpoint'] ?? '');
     $parts = parse_url($endpoint);
     $scheme = (string) ($parts['scheme'] ?? '');

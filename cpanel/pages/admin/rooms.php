@@ -417,8 +417,8 @@ ob_start();
     <?php endforeach; ?>
   </section>
 </div>
-<script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
+<script src="/assets/vendor/jalali/jalaali.min.js"></script>
+<script src="/assets/vendor/jalali/jalalidatepicker.min.js"></script>
 <script src="<?= e(url('/assets/js/search-select.js')) ?>?v=20260929rooms"></script>
 <script>
 (function () {
@@ -601,5 +601,5 @@ ob_start();
 })();
 </script>
 <?php
-$GLOBALS['pageHead'] = '<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">';
+$GLOBALS['pageHead'] = '<link rel="stylesheet" href="/assets/vendor/jalali/jalalidatepicker.min.css">';
 clinic_desk_render_page('اتاق‌ها', ob_get_clean());

@@ -101,7 +101,7 @@ $mediaMaxMb = (int) ($config['workshop_media_max_mb'] ?? 300);
 
 ob_start();
 ?>
-<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.css">
+<link rel="stylesheet" href="/assets/vendor/jalali/jalalidatepicker.min.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <h1>کارگاه‌ها و دوره‌ها</h1>
 <p class="muted" style="margin-top:.35rem;font-size:.9rem">کارگاه‌ها و دوره‌ها یک فهرست هستند. حضوری و آنلاین پس از پایان زمان به آرشیو می‌روند. اگر زودتر بسته شد، «اتمام کارگاه» یا برای دوره آفلاین «اتمام دوره» را بزنید.</p>
@@ -398,8 +398,8 @@ ob_start();
 <script src="<?= e(url('/assets/js/search-select.js')) ?>?v=20260905a"></script>
 <script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260906v"></script>
 <script src="<?= e(url('/assets/js/ymd-cascade.js')) ?>?v=20260910r"></script>
-<script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>
+<script src="/assets/vendor/jalali/jalaali.min.js"></script>
+<script src="/assets/vendor/jalali/jalalidatepicker.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
 <script>
 (function(){

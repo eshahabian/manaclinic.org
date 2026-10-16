@@ -1423,32 +1423,8 @@ function unique_username(PDO $pdo, string $base): string
 /** ترجمه نام فارسی به انگلیسی با سرویس آنلاین (با fallback محلی) */
 function fetch_online_translation(string $text, string $from = 'fa', string $to = 'en'): ?string
 {
-    $url = 'https://translate.googleapis.com/translate_a/single?client=gtx&sl='
-        . rawurlencode($from) . '&tl=' . rawurlencode($to) . '&dt=t&q=' . rawurlencode($text);
-
-    $ctx = stream_context_create([
-        'http' => [
-            'timeout' => 2,
-            'header' => "User-Agent: ManaClinic/1.0\r\n",
-        ],
-        'ssl' => [
-            'verify_peer' => true,
-            'verify_peer_name' => true,
-        ],
-    ]);
-
-    $raw = @file_get_contents($url, false, $ctx);
-    if ($raw === false) {
-        return null;
-    }
-
-    $data = json_decode($raw, true);
-    if (!is_array($data) || !isset($data[0][0][0])) {
-        return null;
-    }
-
-    $translated = trim((string) $data[0][0][0]);
-    return $translated !== '' ? $translated : null;
+    // Names stay on this server; use the dictionary and local transliteration.
+    return null;
 }
 
 function clean_latin_name(string $value): string

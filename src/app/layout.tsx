@@ -1,13 +1,14 @@
 import type { Metadata } from "next";
-import { Vazirmatn } from "next/font/google";
+import localFont from "next/font/local";
 import { Providers } from "@/components/providers";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { ParticleNetwork } from "@/components/particle-network";
 import "./globals.css";
 
-const vazirmatn = Vazirmatn({
-  subsets: ["arabic"],
+const vazirmatn = localFont({
+  src: "../../../public/fonts/Vazirmatn-Variable.ttf",
+  weight: "100 900",
   variable: "--font-vazirmatn",
   display: "swap",
 });

@@ -148,8 +148,8 @@ function appointment_search_form_html(
 function appointment_search_datepicker_script(array $suffixes): string
 {
     $json = json_encode(array_values($suffixes), JSON_UNESCAPED_UNICODE);
-    return '<script src="https://cdn.jsdelivr.net/npm/jalaali-js@1.2.7/dist/jalaali.min.js"></script>'
-        . '<script src="https://cdn.jsdelivr.net/npm/@majidh1/jalalidatepicker/dist/jalalidatepicker.min.js"></script>'
+    return '<script src="/assets/vendor/jalali/jalaali.min.js"></script>'
+        . '<script src="/assets/vendor/jalali/jalalidatepicker.min.js"></script>'
         . '<script>
 (function(){
   var suffixes = ' . $json . ';
