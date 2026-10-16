@@ -120,7 +120,7 @@ function secretary_create_patient_from_post(PDO $pdo, array $actor, array $opts 
 function secretary_active_doctors(PDO $pdo): array
 {
     return $pdo->query("
-      SELECT dp.id, u.name, dp.specialty
+      SELECT dp.id, u.name, dp.specialty, dp.session_price
       FROM doctor_profiles dp
       JOIN users u ON u.id = dp.user_id
       WHERE dp.is_active = 1 AND dp.is_approved = 1 AND u.is_disabled = 0

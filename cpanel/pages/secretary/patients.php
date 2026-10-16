@@ -274,15 +274,15 @@ ob_start();
           <td class="patient-fee-cell">
             <div class="patient-fee-stack" data-fee-stack>
               <label class="patient-fee-line">
-                <input type="checkbox" name="custom_fee_on" value="1" form="<?= e($formId) ?>" data-fee-toggle="custom"<?= $customOn ? ' checked' : '' ?>>
+                <input type="checkbox" value="1" form="<?= e($formId) ?>" data-fee-toggle="custom" data-fee-flag="custom_fee_on"<?= ($customOn || $customToman > 0) ? ' checked' : '' ?>>
                 <span>مبلغ سفارشی</span>
               </label>
-              <input class="input patient-fee-amount" name="custom_fee_toman" form="<?= e($formId) ?>" dir="ltr" inputmode="numeric" data-fee-input="custom" placeholder="تومان" value="<?= $customOn && $customToman > 0 ? e(to_fa_digits(number_format($customToman))) : '' ?>"<?= $customOn ? '' : ' disabled' ?> aria-label="مبلغ سفارشی تومان" data-money>
+              <input class="input patient-fee-amount" dir="ltr" inputmode="numeric" data-fee-input="custom" data-fee-field="custom_fee_toman" placeholder="تومان" value="<?= $customToman > 0 ? e(to_fa_digits(number_format($customToman))) : '' ?>"<?= ($customOn || $customToman > 0) ? '' : ' disabled' ?> aria-label="مبلغ سفارشی تومان" data-money>
               <label class="patient-fee-line">
-                <input type="checkbox" name="foreign_fee_on" value="1" form="<?= e($formId) ?>" data-fee-toggle="foreign"<?= $foreignOn ? ' checked' : '' ?>>
+                <input type="checkbox" value="1" form="<?= e($formId) ?>" data-fee-toggle="foreign" data-fee-flag="foreign_fee_on"<?= ($foreignOn || $foreignUsd !== '') ? ' checked' : '' ?>>
                 <span>خارج از ایران</span>
               </label>
-              <input class="input patient-fee-amount" name="foreign_fee_usd" form="<?= e($formId) ?>" dir="ltr" inputmode="decimal" data-fee-input="foreign" placeholder="دلار" value="<?= $foreignOn && $foreignUsd !== '' ? e(to_fa_digits($foreignUsd)) : '' ?>"<?= $foreignOn ? '' : ' disabled' ?> aria-label="مبلغ دلار">
+              <input class="input patient-fee-amount" dir="ltr" inputmode="decimal" data-fee-input="foreign" data-fee-field="foreign_fee_usd" placeholder="دلار" value="<?= $foreignUsd !== '' ? e(to_fa_digits($foreignUsd)) : '' ?>"<?= ($foreignOn || $foreignUsd !== '') ? '' : ' disabled' ?> aria-label="مبلغ دلار">
             </div>
           </td>
           <?php else: ?>
@@ -294,9 +294,13 @@ ob_start();
           <td class="patient-account-actions">
             <div class="patient-account-actions-inner">
               <?php if ($isUser): ?>
-              <form id="<?= e($formId) ?>" method="post" action="<?= e(url('/secretary/users')) ?>" class="patient-account-save-form">
+              <form id="<?= e($formId) ?>" method="post" action="<?= e(url('/secretary/users')) ?>" class="patient-account-save-form" data-fee-form>
                 <?= csrf_field() ?>
                 <input type="hidden" name="user_id" value="<?= e($uid) ?>">
+                <input type="hidden" name="custom_fee_on" value="<?= ($customOn || $customToman > 0) ? '1' : '0' ?>" data-fee-store="custom_fee_on">
+                <input type="hidden" name="custom_fee_toman" value="<?= $customToman > 0 ? e((string) $customToman) : '' ?>" data-fee-store="custom_fee_toman">
+                <input type="hidden" name="foreign_fee_on" value="<?= ($foreignOn || $foreignUsd !== '') ? '1' : '0' ?>" data-fee-store="foreign_fee_on">
+                <input type="hidden" name="foreign_fee_usd" value="<?= e($foreignUsd) ?>" data-fee-store="foreign_fee_usd">
                 <button class="btn btn-primary btn-sm sec-account-action" type="submit">ذخیره</button>
               </form>
               <?php endif; ?>
@@ -556,6 +560,31 @@ $pageScripts = '
   function norm(str){
     return faToEn(str).trim().toLowerCase().replace(/ي/g, "ی").replace(/ك/g, "ک");
   }
+  function digitsOnly(value){
+    return faToEn(String(value || "")).replace(/\D+/g, "");
+  }
+  function syncFeeStores(row){
+    var form = row.querySelector("form[data-fee-form]");
+    var stack = row.querySelector("[data-fee-stack]");
+    if (!form || !stack) return;
+    var customBox = stack.querySelector("[data-fee-toggle=custom]");
+    var foreignBox = stack.querySelector("[data-fee-toggle=foreign]");
+    var customInput = stack.querySelector("[data-fee-input=custom]");
+    var foreignInput = stack.querySelector("[data-fee-input=foreign]");
+    var customOn = !!(customBox && customBox.checked);
+    var foreignOn = !!(foreignBox && foreignBox.checked);
+    var customStore = form.querySelector("[data-fee-store=custom_fee_on]");
+    var customAmount = form.querySelector("[data-fee-store=custom_fee_toman]");
+    var foreignStore = form.querySelector("[data-fee-store=foreign_fee_on]");
+    var foreignAmount = form.querySelector("[data-fee-store=foreign_fee_usd]");
+    if (customStore) customStore.value = customOn ? "1" : "0";
+    if (customAmount) customAmount.value = customOn ? digitsOnly(customInput ? customInput.value : "") : "";
+    if (foreignStore) foreignStore.value = foreignOn ? "1" : "0";
+    if (foreignAmount) {
+      var usd = foreignOn && foreignInput ? faToEn(String(foreignInput.value || "")).replace(/,/g, ".").replace(/[^\d.]/g, "") : "";
+      foreignAmount.value = usd;
+    }
+  }
   function syncFeeRow(row){
     var stack = row.querySelector("[data-fee-stack]");
     if (!stack) return;
@@ -565,16 +594,11 @@ $pageScripts = '
     var foreignOn = !!(foreignBox && foreignBox.checked);
     var customInput = stack.querySelector("[data-fee-input=custom]");
     var foreignInput = stack.querySelector("[data-fee-input=foreign]");
-    if (customInput) {
-      customInput.disabled = !customOn;
-      if (!customOn) customInput.value = "";
-    }
-    if (foreignInput) {
-      foreignInput.disabled = !foreignOn;
-      if (!foreignOn) foreignInput.value = "";
-    }
+    if (customInput) customInput.disabled = !customOn;
+    if (foreignInput) foreignInput.disabled = !foreignOn;
     var fee = foreignOn ? "foreign" : (customOn ? "custom" : "default");
     row.setAttribute("data-fee", fee);
+    syncFeeStores(row);
   }
   function applyAccountFilter(){
     var q = norm(input ? input.value : "");
@@ -632,6 +656,14 @@ $pageScripts = '
         applyAccountFilter();
       });
     });
+    row.querySelectorAll("[data-fee-input]").forEach(function(input){
+      input.addEventListener("input", function(){ syncFeeStores(row); });
+      input.addEventListener("change", function(){ syncFeeStores(row); });
+    });
+    var feeForm = row.querySelector("form[data-fee-form]");
+    if (feeForm) {
+      feeForm.addEventListener("submit", function(){ syncFeeStores(row); });
+    }
   });
 })();
 </script>

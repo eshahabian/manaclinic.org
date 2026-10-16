@@ -170,10 +170,22 @@ if ($referral !== null && !user_referral_save($pdo, $userId, $referral)) {
 }
 
 patient_fee_ensure_schema($pdo);
-$customOn = post('custom_fee_on') === '1' ? 1 : 0;
-$foreignOn = post('foreign_fee_on') === '1' ? 1 : 0;
-$customToman = $customOn ? patient_fee_parse_toman((string) post('custom_fee_toman')) : 0;
-$foreignUsd = $foreignOn ? patient_fee_parse_usd((string) post('foreign_fee_usd')) : null;
+$customOn = in_array(trim((string) post('custom_fee_on')), ['1', 'on', 'yes'], true) ? 1 : 0;
+$foreignOn = in_array(trim((string) post('foreign_fee_on')), ['1', 'on', 'yes'], true) ? 1 : 0;
+$customToman = patient_fee_parse_toman((string) post('custom_fee_toman'));
+$foreignUsd = patient_fee_parse_usd((string) post('foreign_fee_usd'));
+if (!$customOn && $customToman > 0) {
+    $customOn = 1;
+}
+if (!$customOn) {
+    $customToman = 0;
+}
+if (!$foreignOn && $foreignUsd !== null) {
+    $foreignOn = 1;
+}
+if (!$foreignOn) {
+    $foreignUsd = null;
+}
 if ($customOn && $customToman <= 0) {
     flash_set('error', 'برای مبلغ سفارشی، مبلغ تومان را وارد کنید.');
     redirect('/secretary/patients');
