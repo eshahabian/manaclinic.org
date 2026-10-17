@@ -8091,3 +8091,14 @@ html.is-native-app body:has([data-livekit-v2]:not([hidden])) .site-chrome-call {
 .mobile-nav-list { gap: .65rem; }
 .mobile-nav-panel nav, .side-nav nav { gap: .75rem; }
 .mobile-nav-panel a, .side-nav a { padding-block: .85rem; }
+.doctor-detail-layout { margin: 1.75rem auto 0; max-width: 1060px; display: grid; gap: 3rem; }
+.doctor-public-profile { display: grid; grid-template-columns: minmax(220px, .8fr) minmax(0, 1.2fr); gap: 3rem; padding: 0; background: transparent; border: 0; box-shadow: none; align-items: start; }
+.doctor-profile-portrait .doctor-public-photo { width: 100%; height: auto; aspect-ratio: 3 / 4; object-fit: cover; border-radius: 24px 24px 80px 24px; box-shadow: 0 24px 40px -28px rgba(30,60,45,.4); }
+.doctor-profile-info .doctor-public-hero { display: block; }
+.doctor-profile-info .doctor-public-hero h1 { font-size: clamp(1.6rem, 3vw, 2.5rem); line-height: 1.6; }
+.doctor-profile-info .doctor-public-bio p { color: var(--fg); line-height: 2.1; }
+.doctor-booking-section { max-width: 680px; width: 100%; margin-inline: auto; border-top: 1px solid var(--line); padding-top: 2rem; scroll-margin-top: 6rem; }
+@media (max-width: 767px) {
+  .doctor-public-profile { grid-template-columns: 1fr; gap: 1.75rem; }
+  .doctor-profile-portrait { width: min(75%, 300px); margin-inline: auto; }
+}

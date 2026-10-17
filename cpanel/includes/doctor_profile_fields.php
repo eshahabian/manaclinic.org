@@ -399,7 +399,7 @@ function doctor_chips_html(array $keys, array $options): string
 function doctor_card_html(array $doc): string
 {
     $name = trim((string) ($doc['name'] ?? ''));
-    $href = url('/doctors/' . (string) ($doc['id'] ?? '') . '#booking-box');
+    $href = url('/doctors/' . (string) ($doc['id'] ?? ''));
     $domains = doctor_profile_filter_keys(doctor_profile_json_list($doc['domains_json'] ?? ''), doctor_domain_options());
     $chips = doctor_chips_html($domains, doctor_domain_options());
     if ($chips === '') {

@@ -110,12 +110,17 @@ ob_start();
 ?>
 <div class="<?= $isPatientViewer ? 'section patient-panel-inner' : 'container-page section' ?>">
   <a href="<?= e(url('/doctors')) ?>" style="color:var(--primary);font-size:.9rem">← بازگشت به لیست</a>
-  <div class="grid-2" style="margin-top:1.5rem;align-items:start">
-    <div class="panel doctor-public-profile">
-      <div class="doctor-public-hero">
+  <div class="doctor-detail-layout">
+    <div class="doctor-public-profile">
+      <div class="doctor-profile-portrait">
         <?= doctor_photo_html($doctor, 'doctor-photo doctor-public-photo') ?>
-        <div>
+      </div>
+      <div class="doctor-profile-info">
+        <div class="doctor-public-hero">
           <h1><?= e($doctor['name']) ?></h1>
+          <?php if (doctor_domains_line($doctor) !== ''): ?>
+            <p class="doctor-public-degree"><?= e(doctor_domains_line($doctor)) ?></p>
+          <?php endif; ?>
           <?php if ($degreeLabel !== ''): ?>
             <p class="doctor-public-degree"><?= e($degreeLabel) ?></p>
           <?php endif; ?>
@@ -123,7 +128,19 @@ ob_start();
             <p class="doctor-public-exp"><?= e($expLabel) ?></p>
           <?php endif; ?>
         </div>
-      </div>
+
+      <?php if (trim((string) ($doctor['bio'] ?? '')) !== ''): ?>
+        <div class="doctor-public-block">
+          <h2>درباره من</h2>
+          <div class="doctor-public-bio">
+            <?php foreach (preg_split("/\n+/", (string) $doctor['bio']) as $line): ?>
+              <?php if (trim($line) !== ''): ?>
+                <p><?= e($line) ?></p>
+              <?php endif; ?>
+            <?php endforeach; ?>
+          </div>
+        </div>
+      <?php endif; ?>
 
       <ul class="doctor-facts">
         <li><strong>نوع جلسه</strong> حضوری در سعادت‌آباد و آنلاین</li>
@@ -172,19 +189,6 @@ ob_start();
         </div>
       <?php endif; ?>
 
-      <?php if (trim((string) ($doctor['bio'] ?? '')) !== ''): ?>
-        <div class="doctor-public-block">
-          <h2>درباره من</h2>
-          <div class="doctor-public-bio">
-            <?php foreach (preg_split("/\n+/", (string) $doctor['bio']) as $line): ?>
-              <?php if (trim($line) !== ''): ?>
-                <p><?= e($line) ?></p>
-              <?php endif; ?>
-            <?php endforeach; ?>
-          </div>
-        </div>
-      <?php endif; ?>
-
       <?php if ($courses !== []): ?>
         <div class="doctor-public-block">
           <h2>دوره‌های تخصصی</h2>
@@ -213,9 +217,10 @@ ob_start();
           </ul>
         </div>
       <?php endif; ?>
+      </div>
     </div>
 
-    <div class="panel stack" id="booking-box">
+    <div class="stack doctor-booking-section" id="booking-box">
       <h2 style="margin:0">رزرو نوبت</h2>
       <p class="muted" style="margin:.35rem 0 0;font-size:.9rem;line-height:1.7">حضوری در سعادت‌آباد یا آنلاین. مدت استاندارد هر جلسه ۵۰ دقیقه است. هزینه جلسه بعد از انتخاب ساعت نمایش داده می‌شود؛ پرداخت از «نوبت‌های من» است.</p>
       <?php if ((int) ($doctor['session_price'] ?? 0) > 0): ?>
