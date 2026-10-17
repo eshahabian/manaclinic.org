@@ -346,7 +346,14 @@ function doctor_avatar_src(?string $avatarUrl): string
         return $avatarUrl;
     }
 
-    return url($avatarUrl);
+    $src = url($avatarUrl);
+    if (str_starts_with($avatarUrl, '/uploads/doctors/')) {
+        $file = dirname(__DIR__) . $avatarUrl;
+        if (is_file($file)) {
+            $src .= '?v=' . (string) filemtime($file);
+        }
+    }
+    return $src;
 }
 
 function doctor_photo_html(array $doc, string $class = 'doctor-photo'): string
