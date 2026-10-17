@@ -1189,38 +1189,35 @@ if ($section === 'chat') {
             if (!staff_app_is_eshahabian($user)) {
                 redirect('/app/chat');
             }
-            $archived = staff_app_archive_rooms($pdo);
+            $records = staff_app_archive_records($pdo, $user, max(0, (int) ($_GET['before'] ?? 0)));
+            $eventLabels = ['saved'=>'پیام', 'before_edit'=>'نسخه قبل از ویرایش', 'edited'=>'ویرایش‌شده', 'deleted'=>'حذف‌شده', 'room_deleted'=>'چت حذف‌شده'];
             ob_start();
             ?>
-            <p style="margin:0 0 8px"><a href="<?= e(url('/app/chat')) ?>">همه چت‌ها</a></p>
-            <h1>آرشیو</h1>
-            <p class="muted">چت‌هایی که کسی حذف کرده یک ماه اینجا می‌مانند. شمارش معکوس فقط برای شماست. بایگانی یعنی همان چت برای همیشه بماند.</p>
-            <?php if ($archived === []): ?>
-              <p class="sapp-row">هنوز چیزی در آرشیو نیست.</p>
-            <?php endif; ?>
+            <p><a href="<?= e(url('/app/chat')) ?>">همه چت‌ها</a> · <a href="<?= e(url('/app/chat/archive')) ?>">تازه‌ترین پیام‌ها</a></p>
+            <h1>آرشیو دائمی پیام‌ها</h1>
+            <p class="muted">نسخه پیام‌های همه چت‌ها، فایل‌ها و سابقه ویرایش و حذف؛ فقط برای عماد شهابیان. حذف پیام یا چت این نسخه‌ها را پاک نمی‌کند.</p>
+            <?php if ($records === []): ?><p class="sapp-row">پیامی در این بخش نیست.</p><?php endif; ?>
             <div class="sapp-list">
-              <?php foreach ($archived as $room): ?>
-                <?php $kept = !empty($room['kept_forever']); ?>
-                <div class="sapp-row">
-                  <a href="<?= e(url('/app/chat/' . (string) $room['id'])) ?>" style="text-decoration:none;color:inherit;display:block">
-                    <strong><?= e((string) ($room['title'] ?? 'چت')) ?></strong>
-                    <small><?= e(staff_app_archive_countdown($room)) ?> · <?= e(to_fa_digits((string) (int) ($room['message_count'] ?? 0))) ?> پیام</small>
-                  </a>
-                  <?php if (!$kept): ?>
-                    <form method="post" action="<?= e(url('/app/chat')) ?>" style="margin-top:8px" onsubmit="return confirm('این چت برای همیشه بایگانی شود؟');">
-                      <?= csrf_field() ?>
-                      <input type="hidden" name="form" value="keep_room">
-                      <input type="hidden" name="room_id" value="<?= e((string) $room['id']) ?>">
-                      <button class="btn btn-outline btn-sm" type="submit">بایگانی</button>
-                    </form>
-                  <?php endif; ?>
-                </div>
+              <?php foreach ($records as $record): ?>
+                <article class="sapp-row">
+                  <strong><?= e((string) $record['sender_name']) ?> · <?= e((string) $record['room_title']) ?></strong>
+                  <small><?= e($eventLabels[$record['event']] ?? 'پیام') ?> · <?= e(format_fa_datetime((string) ($record['event'] === 'saved' ? $record['message_created_at'] : $record['archived_at']))) ?></small>
+                  <?php if (!empty($record['forward_from'])): ?><small>هدایت‌شده از <?= e((string) $record['forward_from']) ?></small><?php endif; ?>
+                  <div style="white-space:pre-wrap;overflow-wrap:anywhere;margin-top:.5rem"><?= e((string) $record['body']) ?></div>
+                  <?php foreach ($record['files'] as $file): ?>
+                    <p><a href="<?= e(url('/app/file/' . (string) $file['id'])) ?>"><?= e((string) $file['original_name']) ?></a></p>
+                  <?php endforeach; ?>
+                </article>
               <?php endforeach; ?>
             </div>
+            <?php if (count($records) === 100): ?>
+              <p><a class="btn btn-outline" href="<?= e(url('/app/chat/archive?before=' . (int) $records[count($records)-1]['id'])) ?>">پیام‌های قدیمی‌تر</a></p>
+            <?php endif; ?>
             <?php
-            staff_app_render('chat', 'آرشیو چت', 'آرشیو چت‌های حذف‌شده و بایگانی‌شده.', ob_get_clean());
+            staff_app_render('chat', 'آرشیو دائمی پیام‌ها', 'آرشیو دائمی پیام‌های کلینیک برای مدیر سایت.', ob_get_clean());
             exit;
         }
+
         if ($roomId !== '') {
             $room = staff_app_room_for_viewer($pdo, $roomId, $userId);
             $fromArchive = false;

@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/web_push.php';
 require_once __DIR__ . '/video_call.php';
+require_once __DIR__ . '/staff_app_archive.php';
 
 function staff_app_sections(): array
 {
@@ -249,6 +250,7 @@ function staff_app_ensure_schema(PDO $pdo): void
         INDEX idx_staff_app_removals_room (room_id, removed_at)
       ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
+    staff_app_archive_ensure($pdo);
     $ready = true;
 }
 
@@ -838,6 +840,7 @@ function staff_app_delete_message(PDO $pdo, array $user, string $roomId, string 
     $stored = array_map(static fn(array $row): string => (string) $row['stored_name'], $files->fetchAll() ?: []);
     $pdo->beginTransaction();
     try {
+        staff_app_archive_capture($pdo, $messageId, null, 'deleted');
         $pdo->prepare('DELETE FROM staff_app_reactions WHERE message_id = ?')->execute([$messageId]);
         $pdo->prepare('DELETE FROM staff_app_files WHERE message_id = ?')->execute([$messageId]);
         $pdo->prepare('UPDATE staff_app_rooms SET pinned_message_id = NULL WHERE id = ? AND pinned_message_id = ?')->execute([$roomId, $messageId]);
@@ -856,7 +859,7 @@ function staff_app_delete_message(PDO $pdo, array $user, string $roomId, string 
         }
         $left = $pdo->prepare('SELECT COUNT(*) FROM staff_app_files WHERE stored_name = ?');
         $left->execute([$name]);
-        if ((int) $left->fetchColumn() === 0) {
+        if ((int) $left->fetchColumn() === 0 && !staff_app_archive_file_retained($pdo, $name)) {
             @unlink(staff_app_upload_dir() . '/' . $name);
         }
     }
@@ -884,8 +887,17 @@ function staff_app_edit_message(PDO $pdo, array $user, string $roomId, string $m
     if (mb_strlen($body) > 4000) {
         $body = mb_substr($body, 0, 4000);
     }
-    $pdo->prepare('UPDATE staff_app_messages SET body = ?, edited_at = NOW() WHERE id = ? AND user_id = ?')
-        ->execute([$body, $messageId, $authorId]);
+    $pdo->beginTransaction();
+    try {
+        staff_app_archive_capture($pdo, $messageId, null, 'before_edit');
+        $pdo->prepare('UPDATE staff_app_messages SET body = ?, edited_at = NOW() WHERE id = ? AND user_id = ?')
+            ->execute([$body, $messageId, $authorId]);
+        staff_app_archive_capture($pdo, $messageId, null, 'edited');
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) $pdo->rollBack();
+        throw $e;
+    }
     $card = staff_app_message_card($pdo, $roomId, $userId, $messageId);
     if (!$card) {
         throw new RuntimeException('این پیام پیدا نشد.');
@@ -992,6 +1004,7 @@ function staff_app_forward_message(PDO $pdo, array $user, string $fromRoom, stri
         foreach ($fileRows as $file) {
             $add->execute([cuid(), $newId, $file['stored_name'], $file['original_name'], $file['mime'], $file['size']]);
         }
+        staff_app_archive_capture($pdo, $newId);
         $pdo->commit();
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
@@ -1397,6 +1410,7 @@ function staff_app_destroy_room(PDO $pdo, string $roomId): void
     $stored = array_map(static fn(array $row): string => (string) $row['stored_name'], $files->fetchAll() ?: []);
     $pdo->beginTransaction();
     try {
+        staff_app_archive_capture($pdo, null, $roomId, 'room_deleted');
         $pdo->prepare('
           DELETE r FROM staff_app_reactions r
           INNER JOIN staff_app_messages m ON m.id = r.message_id
@@ -1425,7 +1439,7 @@ function staff_app_destroy_room(PDO $pdo, string $roomId): void
             continue;
         }
         $path = $dir . '/' . $name;
-        if (is_file($path)) {
+        if (is_file($path) && !staff_app_archive_file_retained($pdo, $name)) {
             unlink($path);
         }
     }
@@ -1475,6 +1489,7 @@ function staff_app_delete_room(PDO $pdo, array $user, string $roomId): void
     if (!$isMember && !staff_app_is_group_room($pdo, $room)) {
         throw new RuntimeException('حذف گفتگوی دو نفره فقط برای خودشان است.');
     }
+    staff_app_archive_capture($pdo, null, $roomId, 'room_deleted');
     $pdo->prepare('UPDATE staff_app_rooms SET deleted_at = NOW(), deleted_by = ? WHERE id = ? AND is_general = 0 AND deleted_at IS NULL')
         ->execute([$userId, $roomId]);
 }
@@ -1651,6 +1666,7 @@ function staff_app_send_message(PDO $pdo, array $user, string $roomId, string $b
             $pdo->prepare('INSERT INTO staff_app_files (id, message_id, stored_name, original_name, mime, size) VALUES (?,?,?,?,?,?)')
                 ->execute([cuid(), $messageId, $stored['stored_name'], $stored['original_name'], $stored['mime'], $stored['size']]);
         }
+        staff_app_archive_capture($pdo, $messageId);
         $pdo->commit();
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
@@ -1698,6 +1714,13 @@ function staff_app_output_file(PDO $pdo, array $user, string $fileId): never
         $file = $watch->fetch();
     }
     $stored = (string) ($file['stored_name'] ?? '');
+    if (!$file && staff_app_is_eshahabian($user)) {
+        staff_app_archive_ensure($pdo);
+        $stmt = $pdo->prepare('SELECT stored_name, original_name, mime FROM staff_app_archive_files WHERE id=? LIMIT 1');
+        $stmt->execute([$fileId]);
+        $file = $stmt->fetch();
+        $stored = (string) ($file['stored_name'] ?? '');
+    }
     $path = staff_app_upload_dir() . '/' . $stored;
     if (!$file || !preg_match('/^[a-f0-9]{32}\.[a-z0-9]{1,5}$/', $stored) || !is_file($path)) {
         http_response_code(404);

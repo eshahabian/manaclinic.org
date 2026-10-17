@@ -1,0 +1,1 @@
+const fs=require('fs');for(const f of ['theme-regression.cjs','daynav-test.cjs','skype-preview.cjs']){const path='output/access-update/'+f;let s=fs.readFileSync(path,'utf8');s=s.replace("'staff_app.php',", "'staff_app.php','staff_app_archive.php',");fs.writeFileSync(path,s);}

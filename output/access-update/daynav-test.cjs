@@ -1,6 +1,6 @@
 const fs=require('fs');const {PhpNode}=require('./tools/node_modules/php-wasm/PhpNode');
 (async()=>{const php=new PhpNode({version:'8.3'});let out='';php.addEventListener('output',e=>out+=e.detail.join(''));await php.mkdir('/app');
-for(const f of ['staff_app.php','helpers.php','web_push.php','video_call.php'])await php.writeFile('/app/'+f,fs.readFileSync('cpanel/includes/'+f));
+for(const f of ['staff_app.php','staff_app_archive.php','helpers.php','web_push.php','video_call.php'])await php.writeFile('/app/'+f,fs.readFileSync('cpanel/includes/'+f));
 const result=await php.run(`<?php require '/app/helpers.php';require '/app/staff_app.php';$n=0;
 function check_day($yes){global $n;if(!$yes)throw new Exception('Date navigation failed');$n++;}
 $d=staff_app_schedule_selected_day('2026-10-18');check_day($d->format('Y-m-d')==='2026-10-18');check_day($d->getTimezone()->getName()==='Asia/Tehran');check_day(to_jalali_label($d->format('Y-m-d'))==='۲۶ مهر ۱۴۰۵');

@@ -4,7 +4,7 @@ const {PhpNode} = require('./tools/node_modules/php-wasm/PhpNode');
  const php=new PhpNode({version:'8.3'});let html='';
  php.addEventListener('output',e=>html+=e.detail.join(''));
  await php.mkdir('/app');await php.mkdir('/app/includes');
- for(const file of ['helpers.php','staff_app.php','web_push.php','video_call.php','doctor_profile_fields.php','user_avatar.php','video_call_skype_lobby.php']) await php.writeFile('/app/includes/'+file,fs.readFileSync('cpanel/includes/'+file));
+ for(const file of ['helpers.php','staff_app.php','staff_app_archive.php','web_push.php','video_call.php','doctor_profile_fields.php','user_avatar.php','video_call_skype_lobby.php']) await php.writeFile('/app/includes/'+file,fs.readFileSync('cpanel/includes/'+file));
  let page=fs.readFileSync('cpanel/pages/video_call.php','utf8');
  let composer=page.slice(page.indexOf('  <div class="vc-lobby-main">'),page.indexOf('    <div class="vc-idle"'));
  await php.writeFile('/app/composer.php',composer+'</div>');
