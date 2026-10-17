@@ -492,11 +492,14 @@ if ($section === 'home') {
     }
     $consultOpen = (function_exists('consult_request_new_count') ? consult_request_new_count() : 0)
         + (function_exists('collaboration_request_new_count') ? collaboration_request_new_count() : 0);
+    [, $helloJm, $helloJd] = gregorian_to_jalali((int) date('Y'), (int) date('n'), (int) date('j'));
+    $helloJalali = to_fa_digits((string) $helloJd) . ' ' . (jalali_month_names()[$helloJm] ?? '');
+    $helloGregorian = date('j F');
     ob_start();
     ?>
     <div class="sapp-hello">
       <h1>خوش آمدید، <?= e($hello) ?></h1>
-      <p>داشبورد مدیریتی</p>
+      <p><span>داشبورد مدیریتی</span><span class="sapp-hello-date"><?= e($helloJalali) ?> <i>·</i> <bdi dir="ltr"><?= e($helloGregorian) ?></bdi></span></p>
     </div>
     <div class="sapp-grid">
       <a class="sapp-tile" href="<?= e(url('/app/appointments')) ?>">

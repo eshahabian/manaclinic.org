@@ -2336,7 +2336,9 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-logout{display:inline-flex;align-items:center;justify-content:center;min-height:36px;padding:0 14px;border-radius:999px;background:#1a9a8a;color:#fff;text-decoration:none;font-weight:800;font-size:.92rem}
     .sapp-main{width:100%;max-width:min(32rem,100%);margin:0 auto;padding:.5rem 4vw calc(5.4rem + env(safe-area-inset-bottom))}
     .sapp-hello h1{margin:8px 0 2px;font-size:1.28rem;font-weight:800;line-height:1.45;color:#1c3d36}
-    .sapp-hello p{margin:0 0 14px;color:#8aa099;font-size:.92rem}
+    .sapp-hello p{margin:0 0 14px;color:#8aa099;font-size:.92rem;display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap}
+    .sapp-hello-date{color:#1f8f7e;font-weight:700;font-size:.86rem;white-space:nowrap}
+    .sapp-hello-date i{font-style:normal;color:#b7c7c2;margin:0 3px}
     .sapp-main h1{margin:0 0 .35rem;font-size:1.28rem;color:#1c3d36}
     .sapp-flash{margin:0 0 12px;padding:10px 12px;border-radius:12px;background:#e7f6f3}
     .sapp-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
