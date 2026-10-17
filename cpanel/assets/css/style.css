@@ -8068,7 +8068,7 @@ html.is-native-app body:has([data-livekit-v2]:not([hidden])) .site-chrome-call {
 }
 
 
-.doctor-card .doctor-card-photo { width: 50%; height: auto; border-radius: 20px; }
+.doctor-card .doctor-card-photo { width: 75%; height: auto; border-radius: 20px; }
 .therapists-all-link { display: flex; justify-content: flex-end; margin: 0 0 1.25rem; }
 .doctor-card .doctor-chip-row { justify-content: center; gap: .25rem .5rem; margin-top: .35rem; }
 .doctor-card .doctor-chip { background: transparent; border: 0; padding: 0; color: var(--primary); font-size: .9rem; font-weight: 600; }
@@ -8080,4 +8080,8 @@ html.is-native-app body:has([data-livekit-v2]:not([hidden])) .site-chrome-call {
 }
 @media (min-width: 1200px) {
   .doctors-directory { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.75rem; }
+}
+@media (min-width: 768px) {
+  .doctors-showcase { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; }
+  .doctors-showcase .doctor-card { width: 100%; max-width: none; }
 }
