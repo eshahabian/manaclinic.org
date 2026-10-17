@@ -297,9 +297,6 @@ if ($user) {
           سعادت‌آباد، خیابان ۳۱ شرقی (جندونی)، روبروی ساختمان پزشکان روزبه، پلاک ۴، واحد ۵، طبقه ۵
         </p>
         <p class="footer-contact muted">
-          <a href="<?= e(url('/collaborate')) ?>">درخواست همکاری</a>
-        </p>
-        <p class="footer-contact muted">
           <a href="tel:09101387838" dir="ltr">۰۹۱۰ ۱۳۸ ۷۸۳۸</a>
           ·
           <a href="tel:02122065774" dir="ltr">۰۲۱ ۲۲۰۶ ۵۷۷۴</a>
@@ -342,13 +339,10 @@ if ($user) {
       </div>
       <?php if (!$footerHideConsult): ?>
       <div>
-        <p class="footer-title">درخواست مشاوره</p>
-        <p class="footer-consult-lead muted">فرم را پر کنید؛ در اولین فرصت با شما تماس می‌گیریم.</p>
+        <p class="footer-title">ثبت درخواست</p>
+        <p class="footer-consult-lead muted">نوع درخواست را انتخاب کنید؛ در اولین فرصت با شما تماس می‌گیریم.</p>
         <?php
-          if (!function_exists('consult_request_form_html')) {
-              require_once __DIR__ . '/consult_requests.php';
-          }
-          echo consult_request_form_html('footer-consult');
+          require __DIR__ . '/footer_request_form.php';
         ?>
       </div>
       <?php endif; ?>
