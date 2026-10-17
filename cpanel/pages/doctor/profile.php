@@ -21,7 +21,7 @@ ob_start();
     <p class="muted" style="margin-top:.35rem;line-height:1.7">همین اطلاعات در صفحه عمومی شما دیده می‌شود.</p>
   <?php endif; ?>
 
-  <form class="doc-profile-form" method="post" action="<?= e(url('/doctor/profile')) ?>" enctype="multipart/form-data">
+  <form class="doc-profile-form" method="post" action="<?= e(url(!empty($doctorProfileEmbedded) ? '/app/profile' : '/doctor/profile')) ?>" enctype="multipart/form-data">
     <?= csrf_field() ?>
 
     <section class="panel doc-profile-section">
@@ -106,7 +106,7 @@ ob_start();
       <input class="input" type="number" name="session_price" id="session_price" value="<?= e((string) ($p['session_price'] ?? 3000000)) ?>" required dir="ltr" min="1">
     </section>
 
-    <button class="btn btn-primary" type="submit"><?= $incomplete ? 'ذخیره و ورود به پنل' : 'ذخیره' ?></button>
+    <button class="btn btn-primary" type="submit"><?= $incomplete && empty($doctorProfileEmbedded) ? 'ذخیره و ورود به پنل' : 'ذخیره' ?></button>
   </form>
 </div>
 <?php
@@ -120,10 +120,19 @@ $GLOBALS['pageScripts'] = ($GLOBALS['pageScripts'] ?? '') . '
     var file = input.files && input.files[0];
     if (!file) return;
     var url = URL.createObjectURL(file);
-    box.innerHTML = "<img src=\\"" + url + "\\" alt=\\"\\">";
+    var img = document.createElement("img");
+    img.src = url;
+    img.alt = "";
+    box.replaceChildren(img);
+    img.addEventListener("load", function(){ URL.revokeObjectURL(url); }, {once:true});
   });
 })();
 </script>
 ';
 $pageScripts = $GLOBALS['pageScripts'];
-render_doctor_page($incomplete ? 'تکمیل پروفایل' : 'پروفایل', ob_get_clean());
+$profileHtml = ob_get_clean();
+if (!empty($doctorProfileEmbedded)) {
+    staff_app_render('profile', 'پروفایل حرفه‌ای', 'مشاهده و ویرایش پروفایل سایت', $profileHtml);
+} else {
+    render_doctor_page($incomplete ? 'تکمیل پروفایل' : 'پروفایل', $profileHtml);
+}

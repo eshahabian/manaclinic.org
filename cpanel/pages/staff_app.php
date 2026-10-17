@@ -22,10 +22,37 @@ if (!staff_app_path_allowed($user, $path, $method)) {
 
 if ($path === '/app' && staff_app_limited_doctor($user)) {
     $html = '<h1>برنامه درمانگر</h1><p>وقت‌های خودتان و گفتگوهای کلینیک</p>'
-        . '<div class="sapp-grid"><a class="sapp-tile" href="' . e(url('/app/appointments')) . '"><strong>وقت‌های من</strong></a>'
-        . '<a class="sapp-tile" href="' . e(url('/app/chat')) . '"><strong>چت کلینیک</strong></a></div>';
+        . '<div class="sapp-grid"><a class="sapp-tile" href="' . e(url('/app/appointments')) . '">'
+        . '<span class="sapp-ico sapp-ico-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3.5V7M16 3.5V7M4 10h16"/></svg></span><strong>وقت‌های من</strong><em>Daily Schedule</em></a>'
+        . '<a class="sapp-tile" href="' . e(url('/app/chat')) . '"><span class="sapp-ico sapp-ico-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16.5 4 19V7.2A2.2 2.2 0 0 1 6.2 5h7.2A2.2 2.2 0 0 1 15.6 7.2V12a2.2 2.2 0 0 1-2.2 2.2H6z"/><path d="M10 16.2h5.6A2.2 2.2 0 0 0 17.8 14V9.2L20 11.2V17a2 2 0 0 1-2 2h-6.2"/></svg></span><strong>چت کلینیک</strong><em>Team Messaging</em></a></div>';
     staff_app_render('home', 'برنامه درمانگر', 'وقت‌های خودتان و چت‌های کلینیک', $html);
     exit;
+}
+
+if ($path === '/app/profile' && $method === 'POST' && $role !== 'SECRETARY') {
+    csrf_verify();
+    if ($role === 'DOCTOR') {
+        $doctorProfileEmbedded = true;
+        require __DIR__ . '/../actions/doctor_profile.php';
+        exit;
+    }
+    $profileName = trim(post('name'));
+    $profileEmail = trim(post('email'));
+    $profilePhone = trim(post('phone'));
+    if ($profileName === '' || ($profileEmail !== '' && !filter_var($profileEmail, FILTER_VALIDATE_EMAIL))) {
+        flash_set('error', 'نام و ایمیل معتبر وارد کنید.');
+        redirect('/app/profile');
+    }
+    try {
+        $pdo->prepare('UPDATE users SET name=?, email=?, phone=? WHERE id=?')->execute([$profileName, $profileEmail, $profilePhone, $userId]);
+        $_SESSION['user']['name'] = $profileName;
+        $_SESSION['user']['email'] = $profileEmail;
+        $_SESSION['user']['phone'] = $profilePhone;
+        flash_set('success', 'پروفایل ذخیره شد.');
+    } catch (PDOException $e) {
+        flash_set('error', 'ذخیره پروفایل انجام نشد؛ ایمیل را بررسی کنید.');
+    }
+    redirect('/app/profile');
 }
 
 if ($path === '/app/push/subscribe' && $method === 'POST') {
@@ -2011,6 +2038,30 @@ if ($section === 'petty') {
 }
 
 if ($section === 'profile') {
+    if ($role === 'DOCTOR') {
+        $doctorProfileEmbedded = true;
+        require __DIR__ . '/doctor/profile.php';
+        exit;
+    }
+    if ($role !== 'SECRETARY') {
+        $stmt = $pdo->prepare('SELECT name, username, email, phone FROM users WHERE id=? LIMIT 1');
+        $stmt->execute([$userId]);
+        $profile = $stmt->fetch() ?: [];
+        ob_start();
+        ?>
+        <h1>پروفایل</h1>
+        <form class="panel form-stack" method="post" action="<?= e(url('/app/profile')) ?>">
+          <?= csrf_field() ?>
+          <label class="label">نام</label><input class="input" name="name" value="<?= e((string) ($profile['name'] ?? '')) ?>" required>
+          <label class="label">نام کاربری</label><input class="input" value="<?= e((string) ($profile['username'] ?? '')) ?>" disabled dir="ltr">
+          <label class="label">ایمیل</label><input class="input" type="email" name="email" value="<?= e((string) ($profile['email'] ?? '')) ?>" dir="ltr">
+          <label class="label">موبایل</label><input class="input" name="phone" value="<?= e((string) ($profile['phone'] ?? '')) ?>" dir="ltr">
+          <button class="btn btn-primary" type="submit">ذخیره تغییرات</button>
+        </form>
+        <?php
+        staff_app_render('profile', 'پروفایل', $descriptions['profile'], ob_get_clean());
+        exit;
+    }
     $hello = $name !== '' ? $name : staff_app_role_label($role);
     ob_start();
     ?>

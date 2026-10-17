@@ -19,7 +19,7 @@ $bioLen = function_exists('mb_strlen') ? mb_strlen($bio) : strlen($bio);
 
 if ($name === '' || $bioLen < 20 || $license === '' || !isset(doctor_degree_options()[$degree]) || doctor_courses_list($courses) === [] || $year < 1330 || $year > $maxYear || $price <= 0 || $approaches === [] || $domains === [] || $focus === []) {
     flash_set('error', 'همه فیلدهای پروفایل الزامی است. حداقل یک مورد از هر فهرست چندانتخابی را برگزینید.');
-    redirect('/doctor/profile');
+    redirect(!empty($doctorProfileEmbedded) ? '/app/profile' : '/doctor/profile');
 }
 
 $avatarUrl = trim((string) ($p['avatar_url'] ?? ''));
@@ -33,12 +33,12 @@ try {
     }
 } catch (RuntimeException $e) {
     flash_set('error', $e->getMessage());
-    redirect('/doctor/profile');
+    redirect(!empty($doctorProfileEmbedded) ? '/app/profile' : '/doctor/profile');
 }
 
 if ($avatarUrl === '') {
     flash_set('error', 'عکس پروفایل الزامی است.');
-    redirect('/doctor/profile');
+    redirect(!empty($doctorProfileEmbedded) ? '/app/profile' : '/doctor/profile');
 }
 
 $specialty = implode('، ', doctor_profile_labels($domains, doctor_domain_options()));
@@ -71,4 +71,4 @@ $pdo->prepare('
     $p['id'],
 ]);
 flash_set('success', 'پروفایل ذخیره شد.');
-redirect('/doctor/profile');
+redirect(!empty($doctorProfileEmbedded) ? '/app/profile' : '/doctor/profile');
