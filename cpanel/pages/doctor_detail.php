@@ -114,6 +114,12 @@ ob_start();
     <div class="doctor-public-profile">
       <div class="doctor-profile-portrait">
         <?= doctor_photo_html($doctor, 'doctor-photo doctor-public-photo') ?>
+      <?php if (trim((string) ($doctor['license_no'] ?? '')) !== ''): ?>
+        <div class="doctor-public-block">
+          <h2>پروانه نظام</h2>
+          <p class="doctor-public-license" dir="ltr"><?= e((string) $doctor['license_no']) ?></p>
+        </div>
+      <?php endif; ?>
       </div>
       <div class="doctor-profile-info">
         <div class="doctor-public-hero">
@@ -150,16 +156,7 @@ ob_start();
       <p class="doctor-first-session">جلسه اول برای شناخت مسئله، سابقه و انتظارت است؛ لازم نیست از قبل «آماده» باشی. بعد از رزرو، پرداخت از نوبت‌های من انجام می‌شود.</p>
       <p class="doctor-hero-book"><a class="btn btn-primary" href="#booking-box">رزرو نوبت این متخصص</a></p>
 
-      <?php if ($articles): ?>
-        <div class="doctor-public-block">
-          <h2>مقالات این متخصص</h2>
-          <ul class="stack">
-            <?php foreach ($articles as $a): ?>
-              <li><a href="<?= e(url('/articles/' . $a['slug'])) ?>" style="color:var(--primary)"><?= e($a['title']) ?></a></li>
-            <?php endforeach; ?>
-          </ul>
-        </div>
-      <?php endif; ?>
+
       </div>
     </div>
 
@@ -214,14 +211,20 @@ ob_start();
         </div>
       <?php endif; ?>
 
-      <?php if (trim((string) ($doctor['license_no'] ?? '')) !== ''): ?>
-        <div class="doctor-public-block">
-          <h2>پروانه نظام</h2>
-          <p class="doctor-public-license" dir="ltr"><?= e((string) $doctor['license_no']) ?></p>
-        </div>
-      <?php endif; ?>
+
 
     </div>
+
+      <?php if ($articles): ?>
+        <div class="doctor-public-block">
+          <h2>مقالات این درمانگر</h2>
+          <ul class="stack">
+            <?php foreach ($articles as $a): ?>
+              <li><a href="<?= e(url('/articles/' . $a['slug'])) ?>" style="color:var(--primary)"><?= e($a['title']) ?></a></li>
+            <?php endforeach; ?>
+          </ul>
+        </div>
+      <?php endif; ?>
 
     <div class="stack doctor-booking-section" id="booking-box">
       <h2 style="margin:0">رزرو نوبت</h2>
