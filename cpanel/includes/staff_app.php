@@ -21,24 +21,8 @@ function staff_app_sections(): array
 
 function staff_app_full_access(array $user): bool
 {
-    $role = (string) ($user['role'] ?? '');
-    if ($role === 'SECRETARY') {
-        return true;
-    }
-    $username = strtolower(trim((string) ($user['username'] ?? '')));
-    if ($username === 'eshahabian') {
-        return true;
-    }
-    $name = (string) ($user['name'] ?? '');
-    if (str_contains($name, 'عماد') && str_contains($name, 'شهابیان')) {
-        return true;
-    }
-    if ((!function_exists('doctor_is_shiva') || !function_exists('doctor_is_garsichi')) && is_file(__DIR__ . '/doctor_profile_fields.php')) {
-        require_once __DIR__ . '/doctor_profile_fields.php';
-    }
-
-    return (function_exists('doctor_is_shiva') && doctor_is_shiva($user))
-        || (function_exists('doctor_is_garsichi') && doctor_is_garsichi($user));
+    require_once __DIR__ . '/doctor_profile_fields.php';
+    return ($user['role'] ?? '') === 'SECRETARY' || clinic_user_is_access_exception($user);
 }
 
 function staff_app_allowed(array $user): bool

@@ -21,6 +21,12 @@ function video_call_allowed(?array $user): bool
     return in_array($role, ['DOCTOR', 'PATIENT', 'ADMIN'], true);
 }
 
+function video_call_contacts_assigned_only(array $user): bool
+{
+    require_once __DIR__ . '/doctor_profile_fields.php';
+    return video_call_is_clinician($user) && !clinic_user_is_access_exception($user);
+}
+
 function ensure_video_call_schema(PDO $pdo): void
 {
     static $ready = false;
@@ -492,7 +498,11 @@ function video_call_contacts(PDO $pdo, array $user, string $q = '', string $only
     }
     if ($role === 'DOCTOR' || $role === 'ADMIN') {
         $allowedRoles = ['PATIENT', 'DOCTOR', 'ADMIN', 'SECRETARY'];
-        $roles = in_array($onlyRole, $allowedRoles, true) ? [$onlyRole] : $allowedRoles;
+        $assignedOnly = video_call_contacts_assigned_only($user);
+        if ($assignedOnly && $onlyRole !== '' && $onlyRole !== 'PATIENT') {
+            return [];
+        }
+        $roles = $assignedOnly ? ['PATIENT'] : (in_array($onlyRole, $allowedRoles, true) ? [$onlyRole] : $allowedRoles);
         $inRoles = implode(',', array_fill(0, count($roles), '?'));
         $sql = "
           SELECT u.id, u.name, u.username, u.role, MAX(dp.avatar_url) AS avatar_url
@@ -503,6 +513,10 @@ function video_call_contacts(PDO $pdo, array $user, string $q = '', string $only
             AND u.role IN ($inRoles)
         ";
         $params = array_merge($freqParams, [$me], $roles);
+        if ($assignedOnly) {
+            $sql .= ' AND EXISTS (SELECT 1 FROM doctor_profiles assigned_doctor WHERE assigned_doctor.id = u.preferred_doctor_id AND assigned_doctor.user_id = ?)';
+            $params[] = $me;
+        }
         if ($onlyIds) {
             $sql .= ' AND u.id IN (' . implode(',', array_fill(0, count($onlyIds), '?')) . ')';
             $params = array_merge($params, $onlyIds);
@@ -682,6 +696,10 @@ function video_call_ensure_direct_room(PDO $pdo, array $host, string $peerId): ?
     if ($me === '' || $peerId === '' || $me === $peerId) {
         return null;
     }
+    if (video_call_contacts_assigned_only($host)
+        && video_call_contacts($pdo, $host, '', 'PATIENT', 1, [$peerId]) === []) {
+        return null;
+    }
     $peer = $pdo->prepare('SELECT id, name, role FROM users WHERE id=? LIMIT 1');
     $peer->execute([$peerId]);
     $p = $peer->fetch();
@@ -804,6 +822,13 @@ function video_call_create_group(PDO $pdo, array $user, string $title, array $me
     $workshopId = trim($workshopId);
     $add = [];
     $memberIds = array_values(array_unique(array_filter(array_map('strval', $memberIds))));
+    if ($memberIds && video_call_contacts_assigned_only($user)) {
+        $allowed = video_call_contacts($pdo, $user, '', 'PATIENT', count($memberIds), $memberIds);
+        $allowedIds = array_map(static fn(array $person): string => (string) $person['id'], $allowed);
+        if (array_diff($memberIds, $allowedIds)) {
+            throw new RuntimeException('فقط مراجعان اساین‌شده به خودتان را می‌توانید به تماس اضافه کنید.');
+        }
+    }
     if ($memberIds) {
         $in = implode(',', array_fill(0, count($memberIds), '?'));
         $stmt = $pdo->prepare("

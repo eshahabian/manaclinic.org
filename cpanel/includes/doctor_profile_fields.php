@@ -249,6 +249,21 @@ function doctor_is_clinic_lead(?array $user): bool
     return doctor_is_shiva($user) || doctor_is_garsichi($user);
 }
 
+/** Shared exception for scoped app access: Shiva, Atieh and Emad only. */
+function clinic_user_is_access_exception(?array $user): bool
+{
+    if (!$user) {
+        return false;
+    }
+    if (doctor_is_shiva($user) || doctor_is_garsichi($user)) {
+        return true;
+    }
+    $username = strtolower(trim((string) ($user['username'] ?? '')));
+    $name = (string) ($user['name'] ?? '');
+    return $username === 'eshahabian'
+        || (str_contains($name, 'عماد') && str_contains($name, 'شهابیان'));
+}
+
 /** تأیید درخواست کارگاه و وارد کردن مراجع به دوره: دکتر عطیه گارسچی */
 function doctor_can_accept_workshop_requests(?array $user = null): bool
 {
