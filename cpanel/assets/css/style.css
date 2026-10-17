@@ -8106,3 +8106,5 @@ html.is-native-app body:has([data-livekit-v2]:not([hidden])) .site-chrome-call {
 .home-articles-block .section-head { justify-content: flex-start; text-align: right; }
 .home-specialists-block .section-head > div,
 .home-articles-block .section-head > div { text-align: right; }
+.doctor-profile-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem 2rem; }
+.doctor-profile-details .doctor-public-block { margin-top: 0; padding-top: 1.25rem; min-width: 0; }

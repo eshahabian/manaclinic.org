@@ -150,6 +150,20 @@ ob_start();
       <p class="doctor-first-session">جلسه اول برای شناخت مسئله، سابقه و انتظارت است؛ لازم نیست از قبل «آماده» باشی. بعد از رزرو، پرداخت از نوبت‌های من انجام می‌شود.</p>
       <p class="doctor-hero-book"><a class="btn btn-primary" href="#booking-box">رزرو نوبت این متخصص</a></p>
 
+      <?php if ($articles): ?>
+        <div class="doctor-public-block">
+          <h2>مقالات این متخصص</h2>
+          <ul class="stack">
+            <?php foreach ($articles as $a): ?>
+              <li><a href="<?= e(url('/articles/' . $a['slug'])) ?>" style="color:var(--primary)"><?= e($a['title']) ?></a></li>
+            <?php endforeach; ?>
+          </ul>
+        </div>
+      <?php endif; ?>
+      </div>
+    </div>
+
+    <div class="doctor-profile-details">
       <?php if ($domains !== []): ?>
         <div class="doctor-public-block">
           <h2>حوزه درمان</h2>
@@ -207,17 +221,6 @@ ob_start();
         </div>
       <?php endif; ?>
 
-      <?php if ($articles): ?>
-        <div class="doctor-public-block">
-          <h2>مقالات این متخصص</h2>
-          <ul class="stack">
-            <?php foreach ($articles as $a): ?>
-              <li><a href="<?= e(url('/articles/' . $a['slug'])) ?>" style="color:var(--primary)"><?= e($a['title']) ?></a></li>
-            <?php endforeach; ?>
-          </ul>
-        </div>
-      <?php endif; ?>
-      </div>
     </div>
 
     <div class="stack doctor-booking-section" id="booking-box">
