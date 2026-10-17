@@ -54,7 +54,7 @@ if ($next && is_staff_app_next($next)) {
     if (staff_app_allowed(current_user() ?? $user)) {
         redirect($next);
     }
-    flash_set('error', 'ورود این برنامه فقط برای عماد شهابیان، شیوا گرانمایه‌پور، عطیه گارسچی و منشی‌هاست.');
+    flash_set('error', 'این حساب اجازه ورود به برنامه کارکنان را ندارد.');
 }
 
 if (($user['role'] ?? '') === 'DOCTOR' && function_exists('doctor_must_complete_profile') && doctor_must_complete_profile($pdo, current_user() ?? $user)) {

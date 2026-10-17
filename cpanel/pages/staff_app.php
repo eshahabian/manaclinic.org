@@ -11,6 +11,23 @@ $userId = (string) ($user['id'] ?? '');
 $role = (string) ($user['role'] ?? '');
 $name = trim((string) ($user['name'] ?? ''));
 
+// Check every app route before any data is read or any POST action runs.
+if (!staff_app_path_allowed($user, $path, $method)) {
+    http_response_code(403);
+    header('Content-Type: text/plain; charset=utf-8');
+    header('Cache-Control: no-store');
+    echo 'دسترسی شما در برنامه فقط به وقت‌های خودتان و چت‌هاست.';
+    exit;
+}
+
+if ($path === '/app' && staff_app_limited_doctor($user)) {
+    $html = '<h1>برنامه درمانگر</h1><p>وقت‌های خودتان و گفتگوهای کلینیک</p>'
+        . '<div class="sapp-grid"><a class="sapp-tile" href="' . e(url('/app/appointments')) . '"><strong>وقت‌های من</strong></a>'
+        . '<a class="sapp-tile" href="' . e(url('/app/chat')) . '"><strong>چت کلینیک</strong></a></div>';
+    staff_app_render('home', 'برنامه درمانگر', 'وقت‌های خودتان و چت‌های کلینیک', $html);
+    exit;
+}
+
 if ($path === '/app/push/subscribe' && $method === 'POST') {
     header('Content-Type: application/json; charset=utf-8');
     header('Cache-Control: no-store');

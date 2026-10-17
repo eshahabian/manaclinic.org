@@ -18,7 +18,7 @@ function staff_app_sections(): array
     ];
 }
 
-function staff_app_allowed(array $user): bool
+function staff_app_full_access(array $user): bool
 {
     $role = (string) ($user['role'] ?? '');
     if ($role === 'SECRETARY') {
@@ -40,6 +40,34 @@ function staff_app_allowed(array $user): bool
         || (function_exists('doctor_is_garsichi') && doctor_is_garsichi($user));
 }
 
+function staff_app_allowed(array $user): bool
+{
+    return staff_app_full_access($user) || ($user['role'] ?? '') === 'DOCTOR';
+}
+
+function staff_app_limited_doctor(array $user): bool
+{
+    return ($user['role'] ?? '') === 'DOCTOR' && !staff_app_full_access($user);
+}
+
+function staff_app_path_allowed(array $user, string $path, string $method): bool
+{
+    if (!staff_app_limited_doctor($user)) {
+        return true;
+    }
+    if ($path === '/app/push/subscribe') {
+        return $method === 'POST';
+    }
+    if ($path === '/app/chat' || preg_match('#^/app/chat/[a-f0-9]{24}$#', $path)) {
+        return in_array($method, ['GET', 'POST'], true);
+    }
+    return $method === 'GET' && (
+        in_array($path, ['/app', '/app/appointments', '/app/presence'], true)
+        || preg_match('#^/app/chat/[a-f0-9]{24}/receipts$#', $path)
+        || preg_match('#^/app/file/[a-f0-9]{24}$#', $path)
+    );
+}
+
 function staff_app_logout_href(): string
 {
     return url('/logout?next=' . rawurlencode('/login?next=/app'));
@@ -57,7 +85,7 @@ function staff_app_user(): array
     }
     $user = require_login();
     if (!staff_app_allowed($user)) {
-        staff_app_render('home', 'برنامه داخلی', 'این برنامه فقط برای عماد شهابیان، شیوا گرانمایه‌پور، عطیه گارسچی و منشی‌هاست.', '<h1>برنامه داخلی</h1><p>ورود این برنامه فقط برای عماد شهابیان، شیوا گرانمایه‌پور، عطیه گارسچی و منشی‌هاست.</p>', true);
+        staff_app_render('home', 'برنامه داخلی', 'ورود کارکنان و درمانگرهای کلینیک', '<h1>برنامه داخلی</h1><p>این حساب اجازه ورود به برنامه کارکنان را ندارد.</p>', true);
         exit;
     }
 
@@ -2565,7 +2593,7 @@ function staff_app_render(string $active, string $title, string $description, st
     </a>
     <?php if ($user): ?>
       <div class="sapp-tools">
-        <?php if (!$locked): ?>
+        <?php if (!$locked && !staff_app_limited_doctor($user)): ?>
           <a class="sapp-avatar" href="<?= e(url('/app/profile')) ?>" aria-label="پروفایل">
             <?php if ($avatarSrc !== ''): ?>
               <img src="<?= e(url($avatarSrc)) ?>" alt="" width="38" height="38">
@@ -2592,14 +2620,6 @@ function staff_app_render(string $active, string $title, string $description, st
     <?php endif; ?>
     <?= $html ?>
   </main>
-  <?php if (!$locked && $active === 'home'): ?>
-    <a class="sapp-fab" href="<?= e(url('/app/chat')) ?>#sapp-new-chat">
-      <span class="sapp-fab-btn" aria-hidden="true">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17.5 4 20V6.5A2.5 2.5 0 0 1 6.5 4h11A2.5 2.5 0 0 1 20 6.5v8A2.5 2.5 0 0 1 17.5 17H7z"/><path d="M8 9h8M8 12.5h5"/></svg>
-      </span>
-      <span>چت جدید</span>
-    </a>
-  <?php endif; ?>
   <?php if (!$locked): ?>
     <nav class="sapp-nav" aria-label="بخش‌های برنامه">
       <a class="<?= $navKey === 'home' ? 'is-active' : '' ?>" href="<?= e(url('/app')) ?>">
@@ -2611,7 +2631,9 @@ function staff_app_render(string $active, string $title, string $description, st
         گفتگو
         <span class="sapp-badge" id="sapp-nav-unread"<?= $unread > 0 ? '' : ' hidden' ?>><?= $unread > 0 ? e(to_fa_digits((string) $unread)) : '' ?></span>
       </a>
-      <?php if ($isSecretary): ?>
+      <?php if ($user && staff_app_limited_doctor($user)): ?>
+      <a href="<?= e(url('/app/appointments')) ?>">وقت‌های من</a>
+      <?php elseif ($isSecretary): ?>
       <a class="<?= $navKey === 'petty' ? 'is-active' : '' ?>" href="<?= e(url('/app/petty-cash')) ?>">
         <span class="sapp-nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="6" width="17" height="13" rx="2"/><path d="M3.5 10h17"/><path d="M16 15h.01"/></svg></span>
         تنخواه
@@ -2622,10 +2644,12 @@ function staff_app_render(string $active, string $title, string $description, st
         ساعت کاری
       </a>
       <?php endif; ?>
+      <?php if (!$user || !staff_app_limited_doctor($user)): ?>
       <a class="<?= $navKey === 'profile' ? 'is-active' : '' ?>" href="<?= e(url('/app/profile')) ?>">
         <span class="sapp-nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="3.2"/><path d="M5.5 19.2a6.5 6.5 0 0 1 13 0"/></svg></span>
         پروفایل
       </a>
+      <?php endif; ?>
     </nav>
   <?php endif; ?>
   <?= staff_app_pwa_script() ?>
