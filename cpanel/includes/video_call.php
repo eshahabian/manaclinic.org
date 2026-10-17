@@ -294,7 +294,7 @@ function video_call_person_row_html(array $c, bool $clinician, bool $pick = fals
     $payload = htmlspecialchars(json_encode(video_call_contact_payload($c), JSON_UNESCAPED_UNICODE), ENT_QUOTES, 'UTF-8');
     ob_start();
     ?>
-            <div class="vc-person" data-user-id="<?= e((string) ($c['id'] ?? '')) ?>"<?php if ($mode === 'select'): ?> data-vc-select="<?= $payload ?>"<?php endif; ?>>
+            <div class="vc-person" data-user-id="<?= e((string) ($c['id'] ?? '')) ?>"<?php if (in_array($mode, ['select', 'quick'], true)): ?> data-vc-select="<?= $payload ?>" tabindex="0" role="group" aria-label="<?= e($label) ?>"<?php endif; ?>>
               <?php if ($clinician && $pick && $isPatient): ?>
                 <label class="vc-pick-wrap" title="انتخاب برای گروه">
                   <input class="vc-pick" type="checkbox" value="<?= e((string) $c['id']) ?>">
@@ -305,6 +305,12 @@ function video_call_person_row_html(array $c, bool $clinician, bool $pick = fals
                 <strong><?= e($label) ?></strong>
                 <span class="muted"><?= !empty($c['online']) ? 'آنلاین' : 'آفلاین' ?> · <?= e($roleLabel) ?></span>
               </span>
+              <?php if ($clinician && $mode === 'quick'): ?>
+                <span class="vc-quick-actions">
+                  <button type="button" data-vc-call data-peer="<?= e((string) $c['id']) ?>" data-media="audio" aria-label="<?= e('تماس صوتی با ' . $label) ?>" title="تماس صوتی"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><path d="m7 3 3 5-2 2a15 15 0 0 0 6 6l2-2 5 3-1 4C10 22 2 14 3 4z"/></svg></button>
+                  <button type="button" data-vc-call data-peer="<?= e((string) $c['id']) ?>" data-media="video" aria-label="<?= e('تماس تصویری با ' . $label) ?>" title="تماس تصویری"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><rect x="3" y="6" width="12" height="12" rx="3"/><path d="m15 10 6-3v10l-6-3z"/></svg></button>
+                </span>
+              <?php endif; ?>
               <?php if ($clinician && $mode === 'buttons'): ?>
                 <span class="vc-person-calls">
                   <button type="button" class="btn btn-primary btn-sm" data-vc-call data-peer="<?= e((string) $c['id']) ?>" data-media="video">تصویری</button>

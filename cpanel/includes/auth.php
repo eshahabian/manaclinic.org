@@ -394,7 +394,7 @@ function require_login(?array $roles = null): array
         }
     }
     if (($user['role'] ?? '') === 'DOCTOR' && $pdo instanceof PDO && function_exists('doctor_must_complete_profile') && doctor_must_complete_profile($pdo, $user)) {
-        $profileAllowed = ['/doctor/profile', '/logout', '/change-password', '/session/ping', '/secretary/heartbeat'];
+        $profileAllowed = ['/doctor/profile', '/logout', '/change-password', '/session/ping', '/secretary/heartbeat', '/video-call', '/video-signal', '/video-call-live', '/video-call-v2', '/video-call-embed', '/livekit-token'];
         if (!function_exists('secretary_daily_tasks_can_review') && is_file(__DIR__ . '/secretary_daily_tasks.php')) {
             require_once __DIR__ . '/secretary_daily_tasks.php';
         }

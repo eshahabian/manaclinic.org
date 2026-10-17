@@ -243,6 +243,10 @@
   }
 
   function renderPicked() {
+    app.querySelectorAll("[data-vc-home-list] [data-vc-select]").forEach(function (row) {
+      var person = parseSelect(row);
+      row.classList.toggle("is-on", !!person && members.some(function (item) { return item.id === person.id; }));
+    });
     if (!pickedEl) return;
     pickedEl.innerHTML = members.map(function (item) {
       return "<li>" + personHtml(item) + "</li>";
@@ -495,6 +499,7 @@
   });
 
   app.addEventListener("click", function (ev) {
+    if (ev.target.closest("[data-vc-call]")) return;
     var suggestPerson = ev.target.closest("[data-vc-search-drop] [data-vc-select]");
     if (suggestPerson) {
       ev.preventDefault();
@@ -608,6 +613,14 @@
         window.alert("حذف انجام نشد.");
       });
     }
+  });
+
+  app.addEventListener("keydown", function (ev) {
+    if (ev.key !== "Enter" && ev.key !== " ") return;
+    var row = ev.target.closest("[data-vc-home-list] [data-vc-select]");
+    if (!row || ev.target !== row) return;
+    ev.preventDefault();
+    row.click();
   });
 
   if (overlay) {

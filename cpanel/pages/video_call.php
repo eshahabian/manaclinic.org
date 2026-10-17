@@ -94,7 +94,7 @@ if ($roomKey !== '') {
 
 $pageTitle = 'تماس مانا';
 $GLOBALS['pageRobots'] = 'noindex,nofollow';
-$patients = $clinician ? video_call_contacts($pdo, $user, '', 'PATIENT', 5) : [];
+$patients = $clinician ? video_call_contacts($pdo, $user, '', 'PATIENT', 40) : [];
 $contacts = $clinician ? [] : video_call_contacts($pdo, $user, '', '', 5);
 $workshops = $clinician ? video_call_host_workshops($pdo, $user) : [];
 $savedRooms = video_call_saved_rooms($pdo, $user);
@@ -361,6 +361,9 @@ document.querySelector("[data-copy-share]")?.addEventListener("click", function(
 </script>
 <?php
 $inner = ob_get_clean();
+if ($clinician) {
+    $GLOBALS['pageHead'] = ($GLOBALS['pageHead'] ?? '') . '<link rel="stylesheet" href="' . e(url('/assets/css/mana-call-skype.css')) . '?v=20261017skype">';
+}
 // LiveKit bridge only — do not load legacy WebRTC video-call.js here.
 // Loading both caused mobile therapist calls to ring on WebRTC while the
 // patient joined LiveKit, so each side only saw their own camera.
@@ -369,10 +372,14 @@ $GLOBALS['pageScripts'] = '<script>window.__MANA_LIVEKIT_EMBED__=true;window.__M
     . ';</script>'
     . '<script src="https://cdn.jsdelivr.net/npm/livekit-client@2.22.3/dist/livekit-client.umd.min.js"></script>'
     . '<script src="' . e(url('/assets/js/video-call-livekit-ui.js')) . '?v=20260928home"></script>'
-    . '<script src="' . e(url('/assets/js/video-call-lobby.js')) . '?v=20260911r"></script>'
+    . '<script src="' . e(url('/assets/js/video-call-lobby.js')) . '?v=20261017skype"></script>'
     . '<script src="' . e(url('/assets/js/video-call-livekit-bridge-v3.js')) . '?v=20260928home"></script>';
 
 $role = (string) ($user['role'] ?? '');
+if ($clinician && staff_app_allowed($user)) {
+    staff_app_render('call', $pageTitle, 'تماس صوتی و تصویری مانا', $inner);
+    return;
+}
 if ($role === 'DOCTOR') {
     require_once __DIR__ . '/../includes/doctor_panel.php';
     render_doctor_page($pageTitle, $inner);
