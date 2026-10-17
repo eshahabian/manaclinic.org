@@ -161,30 +161,24 @@ ob_start();
             <p class="muted">دانش کاربردی برای سلامت روان</p>
           </div>
         </div>
+        <?php if ($articles): ?>
+          <div class="therapists-all-link">
+            <a class="articles-all-link" href="<?= e(url('/articles')) ?>">مشاهده همه مقالات ←</a>
+          </div>
+        <?php endif; ?>
         <div class="articles-showcase">
           <?php foreach ($articles as $article): ?>
             <?= clinic_article_card_html($article) ?>
           <?php endforeach; ?>
         </div>
-        <?php if ($articles): ?>
-          <div class="articles-footer-link">
-            <a class="articles-all-link" href="<?= e(url('/articles')) ?>">همه مقالات</a>
-          </div>
-        <?php endif; ?>
       </div>
 
       <div class="home-specialists-block" style="margin-top:3rem">
         <div class="section-head">
           <div>
-            <h2>متخصصان ما</h2>
-            <p class="muted">از مسئله‌ات شروع کن یا مستقیم درمانگر را ببین</p>
+            <p class="eyebrow">تیم درمانگران</p>
+            <h2>متخصصانی که به آن‌ها اعتماد می‌کنید</h2>
           </div>
-        </div>
-        <div class="dir-filter-chips issue-home-chips">
-          <?php foreach (array_slice(clinic_issue_topics(), 0, 8, true) as $issueKey => $issueRow): ?>
-            <a class="dir-chip" href="<?= e(url('/issues/' . $issueKey)) ?>"><?= e($issueRow['label']) ?></a>
-          <?php endforeach; ?>
-          <a class="dir-chip" href="<?= e(url('/doctors')) ?>">همه متخصصان</a>
         </div>
         <?php if ($doctors): ?>
           <div class="therapists-all-link">

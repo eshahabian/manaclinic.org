@@ -8085,3 +8085,9 @@ html.is-native-app body:has([data-livekit-v2]:not([hidden])) .site-chrome-call {
   .doctors-showcase { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1rem; }
   .doctors-showcase .doctor-card { width: 100%; max-width: none; }
 }
+/* Give navigation links room on desktop and in the menu drawer. */
+.nav-links { column-gap: 1.6rem; row-gap: .85rem; }
+.nav-links a { padding-block: .5rem; }
+.mobile-nav-list { gap: .65rem; }
+.mobile-nav-panel nav, .side-nav nav { gap: .75rem; }
+.mobile-nav-panel a, .side-nav a { padding-block: .85rem; }
