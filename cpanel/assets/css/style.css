@@ -1932,6 +1932,15 @@ body.home-workshop-locked { overflow: hidden; }
   .footer-grid.is-compact { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .footer-title { font-weight: 700; margin: 0 0 .75rem; }
+.footer-verse-art {
+  display: block;
+  width: min(100%, 360px);
+  height: auto;
+  max-height: 160px;
+  object-fit: contain;
+  margin: 1rem auto 0;
+}
+html[data-theme="dark"] .footer-verse-art { filter: invert(1) brightness(.95); }
 .footer-consult-lead {
   margin: -.35rem 0 .75rem;
   font-size: .86rem;

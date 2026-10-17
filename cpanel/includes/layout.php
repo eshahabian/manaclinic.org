@@ -86,7 +86,7 @@ if ($user) {
   })();
   </script>
   <?= seo_render_head() ?>
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20261017pw">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20261017footerart">
   <link rel="stylesheet" href="<?= e(url('/assets/css/mana-look.css')) ?>?v=20260930b">
   <?php
     // آزمایش سبک حس روان‌تر — برای خاموش کردن: false
@@ -324,6 +324,10 @@ if ($user) {
             </a>
           <?php endforeach; ?>
         </div>
+        <?php $footerVerses = glob(__DIR__ . '/../assets/img/hafez/verse-*.png') ?: []; ?>
+        <?php if ($footerVerses): ?>
+          <img class="footer-verse-art" src="<?= e(url('/assets/img/hafez/' . basename($footerVerses[array_rand($footerVerses)]))) ?>" alt="" width="560" height="160" loading="lazy">
+        <?php endif; ?>
       </div>
       <div>
         <p class="footer-title">موقعیت مطب</p>
