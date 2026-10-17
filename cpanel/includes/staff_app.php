@@ -76,6 +76,40 @@ function staff_app_logout_href(): string
     return url('/logout?next=' . rawurlencode('/login?next=/app'));
 }
 
+/** One home template for every account; permissions only select its tiles. */
+function staff_app_home_tile_allowed(array $user, string $path): bool
+{
+    if (!staff_app_path_allowed($user, $path, 'GET')) {
+        return false;
+    }
+    if (in_array($path, ['/app/balances', '/app/therapists'], true)) {
+        return ($user['role'] ?? '') === 'SECRETARY';
+    }
+    if ($path === '/app/petty-cash') {
+        require_once __DIR__ . '/petty_cash.php';
+        return petty_cash_staff_app_allowed($user);
+    }
+    return true;
+}
+
+/** The professional photo belongs to doctor_profiles, not users.avatar_url. */
+function staff_app_avatar_src(PDO $pdo, array $user): string
+{
+    require_once __DIR__ . '/user_avatar.php';
+    if (($user['role'] ?? '') === 'DOCTOR') {
+        require_once __DIR__ . '/doctor_profile_fields.php';
+        $stmt = $pdo->prepare('SELECT avatar_url FROM doctor_profiles WHERE user_id=? LIMIT 1');
+        $stmt->execute([(string) ($user['id'] ?? '')]);
+        $photo = trim((string) ($stmt->fetchColumn() ?: ''));
+        if ($photo !== '') {
+            return doctor_avatar_src($photo);
+        }
+    }
+    $fresh = user_hydrate_session_avatar($pdo, $user);
+    $photo = user_avatar_src((string) ($fresh['avatar_url'] ?? ''));
+    return $photo !== '' ? url($photo) : '';
+}
+
 function staff_app_user(): array
 {
     $user = current_user();
@@ -2314,12 +2348,7 @@ function staff_app_render(string $active, string $title, string $description, st
         if (!function_exists('user_hydrate_session_avatar')) {
             require_once __DIR__ . '/user_avatar.php';
         }
-        $fresh = user_hydrate_session_avatar($pdo, $user);
-        if (is_array($fresh)) {
-            $user = $fresh;
-            $name = trim((string) ($user['name'] ?? $name));
-        }
-        $avatarSrc = user_avatar_src((string) ($user['avatar_url'] ?? ''));
+        $avatarSrc = staff_app_avatar_src($pdo, $user);
         $avatarInitial = user_avatar_initial($name !== '' ? $name : 'م');
     }
     $navKey = match ($active) {
@@ -2600,7 +2629,7 @@ function staff_app_render(string $active, string $title, string $description, st
         <?php if (!$locked): ?>
           <a class="sapp-avatar" href="<?= e(url('/app/profile')) ?>" aria-label="پروفایل">
             <?php if ($avatarSrc !== ''): ?>
-              <img src="<?= e(url($avatarSrc)) ?>" alt="" width="38" height="38">
+              <img src="<?= e($avatarSrc) ?>" alt="" width="38" height="38">
             <?php else: ?>
               <?= e($avatarInitial) ?>
             <?php endif; ?>

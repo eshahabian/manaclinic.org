@@ -16,16 +16,7 @@ if (!staff_app_path_allowed($user, $path, $method)) {
     http_response_code(403);
     header('Content-Type: text/plain; charset=utf-8');
     header('Cache-Control: no-store');
-    echo 'دسترسی شما در برنامه فقط به وقت‌های خودتان و چت‌هاست.';
-    exit;
-}
-
-if ($path === '/app' && staff_app_limited_doctor($user)) {
-    $html = '<h1>برنامه درمانگر</h1><p>وقت‌های خودتان و گفتگوهای کلینیک</p>'
-        . '<div class="sapp-grid"><a class="sapp-tile" href="' . e(url('/app/appointments')) . '">'
-        . '<span class="sapp-ico sapp-ico-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3.5V7M16 3.5V7M4 10h16"/></svg></span><strong>وقت‌های من</strong><em>Daily Schedule</em></a>'
-        . '<a class="sapp-tile" href="' . e(url('/app/chat')) . '"><span class="sapp-ico sapp-ico-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16.5 4 19V7.2A2.2 2.2 0 0 1 6.2 5h7.2A2.2 2.2 0 0 1 15.6 7.2V12a2.2 2.2 0 0 1-2.2 2.2H6z"/><path d="M10 16.2h5.6A2.2 2.2 0 0 0 17.8 14V9.2L20 11.2V17a2 2 0 0 1-2 2h-6.2"/></svg></span><strong>چت کلینیک</strong><em>Team Messaging</em></a></div>';
-    staff_app_render('home', 'برنامه درمانگر', 'وقت‌های خودتان و چت‌های کلینیک', $html);
+    echo 'دسترسی شما در برنامه به وقت‌های خودتان، چت‌ها و پروفایل خودتان است.';
     exit;
 }
 
@@ -531,71 +522,88 @@ $descriptions = [
 
 if ($section === 'home') {
     $hello = $name !== '' ? $name : staff_app_role_label($role);
-    if (!function_exists('collaboration_request_new_count')) {
-        require_once __DIR__ . '/../includes/collaboration.php';
+    $consultOpen = 0;
+    if (staff_app_home_tile_allowed($user, '/app/consult')) {
+        if (!function_exists('collaboration_request_new_count')) {
+            require_once __DIR__ . '/../includes/collaboration.php';
+        }
+        $consultOpen = (function_exists('consult_request_new_count') ? consult_request_new_count() : 0)
+            + (function_exists('collaboration_request_new_count') ? collaboration_request_new_count() : 0);
     }
-    $consultOpen = (function_exists('consult_request_new_count') ? consult_request_new_count() : 0)
-        + (function_exists('collaboration_request_new_count') ? collaboration_request_new_count() : 0);
-    [, $helloJm, $helloJd] = gregorian_to_jalali((int) date('Y'), (int) date('n'), (int) date('j'));
+    $today = new DateTimeImmutable('now', new DateTimeZone('Asia/Tehran'));
+    [, $helloJm, $helloJd] = gregorian_to_jalali((int) $today->format('Y'), (int) $today->format('n'), (int) $today->format('j'));
     $helloJalali = to_fa_digits((string) $helloJd) . ' ' . (jalali_month_names()[$helloJm] ?? '');
-    $helloGregorian = date('j F');
+    $helloGregorian = $today->format('j F');
     ob_start();
     ?>
     <div class="sapp-hello">
       <h1>خوش آمدید، <?= e($hello) ?></h1>
-      <p><span>داشبورد مدیریتی</span><span class="sapp-hello-date"><?= e($helloJalali) ?> <i>·</i> <bdi dir="ltr"><?= e($helloGregorian) ?></bdi></span></p>
+      <p><span><?= staff_app_limited_doctor($user) ? 'برنامه درمانگر' : 'داشبورد مدیریتی' ?></span><span class="sapp-hello-date"><?= e($helloJalali) ?> <i>·</i> <bdi dir="ltr"><?= e($helloGregorian) ?></bdi></span></p>
     </div>
     <div class="sapp-grid">
+      <?php if (staff_app_home_tile_allowed($user, '/app/appointments')): ?>
       <a class="sapp-tile" href="<?= e(url('/app/appointments')) ?>">
         <span class="sapp-ico sapp-ico-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="5" width="16" height="15" rx="2"/><path d="M8 3.5V7M16 3.5V7M4 10h16"/></svg></span>
-        <strong>وقت‌ها</strong>
+        <strong><?= staff_app_limited_doctor($user) ? 'وقت‌های من' : 'وقت‌ها' ?></strong>
         <em>Daily Schedule</em>
       </a>
+      <?php endif; ?>
+      <?php if (staff_app_home_tile_allowed($user, '/app/rooms')): ?>
       <a class="sapp-tile" href="<?= e(url('/app/rooms')) ?>">
         <span class="sapp-ico sapp-ico-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 20V6.5A2.5 2.5 0 0 1 8.5 4H18v16"/><path d="M6 20h12"/><path d="M10 12h.01"/></svg></span>
         <strong>شرایط اتاق‌ها</strong>
         <em>Availability</em>
       </a>
+      <?php endif; ?>
+      <?php if (staff_app_home_tile_allowed($user, '/app/chat')): ?>
       <a class="sapp-tile" href="<?= e(url('/app/chat')) ?>">
         <span class="sapp-ico sapp-ico-purple"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M6 16.5 4 19V7.2A2.2 2.2 0 0 1 6.2 5h7.2A2.2 2.2 0 0 1 15.6 7.2V12a2.2 2.2 0 0 1-2.2 2.2H6z"/><path d="M10 16.2h5.6A2.2 2.2 0 0 0 17.8 14V9.2L20 11.2V17a2 2 0 0 1-2 2h-6.2"/></svg></span>
         <strong>چت کلینیک</strong>
         <em>Team Messaging</em>
       </a>
+      <?php endif; ?>
+      <?php if (staff_app_home_tile_allowed($user, '/app/consult')): ?>
       <a class="sapp-tile" href="<?= e(url('/app/consult')) ?>">
         <span class="sapp-ico sapp-ico-teal sapp-consult-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8.2 4.8h2.1a1 1 0 0 1 1 .76l.5 2.4a1 1 0 0 1-.5 1.05l-1.35.7a7.6 7.6 0 0 0 3.74 3.74l.7-1.35a1 1 0 0 1 1.05-.5l2.4.5a1 1 0 0 1 .76 1V15.4A1.6 1.6 0 0 1 17 17 11.2 11.2 0 0 1 7 7a1.6 1.6 0 0 1 1.2-2.2z"/></svg><?php if ($consultOpen > 0): ?><span class="sapp-consult-badge"><?= e(to_fa_digits((string) $consultOpen)) ?></span><?php endif; ?></span>
         <strong>درخواست مشاوره/درخواست همکاری</strong>
         <em>Consult &amp; Collaboration</em>
       </a>
-      <?php if ($role === 'SECRETARY'): ?>
+      <?php endif; ?>
+      <?php if (staff_app_home_tile_allowed($user, '/app/balances')): ?>
       <a class="sapp-tile" href="<?= e(url('/app/balances')) ?>">
         <span class="sapp-ico sapp-ico-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M5 7h14v11H5z"/><path d="M8 7V5h8v2"/><path d="M8 12h8"/></svg></span>
         <strong>بدهکاران و بستانکاران</strong>
         <em>Wallet Balance</em>
       </a>
+      <?php endif; ?>
+      <?php if (staff_app_home_tile_allowed($user, '/app/therapists')): ?>
       <a class="sapp-tile" href="<?= e(url('/app/therapists')) ?>">
         <span class="sapp-ico sapp-ico-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="2.4"/><circle cx="16" cy="9" r="2"/><path d="M4.8 18.2a4.4 4.4 0 0 1 8.4 0M13.2 18.2a3.6 3.6 0 0 1 6-2.2"/></svg></span>
         <strong>درمانگرها</strong>
         <em>Therapists</em>
       </a>
       <?php endif; ?>
+      <?php if (staff_app_home_tile_allowed($user, '/app/checklist')): ?>
       <a class="sapp-tile" href="<?= e(url('/app/checklist')) ?>">
         <span class="sapp-ico sapp-ico-pink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="16" rx="3"/><path d="m8.5 12 2.2 2.2 4.8-5"/></svg></span>
         <strong>لیست کارهای روزانه</strong>
         <em>Daily Tasks</em>
       </a>
-      <?php if (!function_exists('petty_cash_staff_app_allowed')) { require_once __DIR__ . '/../includes/petty_cash.php'; } ?>
-      <?php if (petty_cash_staff_app_allowed($user)): ?>
+      <?php endif; ?>
+      <?php if (staff_app_home_tile_allowed($user, '/app/petty-cash')): ?>
       <a class="sapp-tile" href="<?= e(url('/app/petty-cash')) ?>">
         <span class="sapp-ico sapp-ico-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="6" width="17" height="13" rx="2"/><path d="M3.5 10h17"/><path d="M16 15h.01"/></svg></span>
         <strong>تنخواه</strong>
         <em>Petty Cash</em>
       </a>
       <?php endif; ?>
+      <?php if (staff_app_home_tile_allowed($user, '/app/complaints')): ?>
       <a class="sapp-tile" href="<?= e(url('/app/complaints')) ?>">
         <span class="sapp-ico sapp-ico-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5 20 19H4L12 4.5z"/><path d="M12 10v4.2"/><path d="M12 16.8h.01"/></svg></span>
         <strong>انتقادات و پیشنهادات</strong>
         <em>Feedback</em>
       </a>
+      <?php endif; ?>
     </div>
     <?php
     staff_app_render('home', 'Mana Staff', $descriptions['home'], ob_get_clean());
