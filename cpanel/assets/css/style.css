@@ -539,19 +539,25 @@ select option {
   align-items: center;
   text-align: center;
   box-sizing: border-box;
-  padding: 1.25rem 1rem 1.35rem;
+  padding: 0 0 1rem;
+  color: inherit;
+  text-decoration: none;
 }
 .doctor-card .avatar,
 .doctor-card-photo {
-  width: 92px;
-  height: 92px;
-  margin: 0 auto .85rem;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 1 / 1;
+  object-fit: cover;
+  border-radius: 20px;
+  box-shadow: 0 20px 44px -26px rgba(43,58,48,.42);
+  margin: 0 auto 1.1rem;
   align-self: center;
   font-size: 1.35rem;
 }
 .doctor-card-name {
   margin: 0;
-  font-size: 1.05rem;
+  font-size: 1.15rem;
   line-height: 1.5;
   font-weight: 700;
 }
@@ -8062,3 +8068,15 @@ html.is-native-app body:has([data-livekit-v2]:not([hidden])) .site-chrome-call {
 }
 
 
+.doctor-card .doctor-card-photo { width: 100%; height: auto; border-radius: 20px; }
+.doctor-card .doctor-chip-row { justify-content: center; gap: .25rem .5rem; margin-top: .35rem; }
+.doctor-card .doctor-chip { background: transparent; border: 0; padding: 0; color: var(--primary); font-size: .9rem; font-weight: 600; }
+.doctor-card:hover .doctor-card-photo { box-shadow: 0 22px 46px -22px rgba(43,58,48,.5); }
+.doctor-card:focus-visible { outline: 2px solid var(--primary); outline-offset: 6px; border-radius: 20px; }
+.doctor-card .doctor-photo--fallback { font-size: 3rem; }
+@media (min-width: 400px) and (max-width: 767px) {
+  .doctors-directory, .doctors-showcase { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; }
+}
+@media (min-width: 1200px) {
+  .doctors-directory { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 1.75rem; }
+}

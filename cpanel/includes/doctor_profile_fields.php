@@ -394,7 +394,6 @@ function doctor_card_html(array $doc): string
     $name = trim((string) ($doc['name'] ?? ''));
     $href = url('/doctors/' . (string) ($doc['id'] ?? '') . '#booking-box');
     $domains = doctor_profile_filter_keys(doctor_profile_json_list($doc['domains_json'] ?? ''), doctor_domain_options());
-    $focus = doctor_profile_filter_keys(doctor_profile_json_list($doc['focus_json'] ?? ''), doctor_focus_options());
     $chips = doctor_chips_html($domains, doctor_domain_options());
     if ($chips === '') {
         $legacy = trim((string) ($doc['specialty'] ?? ''));
@@ -402,19 +401,13 @@ function doctor_card_html(array $doc): string
             $chips = '<div class="doctor-chip-row"><span class="doctor-chip">' . e($legacy) . '</span></div>';
         }
     }
-    $focusLine = implode('، ', array_slice(doctor_profile_labels($focus, doctor_focus_options()), 0, 3));
 
     ob_start();
     ?>
-    <a class="panel card-link doctor-card" href="<?= e($href) ?>">
+    <a class="doctor-card" href="<?= e($href) ?>" aria-label="<?= e('مشاهده پروفایل و رزرو نوبت ' . $name) ?>">
       <?= doctor_photo_html($doc, 'doctor-photo doctor-card-photo') ?>
       <h3 class="doctor-card-name"><?= e($name) ?></h3>
       <?= $chips ?>
-      <?php if ($focusLine !== ''): ?>
-        <p class="doctor-card-focus"><?= e($focusLine) ?></p>
-      <?php endif; ?>
-      <p class="doctor-card-meta">حضوری در سعادت‌آباد و آنلاین</p>
-      <span class="doctor-card-cta">رزرو نوبت</span>
     </a>
     <?php
 
