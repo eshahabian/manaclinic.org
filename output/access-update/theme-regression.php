@@ -20,8 +20,11 @@ function home_for(array $user): string {
 $newDoctor = ['id'=>'new-doctor', 'role'=>'DOCTOR', 'username'=>'new-account-123', 'name'=>'درمانگر تازه'];
 $newHome = home_for($newDoctor);
 check(staff_app_allowed($newDoctor), 'New doctor automatically allowed');
-check(substr_count($newHome, 'class="sapp-tile"') === 2, 'New doctor sees two shared tiles');
-check(substr_count($newHome, '<svg') === 2, 'Both shared tiles have icons');
+check(substr_count($newHome, 'class="sapp-tile"') === 3, 'New doctor sees appointments, chat and calls');
+check(substr_count($newHome, '<svg') === 3, 'All shared tiles have icons');
+check(str_contains($newHome, '/video-call'), 'New doctor has Mana Call');
+check(video_call_allowed($newDoctor), 'Call endpoint permits doctor');
+check(!video_call_allowed(['role'=>'SECRETARY']), 'Call endpoint denies secretary');
 check(str_contains($newHome, 'sapp-hello-date'), 'New doctor has shared date');
 check(str_contains($newHome, 'خوش آمدید، درمانگر تازه'), 'Shared greeting');
 check(str_contains($newHome, 'وقت‌های من'), 'Own schedule label');
@@ -39,7 +42,8 @@ foreach ([
     $home = home_for($user);
     check(str_contains($home, 'sapp-hello-date'), 'Existing account date retained');
     check(str_contains($home, '/app/rooms'), 'Existing access retained');
-    check(substr_count($home, 'class="sapp-tile"') === (($user['role']==='SECRETARY') ? 9 : (($user['role']==='DOCTOR') ? 7 : 6)), 'Existing tile count retained');
+    check(substr_count($home, 'class="sapp-tile"') === (($user['role']==='SECRETARY') ? 9 : (($user['role']==='DOCTOR') ? 8 : 7)), 'Existing tiles plus call access');
+    check(str_contains($home, '/video-call') === ($user['role'] !== 'SECRETARY'), 'Call card only for non-secretaries');
 }
 class PhotoStatement extends PDOStatement {
     public function __construct(private mixed $photo) {}

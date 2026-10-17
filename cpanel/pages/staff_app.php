@@ -562,6 +562,13 @@ if ($section === 'home') {
         <em>Team Messaging</em>
       </a>
       <?php endif; ?>
+      <?php if (staff_app_home_tile_allowed($user, '/video-call')): ?>
+      <a class="sapp-tile" href="<?= e(url('/video-call')) ?>">
+        <span class="sapp-ico sapp-ico-teal"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="6" width="12" height="12" rx="3"/><path d="m15 10 6-3v10l-6-3z"/></svg></span>
+        <strong>تماس مانا</strong>
+        <em>Mana Call</em>
+      </a>
+      <?php endif; ?>
       <?php if (staff_app_home_tile_allowed($user, '/app/consult')): ?>
       <a class="sapp-tile" href="<?= e(url('/app/consult')) ?>">
         <span class="sapp-ico sapp-ico-teal sapp-consult-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8.2 4.8h2.1a1 1 0 0 1 1 .76l.5 2.4a1 1 0 0 1-.5 1.05l-1.35.7a7.6 7.6 0 0 0 3.74 3.74l.7-1.35a1 1 0 0 1 1.05-.5l2.4.5a1 1 0 0 1 .76 1V15.4A1.6 1.6 0 0 1 17 17 11.2 11.2 0 0 1 7 7a1.6 1.6 0 0 1 1.2-2.2z"/></svg><?php if ($consultOpen > 0): ?><span class="sapp-consult-badge"><?= e(to_fa_digits((string) $consultOpen)) ?></span><?php endif; ?></span>

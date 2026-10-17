@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/web_push.php';
+require_once __DIR__ . '/video_call.php';
 
 function staff_app_sections(): array
 {
@@ -79,6 +80,9 @@ function staff_app_logout_href(): string
 /** One home template for every account; permissions only select its tiles. */
 function staff_app_home_tile_allowed(array $user, string $path): bool
 {
+    if ($path === '/video-call') {
+        return staff_app_mana_call_allowed($user);
+    }
     if (!staff_app_path_allowed($user, $path, 'GET')) {
         return false;
     }
@@ -90,6 +94,13 @@ function staff_app_home_tile_allowed(array $user, string $path): bool
         return petty_cash_staff_app_allowed($user);
     }
     return true;
+}
+
+function staff_app_mana_call_allowed(array $user): bool
+{
+    return staff_app_allowed($user)
+        && ($user['role'] ?? '') !== 'SECRETARY'
+        && video_call_allowed($user);
 }
 
 /** The professional photo belongs to doctor_profiles, not users.avatar_url. */
@@ -2687,6 +2698,11 @@ function staff_app_render(string $active, string $title, string $description, st
     </nav>
   <?php endif; ?>
   <?= staff_app_pwa_script() ?>
+  <?php $videoWatch = !$locked && $user && staff_app_mana_call_allowed($user) ? video_call_watch_config($user) : null; ?>
+  <?php if ($videoWatch): ?>
+    <script>window.__VIDEO_CALL_WATCH__ = <?= json_encode($videoWatch, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+    <script src="<?= e(url('/assets/js/video-call-watch.js')) ?>?v=20260928home"></script>
+  <?php endif; ?>
   <?php if ($user): ?>
     <script src="<?= e(url('/assets/js/session-guard.js')) ?>?v=20261001idle"></script>
   <?php endif; ?>

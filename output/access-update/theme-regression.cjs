@@ -7,7 +7,7 @@ const {PhpNode} = require('./tools/node_modules/php-wasm/PhpNode');
   php.addEventListener('error', event => { console.error(event.detail); });
   await php.mkdir('/app');
   await php.mkdir('/app/includes');
-  for (const file of ['helpers.php','staff_app.php','web_push.php','doctor_profile_fields.php','petty_cash.php','user_avatar.php']) {
+  for (const file of ['helpers.php','staff_app.php','web_push.php','video_call.php','doctor_profile_fields.php','petty_cash.php','user_avatar.php']) {
     await php.writeFile('/app/includes/'+file,fs.readFileSync('cpanel/includes/'+file));
   }
   const source = fs.readFileSync('cpanel/pages/staff_app.php','utf8');
