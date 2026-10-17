@@ -619,7 +619,55 @@ function video_call_room_by_token(PDO $pdo, string $token): ?array
     return is_array($row) ? $row : null;
 }
 
+/** A patient can enter only during an online appointment booked by a secretary. */
+function video_call_secretary_appointment(PDO $pdo, array $room, string $patientId, bool $activeOnly = true, ?int $now = null): ?array
+{
+    $now = $now ?? time();
+    require_once __DIR__ . '/doctor_profile_fields.php';
+    $hostStmt = $pdo->prepare('SELECT id, role, username, name FROM users WHERE id=? LIMIT 1');
+    $hostStmt->execute([(string) ($room['host_user_id'] ?? '')]);
+    $host = $hostStmt->fetch();
+    $hostException = is_array($host) && clinic_user_is_access_exception($host);
+    $sql = "SELECT a.id, a.starts_at, a.ends_at FROM appointments a
+        JOIN doctor_profiles dp ON dp.id=a.doctor_id
+        JOIN users booker ON booker.id=a.created_by_user_id AND booker.role='SECRETARY'
+        WHERE a.patient_id=? AND a.session_mode='ONLINE'
+        AND a.status NOT IN ('CANCELLED','COMPLETED') AND a.ends_at>=?";
+    $params = [$patientId, date('Y-m-d H:i:s', $now)];
+    if (!$hostException) {
+        $sql .= ' AND dp.user_id=?';
+        $params[] = (string) ($room['host_user_id'] ?? '');
+    }
+    if ($activeOnly) {
+        $sql .= ' AND a.starts_at<=?';
+        $params[] = date('Y-m-d H:i:s', $now + 900);
+    }
+    $sql .= ' ORDER BY a.starts_at ASC LIMIT 1';
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $row = $stmt->fetch();
+    return is_array($row) ? $row : null;
+}
+
+function video_call_patient_schedule_allowed(PDO $pdo, array $user, array $room): bool
+{
+    if (($user['role'] ?? '') !== 'PATIENT') {
+        return true;
+    }
+    if (video_call_secretary_appointment($pdo, $room, (string) ($user['id'] ?? '')) !== null) {
+        return true;
+    }
+    $GLOBALS['video_call_access_error'] = 'ورود به جلسه از ۱۵ دقیقه قبل از شروع تا پایان نوبت آنلاین ثبت‌شده توسط منشی فعال است.';
+    return false;
+}
+
 function video_call_user_can_access_room(PDO $pdo, array $user, array $room): bool
+{
+    return video_call_room_membership_allowed($pdo, $user, $room)
+        && video_call_patient_schedule_allowed($pdo, $user, $room);
+}
+
+function video_call_room_membership_allowed(PDO $pdo, array $user, array $room): bool
 {
     $me = (string) ($user['id'] ?? '');
     if ($me === '') {
@@ -631,7 +679,7 @@ function video_call_user_can_access_room(PDO $pdo, array $user, array $room): bo
     $kind = (string) ($room['kind'] ?? '');
     if ($kind === 'direct') {
         $key = (string) ($room['room_key'] ?? '');
-        return str_contains($key, $me);
+        return $key === video_call_direct_key((string) ($room['host_user_id'] ?? ''), $me);
     }
     if ($kind === 'workshop') {
         $wid = (string) ($room['workshop_id'] ?? '');
@@ -909,7 +957,8 @@ function video_call_share_url(array $room): string
 {
     $token = (string) ($room['share_token'] ?? '');
 
-    return url('/video-call?join=' . rawurlencode($token));
+    require_once __DIR__ . '/seo.php';
+    return seo_absolute_url('/video-call-live?join=' . rawurlencode($token) . '&joincall=1');
 }
 
 function video_call_workshop_enter_url(string $workshopId): string
@@ -1005,6 +1054,9 @@ function video_call_join_via_token(PDO $pdo, array $user, string $token): ?array
 {
     $room = video_call_room_by_token($pdo, $token);
     if (!$room) {
+        return null;
+    }
+    if (!video_call_patient_schedule_allowed($pdo, $user, $room)) {
         return null;
     }
     $me = (string) ($user['id'] ?? '');

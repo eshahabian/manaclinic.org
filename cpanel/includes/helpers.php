@@ -438,6 +438,11 @@ function safe_staff_app_return(?string $next): ?string
 
 function login_url_keeping_staff_app(string $path): string
 {
+    $request = safe_next_path((string) ($_SERVER['REQUEST_URI'] ?? ''));
+    $requestPath = $request !== null ? parse_url($request, PHP_URL_PATH) : '';
+    if (in_array($requestPath, ['/video-call', '/video-call-live', '/video-call-v2', '/video-call-embed'], true)) {
+        return '/login?next=' . rawurlencode($request);
+    }
     if (!is_staff_app_next($path)) {
         return '/login';
     }

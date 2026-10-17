@@ -59,7 +59,7 @@ if ($joinToken !== '') {
         flash_set('error', 'لینک جلسه نامعتبر است.');
         redirect('/video-call');
     }
-    redirect('/video-call?room=' . rawurlencode((string) $room['room_key']));
+    redirect('/video-call-live?room=' . rawurlencode((string) $room['room_key']) . '&joincall=1');
 }
 
 if ($workshopId !== '') {
@@ -166,6 +166,7 @@ $wmName = $peerName !== '' ? $peerName : 'جلسه';
       <div class="vc-composer-actions">
         <button type="button" class="vc-call-btn vc-call-video" data-vc-video disabled>تماس تصویری</button>
         <button type="button" class="vc-call-btn vc-call-audio" data-vc-audio disabled>تماس</button>
+        <button type="button" class="vc-call-btn vc-call-audio" data-vc-share-selected disabled>لینک دعوت</button>
         <button type="button" class="vc-plus-btn" data-vc-plus title="افزودن افراد" aria-label="افزودن افراد">+</button>
       </div>
     </div>
@@ -344,10 +345,12 @@ $wmName = $peerName !== '' ? $peerName : 'جلسه';
 </div>
 <div class="vc-share-tile" data-vc-share-wrap<?= $shareUrl ? '' : ' hidden' ?>>
   <strong>لینک جلسه</strong>
-  <p class="muted vc-group-hint">این لینک را بفرستید تا طرف مقابل وارد همین جلسه شود.</p>
+  <p class="muted" data-vc-share-time hidden></p>
+  <p class="muted vc-group-hint">مراجع با حساب سایت خودش و بدون نصب اپ وارد می‌شود. ورود فقط از ۱۵ دقیقه قبل تا پایان نوبت آنلاین ثبت‌شده توسط منشی فعال است؛ پس از ورود به حساب به همین لینک برمی‌گردد.</p>
   <div class="vc-share">
     <input class="input" id="vc-share-link" readonly dir="ltr" value="<?= e($shareUrl) ?>">
     <button type="button" class="btn btn-outline btn-sm" data-copy-share>کپی لینک جلسه</button>
+    <button type="button" class="btn btn-primary btn-sm" data-share-session>اشتراک‌گذاری</button>
   </div>
 </div>
 <?php endif; ?>
@@ -372,7 +375,7 @@ $GLOBALS['pageScripts'] = '<script>window.__MANA_LIVEKIT_EMBED__=true;window.__M
     . ';</script>'
     . '<script src="https://cdn.jsdelivr.net/npm/livekit-client@2.22.3/dist/livekit-client.umd.min.js"></script>'
     . '<script src="' . e(url('/assets/js/video-call-livekit-ui.js')) . '?v=20260928home"></script>'
-    . '<script src="' . e(url('/assets/js/video-call-lobby.js')) . '?v=20261017skype"></script>'
+    . '<script src="' . e(url('/assets/js/video-call-lobby.js')) . '?v=20261018invite"></script>'
     . '<script src="' . e(url('/assets/js/video-call-livekit-bridge-v3.js')) . '?v=20260928home"></script>';
 
 $role = (string) ($user['role'] ?? '');

@@ -41,8 +41,8 @@ if ($join !== '') {
 
 if (($join !== '' || $workshop !== '' || $peer !== '' || $requestedRoom !== '')
     && (!$room || !video_call_user_can_access_room($pdo, $user, $room))) {
-    flash_set('error', 'این جلسه در دسترس شما نیست.');
-    redirect('/video-call');
+    flash_set('error', (string) ($GLOBALS['video_call_access_error'] ?? 'این جلسه در دسترس شما نیست.'));
+    redirect(($user['role'] ?? '') === 'PATIENT' ? '/dashboard' : '/video-call');
 }
 
 $roomKey = $room ? (string) ($room['room_key'] ?? '') : '';

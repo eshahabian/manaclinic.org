@@ -53,6 +53,7 @@
         return;
       }
       data.autoStart = true;
+      showSessionShare(data);
       if (window.ManaVideoCall && window.ManaVideoCall.start) window.ManaVideoCall.start(data);
     }).catch(function () {}).then(function () {
       opening = false;
@@ -90,6 +91,7 @@
   var groupWorkshop = app.querySelector("[data-vc-group-workshop]");
   var videoBtn = app.querySelector("[data-vc-video]");
   var audioBtn = app.querySelector("[data-vc-audio]");
+  var shareSelectedBtn = app.querySelector("[data-vc-share-selected]");
   var saveBtn = app.querySelector("[data-vc-save-open]");
   var searchInput = app.querySelector("[data-vc-search-input]");
   var searchWrap = app.querySelector("[data-vc-search]");
@@ -243,6 +245,8 @@
   }
 
   function renderPicked() {
+    var shareWrap = document.querySelector('[data-vc-share-wrap]');
+    if (shareWrap) shareWrap.hidden = true;
     app.querySelectorAll("[data-vc-home-list] [data-vc-select]").forEach(function (row) {
       var person = parseSelect(row);
       row.classList.toggle("is-on", !!person && members.some(function (item) { return item.id === person.id; }));
@@ -257,6 +261,7 @@
 
   function syncActions() {
     var n = members.length;
+    if (shareSelectedBtn) shareSelectedBtn.disabled = n < 1;
     var groupish = n > 1 || !!(groupWorkshop && groupWorkshop.value);
     if (videoBtn) {
       videoBtn.disabled = n < 1;
@@ -418,13 +423,11 @@
     else renderPicked();
   }
 
-  function startCall(media) {
-    if (!members.length || opening) return;
+  function selectedSession(media) {
     var ids = members.map(function (m) { return m.id; });
     var workshop = groupWorkshop ? String(groupWorkshop.value || "") : "";
     var title = groupTitle ? groupTitle.value.trim() : "";
     var one = members.length === 1 && !workshop;
-    opening = true;
     var req;
     if (savedRoomKey) {
       req = post({ action: "open", room: savedRoomKey, media: media });
@@ -439,7 +442,37 @@
         media: media
       });
     }
-    req.then(function (data) {
+    return req;
+  }
+
+  function showSessionShare(data) {
+    var wrap = document.querySelector('[data-vc-share-wrap]');
+    var input = document.getElementById('vc-share-link');
+    if (!wrap || !input) return;
+    input.value = data.shareUrl ? new URL(data.shareUrl, location.origin).href : '';
+    wrap.hidden = !input.value;
+    var timeLabel = document.querySelector('[data-vc-share-time]');
+    if (timeLabel) {
+      timeLabel.textContent = data.activeFromLabel ? 'فعال‌شدن لینک: ' + data.activeFromLabel : '';
+      timeLabel.hidden = !data.activeFromLabel;
+    }
+  }
+
+  document.querySelector('[data-share-session]')?.addEventListener('click', async function () {
+    var input = document.getElementById('vc-share-link');
+    if (!input || !input.value) return;
+    try {
+      if (navigator.share) await navigator.share({title:'دعوت به جلسه مانا', text:'با حساب سایت خودتان وارد جلسه شوید؛ نصب اپ لازم نیست.', url:input.value});
+      else { await navigator.clipboard.writeText(input.value); this.textContent = 'لینک کپی شد'; }
+    } catch (error) {
+      if (error.name !== 'AbortError') { input.focus(); input.select(); }
+    }
+  });
+
+  function startCall(media) {
+    if (!members.length || opening) return;
+    opening = true;
+    selectedSession(media).then(function (data) {
       if (!data || !data.ok) {
         window.alert((data && data.error) || "تماس شروع نشد.");
         return;
@@ -449,6 +482,7 @@
         if (data.kind === "group" || data.kind === "workshop") rememberSavedRoom(data);
       }
       data.autoStart = true;
+      showSessionShare(data);
       if (window.ManaVideoCall && window.ManaVideoCall.start) window.ManaVideoCall.start(data);
     }).catch(function () {
       window.alert("تماس شروع نشد.");
@@ -500,6 +534,23 @@
 
   app.addEventListener("click", function (ev) {
     if (ev.target.closest("[data-vc-call]")) return;
+    if (ev.target.closest('[data-vc-share-selected]')) {
+      ev.preventDefault();
+      if (!members.length || opening) return;
+      opening = true;
+      if (members.length !== 1 || (groupWorkshop && groupWorkshop.value)) {
+        opening = false;
+        window.alert('برای لینک نوبت، یک مراجع را انتخاب کنید.');
+        return;
+      }
+      post({action:'share_invite',peer:members[0].id}).then(function (data) {
+        if (!data || !data.ok) throw new Error((data && data.error) || 'ساخت لینک انجام نشد.');
+        savedRoomKey = data.room || '';
+        showSessionShare(data);
+        document.querySelector('[data-vc-share-wrap]')?.scrollIntoView({behavior:'smooth', block:'center'});
+      }).catch(function (error) { window.alert(error.message); }).then(function () { opening = false; });
+      return;
+    }
     var suggestPerson = ev.target.closest("[data-vc-search-drop] [data-vc-select]");
     if (suggestPerson) {
       ev.preventDefault();

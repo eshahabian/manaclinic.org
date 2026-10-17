@@ -23,7 +23,7 @@ if ($roomKey === '') {
 ensure_video_call_schema($pdo);
 $room = video_call_room_by_key($pdo, $roomKey);
 if (!$room || !video_call_user_can_access_room($pdo, $user, $room)) {
-    video_call_json(['ok' => false, 'error' => 'این جلسه در دسترس شما نیست.'], 403);
+    video_call_json(['ok' => false, 'error' => (string) ($GLOBALS['video_call_access_error'] ?? 'این جلسه در دسترس شما نیست.')], 403);
 }
 
 if (!mana_livekit_ready()) {

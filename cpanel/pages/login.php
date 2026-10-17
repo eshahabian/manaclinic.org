@@ -8,6 +8,9 @@ if (current_user()) {
             redirect($next);
         }
     }
+    if ($next && safe_next_url_path($next) !== null && !is_staff_app_next($next)) {
+        redirect($next);
+    }
     $href = panel_href_for(current_user()) ?: '/';
     redirect($href);
 }

@@ -105,6 +105,24 @@ if ($action === 'ping' || $action === 'inbox' || $action === 'contacts') {
     video_call_json(['ok' => true, 'items' => $items]);
 }
 
+if ($action === 'share_invite') {
+    csrf_verify();
+    if (!video_call_is_clinician($user)) {
+        video_call_json(['ok' => false, 'error' => 'فقط درمانگر می‌تواند لینک دعوت بسازد.'], 403);
+    }
+    $peerId = trim((string) ($body['peer'] ?? ''));
+    $room = $peerId !== '' ? video_call_ensure_direct_room($pdo, $user, $peerId) : null;
+    $appointment = $room ? video_call_secretary_appointment($pdo, $room, $peerId, false) : null;
+    if (!$room || !$appointment) {
+        video_call_json(['ok' => false, 'error' => 'ابتدا منشی باید برای این مراجع نوبت آنلاین ثبت کند.'], 403);
+    }
+    $info = video_call_session_payload($pdo, $user, $room, 'video');
+    $info['startsAt'] = $appointment['starts_at'];
+    $info['activeFrom'] = date('Y-m-d H:i:s', strtotime((string) $appointment['starts_at']) - 900);
+    $info['activeFromLabel'] = to_jalali_label(substr($info['activeFrom'], 0, 10)) . '، ساعت ' . format_fa_time($info['activeFrom']);
+    video_call_json($info);
+}
+
 if ($action === 'open') {
     $media = trim((string) ($body['media'] ?? 'video')) === 'audio' ? 'audio' : 'video';
     $peerId = trim((string) ($body['peer'] ?? ''));
