@@ -1821,6 +1821,15 @@ function staff_app_schedule_bounds(): array
     return [$from, $to];
 }
 
+function staff_app_schedule_selected_day(string $input): DateTimeImmutable
+{
+    $zone = new DateTimeZone('Asia/Tehran');
+    $day = DateTimeImmutable::createFromFormat('!Y-m-d', $input, $zone);
+    return $day && $day->format('Y-m-d') === $input
+        ? $day
+        : new DateTimeImmutable('today', $zone);
+}
+
 function staff_app_booking_overlaps_appointment(array $booking, array $appt): bool
 {
     $apptId = (string) ($appt['id'] ?? '');
@@ -1843,7 +1852,7 @@ function staff_app_booking_overlaps_appointment(array $booking, array $appt): bo
 }
 
 /** @return list<array<string, mixed>> */
-function staff_app_appointment_rows(PDO $pdo, array $user): array
+function staff_app_appointment_rows(PDO $pdo, array $user, ?string $selectedDay = null): array
 {
     if (!function_exists('clinic_rooms_between') && is_file(__DIR__ . '/clinic_rooms.php')) {
         require_once __DIR__ . '/clinic_rooms.php';
@@ -1863,6 +1872,11 @@ function staff_app_appointment_rows(PDO $pdo, array $user): array
         }
     }
     [$from, $to] = staff_app_schedule_bounds();
+    if ($selectedDay !== null) {
+        $day = staff_app_schedule_selected_day($selectedDay);
+        $from = $day->format('Y-m-d 00:00:00');
+        $to = $day->modify('+1 day')->format('Y-m-d 00:00:00');
+    }
     $params = [$from, $to];
     $doctorSql = '';
     $profileId = '';
@@ -2608,6 +2622,9 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-daynav-btn svg{width:1.35rem;height:1.35rem;display:block}
     .sapp-daynav-btn.is-off{opacity:.35}
     .sapp-daynav-date{flex:1;min-width:0;direction:rtl;text-align:center;color:#1c3d36;font-size:clamp(.92rem,3.8vw,1.05rem);font-weight:800;line-height:1.45}
+    .sapp-schedule-date{display:flex;justify-content:center;align-items:center;flex-wrap:wrap;gap:.2rem .7rem;font-size:clamp(.78rem,3vw,1rem)}
+    .sapp-schedule-date span,.sapp-schedule-date bdi{white-space:nowrap}
+    .sapp-schedule-date bdi{font-size:.82em;color:#50847a;font-weight:600}
     .sapp-check-absent{margin:0;padding:1rem 1.05rem;border-radius:1rem;background:#fff;color:#5d746c;box-shadow:0 .35rem 1rem rgba(28,70,58,.05);line-height:1.7}
     body.sapp{padding:0}
   </style>

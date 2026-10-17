@@ -683,10 +683,15 @@ if ($section === 'therapists') {
 }
 
 if ($section === 'appointments') {
+    $selectedDate = staff_app_schedule_selected_day((string) ($_GET['day'] ?? ''));
+    $selectedDay = $selectedDate->format('Y-m-d');
+    $prevDay = $selectedDate->modify('-1 day')->format('Y-m-d');
+    $nextDay = $selectedDate->modify('+1 day')->format('Y-m-d');
+    $weekday = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه', 'شنبه'][(int) $selectedDate->format('w')];
     $bookForm = '';
     if ($role === 'SECRETARY') {
         $secretaryBookEmbedded = true;
-        $secretaryBookNext = '/app/appointments';
+        $secretaryBookNext = '/app/appointments?day=' . $selectedDay;
         require __DIR__ . '/secretary/book.php';
         $bookForm = (string) ($secretaryBookFormHtml ?? '');
         $GLOBALS['pageHead'] = '<link rel="stylesheet" href="/assets/vendor/jalali/jalalidatepicker.min.css">';
@@ -698,7 +703,7 @@ if ($section === 'appointments') {
     $rows = [];
     $error = '';
     try {
-        $rows = staff_app_appointment_rows($pdo, $user);
+        $rows = staff_app_appointment_rows($pdo, $user, $selectedDay);
     } catch (Throwable $e) {
         error_log('staff app appointments: ' . $e->getMessage());
         $error = 'بارگذاری وقت‌ها الان ممکن نیست.';
@@ -719,18 +724,22 @@ if ($section === 'appointments') {
         echo appointment_debts_html($pdo);
       ?>
       <?= $bookForm ?>
-      <h2 class="sapp-day">وقت‌های دو هفته آینده</h2>
+      <h2 class="sapp-day">وقت‌های روز</h2>
     <?php else: ?>
       <h1>وقت‌ها</h1>
-      <p class="muted"><?= staff_app_sees_clinic_schedule($user) ? 'وقت‌های کلینیک تا دو هفته آینده.' : 'وقت‌های خودتان تا دو هفته آینده.' ?></p>
+      <p class="muted"><?= staff_app_sees_clinic_schedule($user) ? 'وقت‌های کلینیک در روز انتخاب‌شده.' : 'وقت‌های خودتان در روز انتخاب‌شده.' ?></p>
     <?php endif; ?>
+    <nav class="sapp-daynav" aria-label="انتخاب روز وقت‌ها" style="margin-top:1rem">
+      <a class="sapp-daynav-btn" href="<?= e(url('/app/appointments?day=' . $prevDay)) ?>" aria-label="روز قبل"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></a>
+      <strong class="sapp-daynav-date sapp-schedule-date"><span><?= e($weekday . ' · ' . to_jalali_label($selectedDay)) ?></span><bdi dir="ltr"><?= e($selectedDate->format('j F Y')) ?></bdi></strong>
+      <a class="sapp-daynav-btn" href="<?= e(url('/app/appointments?day=' . $nextDay)) ?>" aria-label="روز بعد"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg></a>
+    </nav>
     <?php if ($error !== ''): ?>
       <p><?= e($error) ?></p>
     <?php elseif ($grouped === []): ?>
-      <p class="muted">در این بازه وقتی ثبت نشده است.</p>
+      <p class="muted">در این روز وقتی ثبت نشده است.</p>
     <?php else: ?>
       <?php foreach ($grouped as $day => $items): ?>
-        <h2 class="sapp-day"><?= e(to_jalali_label($day)) ?></h2>
         <div class="sapp-list">
           <?php foreach ($items as $row): ?>
             <?php
@@ -779,7 +788,7 @@ if ($section === 'appointments') {
                 <details class="appt-one-edit">
                   <summary class="btn btn-outline btn-sm">ویرایش</summary>
                   <div style="margin-top:.55rem">
-                    <?= appointment_time_edit_form_html($row, '/app/appointments') ?>
+                    <?= appointment_time_edit_form_html($row, '/app/appointments?day=' . $selectedDay) ?>
                   </div>
                 </details>
               <?php endif; ?>
