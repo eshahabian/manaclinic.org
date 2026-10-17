@@ -47,6 +47,7 @@ foreach ($openSlots as $slot) {
               data-doctor="<?= e($slot['doctor_id']) ?>"
               data-date="<?= e($slot['date']) ?>"
               data-time="<?= e($slot['time']) ?>"
+              aria-describedby="dash-book-help"
               disabled
             >
               <span class="hour-chip-time"><?= e((string) $slot['label']) ?></span>

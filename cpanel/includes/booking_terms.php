@@ -230,6 +230,10 @@ function booking_terms_script(string $checkboxId = 'terms-accept', string $butto
   }
 
   function syncButtons(){
+    var help = document.getElementById('dash-book-help');
+    if (help) help.textContent = cb.checked
+      ? 'حالا نوع جلسه، تاریخ و ساعت دلخواه را انتخاب کنید. مدت استاندارد هر جلسه ۵۰ دقیقه است.'
+      : 'برای فعال شدن ساعت‌های رزرو، ابتدا شرایط رزرو و پرداخت را بخوانید و بپذیرید. مدت استاندارد هر جلسه ۵۰ دقیقه است.';
     buttons().forEach(function(btn){
       if (!btn) return;
       btn.disabled = !cb.checked;

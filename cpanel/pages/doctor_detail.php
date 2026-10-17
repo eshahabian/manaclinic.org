@@ -217,7 +217,7 @@ ob_start();
 
     <div class="panel stack" id="booking-box">
       <h2 style="margin:0">رزرو نوبت</h2>
-      <p class="muted" style="margin:.35rem 0 0;font-size:.9rem;line-height:1.7">حضوری در سعادت‌آباد یا آنلاین. هزینه جلسه بعد از انتخاب ساعت نمایش داده می‌شود؛ پرداخت از «نوبت‌های من» است.</p>
+      <p class="muted" style="margin:.35rem 0 0;font-size:.9rem;line-height:1.7">حضوری در سعادت‌آباد یا آنلاین. مدت استاندارد هر جلسه ۵۰ دقیقه است. هزینه جلسه بعد از انتخاب ساعت نمایش داده می‌شود؛ پرداخت از «نوبت‌های من» است.</p>
       <?php if ((int) ($doctor['session_price'] ?? 0) > 0): ?>
         <p class="doctor-book-price" id="book-price" hidden><?= e(format_price((int) $doctor['session_price'])) ?> <span class="muted">هزینه این نوبت</span></p>
       <?php endif; ?>

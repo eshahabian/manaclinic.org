@@ -100,6 +100,13 @@ ob_start();
     <div>
       <p class="mp2-kicker">◎ ماموریت امروز</p>
       <h1>اتاق ذهن</h1>
+      <?php if (!$isDoctorRoom): ?>
+      <nav aria-label="دسترسی سریع" style="display:flex;flex-wrap:wrap;gap:.55rem;margin:.75rem 0">
+        <a class="btn btn-primary" href="<?= e(url('/doctors')) ?>">گرفتن نوبت</a>
+        <a class="btn btn-outline" href="<?= e(url('/dashboard/appointments')) ?>">نوبت‌های من</a>
+        <a class="btn btn-outline" href="<?= e(url('/dashboard/workshops/ongoing')) ?>">دوره‌های در حال برگزاری</a>
+      </nav>
+      <?php endif; ?>
       <p class="mp2-lead"><?= e($dailyMotto) ?></p>
     </div>
     <aside class="mp2-plant-tile" id="xp" aria-label="گیاه مسیر، <?= e(to_fa_digits((string) $plantDay)) ?> روز موفق از ۳۰">
@@ -108,7 +115,7 @@ ob_start();
       </div>
     </aside>
   </div>
-  <p class="mp2-model">امروز <?= e($todayLabel) ?> — هدف، سفر روزانه، XP و streak برای ادامه دادن است. رقابت با دیگران اینجا نیست.</p>
+  <p class="mp2-model">امروز <?= e($todayLabel) ?> — با تمرین‌های روزانه امتیاز بگیر و روزهای پیوستهٔ تمرینت را ببین.</p>
 
   <div class="mp2-grid">
     <section class="mp2-card" aria-label="نقشه سفر">
@@ -196,7 +203,7 @@ ob_start();
         <p class="mp2-note">نقطه سیاه، امروز است. با تمام شدن کارها سبز می‌شود.</p>
       <?php endif; ?>
       <div class="mp2-foot">
-        <span>⭐ <?= e(to_fa_digits((string) $xp)) ?> XP</span>
+        <span>⭐ <?= e(to_fa_digits((string) $xp)) ?> امتیاز</span>
         <span>🔥 <?= e(to_fa_digits((string) $streak)) ?> روز متوالی</span>
       </div>
     </section>
@@ -218,7 +225,7 @@ ob_start();
           </dd>
         </div>
         <div>
-          <dt>😊 Mood امروز</dt>
+          <dt>😊 حال امروز</dt>
           <dd><?= e($moodNow && isset($moods[$moodNow]) ? $moods[$moodNow]['label'] : 'هنوز ثبت نشده') ?></dd>
         </div>
         <div>
@@ -226,7 +233,7 @@ ob_start();
           <dd><?= e(to_fa_digits((string) $actHave)) ?> / <?= e(to_fa_digits((string) $actNeed)) ?></dd>
         </div>
         <div>
-          <dt>🔥 Streak</dt>
+          <dt>🔥 روزهای پیوستهٔ تمرین</dt>
           <dd><?= e(to_fa_digits((string) $streak)) ?> روز</dd>
         </div>
         <?php if (!$isDoctorRoom): ?>
@@ -250,7 +257,7 @@ ob_start();
 
     <section class="mp2-card">
       <h2>ابزارهای مسیر</h2>
-      <p class="mp2-note"><?= $isDoctorRoom ? 'چک‌این خلق و کارهای روزانه همین صفحه است.' : 'چک‌این خلق و کارهای روزانه همین صفحه است. ژورنال و درمانگر جدا می‌مانند.' ?></p>
+      <p class="mp2-note"><?= $isDoctorRoom ? 'حال امروزت را ثبت کن و تمرین‌های روزانه را انجام بده.' : 'حال امروزت را ثبت کن و تمرین‌های روزانه را انجام بده. برای نوشتن از دفتر یادداشت و برای گرفتن نوبت از دکمهٔ بالای صفحه استفاده کن.' ?></p>
       <form method="post" action="<?= e($post) ?>" class="mp2-faces">
         <?= csrf_field() ?>
         <input type="hidden" name="do" value="mood">
@@ -264,10 +271,10 @@ ob_start();
       <div class="mp2-tools">
         <a href="#journey"><strong>🧠 کارهای امروز</strong>تمرین بر اساس دغدغه‌هایت</a>
         <?php if (!$isDoctorRoom): ?>
-        <a href="<?= e($journalUrl) ?>"><strong>📓 Journal</strong>یادداشت روزانه</a>
+        <a href="<?= e($journalUrl) ?>"><strong>📓 دفتر یادداشت</strong>یادداشت روزانه</a>
         <?php endif; ?>
         <a class="is-lg" href="<?= e(url((string) $pathUrls['report'])) ?>"><strong>📅 گزارش ماهانه</strong>نتیجه مسیر این ماه</a>
-        <a class="is-lg" href="#xp"><strong>⭐ XP / Achievement</strong>سطح <?= e(to_fa_digits((string) $level)) ?></a>
+        <a class="is-lg" href="#xp"><strong>⭐ امتیاز و دستاوردها</strong>سطح <?= e(to_fa_digits((string) $level)) ?></a>
       </div>
     </section>
   </div>

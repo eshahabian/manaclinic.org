@@ -57,9 +57,13 @@ ob_start();
 ?>
 <div class="stack">
   <h1>سلام <?= e($user['name']) ?></h1>
+  <nav aria-label="دسترسی سریع" style="display:flex;flex-wrap:wrap;gap:.55rem">
+    <a class="btn btn-primary" href="<?= e(url('/doctors')) ?>">گرفتن نوبت</a>
+    <a class="btn btn-outline" href="<?= e(url('/dashboard/workshops/ongoing')) ?>">دوره‌های در حال برگزاری</a>
+  </nav>
   <p style="display:flex;flex-wrap:wrap;align-items:center;gap:.55rem;margin:0 0 1rem">
     <a class="btn btn-primary btn-sm" href="<?= e(url('/dashboard/path')) ?>">اتاق ذهن</a>
-    <span class="muted">مسیر درمان با تجربهٔ شبیه بازی — بدون رقابت و لیدربورد.</span>
+    <span class="muted">تمرین‌های روزانه برای آرامش و پیگیری حال شما.</span>
   </p>
   <p class="muted">نوبت‌ها و کارگاه‌ها را با انتخاب سال، ماه و روز ببینید.</p>
   <p id="course-msg" class="course-flash" style="display:none" role="status"></p>
@@ -99,6 +103,7 @@ ob_start();
           </div>
         <?php endif; ?>
         <?= booking_terms_acceptance_html('terms-accept-dash') ?>
+        <p class="muted" id="dash-book-help" role="status">برای فعال شدن ساعت‌های رزرو، ابتدا شرایط رزرو و پرداخت را بخوانید و بپذیرید. مدت استاندارد هر جلسه ۵۰ دقیقه است.</p>
         <?php
           if (!function_exists('appointment_session_mode_pick_html') && is_file(__DIR__ . '/../../includes/appointment_session.php')) {
               require_once __DIR__ . '/../../includes/appointment_session.php';
