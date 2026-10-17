@@ -185,17 +185,17 @@ ob_start();
           <?php endforeach; ?>
           <a class="dir-chip" href="<?= e(url('/doctors')) ?>">همه متخصصان</a>
         </div>
+        <?php if ($doctors): ?>
+          <div class="therapists-all-link">
+            <a class="articles-all-link" href="<?= e(url('/doctors')) ?>">مشاهده همه درمانگرها ←</a>
+          </div>
+        <?php endif; ?>
         <div class="doctors-showcase">
           <?php foreach ($doctors as $doc): ?>
             <?= doctor_card_html($doc) ?>
           <?php endforeach; ?>
           <?php if (!$doctors): ?><p class="muted">هنوز متخصصی ثبت نشده است.</p><?php endif; ?>
         </div>
-        <?php if ($doctors): ?>
-          <div class="articles-footer-link">
-            <a class="articles-all-link" href="<?= e(url('/doctors')) ?>">مشاهده همه</a>
-          </div>
-        <?php endif; ?>
       </div>
 </section>
 <?php
