@@ -145,4 +145,4 @@ $next = safe_next_path(post('next'));
 if ($next) {
     redirect($next);
 }
-redirect('/dashboard');
+redirect('/dashboard/path');

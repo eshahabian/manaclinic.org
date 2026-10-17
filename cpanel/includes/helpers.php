@@ -27,6 +27,7 @@ function password_field_html(string $id, string $name, array $opts = []): string
     ?>
     <div class="password-field" data-password-field>
       <label class="label" for="<?= e($id) ?>"><?= e($label) ?></label>
+      <?php if (!empty($opts['suggest'])): ?><div class="password-field-row"><?php endif; ?>
       <div class="password-field-box">
         <input
           class="input"
@@ -52,6 +53,7 @@ function password_field_html(string $id, string $name, array $opts = []): string
       </div>
       <?php if (!empty($opts['suggest'])): ?>
         <button type="button" class="password-suggest" data-password-suggest>پیشنهاد رمز</button>
+      </div>
       <?php endif; ?>
       <?php if ($showRules && $min > 0): ?>
         <p class="password-rules muted">حداقل <?= e(to_fa_digits((string) $min)) ?> کاراکتر، با حروف و اعداد انگلیسی.</p>

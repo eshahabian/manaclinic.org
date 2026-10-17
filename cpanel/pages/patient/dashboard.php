@@ -53,28 +53,14 @@ $wsActiveCount = count($grouped['in-person']) + count($grouped['online']) + coun
 $section = trim((string) ($_GET['section'] ?? ''));
 $outerInitial = $section === 'workshops' ? 'workshops' : 'appts';
 
-$wellUser = mb_strtolower(trim((string) ($user['username'] ?? '')));
-$wellName = (string) ($user['name'] ?? '');
-$showWellDash = in_array($wellUser, ['bshaverdi', 'shaverdi', 'borhan', 'borhanshaverdi'], true)
-    || ($wellName !== '' && mb_strpos($wellName, 'شاوردی') !== false);
-if ($showWellDash) {
-    ob_start();
-    require __DIR__ . '/../../includes/well_dash.php';
-    $dashContent = (string) ob_get_clean();
-    render_patient_page('پنل مراجعه‌کننده', $dashContent);
-    return;
-}
-
 ob_start();
 ?>
 <div class="stack">
   <h1>سلام <?= e($user['name']) ?></h1>
-  <?php if (strcasecmp(trim((string) ($user['username'] ?? '')), 'eshahabian') === 0): ?>
-    <p style="display:flex;flex-wrap:wrap;align-items:center;gap:.55rem;margin:0 0 1rem">
-      <a class="btn btn-primary btn-sm" href="<?= e(url('/dashboard/path')) ?>">اتاق ذهن</a>
-      <span class="muted">مسیر درمان با تجربهٔ شبیه بازی — بدون رقابت و لیدربورد.</span>
-    </p>
-  <?php endif; ?>
+  <p style="display:flex;flex-wrap:wrap;align-items:center;gap:.55rem;margin:0 0 1rem">
+    <a class="btn btn-primary btn-sm" href="<?= e(url('/dashboard/path')) ?>">اتاق ذهن</a>
+    <span class="muted">مسیر درمان با تجربهٔ شبیه بازی — بدون رقابت و لیدربورد.</span>
+  </p>
   <p class="muted">نوبت‌ها و کارگاه‌ها را با انتخاب سال، ماه و روز ببینید.</p>
   <p id="course-msg" class="course-flash" style="display:none" role="status"></p>
   <p id="dash-book-msg" class="course-flash" style="display:none" role="status"></p>

@@ -312,7 +312,7 @@ ob_start();
     <?php endif; ?>
   </section>
 
-  <p class="mp2-disclaimer">اتاق ذهن غربالگری و تمرین همراه است، نه تشخیص و نه جایگزین درمان. نسخه آزمایشی فقط برای حساب تو.</p>
+  <p class="mp2-disclaimer">اتاق ذهن غربالگری و تمرین همراه است، نه تشخیص و نه جایگزین درمان.</p>
 </div>
 <?php
 $inner = (string) ob_get_clean();

@@ -19,12 +19,9 @@ function patient_request_path(): string
 function patient_nav(): array
 {
     $nav = [
+        ['href' => '/dashboard/path', 'label' => 'اتاق ذهن'],
         ['href' => '/dashboard', 'label' => 'خلاصه'],
     ];
-    $u = current_user();
-    if ($u && strcasecmp(trim((string) ($u['username'] ?? '')), 'eshahabian') === 0) {
-        $nav[] = ['href' => '/dashboard/path', 'label' => 'اتاق ذهن'];
-    }
     $nav = array_merge($nav, [
         ['href' => '/dashboard/appointments', 'label' => 'نوبت‌های من'],
         ['href' => '/dashboard/messages', 'label' => 'پیام‌ها', 'badge' => 'messages'],
@@ -84,12 +81,6 @@ function render_patient_page(string $title, string $innerHtml): void
     }
     if (!empty($GLOBALS['mpathApp'])) {
         $GLOBALS['pageBodyClass'] = trim((string) ($GLOBALS['pageBodyClass'] ?? '') . ' mpath-app');
-        $GLOBALS['content'] = $innerHtml;
-        require __DIR__ . '/layout.php';
-        return;
-    }
-    if (!empty($GLOBALS['wellDash'])) {
-        $GLOBALS['pageBodyClass'] = trim((string) ($GLOBALS['pageBodyClass'] ?? '') . ' well-dash');
         $GLOBALS['content'] = $innerHtml;
         require __DIR__ . '/layout.php';
         return;

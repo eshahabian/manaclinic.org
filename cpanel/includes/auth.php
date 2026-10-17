@@ -541,7 +541,7 @@ function panel_href_for(?array $user): ?string
         'DOCTOR' => '/doctor/notifications',
         'SECRETARY' => '/secretary/messages',
         'ACCOUNTANT' => '/accountant',
-        'PATIENT' => '/dashboard',
+        'PATIENT' => '/dashboard/path',
         default => null,
     };
 }

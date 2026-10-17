@@ -30,7 +30,7 @@ function mana_path_user_allowed(?array $user): bool
     if (!$user) {
         return false;
     }
-    if (($user['role'] ?? '') === 'DOCTOR') {
+    if (in_array($user['role'] ?? '', ['DOCTOR', 'PATIENT'], true)) {
         return true;
     }
     if (($user['role'] ?? '') === 'ADMIN' && mana_path_on_doctor_route()) {
