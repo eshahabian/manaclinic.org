@@ -29,7 +29,16 @@ ob_start();
     <label class="label" for="sms-username">نام کاربری وب‌سرویس</label><input class="input" id="sms-username" name="username" dir="ltr" value="<?= e($settings['username']) ?>" autocomplete="off">
     <label class="label" for="sms-password">رمز وب‌سرویس</label><input class="input" id="sms-password" name="password" type="password" dir="ltr" autocomplete="new-password" placeholder="<?= $settings['password']!==''?'ذخیره شده؛ برای حفظ خالی بگذارید':'رمز وب‌سرویس' ?>">
   </details>
-  <p class="muted">کلید ارسالی شما محفوظ است. مسیر رسمی مثل هفت‌رخ: <a href="https://webone-sms.com/fa/صفحه/وب-سرویس-ارسال-پیامک" target="_blank" rel="noopener noreferrer">مستند REST وب‌وان</a> با هدر <code dir="ltr">X-API-KEY</code>. آی‌پی سرور مانا را در پنل وب‌وان در «آی‌پی‌های مجاز REST» ثبت کنید.</p>
+  <p class="muted">کلید ارسالی شما محفوظ است. مسیر رسمی مثل هفت‌رخ: <a href="https://webone-sms.com/fa/صفحه/وب-سرویس-ارسال-پیامک" target="_blank" rel="noopener noreferrer">مستند REST وب‌وان</a> با هدر <code dir="ltr">X-API-KEY</code>.</p>
+  <div class="panel" style="background:#fff8e8">
+    <strong>اگر پیامک ارسال نمی‌شود:</strong>
+    <ol style="margin:.5rem 0 0;padding-inline-start:1.25rem">
+      <li>شماره خط را دقیقاً از بخش «خطوط» همان حساب وب‌وان کپی کنید؛ خط باید برای وب‌سرویس فعال باشد.</li>
+      <li>در پنل وب‌وان اعتبار SMS و وضعیت فعال بودن وب‌سرویس را چک کنید.</li>
+      <li>برای صف یادآوری، Cron هاست روی <code dir="ltr">sms-worker.php</code> هر دقیقه لازم است (تست دستی الان بلافاصله ارسال می‌شود).</li>
+      <li>فقط اگر خطای صریح <code dir="ltr">IP Is Invalid</code> دیدید، آی‌پی سرور را در «آی‌پی‌های مجاز REST» ثبت کنید (<code dir="ltr">89.42.208.211</code>). اعتبار حساب مانا از همین سرور خوانده می‌شود؛ پس معمولاً مشکل آی‌پی نیست.</li>
+    </ol>
+  </div>
   <label><input type="checkbox" name="enabled" value="1" <?= $settings['enabled']==='1'?'checked':'' ?>> فعال‌کردن ارسال پس از تکمیل اطلاعات بالا</label>
   <button type="submit" class="btn btn-primary">ذخیره تنظیمات</button>
 </form>

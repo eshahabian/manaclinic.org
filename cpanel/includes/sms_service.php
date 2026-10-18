@@ -221,10 +221,12 @@ function sms_provider_send(array $config, string $phone, string $body): array
             'Accept: application/json',
             'X-API-KEY: ' . $apiKey,
         ];
+        // WebOne RestDocument: IsFlash must be present; omitting it returns HTTP 500.
         $payload = json_encode([
             'From' => (string) $config['sender'],
             'ToNumber' => $phone,
             'Content' => $body,
+            'IsFlash' => false,
         ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
         $curl = curl_init('https://api.payamakapi.ir/api/v1/SMS/Send');
         curl_setopt_array($curl, [
@@ -238,19 +240,31 @@ function sms_provider_send(array $config, string $phone, string $body): array
         $raw = curl_exec($curl);
         $http = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
         curl_close($curl);
-        if ($raw === false || $http >= 500) {
+        if ($raw === false) {
             return ['status' => 'UNKNOWN', 'error' => 'پاسخ قطعی از سرویس دریافت نشد؛ قبل از ارسال مجدد گزارش پنل بررسی شود.'];
         }
         $data = json_decode(trim((string) $raw), true);
         if ($http < 200 || $http >= 300) {
             $apiMsg = is_array($data) ? trim((string) ($data['message'] ?? $data['Message'] ?? '')) : '';
             $clientIp = is_array($data) ? trim((string) ($data['clientIp'] ?? $data['ClientIp'] ?? '')) : '';
+            $traceId = is_array($data) ? trim((string) ($data['traceId'] ?? $data['TraceId'] ?? '')) : '';
             if ($apiMsg !== '' && stripos($apiMsg, 'IP') !== false) {
                 return [
                     'status' => 'FAILED',
                     'error' => 'IP سرور برای وب‌سرویس مجاز نیست'
                         . ($clientIp !== '' ? (' (IP: ' . $clientIp . ')') : '')
                         . '. در پنل وب‌وان آی‌پی‌های مجاز REST را ثبت کنید.',
+                ];
+            }
+            if ($http >= 500) {
+                $detail = $apiMsg !== '' ? $apiMsg : 'خطای داخلی درگاه';
+                if ($traceId !== '') {
+                    $detail .= ' (traceId: ' . $traceId . ')';
+                }
+                return [
+                    'status' => 'FAILED',
+                    'error' => 'وب‌وان روی ارسال با خط «' . $config['sender'] . '» خطا داد: ' . $detail
+                        . '. شماره خط را از بخش «خطوط» پنل کپی کنید و فعال بودن وب‌سرویس/اعتبار را چک کنید.',
                 ];
             }
             return ['status' => 'FAILED', 'error' => $apiMsg !== '' ? ($apiMsg . ' (HTTP ' . $http . ')') : ('درگاه پیامک پاسخ HTTP ' . $http . ' داد.')];

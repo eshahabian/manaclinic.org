@@ -41,7 +41,22 @@ if ($action === 'sms_test') {
         redirect('/admin/sms-test');
     }
     sms_queue($pdo, $phone, $body, 'test');
-    flash_set('success', sms_panel_enabled() ? 'پیامک آزمایشی در صف ارسال قرار گرفت.' : 'پیامک ذخیره شد؛ تا تکمیل خط و تنظیمات اتصال ارسال نمی‌شود.');
+    if (!sms_panel_enabled()) {
+        flash_set('error', 'پیامک ذخیره شد؛ تا تکمیل خط و تنظیمات اتصال ارسال نمی‌شود.');
+        redirect('/admin/sms-test');
+    }
+    // Without cron, test SMS would sit in PENDING forever — dispatch once now.
+    sms_dispatch_pending($pdo, 5);
+    $latest = $pdo->prepare("SELECT status,last_error FROM sms_outbox WHERE phone=? AND kind='test' ORDER BY created_at DESC LIMIT 1");
+    $latest->execute([sms_iran_mobile($phone)]);
+    $row = $latest->fetch();
+    if ($row && $row['status'] === 'SENT') {
+        flash_set('success', 'پیامک آزمایشی پذیرفته شد.');
+    } elseif ($row && in_array($row['status'], ['FAILED', 'UNKNOWN'], true)) {
+        flash_set('error', 'ارسال آزمایشی ناموفق بود' . (!empty($row['last_error']) ? (': ' . $row['last_error']) : '.'));
+    } else {
+        flash_set('success', 'پیامک آزمایشی در صف ارسال قرار گرفت.');
+    }
     redirect('/admin/sms-test');
 }
 
