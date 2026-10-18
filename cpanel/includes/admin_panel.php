@@ -143,7 +143,48 @@ function admin_nav(): array {
         array_splice($nav, 2, 0, [$videoLink]);
     }
 
+    if ($user && strcasecmp(trim((string) ($user['username'] ?? '')), 'eshahabian') === 0) {
+        $nav = admin_emad_grouped_nav($nav);
+    }
+
     return $nav;
+}
+
+/** Group already-authorized links without changing their badges or permissions. */
+function admin_emad_grouped_nav(array $nav): array
+{
+    $sections = [
+        'اصلی' => ['/admin', '/dashboard/appointments', '/dashboard/path', '/dashboard/wallet', '/doctor/profile', '/change-password'],
+        'نوبت‌ها و مراجعه‌کنندگان' => ['/admin/appointments', '/admin/consult-requests', '/admin/outreach', '/admin/rooms'],
+        'درمانگرها' => ['/admin/doctors', '/secretary/therapists', '/doctor/appointments', '/doctor/availability', '/doctor/patients'],
+        'منشی‌ها' => ['/secretary/messages', '/admin/staff-board', '/admin/staff-hours', '/admin/secretary-tasks'],
+        'ارتباطات و پیام‌ها' => ['/video-call', '/admin/staff-messages', '/doctor/staff-messages', '/admin/secretary-messages', '/doctor/notifications', '/admin/feedback'],
+        'محتوا و کارگاه‌ها' => ['/admin/articles', '/doctor/articles', '/doctor/workshops', '/admin/workshop-file-log'],
+        'مدیریت' => ['/admin/users', '/admin/users-disabled', '/admin/messengers', '/admin/mail', '/admin/sms-settings', '/admin/sms-test', '/admin/sms-broadcast', '/admin/gateway'],
+    ];
+    $links = [];
+    foreach ($nav as $item) {
+        if (isset($item['href'])) $links[$item['href']] = $item;
+    }
+    $grouped = [];
+    foreach ($sections as $label => $paths) {
+        $items = [];
+        foreach ($paths as $path) {
+            if (!isset($links[$path])) continue;
+            $items[] = $links[$path];
+            unset($links[$path]);
+        }
+        if ($items) {
+            $grouped[] = ['type' => 'group', 'label' => $label];
+            array_push($grouped, ...$items);
+        }
+    }
+    // Keep future authorized links visible until they receive a specific category.
+    if ($links) {
+        $grouped[] = ['type' => 'group', 'label' => 'سایر امکانات'];
+        array_push($grouped, ...array_values($links));
+    }
+    return $grouped;
 }
 
 function render_admin_page(string $title, string $innerHtml): void {
