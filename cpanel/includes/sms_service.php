@@ -22,7 +22,7 @@ function sms_connection_config(PDO $pdo): array
     foreach (['sender', 'username', 'password', 'api_key', 'enabled'] as $name) {
         $fallback = (string) ($private[$name] ?? '');
         $fromDb = mail_setting_get($pdo, 'sms_' . $name, null);
-        // Empty DB values fall back to config.sms.php (same pattern as Haft Rokh private config).
+        // Empty DB values fall back to config.sms.php.
         $result[$name] = ($fromDb !== null && $fromDb !== '') ? (string) $fromDb : $fallback;
     }
     return $result;
@@ -208,8 +208,8 @@ function sms_job_still_valid(PDO $pdo, array $job): bool
 }
 
 /**
- * WebOne REST (همان مسیر هفت‌رخ): https://api.payamakapi.ir/api/v1/SMS/Send
- * با هدر X-API-KEY؛ بدنه From + ToNumber + Content.
+ * WebOne REST: https://api.payamakapi.ir/api/v1/SMS/Send
+ * با هدر X-API-KEY؛ بدنه From + ToNumber + Content + IsFlash.
  * بدون کلید API، مسیر قدیمی rest.payamakapi.ir با UserName/Password باقی می‌ماند.
  */
 function sms_provider_send(array $config, string $phone, string $body): array
