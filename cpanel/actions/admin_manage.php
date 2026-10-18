@@ -75,10 +75,11 @@ if ($action === 'save_sms_settings') {
     if ($sender!=='' && !preg_match('/^\+?\d{4,20}$/D',$sender)) {
         flash_set('error','شماره خط فرستنده معتبر نیست.');redirect('/admin/sms-settings');
     }
-    foreach(['sender','username'] as $name) mail_setting_set($pdo,'sms_'.$name,trim(post($name)));
+    mail_setting_set($pdo,'sms_sender',$sender);
+    mail_setting_set($pdo,'sms_username',trim(post('username')));
     foreach(['password','api_key'] as $name) if(trim(post($name))!=='') mail_setting_set($pdo,'sms_'.$name,trim(post($name)));
     mail_setting_set($pdo,'sms_enabled',isset($_POST['enabled'])?'1':'0');
-    flash_set('success',sms_connection_ready($pdo)?'تنظیمات ذخیره شد؛ ارسال پیامک فعال است.':'تنظیمات ذخیره شد؛ تا تکمیل خط و اطلاعات اتصال ارسال خاموش می‌ماند.');
+    flash_set('success',sms_connection_ready($pdo)?'تنظیمات ذخیره شد؛ ارسال پیامک فعال است.':'تنظیمات ذخیره شد؛ تا تکمیل خط و کلید API (یا نام کاربری/رمز) ارسال خاموش می‌ماند.');
     redirect('/admin/sms-settings');
 }
 

@@ -1,0 +1,15 @@
+<?php
+declare(strict_types=1);
+
+/**
+ * کپی به config.sms.php و مقادیر وب‌وان را پر کنید.
+ * پنل: https://webone-sms.ir
+ * API: https://api.payamakapi.ir/api/v1/
+ */
+return [
+    'sender' => '9998621381',
+    'api_key' => 'کلید-api-اینجا',
+    'username' => '',
+    'password' => '',
+    'enabled' => '1',
+];

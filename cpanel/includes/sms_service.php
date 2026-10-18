@@ -15,9 +15,15 @@ function sms_connection_config(PDO $pdo): array
 {
     $privateFile = dirname(__DIR__) . '/config.sms.php';
     $private = is_file($privateFile) ? require $privateFile : [];
+    if (!is_array($private)) {
+        $private = [];
+    }
     $result = [];
-    foreach (['sender','username','password','api_key','enabled'] as $name) {
-        $result[$name] = mail_setting_get($pdo, 'sms_' . $name, (string) ($private[$name] ?? ''));
+    foreach (['sender', 'username', 'password', 'api_key', 'enabled'] as $name) {
+        $fallback = (string) ($private[$name] ?? '');
+        $fromDb = mail_setting_get($pdo, 'sms_' . $name, null);
+        // Empty DB values fall back to config.sms.php (same pattern as Haft Rokh private config).
+        $result[$name] = ($fromDb !== null && $fromDb !== '') ? (string) $fromDb : $fallback;
     }
     return $result;
 }
@@ -25,7 +31,36 @@ function sms_connection_config(PDO $pdo): array
 function sms_connection_ready(PDO $pdo): bool
 {
     $c = sms_connection_config($pdo);
-    return $c['enabled'] === '1' && $c['sender'] !== '' && $c['username'] !== '' && $c['password'] !== '';
+    if ($c['enabled'] !== '1' || $c['sender'] === '') {
+        return false;
+    }
+    if ($c['api_key'] !== '') {
+        return true;
+    }
+    return $c['username'] !== '' && $c['password'] !== '';
+}
+
+function sms_provider_error_message(int $code): string
+{
+    $map = [
+        0 => 'ارسال با موفقیت انجام شد.',
+        1 => 'کلید API یا نام کاربری/رمز نامعتبر است.',
+        2 => 'حساب پیامک مسدود شده است.',
+        3 => 'شماره فرستنده نامعتبر است.',
+        4 => 'محدودیت ارسال روزانه یا شماره فرستنده نامعتبر است.',
+        5 => 'تعداد گیرندگان بیش از حد مجاز است.',
+        6 => 'خط فرستنده غیرفعال است.',
+        7 => 'متن پیامک شامل کلمات فیلترشده است.',
+        8 => 'اعتبار پنل کافی نیست.',
+        9 => 'سامانه پیامک در حال به‌روزرسانی است.',
+        10 => 'وب‌سرویس پیامک غیرفعال است.',
+        14 => 'تعرفه کاربر مشخص نشده است.',
+        15 => 'ارسال تکراری؛ کمی بعد دوباره تلاش کنید.',
+        16 => 'شماره موبایل گیرنده نامعتبر است.',
+        21 => 'IP سرور برای وب‌سرویس مجاز نیست؛ IP را در پنل وب‌وان ثبت کنید.',
+        22 => 'احراز هویت پنل (کارت ملی) تکمیل نشده است.',
+    ];
+    return $map[$code] ?? ('ارسال پیامک ناموفق بود (کد ' . $code . ').');
 }
 
 function sms_status_label(string $status): string
@@ -172,18 +207,108 @@ function sms_job_still_valid(PDO $pdo, array $job): bool
     return true;
 }
 
-/** No retries on ambiguous responses: a request may already have been accepted. */
+/**
+ * WebOne REST (همان مسیر هفت‌رخ): https://api.payamakapi.ir/api/v1/SMS/Send
+ * با هدر X-API-KEY؛ بدنه From + ToNumber + Content.
+ * بدون کلید API، مسیر قدیمی rest.payamakapi.ir با UserName/Password باقی می‌ماند.
+ */
 function sms_provider_send(array $config, string $phone, string $body): array
 {
-    $curl=curl_init('https://rest.payamakapi.ir/api/v1/SMS/Send');
-    curl_setopt_array($curl,[CURLOPT_POST=>true,CURLOPT_RETURNTRANSFER=>true,CURLOPT_CONNECTTIMEOUT=>10,CURLOPT_TIMEOUT=>25,
-        CURLOPT_HTTPHEADER=>['Content-Type: application/json'],CURLOPT_POSTFIELDS=>json_encode(['UserName'=>$config['username'],'Password'=>$config['password'],'From'=>$config['sender'],'To'=>$phone,'Message'=>$body],JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR)]);
-    $raw=curl_exec($curl);$code=(int)curl_getinfo($curl,CURLINFO_HTTP_CODE);curl_close($curl);
-    if($raw===false || $code>=500)return ['status'=>'UNKNOWN','error'=>'پاسخ قطعی از سرویس دریافت نشد؛ قبل از ارسال مجدد گزارش پنل بررسی شود.'];
-    if($code<200||$code>=300)return ['status'=>'FAILED','error'=>'درگاه پیامک پاسخ HTTP '.$code.' داد.'];
-    $result=json_decode(trim($raw),true);
-    if(is_int($result)||is_string($result)){$id=(string)$result;if(ctype_digit($id)&&(int)$id>0)return ['status'=>'SENT','id'=>$id];if(is_numeric($id))return ['status'=>'FAILED','error'=>'درگاه پیامک ارسال را نپذیرفت (کد '.$id.').'];}
-    return ['status'=>'UNKNOWN','error'=>'قالب پاسخ درگاه نیازمند بررسی است؛ ارسال خودکار تکرار نمی‌شود.'];
+    $apiKey = trim((string) ($config['api_key'] ?? ''));
+    if ($apiKey !== '') {
+        $headers = [
+            'Content-Type: application/json',
+            'Accept: application/json',
+            'X-API-KEY: ' . $apiKey,
+        ];
+        $payload = json_encode([
+            'From' => (string) $config['sender'],
+            'ToNumber' => $phone,
+            'Content' => $body,
+        ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
+        $curl = curl_init('https://api.payamakapi.ir/api/v1/SMS/Send');
+        curl_setopt_array($curl, [
+            CURLOPT_POST => true,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT => 25,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_POSTFIELDS => $payload,
+        ]);
+        $raw = curl_exec($curl);
+        $http = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        curl_close($curl);
+        if ($raw === false || $http >= 500) {
+            return ['status' => 'UNKNOWN', 'error' => 'پاسخ قطعی از سرویس دریافت نشد؛ قبل از ارسال مجدد گزارش پنل بررسی شود.'];
+        }
+        $data = json_decode(trim((string) $raw), true);
+        if ($http < 200 || $http >= 300) {
+            $apiMsg = is_array($data) ? trim((string) ($data['message'] ?? $data['Message'] ?? '')) : '';
+            $clientIp = is_array($data) ? trim((string) ($data['clientIp'] ?? $data['ClientIp'] ?? '')) : '';
+            if ($apiMsg !== '' && stripos($apiMsg, 'IP') !== false) {
+                return [
+                    'status' => 'FAILED',
+                    'error' => 'IP سرور برای وب‌سرویس مجاز نیست'
+                        . ($clientIp !== '' ? (' (IP: ' . $clientIp . ')') : '')
+                        . '. در پنل وب‌وان آی‌پی‌های مجاز REST را ثبت کنید.',
+                ];
+            }
+            return ['status' => 'FAILED', 'error' => $apiMsg !== '' ? ($apiMsg . ' (HTTP ' . $http . ')') : ('درگاه پیامک پاسخ HTTP ' . $http . ' داد.')];
+        }
+        if (!is_array($data)) {
+            return ['status' => 'UNKNOWN', 'error' => 'قالب پاسخ درگاه نیازمند بررسی است؛ ارسال خودکار تکرار نمی‌شود.'];
+        }
+        $succeeded = ($data['succeeded'] ?? $data['Succeeded'] ?? null);
+        $ok = $succeeded === true || $succeeded === 1 || $succeeded === '1'
+            || (is_string($succeeded) && strtolower(trim($succeeded)) === 'true');
+        $hasCode = array_key_exists('resultCode', $data) || array_key_exists('ResultCode', $data);
+        $resultCode = $hasCode ? (int) ($data['resultCode'] ?? $data['ResultCode']) : null;
+        if ($resultCode !== null && $resultCode !== 0) {
+            $ok = false;
+        }
+        if ($ok && ($resultCode === null || $resultCode === 0)) {
+            $ref = trim((string) ($data['refId'] ?? $data['RefId'] ?? ''));
+            return ['status' => 'SENT', 'id' => $ref !== '' ? $ref : null];
+        }
+        $code = $resultCode ?? -1;
+        return ['status' => 'FAILED', 'error' => sms_provider_error_message($code)];
+    }
+
+    $curl = curl_init('https://rest.payamakapi.ir/api/v1/SMS/Send');
+    curl_setopt_array($curl, [
+        CURLOPT_POST => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_TIMEOUT => 25,
+        CURLOPT_HTTPHEADER => ['Content-Type: application/json'],
+        CURLOPT_POSTFIELDS => json_encode([
+            'UserName' => $config['username'],
+            'Password' => $config['password'],
+            'From' => $config['sender'],
+            'To' => $phone,
+            'Message' => $body,
+        ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+    ]);
+    $raw = curl_exec($curl);
+    $code = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
+    curl_close($curl);
+    if ($raw === false || $code >= 500) {
+        return ['status' => 'UNKNOWN', 'error' => 'پاسخ قطعی از سرویس دریافت نشد؛ قبل از ارسال مجدد گزارش پنل بررسی شود.'];
+    }
+    if ($code < 200 || $code >= 300) {
+        return ['status' => 'FAILED', 'error' => 'درگاه پیامک پاسخ HTTP ' . $code . ' داد.'];
+    }
+    $result = json_decode(trim((string) $raw), true);
+    if (is_int($result) || is_string($result)) {
+        $id = (string) $result;
+        if (ctype_digit($id) && (int) $id > 0) {
+            return ['status' => 'SENT', 'id' => $id];
+        }
+        if (is_numeric($id)) {
+            return ['status' => 'FAILED', 'error' => 'درگاه پیامک ارسال را نپذیرفت (کد ' . $id . ').'];
+        }
+    }
+    return ['status' => 'UNKNOWN', 'error' => 'قالب پاسخ درگاه نیازمند بررسی است؛ ارسال خودکار تکرار نمی‌شود.'];
 }
 
 function sms_dispatch_pending(PDO $pdo, int $limit=20): int
