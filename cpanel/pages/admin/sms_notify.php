@@ -4,7 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../includes/admin_panel.php';
 require_once __DIR__ . '/../../includes/mail.php';
 require_once __DIR__ . '/../../includes/outreach.php';
-require_site_admin();
+require_sms_operator();
 
 ensure_mail_schema($pdo);
 $flags = [
@@ -17,7 +17,7 @@ ob_start();
 ?>
 <h1>پیامک اطلاع رسانی</h1>
 <p class="muted" style="margin-top:.35rem;line-height:1.8">
-  این سوئیچ‌ها مشخص می‌کنند کدام پیامک‌ها وارد صف شوند. تا آماده شدن پنل، هیچ‌کدام واقعاً ارسال نمی‌شود.
+  این سوئیچ‌ها مشخص می‌کنند کدام پیامک‌ها وارد صف شوند. ارسال فقط پس از تکمیل تنظیمات اتصال انجام می‌شود. پیامک ثبت نوبت، لغو و یادآوری جلسه به‌صورت خودکار مدیریت می‌شود.
 </p>
 <form method="post" action="<?= e(url('/admin/sms-notify')) ?>" class="panel form-stack" style="margin-top:1rem">
   <?= csrf_field() ?>
@@ -31,10 +31,10 @@ ob_start();
     <span>هنگام ساخت کارگاه، اگر گزینه اطلاع‌رسانی زده شود برای مراجعه‌کنندگان قدیمی صف شود.</span>
   </label>
   <label style="display:flex;gap:.55rem;align-items:flex-start;line-height:1.7">
-    <input type="checkbox" name="notify_approval" value="1" <?= $flags['approval'] ? 'checked' : '' ?>>
-    <span>بعد از تأیید نوبت توسط منشی، برای همان مراجعه‌کننده صف شود.</span>
+    <input type="checkbox" checked disabled>
+    <span>پیامک ثبت و تأیید نوبت به‌صورت خودکار و بدون ارسال تکراری صف می‌شود.</span>
   </label>
   <button type="submit" class="btn btn-primary">ذخیره</button>
 </form>
 <?php
-render_admin_page('پیامک اطلاع رسانی', ob_get_clean());
+sms_render_page('پیامک اطلاع رسانی', ob_get_clean());

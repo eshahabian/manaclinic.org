@@ -170,6 +170,13 @@ function doctor_nav(): array
         ['type' => 'link', 'href' => '/change-password', 'label' => 'تغییر رمز عبور'],
     ]);
 
+    require_once __DIR__ . '/outreach.php';
+    if (sms_operator_allowed(current_user())) {
+        $tail[]=['type'=>'group','label'=>'پیامک'];
+        $tail[]=['type'=>'link','href'=>'/admin/sms-test','label'=>'تست پیامک'];
+        $tail[]=['type'=>'link','href'=>'/admin/sms-broadcast','label'=>'پیامک همگانی'];
+        if (sms_settings_allowed(current_user())) $tail[]=['type'=>'link','href'=>'/admin/sms-settings','label'=>'تنظیمات پیامک'];
+    }
     return array_merge($nav, $tail);
 }
 

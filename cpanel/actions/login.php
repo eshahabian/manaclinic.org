@@ -11,13 +11,22 @@ if ($next === null) {
 }
 $loginRetry = '/login' . ($next ? ('?next=' . rawurlencode($next)) : '');
 
+if (post('login_method') === 'otp') {
+    require_once __DIR__ . '/../includes/login_otp.php';
+    login_otp_schema($pdo);
+    $user = login_otp_verify($pdo, (string) ($_SESSION['login_otp_id'] ?? ''), normalize_phone(post('otp_code')));
+} else {
 $stmt = $pdo->prepare('SELECT * FROM users WHERE username = ? LIMIT 1');
 $stmt->execute([$username]);
 $user = $stmt->fetch();
 
 if (!$user || $password === '' || !password_verify($password, $user['password_hash'])) {
+    $user = null;
+}
+}
+if (!$user) {
     login_throttle_fail();
-    flash_set('error', 'نام کاربری یا رمز عبور نادرست است.');
+    flash_set('error', post('login_method') === 'otp' ? 'کد ورود نادرست یا منقضی شده است؛ در صورت نیاز کد جدید بگیرید.' : 'نام کاربری یا رمز عبور نادرست است.');
     redirect($loginRetry);
 }
 
@@ -40,6 +49,7 @@ if ($user['role'] === 'DOCTOR') {
     }
 }
 
+unset($_SESSION['login_otp_id']);
 session_regenerate_id(true);
 login_user($user);
 login_throttle_clear();

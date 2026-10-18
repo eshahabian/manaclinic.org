@@ -43,6 +43,26 @@ $nameDict = isset($pdo) ? build_name_transliterations_client_map($pdo) : [];
         <button class="auth-submit" type="submit">ورود</button>
         <p class="auth-switch">حساب ندارید؟ <a href="<?= e($registerHref) ?>" data-auth-switch="register">ثبت‌نام</a></p>
       </form>
+      <details style="margin:16px 24px"<?= !empty($_SESSION['login_otp_id']) ? ' open' : '' ?>>
+        <summary>ورود با کد یک‌بارمصرف پیامکی</summary>
+        <p class="auth-hint">نام کاربری و موبایل ثبت‌شده در حساب را وارد کنید. ارسال کد برای شماره‌های ایران است.</p>
+        <form class="auth-form" method="post" action="<?= e(url('/login/otp')) ?>">
+          <?= csrf_field() ?>
+          <input type="hidden" name="next" value="<?= e($authNext) ?>">
+          <label class="auth-line">نام کاربری<input name="username" required dir="ltr" autocomplete="username"></label>
+          <label class="auth-line">موبایل<input name="phone" required dir="ltr" inputmode="tel" autocomplete="tel"></label>
+          <button class="auth-submit" type="submit">دریافت کد ورود</button>
+        </form>
+        <?php if (!empty($_SESSION['login_otp_id'])): ?>
+        <form class="auth-form" method="post" action="<?= e($loginHref) ?>">
+          <?= csrf_field() ?>
+          <input type="hidden" name="next" value="<?= e($authNext) ?>">
+          <input type="hidden" name="login_method" value="otp">
+          <label class="auth-line">کد ۶ رقمی<input name="otp_code" required dir="ltr" inputmode="numeric" autocomplete="one-time-code" maxlength="6"></label>
+          <button class="auth-submit" type="submit">تأیید کد و ورود</button>
+        </form>
+        <?php endif; ?>
+      </details>
     </section>
 
     <section class="auth-pane<?= $authMode === 'register' ? ' is-on' : '' ?>" data-auth-pane="register"<?= $authMode === 'register' ? '' : ' inert' ?>>

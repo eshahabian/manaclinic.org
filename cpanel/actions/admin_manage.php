@@ -4,9 +4,10 @@ declare(strict_types=1);
 require_once __DIR__ . '/../includes/outreach.php';
 require_once __DIR__ . '/../includes/mail.php';
 require_once __DIR__ . '/../includes/clinic_manage.php';
-require_site_admin();
-
 $action = post('action');
+if ($action==='save_sms_settings') require_sms_settings_operator();
+elseif (in_array($action,['sms_test','sms_broadcast','save_sms_notify'],true)) require_sms_operator();
+else require_site_admin();
 ensure_mail_schema($pdo);
 ensure_outreach_schema($pdo);
 
@@ -31,8 +32,8 @@ if ($action === 'save_messengers') {
 if ($action === 'sms_test') {
     $phone = normalize_phone(post('phone'));
     $body = trim(post('body'));
-    if (!is_valid_phone($phone)) {
-        flash_set('error', 'شماره موبایل معتبر نیست.');
+    if (sms_iran_mobile($phone) === null) {
+        flash_set('error', 'فقط شماره موبایل ایران برای پیامک قابل استفاده است.');
         redirect('/admin/sms-test');
     }
     if ($body === '') {
@@ -40,7 +41,7 @@ if ($action === 'sms_test') {
         redirect('/admin/sms-test');
     }
     sms_queue($pdo, $phone, $body, 'test');
-    flash_set('success', 'پیامک در صف ماند. تا وقتی پنل پیامک آماده نشود ارسال نمی‌شود.');
+    flash_set('success', sms_panel_enabled() ? 'پیامک آزمایشی در صف ارسال قرار گرفت.' : 'پیامک ذخیره شد؛ تا تکمیل خط و تنظیمات اتصال ارسال نمی‌شود.');
     redirect('/admin/sms-test');
 }
 
@@ -48,7 +49,7 @@ if ($action === 'save_sms_notify') {
     foreach (['quiet', 'workshop', 'approval'] as $kind) {
         mail_setting_set($pdo, 'sms_notify_' . $kind, isset($_POST['notify_' . $kind]) ? '1' : '0');
     }
-    flash_set('success', 'تنظیم پیامک اطلاع‌رسانی ذخیره شد. ارسال واقعی هنوز خاموش است.');
+    flash_set('success', 'تنظیم پیامک اطلاع‌رسانی ذخیره شد.');
     redirect('/admin/sms-notify');
 }
 
@@ -65,8 +66,20 @@ if ($action === 'sms_broadcast') {
         redirect('/admin/sms-broadcast');
     }
     $count = sms_broadcast_queue($pdo, $audience, $body);
-    flash_set('success', to_fa_digits((string) $count) . ' پیامک در صف ماند و تا آماده شدن پنل ارسال نمی‌شود.');
+    flash_set('success', to_fa_digits((string) $count) . ' پیامک برای شماره‌های ایران در صف قرار گرفت.' . (sms_panel_enabled() ? '' : ' ارسال تا تکمیل تنظیمات خاموش است.'));
     redirect('/admin/sms-broadcast');
+}
+
+if ($action === 'save_sms_settings') {
+    $sender=trim(post('sender'));
+    if ($sender!=='' && !preg_match('/^\+?\d{4,20}$/D',$sender)) {
+        flash_set('error','شماره خط فرستنده معتبر نیست.');redirect('/admin/sms-settings');
+    }
+    foreach(['sender','username'] as $name) mail_setting_set($pdo,'sms_'.$name,trim(post($name)));
+    foreach(['password','api_key'] as $name) if(trim(post($name))!=='') mail_setting_set($pdo,'sms_'.$name,trim(post($name)));
+    mail_setting_set($pdo,'sms_enabled',isset($_POST['enabled'])?'1':'0');
+    flash_set('success',sms_connection_ready($pdo)?'تنظیمات ذخیره شد؛ ارسال پیامک فعال است.':'تنظیمات ذخیره شد؛ تا تکمیل خط و اطلاعات اتصال ارسال خاموش می‌ماند.');
+    redirect('/admin/sms-settings');
 }
 
 if ($action === 'save_gateway') {

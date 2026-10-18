@@ -29,6 +29,8 @@ function db_connect(array $config): PDO
         exit;
     }
 
+    $offset=(new DateTimeImmutable('now',new DateTimeZone($config['timezone']??'Asia/Tehran')))->format('P');
+    $pdo->exec('SET time_zone = ' . $pdo->quote($offset));
     db_ensure_schema($pdo);
 
     return $pdo;

@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/sms_service.php';
 
 /**
  * فهرست مراجعه‌کنندگان قدیمی و صف پیامک.
@@ -9,7 +10,8 @@ declare(strict_types=1);
 
 function sms_panel_enabled(): bool
 {
-    return false;
+    global $pdo;
+    return $pdo instanceof PDO && function_exists('mail_setting_get') && sms_connection_ready($pdo);
 }
 
 /** همین دو حساب ادمین منو و ابزار پیامک را مثل هم می‌بینند. */
@@ -17,7 +19,7 @@ function require_site_admin(): void
 {
     require_login(['ADMIN']);
     $user = current_user();
-    if (!$user || !sms_operator_allowed($user)) {
+    if (!$user || !in_array(strtolower(trim((string) ($user['username'] ?? ''))), sms_operator_usernames(), true)) {
         flash_set('error', 'این بخش فقط برای مدیر سایت است.');
         redirect('/admin');
     }
@@ -25,15 +27,17 @@ function require_site_admin(): void
 
 function sms_notify_kind_enabled(PDO $pdo, string $kind): bool
 {
+    // Appointment confirmations are handled by the deduplicated event planner.
+    if ($kind === 'approval') return false;
     if (!function_exists('mail_setting_get')) {
-        return $kind !== 'approval';
+        return false;
     }
     $value = mail_setting_get($pdo, 'sms_notify_' . $kind, '');
     if ($value === '1' || $value === '0') {
         return $value === '1';
     }
 
-    return $kind !== 'approval';
+    return false;
 }
 
 function sms_operator_usernames(): array
@@ -55,9 +59,41 @@ function sms_operator_allowed(?array $user): bool
     if (!$user) {
         return false;
     }
-    $name = strtolower(trim((string) ($user['username'] ?? '')));
+    require_once __DIR__ . '/doctor_profile_fields.php';
+    return clinic_user_is_access_exception($user);
+}
 
-    return in_array($name, sms_operator_usernames(), true);
+function require_sms_operator(): array
+{
+    $user = require_login();
+    if (!sms_operator_allowed($user)) {
+        http_response_code(403);
+        exit('ابزار پیامک فقط برای عماد شهابیان، عطیه گارسچی و شیوا گرانمایه‌پور است.');
+    }
+    return $user;
+}
+
+function sms_settings_allowed(?array $user): bool
+{
+    return $user && strtolower(trim((string) ($user['username'] ?? ''))) === 'eshahabian';
+}
+
+function require_sms_settings_operator(): array
+{
+    $user=require_login();
+    if(!sms_settings_allowed($user)){http_response_code(403);exit('تنظیمات اتصال پیامک فقط برای عماد شهابیان است.');}
+    return $user;
+}
+
+function sms_render_page(string $title, string $html): void
+{
+    if ((current_user()['role'] ?? '') === 'DOCTOR') {
+        require_once __DIR__ . '/doctor_panel.php';
+        render_doctor_page($title,$html);
+    } else {
+        require_once __DIR__ . '/admin_panel.php';
+        render_admin_page($title,$html);
+    }
 }
 
 function ensure_outreach_schema(PDO $pdo): void
@@ -104,6 +140,7 @@ function ensure_outreach_schema(PDO $pdo): void
         }
     } catch (Throwable $ignored) {
     }
+    sms_service_ensure_schema($pdo);
     $ready = true;
 }
 
@@ -201,35 +238,14 @@ function outreach_contacts(PDO $pdo): array
     ')->fetchAll();
 }
 
-function sms_queue(PDO $pdo, string $phone, string $body, string $kind = 'manual'): void
+function sms_queue(PDO $pdo, string $phone, string $body, string $kind = 'manual'): bool
 {
-    ensure_outreach_schema($pdo);
-    $phone = normalize_phone($phone);
-    $body = trim($body);
-    if ($phone === '' || $body === '' || !is_valid_phone($phone)) {
-        return;
-    }
-    if (mb_strlen($body) > 500) {
-        $body = mb_substr($body, 0, 497) . '…';
-    }
-    $pdo->prepare('INSERT INTO sms_outbox (id, phone, body, kind, status) VALUES (?,?,?,?,\'PENDING\')')
-        ->execute([cuid(), $phone, $body, $kind]);
+    return sms_queue_extended($pdo,$phone,$body,$kind,null,null,date('Y-m-d H:i:s',time()+($kind==='test'?3600:86400)));
 }
 
-/** یک گیرنده. false یعنی شماره یا متن برای صف معتبر نیست. */
 function sms_queue_one(PDO $pdo, string $phone, string $body, string $kind = 'manual'): bool
 {
-    $phone = normalize_phone($phone);
-    $body = trim($body);
-    if ($phone === '' || $body === '' || !is_valid_phone($phone)) {
-        return false;
-    }
-    sms_queue($pdo, $phone, $body, $kind);
-    if (sms_panel_enabled() && function_exists('sms_dispatch_pending')) {
-        sms_dispatch_pending($pdo);
-    }
-
-    return true;
+    return sms_queue($pdo,$phone,$body,$kind);
 }
 
 function outreach_queue_message(PDO $pdo, string $body, string $kind = 'manual'): int
@@ -240,8 +256,7 @@ function outreach_queue_message(PDO $pdo, string $body, string $kind = 'manual')
         if ($phone === '') {
             continue;
         }
-        sms_queue($pdo, $phone, $body, $kind);
-        $count++;
+        if (sms_queue($pdo, $phone, $body, $kind)) $count++;
     }
 
     return $count;
@@ -276,24 +291,23 @@ function sms_broadcast_queue(PDO $pdo, string $audience, string $body): int
         $stmt = $pdo->prepare('SELECT phone FROM users WHERE role=? AND is_disabled=0');
         $stmt->execute([$role]);
         foreach ($stmt->fetchAll() as $row) {
-            $phone = normalize_phone((string) ($row['phone'] ?? ''));
-            if ($phone !== '' && is_valid_phone($phone)) {
+            $phone = sms_iran_mobile((string) ($row['phone'] ?? ''));
+            if ($phone !== null) {
                 $phones[$phone] = true;
             }
         }
     }
     if ($audience === 'outreach' || $audience === 'everyone') {
         foreach (outreach_contacts($pdo) as $row) {
-            $phone = normalize_phone((string) ($row['phone'] ?? ''));
-            if ($phone !== '' && is_valid_phone($phone)) {
+            $phone = sms_iran_mobile((string) ($row['phone'] ?? ''));
+            if ($phone !== null) {
                 $phones[$phone] = true;
             }
         }
     }
     $count = 0;
     foreach (array_keys($phones) as $phone) {
-        sms_queue($pdo, $phone, $body, 'broadcast');
-        $count++;
+        if (sms_queue($pdo, $phone, $body, 'broadcast')) $count++;
     }
 
     return $count;

@@ -101,21 +101,24 @@ function admin_nav(): array {
         ['href' => '/doctor/articles', 'label' => 'مقالات درمانگر'],
         ['href' => '/doctor/workshops', 'label' => 'کارگاه‌ها'],
     ]);
-    $siteAdmin = $user && function_exists('sms_operator_allowed') && sms_operator_allowed($user);
+    $siteAdmin = $user && in_array(strtolower(trim((string) ($user['username'] ?? ''))), ['admin','eshahabian'], true);
     if ($siteAdmin) {
         $nav[] = ['type' => 'group', 'label' => 'مدیریت'];
         $nav[] = ['href' => '/admin/messengers', 'label' => 'دسترسی پیام رسان'];
         $nav[] = ['href' => '/admin/users', 'label' => 'مدیریت کاربران'];
         $nav[] = ['href' => '/admin/users-disabled', 'label' => 'کاربران غیر فعال شده', 'badge' => admin_disabled_user_count()];
         $nav[] = ['href' => '/admin/mail', 'label' => 'ایمیل و SMTP'];
-        $nav[] = ['href' => '/admin/sms-test', 'label' => 'تست پیامک'];
-        $nav[] = ['href' => '/admin/sms-notify', 'label' => 'پیامک اطلاع رسانی'];
-        $nav[] = ['href' => '/admin/sms-broadcast', 'label' => 'پیامک همگانی'];
         $nav[] = ['href' => '/admin/gateway', 'label' => 'درگاه پرداخت'];
         $nav[] = ['href' => '/change-password', 'label' => 'تغییر رمز عبور'];
     } else {
         $nav[] = ['type' => 'group', 'label' => 'تنظیمات'];
         $nav[] = ['href' => '/change-password', 'label' => 'تغییر رمز عبور'];
+    }
+    if (sms_operator_allowed($user)) {
+        $nav[]=['type'=>'group','label'=>'پیامک'];
+        $nav[]=['href'=>'/admin/sms-test','label'=>'تست پیامک'];
+        $nav[]=['href'=>'/admin/sms-broadcast','label'=>'پیامک همگانی'];
+        if (sms_settings_allowed($user)) $nav[]=['href'=>'/admin/sms-settings','label'=>'تنظیمات پیامک'];
     }
     if (!function_exists('secretary_daily_tasks_can_review') && is_file(__DIR__ . '/secretary_daily_tasks.php')) {
         require_once __DIR__ . '/secretary_daily_tasks.php';

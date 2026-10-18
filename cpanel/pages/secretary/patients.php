@@ -717,6 +717,10 @@ $pageScripts = '
     var smsHint = document.getElementById("patient-more-sms-hint");
     var smsSend = document.getElementById("patient-more-sms-send");
     var phoneOk = !!(row.phone && window.manaIsValidPhone && manaIsValidPhone(String(row.phone)));
+    var smsPhone = String(row.phone || "").replace(/[\s()-]/g, "").replace(/^\+98|^0098/, "0");
+    if (/^98\d{10}$/.test(smsPhone)) smsPhone = "0" + smsPhone.slice(2);
+    if (/^9\d{9}$/.test(smsPhone)) smsPhone = "0" + smsPhone;
+    phoneOk = phoneOk && /^09\d{9}$/.test(smsPhone);
     if (smsUser) smsUser.value = id;
     if (smsBody) {
       smsBody.value = "";
@@ -726,7 +730,7 @@ $pageScripts = '
     if (smsHint) {
       smsHint.textContent = phoneOk
         ? "این پیام فقط برای همین شخص، به شماره خودش، فرستاده می‌شود."
-        : "برای این مراجعه‌کننده موبایل معتبری ثبت نشده. پیامک ارسال نمی‌شود.";
+        : "پیامک فقط برای شماره موبایل ایران فعال است؛ شماره غیرایرانی ارسال نمی‌شود.";
     }
     if (noteForm) {
       var area = noteForm.querySelector("textarea");

@@ -128,7 +128,7 @@ if (post('action') === 'send_patient_sms') {
         redirect($back);
     }
     $tail = sms_panel_enabled()
-        ? ' به پنل پیامک سپرده شد.'
+        ? ' در صف ارسال پیامک قرار گرفت.'
         : ' در صف ماند. تا روشن شدن پنل پیامک ارسال نمی‌شود.';
     flash_set('success', 'پیامک برای «' . (string) $patient['name'] . '»' . $tail);
     redirect($back);

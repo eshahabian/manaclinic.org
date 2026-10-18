@@ -35,6 +35,7 @@ yarn-error.log*
 !.env.example
 
 /cpanel/config.php
+/cpanel/config.sms.php
 
 # SFTP credentials (copy from sftp.json.example)
 .vscode/sftp.json

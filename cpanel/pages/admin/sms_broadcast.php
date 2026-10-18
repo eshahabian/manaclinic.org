@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../../includes/admin_panel.php';
 require_once __DIR__ . '/../../includes/outreach.php';
-require_site_admin();
+require_sms_operator();
 
 ensure_outreach_schema($pdo);
 $recent = sms_recent($pdo, 'broadcast');
@@ -12,9 +12,9 @@ ob_start();
 ?>
 <h1>پیامک همگانی</h1>
 <p class="muted" style="margin-top:.35rem;line-height:1.8">
-  شماره‌های تکراری یک بار صف می‌شوند. ارسال واقعی خاموش است و وضعیت همه «در انتظار» می‌ماند.
+  شماره‌های ایران پس از حذف موارد تکراری در صف قرار می‌گیرند. <?= sms_panel_enabled()?'ارسال فعال است.':'تا تکمیل شماره خط و تنظیمات اتصال، ارسال خاموش است.' ?>
 </p>
-<form method="post" action="<?= e(url('/admin/sms-broadcast')) ?>" class="panel form-stack" style="margin-top:1rem" onsubmit="return confirm('این متن فقط در صف ذخیره شود؟');">
+<form method="post" action="<?= e(url('/admin/sms-broadcast')) ?>" class="panel form-stack" style="margin-top:1rem" onsubmit="return confirm('این پیام برای گروه انتخاب‌شده در صف ارسال قرار بگیرد؟');">
   <?= csrf_field() ?>
   <input type="hidden" name="action" value="sms_broadcast">
   <div>
@@ -49,7 +49,7 @@ ob_start();
         <tr>
           <td dir="ltr"><?= e((string) $row['phone']) ?></td>
           <td><?= e((string) $row['body']) ?></td>
-          <td><?= e((string) $row['status']) ?></td>
+          <td><?= e(sms_status_label((string) $row['status'])) ?></td>
           <td><?= e(format_fa_datetime((string) $row['created_at'])) ?></td>
         </tr>
       <?php endforeach; ?>
@@ -58,4 +58,4 @@ ob_start();
 </div>
 <?php endif; ?>
 <?php
-render_admin_page('پیامک همگانی', ob_get_clean());
+sms_render_page('پیامک همگانی', ob_get_clean());
