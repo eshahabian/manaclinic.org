@@ -14,8 +14,8 @@ function sms_template_catalog(): array
         // درمانگر همان نوبت انتخاب‌شده در پنل
         'doctor_appointment_booked'=>['اعلام نوبت به درمانگر','مانا کلینیک: نوبت {patient} {datetime}'],
         'doctor_appointment_cancelled'=>['اعلام لغو به درمانگر','مانا کلینیک: لغو {patient} {datetime}'],
-        // خلاصه صبحگاهی (متن پویا؛ این فقط برچسب ادمین است)
-        'doctor_daily_digest'=>['خلاصه نوبت‌های روز برای درمانگر','{doctor} گرامی\nنوبت های رزرو شده در تاریخ {date} :\n{slots}'],
+        // خلاصه صبحگاهی (متن پویا از sms_doctor_daily_digest_body؛ این فقط برچسب ادمین است)
+        'doctor_daily_digest'=>['خلاصه نوبت‌های روز برای درمانگر','مانا کلینیک: نوبت {date}: {slots}'],
         'quiet'=>['پیگیری عدم مراجعه','مانا کلینیک: {message}'],
         'login_otp'=>['کد ورود','کد ورود شما {code}'],
     ];
@@ -624,27 +624,35 @@ function sms_dispatch_pending(PDO $pdo, int $limit=20): int
 
 /**
  * متن خلاصه صبحگاهی نوبت‌های یک درمانگر.
+ * تک‌خطی و کوتاه مثل قالب‌های پایدار نوبت — وب‌وان متن چندخطی/بلند را با کد ۸
+ * («اعتبار کافی نیست») رد می‌کند حتی وقتی GetCredit اعتبار دارد.
  * @param list<string> $times مثلاً ['10:00','11:00']
  */
 function sms_doctor_daily_digest_body(string $doctorName, string $dayLabel, array $times): string
 {
-    $name = trim($doctorName);
-    if ($name === '') {
-        $name = 'درمانگر';
-    }
-    $lines = [
-        $name . ' گرامی',
-        'نوبت های رزرو شده در تاریخ ' . $dayLabel . ' :',
-    ];
+    // $doctorName عمداً در متن نیست؛ گیرنده از شماره معلوم است و نام متن را بلند می‌کند.
+    $slots = [];
     foreach ($times as $time) {
         $time = trim((string) $time);
         if ($time === '') {
             continue;
         }
-        $lines[] = 'ساعت ' . to_fa_digits($time);
+        $slots[] = to_fa_digits($time);
+    }
+    if ($slots === []) {
+        return 'مانا کلینیک: نوبتی برای ' . $dayLabel . ' نیست.';
+    }
+    $prefix = 'مانا کلینیک: نوبت ' . $dayLabel . ': ';
+    $body = $prefix . implode('، ', $slots);
+    while (mb_strlen($body) > 70 && count($slots) > 1) {
+        array_pop($slots);
+        $body = $prefix . implode('، ', $slots) . '…';
+    }
+    if (mb_strlen($body) > 70) {
+        $body = mb_substr($body, 0, 67) . '…';
     }
 
-    return implode("\n", $lines);
+    return $body;
 }
 
 /**
@@ -795,6 +803,7 @@ function sms_send_doctor_digests_manual(PDO $pdo, string $ymd, array $doctorIds)
 
     $packs = sms_doctor_digests_for_date($pdo, $ymd, $doctorIds);
     $found = [];
+    $sendIndex = 0;
     foreach ($packs as $pack) {
         $found[(string) $pack['doctor_id']] = true;
         if (($pack['phone'] ?? null) === null) {
@@ -802,8 +811,14 @@ function sms_send_doctor_digests_manual(PDO $pdo, string $ymd, array $doctorIds)
             $result['errors'][] = 'شماره موبایل «' . ($pack['name'] ?: 'درمانگر') . '» معتبر نیست.';
             continue;
         }
+        // فاصله بین ارسال‌ها تا وب‌وان burst را با کد ۸/۱۵ رد نکند
+        if ($sendIndex > 0) {
+            usleep(1_600_000);
+        }
+        $sendIndex++;
         $stamp = date('YmdHis');
         $key = 'doctor-digest-manual:' . $pack['doctor_id'] . ':' . $ymd . ':' . $stamp;
+        $context = ['entity' => 'doctor_digest', 'doctor_id' => $pack['doctor_id'], 'digest_date' => $ymd, 'manual' => 1];
         $send = sms_send_immediate(
             $pdo,
             (string) $pack['phone'],
@@ -811,14 +826,31 @@ function sms_send_doctor_digests_manual(PDO $pdo, string $ymd, array $doctorIds)
             'doctor_daily_digest',
             $key,
             $ymd . ' 23:59:59',
-            ['entity' => 'doctor_digest', 'doctor_id' => $pack['doctor_id'], 'digest_date' => $ymd, 'manual' => 1]
+            $context
         );
+        $err = trim((string) ($send['error'] ?? ''));
+        if (
+            empty($send['ok'])
+            && $err !== ''
+            && (str_contains($err, 'اعتبار') || str_contains($err, 'تکراری'))
+        ) {
+            usleep(2_500_000);
+            $send = sms_send_immediate(
+                $pdo,
+                (string) $pack['phone'],
+                (string) $pack['body'],
+                'doctor_daily_digest',
+                $key . ':retry',
+                $ymd . ' 23:59:59',
+                $context
+            );
+            $err = trim((string) ($send['error'] ?? ''));
+        }
         $result['queued']++;
         if (!empty($send['ok'])) {
             $result['sent']++;
         } else {
             $result['failed']++;
-            $err = trim((string) ($send['error'] ?? ''));
             $result['errors'][] = ($pack['name'] ?: 'درمانگر') . ($err !== '' ? (': ' . $err) : ' — ارسال ناموفق');
         }
     }
