@@ -23,10 +23,17 @@ function login_otp_limit(PDO $pdo, string $bucket, int $maximum, int $window): b
         $s=$pdo->prepare('SELECT * FROM login_otp_limits WHERE bucket=? FOR UPDATE');$s->execute([$key]);$row=$s->fetch();
         $expired=(int)$row['started_at']<=time()-$window;
         $hits=$expired?0:(int)$row['hits'];
-        $pdo->prepare('UPDATE login_otp_limits SET started_at=?,hits=? WHERE bucket=?')->execute([$expired?time():$row['started_at'],$hits+1,$key]);
+        $pdo->prepare('UPDATE login_otp_limits SET started_at=?,hits=? WHERE bucket=?')->execute([$expired?time():$row['started_at'],$hits<$maximum?$hits+1:$hits,$key]);
         $pdo->commit();
         return $hits<$maximum;
     } catch(Throwable $e) {if($pdo->inTransaction())$pdo->rollBack();throw $e;}
+}
+
+function login_otp_wait_seconds(PDO $pdo, string $bucket, int $window): int
+{
+    $s=$pdo->prepare('SELECT started_at FROM login_otp_limits WHERE bucket=?');
+    $s->execute([hash('sha256',$bucket)]);
+    return max(1,(int)$s->fetchColumn()+$window-time());
 }
 
 function login_otp_verify(PDO $pdo, string $id, string $code): ?array

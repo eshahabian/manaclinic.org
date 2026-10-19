@@ -9,8 +9,16 @@ if(!sms_connection_ready($pdo)){
 login_otp_schema($pdo);
 $phone=sms_iran_mobile(post('phone'));
 
-if(!login_otp_limit($pdo,'ip:'.client_ip(),10,3600) || !login_otp_limit($pdo,'phone:'.($phone??'invalid'),3,600)){
-    flash_set('error','درخواست کد زیاد بود. چند دقیقه بعد دوباره تلاش کنید.');redirect($retry);
+if($phone===null){
+    flash_set('error','شماره موبایل ایران را درست وارد کنید.');redirect($retry);
+}
+if(!login_otp_limit($pdo,'ip:'.client_ip(),10,3600)){
+    $wait=login_otp_wait_seconds($pdo,'ip:'.client_ip(),3600);
+    flash_set('error','تعداد درخواست از اتصال شما زیاد بوده است. '.(string)ceil($wait/60).' دقیقه دیگر دوباره تلاش کنید.');redirect($retry);
+}
+if(!login_otp_limit($pdo,'phone:'.$phone,3,600)){
+    $wait=login_otp_wait_seconds($pdo,'phone:'.$phone,600);
+    flash_set('error','برای این شماره حداکثر ۳ درخواست در ۱۰ دقیقه مجاز است. '.(string)ceil($wait/60).' دقیقه دیگر دوباره تلاش کنید.');redirect($retry);
 }
 // Invalidate this browser's previous challenge, including on a failed request.
 if(!empty($_SESSION['login_otp_id']))$pdo->prepare('UPDATE login_otp SET used=1 WHERE id=?')->execute([$_SESSION['login_otp_id']]);
