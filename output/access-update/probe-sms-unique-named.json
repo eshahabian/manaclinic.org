@@ -1,5 +1,1 @@
-<br />
-<b>Fatal error</b>:  Uncaught Error: Call to undefined function format_fa_datetime() in /home3/slhgjbht/public_html/uq-1a9ac66c5bb4.php:15
-Stack trace:
-#0 {main}
-  thrown in <b>/home3/slhgjbht/public_html/uq-1a9ac66c5bb4.php</b> on line <b>15</b><br />
+{"credit":"455380","tries":{"zaman":{"len":51,"body":"مانا کلینیک\nعماد شهابیان عزیز\nزمان ۱۴۰۵\/۰۷\/۲۹ ۱۳:۰۰","status":"FAILED","error":"وب‌وان ارسال را رد کرد (کد ۸؛ گاهی به‌جای محدودیت\/تکرار به‌اشتباه «کمبود اعتبار» می‌گوید).","id":null},"first_zaman":{"len":43,"body":"مانا کلینیک\nعماد عزیز\nزمان ۱۴۰۵\/۰۷\/۲۹ ۱۳:۰۰","status":"FAILED","error":"وب‌وان ارسال را رد کرد (کد ۸؛ گاهی به‌جای محدودیت\/تکرار به‌اشتباه «کمبود اعتبار» می‌گوید).","id":null},"std":{"len":46,"body":"مانا کلینیک\nعماد شهابیان عزیز\n۱۴۰۵\/۰۷\/۲۹ ۱۳:۰۰","status":"FAILED","error":"وب‌وان ارسال را رد کرد (کد ۸؛ گاهی به‌جای محدودیت\/تکرار به‌اشتباه «کمبود اعتبار» می‌گوید).","id":null},"tag":{"len":43,"body":"مانا کلینیک\nعماد عزیز\n۱۴۰۵\/۰۷\/۲۹ ۱۳:۰۰ #531","status":"FAILED","error":"وب‌وان ارسال را رد کرد (کد ۸؛ گاهی به‌جای محدودیت\/تکرار به‌اشتباه «کمبود اعتبار» می‌گوید).","id":null}},"winner":null,"has_fmt":true}
