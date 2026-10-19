@@ -4,12 +4,12 @@ declare(strict_types=1);
 function sms_template_catalog(): array
 {
     return [
-        // متن کوتاه تک‌خطی؛ وب‌وان متن بلند/چندخطی را اغلب با کد ۷/۸ رد می‌کند.
-        'appointment_booked'=>['ثبت و تأیید نوبت','مانا کلینیک: نوبت شما در {datetime} ثبت شد.'],
-        'appointment_cancelled'=>['لغو نوبت','مانا کلینیک: نوبت شما در {datetime} لغو شد.'],
-        'appointment_reminder'=>['یادآوری نوبت','مانا کلینیک: یادآوری نوبت شما در {datetime}'],
-        'workshop_registered'=>['تأیید ثبت‌نام کارگاه','مانا کلینیک: ثبت‌نام کارگاه تأیید شد. {datetime}'],
-        'workshop_reminder'=>['یادآوری کارگاه','مانا کلینیک: یادآوری کارگاه در {datetime}'],
+        // شروع پیامک نوبت: برند + نام مراجع + تاریخ
+        'appointment_booked'=>['ثبت و تأیید نوبت',"مانا کلینیک\n{patient} عزیز\nنوبت شما در {datetime} ثبت شد."],
+        'appointment_cancelled'=>['لغو نوبت',"مانا کلینیک\n{patient} عزیز\nنوبت شما در {datetime} لغو شد."],
+        'appointment_reminder'=>['یادآوری نوبت',"مانا کلینیک\n{patient} عزیز\nیادآوری نوبت شما در {datetime}"],
+        'workshop_registered'=>['تأیید ثبت‌نام کارگاه',"مانا کلینیک\n{patient} عزیز\nثبت‌نام کارگاه تأیید شد. {datetime}"],
+        'workshop_reminder'=>['یادآوری کارگاه',"مانا کلینیک\n{patient} عزیز\nیادآوری کارگاه در {datetime}"],
         'workshop_announcement'=>['معرفی کارگاه','مانا کلینیک: کارگاه جدید از {datetime}'],
         'quiet'=>['پیگیری عدم مراجعه','مانا کلینیک: {message}'],
         'login_otp'=>['کد ورود','کد ورود شما {code}'],
@@ -21,19 +21,37 @@ function sms_template_render(PDO $pdo, string $kind, array $variables): string
     $catalog=sms_template_catalog();
     $template=mail_setting_get($pdo,'sms_template_'.$kind,'');
     if(trim((string)$template)==='')$template=$catalog[$kind][1];
-    // Keep transactional SMS single-line; multiline bodies are filtered by WebOne (code 7).
-    if (in_array($kind, ['login_otp', 'appointment_booked', 'appointment_cancelled', 'appointment_reminder'], true)) {
+    $isAppointment = str_starts_with($kind, 'appointment_');
+    $isWorkshop = str_starts_with($kind, 'workshop_');
+    if ($kind === 'login_otp') {
         $candidate = trim((string) $template);
-        $needsCode = $kind === 'login_otp' && !str_contains($candidate, '{code}');
-        $needsWhen = str_starts_with($kind, 'appointment_') && !str_contains($candidate, '{datetime}');
-        if ($candidate === '' || str_contains($candidate, "\n") || $needsCode || $needsWhen) {
+        if ($candidate === '' || str_contains($candidate, "\n") || !str_contains($candidate, '{code}')) {
+            $template = $catalog[$kind][1];
+        }
+    } elseif ($isAppointment || $isWorkshop) {
+        $candidate = trim((string) $template);
+        $needsWhen = !str_contains($candidate, '{datetime}');
+        $needsPatient = !str_contains($candidate, '{patient}');
+        // قالب سفارشی بدون نام/تاریخ یا خیلی بلند را به الگوی استاندارد برگردان.
+        if ($candidate === '' || $needsWhen || ($isAppointment && $needsPatient) || mb_strlen($candidate) > 220) {
             $template = $catalog[$kind][1];
         }
     }
-    $map=[];foreach($variables as $key=>$value)$map['{'.$key.'}']=(string)$value;
-    $body = trim(preg_replace('/\s+/u', ' ', strtr($template, $map)) ?? '');
-    if (mb_strlen($body) > 160) {
-        $body = mb_substr($body, 0, 157) . '…';
+    if (($isAppointment || $isWorkshop) && trim((string) ($variables['patient'] ?? '')) === '') {
+        $variables['patient'] = 'مراجعه‌کننده';
+    }
+    $map=[];foreach($variables as $key=>$value)$map['{'.$key.'}']=trim((string)$value);
+    $body = strtr($template, $map);
+    if ($kind === 'login_otp') {
+        $body = trim(preg_replace('/\s+/u', ' ', $body) ?? '');
+    } else {
+        // حفظ خطوط؛ فقط فاصله‌های اضافه داخل هر خط را جمع کن.
+        $lines = preg_split("/\r\n|\n|\r/u", $body) ?: [];
+        $lines = array_map(static fn(string $line): string => trim(preg_replace('/[^\S\n]+/u', ' ', $line) ?? ''), $lines);
+        $body = trim(implode("\n", array_values(array_filter($lines, static fn(string $line): bool => $line !== ''))));
+    }
+    if (mb_strlen($body) > 300) {
+        $body = mb_substr($body, 0, 297) . '…';
     }
     return $body;
 }
