@@ -1,1 +1,1 @@
-{"limit_test": true}
+{"send_http": 200, "send_response": {"resultCode": 8, "succeeded": false, "refId": 0}}
