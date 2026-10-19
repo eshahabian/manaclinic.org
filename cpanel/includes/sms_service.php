@@ -4,29 +4,61 @@ declare(strict_types=1);
 function sms_template_catalog(): array
 {
     return [
-        // همان قالب کوتاهی که امروز حدود ۱۵:۱۵ واقعاً SENT شد (بدون اسم / بدون پزشک).
+        // مراجع — این قالب‌ها را تغییر ندهید مگر با تأیید صریح (مسیر پایدار وب‌وان).
         'appointment_booked'=>['ثبت و تأیید نوبت','مانا کلینیک: نوبت شما در {datetime} ثبت شد.'],
         'appointment_cancelled'=>['لغو نوبت','مانا کلینیک: نوبت شما در {datetime} لغو شد.'],
         'appointment_reminder'=>['یادآوری نوبت','مانا کلینیک: یادآوری نوبت {datetime}'],
         'workshop_registered'=>['تأیید ثبت‌نام کارگاه','مانا کلینیک: ثبت‌نام کارگاه از {datetime}'],
         'workshop_reminder'=>['یادآوری کارگاه','مانا کلینیک: یادآوری کارگاه {datetime}'],
         'workshop_announcement'=>['معرفی کارگاه','مانا کلینیک: کارگاه جدید از {datetime}'],
+        // درمانگر همان نوبت انتخاب‌شده در پنل
+        'doctor_appointment_booked'=>['اعلام نوبت به درمانگر','مانا کلینیک: نوبت {patient} {datetime}'],
+        'doctor_appointment_cancelled'=>['اعلام لغو به درمانگر','مانا کلینیک: لغو {patient} {datetime}'],
         'quiet'=>['پیگیری عدم مراجعه','مانا کلینیک: {message}'],
         'login_otp'=>['کد ورود','کد ورود شما {code}'],
     ];
 }
 
+function sms_first_name(string $fullName): string
+{
+    $fullName = trim($fullName);
+    if ($fullName === '') {
+        return 'مراجع';
+    }
+    $bits = preg_split('/\s+/u', $fullName) ?: [];
+    $first = trim((string) ($bits[0] ?? $fullName));
+
+    return $first !== '' ? $first : 'مراجع';
+}
+
 function sms_template_render(PDO $pdo, string $kind, array $variables): string
 {
     $catalog=sms_template_catalog();
+    if (!isset($catalog[$kind])) {
+        return '';
+    }
     $template=mail_setting_get($pdo,'sms_template_'.$kind,'');
     if(trim((string)$template)==='')$template=$catalog[$kind][1];
     $isAppointment = str_starts_with($kind, 'appointment_');
     $isWorkshop = str_starts_with($kind, 'workshop_');
+    $isDoctorAppt = str_starts_with($kind, 'doctor_appointment_');
     if ($kind === 'login_otp') {
         $candidate = trim((string) $template);
         if ($candidate === '' || str_contains($candidate, "\n") || !str_contains($candidate, '{code}')) {
             $template = $catalog[$kind][1];
+        }
+    } elseif ($isDoctorAppt) {
+        $candidate = trim((string) $template);
+        $bad = $candidate === ''
+            || !str_contains($candidate, '{datetime}')
+            || !str_contains($candidate, '{patient}')
+            || str_contains($candidate, "\n")
+            || mb_strlen($candidate) > 80;
+        if ($bad) {
+            $template = $catalog[$kind][1];
+        }
+        if (isset($variables['patient'])) {
+            $variables['patient'] = sms_first_name((string) $variables['patient']);
         }
     } elseif ($isAppointment || $isWorkshop) {
         $candidate = trim((string) $template);
@@ -51,18 +83,62 @@ function sms_template_render(PDO $pdo, string $kind, array $variables): string
 }
 
 /**
- * ارسال فوری پیامک ثبت/لغو نوبت (بدون انتظار برای کرون).
+ * ارسال فوری یک پیامک و ثبت در outbox.
  * @return array{ok:bool,status:string,error?:string}
+ */
+function sms_send_immediate(
+    PDO $pdo,
+    string $phone,
+    string $body,
+    string $kind,
+    string $dedup,
+    ?string $expiresAt = null,
+    array $context = []
+): array {
+    $mobile = sms_iran_mobile($phone);
+    if ($mobile === null) {
+        return ['ok' => false, 'status' => 'FAILED', 'error' => 'شماره موبایل معتبر نیست.'];
+    }
+    sms_queue_extended(
+        $pdo,
+        $mobile,
+        $body,
+        $kind,
+        $dedup,
+        date('Y-m-d H:i:s'),
+        $expiresAt ?? date('Y-m-d H:i:s', time() + 86400),
+        $context
+    );
+    $hash = hash('sha256', $dedup);
+    $job = $pdo->prepare("SELECT id FROM sms_outbox WHERE dedup_key=? ORDER BY created_at DESC LIMIT 1");
+    $job->execute([$hash]);
+    $jobId = (string) ($job->fetchColumn() ?: '');
+    $result = sms_provider_send(sms_connection_config($pdo), $mobile, $body);
+    if ($jobId !== '') {
+        $pdo->prepare("UPDATE sms_outbox SET status=?,provider_id=?,last_error=?,sent_at=IF(?='SENT',NOW(),NULL),attempts=attempts+1,claimed_at=NOW() WHERE id=?")
+            ->execute([$result['status'], $result['id'] ?? null, $result['error'] ?? null, $result['status'], $jobId]);
+    }
+    return [
+        'ok' => ($result['status'] ?? '') === 'SENT',
+        'status' => (string) ($result['status'] ?? 'FAILED'),
+        'error' => (string) ($result['error'] ?? ''),
+    ];
+}
+
+/**
+ * ارسال فوری پیامک ثبت/لغو نوبت به مراجع و درمانگر همان نوبت (بدون انتظار برای کرون).
+ * @return array{ok:bool,status:string,error?:string,doctor_ok?:bool,doctor_status?:string,doctor_error?:string}
  */
 function sms_notify_appointment_now(PDO $pdo, string $appointmentId, string $event): array
 {
     $event = $event === 'cancelled' ? 'cancelled' : 'booked';
     $kind = $event === 'cancelled' ? 'appointment_cancelled' : 'appointment_booked';
+    $doctorKind = $event === 'cancelled' ? 'doctor_appointment_cancelled' : 'doctor_appointment_booked';
     if (!sms_connection_ready($pdo)) {
         return ['ok' => false, 'status' => 'FAILED', 'error' => 'اتصال پیامک آماده نیست.'];
     }
     ensure_outreach_schema($pdo);
-    $stmt = $pdo->prepare("SELECT a.id,a.status,a.starts_at,u.phone,u.name AS patient_name,d.name AS doctor_name
+    $stmt = $pdo->prepare("SELECT a.id,a.status,a.starts_at,a.doctor_id,u.phone,u.name AS patient_name,d.name AS doctor_name,d.phone AS doctor_phone
         FROM appointments a
         JOIN users u ON u.id=a.patient_id
         JOIN doctor_profiles dp ON dp.id=a.doctor_id
@@ -78,34 +154,44 @@ function sms_notify_appointment_now(PDO $pdo, string $appointmentId, string $eve
         return ['ok' => false, 'status' => 'FAILED', 'error' => 'شماره موبایل مراجع معتبر نیست.'];
     }
     $when = format_fa_datetime((string) ($row['starts_at'] ?? ''));
+    $patientName = (string) ($row['patient_name'] ?? '');
     $body = sms_template_render($pdo, $kind, [
-        'patient' => (string) ($row['patient_name'] ?? ''),
+        'patient' => $patientName,
         'doctor' => (string) ($row['doctor_name'] ?? ''),
         'datetime' => $when,
         'status' => 'ثبت شد.',
     ]);
-    $dedup = 'appointment:' . $appointmentId . ':' . $event . ':' . (string) ($row['starts_at'] ?? '');
-    sms_queue_extended(
+    $expires = $event === 'cancelled'
+        ? date('Y-m-d H:i:s', time() + 86400)
+        : (string) ($row['starts_at'] ?? date('Y-m-d H:i:s', time() + 86400));
+    $result = sms_send_immediate(
         $pdo,
         $phone,
         $body,
         $kind,
-        $dedup,
-        date('Y-m-d H:i:s'),
-        $event === 'cancelled'
-            ? date('Y-m-d H:i:s', time() + 86400)
-            : (string) ($row['starts_at'] ?? date('Y-m-d H:i:s', time() + 86400)),
-        ['entity' => 'appointment', 'id' => $appointmentId, 'starts_at' => $row['starts_at'], 'status' => $row['status'], 'doctor_id' => null, 'immediate' => 1]
+        'appointment:' . $appointmentId . ':' . $event . ':' . (string) ($row['starts_at'] ?? ''),
+        $expires,
+        ['entity' => 'appointment', 'id' => $appointmentId, 'starts_at' => $row['starts_at'], 'status' => $row['status'], 'doctor_id' => $row['doctor_id'] ?? null, 'immediate' => 1]
     );
-    $hash = hash('sha256', $dedup);
-    $job = $pdo->prepare("SELECT id FROM sms_outbox WHERE dedup_key=? ORDER BY created_at DESC LIMIT 1");
-    $job->execute([$hash]);
-    $jobId = (string) ($job->fetchColumn() ?: '');
-    $result = sms_provider_send(sms_connection_config($pdo), $phone, $body);
-    if ($jobId !== '') {
-        $pdo->prepare("UPDATE sms_outbox SET status=?,provider_id=?,last_error=?,sent_at=IF(?='SENT',NOW(),NULL),attempts=attempts+1,claimed_at=NOW() WHERE id=?")
-            ->execute([$result['status'], $result['id'] ?? null, $result['error'] ?? null, $result['status'], $jobId]);
+
+    $doctorResult = ['ok' => false, 'status' => 'SKIPPED', 'error' => 'شماره درمانگر موجود نیست.'];
+    $doctorPhone = sms_iran_mobile((string) ($row['doctor_phone'] ?? ''));
+    if ($doctorPhone !== null && $doctorPhone !== $phone) {
+        $doctorBody = sms_template_render($pdo, $doctorKind, [
+            'patient' => $patientName,
+            'datetime' => $when,
+        ]);
+        $doctorResult = sms_send_immediate(
+            $pdo,
+            $doctorPhone,
+            $doctorBody,
+            $doctorKind,
+            'appointment:' . $appointmentId . ':doctor:' . $event . ':' . (string) ($row['starts_at'] ?? ''),
+            $expires,
+            ['entity' => 'appointment_doctor', 'id' => $appointmentId, 'starts_at' => $row['starts_at'], 'status' => $row['status'], 'doctor_id' => $row['doctor_id'] ?? null, 'immediate' => 1]
+        );
     }
+
     try {
         $fingerprint = hash('sha256', json_encode([(string) $row['status'], (string) $row['starts_at'], 'immediate']));
         sms_entity_save($pdo, 'appointment:' . $appointmentId, $fingerprint, (string) $row['status']);
@@ -115,6 +201,9 @@ function sms_notify_appointment_now(PDO $pdo, string $appointmentId, string $eve
         'ok' => ($result['status'] ?? '') === 'SENT',
         'status' => (string) ($result['status'] ?? 'FAILED'),
         'error' => (string) ($result['error'] ?? ''),
+        'doctor_ok' => ($doctorResult['status'] ?? '') === 'SENT',
+        'doctor_status' => (string) ($doctorResult['status'] ?? 'FAILED'),
+        'doctor_error' => (string) ($doctorResult['error'] ?? ''),
     ];
 }
 
@@ -312,9 +401,11 @@ function sms_job_still_valid(PDO $pdo, array $job): bool
     if (!empty($job['expires_at']) && strtotime($job['expires_at'])<=time())return false;
     $context=json_decode((string)($job['context_json']??''),true);
     if(!is_array($context)||!isset($context['entity']))return true;
-    if($context['entity']==='appointment'){
+    if($context['entity']==='appointment' || $context['entity']==='appointment_doctor'){
         $stmt=$pdo->prepare('SELECT starts_at,status,doctor_id FROM appointments WHERE id=?');$stmt->execute([$context['id']]);$a=$stmt->fetch();
-        return $a && $a['starts_at']===$context['starts_at'] && $a['doctor_id']===$context['doctor_id'] && $a['status']===$context['status'];
+        if(!$a || $a['starts_at']!==$context['starts_at'] || $a['status']!==$context['status'])return false;
+        if(isset($context['doctor_id']) && $context['doctor_id']!==null && $context['doctor_id']!=='' && (string)$a['doctor_id']!==(string)$context['doctor_id'])return false;
+        return true;
     }
     $stmt=$pdo->prepare('SELECT e.status,w.status AS workshop_status,w.starts_at,w.location,w.type,w.title FROM workshop_enrollments e JOIN workshops w ON w.id=e.workshop_id WHERE e.id=?');$stmt->execute([$context['id']]);$w=$stmt->fetch();
     if(!$w||!in_array($w['status'],['CONFIRMED','COMPLETED'],true)||in_array($w['workshop_status'],['DRAFT','CANCELLED','COMPLETED'],true)||$w['starts_at']!==$context['starts_at'])return false;

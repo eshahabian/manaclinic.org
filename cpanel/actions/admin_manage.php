@@ -65,7 +65,8 @@ if ($action === 'save_sms_notify') {
     foreach(sms_template_catalog() as $kind=>$item){
         $text=trim(post('template_'.$kind));
         preg_match_all('/\{[^{}]+\}/u',$item[1],$matches);
-        $allowed=array_unique(array_merge($matches[0],in_array($kind,['appointment_booked','appointment_cancelled','appointment_reminder','workshop_registered','workshop_reminder'],true)?['{patient}']:[]));
+        $extraPatient=in_array($kind,['appointment_booked','appointment_cancelled','appointment_reminder','workshop_registered','workshop_reminder','doctor_appointment_booked','doctor_appointment_cancelled'],true);
+        $allowed=array_unique(array_merge($matches[0],$extraPatient?['{patient}']:[]));
         preg_match_all('/\{[^{}]+\}/u',$text,$used);
         if(mb_strlen($text)>500 || array_diff($used[0],$allowed) || ($kind==='login_otp' && $text!=='' && !str_contains($text,'{code}'))){
             flash_set('error','متن پیامک معتبر نیست؛ حداکثر ۵۰۰ نویسه و فقط متغیرهای راهنما مجاز است. کد ورود باید {code} داشته باشد.');redirect('/admin/sms-notify');
