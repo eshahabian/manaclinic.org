@@ -212,6 +212,12 @@ function staff_confirm_appointment_payment(
         '/doctor/appointments?tab=upcoming',
         'appointment'
     );
+    if (function_exists('sms_notify_appointment_now')) {
+        try {
+            sms_notify_appointment_now($pdo, $appointmentId, 'booked');
+        } catch (Throwable $ignored) {
+        }
+    }
 
     return [
         'appointment_id' => $appointmentId,
@@ -366,6 +372,12 @@ function staff_confirm_appointment_unpaid(
         '/doctor/appointments?tab=upcoming',
         'appointment'
     );
+    if (function_exists('sms_notify_appointment_now')) {
+        try {
+            sms_notify_appointment_now($pdo, $appointmentId, 'booked');
+        } catch (Throwable $ignored) {
+        }
+    }
 
     return [
         'appointment_id' => $appointmentId,
@@ -524,6 +536,12 @@ function staff_reject_appointment_booking(PDO $pdo, string $appointmentId, array
 
     if (function_exists('staff_log_action')) {
         staff_log_action($pdo, $staffUserId, 'appointment_reject_booking', 'appointment', $appointmentId, $patientName);
+    }
+    if (function_exists('sms_notify_appointment_now')) {
+        try {
+            sms_notify_appointment_now($pdo, $appointmentId, 'cancelled');
+        } catch (Throwable $ignored) {
+        }
     }
 
     notify_user(
@@ -693,6 +711,12 @@ function staff_confirm_receipt_payment(PDO $pdo, string $paymentId, array $actor
             'appointment',
             $staffUserId !== '' ? $staffUserId : null
         );
+    }
+    if (function_exists('sms_notify_appointment_now')) {
+        try {
+            sms_notify_appointment_now($pdo, $appointmentId, 'booked');
+        } catch (Throwable $ignored) {
+        }
     }
 
     return [

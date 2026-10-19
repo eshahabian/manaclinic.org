@@ -60,3 +60,8 @@ next-env.d.ts
 /android/app/*.iml
 /android/.cxx/
 /android/captures/
+
+# Local full-site backups live outside the repo (D:\ManaClinic-Backups).
+# Keep only a pointer README inside /backups — never commit zip/media dumps.
+/backups/*
+!/backups/README.md

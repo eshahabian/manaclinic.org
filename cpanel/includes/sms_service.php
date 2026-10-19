@@ -4,14 +4,14 @@ declare(strict_types=1);
 function sms_template_catalog(): array
 {
     return [
-        'appointment_booked'=>['ثبت و تأیید نوبت','مانا کلینیک: نوبت شما با {doctor} در {datetime} {status}'],
-        'appointment_cancelled'=>['لغو نوبت','مانا کلینیک: نوبت شما با {doctor} در {datetime} لغو شد.'],
-        'appointment_reminder'=>['یادآوری نوبت','یادآوری مانا کلینیک: نوبت شما با {doctor} در {datetime} برگزار می‌شود.'],
-        'workshop_registered'=>['تأیید ثبت‌نام کارگاه','مانا کلینیک: ثبت‌نام کارگاه «{workshop}» تأیید شد. {datetime}؛ {place}'],
-        'workshop_reminder'=>['یادآوری کارگاه','یادآوری مانا کلینیک: جلسه کارگاه «{workshop}» در {datetime}؛ {place}'],
-        'workshop_announcement'=>['معرفی کارگاه','مانا کلینیک: کارگاه «{workshop}» از {datetime} برگزار می‌شود. برای ثبت‌نام به سایت کلینیک سر بزنید.'],
+        // متن کوتاه تک‌خطی؛ وب‌وان متن بلند/چندخطی را اغلب با کد ۷/۸ رد می‌کند.
+        'appointment_booked'=>['ثبت و تأیید نوبت','مانا کلینیک: نوبت شما در {datetime} ثبت شد.'],
+        'appointment_cancelled'=>['لغو نوبت','مانا کلینیک: نوبت شما در {datetime} لغو شد.'],
+        'appointment_reminder'=>['یادآوری نوبت','مانا کلینیک: یادآوری نوبت شما در {datetime}'],
+        'workshop_registered'=>['تأیید ثبت‌نام کارگاه','مانا کلینیک: ثبت‌نام کارگاه تأیید شد. {datetime}'],
+        'workshop_reminder'=>['یادآوری کارگاه','مانا کلینیک: یادآوری کارگاه در {datetime}'],
+        'workshop_announcement'=>['معرفی کارگاه','مانا کلینیک: کارگاه جدید از {datetime}'],
         'quiet'=>['پیگیری عدم مراجعه','مانا کلینیک: {message}'],
-        // همان الگوی وب‌وان/RestDocument مثل ارسال OTP موفق: بخش ثابت + کد
         'login_otp'=>['کد ورود','کد ورود شما {code}'],
     ];
 }
@@ -21,15 +21,91 @@ function sms_template_render(PDO $pdo, string $kind, array $variables): string
     $catalog=sms_template_catalog();
     $template=mail_setting_get($pdo,'sms_template_'.$kind,'');
     if(trim((string)$template)==='')$template=$catalog[$kind][1];
-    // OTP must stay a single-line RestDocument-safe pattern; multiline bodies are filtered (code 7).
-    if ($kind === 'login_otp') {
+    // Keep transactional SMS single-line; multiline bodies are filtered by WebOne (code 7).
+    if (in_array($kind, ['login_otp', 'appointment_booked', 'appointment_cancelled', 'appointment_reminder'], true)) {
         $candidate = trim((string) $template);
-        if ($candidate === '' || str_contains($candidate, "\n") || !str_contains($candidate, '{code}')) {
+        $needsCode = $kind === 'login_otp' && !str_contains($candidate, '{code}');
+        $needsWhen = str_starts_with($kind, 'appointment_') && !str_contains($candidate, '{datetime}');
+        if ($candidate === '' || str_contains($candidate, "\n") || $needsCode || $needsWhen) {
             $template = $catalog[$kind][1];
         }
     }
     $map=[];foreach($variables as $key=>$value)$map['{'.$key.'}']=(string)$value;
-    return strtr($template,$map);
+    $body = trim(preg_replace('/\s+/u', ' ', strtr($template, $map)) ?? '');
+    if (mb_strlen($body) > 160) {
+        $body = mb_substr($body, 0, 157) . '…';
+    }
+    return $body;
+}
+
+/**
+ * ارسال فوری پیامک ثبت/لغو نوبت به مراجعه‌کننده (بدون وابستگی به کرون).
+ * @return array{ok:bool,status:string,error?:string}
+ */
+function sms_notify_appointment_now(PDO $pdo, string $appointmentId, string $event): array
+{
+    $event = $event === 'cancelled' ? 'cancelled' : 'booked';
+    $kind = $event === 'cancelled' ? 'appointment_cancelled' : 'appointment_booked';
+    if (!sms_connection_ready($pdo)) {
+        return ['ok' => false, 'status' => 'FAILED', 'error' => 'اتصال پیامک آماده نیست.'];
+    }
+    ensure_outreach_schema($pdo);
+    $stmt = $pdo->prepare("SELECT a.id,a.status,a.starts_at,u.phone,u.name AS patient_name,d.name AS doctor_name
+        FROM appointments a
+        JOIN users u ON u.id=a.patient_id
+        JOIN doctor_profiles dp ON dp.id=a.doctor_id
+        JOIN users d ON d.id=dp.user_id
+        WHERE a.id=? LIMIT 1");
+    $stmt->execute([$appointmentId]);
+    $row = $stmt->fetch();
+    if (!is_array($row)) {
+        return ['ok' => false, 'status' => 'FAILED', 'error' => 'نوبت یافت نشد.'];
+    }
+    $phone = sms_iran_mobile((string) ($row['phone'] ?? ''));
+    if ($phone === null) {
+        return ['ok' => false, 'status' => 'FAILED', 'error' => 'شماره موبایل مراجع معتبر نیست.'];
+    }
+    $when = format_fa_datetime((string) ($row['starts_at'] ?? ''));
+    $body = sms_template_render($pdo, $kind, [
+        'patient' => (string) ($row['patient_name'] ?? ''),
+        'doctor' => (string) ($row['doctor_name'] ?? ''),
+        'datetime' => $when,
+        'status' => 'ثبت شد.',
+    ]);
+    $dedup = 'appointment:' . $appointmentId . ':' . $event . ':' . (string) ($row['starts_at'] ?? '');
+    // Archive in outbox, then send immediately so secretary booking does not wait for cron.
+    sms_queue_extended(
+        $pdo,
+        $phone,
+        $body,
+        $kind,
+        $dedup,
+        date('Y-m-d H:i:s'),
+        $event === 'cancelled'
+            ? date('Y-m-d H:i:s', time() + 86400)
+            : (string) ($row['starts_at'] ?? date('Y-m-d H:i:s', time() + 86400)),
+        ['entity' => 'appointment', 'id' => $appointmentId, 'starts_at' => $row['starts_at'], 'status' => $row['status'], 'doctor_id' => null, 'immediate' => 1]
+    );
+    $hash = hash('sha256', $dedup);
+    $job = $pdo->prepare("SELECT id FROM sms_outbox WHERE dedup_key=? ORDER BY created_at DESC LIMIT 1");
+    $job->execute([$hash]);
+    $jobId = (string) ($job->fetchColumn() ?: '');
+    $result = sms_provider_send(sms_connection_config($pdo), $phone, $body);
+    if ($jobId !== '') {
+        $pdo->prepare("UPDATE sms_outbox SET status=?,provider_id=?,last_error=?,sent_at=IF(?='SENT',NOW(),NULL),attempts=attempts+1,claimed_at=NOW() WHERE id=?")
+            ->execute([$result['status'], $result['id'] ?? null, $result['error'] ?? null, $result['status'], $jobId]);
+    }
+    // Keep planner state in sync so cron does not re-queue the same event.
+    try {
+        $fingerprint = hash('sha256', json_encode([(string) $row['status'], (string) $row['starts_at'], 'immediate']));
+        sms_entity_save($pdo, 'appointment:' . $appointmentId, $fingerprint, (string) $row['status']);
+    } catch (Throwable $ignored) {
+    }
+    return [
+        'ok' => ($result['status'] ?? '') === 'SENT',
+        'status' => (string) ($result['status'] ?? 'FAILED'),
+        'error' => (string) ($result['error'] ?? ''),
+    ];
 }
 
 function sms_iran_mobile(string $input): ?string

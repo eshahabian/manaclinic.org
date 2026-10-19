@@ -243,12 +243,14 @@ try {
         $receiptPath = staff_save_receipt($_FILES['receipt'], $paymentId);
     }
     $firstId = '';
+    $bookedIds = [];
     foreach ($occurrences as $index => $occur) {
         $rowId = $index === 0 ? $appointmentId : cuid();
         $rowPayId = $index === 0 ? $paymentId : cuid();
         if ($index === 0) {
             $firstId = $rowId;
         }
+        $bookedIds[] = $rowId;
         $isFirst = $index === 0;
         $payStatus = (!$isFirst || $payMethod === 'later') ? 'PENDING' : 'PAID';
         $payRef = !$isFirst ? 'LATER' : ($payMethod === 'wallet' ? 'WALLET' : ($payMethod === 'card' ? 'CARD' : 'LATER'));
@@ -334,6 +336,14 @@ try {
         '/doctor/appointments',
         'appointment'
     );
+    if (function_exists('sms_notify_appointment_now')) {
+        foreach ($bookedIds as $smsApptId) {
+            try {
+                sms_notify_appointment_now($pdo, (string) $smsApptId, 'booked');
+            } catch (Throwable $ignored) {
+            }
+        }
+    }
 
     $payBit = match ($payMethod) {
         'wallet' => ' مبلغ نوبت اول از کیف پول کم شد.',

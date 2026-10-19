@@ -142,6 +142,12 @@ function cancel_patient_appointment(PDO $pdo, string $appointmentId, string $pat
     }
 
     $pdo->prepare("UPDATE appointments SET status='CANCELLED' WHERE id=?")->execute([$appointmentId]);
+    if (function_exists('sms_notify_appointment_now')) {
+        try {
+            sms_notify_appointment_now($pdo, $appointmentId, 'cancelled');
+        } catch (Throwable $ignored) {
+        }
+    }
 
     $message = 'نوبت لغو شد.';
     if ($refundAmount > 0) {
@@ -283,6 +289,12 @@ function secretary_mark_patient_cancelled(PDO $pdo, string $appointmentId, array
         '/doctor/appointments?tab=cancelled',
         'appointment'
     );
+    if (function_exists('sms_notify_appointment_now')) {
+        try {
+            sms_notify_appointment_now($pdo, $appointmentId, 'cancelled');
+        } catch (Throwable $ignored) {
+        }
+    }
     if (!function_exists('notify_user')) {
         require_once __DIR__ . '/notifications.php';
     }
