@@ -3,7 +3,8 @@ Allow: /
 
 Disallow: /app
 Disallow: /admin
-Disallow: /doctor
+Disallow: /doctor$
+Disallow: /doctor/
 Disallow: /secretary
 Disallow: /dashboard
 Disallow: /login

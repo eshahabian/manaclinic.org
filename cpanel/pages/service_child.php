@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-$pageTitle = 'مشاوره کودک و نوجوان | مانا کلینیک سعادت‌آباد';
+$pageTitle = 'مشاوره کودک و نوجوان در سعادت‌آباد | مانا کلینیک';
 $pageDescription = 'مشاوره و روان‌درمانی کودک و نوجوان در مانا کلینیک سعادت‌آباد: اضطراب، رفتار، تحصیل و رشد هیجانی با همراهی متخصص. رزرو نوبت.';
 $pageCanonical = url('/services/child');
 $pageKeywords = 'مشاوره کودک, روانشناس نوجوان, درمان کودک سعادت آباد, مانا کلینیک';
@@ -67,6 +67,8 @@ ob_start();
         </p>
       <?php endif; ?>
     </section>
+
+    <?= service_local_booking_html('مشاوره کودک و نوجوان', $doctorsHref) ?>
 
     <?= service_related_articles_html($pdo, 'child') ?>
   </article>

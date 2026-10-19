@@ -1,0 +1,142 @@
+<?php
+declare(strict_types=1);
+
+$slug = (string) ($_GET['slug'] ?? '');
+$stmt = $pdo->prepare("
+  SELECT a.*, u.name AS author_name
+  FROM articles a
+  JOIN users u ON u.id = a.author_id
+  WHERE a.slug = ? AND a.published = 1
+");
+$stmt->execute([$slug]);
+$article = $stmt->fetch();
+if ($article) {
+    $article['author_name'] = article_public_author_name($article);
+}
+if (!$article) {
+    http_response_code(404);
+    $pageTitle = 'یافت نشد';
+    $pageRobots = 'noindex,follow';
+    require __DIR__ . '/404.php';
+    exit;
+}
+
+$pageTitle = $article['title'];
+$pageDescription = trim((string) ($article['excerpt'] ?: mb_substr(strip_tags((string) $article['content']), 0, 160)));
+$pageKeywords = 'مانا کلینیک, ' . $article['title'] . ', روانشناسی, ' . $article['author_name'];
+$pageCanonical = url('/articles/' . $article['slug']);
+$pageOgType = 'article';
+if (!empty($article['cover_url'])) {
+    $pageImage = seo_absolute_url(url((string) $article['cover_url']));
+}
+$pageJsonLd = [
+    '@type' => 'Article',
+    'headline' => $article['title'],
+    'description' => $pageDescription,
+    'inLanguage' => 'fa-IR',
+    'datePublished' => $article['published_at'] ?? null,
+    'dateModified' => $article['updated_at'] ?? ($article['published_at'] ?? null),
+    'author' => [
+        '@type' => 'Person',
+        'name' => $article['author_name'],
+    ],
+    'publisher' => [
+        '@type' => 'Organization',
+        'name' => 'مانا کلینیک',
+        'url' => seo_absolute_url('/'),
+    ],
+    'mainEntityOfPage' => seo_absolute_url($pageCanonical),
+];
+$pageJsonLdGraph = [
+    '@graph' => [
+        $pageJsonLd,
+        [
+            '@type' => 'BreadcrumbList',
+            'itemListElement' => [
+                ['@type' => 'ListItem', 'position' => 1, 'name' => 'خانه', 'item' => seo_absolute_url('/')],
+                ['@type' => 'ListItem', 'position' => 2, 'name' => 'مقالات', 'item' => seo_absolute_url('/articles')],
+                ['@type' => 'ListItem', 'position' => 3, 'name' => $article['title'], 'item' => seo_absolute_url($pageCanonical)],
+            ],
+        ],
+    ],
+];
+$pageJsonLd = $pageJsonLdGraph;
+if (!empty($article['cover_url'])) {
+    $pageJsonLd['@graph'][0]['image'] = seo_absolute_url(url((string) $article['cover_url']));
+}
+
+$articleTopics = clinic_article_topics($article);
+$matchDoctors = [];
+foreach ($articleTopics as $tk) {
+    foreach (clinic_doctors_by_focus($pdo, $tk) as $doc) {
+        $did = (string) ($doc['id'] ?? '');
+        if ($did !== '' && !isset($matchDoctors[$did])) {
+            $matchDoctors[$did] = $doc;
+        }
+    }
+}
+$matchDoctors = array_slice(array_values($matchDoctors), 0, 6);
+$primaryTopic = $articleTopics[0] ?? '';
+$topicMeta = $primaryTopic !== '' ? clinic_issue_topic($primaryTopic) : null;
+$matchHref = $primaryTopic !== '' ? clinic_doctors_href(['focus' => $primaryTopic]) : url('/doctors');
+$matchHeading = $topicMeta ? ('متخصصان «' . $topicMeta['label'] . '»') : 'متخصصان مانا کلینیک';
+$relatedArts = [];
+if ($primaryTopic !== '') {
+    foreach (clinic_articles_for_topic($pdo, $primaryTopic, 5) as $rel) {
+        if ((string) ($rel['slug'] ?? '') !== $slug) {
+            $relatedArts[] = $rel;
+        }
+        if (count($relatedArts) >= 3) {
+            break;
+        }
+    }
+}
+
+ob_start();
+?>
+<article class="container-page section" itemscope itemtype="https://schema.org/Article">
+  <a href="<?= e(url('/articles')) ?>" style="color:var(--primary);font-size:.9rem">← بازگشت به مقالات</a>
+  <h1 style="margin-top:1rem;max-width:48rem;line-height:1.4" itemprop="headline"><?= e($article['title']) ?></h1>
+  <div style="margin-top:1rem;display:flex;flex-wrap:wrap;gap:.75rem;align-items:center">
+    <span class="badge" itemprop="author"><?= e($article['author_name']) ?></span>
+    <?php if (!empty($article['published_at'])): ?>
+      <time class="muted" style="font-size:.85rem" datetime="<?= e(date('c', strtotime((string) $article['published_at']))) ?>" itemprop="datePublished">
+        <?= e(format_fa_datetime((string) $article['published_at'])) ?>
+      </time>
+    <?php endif; ?>
+  </div>
+  <?php if ($articleTopics !== []): ?>
+    <p class="article-topics">
+      <?php foreach ($articleTopics as $tk): ?>
+        <?php $t = clinic_issue_topic($tk); ?>
+        <?php if ($t): ?>
+          <a class="dir-chip" href="<?= e(url('/issues/' . $tk)) ?>"><?= e($t['label']) ?></a>
+        <?php endif; ?>
+      <?php endforeach; ?>
+    </p>
+  <?php endif; ?>
+  <?= clinic_funnel_cta_html($matchHref, $topicMeta) ?>
+  <?php if (!empty($article['cover_url'])): ?>
+    <img class="article-hero-media" src="<?= e(url((string) $article['cover_url'])) ?>" alt="<?= e($article['title']) ?>" itemprop="image">
+  <?php endif; ?>
+  <?php if (!empty($article['video_url'])): ?>
+    <video class="article-hero-media" src="<?= e(url((string) $article['video_url'])) ?>" controls playsinline></video>
+  <?php endif; ?>
+  <div class="panel article-body" style="margin-top:2rem;max-width:48rem;line-height:1.9" itemprop="articleBody">
+    <?= rich_html_for_display($article['content']) ?>
+  </div>
+  <?= clinic_related_block_html($matchDoctors, $matchHeading, $matchHref) ?>
+  <?php if ($relatedArts !== []): ?>
+    <section class="clinic-match" aria-labelledby="rel-arts-h">
+      <h2 id="rel-arts-h">مقالات نزدیک به همین موضوع</h2>
+      <div class="grid-2">
+        <?php foreach ($relatedArts as $rel): ?>
+          <?= clinic_article_card_html($rel) ?>
+        <?php endforeach; ?>
+      </div>
+    </section>
+  <?php endif; ?>
+</article>
+<?php
+$content = ob_get_clean();
+require __DIR__ . '/../includes/layout.php';

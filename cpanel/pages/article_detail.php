@@ -22,6 +22,13 @@ if (!$article) {
 }
 
 $pageTitle = $article['title'];
+$articleAuthorProfile = null;
+$authorProfileStmt = $pdo->prepare('SELECT dp.id, u.name FROM doctor_profiles dp JOIN users u ON u.id = dp.user_id WHERE dp.user_id = ? AND dp.is_active = 1 AND dp.is_approved = 1 AND u.is_disabled = 0 LIMIT 1');
+$authorProfileStmt->execute([$article['author_id']]);
+$authorProfileCandidate = $authorProfileStmt->fetch();
+if ($authorProfileCandidate && trim((string) $authorProfileCandidate['name']) === trim((string) $article['author_name'])) {
+    $articleAuthorProfile = $authorProfileCandidate;
+}
 $pageDescription = trim((string) ($article['excerpt'] ?: mb_substr(strip_tags((string) $article['content']), 0, 160)));
 $pageKeywords = 'مانا کلینیک, ' . $article['title'] . ', روانشناسی, ' . $article['author_name'];
 $pageCanonical = url('/articles/' . $article['slug']);
@@ -60,6 +67,9 @@ $pageJsonLdGraph = [
         ],
     ],
 ];
+if ($articleAuthorProfile) {
+    $pageJsonLdGraph['@graph'][0]['author']['url'] = seo_absolute_url('/doctors/' . $articleAuthorProfile['id']);
+}
 $pageJsonLd = $pageJsonLdGraph;
 if (!empty($article['cover_url'])) {
     $pageJsonLd['@graph'][0]['image'] = seo_absolute_url(url((string) $article['cover_url']));
@@ -98,7 +108,11 @@ ob_start();
   <a href="<?= e(url('/articles')) ?>" style="color:var(--primary);font-size:.9rem">← بازگشت به مقالات</a>
   <h1 style="margin-top:1rem;max-width:48rem;line-height:1.4" itemprop="headline"><?= e($article['title']) ?></h1>
   <div style="margin-top:1rem;display:flex;flex-wrap:wrap;gap:.75rem;align-items:center">
-    <span class="badge" itemprop="author"><?= e($article['author_name']) ?></span>
+    <?php if ($articleAuthorProfile): ?>
+      <a class="badge" itemprop="author" href="<?= e(url('/doctors/' . $articleAuthorProfile['id'])) ?>"><?= e($article['author_name']) ?></a>
+    <?php else: ?>
+      <span class="badge" itemprop="author"><?= e($article['author_name']) ?></span>
+    <?php endif; ?>
     <?php if (!empty($article['published_at'])): ?>
       <time class="muted" style="font-size:.85rem" datetime="<?= e(date('c', strtotime((string) $article['published_at']))) ?>" itemprop="datePublished">
         <?= e(format_fa_datetime((string) $article['published_at'])) ?>

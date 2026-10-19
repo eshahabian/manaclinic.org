@@ -1,0 +1,324 @@
+[
+  {
+    "url": "https://manaclinic.org/",
+    "status": 200,
+    "canonical": "https://manaclinic.org/",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/doctors",
+    "status": 200,
+    "canonical": "https://manaclinic.org/doctors",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/articles",
+    "status": 200,
+    "canonical": "https://manaclinic.org/articles",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/assistant",
+    "status": 200,
+    "canonical": "https://manaclinic.org/assistant",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/tests",
+    "status": 200,
+    "canonical": "https://manaclinic.org/tests",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/about",
+    "status": 200,
+    "canonical": "https://manaclinic.org/about",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/services",
+    "status": 200,
+    "canonical": "https://manaclinic.org/services",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/services/individual",
+    "status": 200,
+    "canonical": "https://manaclinic.org/services/individual",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/services/couples",
+    "status": 200,
+    "canonical": "https://manaclinic.org/services/couples",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/services/child",
+    "status": 200,
+    "canonical": "https://manaclinic.org/services/child",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/services/premarital",
+    "status": 200,
+    "canonical": "https://manaclinic.org/services/premarital",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/services/family",
+    "status": 200,
+    "canonical": "https://manaclinic.org/services/family",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/services/assessments",
+    "status": 200,
+    "canonical": "https://manaclinic.org/services/assessments",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/services/workshops",
+    "status": 200,
+    "canonical": "https://manaclinic.org/services/workshops",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/faq",
+    "status": 200,
+    "canonical": "https://manaclinic.org/faq",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/rules",
+    "status": 200,
+    "canonical": "https://manaclinic.org/rules",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/contact",
+    "status": 200,
+    "canonical": "https://manaclinic.org/contact",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/collaborate",
+    "status": 200,
+    "canonical": "https://manaclinic.org/collaborate",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/issues",
+    "status": 200,
+    "canonical": "https://manaclinic.org/issues",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/issues/anxiety",
+    "status": 200,
+    "canonical": "https://manaclinic.org/issues/anxiety",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/issues/depression",
+    "status": 200,
+    "canonical": "https://manaclinic.org/issues/depression",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/issues/ocd",
+    "status": 200,
+    "canonical": "https://manaclinic.org/issues/ocd",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/issues/trauma",
+    "status": 200,
+    "canonical": "https://manaclinic.org/issues/trauma",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/issues/panic",
+    "status": 200,
+    "canonical": "https://manaclinic.org/issues/panic",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/issues/grief",
+    "status": 200,
+    "canonical": "https://manaclinic.org/issues/grief",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/issues/relationships",
+    "status": 200,
+    "canonical": "https://manaclinic.org/issues/relationships",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/issues/growth",
+    "status": 200,
+    "canonical": "https://manaclinic.org/issues/growth",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/issues/eating",
+    "status": 200,
+    "canonical": "https://manaclinic.org/issues/eating",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/issues/personality",
+    "status": 200,
+    "canonical": "https://manaclinic.org/issues/personality",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/issues/sexual",
+    "status": 200,
+    "canonical": "https://manaclinic.org/issues/sexual",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/articles/zog-darmani-zehn-agahi-duraes-2026",
+    "status": 200,
+    "canonical": "https://manaclinic.org/articles/zog-darmani-zehn-agahi-duraes-2026",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/articles/tanzim-hayajan-va-ezterab",
+    "status": 200,
+    "canonical": "https://manaclinic.org/articles/tanzim-hayajan-va-ezterab",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/articles/mehrbani-ba-khod-va-ezterab",
+    "status": 200,
+    "canonical": "https://manaclinic.org/articles/mehrbani-ba-khod-va-ezterab",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/articles/khab-salem",
+    "status": 200,
+    "canonical": "https://manaclinic.org/articles/khab-salem",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/articles/modiriat-ezterab",
+    "status": 200,
+    "canonical": "https://manaclinic.org/articles/modiriat-ezterab",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/doctors/0cea89fc28e41df2685cc4ef",
+    "status": 200,
+    "canonical": "https://manaclinic.org/doctors/0cea89fc28e41df2685cc4ef",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/doctors/0ea451165967240a0af633a8",
+    "status": 200,
+    "canonical": "https://manaclinic.org/doctors/0ea451165967240a0af633a8",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/doctors/0f49ac336257aba57330003e",
+    "status": 200,
+    "canonical": "https://manaclinic.org/doctors/0f49ac336257aba57330003e",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/doctors/34db4bb666ea85d4c42b97b0",
+    "status": 200,
+    "canonical": "https://manaclinic.org/doctors/34db4bb666ea85d4c42b97b0",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/doctors/67830e1ded3655928961f303",
+    "status": 200,
+    "canonical": "https://manaclinic.org/doctors/67830e1ded3655928961f303",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/doctors/68450cc62eebcf6bc50bfd25",
+    "status": 200,
+    "canonical": "https://manaclinic.org/doctors/68450cc62eebcf6bc50bfd25",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/doctors/8e8e603d798ddbd2e8177cf0",
+    "status": 200,
+    "canonical": "https://manaclinic.org/doctors/8e8e603d798ddbd2e8177cf0",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/doctors/917aa235b41a87114af27c89",
+    "status": 200,
+    "canonical": "https://manaclinic.org/doctors/917aa235b41a87114af27c89",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/doctors/a06565e5a8c38efe584e3b46",
+    "status": 200,
+    "canonical": "https://manaclinic.org/doctors/a06565e5a8c38efe584e3b46",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/doctors/dprofile001mana",
+    "status": 200,
+    "canonical": "https://manaclinic.org/doctors/dprofile001mana",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
+    "url": "https://manaclinic.org/doctors/e1fbc5c5a6befff2ee5fe918",
+    "status": 200,
+    "canonical": "https://manaclinic.org/doctors/e1fbc5c5a6befff2ee5fe918",
+    "noindex": false,
+    "h1_count": 1
+  }
+]

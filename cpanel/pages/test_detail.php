@@ -13,6 +13,9 @@ if (!$test) {
 }
 
 $testsSidebarActive = $test['slug'];
+if (empty($test['ready'])) {
+    $pageRobots = 'noindex,follow';
+}
 $pageTitle = $test['title'];
 $pageDescription = trim((string) ($test['description'] ?? '')) !== ''
     ? (string) $test['description'] . ' آزمون روانشناسی در مانا کلینیک سعادت‌آباد؛ جایگزین تشخیص بالینی نیست.'

@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-$pageTitle = 'خانواده‌درمانی | مانا کلینیک سعادت‌آباد';
+$pageTitle = 'خانواده‌درمانی در سعادت‌آباد | مانا کلینیک';
 $pageDescription = 'خانواده‌درمانی در مانا کلینیک سعادت‌آباد: بهبود الگوهای ارتباطی، کاهش تعارض و فضای امن‌تر میان اعضای خانواده با همراهی متخصص.';
 $pageCanonical = url('/services/family');
 $pageKeywords = 'خانواده درمانی, مشاوره خانواده, تعارض خانوادگی, مانا کلینیک سعادت آباد';
@@ -67,6 +67,8 @@ ob_start();
         </p>
       <?php endif; ?>
     </section>
+
+    <?= service_local_booking_html('خانواده‌درمانی', $doctorsHref) ?>
 
     <?= service_related_articles_html($pdo, 'family') ?>
   </article>

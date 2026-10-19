@@ -100,6 +100,28 @@ function service_related_articles_html(PDO $pdo, string $serviceKey): string
     return (string) ob_get_clean();
 }
 
+function service_local_booking_html(string $title, string $doctorsHref): string
+{
+    ob_start();
+    ?>
+    <section class="service-local-booking">
+      <h2><?= e($title) ?> در سعادت‌آباد</h2>
+      <p>برای دریافت این خدمت در مانا کلینیک، ابتدا <a href="<?= e($doctorsHref) ?>">متخصصان مرتبط</a> را بررسی کنید. حوزه فعالیت و رویکرد هر درمانگر در پروفایل او معرفی شده است؛ تاریخ، ساعت و نوع جلسه را در همان صفحه انتخاب می‌کنید.</p>
+      <p>محل جلسات حضوری: سعادت‌آباد، خیابان ۳۱ شرقی (جندونی)، روبروی ساختمان پزشکان روزبه، پلاک ۴، واحد ۵، طبقه ۵. امکان جلسه آنلاین به برنامه و نوع خدمت هر درمانگر بستگی دارد.</p>
+      <details class="faq-item">
+        <summary>چطور برای این خدمت نوبت بگیرم؟</summary>
+        <div class="faq-answer"><p>پروفایل متخصص مرتبط را باز کنید، روز و ساعت آزاد را انتخاب کنید و مراحل رزرو را ادامه دهید. برای راهنمایی می‌توانید با <a href="tel:02122065774">۰۲۱۲۲۰۶۵۷۷۴</a> تماس بگیرید.</p></div>
+      </details>
+      <details class="faq-item">
+        <summary>شرایط جلسه و تغییر نوبت را کجا ببینم؟</summary>
+        <div class="faq-answer"><p>اطلاعات نوع جلسه در پروفایل درمانگر درج شده است. پیش از رزرو، <a href="<?= e(url('/faq')) ?>">سوالات متداول</a> و <a href="<?= e(url('/rules')) ?>">شرایط رزرو و لغو نوبت</a> را مطالعه کنید.</p></div>
+      </details>
+      <p><a href="<?= e(url('/contact')) ?>">مشاهده نقشه و راه‌های تماس کلینیک</a></p>
+    </section>
+    <?php
+    return (string) ob_get_clean();
+}
+
 function service_doctors_search_href(string $label): string
 {
     $map = [

@@ -72,6 +72,9 @@ try {
 }
 
 foreach (psych_tests_catalog() as $test) {
+    if (empty($test['ready'])) {
+        continue;
+    }
     $urls[] = [
         'loc' => seo_absolute_url('/tests/' . $test['slug']),
         'priority' => '0.5',

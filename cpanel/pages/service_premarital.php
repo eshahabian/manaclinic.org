@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-$pageTitle = 'مشاوره پیش از ازدواج | مانا کلینیک سعادت‌آباد';
+$pageTitle = 'مشاوره پیش از ازدواج در سعادت‌آباد | مانا کلینیک';
 $pageDescription = 'مشاوره پیش از ازدواج در مانا کلینیک سعادت‌آباد: شناخت عمیق‌تر خود، طرف مقابل و رابطه برای تصمیم آگاهانه‌تر و آمادگی بیشتر برای زندگی مشترک.';
 $pageCanonical = url('/services/premarital');
 $pageKeywords = 'مشاوره پیش از ازدواج, آمادگی ازدواج, مانا کلینیک سعادت آباد';
@@ -67,6 +67,8 @@ ob_start();
         </p>
       <?php endif; ?>
     </section>
+
+    <?= service_local_booking_html('مشاوره پیش از ازدواج', $doctorsHref) ?>
 
     <?= service_related_articles_html($pdo, 'premarital') ?>
   </article>

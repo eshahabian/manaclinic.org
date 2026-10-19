@@ -49,7 +49,7 @@ function seo_render_head(?array $meta = null): string
     if (!str_starts_with($canonical, 'http')) {
         $canonical = seo_absolute_url($canonical);
     }
-    $image = (string) ($meta['image'] ?? ($GLOBALS['pageImage'] ?? seo_absolute_url(url('/assets/img/hero.png'))));
+    $image = (string) ($meta['image'] ?? ($GLOBALS['pageImage'] ?? seo_absolute_url(url('/assets/img/hero.webp'))));
     if (!str_starts_with($image, 'http')) {
         $image = seo_absolute_url($image);
     }

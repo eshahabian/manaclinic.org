@@ -31,11 +31,15 @@ $pageKeywords = 'مانا کلینیک, روانشناس سعادت آباد, ر
 require_once dirname(__DIR__) . '/includes/daily_quotes.php';
 $dailyQuote = daily_quote_for_date();
 $workshopBanners = function_exists('workshop_home_banners') ? workshop_home_banners($pdo) : [];
-$heroImage = url('/assets/img/hero.png');
+$heroImage = url('/assets/img/hero.webp');
+$heroMobileImage = url('/assets/img/hero-mobile.webp');
 ob_start();
 ?>
 <section class="hero-surface" aria-label="مانا کلینیک">
-  <div class="hero-bg" style="background-image:url('<?= e($heroImage) ?>')" role="img" aria-hidden="true"></div>
+  <picture class="hero-bg" aria-hidden="true">
+    <source media="(max-width: 640px)" srcset="<?= e($heroMobileImage) ?>">
+    <img src="<?= e($heroImage) ?>" alt="" width="1536" height="1024" fetchpriority="high" loading="eager" decoding="async" style="width:100%;height:100%;object-fit:cover;object-position:center">
+  </picture>
   <div class="hero-overlay" aria-hidden="true"></div>
   <div class="container-page hero-inner">
     <p class="eyebrow">مانا کلینیک</p>

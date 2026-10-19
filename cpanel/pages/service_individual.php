@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-$pageTitle = 'مشاوره فردی | مانا کلینیک سعادت‌آباد';
+$pageTitle = 'مشاوره فردی در سعادت‌آباد | مانا کلینیک';
 $pageDescription = 'مشاوره فردی در مانا کلینیک سعادت‌آباد: فضای امن و محرمانه برای شناخت افکار و احساسات، کاهش اضطراب و نگرانی، و همراهی با روان‌شناس. رزرو نوبت حضوری و آنلاین.';
 $pageCanonical = url('/services/individual');
 $pageKeywords = 'مشاوره فردی, روان‌درمانی فردی, روانشناس سعادت آباد, مشاوره اضطراب, مانا کلینیک';
@@ -79,6 +79,8 @@ ob_start();
         </p>
       <?php endif; ?>
     </section>
+
+    <?= service_local_booking_html('مشاوره فردی', $doctorsHref) ?>
 
     <?= service_related_articles_html($pdo, 'individual') ?>
   </article>

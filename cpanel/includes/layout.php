@@ -178,8 +178,8 @@ if ($user) {
         <a href="<?= e(url('/services')) ?>">خدمات</a>
         <a href="<?= e(url('/doctors')) ?>">متخصصان</a>
         <a href="<?= e(url('/articles')) ?>">مقالات</a>
-        <a href="<?= e(url('/about')) ?>">درباره ما</a>
         <a href="<?= e(url('/faq')) ?>">سوالات متداول</a>
+        <a href="<?= e(url('/about')) ?>">درباره ما</a>
         <a href="<?= e(url('/contact')) ?>">تماس با ما</a>
         <?php if ($panelHref): ?>
           <a href="<?= e(url($panelHref)) ?>">پنل من</a>
@@ -227,8 +227,8 @@ if ($user) {
           <a class="<?= e(trim($mobileHere('/services'))) ?>" href="<?= e(url('/services')) ?>">خدمات</a>
           <a class="<?= e(trim($mobileHere('/doctors'))) ?>" href="<?= e(url('/doctors')) ?>">متخصصان</a>
           <a class="<?= e(trim($mobileHere('/articles'))) ?>" href="<?= e(url('/articles')) ?>">مقالات</a>
-          <a class="<?= e(trim($mobileHere('/about'))) ?>" href="<?= e(url('/about')) ?>">درباره ما</a>
           <a class="<?= e(trim($mobileHere('/faq'))) ?>" href="<?= e(url('/faq')) ?>">سوالات متداول</a>
+          <a class="<?= e(trim($mobileHere('/about'))) ?>" href="<?= e(url('/about')) ?>">درباره ما</a>
           <a class="<?= e(trim($mobileHere('/contact'))) ?>" href="<?= e(url('/contact')) ?>">تماس با ما</a>
           <?php if ($panelHref): ?>
             <a class="<?= e(trim($mobileHere($panelHref))) ?>" href="<?= e(url($panelHref)) ?>">پنل من</a>

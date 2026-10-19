@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-$pageTitle = 'زوج‌درمانی | مانا کلینیک سعادت‌آباد';
+$pageTitle = 'زوج‌درمانی در سعادت‌آباد | مانا کلینیک';
 $pageDescription = 'زوج‌درمانی در مانا کلینیک سعادت‌آباد: شناخت الگوهای رابطه، بهبود ارتباط و حل تعارض با همراهی متخصص. رزرو نوبت حضوری و آنلاین.';
 $pageCanonical = url('/services/couples');
 $pageKeywords = 'زوج درمانی, مشاوره زوج, روابط عاطفی, مانا کلینیک سعادت آباد';
@@ -159,6 +159,8 @@ ob_start();
         </p>
       <?php endif; ?>
     </section>
+
+    <?= service_local_booking_html('زوج‌درمانی', $doctorsHref) ?>
 
     <?= service_related_articles_html($pdo, 'couples') ?>
   </article>

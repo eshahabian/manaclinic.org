@@ -1,0 +1,199 @@
+<?php
+declare(strict_types=1);
+
+$doctors = $pdo->query("
+  SELECT dp.*, u.name
+  FROM doctor_profiles dp
+  JOIN users u ON u.id = dp.user_id
+  WHERE dp.is_active = 1 AND dp.is_approved = 1 AND u.is_disabled = 0
+  ORDER BY
+    CASE WHEN TRIM(COALESCE(dp.avatar_url, '')) <> '' THEN 0 ELSE 1 END,
+    CASE WHEN u.name LIKE '%گرانمایه%' THEN 0 ELSE 1 END,
+    dp.created_at ASC
+  LIMIT 4
+")->fetchAll();
+
+$articles = $pdo->query("
+  SELECT a.*, u.name AS author_name
+  FROM articles a
+  JOIN users u ON u.id = a.author_id
+  WHERE a.published = 1
+  ORDER BY a.published_at DESC
+  LIMIT 3
+")->fetchAll();
+$leadArticle = $articles[0] ?? null;
+$moreArticles = array_slice($articles, 1);
+
+$pageTitle = 'کلینیک روانشناسی سعادت‌آباد';
+$pageDescription = 'مانا کلینیک سعادت‌آباد؛ روانشناسی، روان‌درمانی، زوج‌درمانی، کارگاه و دوره آموزشی، رزرو نوبت آنلاین و دستیار هوشمند سلامت روان.';
+$pageCanonical = url('/');
+$pageKeywords = 'مانا کلینیک, روانشناس سعادت آباد, رزرو نوبت روانشناسی, کارگاه روانشناسی, زوج درمانی, مشاوره اضطراب';
+require_once dirname(__DIR__) . '/includes/daily_quotes.php';
+$dailyQuote = daily_quote_for_date();
+$workshopBanners = function_exists('workshop_home_banners') ? workshop_home_banners($pdo) : [];
+$heroImage = url('/assets/img/hero.png');
+ob_start();
+?>
+<section class="hero-surface" aria-label="مانا کلینیک">
+  <div class="hero-bg" style="background-image:url('<?= e($heroImage) ?>')" role="img" aria-hidden="true"></div>
+  <div class="hero-overlay" aria-hidden="true"></div>
+  <div class="container-page hero-inner">
+    <p class="eyebrow">مانا کلینیک</p>
+    <h1>آرامش ذهن، مسیر روشن‌تر زندگی</h1>
+    <p style="max-width:36rem;opacity:.92;margin-top:1rem;line-height:1.9">
+      از مسئله‌ات شروع کن، درمانگر مناسب را ببین و نوبت حضوری یا آنلاین بگیر.
+    </p>
+    <div class="hero-actions">
+      <a class="btn btn-accent" href="<?= e(url('/doctors')) ?>">رزرو نوبت</a>
+      <a class="btn btn-ghost" href="<?= e(url('/articles')) ?>">خواندن مقالات</a>
+    </div>
+  </div>
+</section>
+
+<?php if ($dailyQuote !== ''): ?>
+<aside class="home-daily-quote" aria-labelledby="home-daily-quote-label">
+  <div class="home-daily-quote-panel">
+    <p class="home-daily-quote-label" id="home-daily-quote-label">جملهٔ امروز</p>
+    <blockquote class="home-daily-quote-text">
+      <p><?= e($dailyQuote) ?></p>
+    </blockquote>
+  </div>
+</aside>
+<?php endif; ?>
+
+<section class="container-page section">
+      <section class="home-workshop-banners" id="home-workshop-banners" aria-labelledby="home-workshop-heading" style="margin-top:0">
+        <div class="section-head">
+          <div>
+            <h2 id="home-workshop-heading">دوره‌ها و کارگاه‌ها</h2>
+            <p class="muted">روی کارت بزنید تا توضیح و ثبت‌نام را ببینید</p>
+          </div>
+        </div>
+        <?php if ($workshopBanners): ?>
+        <div class="home-workshop-track">
+          <?php foreach ($workshopBanners as $promo): ?>
+            <?php
+              $phase = workshop_promo_phase($promo);
+              $when = workshop_is_offline((string) ($promo['type'] ?? ''))
+                  ? 'دوره آفلاین'
+                  : (format_workshop_datetime_fa((string) ($promo['starts_at'] ?? '')) . ' تا ' . format_workshop_datetime_fa((string) ($promo['ends_at'] ?? '')));
+              $meta = trim(workshop_type_label((string) ($promo['type'] ?? '')) . ' · ' . (string) ($promo['doctor_name'] ?? '') . ' · ' . $when);
+              $canApply = workshop_can_enroll($promo) && $phase !== 'done' && (string) ($promo['status'] ?? '') === 'PUBLISHED';
+              $bannerSrc = function_exists('workshop_promo_image_src')
+                  ? workshop_promo_image_src($promo)
+                  : '';
+              $blurb = function_exists('workshop_promo_blurb')
+                  ? workshop_promo_blurb($promo)
+                  : '';
+              $notes = trim((string) ($promo['description'] ?? ''));
+              $typeKey = workshop_tab_from_type((string) ($promo['type'] ?? ''));
+            ?>
+            <button
+              type="button"
+              class="home-workshop-banner"
+              data-workshop-banner
+              data-title="<?= e((string) ($promo['title'] ?? '')) ?>"
+              data-description="<?= e($blurb) ?>"
+              data-notes="<?= e($notes) ?>"
+              data-meta="<?= e($meta) ?>"
+              data-image="<?= e($bannerSrc) ?>"
+              data-apply="<?= e(workshop_apply_url((string) ($promo['id'] ?? ''))) ?>"
+              data-can-apply="<?= $canApply ? '1' : '0' ?>"
+            >
+              <img src="<?= e($bannerSrc) ?>" alt="<?= e((string) ($promo['title'] ?? 'بنر دوره')) ?>">
+              <span class="home-workshop-caption">
+                <strong><?= e((string) ($promo['title'] ?? 'دوره')) ?></strong>
+              </span>
+              <span class="home-workshop-badges">
+                <span class="home-workshop-badge home-workshop-badge--type-<?= e($typeKey) ?>"><?= e(workshop_type_label((string) ($promo['type'] ?? ''))) ?></span>
+                <span class="home-workshop-badge home-workshop-badge--<?= e($phase) ?>"><?= e(workshop_promo_phase_label($phase)) ?></span>
+              </span>
+            </button>
+          <?php endforeach; ?>
+        </div>
+        <?php else: ?>
+          <p class="muted home-workshop-empty">به‌زودی دوره‌های جدید اینجا اعلام می‌شود.</p>
+        <?php endif; ?>
+      </section>
+
+      <div id="home-workshop-modal" class="home-workshop-modal" aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="home-workshop-modal-title">
+        <div class="home-workshop-modal-backdrop" data-workshop-close tabindex="-1"></div>
+        <div class="home-workshop-modal-panel">
+          <div class="home-workshop-modal-header">
+            <h2 id="home-workshop-modal-title"></h2>
+            <button type="button" class="home-workshop-modal-close" data-workshop-close aria-label="بستن">×</button>
+          </div>
+          <div class="home-workshop-modal-body" id="home-workshop-modal-body"></div>
+          <div class="home-workshop-modal-actions">
+            <a class="btn btn-primary" id="home-workshop-modal-cta" href="#">ثبت‌نام در دوره</a>
+            <button type="button" class="btn btn-outline" data-workshop-close>بستن</button>
+          </div>
+        </div>
+      </div>
+
+      <?php if (function_exists('assistant_enabled') ? assistant_enabled() : true): ?>
+      <a class="home-assistant-tile" href="<?= e(url('/assistant')) ?>">
+        <span class="home-assistant-icon" aria-hidden="true">
+          <svg viewBox="0 0 64 64" width="56" height="56" fill="none">
+            <rect x="14" y="22" width="36" height="28" rx="10" fill="#1a5c4a"/>
+            <rect x="18" y="26" width="28" height="20" rx="7" fill="#e8f6f1"/>
+            <circle cx="26" cy="36" r="3.2" fill="#1a5c4a"/>
+            <circle cx="38" cy="36" r="3.2" fill="#1a5c4a"/>
+            <path d="M28 42c1.6 1.4 6.4 1.4 8 0" stroke="#1a5c4a" stroke-width="2" stroke-linecap="round"/>
+            <rect x="29" y="12" width="6" height="10" rx="3" fill="#2d8a6e"/>
+            <circle cx="32" cy="11" r="4" fill="#7ed6b5"/>
+            <rect x="8" y="30" width="6" height="12" rx="3" fill="#2d8a6e"/>
+            <rect x="50" y="30" width="6" height="12" rx="3" fill="#2d8a6e"/>
+          </svg>
+        </span>
+        <span class="home-assistant-copy">
+          <span class="home-assistant-eyebrow">دستیار هوشمند مانا</span>
+          <span class="home-assistant-title">فقط کافیه حالت رو بهم بگی</span>
+          <span class="home-assistant-cta">شروع گفتگو</span>
+        </span>
+      </a>
+      <?php endif; ?>
+
+      <div class="home-articles-block" style="margin-top:3rem">
+        <div class="section-head">
+          <div>
+            <h2>آخرین مقالات</h2>
+            <p class="muted">دانش کاربردی برای سلامت روان</p>
+          </div>
+        </div>
+        <?php if ($articles): ?>
+          <div class="therapists-all-link">
+            <a class="articles-all-link" href="<?= e(url('/articles')) ?>">مشاهده همه مقالات ←</a>
+          </div>
+        <?php endif; ?>
+        <div class="articles-showcase">
+          <?php foreach ($articles as $article): ?>
+            <?= clinic_article_card_html($article) ?>
+          <?php endforeach; ?>
+        </div>
+      </div>
+
+      <div class="home-specialists-block" style="margin-top:3rem">
+        <div class="section-head">
+          <div>
+            <p class="eyebrow">تیم درمانگران</p>
+            <h2>متخصصانی که به آن‌ها اعتماد می‌کنید</h2>
+          </div>
+        </div>
+        <?php if ($doctors): ?>
+          <div class="therapists-all-link">
+            <a class="articles-all-link" href="<?= e(url('/doctors')) ?>">مشاهده همه درمانگرها ←</a>
+          </div>
+        <?php endif; ?>
+        <div class="doctors-showcase">
+          <?php foreach ($doctors as $doc): ?>
+            <?= doctor_card_html($doc) ?>
+          <?php endforeach; ?>
+          <?php if (!$doctors): ?><p class="muted">هنوز متخصصی ثبت نشده است.</p><?php endif; ?>
+        </div>
+      </div>
+</section>
+<?php
+$content = ob_get_clean();
+$pageScripts = '<script src="' . e(url('/assets/js/home-workshop-banners.js')) . '?v=20260908k"></script>';
+require __DIR__ . '/../includes/layout.php';
