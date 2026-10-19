@@ -1938,13 +1938,22 @@ body.home-workshop-locked { overflow: hidden; }
   .footer-grid.is-compact { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 .footer-title { font-weight: 700; margin: 0 0 .75rem; }
+.footer-verse-frame {
+  width: min(100%, 400px);
+  height: 240px;
+  margin: 1.25rem auto 0;
+  padding: 12px 8px;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+}
 .footer-verse-art {
   display: block;
-  width: min(100%, 360px);
-  height: auto;
-  max-height: 160px;
-  object-fit: contain;
-  margin: 1rem auto 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+@media (max-width: 479px) {
+  .footer-verse-frame { height: 220px; }
 }
 html[data-theme="dark"] .footer-verse-art { filter: invert(1) brightness(.95); }
 .footer-consult-lead {

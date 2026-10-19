@@ -86,7 +86,7 @@ if ($user) {
   })();
   </script>
   <?= seo_render_head() ?>
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20261019otpui1">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20261019footer2">
   <link rel="stylesheet" href="<?= e(url('/assets/css/mana-look.css')) ?>?v=20260930b">
   <?php
     // آزمایش سبک حس روان‌تر — برای خاموش کردن: false
@@ -322,7 +322,19 @@ if ($user) {
         </div>
         <?php $footerVerses = glob(__DIR__ . '/../assets/img/hafez/verse-*.png') ?: []; ?>
         <?php if ($footerVerses): ?>
-          <img class="footer-verse-art" src="<?= e(url('/assets/img/hafez/' . basename($footerVerses[array_rand($footerVerses)]))) ?>" alt="" width="560" height="160" loading="lazy">
+          <?php
+            $footerVerseFile = $footerVerses[array_rand($footerVerses)];
+            $footerVerseName = basename($footerVerseFile);
+            $footerVerseBounds = require __DIR__ . '/footer_verse_bounds.php';
+            $footerVerseSize = getimagesize($footerVerseFile);
+            [$verseWidth, $verseHeight, $verseX, $verseY, $verseVisibleWidth, $verseVisibleHeight]
+                = $footerVerseBounds[$footerVerseName] ?? [$footerVerseSize[0], $footerVerseSize[1], 0, 0, $footerVerseSize[0], $footerVerseSize[1]];
+          ?>
+          <div class="footer-verse-frame" aria-hidden="true">
+            <svg class="footer-verse-art" viewBox="<?= (int)$verseX ?> <?= (int)$verseY ?> <?= (int)$verseVisibleWidth ?> <?= (int)$verseVisibleHeight ?>" width="400" height="240" preserveAspectRatio="xMidYMid meet" focusable="false">
+              <image href="<?= e(url('/assets/img/hafez/' . $footerVerseName)) ?>" width="<?= (int)$verseWidth ?>" height="<?= (int)$verseHeight ?>" />
+            </svg>
+          </div>
         <?php endif; ?>
       </div>
       <div>
