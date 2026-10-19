@@ -5,8 +5,8 @@ function sms_template_catalog(): array
 {
     return [
         // WebOne rejects longer Persian bodies (~66+) with misleading "insufficient credit".
-        // Keep appointment greetings compact: brand + name + short date line (<= ~55 chars).
-        'appointment_booked'=>['ثبت و تأیید نوبت',"مانا کلینیک\n{patient} عزیز\nنوبت {datetime}"],
+        // Proven SENT: brand + name + date only (~46 chars). Avoid «نوبت شما در … ثبت شد».
+        'appointment_booked'=>['ثبت و تأیید نوبت',"مانا کلینیک\n{patient} عزیز\n{datetime}"],
         'appointment_cancelled'=>['لغو نوبت',"مانا کلینیک\n{patient} عزیز\nلغو {datetime}"],
         'appointment_reminder'=>['یادآوری نوبت',"مانا کلینیک\n{patient} عزیز\nیادآوری {datetime}"],
         'workshop_registered'=>['تأیید ثبت‌نام کارگاه',"مانا کلینیک\n{patient} عزیز\nثبت‌نام {datetime}"],
@@ -76,9 +76,12 @@ function sms_template_render(PDO $pdo, string $kind, array $variables): string
         $line3 = match ($kind) {
             'appointment_cancelled' => 'لغو ' . $when,
             'appointment_reminder' => 'یادآوری ' . $when,
-            default => 'نوبت ' . $when,
+            default => $when,
         };
-        $body = "مانا کلینیک\n{$first}\n{$line3}";
+        $body = "مانا کلینیک\n{$first} عزیز\n{$line3}";
+        if (mb_strlen($body) > 55) {
+            $body = "مانا کلینیک\n{$first}\n{$line3}";
+        }
     }
     if (mb_strlen($body) > 300) {
         $body = mb_substr($body, 0, 297) . '…';
@@ -206,11 +209,11 @@ function sms_provider_error_message(int $code): string
         5 => 'تعداد گیرندگان بیش از حد مجاز است.',
         6 => 'خط فرستنده غیرفعال است.',
         7 => 'متن پیامک شامل کلمات فیلترشده است.',
-        8 => 'اعتبار پنل کافی نیست.',
+        8 => 'وب‌وان ارسال را رد کرد (کد ۸؛ گاهی به‌جای محدودیت/تکرار به‌اشتباه «کمبود اعتبار» می‌گوید).',
         9 => 'سامانه پیامک در حال به‌روزرسانی است.',
         10 => 'وب‌سرویس پیامک غیرفعال است.',
         14 => 'تعرفه کاربر مشخص نشده است.',
-        15 => 'ارسال تکراری؛ کمی بعد دوباره تلاش کنید.',
+        15 => 'ارسال تکراری؛ چند دقیقه بعد دوباره تلاش کنید.',
         16 => 'شماره موبایل گیرنده نامعتبر است.',
         17 => 'خط OTP برای این حساب یافت نشد.',
         19 => 'متن با الگوی پنل یکی نیست؛ بخش ثابت باید عین الگو باشد.',
