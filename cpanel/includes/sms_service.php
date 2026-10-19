@@ -4,13 +4,12 @@ declare(strict_types=1);
 function sms_template_catalog(): array
 {
     return [
-        // WebOne rejects longer Persian bodies (~66+) with misleading "insufficient credit".
-        // Proven SENT: brand + name + date only (~46 chars). Avoid «نوبت شما در … ثبت شد».
-        'appointment_booked'=>['ثبت و تأیید نوبت',"مانا کلینیک\n{patient} عزیز\n{datetime}"],
-        'appointment_cancelled'=>['لغو نوبت',"مانا کلینیک\n{patient} عزیز\nلغو {datetime}"],
-        'appointment_reminder'=>['یادآوری نوبت',"مانا کلینیک\n{patient} عزیز\nیادآوری {datetime}"],
-        'workshop_registered'=>['تأیید ثبت‌نام کارگاه',"مانا کلینیک\n{patient} عزیز\nثبت‌نام {datetime}"],
-        'workshop_reminder'=>['یادآوری کارگاه',"مانا کلینیک\n{patient} عزیز\nکارگاه {datetime}"],
+        // بدون اسم؛ همان قالب کوتاهی که قبلاً SENT می‌شد.
+        'appointment_booked'=>['ثبت و تأیید نوبت','مانا کلینیک: نوبت شما در {datetime} ثبت شد.'],
+        'appointment_cancelled'=>['لغو نوبت','مانا کلینیک: نوبت شما در {datetime} لغو شد.'],
+        'appointment_reminder'=>['یادآوری نوبت','مانا کلینیک: یادآوری نوبت {datetime}'],
+        'workshop_registered'=>['تأیید ثبت‌نام کارگاه','مانا کلینیک: ثبت‌نام کارگاه از {datetime}'],
+        'workshop_reminder'=>['یادآوری کارگاه','مانا کلینیک: یادآوری کارگاه {datetime}'],
         'workshop_announcement'=>['معرفی کارگاه','مانا کلینیک: کارگاه جدید از {datetime}'],
         'quiet'=>['پیگیری عدم مراجعه','مانا کلینیک: {message}'],
         'login_otp'=>['کد ورود','کد ورود شما {code}'],
@@ -32,28 +31,11 @@ function sms_template_render(PDO $pdo, string $kind, array $variables): string
     } elseif ($isAppointment || $isWorkshop) {
         $candidate = trim((string) $template);
         $needsWhen = !str_contains($candidate, '{datetime}');
-        $needsPatient = !str_contains($candidate, '{patient}');
-        // Old long custom templates (e.g. «نوبت شما در … ثبت شد») fail at WebOne; force compact catalog.
-        $looksLong = str_contains($candidate, 'نوبت شما در')
-            || str_contains($candidate, 'ثبت شد')
-            || str_contains($candidate, 'لغو شد')
-            || mb_strlen($candidate) > 80;
-        if ($candidate === '' || $needsWhen || ($isAppointment && $needsPatient) || $looksLong) {
+        // قالب سفارشی با نام/چندخطی یا خیلی بلند → برگرد به کاتالوگ بدون اسم.
+        $hasGreeting = str_contains($candidate, 'عزیز') || str_contains($candidate, '{patient}');
+        $looksCustomLong = str_contains($candidate, "\n") || mb_strlen($candidate) > 90;
+        if ($candidate === '' || $needsWhen || $hasGreeting || $looksCustomLong) {
             $template = $catalog[$kind][1];
-        }
-    }
-    if (($isAppointment || $isWorkshop) && trim((string) ($variables['patient'] ?? '')) === '') {
-        $variables['patient'] = 'مراجعه‌کننده';
-    }
-    // Always greet with first name only (e.g. «عماد عزیز»), not full name.
-    if ($isAppointment || $isWorkshop) {
-        $patient = trim((string) ($variables['patient'] ?? ''));
-        if ($patient !== '') {
-            $bits = preg_split('/\s+/u', $patient) ?: [];
-            $first = trim((string) ($bits[0] ?? $patient));
-            if ($first !== '') {
-                $variables['patient'] = $first;
-            }
         }
     }
     $map=[];foreach($variables as $key=>$value)$map['{'.$key.'}']=trim((string)$value);
@@ -61,25 +43,7 @@ function sms_template_render(PDO $pdo, string $kind, array $variables): string
     if ($kind === 'login_otp') {
         $body = trim(preg_replace('/\s+/u', ' ', $body) ?? '');
     } else {
-        // حفظ خطوط؛ فقط فاصله‌های اضافه داخل هر خط را جمع کن.
-        $lines = preg_split("/\r\n|\n|\r/u", $body) ?: [];
-        $lines = array_map(static fn(string $line): string => trim(preg_replace('/[^\S\n]+/u', ' ', $line) ?? ''), $lines);
-        $body = trim(implode("\n", array_values(array_filter($lines, static fn(string $line): bool => $line !== ''))));
-    }
-    if ($isAppointment && mb_strlen($body) > 55) {
-        $when = trim((string) ($variables['datetime'] ?? ''));
-        $patient = trim((string) ($variables['patient'] ?? 'مراجعه‌کننده'));
-        $bits = preg_split('/\s+/u', $patient) ?: [];
-        $first = trim((string) ($bits[0] ?? $patient)) ?: 'مراجعه‌کننده';
-        $line3 = match ($kind) {
-            'appointment_cancelled' => 'لغو ' . $when,
-            'appointment_reminder' => 'یادآوری ' . $when,
-            default => $when,
-        };
-        $body = "مانا کلینیک\n{$first} عزیز\n{$line3}";
-        if (mb_strlen($body) > 55) {
-            $body = "مانا کلینیک\n{$first}\n{$line3}";
-        }
+        $body = trim(preg_replace('/\s+/u', ' ', $body) ?? '');
     }
     if (mb_strlen($body) > 300) {
         $body = mb_substr($body, 0, 297) . '…';
