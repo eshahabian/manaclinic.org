@@ -14,6 +14,8 @@ function sms_template_catalog(): array
         // درمانگر همان نوبت انتخاب‌شده در پنل
         'doctor_appointment_booked'=>['اعلام نوبت به درمانگر','مانا کلینیک: نوبت {patient} {datetime}'],
         'doctor_appointment_cancelled'=>['اعلام لغو به درمانگر','مانا کلینیک: لغو {patient} {datetime}'],
+        // خلاصه صبحگاهی (متن پویا؛ این فقط برچسب ادمین است)
+        'doctor_daily_digest'=>['خلاصه نوبت‌های روز برای درمانگر','{doctor} گرامی\nنوبت های رزرو شده در تاریخ {date} :\n{slots}'],
         'quiet'=>['پیگیری عدم مراجعه','مانا کلینیک: {message}'],
         'login_otp'=>['کد ورود','کد ورود شما {code}'],
     ];
@@ -305,7 +307,10 @@ function sms_queue_extended(PDO $pdo, string $phone, string $body, string $kind,
     $phone = sms_iran_mobile($phone);
     $body = trim($body);
     if ($phone === null || $body === '') return false;
-    if (mb_strlen($body) > 500) $body = mb_substr($body, 0, 497) . '…';
+    $maxLen = $kind === 'doctor_daily_digest' ? 1200 : 500;
+    if (mb_strlen($body) > $maxLen) {
+        $body = mb_substr($body, 0, $maxLen - 3) . '…';
+    }
     $stmt = $pdo->prepare("INSERT IGNORE INTO sms_outbox(id,phone,body,kind,status,dedup_key,due_at,expires_at,context_json)
         VALUES(?,?,?,?,'PENDING',?,?,?,?)");
     $stmt->execute([cuid(),$phone,$body,$kind,$key !== null ? hash('sha256',$key) : null,$dueAt ?? date('Y-m-d H:i:s'),$expiresAt,$context ? json_encode($context,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR) : null]);
@@ -406,6 +411,9 @@ function sms_job_still_valid(PDO $pdo, array $job): bool
         if(!$a || $a['starts_at']!==$context['starts_at'] || $a['status']!==$context['status'])return false;
         if(isset($context['doctor_id']) && $context['doctor_id']!==null && $context['doctor_id']!=='' && (string)$a['doctor_id']!==(string)$context['doctor_id'])return false;
         return true;
+    }
+    if($context['entity']==='doctor_digest'){
+        return ($context['digest_date'] ?? '') === date('Y-m-d');
     }
     $stmt=$pdo->prepare('SELECT e.status,w.status AS workshop_status,w.starts_at,w.location,w.type,w.title FROM workshop_enrollments e JOIN workshops w ON w.id=e.workshop_id WHERE e.id=?');$stmt->execute([$context['id']]);$w=$stmt->fetch();
     if(!$w||!in_array($w['status'],['CONFIRMED','COMPLETED'],true)||in_array($w['workshop_status'],['DRAFT','CANCELLED','COMPLETED'],true)||$w['starts_at']!==$context['starts_at'])return false;
@@ -614,10 +622,126 @@ function sms_dispatch_pending(PDO $pdo, int $limit=20): int
     return $sent;
 }
 
+/**
+ * متن خلاصه صبحگاهی نوبت‌های یک درمانگر.
+ * @param list<string> $times مثلاً ['10:00','11:00']
+ */
+function sms_doctor_daily_digest_body(string $doctorName, string $dayLabel, array $times): string
+{
+    $name = trim($doctorName);
+    if ($name === '') {
+        $name = 'درمانگر';
+    }
+    $lines = [
+        $name . ' گرامی',
+        'نوبت های رزرو شده در تاریخ ' . $dayLabel . ' :',
+    ];
+    foreach ($times as $time) {
+        $time = trim((string) $time);
+        if ($time === '') {
+            continue;
+        }
+        $lines[] = 'ساعت ' . to_fa_digits($time);
+    }
+
+    return implode("\n", $lines);
+}
+
+/**
+ * هر روز از ساعت ۷ صبح، برای درمانگرهایی که همان روز نوبت تأییدشده دارند یک پیامک صف می‌کند.
+ */
+function sms_queue_doctor_daily_digests(PDO $pdo): int
+{
+    if (!sms_connection_ready($pdo)) {
+        return 0;
+    }
+    // قبل از ۷ صبح صف نشود (کرون هر دقیقه است).
+    if ((int) date('G') < 7) {
+        return 0;
+    }
+    ensure_outreach_schema($pdo);
+    $today = date('Y-m-d');
+    $dayLabel = function_exists('format_fa_day_long')
+        ? format_fa_day_long($today . ' 12:00:00')
+        : to_fa_digits($today);
+    $dueAt = $today . ' 07:00:00';
+    $expiresAt = $today . ' 23:59:59';
+
+    $stmt = $pdo->prepare("
+      SELECT dp.id AS doctor_id, u.name AS doctor_name, u.phone AS doctor_phone, a.starts_at
+      FROM appointments a
+      JOIN doctor_profiles dp ON dp.id = a.doctor_id
+      JOIN users u ON u.id = dp.user_id
+      WHERE DATE(a.starts_at) = ?
+        AND a.status = 'CONFIRMED'
+        AND dp.is_active = 1
+        AND dp.is_approved = 1
+        AND u.is_disabled = 0
+      ORDER BY dp.id ASC, a.starts_at ASC
+    ");
+    $stmt->execute([$today]);
+    $rows = $stmt->fetchAll() ?: [];
+    if ($rows === []) {
+        return 0;
+    }
+
+    /** @var array<string,array{name:string,phone:string,times:list<string>}> $byDoctor */
+    $byDoctor = [];
+    foreach ($rows as $row) {
+        $doctorId = (string) ($row['doctor_id'] ?? '');
+        if ($doctorId === '') {
+            continue;
+        }
+        if (!isset($byDoctor[$doctorId])) {
+            $byDoctor[$doctorId] = [
+                'name' => (string) ($row['doctor_name'] ?? ''),
+                'phone' => (string) ($row['doctor_phone'] ?? ''),
+                'times' => [],
+            ];
+        }
+        $ts = strtotime((string) ($row['starts_at'] ?? ''));
+        if (!$ts) {
+            continue;
+        }
+        $byDoctor[$doctorId]['times'][] = date('H:i', $ts);
+    }
+
+    $queued = 0;
+    foreach ($byDoctor as $doctorId => $pack) {
+        $times = array_values(array_unique($pack['times']));
+        if ($times === []) {
+            continue;
+        }
+        $phone = sms_iran_mobile($pack['phone']);
+        if ($phone === null) {
+            continue;
+        }
+        $body = sms_doctor_daily_digest_body($pack['name'], $dayLabel, $times);
+        $key = 'doctor-digest:' . $doctorId . ':' . $today;
+        if (sms_queue_extended(
+            $pdo,
+            $phone,
+            $body,
+            'doctor_daily_digest',
+            $key,
+            $dueAt,
+            $expiresAt,
+            ['entity' => 'doctor_digest', 'doctor_id' => $doctorId, 'digest_date' => $today]
+        )) {
+            $queued++;
+        }
+    }
+
+    return $queued;
+}
+
 function sms_run_worker(PDO $pdo): void
 {
     ensure_outreach_schema($pdo);
     if(!(int)$pdo->query("SELECT GET_LOCK('mana_sms_collect',0)")->fetchColumn())return;
-    try{sms_collect_events($pdo);}finally{$pdo->query("SELECT RELEASE_LOCK('mana_sms_collect')");}
+    try{
+        sms_collect_events($pdo);
+        sms_queue_doctor_daily_digests($pdo);
+    }finally{$pdo->query("SELECT RELEASE_LOCK('mana_sms_collect')");}
     sms_dispatch_pending($pdo);
 }

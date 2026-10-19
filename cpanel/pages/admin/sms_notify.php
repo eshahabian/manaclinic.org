@@ -37,6 +37,7 @@ ob_start();
   <h2>متن پیامک‌ها</h2>
   <p class="muted">متن دلخواه را وارد کنید. متن خالی به پیش‌فرض برمی‌گردد. تغییرات برای پیامک‌های جدید است؛ متن پیامک‌های قبلی صف تغییر نمی‌کند.</p>
   <p class="muted" style="margin:.35rem 0 0;line-height:1.7">پیامک درمانگر برای همان درمانگری می‌رود که در پنل برای نوبت انتخاب شده؛ شماره موبایل حساب درمانگر لازم است.</p>
+  <p class="muted" style="margin:.35rem 0 0;line-height:1.7">خلاصه صبحگاهی نوبت‌ها هر روز ساعت ۷ برای درمانگر ارسال می‌شود؛ متن آن از روی نوبت‌های همان روز ساخته می‌شود.</p>
   <?php foreach(sms_template_catalog() as $kind=>$item):
     preg_match_all('/\{[^{}]+\}/u',$item[1],$matches); $tokens=array_unique($matches[0]);
     if(in_array($kind,['appointment_booked','appointment_cancelled','appointment_reminder','workshop_registered','workshop_reminder','doctor_appointment_booked','doctor_appointment_cancelled'],true))$tokens[]='{patient}';

@@ -237,6 +237,25 @@ function format_fa_time(string $datetime): string
     return to_fa_digits(date('H:i', $ts));
 }
 
+/** تاریخ شمسی بلند برای پیامک: «۱۲ مرداد ۱۴۰۵» */
+function format_fa_day_long(string $datetime): string
+{
+    $ts = strtotime($datetime);
+    if (!$ts) {
+        return to_fa_digits($datetime);
+    }
+    $parts = explode('-', date('Y-m-d', $ts));
+    if (count($parts) !== 3) {
+        return to_fa_digits(date('Y/m/d', $ts));
+    }
+    [$gy, $gm, $gd] = array_map('intval', $parts);
+    [$jy, $jm, $jd] = gregorian_to_jalali($gy, $gm, $gd);
+    $months = jalali_month_names();
+    $monthName = $months[$jm] ?? (string) $jm;
+
+    return to_fa_digits((string) $jd) . ' ' . $monthName . ' ' . to_fa_digits((string) $jy);
+}
+
 /** تاریخ و ساعت کارگاه با تقویم شمسی */
 function format_workshop_datetime_fa(string $datetime): string
 {

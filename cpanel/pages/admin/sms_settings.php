@@ -13,6 +13,7 @@ ob_start();
 <p class="muted">سرویس: <a href="https://webone-sms.ir/" target="_blank" rel="noopener noreferrer">وب‌وان</a>. با کلید API و شماره خط ارسال می‌شود. تا تکمیل تنظیمات، پیامکی ارسال نمی‌شود.</p>
 <p><?= sms_connection_ready($pdo)?'ارسال پیامک فعال است.':'ارسال پیامک فعلاً خاموش است.' ?></p>
 <p class="muted">آخرین اجرای صف: <?= $workerSeen!==''?e(format_fa_datetime($workerSeen)):'هنوز اجرا نشده' ?></p>
+<p class="muted">هر روز از ساعت ۷ صبح، برای درمانگرانی که همان روز نوبت تأییدشده دارند، خلاصهٔ ساعت‌های نوبت پیامک می‌شود (کرون <code dir="ltr">sms-worker.php</code> لازم است).</p>
 <?php if (mail_setting_get($pdo,'sms_cron_installed','0')!=='1'): ?>
 <div class="panel">
   <strong>یادآوری خودکار به زمان‌بندی هاست نیاز دارد.</strong>
