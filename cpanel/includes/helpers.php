@@ -227,6 +227,25 @@ function format_fa_datetime(string $datetime): string
     return to_fa_digits(sprintf('%04d/%02d/%02d %s', $jy, $jm, $jd, date('H:i', $ts)));
 }
 
+/** تاریخ کوتاه پیامک: روز + نام ماه + ساعت، بدون سال (مثل «۲۸ مهر ۱۵:۵۰»). */
+function format_fa_sms_datetime(string $datetime): string
+{
+    $ts = strtotime($datetime);
+    if (!$ts) {
+        return to_fa_digits($datetime);
+    }
+    $parts = explode('-', date('Y-m-d', $ts));
+    if (count($parts) !== 3) {
+        return to_fa_digits(date('m/d H:i', $ts));
+    }
+    [$gy, $gm, $gd] = array_map('intval', $parts);
+    [$jy, $jm, $jd] = gregorian_to_jalali($gy, $gm, $gd);
+    unset($jy);
+    $months = jalali_month_names();
+    $monthName = $months[$jm] ?? (string) $jm;
+    return to_fa_digits((string) $jd) . ' ' . $monthName . ' ' . to_fa_digits(date('H:i', $ts));
+}
+
 function format_fa_time(string $datetime): string
 {
     $ts = strtotime($datetime);

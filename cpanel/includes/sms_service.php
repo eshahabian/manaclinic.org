@@ -45,15 +45,13 @@ function sms_template_render(PDO $pdo, string $kind, array $variables): string
     if (($isAppointment || $isWorkshop) && trim((string) ($variables['patient'] ?? '')) === '') {
         $variables['patient'] = 'مراجعه‌کننده';
     }
-    // Prefer first name when full name would push appointment SMS past WebOne length limit.
-    if ($isAppointment) {
+    // Always greet with first name only (e.g. «عماد عزیز»), not full name.
+    if ($isAppointment || $isWorkshop) {
         $patient = trim((string) ($variables['patient'] ?? ''));
-        $when = trim((string) ($variables['datetime'] ?? ''));
-        $probeFull = strtr($template, ['{patient}' => $patient, '{datetime}' => $when, '{doctor}' => '', '{status}' => '', '{message}' => '', '{code}' => '']);
-        if (mb_strlen($probeFull) > 55) {
+        if ($patient !== '') {
             $bits = preg_split('/\s+/u', $patient) ?: [];
             $first = trim((string) ($bits[0] ?? $patient));
-            if ($first !== '' && $first !== $patient) {
+            if ($first !== '') {
                 $variables['patient'] = $first;
             }
         }
@@ -116,7 +114,7 @@ function sms_notify_appointment_now(PDO $pdo, string $appointmentId, string $eve
     if ($phone === null) {
         return ['ok' => false, 'status' => 'FAILED', 'error' => 'شماره موبایل مراجع معتبر نیست.'];
     }
-    $when = format_fa_datetime((string) ($row['starts_at'] ?? ''));
+    $when = format_fa_sms_datetime((string) ($row['starts_at'] ?? ''));
     $body = sms_template_render($pdo, $kind, [
         'patient' => (string) ($row['patient_name'] ?? ''),
         'doctor' => (string) ($row['doctor_name'] ?? ''),
@@ -297,7 +295,7 @@ function sms_plan_appointment(PDO $pdo, array $a, string $activated): void
 {
     $key='appointment:'.$a['id'];$old=sms_entity_previous($pdo,$key);
     $fingerprint=hash('sha256',json_encode([$a['status'],$a['starts_at'],$a['doctor_id'],$a['session_mode']??'IN_PERSON']));
-    $when=format_fa_datetime((string)$a['starts_at']);
+    $when=format_fa_sms_datetime((string)$a['starts_at']);
     $context=['entity'=>'appointment','id'=>$a['id'],'starts_at'=>$a['starts_at'],'status'=>$a['status'],'doctor_id'=>$a['doctor_id']];
     $vars=['patient'=>$a['patient_name'],'doctor'=>$a['doctor_name'],'datetime'=>$when,'status'=>$a['status']==='CONFIRMED'?'ثبت شد.':'برای بررسی ثبت شد.'];
     $pdo->beginTransaction();
@@ -333,7 +331,7 @@ function sms_plan_workshop(PDO $pdo, array $w, string $activated): void
     $active=in_array($w['enrollment_status'],['CONFIRMED','COMPLETED'],true)&&!in_array($w['status'],['CANCELLED','DRAFT','COMPLETED'],true);
     $place=sms_workshop_place($w);
     if ($active && ($old===null || $old['fingerprint']!==$fingerprint) && ($old!==null || $w['enrolled_at']>=$activated)) {
-        sms_queue_extended($pdo,$w['phone'],sms_template_render($pdo,'workshop_registered',['patient'=>$w['patient_name'],'workshop'=>$w['title'],'datetime'=>format_fa_datetime($w['starts_at']),'place'=>$place]),'workshop_registered',$key.':registered:'.$fingerprint,null,$w['ends_at'],$context);
+        sms_queue_extended($pdo,$w['phone'],sms_template_render($pdo,'workshop_registered',['patient'=>$w['patient_name'],'workshop'=>$w['title'],'datetime'=>format_fa_sms_datetime($w['starts_at']),'place'=>$place]),'workshop_registered',$key.':registered:'.$fingerprint,null,$w['ends_at'],$context);
     }
     if ($active && $w['type']!=='OFFLINE') {
         $stmt=$pdo->prepare('SELECT id,session_date FROM workshop_sessions WHERE workshop_id=? ORDER BY session_date');$stmt->execute([$w['id']]);$sessions=$stmt->fetchAll()?:[];
@@ -342,7 +340,7 @@ function sms_plan_workshop(PDO $pdo, array $w, string $activated): void
             $start=$session['session_date'].' '.substr($w['starts_at'],11,8);
             if(strtotime($start)<=time() || strtotime($w['enrolled_at'])>strtotime($start)-86400)continue;
             $sessionContext=$context+['session_id'=>$session['id'],'session_start'=>$start];
-            sms_queue_extended($pdo,$w['phone'],sms_template_render($pdo,'workshop_reminder',['patient'=>$w['patient_name'],'workshop'=>$w['title'],'datetime'=>format_fa_datetime($start),'place'=>$place]),'workshop_reminder',$key.':reminder:'.$session['id'].':'.$start.':'.$detailsHash,date('Y-m-d H:i:s',max(time(),strtotime($start)-86400)),$start,$sessionContext);
+            sms_queue_extended($pdo,$w['phone'],sms_template_render($pdo,'workshop_reminder',['patient'=>$w['patient_name'],'workshop'=>$w['title'],'datetime'=>format_fa_sms_datetime($start),'place'=>$place]),'workshop_reminder',$key.':reminder:'.$session['id'].':'.$start.':'.$detailsHash,date('Y-m-d H:i:s',max(time(),strtotime($start)-86400)),$start,$sessionContext);
         }
     }
     sms_entity_save($pdo,$key,$fingerprint,$w['enrollment_status']);

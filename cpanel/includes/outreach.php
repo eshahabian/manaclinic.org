@@ -318,7 +318,7 @@ function outreach_queue_workshop(PDO $pdo, string $title, string $startsAt): int
     if (!sms_notify_kind_enabled($pdo, 'workshop')) {
         return 0;
     }
-    $when = function_exists('format_fa_datetime') ? format_fa_datetime($startsAt) : $startsAt;
+    $when = function_exists('format_fa_sms_datetime') ? format_fa_sms_datetime($startsAt) : (function_exists('format_fa_datetime') ? format_fa_datetime($startsAt) : $startsAt);
     $body = sms_template_render($pdo,'workshop_announcement',['workshop'=>trim($title),'datetime'=>$when]);
 
     return outreach_queue_message($pdo, $body, 'workshop');
