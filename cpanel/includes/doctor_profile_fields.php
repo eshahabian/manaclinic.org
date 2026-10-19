@@ -376,7 +376,8 @@ function doctor_photo_html(array $doc, string $class = 'doctor-photo'): string
     $name = trim((string) ($doc['name'] ?? ''));
     $src = doctor_avatar_src($doc['avatar_url'] ?? null);
     if ($src !== '') {
-        return '<img class="' . e($class) . '" src="' . e($src) . '" alt="' . e($name) . '">';
+        $position = (string) ($doc['id'] ?? '') === 'dprofile001mana' ? ' style="object-position: center 20%"' : '';
+        return '<img class="' . e($class) . '" src="' . e($src) . '" alt="' . e($name) . '"' . $position . '>';
     }
     $initial = $name !== '' ? mb_substr($name, 0, 1) : '؟';
 
