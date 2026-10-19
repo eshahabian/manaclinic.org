@@ -1,1 +1,1 @@
-{"send_http": 200, "send_response": {"resultCode": 8, "succeeded": false, "refId": 0}}
+{"delivery": [{"http": 200, "response": {"status": true, "message": null, "deliveries": [{"number": "09302323986", "delivery": 6}]}}, {"http": 200, "response": {"status": true, "message": null, "deliveries": [{"number": "09302323986", "delivery": 6}]}}]}
