@@ -2,7 +2,7 @@
 declare(strict_types=1);
 require_once __DIR__.'/../includes/login_otp.php';
 $next=safe_next_path(post('next'));
-$retry='/login?method=sms'.($next?'&next='.rawurlencode($next):'');
+$retry='/login'.($next?'?next='.rawurlencode($next):'');
 if(!sms_connection_ready($pdo)){
     flash_set('error','ورود پیامکی پس از تکمیل تنظیمات اتصال پیامک فعال می‌شود. فعلاً با رمز عبور وارد شوید.');redirect($retry);
 }
@@ -10,8 +10,10 @@ login_otp_schema($pdo);
 $phone=sms_iran_mobile(post('phone'));
 
 if($phone===null){
+    unset($_SESSION['login_otp_phone']);
     flash_set('error','شماره موبایل ایران را درست وارد کنید.');redirect($retry);
 }
+$_SESSION['login_otp_phone']=$phone;
 if(!login_otp_limit($pdo,'ip:'.client_ip(),10,3600)){
     $wait=login_otp_wait_seconds($pdo,'ip:'.client_ip(),3600);
     flash_set('error','تعداد درخواست از اتصال شما زیاد بوده است. '.(string)ceil($wait/60).' دقیقه دیگر دوباره تلاش کنید.');redirect($retry);

@@ -11,19 +11,23 @@ $authNext = (string) (safe_next_path((string) ($_GET['next'] ?? '')) ?? '');
 $loginHref = url('/login') . ($authNext !== '' ? ('?next=' . rawurlencode($authNext)) : '');
 $registerHref = url('/register') . ($authNext !== '' ? ('?next=' . rawurlencode($authNext)) : '');
 $registerRoleHref = url('/register') . '?role=';
-$smsLogin = (($_GET['method'] ?? '') === 'sms');
+// ورود با پیامک پیش‌فرض است؛ رمز عبور با method=password
+$smsLogin = (($_GET['method'] ?? 'sms') !== 'password');
+$passwordLoginHref = $loginHref . (str_contains($loginHref, '?') ? '&' : '?') . 'method=password';
 $smsLoginHref = $loginHref . (str_contains($loginHref, '?') ? '&' : '?') . 'method=sms';
+$otpReady = !empty($_SESSION['login_otp_id']);
+$otpPhone = (string) ($_SESSION['login_otp_phone'] ?? '');
 $nameDict = isset($pdo) ? build_name_transliterations_client_map($pdo) : [];
 ?>
 <div class="auth-wrap">
-  <div class="auth-card" data-auth-card data-mode="<?= e($authMode) ?>" data-login-url="<?= e($loginHref) ?>" data-register-url="<?= e($registerHref) ?>">
+  <div class="auth-card" data-auth-card data-mode="<?= e($authMode) ?>" data-login-url="<?= e($smsLoginHref) ?>" data-register-url="<?= e($registerHref) ?>">
     <section class="auth-pane<?= $authMode === 'login' ? ' is-on' : '' ?>" data-auth-pane="login"<?= $authMode === 'login' ? '' : ' inert' ?>>
       <nav aria-label="روش ورود" style="display:flex;gap:12px;justify-content:center;padding:20px 12px 0;position:relative;z-index:2">
-        <a class="btn<?= !$smsLogin ? ' btn-primary' : '' ?>" href="<?= e($loginHref) ?>"<?= !$smsLogin ? ' aria-current="page"' : '' ?>>ورود با رمز عبور</a>
+        <a class="btn<?= !$smsLogin ? ' btn-primary' : '' ?>" href="<?= e($passwordLoginHref) ?>"<?= !$smsLogin ? ' aria-current="page"' : '' ?>>ورود با رمز عبور</a>
         <a class="btn<?= $smsLogin ? ' btn-primary' : '' ?>" href="<?= e($smsLoginHref) ?>"<?= $smsLogin ? ' aria-current="page"' : '' ?>>ورود با پیامک</a>
       </nav>
       <?php if (!$smsLogin): ?>
-      <form class="auth-form" method="post" action="<?= e($loginHref) ?>">
+      <form class="auth-form" method="post" action="<?= e($passwordLoginHref) ?>">
         <?= csrf_field() ?>
         <input type="hidden" name="next" value="<?= e($authNext) ?>">
         <h1 class="auth-form-title">ورود</h1>
@@ -52,22 +56,23 @@ $nameDict = isset($pdo) ? build_name_transliterations_client_map($pdo) : [];
       </form>
       <?php else: ?>
         <h1 class="auth-form-title" style="text-align:center;margin-top:20px">ورود با پیامک</h1>
-        <p class="auth-hint">شماره موبایل ثبت‌شده در حساب را وارد کنید. ارسال کد برای شماره‌های ایران است.</p>
-        <form class="auth-form" method="post" action="<?= e(url('/login/otp')) ?>">
+        <p class="auth-hint"><?= $otpReady
+          ? 'کد ۶ رقمی ارسال‌شده را وارد کنید. در صورت نیاز می‌توانید دوباره کد بگیرید.'
+          : 'شماره موبایل ثبت‌شده در حساب را وارد کنید. ارسال کد برای شماره‌های ایران است.' ?></p>
+        <form class="auth-form" method="post" action="<?= e(url('/login/otp')) ?>" data-otp-phone-form>
           <?= csrf_field() ?>
           <input type="hidden" name="next" value="<?= e($authNext) ?>">
-          <label class="auth-line">موبایل<input name="phone" required dir="ltr" inputmode="tel" autocomplete="tel"></label>
-          <button class="auth-submit" type="submit">دریافت کد ورود</button>
+          <label class="auth-line">موبایل<input name="phone" required dir="ltr" inputmode="tel" autocomplete="tel" value="<?= e($otpPhone) ?>"<?= $otpReady ? ' aria-describedby="otp-code-step"' : '' ?>></label>
+          <button class="auth-submit" type="submit"><?= $otpReady ? 'ارسال مجدد کد' : 'دریافت کد ورود' ?></button>
         </form>
-        <?php if (!empty($_SESSION['login_otp_id'])): ?>
-        <form class="auth-form" method="post" action="<?= e($loginHref) ?>">
+        <form class="auth-form<?= $otpReady ? '' : ' is-otp-pending' ?>" method="post" action="<?= e($smsLoginHref) ?>" data-otp-code-form<?= $otpReady ? '' : ' inert aria-disabled="true"' ?> id="otp-code-step">
           <?= csrf_field() ?>
           <input type="hidden" name="next" value="<?= e($authNext) ?>">
           <input type="hidden" name="login_method" value="otp">
-          <label class="auth-line">کد ۶ رقمی<input name="otp_code" required dir="ltr" inputmode="numeric" autocomplete="one-time-code" maxlength="6"></label>
-          <button class="auth-submit" type="submit">تأیید کد و ورود</button>
+          <label class="auth-line">کد ۶ رقمی<input name="otp_code" dir="ltr" inputmode="numeric" autocomplete="one-time-code" maxlength="6"<?= $otpReady ? ' required autofocus' : ' disabled tabindex="-1"' ?>></label>
+          <button class="auth-submit" type="submit"<?= $otpReady ? '' : ' disabled' ?>>تأیید کد و ورود</button>
         </form>
-        <?php endif; ?>
+        <p class="auth-switch">حساب ندارید؟ <a href="<?= e($registerHref) ?>" data-auth-switch="register">ثبت‌نام</a></p>
       <?php endif; ?>
     </section>
 

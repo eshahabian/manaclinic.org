@@ -9,21 +9,24 @@ $next = safe_next_path(post('next'));
 if ($next === null) {
     $next = safe_next_path((string) ($_GET['next'] ?? ''));
 }
+$isOtpLogin = post('login_method') === 'otp';
 $loginRetry = '/login' . ($next ? ('?next=' . rawurlencode($next)) : '');
+if (!$isOtpLogin) {
+    $loginRetry = '/login?method=password' . ($next ? ('&next=' . rawurlencode($next)) : '');
+}
 
-if (post('login_method') === 'otp') {
-    $loginRetry='/login?method=sms'.($next?'&next='.rawurlencode($next):'');
+if ($isOtpLogin) {
     require_once __DIR__ . '/../includes/login_otp.php';
     login_otp_schema($pdo);
     $user = login_otp_verify($pdo, (string) ($_SESSION['login_otp_id'] ?? ''), normalize_phone(post('otp_code')));
 } else {
-$stmt = $pdo->prepare('SELECT * FROM users WHERE username = ? LIMIT 1');
-$stmt->execute([$username]);
-$user = $stmt->fetch();
+    $stmt = $pdo->prepare('SELECT * FROM users WHERE username = ? LIMIT 1');
+    $stmt->execute([$username]);
+    $user = $stmt->fetch();
 
-if (!$user || $password === '' || !password_verify($password, $user['password_hash'])) {
-    $user = null;
-}
+    if (!$user || $password === '' || !password_verify($password, $user['password_hash'])) {
+        $user = null;
+    }
 }
 if (!$user) {
     login_throttle_fail();
@@ -50,7 +53,7 @@ if ($user['role'] === 'DOCTOR') {
     }
 }
 
-unset($_SESSION['login_otp_id']);
+unset($_SESSION['login_otp_id'], $_SESSION['login_otp_phone']);
 session_regenerate_id(true);
 login_user($user);
 login_throttle_clear();
