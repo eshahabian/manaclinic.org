@@ -118,7 +118,10 @@ function admin_nav(): array {
         $nav[]=['type'=>'group','label'=>'پیامک'];
         $nav[]=['href'=>'/admin/sms-test','label'=>'تست پیامک'];
         $nav[]=['href'=>'/admin/sms-broadcast','label'=>'پیامک همگانی'];
-        if (sms_settings_allowed($user)) $nav[]=['href'=>'/admin/sms-settings','label'=>'تنظیمات پیامک'];
+        if (sms_settings_allowed($user)) {
+            $nav[]=['href'=>'/admin/sms-doctor-digest','label'=>'برنامه روزانه درمانگرها'];
+            $nav[]=['href'=>'/admin/sms-settings','label'=>'تنظیمات پیامک'];
+        }
     }
     if (!function_exists('secretary_daily_tasks_can_review') && is_file(__DIR__ . '/secretary_daily_tasks.php')) {
         require_once __DIR__ . '/secretary_daily_tasks.php';
@@ -160,7 +163,7 @@ function admin_emad_grouped_nav(array $nav): array
         'منشی‌ها' => ['/secretary/messages', '/admin/staff-board', '/admin/staff-hours', '/admin/secretary-tasks'],
         'ارتباطات و پیام‌ها' => ['/video-call', '/admin/staff-messages', '/doctor/staff-messages', '/admin/secretary-messages', '/doctor/notifications', '/admin/feedback'],
         'محتوا و کارگاه‌ها' => ['/admin/articles', '/doctor/articles', '/doctor/workshops', '/admin/workshop-file-log'],
-        'مدیریت' => ['/admin/users', '/admin/users-disabled', '/admin/messengers', '/admin/mail', '/admin/sms-settings', '/admin/sms-test', '/admin/sms-broadcast', '/admin/gateway'],
+        'مدیریت' => ['/admin/users', '/admin/users-disabled', '/admin/messengers', '/admin/mail', '/admin/sms-settings', '/admin/sms-doctor-digest', '/admin/sms-test', '/admin/sms-broadcast', '/admin/gateway'],
     ];
     $links = [];
     foreach ($nav as $item) {

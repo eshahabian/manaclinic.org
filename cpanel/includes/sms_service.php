@@ -648,26 +648,22 @@ function sms_doctor_daily_digest_body(string $doctorName, string $dayLabel, arra
 }
 
 /**
- * هر روز از ساعت ۷ صبح، برای درمانگرهایی که همان روز نوبت تأییدشده دارند یک پیامک صف می‌کند.
+ * خلاصه نوبت‌های تأییدشدهٔ یک روز برای درمانگرها.
+ *
+ * @param list<string>|null $doctorIds اگر null باشد همه؛ وگرنه فقط همین پروفایل‌ها
+ * @return list<array{doctor_id:string,name:string,phone:?string,times:list<string>,body:string,slot_count:int}>
  */
-function sms_queue_doctor_daily_digests(PDO $pdo): int
+function sms_doctor_digests_for_date(PDO $pdo, string $ymd, ?array $doctorIds = null): array
 {
-    if (!sms_connection_ready($pdo)) {
-        return 0;
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymd)) {
+        return [];
     }
-    // قبل از ۷ صبح صف نشود (کرون هر دقیقه است).
-    if ((int) date('G') < 7) {
-        return 0;
+    $doctorIds = $doctorIds === null ? null : array_values(array_filter(array_map('strval', $doctorIds)));
+    if ($doctorIds !== null && $doctorIds === []) {
+        return [];
     }
-    ensure_outreach_schema($pdo);
-    $today = date('Y-m-d');
-    $dayLabel = function_exists('format_fa_day_long')
-        ? format_fa_day_long($today . ' 12:00:00')
-        : to_fa_digits($today);
-    $dueAt = $today . ' 07:00:00';
-    $expiresAt = $today . ' 23:59:59';
 
-    $stmt = $pdo->prepare("
+    $sql = "
       SELECT dp.id AS doctor_id, u.name AS doctor_name, u.phone AS doctor_phone, a.starts_at
       FROM appointments a
       JOIN doctor_profiles dp ON dp.id = a.doctor_id
@@ -677,13 +673,23 @@ function sms_queue_doctor_daily_digests(PDO $pdo): int
         AND dp.is_active = 1
         AND dp.is_approved = 1
         AND u.is_disabled = 0
-      ORDER BY dp.id ASC, a.starts_at ASC
-    ");
-    $stmt->execute([$today]);
-    $rows = $stmt->fetchAll() ?: [];
-    if ($rows === []) {
-        return 0;
+    ";
+    $params = [$ymd];
+    if ($doctorIds !== null) {
+        $marks = implode(',', array_fill(0, count($doctorIds), '?'));
+        $sql .= " AND dp.id IN ($marks)";
+        foreach ($doctorIds as $id) {
+            $params[] = $id;
+        }
     }
+    $sql .= ' ORDER BY dp.id ASC, a.starts_at ASC';
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $rows = $stmt->fetchAll() ?: [];
+
+    $dayLabel = function_exists('format_fa_day_long')
+        ? format_fa_day_long($ymd . ' 12:00:00')
+        : to_fa_digits($ymd);
 
     /** @var array<string,array{name:string,phone:string,times:list<string>}> $byDoctor */
     $byDoctor = [];
@@ -706,33 +712,138 @@ function sms_queue_doctor_daily_digests(PDO $pdo): int
         $byDoctor[$doctorId]['times'][] = date('H:i', $ts);
     }
 
-    $queued = 0;
+    $out = [];
     foreach ($byDoctor as $doctorId => $pack) {
         $times = array_values(array_unique($pack['times']));
         if ($times === []) {
             continue;
         }
-        $phone = sms_iran_mobile($pack['phone']);
-        if ($phone === null) {
+        $out[] = [
+            'doctor_id' => $doctorId,
+            'name' => $pack['name'],
+            'phone' => sms_iran_mobile($pack['phone']),
+            'times' => $times,
+            'body' => sms_doctor_daily_digest_body($pack['name'], $dayLabel, $times),
+            'slot_count' => count($times),
+        ];
+    }
+
+    return $out;
+}
+
+/**
+ * هر روز از ساعت ۷ صبح، برای درمانگرهایی که همان روز نوبت تأییدشده دارند یک پیامک صف می‌کند.
+ */
+function sms_queue_doctor_daily_digests(PDO $pdo): int
+{
+    if (!sms_connection_ready($pdo)) {
+        return 0;
+    }
+    // قبل از ۷ صبح صف نشود (کرون هر دقیقه است).
+    if ((int) date('G') < 7) {
+        return 0;
+    }
+    ensure_outreach_schema($pdo);
+    $today = date('Y-m-d');
+    $dueAt = $today . ' 07:00:00';
+    $expiresAt = $today . ' 23:59:59';
+    $queued = 0;
+    foreach (sms_doctor_digests_for_date($pdo, $today, null) as $pack) {
+        if (($pack['phone'] ?? null) === null) {
             continue;
         }
-        $body = sms_doctor_daily_digest_body($pack['name'], $dayLabel, $times);
-        $key = 'doctor-digest:' . $doctorId . ':' . $today;
+        $key = 'doctor-digest:' . $pack['doctor_id'] . ':' . $today;
         if (sms_queue_extended(
             $pdo,
-            $phone,
-            $body,
+            (string) $pack['phone'],
+            (string) $pack['body'],
             'doctor_daily_digest',
             $key,
             $dueAt,
             $expiresAt,
-            ['entity' => 'doctor_digest', 'doctor_id' => $doctorId, 'digest_date' => $today]
+            ['entity' => 'doctor_digest', 'doctor_id' => $pack['doctor_id'], 'digest_date' => $today]
         )) {
             $queued++;
         }
     }
 
     return $queued;
+}
+
+/**
+ * ارسال دستی خلاصه نوبت یک روز برای درمانگرهای انتخاب‌شده (فوری).
+ *
+ * @param list<string> $doctorIds
+ * @return array{queued:int,sent:int,failed:int,skipped:int,errors:list<string>}
+ */
+function sms_send_doctor_digests_manual(PDO $pdo, string $ymd, array $doctorIds): array
+{
+    $result = ['queued' => 0, 'sent' => 0, 'failed' => 0, 'skipped' => 0, 'errors' => []];
+    if (!sms_connection_ready($pdo)) {
+        $result['errors'][] = 'اتصال پیامک آماده نیست.';
+        return $result;
+    }
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymd)) {
+        $result['errors'][] = 'تاریخ نامعتبر است.';
+        return $result;
+    }
+    $doctorIds = array_values(array_unique(array_filter(array_map('strval', $doctorIds))));
+    if ($doctorIds === []) {
+        $result['errors'][] = 'حداقل یک درمانگر را انتخاب کنید.';
+        return $result;
+    }
+
+    $packs = sms_doctor_digests_for_date($pdo, $ymd, $doctorIds);
+    $found = [];
+    foreach ($packs as $pack) {
+        $found[(string) $pack['doctor_id']] = true;
+        if (($pack['phone'] ?? null) === null) {
+            $result['skipped']++;
+            $result['errors'][] = 'شماره موبایل «' . ($pack['name'] ?: 'درمانگر') . '» معتبر نیست.';
+            continue;
+        }
+        $stamp = date('YmdHis');
+        $key = 'doctor-digest-manual:' . $pack['doctor_id'] . ':' . $ymd . ':' . $stamp;
+        $send = sms_send_immediate(
+            $pdo,
+            (string) $pack['phone'],
+            (string) $pack['body'],
+            'doctor_daily_digest',
+            $key,
+            $ymd . ' 23:59:59',
+            ['entity' => 'doctor_digest', 'doctor_id' => $pack['doctor_id'], 'digest_date' => $ymd, 'manual' => 1]
+        );
+        $result['queued']++;
+        if (!empty($send['ok'])) {
+            $result['sent']++;
+        } else {
+            $result['failed']++;
+            $err = trim((string) ($send['error'] ?? ''));
+            $result['errors'][] = ($pack['name'] ?: 'درمانگر') . ($err !== '' ? (': ' . $err) : ' — ارسال ناموفق');
+        }
+    }
+    foreach ($doctorIds as $id) {
+        if (!isset($found[$id])) {
+            $result['skipped']++;
+        }
+    }
+    if ($result['queued'] === 0 && $result['errors'] === []) {
+        $result['errors'][] = 'برای این تاریخ و درمانگرهای انتخاب‌شده نوبت تأییدشده‌ای نیست.';
+    }
+
+    return $result;
+}
+
+/** فهرست درمانگرهای فعال برای انتخاب دستی خلاصه نوبت. */
+function sms_digest_doctor_choices(PDO $pdo): array
+{
+    return $pdo->query("
+      SELECT dp.id, u.name, u.phone
+      FROM doctor_profiles dp
+      JOIN users u ON u.id = dp.user_id
+      WHERE dp.is_active = 1 AND dp.is_approved = 1 AND u.is_disabled = 0
+      ORDER BY u.name ASC
+    ")->fetchAll() ?: [];
 }
 
 function sms_run_worker(PDO $pdo): void

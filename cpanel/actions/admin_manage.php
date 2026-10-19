@@ -5,7 +5,7 @@ require_once __DIR__ . '/../includes/outreach.php';
 require_once __DIR__ . '/../includes/mail.php';
 require_once __DIR__ . '/../includes/clinic_manage.php';
 $action = post('action');
-if ($action==='save_sms_settings') require_sms_settings_operator();
+if ($action==='save_sms_settings' || $action==='sms_doctor_digest_manual') require_sms_settings_operator();
 elseif (in_array($action,['sms_test','sms_broadcast','save_sms_notify'],true)) require_sms_operator();
 else require_site_admin();
 ensure_mail_schema($pdo);
@@ -97,6 +97,36 @@ if ($action === 'sms_broadcast') {
     $count = sms_broadcast_queue($pdo, $audience, $body);
     flash_set('success', to_fa_digits((string) $count) . ' پیامک برای شماره‌های ایران در صف قرار گرفت.' . (sms_panel_enabled() ? '' : ' ارسال تا تکمیل تنظیمات خاموش است.'));
     redirect('/admin/sms-broadcast');
+}
+
+if ($action === 'sms_doctor_digest_manual') {
+    $ymd = trim((string) post('date'));
+    $doctorIds = $_POST['doctor_ids'] ?? [];
+    if (!is_array($doctorIds)) {
+        $doctorIds = [];
+    }
+    $doctorIds = array_values(array_filter(array_map('strval', $doctorIds)));
+    $back = '/admin/sms-doctor-digest' . (preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymd) ? ('?date=' . rawurlencode($ymd)) : '');
+    $result = sms_send_doctor_digests_manual($pdo, $ymd, $doctorIds);
+    $parts = [];
+    if (($result['sent'] ?? 0) > 0) {
+        $parts[] = to_fa_digits((string) $result['sent']) . ' پیامک ارسال شد';
+    }
+    if (($result['failed'] ?? 0) > 0) {
+        $parts[] = to_fa_digits((string) $result['failed']) . ' ناموفق';
+    }
+    if (($result['skipped'] ?? 0) > 0) {
+        $parts[] = to_fa_digits((string) $result['skipped']) . ' رد شد (بدون نوبت یا بدون موبایل)';
+    }
+    $detail = ($result['errors'] ?? []) !== [] ? (' ' . implode('؛ ', array_slice($result['errors'], 0, 4))) : '';
+    if (($result['sent'] ?? 0) > 0 && ($result['failed'] ?? 0) === 0) {
+        flash_set('success', implode(' · ', $parts) . '.' . $detail);
+    } elseif (($result['sent'] ?? 0) > 0) {
+        flash_set('error', implode(' · ', $parts) . '.' . $detail);
+    } else {
+        flash_set('error', ($parts !== [] ? implode(' · ', $parts) . '.' : 'ارسال انجام نشد.') . $detail);
+    }
+    redirect($back);
 }
 
 if ($action === 'save_sms_settings') {
