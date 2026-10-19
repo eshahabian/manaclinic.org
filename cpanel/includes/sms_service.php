@@ -11,7 +11,8 @@ function sms_template_catalog(): array
         'workshop_reminder'=>['یادآوری کارگاه','یادآوری مانا کلینیک: جلسه کارگاه «{workshop}» در {datetime}؛ {place}'],
         'workshop_announcement'=>['معرفی کارگاه','مانا کلینیک: کارگاه «{workshop}» از {datetime} برگزار می‌شود. برای ثبت‌نام به سایت کلینیک سر بزنید.'],
         'quiet'=>['پیگیری عدم مراجعه','مانا کلینیک: {message}'],
-        'login_otp'=>['کد ورود',"مانا کلینیک\nکد ورود: {code}\nاعتبار: ۳ دقیقه\nاین کد را در اختیار دیگران نگذارید."],
+        // همان الگوی وب‌وان/RestDocument مثل ارسال OTP موفق: بخش ثابت + کد
+        'login_otp'=>['کد ورود','کد ورود شما {code}'],
     ];
 }
 
@@ -20,6 +21,13 @@ function sms_template_render(PDO $pdo, string $kind, array $variables): string
     $catalog=sms_template_catalog();
     $template=mail_setting_get($pdo,'sms_template_'.$kind,'');
     if(trim((string)$template)==='')$template=$catalog[$kind][1];
+    // OTP must stay a single-line RestDocument-safe pattern; multiline bodies are filtered (code 7).
+    if ($kind === 'login_otp') {
+        $candidate = trim((string) $template);
+        if ($candidate === '' || str_contains($candidate, "\n") || !str_contains($candidate, '{code}')) {
+            $template = $catalog[$kind][1];
+        }
+    }
     $map=[];foreach($variables as $key=>$value)$map['{'.$key.'}']=(string)$value;
     return strtr($template,$map);
 }
@@ -74,12 +82,14 @@ function sms_provider_error_message(int $code): string
         5 => 'تعداد گیرندگان بیش از حد مجاز است.',
         6 => 'خط فرستنده غیرفعال است.',
         7 => 'متن پیامک شامل کلمات فیلترشده است.',
-        8 => 'درگاه پیامک ارسال را نپذیرفت (کد 8)؛ معنای کد باید با مستندات همان درگاه بررسی شود.',
+        8 => 'اعتبار پنل کافی نیست.',
         9 => 'سامانه پیامک در حال به‌روزرسانی است.',
         10 => 'وب‌سرویس پیامک غیرفعال است.',
         14 => 'تعرفه کاربر مشخص نشده است.',
         15 => 'ارسال تکراری؛ کمی بعد دوباره تلاش کنید.',
         16 => 'شماره موبایل گیرنده نامعتبر است.',
+        17 => 'خط OTP برای این حساب یافت نشد.',
+        19 => 'متن با الگوی پنل یکی نیست؛ بخش ثابت باید عین الگو باشد.',
         21 => 'IP سرور برای وب‌سرویس مجاز نیست؛ IP را در پنل وب‌وان ثبت کنید.',
         22 => 'احراز هویت پنل (کارت ملی) تکمیل نشده است.',
     ];
@@ -231,10 +241,60 @@ function sms_job_still_valid(PDO $pdo, array $job): bool
 }
 
 /**
- * WebOne REST: https://api.payamakapi.ir/api/v1/SMS/Send
- * با هدر X-API-KEY؛ بدنه From + ToNumber + Content + IsFlash.
+ * WebOne REST (RestDocument): https://api.payamakapi.ir/api/v1/SMS/Send
+ * هدر X-API-KEY؛ بدنه From + ToNumber + Content (بدون IsFlash، مثل مسیر OTP پایدار).
  * بدون کلید API، مسیر قدیمی rest.payamakapi.ir با UserName/Password باقی می‌ماند.
  */
+function sms_provider_parse_response(string $raw, int $http, string $sender): array
+{
+    if ($raw === '') {
+        return ['status' => 'UNKNOWN', 'error' => 'پاسخ قطعی از سرویس دریافت نشد؛ قبل از ارسال مجدد گزارش پنل بررسی شود.'];
+    }
+    $data = json_decode(trim($raw), true);
+    if ($http < 200 || $http >= 300) {
+        $apiMsg = is_array($data) ? trim((string) ($data['message'] ?? $data['Message'] ?? '')) : '';
+        $clientIp = is_array($data) ? trim((string) ($data['clientIp'] ?? $data['ClientIp'] ?? '')) : '';
+        $traceId = is_array($data) ? trim((string) ($data['traceId'] ?? $data['TraceId'] ?? '')) : '';
+        if ($apiMsg !== '' && stripos($apiMsg, 'IP') !== false) {
+            return [
+                'status' => 'FAILED',
+                'error' => 'IP سرور برای وب‌سرویس مجاز نیست'
+                    . ($clientIp !== '' ? (' (IP: ' . $clientIp . ')') : '')
+                    . '. در پنل وب‌وان آی‌پی‌های مجاز REST را ثبت کنید.',
+            ];
+        }
+        if ($http >= 500) {
+            $detail = $apiMsg !== '' ? $apiMsg : 'خطای داخلی درگاه';
+            if ($traceId !== '') {
+                $detail .= ' (traceId: ' . $traceId . ')';
+            }
+            return [
+                'status' => 'FAILED',
+                'error' => 'وب‌وان روی ارسال با خط «' . $sender . '» خطا داد: ' . $detail
+                    . '. شماره خط را از بخش «خطوط» پنل کپی کنید و فعال بودن وب‌سرویس/اعتبار را چک کنید.',
+                'retryable_500' => true,
+            ];
+        }
+        return ['status' => 'FAILED', 'error' => $apiMsg !== '' ? ($apiMsg . ' (HTTP ' . $http . ')') : ('درگاه پیامک پاسخ HTTP ' . $http . ' داد.')];
+    }
+    if (!is_array($data)) {
+        return ['status' => 'UNKNOWN', 'error' => 'قالب پاسخ درگاه نیازمند بررسی است؛ ارسال خودکار تکرار نمی‌شود.'];
+    }
+    $succeeded = ($data['succeeded'] ?? $data['Succeeded'] ?? null);
+    $ok = $succeeded === true || $succeeded === 1 || $succeeded === '1'
+        || (is_string($succeeded) && strtolower(trim($succeeded)) === 'true');
+    $hasCode = array_key_exists('resultCode', $data) || array_key_exists('ResultCode', $data);
+    $resultCode = $hasCode ? (int) ($data['resultCode'] ?? $data['ResultCode']) : null;
+    if ($resultCode !== null && $resultCode !== 0) {
+        $ok = false;
+    }
+    if ($ok && ($resultCode === null || $resultCode === 0)) {
+        $ref = trim((string) ($data['refId'] ?? $data['RefId'] ?? ''));
+        return ['status' => 'SENT', 'id' => $ref !== '' ? $ref : null];
+    }
+    return ['status' => 'FAILED', 'error' => sms_provider_error_message($resultCode ?? -1)];
+}
+
 function sms_provider_send(array $config, string $phone, string $body): array
 {
     $apiKey = trim((string) ($config['api_key'] ?? ''));
@@ -244,71 +304,42 @@ function sms_provider_send(array $config, string $phone, string $body): array
             'Accept: application/json',
             'X-API-KEY: ' . $apiKey,
         ];
-        // WebOne RestDocument: IsFlash must be present; omitting it returns HTTP 500.
-        $payload = json_encode([
-            'From' => (string) $config['sender'],
-            'ToNumber' => $phone,
-            'Content' => $body,
-            'IsFlash' => false,
-        ], JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR);
-        $curl = curl_init('https://api.payamakapi.ir/api/v1/SMS/Send');
-        curl_setopt_array($curl, [
-            CURLOPT_POST => true,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CONNECTTIMEOUT => 10,
-            CURLOPT_TIMEOUT => 25,
-            CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_POSTFIELDS => $payload,
-        ]);
-        $raw = curl_exec($curl);
-        $http = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        curl_close($curl);
-        if ($raw === false) {
-            return ['status' => 'UNKNOWN', 'error' => 'پاسخ قطعی از سرویس دریافت نشد؛ قبل از ارسال مجدد گزارش پنل بررسی شود.'];
-        }
-        $data = json_decode(trim((string) $raw), true);
-        if ($http < 200 || $http >= 300) {
-            $apiMsg = is_array($data) ? trim((string) ($data['message'] ?? $data['Message'] ?? '')) : '';
-            $clientIp = is_array($data) ? trim((string) ($data['clientIp'] ?? $data['ClientIp'] ?? '')) : '';
-            $traceId = is_array($data) ? trim((string) ($data['traceId'] ?? $data['TraceId'] ?? '')) : '';
-            if ($apiMsg !== '' && stripos($apiMsg, 'IP') !== false) {
-                return [
-                    'status' => 'FAILED',
-                    'error' => 'IP سرور برای وب‌سرویس مجاز نیست'
-                        . ($clientIp !== '' ? (' (IP: ' . $clientIp . ')') : '')
-                        . '. در پنل وب‌وان آی‌پی‌های مجاز REST را ثبت کنید.',
-                ];
+        $sender = (string) $config['sender'];
+        // Primary body matches working RestDocument sends: From + ToNumber + Content.
+        $payloads = [
+            ['From' => $sender, 'ToNumber' => $phone, 'Content' => $body],
+            // Some panel quirks historically returned HTTP 500 without IsFlash.
+            ['From' => $sender, 'ToNumber' => $phone, 'Content' => $body, 'IsFlash' => false],
+        ];
+        $last = ['status' => 'FAILED', 'error' => 'ارسال پیامک ناموفق بود.'];
+        foreach ($payloads as $index => $fields) {
+            $curl = curl_init('https://api.payamakapi.ir/api/v1/SMS/Send');
+            curl_setopt_array($curl, [
+                CURLOPT_POST => true,
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_CONNECTTIMEOUT => 10,
+                CURLOPT_TIMEOUT => 25,
+                CURLOPT_HTTPHEADER => $headers,
+                CURLOPT_POSTFIELDS => json_encode($fields, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
+            ]);
+            $raw = curl_exec($curl);
+            $http = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
+            curl_close($curl);
+            if ($raw === false) {
+                return ['status' => 'UNKNOWN', 'error' => 'پاسخ قطعی از سرویس دریافت نشد؛ قبل از ارسال مجدد گزارش پنل بررسی شود.'];
             }
-            if ($http >= 500) {
-                $detail = $apiMsg !== '' ? $apiMsg : 'خطای داخلی درگاه';
-                if ($traceId !== '') {
-                    $detail .= ' (traceId: ' . $traceId . ')';
-                }
-                return [
-                    'status' => 'FAILED',
-                    'error' => 'وب‌وان روی ارسال با خط «' . $config['sender'] . '» خطا داد: ' . $detail
-                        . '. شماره خط را از بخش «خطوط» پنل کپی کنید و فعال بودن وب‌سرویس/اعتبار را چک کنید.',
-                ];
+            $parsed = sms_provider_parse_response((string) $raw, $http, $sender);
+            if (($parsed['status'] ?? '') === 'SENT') {
+                return $parsed;
             }
-            return ['status' => 'FAILED', 'error' => $apiMsg !== '' ? ($apiMsg . ' (HTTP ' . $http . ')') : ('درگاه پیامک پاسخ HTTP ' . $http . ' داد.')];
+            $last = $parsed;
+            // Only fall through to IsFlash retry on gateway 500 from the bare payload.
+            if ($index === 0 && empty($parsed['retryable_500'])) {
+                break;
+            }
         }
-        if (!is_array($data)) {
-            return ['status' => 'UNKNOWN', 'error' => 'قالب پاسخ درگاه نیازمند بررسی است؛ ارسال خودکار تکرار نمی‌شود.'];
-        }
-        $succeeded = ($data['succeeded'] ?? $data['Succeeded'] ?? null);
-        $ok = $succeeded === true || $succeeded === 1 || $succeeded === '1'
-            || (is_string($succeeded) && strtolower(trim($succeeded)) === 'true');
-        $hasCode = array_key_exists('resultCode', $data) || array_key_exists('ResultCode', $data);
-        $resultCode = $hasCode ? (int) ($data['resultCode'] ?? $data['ResultCode']) : null;
-        if ($resultCode !== null && $resultCode !== 0) {
-            $ok = false;
-        }
-        if ($ok && ($resultCode === null || $resultCode === 0)) {
-            $ref = trim((string) ($data['refId'] ?? $data['RefId'] ?? ''));
-            return ['status' => 'SENT', 'id' => $ref !== '' ? $ref : null];
-        }
-        $code = $resultCode ?? -1;
-        return ['status' => 'FAILED', 'error' => sms_provider_error_message($code)];
+        unset($last['retryable_500']);
+        return $last;
     }
 
     $curl = curl_init('https://rest.payamakapi.ir/api/v1/SMS/Send');
