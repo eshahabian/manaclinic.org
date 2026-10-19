@@ -319,7 +319,7 @@ function outreach_queue_workshop(PDO $pdo, string $title, string $startsAt): int
         return 0;
     }
     $when = function_exists('format_fa_datetime') ? format_fa_datetime($startsAt) : $startsAt;
-    $body = 'مانا کلینیک: کارگاه «' . trim($title) . '» از ' . $when . ' برگزار می‌شود. برای ثبت‌نام به سایت کلینیک سر بزنید.';
+    $body = sms_template_render($pdo,'workshop_announcement',['workshop'=>trim($title),'datetime'=>$when]);
 
     return outreach_queue_message($pdo, $body, 'workshop');
 }
@@ -482,7 +482,7 @@ function outreach_scan_quiet_patients(PDO $pdo): void
                 notify_user($pdo, (string) $person['id'], 'مراجعه‌کننده بی‌خبر', $text, $link, 'other', null, 'personal');
             }
             if (sms_notify_kind_enabled($pdo, 'quiet')) {
-                sms_queue($pdo, (string) ($person['phone'] ?? ''), 'مانا کلینیک: ' . $text, 'quiet');
+                sms_queue($pdo, (string) ($person['phone'] ?? ''), sms_template_render($pdo,'quiet',['message'=>$text]), 'quiet');
             }
         }
 

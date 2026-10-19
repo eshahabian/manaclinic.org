@@ -11,11 +11,18 @@ $authNext = (string) (safe_next_path((string) ($_GET['next'] ?? '')) ?? '');
 $loginHref = url('/login') . ($authNext !== '' ? ('?next=' . rawurlencode($authNext)) : '');
 $registerHref = url('/register') . ($authNext !== '' ? ('?next=' . rawurlencode($authNext)) : '');
 $registerRoleHref = url('/register') . '?role=';
+$smsLogin = (($_GET['method'] ?? '') === 'sms');
+$smsLoginHref = $loginHref . (str_contains($loginHref, '?') ? '&' : '?') . 'method=sms';
 $nameDict = isset($pdo) ? build_name_transliterations_client_map($pdo) : [];
 ?>
 <div class="auth-wrap">
   <div class="auth-card" data-auth-card data-mode="<?= e($authMode) ?>" data-login-url="<?= e($loginHref) ?>" data-register-url="<?= e($registerHref) ?>">
     <section class="auth-pane<?= $authMode === 'login' ? ' is-on' : '' ?>" data-auth-pane="login"<?= $authMode === 'login' ? '' : ' inert' ?>>
+      <nav aria-label="روش ورود" style="display:flex;gap:12px;justify-content:center;padding:20px 12px 0;position:relative;z-index:2">
+        <a class="btn<?= !$smsLogin ? ' btn-primary' : '' ?>" href="<?= e($loginHref) ?>"<?= !$smsLogin ? ' aria-current="page"' : '' ?>>ورود با رمز عبور</a>
+        <a class="btn<?= $smsLogin ? ' btn-primary' : '' ?>" href="<?= e($smsLoginHref) ?>"<?= $smsLogin ? ' aria-current="page"' : '' ?>>ورود با پیامک</a>
+      </nav>
+      <?php if (!$smsLogin): ?>
       <form class="auth-form" method="post" action="<?= e($loginHref) ?>">
         <?= csrf_field() ?>
         <input type="hidden" name="next" value="<?= e($authNext) ?>">
@@ -43,13 +50,12 @@ $nameDict = isset($pdo) ? build_name_transliterations_client_map($pdo) : [];
         <button class="auth-submit" type="submit">ورود</button>
         <p class="auth-switch">حساب ندارید؟ <a href="<?= e($registerHref) ?>" data-auth-switch="register">ثبت‌نام</a></p>
       </form>
-      <details style="margin:16px 24px"<?= !empty($_SESSION['login_otp_id']) ? ' open' : '' ?>>
-        <summary>ورود با کد یک‌بارمصرف پیامکی</summary>
-        <p class="auth-hint">نام کاربری و موبایل ثبت‌شده در حساب را وارد کنید. ارسال کد برای شماره‌های ایران است.</p>
+      <?php else: ?>
+        <h1 class="auth-form-title" style="text-align:center;margin-top:20px">ورود با پیامک</h1>
+        <p class="auth-hint">شماره موبایل ثبت‌شده در حساب را وارد کنید. ارسال کد برای شماره‌های ایران است.</p>
         <form class="auth-form" method="post" action="<?= e(url('/login/otp')) ?>">
           <?= csrf_field() ?>
           <input type="hidden" name="next" value="<?= e($authNext) ?>">
-          <label class="auth-line">نام کاربری<input name="username" required dir="ltr" autocomplete="username"></label>
           <label class="auth-line">موبایل<input name="phone" required dir="ltr" inputmode="tel" autocomplete="tel"></label>
           <button class="auth-submit" type="submit">دریافت کد ورود</button>
         </form>
@@ -62,7 +68,7 @@ $nameDict = isset($pdo) ? build_name_transliterations_client_map($pdo) : [];
           <button class="auth-submit" type="submit">تأیید کد و ورود</button>
         </form>
         <?php endif; ?>
-      </details>
+      <?php endif; ?>
     </section>
 
     <section class="auth-pane<?= $authMode === 'register' ? ' is-on' : '' ?>" data-auth-pane="register"<?= $authMode === 'register' ? '' : ' inert' ?>>

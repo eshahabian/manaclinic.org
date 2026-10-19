@@ -12,6 +12,7 @@ if ($next === null) {
 $loginRetry = '/login' . ($next ? ('?next=' . rawurlencode($next)) : '');
 
 if (post('login_method') === 'otp') {
+    $loginRetry='/login?method=sms'.($next?'&next='.rawurlencode($next):'');
     require_once __DIR__ . '/../includes/login_otp.php';
     login_otp_schema($pdo);
     $user = login_otp_verify($pdo, (string) ($_SESSION['login_otp_id'] ?? ''), normalize_phone(post('otp_code')));

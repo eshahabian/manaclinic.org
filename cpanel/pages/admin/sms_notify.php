@@ -34,6 +34,17 @@ ob_start();
     <input type="checkbox" checked disabled>
     <span>پیامک ثبت و تأیید نوبت به‌صورت خودکار و بدون ارسال تکراری صف می‌شود.</span>
   </label>
+  <h2>متن پیامک‌ها</h2>
+  <p class="muted">متن دلخواه را وارد کنید. متن خالی به پیش‌فرض برمی‌گردد. تغییرات برای پیامک‌های جدید است؛ متن پیامک‌های قبلی صف تغییر نمی‌کند.</p>
+  <?php foreach(sms_template_catalog() as $kind=>$item):
+    preg_match_all('/\{[^{}]+\}/u',$item[1],$matches); $tokens=array_unique($matches[0]);
+    if(in_array($kind,['appointment_booked','appointment_cancelled','appointment_reminder','workshop_registered','workshop_reminder'],true))$tokens[]='{patient}';
+  ?>
+    <label class="label" for="template-<?= e($kind) ?>"><?= e($item[0]) ?></label>
+    <textarea class="input" rows="4" maxlength="500" id="template-<?= e($kind) ?>" name="template_<?= e($kind) ?>" placeholder="<?= e($item[1]) ?>"><?= e(mail_setting_get($pdo,'sms_template_'.$kind,'')) ?></textarea>
+    <small>متغیرهای مجاز: <bdi dir="ltr"><?= e(implode(' / ',$tokens)) ?></bdi></small>
+    <small>متن پیش‌فرض: <?= nl2br(e($item[1])) ?></small>
+  <?php endforeach; ?>
   <button type="submit" class="btn btn-primary">ذخیره</button>
 </form>
 <?php

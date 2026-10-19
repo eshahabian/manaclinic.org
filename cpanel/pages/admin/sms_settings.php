@@ -20,6 +20,13 @@ ob_start();
   <code dir="ltr" style="display:block;overflow-wrap:anywhere">/usr/local/bin/php <?= e(dirname(__DIR__,2).'/sms-worker.php') ?> &gt; /dev/null 2&gt;&amp;1</code>
 </div>
 <?php endif; ?>
+<?php $otpStatus=mail_setting_get($pdo,'sms_otp_last_status',''); if($otpStatus!==''): ?>
+<div class="panel">
+  <strong>آخرین ارسال کد ورود: <?= e(sms_status_label($otpStatus)) ?></strong>
+  <p><?= e(mail_setting_get($pdo,'sms_otp_last_at','')) ?></p>
+  <?php if($otpStatus!=='SENT'): ?><p><?= e(mail_setting_get($pdo,'sms_otp_last_error','')) ?></p><?php endif; ?>
+</div>
+<?php endif; ?>
 <form class="panel form-stack" method="post" action="<?= e(url('/admin/sms-settings')) ?>">
   <?= csrf_field() ?><input type="hidden" name="action" value="save_sms_settings">
   <label class="label" for="sms-sender">شماره خط فرستنده</label><input class="input" id="sms-sender" name="sender" dir="ltr" value="<?= e($settings['sender']) ?>" placeholder="مثلاً 9998621381" required>

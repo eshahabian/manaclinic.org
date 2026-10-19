@@ -1,0 +1,1 @@
+{"parse_ok": true, "ready": true, "otp_recent": [{"used": 1, "attempts": 0, "expires_at": "2026-10-19 13:07:41"}, {"used": 1, "attempts": 0, "expires_at": "2026-10-19 13:07:40"}, {"used": 1, "attempts": 0, "expires_at": "2026-10-19 13:07:39"}], "otp_last_status": "", "otp_last_error": ""}

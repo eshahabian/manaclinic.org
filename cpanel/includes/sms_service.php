@@ -1,6 +1,29 @@
 <?php
 declare(strict_types=1);
 
+function sms_template_catalog(): array
+{
+    return [
+        'appointment_booked'=>['ثبت و تأیید نوبت','مانا کلینیک: نوبت شما با {doctor} در {datetime} {status}'],
+        'appointment_cancelled'=>['لغو نوبت','مانا کلینیک: نوبت شما با {doctor} در {datetime} لغو شد.'],
+        'appointment_reminder'=>['یادآوری نوبت','یادآوری مانا کلینیک: نوبت شما با {doctor} در {datetime} برگزار می‌شود.'],
+        'workshop_registered'=>['تأیید ثبت‌نام کارگاه','مانا کلینیک: ثبت‌نام کارگاه «{workshop}» تأیید شد. {datetime}؛ {place}'],
+        'workshop_reminder'=>['یادآوری کارگاه','یادآوری مانا کلینیک: جلسه کارگاه «{workshop}» در {datetime}؛ {place}'],
+        'workshop_announcement'=>['معرفی کارگاه','مانا کلینیک: کارگاه «{workshop}» از {datetime} برگزار می‌شود. برای ثبت‌نام به سایت کلینیک سر بزنید.'],
+        'quiet'=>['پیگیری عدم مراجعه','مانا کلینیک: {message}'],
+        'login_otp'=>['کد ورود',"مانا کلینیک\nکد ورود: {code}\nاعتبار: ۳ دقیقه\nاین کد را در اختیار دیگران نگذارید."],
+    ];
+}
+
+function sms_template_render(PDO $pdo, string $kind, array $variables): string
+{
+    $catalog=sms_template_catalog();
+    $template=mail_setting_get($pdo,'sms_template_'.$kind,'');
+    if(trim((string)$template)==='')$template=$catalog[$kind][1];
+    $map=[];foreach($variables as $key=>$value)$map['{'.$key.'}']=(string)$value;
+    return strtr($template,$map);
+}
+
 function sms_iran_mobile(string $input): ?string
 {
     $number = normalize_phone($input);
@@ -139,19 +162,19 @@ function sms_plan_appointment(PDO $pdo, array $a, string $activated): void
     $fingerprint=hash('sha256',json_encode([$a['status'],$a['starts_at'],$a['doctor_id'],$a['session_mode']??'IN_PERSON']));
     $when=format_fa_datetime((string)$a['starts_at']);
     $context=['entity'=>'appointment','id'=>$a['id'],'starts_at'=>$a['starts_at'],'status'=>$a['status'],'doctor_id'=>$a['doctor_id']];
-    $body='مانا کلینیک: نوبت شما با '.$a['doctor_name'].' در '.$when;
+    $vars=['patient'=>$a['patient_name'],'doctor'=>$a['doctor_name'],'datetime'=>$when,'status'=>$a['status']==='CONFIRMED'?'ثبت شد.':'برای بررسی ثبت شد.'];
     $pdo->beginTransaction();
     try {
         if (($old===null || $old['fingerprint']!==$fingerprint) && in_array($a['status'],['CONFIRMED','PENDING_APPROVAL'],true)
             && ($old!==null || $a['created_at']>=$activated) && strtotime($a['starts_at'])>time()) {
-            sms_queue_extended($pdo,$a['phone'],$body.($a['status']==='CONFIRMED'?' ثبت شد.':' برای بررسی ثبت شد.'),'appointment_booked',$key.':booked:'.$fingerprint,null,$a['starts_at'],$context);
+            sms_queue_extended($pdo,$a['phone'],sms_template_render($pdo,'appointment_booked',$vars),'appointment_booked',$key.':booked:'.$fingerprint,null,$a['starts_at'],$context);
         }
         if ($a['status']==='CANCELLED' && (($old!==null && $old['last_status']!=='CANCELLED') || ($old===null && $a['updated_at']>=$activated))) {
-            sms_queue_extended($pdo,$a['phone'],$body.' لغو شد.','appointment_cancelled',$key.':cancelled:'.$a['updated_at'],null,date('Y-m-d H:i:s',time()+86400),$context);
+            sms_queue_extended($pdo,$a['phone'],sms_template_render($pdo,'appointment_cancelled',$vars),'appointment_cancelled',$key.':cancelled:'.$a['updated_at'],null,date('Y-m-d H:i:s',time()+86400),$context);
         }
         if ($a['status']==='CONFIRMED' && strtotime($a['starts_at'])>time() && strtotime($a['created_at'])<=strtotime($a['starts_at'])-86400) {
             $due=date('Y-m-d H:i:s',max(time(),strtotime($a['starts_at'])-86400));
-            sms_queue_extended($pdo,$a['phone'],'یادآوری '.$body.' برگزار می‌شود.','appointment_reminder',$key.':reminder:'.$a['starts_at'].':'.$a['doctor_id'], $due,$a['starts_at'],$context);
+            sms_queue_extended($pdo,$a['phone'],sms_template_render($pdo,'appointment_reminder',$vars),'appointment_reminder',$key.':reminder:'.$a['starts_at'].':'.$a['doctor_id'], $due,$a['starts_at'],$context);
         }
         sms_entity_save($pdo,$key,$fingerprint,$a['status']);$pdo->commit();
     } catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
@@ -173,7 +196,7 @@ function sms_plan_workshop(PDO $pdo, array $w, string $activated): void
     $active=in_array($w['enrollment_status'],['CONFIRMED','COMPLETED'],true)&&!in_array($w['status'],['CANCELLED','DRAFT','COMPLETED'],true);
     $place=sms_workshop_place($w);
     if ($active && ($old===null || $old['fingerprint']!==$fingerprint) && ($old!==null || $w['enrolled_at']>=$activated)) {
-        sms_queue_extended($pdo,$w['phone'],'مانا کلینیک: ثبت‌نام کارگاه «'.$w['title'].'» تأیید شد. '.format_fa_datetime($w['starts_at']).'؛ '.$place,'workshop_registered',$key.':registered:'.$fingerprint,null,$w['ends_at'],$context);
+        sms_queue_extended($pdo,$w['phone'],sms_template_render($pdo,'workshop_registered',['patient'=>$w['patient_name'],'workshop'=>$w['title'],'datetime'=>format_fa_datetime($w['starts_at']),'place'=>$place]),'workshop_registered',$key.':registered:'.$fingerprint,null,$w['ends_at'],$context);
     }
     if ($active && $w['type']!=='OFFLINE') {
         $stmt=$pdo->prepare('SELECT id,session_date FROM workshop_sessions WHERE workshop_id=? ORDER BY session_date');$stmt->execute([$w['id']]);$sessions=$stmt->fetchAll()?:[];
@@ -182,7 +205,7 @@ function sms_plan_workshop(PDO $pdo, array $w, string $activated): void
             $start=$session['session_date'].' '.substr($w['starts_at'],11,8);
             if(strtotime($start)<=time() || strtotime($w['enrolled_at'])>strtotime($start)-86400)continue;
             $sessionContext=$context+['session_id'=>$session['id'],'session_start'=>$start];
-            sms_queue_extended($pdo,$w['phone'],'یادآوری مانا کلینیک: جلسه کارگاه «'.$w['title'].'» در '.format_fa_datetime($start).'؛ '.$place,'workshop_reminder',$key.':reminder:'.$session['id'].':'.$start.':'.$detailsHash,date('Y-m-d H:i:s',max(time(),strtotime($start)-86400)),$start,$sessionContext);
+            sms_queue_extended($pdo,$w['phone'],sms_template_render($pdo,'workshop_reminder',['patient'=>$w['patient_name'],'workshop'=>$w['title'],'datetime'=>format_fa_datetime($start),'place'=>$place]),'workshop_reminder',$key.':reminder:'.$session['id'].':'.$start.':'.$detailsHash,date('Y-m-d H:i:s',max(time(),strtotime($start)-86400)),$start,$sessionContext);
         }
     }
     sms_entity_save($pdo,$key,$fingerprint,$w['enrollment_status']);
