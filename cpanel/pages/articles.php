@@ -17,7 +17,7 @@ if ($topicKey !== '') {
     }));
 }
 
-$pageTitle = $topic ? ('مقالات ' . $topic['label'] . ' | مانا کلینیک') : 'مقالات';
+$pageTitle = $topic ? ('مقالات ' . $topic['label'] . ' | مانا کلینیک') : 'مقالات روانشناسی و راهنمای شروع درمان | مانا کلینیک';
 $pageDescription = $topic
     ? ('مقالات «' . $topic['label'] . '» از تیم مانا کلینیک سعادت‌آباد؛ همراه با معرفی درمانگر مرتبط و امکان رزرو نوبت.')
     : 'مقالات تخصصی روانشناسی و روان‌درمانی مانا کلینیک؛ اضطراب، خواب، مهربانی با خود، تنظیم هیجان و سلامت روان.';
@@ -27,10 +27,11 @@ ob_start();
 ?>
 <div class="container-page section">
   <h1><?= $topic ? e('مقالات ' . $topic['label']) : 'مقالات روانشناسی' ?></h1>
-  <p class="muted">هر مقاله به موضوع و درمانگر همان حوزه وصل است. از چیپ‌ها موضوع را ببین یا مستقیم نوبت بگیر.</p>
+  <p class="muted">درباره مسائل سلامت روان بخوانید و با خدمات و متخصصان مرتبط آشنا شوید.</p>
+  <p><a href="<?= e(url('/guides/first-therapy-session')) ?>">جلسه اول روان‌درمانی چگونه است؟ راهنمای انتخاب درمانگر و آمادگی برای جلسه</a></p>
   <?php if ($topic): ?>
     <p class="service-detail-cta" style="margin-top:1rem">
-      <a class="btn btn-primary" href="<?= e(url('/issues/' . $topicKey)) ?>">لندینگ «<?= e($topic['label']) ?>»</a>
+      <a class="btn btn-primary" href="<?= e(url('/issues/' . $topicKey)) ?>">آشنایی با <?= e($topic['label']) ?> و خدمات مرتبط</a>
       <a class="btn btn-outline" href="<?= e(clinic_doctors_href(['focus' => $topicKey])) ?>">رزرو درمانگر این موضوع</a>
     </p>
   <?php endif; ?>

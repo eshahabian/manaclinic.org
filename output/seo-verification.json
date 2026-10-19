@@ -1,5 +1,12 @@
 [
   {
+    "url": "https://manaclinic.org/guides/first-therapy-session",
+    "status": 200,
+    "canonical": "https://manaclinic.org/guides/first-therapy-session",
+    "noindex": false,
+    "h1_count": 1
+  },
+  {
     "url": "https://manaclinic.org/",
     "status": 200,
     "canonical": "https://manaclinic.org/",

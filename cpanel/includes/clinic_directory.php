@@ -496,8 +496,8 @@ function clinic_funnel_cta_html(string $bookHref, ?array $topic = null): string
       <p>اگر این نوشته به «<?= e($label) ?>» نزدیک است، می‌توانی درمانگر همان حوزه را ببینی و نوبت حضوری سعادت‌آباد یا آنلاین بگیری. زمان‌های آزاد و نوع جلسه در صفحه درمانگر مشخص است.</p>
       <p class="service-detail-cta" style="margin:.75rem 0 0">
         <a class="btn btn-primary" href="<?= e($bookHref) ?>">رزرو درمانگر مرتبط</a>
-        <a class="btn btn-outline" href="<?= e($issueHref) ?>">صفحه این موضوع</a>
-        <a class="btn btn-outline" href="<?= e($serviceHref) ?>">خدمات کلینیک</a>
+        <a class="btn btn-outline" href="<?= e($issueHref) ?>"><?= e($topic ? ('آشنایی با ' . $label) : 'آشنایی با مسائل سلامت روان') ?></a>
+        <a class="btn btn-outline" href="<?= e($serviceHref) ?>"><?= e($topic ? 'آشنایی با خدمت مرتبط' : 'آشنایی با خدمات مانا') ?></a>
       </p>
     </aside>
     <?php

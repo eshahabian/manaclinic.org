@@ -126,7 +126,7 @@ ob_start();
         <span class="service-card-icon"><?= services_icon_svg((string) $item['icon']) ?></span>
         <h2 class="service-card-title"><?= e((string) $item['title']) ?></h2>
         <p class="service-card-desc"><?= e((string) $item['desc']) ?></p>
-        <span class="service-card-more"><?= e((string) ($item['cta'] ?? 'بیشتر بدانید')) ?> ←</span>
+        <span class="service-card-more"><?= e((string) ($item['cta'] ?? ('آشنایی با ' . $item['title']))) ?> ←</span>
       </a>
     <?php endforeach; ?>
   </div>

@@ -7,6 +7,7 @@ require_once __DIR__ . '/../includes/psych_tests.php';
 header('Content-Type: application/xml; charset=utf-8');
 
 $urls = [
+    ['loc' => seo_absolute_url('/guides/first-therapy-session'), 'priority' => '0.7', 'changefreq' => 'monthly'],
     ['loc' => seo_absolute_url('/'), 'priority' => '1.0', 'changefreq' => 'daily'],
     ['loc' => seo_absolute_url('/doctors'), 'priority' => '0.9', 'changefreq' => 'weekly'],
     ['loc' => seo_absolute_url('/articles'), 'priority' => '0.9', 'changefreq' => 'daily'],

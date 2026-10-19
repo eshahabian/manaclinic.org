@@ -98,6 +98,7 @@ ob_start();
   </p>
 
   <div class="faq-list">
+    <p><a href="<?= e(url('/guides/first-therapy-session')) ?>">راهنمای جلسه اول روان‌درمانی و انتخاب درمانگر</a></p>
     <?php foreach ($faqs as $i => $item): ?>
       <details class="faq-item"<?= $i === 0 ? ' open' : '' ?>>
         <summary><?= e($item['q']) ?></summary>
