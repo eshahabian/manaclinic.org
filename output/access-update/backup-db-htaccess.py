@@ -11,7 +11,7 @@ import zipfile
 
 root = Path('D:/Psychology')
 cfg = json.loads((root / '.vscode/sftp.json').read_text(encoding='utf-8-sig'))
-dest = sorted((root / 'backups').glob('manaclinic-full-*'), key=lambda p: p.stat().st_mtime, reverse=True)
+dest = sorted((Path('D:/ManaClinic-Backups')).glob('manaclinic-full-*'), key=lambda p: p.stat().st_mtime, reverse=True)
 dest = [p for p in dest if p.is_dir()][0]
 db_dir = dest / 'database'
 db_dir.mkdir(exist_ok=True)

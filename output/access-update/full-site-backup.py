@@ -16,12 +16,15 @@ import urllib.request
 import zipfile
 
 root = Path('D:/Psychology')
+# Keep full backups outside the git repo so they never hit GitHub size limits.
+backup_root = Path('D:/ManaClinic-Backups')
 cfg = json.loads((root / '.vscode/sftp.json').read_text(encoding='utf-8-sig'))
 stamp = time.strftime('%Y%m%d-%H%M%S')
-dest = root / 'backups' / f'manaclinic-full-{stamp}'
+dest = backup_root / f'manaclinic-full-{stamp}'
 files_dir = dest / 'public_html'
 db_dir = dest / 'database'
 meta_path = dest / 'BACKUP_INFO.txt'
+backup_root.mkdir(parents=True, exist_ok=True)
 files_dir.mkdir(parents=True, exist_ok=True)
 db_dir.mkdir(parents=True, exist_ok=True)
 

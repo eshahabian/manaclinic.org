@@ -11,7 +11,7 @@ import zipfile
 root = Path('D:/Psychology')
 cfg = json.loads((root / '.vscode/sftp.json').read_text(encoding='utf-8-sig'))
 # Attach into the newest full backup folder if present.
-backups = sorted((root / 'backups').glob('manaclinic-full-*'), key=lambda p: p.stat().st_mtime, reverse=True)
+backups = sorted((Path('D:/ManaClinic-Backups')).glob('manaclinic-full-*'), key=lambda p: p.stat().st_mtime, reverse=True)
 backups = [p for p in backups if p.is_dir()]
 if not backups:
     raise SystemExit('No full backup folder found')
