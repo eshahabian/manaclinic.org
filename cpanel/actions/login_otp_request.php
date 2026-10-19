@@ -40,14 +40,22 @@ if($phone && $user && sms_iran_mobile((string)$user['phone'])===$phone && !user_
     $code=(string)random_int(100000,999999);
     $pdo->prepare('INSERT INTO login_otp(id,user_id,code_hash,expires_at) VALUES(?,?,?,?)')->execute([$id,$user['id'],password_hash($code,PASSWORD_DEFAULT),date('Y-m-d H:i:s',time()+180)]);
     // Send immediately; never put authentication secrets in the visible SMS archive.
-    $result=sms_provider_send(sms_connection_config($pdo),$phone,sms_template_render($pdo,'login_otp',['code'=>$code]));
+    $otpBody=sms_template_render($pdo,'login_otp',['code'=>$code]);
+    $result=function_exists('sms_provider_send_otp')
+        ? sms_provider_send_otp(sms_connection_config($pdo),$phone,$otpBody)
+        : sms_provider_send(sms_connection_config($pdo),$phone,$otpBody);
     mail_setting_set($pdo,'sms_otp_last_status',(string)$result['status']);
     mail_setting_set($pdo,'sms_otp_last_at',date('Y-m-d H:i:s'));
     mail_setting_set($pdo,'sms_otp_last_error',(string)($result['error']??''));
     if($result['status']!=='SENT'){
         $pdo->prepare('UPDATE login_otp SET used=1 WHERE id=?')->execute([$id]);
         unset($_SESSION['login_otp_id']);
-        flash_set('error','ارسال کد ورود با مشکل روبه‌رو شد. کمی بعد دوباره تلاش کنید یا با رمز عبور وارد شوید.');
+        $providerErr=trim((string)($result['error']??''));
+        if($providerErr!=='' && (str_contains($providerErr,'اعتبار') || str_contains($providerErr,'کد ۸') || str_contains($providerErr,'کد 8'))){
+            flash_set('error','درگاه پیامک ارسال کد را نپذیرفت (پیام پنل: کمبود اعتبار). فعلاً با رمز عبور وارد شوید و موضوع را به پشتیبانی وب‌وان بگویید.');
+        } else {
+            flash_set('error','ارسال کد ورود با مشکل روبه‌رو شد. کمی بعد دوباره تلاش کنید یا با رمز عبور وارد شوید.');
+        }
         redirect($retry);
     }
     unset($code);

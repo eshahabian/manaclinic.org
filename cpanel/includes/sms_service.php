@@ -381,36 +381,48 @@ function sms_provider_parse_response(string $raw, int $http, string $sender): ar
     return ['status' => 'FAILED', 'error' => sms_provider_error_message($resultCode ?? -1)];
 }
 
+/**
+ * درخواست خام به API وب‌وان (همان هدر/JSON هفت‌رخ).
+ * @param array<string,mixed> $fields
+ * @return array{status:string,id?:?string,error?:string,retryable_500?:bool}
+ */
+function sms_provider_request(string $apiKey, string $endpoint, array $fields, string $senderLabel): array
+{
+    $curl = curl_init('https://api.payamakapi.ir/api/v1/' . ltrim($endpoint, '/'));
+    curl_setopt_array($curl, [
+        CURLOPT_POST => true,
+        CURLOPT_RETURNTRANSFER => true,
+        CURLOPT_CONNECTTIMEOUT => 10,
+        CURLOPT_TIMEOUT => 25,
+        CURLOPT_HTTPHEADER => [
+            'Content-Type: application/json',
+            'Accept: application/json',
+            'X-API-KEY: ' . $apiKey,
+        ],
+        CURLOPT_POSTFIELDS => json_encode($fields, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+    ]);
+    $raw = curl_exec($curl);
+    $http = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
+    curl_close($curl);
+    if ($raw === false) {
+        return ['status' => 'UNKNOWN', 'error' => 'پاسخ قطعی از سرویس دریافت نشد؛ قبل از ارسال مجدد گزارش پنل بررسی شود.'];
+    }
+    $parsed = sms_provider_parse_response((string) $raw, $http, $senderLabel);
+    unset($parsed['retryable_500']);
+    return $parsed;
+}
+
 function sms_provider_send(array $config, string $phone, string $body): array
 {
     $apiKey = trim((string) ($config['api_key'] ?? ''));
     if ($apiKey !== '') {
-        $headers = [
-            'Content-Type: application/json',
-            'Accept: application/json',
-            'X-API-KEY: ' . $apiKey,
-        ];
         $sender = (string) $config['sender'];
         // عین هفت‌رخ (RestDocument): فقط From + ToNumber + Content — بدون IsFlash.
-        $fields = ['From' => $sender, 'ToNumber' => $phone, 'Content' => $body];
-        $curl = curl_init('https://api.payamakapi.ir/api/v1/SMS/Send');
-        curl_setopt_array($curl, [
-            CURLOPT_POST => true,
-            CURLOPT_RETURNTRANSFER => true,
-            CURLOPT_CONNECTTIMEOUT => 10,
-            CURLOPT_TIMEOUT => 25,
-            CURLOPT_HTTPHEADER => $headers,
-            CURLOPT_POSTFIELDS => json_encode($fields, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
-        ]);
-        $raw = curl_exec($curl);
-        $http = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
-        curl_close($curl);
-        if ($raw === false) {
-            return ['status' => 'UNKNOWN', 'error' => 'پاسخ قطعی از سرویس دریافت نشد؛ قبل از ارسال مجدد گزارش پنل بررسی شود.'];
-        }
-        $parsed = sms_provider_parse_response((string) $raw, $http, $sender);
-        unset($parsed['retryable_500']);
-        return $parsed;
+        return sms_provider_request($apiKey, 'SMS/Send', [
+            'From' => $sender,
+            'ToNumber' => $phone,
+            'Content' => $body,
+        ], $sender);
     }
 
     $curl = curl_init('https://rest.payamakapi.ir/api/v1/SMS/Send');
@@ -448,6 +460,48 @@ function sms_provider_send(array $config, string $phone, string $body): array
         }
     }
     return ['status' => 'UNKNOWN', 'error' => 'قالب پاسخ درگاه نیازمند بررسی است؛ ارسال خودکار تکرار نمی‌شود.'];
+}
+
+/**
+ * ارسال کد ورود: اول همان مسیر متنی هفت‌رخ، بعد SmartOTP (Auto / خط پنل).
+ * @return array{status:string,id?:?string,error?:string}
+ */
+function sms_provider_send_otp(array $config, string $phone, string $body): array
+{
+    $apiKey = trim((string) ($config['api_key'] ?? ''));
+    if ($apiKey === '') {
+        return sms_provider_send($config, $phone, $body);
+    }
+    $sender = (string) ($config['sender'] ?? '');
+    $last = sms_provider_request($apiKey, 'SMS/Send', [
+        'From' => $sender,
+        'ToNumber' => $phone,
+        'Content' => $body,
+    ], $sender);
+    if (($last['status'] ?? '') === 'SENT') {
+        return $last;
+    }
+    // اگر خط/فرستنده یا مسیر متنی گیر کرد، مثل هفت‌رخ SmartOTP را امتحان کن.
+    foreach (['Auto', $sender] as $otpSender) {
+        if ($otpSender === '') {
+            continue;
+        }
+        $try = sms_provider_request($apiKey, 'SMS/SmartOTP', [
+            'OTPSender' => $otpSender,
+            'ToNumber' => $phone,
+            'Content' => $body,
+        ], (string) $otpSender);
+        if (($try['status'] ?? '') === 'SENT') {
+            return $try;
+        }
+        $last = $try;
+        // ۸ کمبود اعتبار / ۱۵ تکراری — ادامه بی‌فایده است.
+        $err = (string) ($try['error'] ?? '');
+        if (str_contains($err, 'اعتبار') || str_contains($err, 'تکراری')) {
+            break;
+        }
+    }
+    return $last;
 }
 
 function sms_dispatch_pending(PDO $pdo, int $limit=20): int
