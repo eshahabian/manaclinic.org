@@ -345,6 +345,7 @@ function appointment_room_pick_html(string $name = 'room_no', string $id = 'room
         require_once __DIR__ . '/clinic_rooms.php';
     }
     $numbers = function_exists('clinic_rooms_numbers') ? clinic_rooms_numbers() : [1, 2, 3];
+    $numbers[] = 4; // Outside the clinic, not a bookable room.
     $selected = trim($selected);
     $shown = 'انتخاب اتاق';
     $shownEmpty = true;
@@ -381,7 +382,7 @@ function appointment_room_pick_html(string $name = 'room_no', string $id = 'room
           <?php endforeach; ?>
         </div>
       </div>
-      <p class="muted appt-room-hint" id="<?= e($id) ?>-hint" style="margin:.35rem 0 0;font-size:.8rem">برای جلسه حضوری انتخاب اتاق لازم است. اگر جلسه آنلاین باشد، اتاق اجباری نیست.</p>
+      <p class="muted appt-room-hint" id="<?= e($id) ?>-hint" style="margin:.35rem 0 0;font-size:.8rem">اتاق یا خارج از کلینیک را انتخاب کنید. برای جلسه آنلاین انتخاب محل اختیاری است.</p>
     </div>
     <?php
     static $roomPickScript = false;
@@ -487,7 +488,7 @@ function appointment_parse_room_choice(string $raw): int
         '٠' => '0', '١' => '1', '٢' => '2', '٣' => '3', '٤' => '4',
         '٥' => '5', '٦' => '6', '٧' => '7', '٨' => '8', '٩' => '9',
     ]);
-    if (preg_match('/[1-3]/', $raw, $match)) {
+    if (preg_match('/^[1-4]$/', $raw, $match)) {
         return (int) $match[0];
     }
 
@@ -502,11 +503,14 @@ function appointment_assert_room_choice(PDO $pdo, array $appointment, int $room)
         require_once __DIR__ . '/clinic_rooms.php';
     }
     $online = appointment_is_online_mode($appointment);
+    if ($room === 4) {
+        return $room;
+    }
     if ($room === 0) {
         if ($online) {
             return 0;
         }
-        throw new RuntimeException('برای جلسه حضوری اتاق را انتخاب کنید.');
+        throw new RuntimeException('برای جلسه حضوری اتاق یا خارج از کلینیک را انتخاب کنید.');
     }
     if (!in_array($room, clinic_rooms_numbers(), true)) {
         throw new RuntimeException('اتاق نامعتبر است.');
@@ -538,6 +542,12 @@ function appointment_save_room(PDO $pdo, array $actor, array $appointment, int $
     $apptId = (string) ($appointment['id'] ?? '');
     if ($apptId === '') {
         throw new RuntimeException('نوبت برای ثبت اتاق مشخص نیست.');
+    }
+    if ($room === 4) {
+        // Release any previous room when moving the session outside the clinic.
+        $pdo->prepare('DELETE FROM clinic_room_bookings WHERE appointment_id=?')->execute([$apptId]);
+        $pdo->prepare('UPDATE appointments SET room_no=? WHERE id=?')->execute([$room, $apptId]);
+        return;
     }
     $starts = (string) ($appointment['starts_at'] ?? '');
     $ends = (string) ($appointment['ends_at'] ?? '');

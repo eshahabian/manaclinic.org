@@ -886,14 +886,13 @@ $secretaryBookScripts = '
     var picked = form.querySelector("input[name=session_mode]:checked");
     var online = !!(picked && picked.value === "ONLINE");
     roomEl.required = false;
-    roomEl.disabled = online;
-    if (online) roomEl.value = "";
+    roomEl.disabled = false;
     roomEl.dispatchEvent(new Event("change", { bubbles: true }));
-    if (roomBox) roomBox.hidden = online;
+    if (roomBox) roomBox.hidden = false;
     if (roomHint) {
       roomHint.textContent = online
-        ? "جلسه آنلاین است؛ انتخاب اتاق لازم نیست."
-        : "برای جلسه حضوری اتاق را انتخاب کنید.";
+        ? "برای جلسه آنلاین می‌توانید اتاق یا خارج از کلینیک را انتخاب کنید."
+        : "اتاق یا خارج از کلینیک را انتخاب کنید.";
     }
   }
   var payEl = document.getElementById("sec-pay-method");

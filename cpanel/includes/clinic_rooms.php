@@ -68,6 +68,10 @@ function clinic_rooms_numbers(): array
 
 function clinic_room_label(int $room): string
 {
+    // Appointment location only; this value never reserves a clinic room.
+    if ($room === 4) {
+        return 'خارج از کلینیک';
+    }
     return 'اتاق ' . to_fa_digits((string) $room);
 }
 

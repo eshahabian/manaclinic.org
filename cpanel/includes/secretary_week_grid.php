@@ -201,6 +201,7 @@ function secretary_room_choice_list(): array
         ];
     }
 
+    $choices[] = ['value' => '4', 'label' => 'خارج از کلینیک'];
     return $choices;
 }
 
