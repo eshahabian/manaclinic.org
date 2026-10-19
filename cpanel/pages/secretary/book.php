@@ -138,8 +138,15 @@ ob_start();
         <span class="label">درمانگر</span>
         <select class="input" name="legacy_doctor_id" id="legacy-doctor">
           <option value="">انتخاب درمانگر</option>
-          <?php foreach ($doctors as $d): ?>
-            <option value="<?= e((string) $d['id']) ?>"><?= e((string) $d['name']) ?></option>
+          <?php foreach ($doctors as $d):
+            $docName = trim((string) ($d['name'] ?? ''));
+            $docSpec = trim((string) ($d['specialty'] ?? ''));
+            $docLabel = $docName !== '' ? $docName : ('درمانگر ' . (string) ($d['id'] ?? ''));
+            if ($docSpec !== '') {
+                $docLabel .= ' — ' . $docSpec;
+            }
+          ?>
+            <option value="<?= e((string) $d['id']) ?>" data-search="<?= e($docName . ' ' . $docSpec) ?>"><?= e($docLabel) ?></option>
           <?php endforeach; ?>
         </select>
       </label>
@@ -264,6 +271,7 @@ $secretaryBookScripts = '
   var patientEl = document.getElementById("patient_id");
 
   var doctorSearchApi = null;
+  var legacyDoctorApi = null;
   if (window.enhanceSearchSelect) {
     enhanceSearchSelect(patientEl, { placeholder: "جستجو با نام، یوزر یا موبایل…" });
     doctorSearchApi = enhanceSearchSelect(doctorEl, { placeholder: "جستجو یا انتخاب دکتر" });
@@ -273,21 +281,55 @@ $secretaryBookScripts = '
   var legacyPhone = document.getElementById("legacy-phone");
   var legacyDoctor = document.getElementById("legacy-doctor");
   var legacyReferral = document.getElementById("legacy-referral");
+  if (window.enhanceSearchSelect && legacyDoctor) {
+    legacyDoctorApi = enhanceSearchSelect(legacyDoctor, { placeholder: "جستجو یا انتخاب درمانگر" });
+  }
+  function setLegacyFieldEnabled(el, on) {
+    if (!el) return;
+    el.required = on;
+    el.disabled = !on;
+    var wrap = el.closest(".search-select");
+    var inp = wrap ? wrap.querySelector(".search-select-input") : null;
+    if (inp) {
+      inp.disabled = !on;
+      if (!on) inp.value = "";
+    }
+  }
   function syncLegacySetup() {
     if (!legacyBox || !patientEl) return;
     var opt = patientEl.options[patientEl.selectedIndex];
     var needs = !!(opt && opt.getAttribute("data-needs-setup") === "1");
     legacyBox.hidden = !needs;
-    [legacyPhone, legacyDoctor, legacyReferral].forEach(function (el) {
-      if (!el) return;
-      el.required = needs;
-      el.disabled = !needs;
-    });
+    setLegacyFieldEnabled(legacyPhone, needs);
+    setLegacyFieldEnabled(legacyDoctor, needs);
+    setLegacyFieldEnabled(legacyReferral, needs);
     if (needs && opt) {
       if (legacyPhone && !legacyPhone.value) legacyPhone.value = opt.getAttribute("data-phone") || "";
-      if (legacyDoctor && opt.getAttribute("data-doctor")) legacyDoctor.value = opt.getAttribute("data-doctor");
-      if (legacyReferral && opt.getAttribute("data-referral")) legacyReferral.value = opt.getAttribute("data-referral");
+      if (legacyDoctor) {
+        var docId = opt.getAttribute("data-doctor") || "";
+        var hasDoc = false;
+        if (docId) {
+          hasDoc = Array.prototype.some.call(legacyDoctor.options, function (o) {
+            return o.value === docId;
+          });
+        }
+        legacyDoctor.value = hasDoc ? docId : "";
+        if (legacyDoctorApi) legacyDoctorApi.sync();
+      }
+      if (legacyReferral && opt.getAttribute("data-referral")) {
+        legacyReferral.value = opt.getAttribute("data-referral");
+      }
+    } else if (legacyDoctorApi) {
+      legacyDoctorApi.sync();
     }
+  }
+  if (legacyDoctor) {
+    legacyDoctor.addEventListener("change", function () {
+      if (!doctorEl || !legacyDoctor.value) return;
+      doctorEl.value = legacyDoctor.value;
+      if (doctorSearchApi) doctorSearchApi.sync();
+      doctorEl.dispatchEvent(new Event("change", { bubbles: true }));
+    });
   }
   var inactiveModal = document.getElementById("inactive-patient-modal");
   function selectedPatientInactive() {
