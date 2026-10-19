@@ -28,12 +28,36 @@ foreach ($digests as $pack) {
     $digestById[(string) $pack['doctor_id']] = $pack;
 }
 
-$jalaliView = '';
-if (function_exists('gregorian_to_jalali')) {
-    [$gy, $gm, $gd] = array_map('intval', explode('-', $selectedYmd));
-    [$jy, $jm, $jd] = gregorian_to_jalali($gy, $gm, $gd);
-    $jalaliView = $jy . '/' . sprintf('%02d', $jm) . '/' . sprintf('%02d', $jd);
+/** @var list<string> $busyYmDs days (Y-m-d) with at least one CONFIRMED appointment in the selectable window */
+$busyYmDs = [];
+$busyStmt = $pdo->prepare("
+  SELECT DISTINCT DATE(a.starts_at) AS d
+  FROM appointments a
+  JOIN doctor_profiles dp ON dp.id = a.doctor_id
+  JOIN users u ON u.id = dp.user_id
+  WHERE a.status = 'CONFIRMED'
+    AND dp.is_active = 1 AND dp.is_approved = 1 AND u.is_disabled = 0
+    AND DATE(a.starts_at) BETWEEN ? AND ?
+");
+$busyStmt->execute([$today, $maxYmd]);
+foreach ($busyStmt->fetchAll() ?: [] as $row) {
+    $d = (string) ($row['d'] ?? '');
+    if (preg_match('/^\d{4}-\d{2}-\d{2}$/', $d)) {
+        $busyYmDs[] = $d;
+    }
 }
+
+$toJalaliAscii = static function (string $ymd): string {
+    if (!function_exists('gregorian_to_jalali') || !preg_match('/^\d{4}-\d{2}-\d{2}$/', $ymd)) {
+        return '';
+    }
+    [$gy, $gm, $gd] = array_map('intval', explode('-', $ymd));
+    [$jy, $jm, $jd] = gregorian_to_jalali($gy, $gm, $gd);
+    return $jy . '/' . sprintf('%02d', $jm) . '/' . sprintf('%02d', $jd);
+};
+// ASCII digits only — Persian digits in value break jalaliDatepicker parse (opens Farvardin, all days disabled)
+$jalaliView = $toJalaliAscii($selectedYmd);
+$maxJalali = $toJalaliAscii($maxYmd);
 $dayLabel = function_exists('format_fa_day_long')
     ? format_fa_day_long($selectedYmd . ' 12:00:00')
     : to_fa_digits($selectedYmd);
@@ -42,14 +66,22 @@ $recent = sms_recent($pdo, 'doctor_daily_digest', 15);
 $digestBase = url('/admin/sms-doctor-digest');
 
 $digestBaseJson = json_encode($digestBase, JSON_UNESCAPED_UNICODE);
-$GLOBALS['pageHead'] = '<link rel="stylesheet" href="/assets/vendor/jalali/jalalidatepicker.min.css">';
+$busyJson = json_encode($busyYmDs, JSON_UNESCAPED_UNICODE);
+$maxJalaliJson = json_encode($maxJalali, JSON_UNESCAPED_UNICODE);
+$GLOBALS['pageHead'] = '<link rel="stylesheet" href="/assets/vendor/jalali/jalalidatepicker.min.css">'
+    . '<style>.jdp-container .jdp-day.holly-day.digest-busy,'
+    . '.jdp-container .jdp-day.digest-busy{color:#c62828!important;font-weight:800;background:rgba(198,40,40,.12)!important}</style>';
 $GLOBALS['pageScripts'] = '<script src="/assets/vendor/jalali/jalaali.min.js"></script>'
     . '<script src="/assets/vendor/jalali/jalalidatepicker.min.js"></script>'
     . '<script>(function(){'
     . 'var digestBase=' . $digestBaseJson . ';'
+    . 'var busySet={};(' . $busyJson . ').forEach(function(d){busySet[d]=1;});'
+    . 'var maxJalali=' . $maxJalaliJson . ';'
     . 'function faToEn(str){return String(str||"").replace(/[۰-۹]/g,function(d){return String("۰۱۲۳۴۵۶۷۸۹".indexOf(d));});}'
     . 'function pad(n){return (n<10?"0":"")+n;}'
-    . 'if(typeof jalaliDatepicker!=="undefined"){jalaliDatepicker.startWatch({selector:"[data-jdp]",time:false,hideAfterChange:true,showTodayBtn:true,showEmptyBtn:false,autoReadOnlyInput:true,persianDigits:true,zIndex:100000,container:"body"});}'
+    . 'if(typeof jalaliDatepicker!=="undefined"){jalaliDatepicker.startWatch({selector:"[data-jdp]",time:false,hideAfterChange:true,showTodayBtn:true,showEmptyBtn:false,autoReadOnlyInput:true,persianDigits:true,minDate:"today",maxDate:maxJalali||undefined,zIndex:100000,container:"body",'
+    . 'dayRendering:function(day){if(typeof jalaali==="undefined")return{};var g=jalaali.toGregorian(day.year,day.month,day.day);if(!g||!g.gy)return{};var key=g.gy+"-"+pad(g.gm)+"-"+pad(g.gd);if(!busySet[key])return{};return{isHollyDay:true,className:(day.className||"")+".digest-busy"};}'
+    . '});}'
     . 'var view=document.getElementById("digest-date-view");'
     . 'function goToPickedDate(){if(!view||typeof jalaali==="undefined")return;var t=faToEn(view.value).replace(/-/g,"/").trim();var p=t.split("/");if(p.length!==3)return;var g=jalaali.toGregorian(parseInt(p[0],10),parseInt(p[1],10),parseInt(p[2],10));if(!g||!g.gy)return;window.location=digestBase+"?date="+encodeURIComponent(g.gy+"-"+pad(g.gm)+"-"+pad(g.gd));}'
     . 'if(view){view.addEventListener("jdp:change",goToPickedDate);view.addEventListener("change",goToPickedDate);}'
@@ -71,8 +103,8 @@ ob_start();
 <div class="panel form-stack" style="margin-top:1rem">
   <label class="label" for="digest-date-view">تاریخ نوبت‌ها</label>
   <input class="input" type="text" id="digest-date-view" data-jdp data-jdp-only-date autocomplete="off" readonly
-         value="<?= e(to_fa_digits($jalaliView)) ?>" style="cursor:pointer;max-width:16rem">
-  <p class="muted" style="margin:0;font-size:.85rem">روز انتخاب‌شده: <?= e($dayLabel) ?></p>
+         value="<?= e($jalaliView) ?>" style="cursor:pointer;max-width:16rem">
+  <p class="muted" style="margin:0;font-size:.85rem">روز انتخاب‌شده: <?= e($dayLabel) ?> — روزهای قرمز در تقویم یعنی حداقل یک نوبت تأییدشده دارند.</p>
   <p class="muted" style="margin:0;font-size:.8rem">
     میانبر:
     <a href="<?= e($digestBase . '?date=' . rawurlencode($today)) ?>">امروز</a>
