@@ -6,10 +6,8 @@ $doctors = $pdo->query("
   FROM doctor_profiles dp
   JOIN users u ON u.id = dp.user_id
   WHERE dp.is_active = 1 AND dp.is_approved = 1 AND u.is_disabled = 0
-  ORDER BY
-    CASE WHEN TRIM(COALESCE(dp.avatar_url, '')) <> '' THEN 0 ELSE 1 END,
-    CASE WHEN u.name LIKE '%گرانمایه%' THEN 0 ELSE 1 END,
-    dp.created_at ASC
+    AND TRIM(COALESCE(dp.avatar_url, '')) <> ''
+  ORDER BY RAND()
   LIMIT 4
 ")->fetchAll();
 
