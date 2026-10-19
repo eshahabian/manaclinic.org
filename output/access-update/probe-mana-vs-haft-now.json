@@ -1,0 +1,89 @@
+{
+  "server_ip": "89.42.208.211",
+  "phone_tail": "3986",
+  "mana": {
+    "from": "9998621381",
+    "key_len": 73,
+    "key_prefix": "5b219673",
+    "enabled": "1",
+    "credit": {
+      "http": 200,
+      "raw": "455380"
+    }
+  },
+  "haft": {
+    "from": "9998624065",
+    "key_len": 73,
+    "key_prefix": "8a3fb62b",
+    "credit": {
+      "http": 403,
+      "raw": "{\"message\":\"IP Is Invalid\",\"clientIp\":\"89.42.208.211\"}"
+    },
+    "send_probe": {
+      "http": 403,
+      "resultCode": null,
+      "succeeded": null,
+      "refId": null,
+      "message": "IP Is Invalid",
+      "raw": "{\"message\":\"IP Is Invalid\",\"clientIp\":\"89.42.208.211\"}"
+    }
+  },
+  "tries": {
+    "mana_otp_no_flash": {
+      "http": 200,
+      "resultCode": 8,
+      "succeeded": false,
+      "refId": 0,
+      "message": null,
+      "raw": "{\"resultCode\":8,\"succeeded\":false,\"refId\":0}",
+      "body": "کد ورود شما 943765",
+      "len": 18
+    },
+    "mana_provider_send_otp": {
+      "status": "FAILED",
+      "error": "ارسال تکراری؛ کمی بعد دوباره تلاش کنید."
+    }
+  },
+  "outbox": [
+    {
+      "kind": "appointment_booked",
+      "status": "FAILED",
+      "body": "مانا کلینیک: نوبت شما در ۲۹ مهر ۱۳:۰۰ ثبت شد.",
+      "last_error": "وب‌وان ارسال را رد کرد (کد ۸؛ گاهی به‌جای محدودیت/تکرار به‌اشتباه «کمبود اعتبار» می‌گوید).",
+      "created_at": "2026-10-19 17:02:20"
+    },
+    {
+      "kind": "appointment_cancelled",
+      "status": "FAILED",
+      "body": "مانا کلینیک: نوبت شما در ۲۹ مهر ۱۴:۰۰ لغو شد.",
+      "last_error": "وب‌وان ارسال را رد کرد (کد ۸؛ گاهی به‌جای محدودیت/تکرار به‌اشتباه «کمبود اعتبار» می‌گوید).",
+      "created_at": "2026-10-19 16:44:13"
+    },
+    {
+      "kind": "appointment_booked",
+      "status": "FAILED",
+      "body": "مانا کلینیک: نوبت شما در ۲۹ مهر ۱۴:۰۰ ثبت شد.",
+      "last_error": "وب‌وان ارسال را رد کرد (کد ۸؛ گاهی به‌جای محدودیت/تکرار به‌اشتباه «کمبود اعتبار» می‌گوید).",
+      "created_at": "2026-10-19 16:42:10"
+    },
+    {
+      "kind": "appointment_cancelled",
+      "status": "FAILED",
+      "body": "مانا کلینیک\nعماد عزیز\nلغو ۲۹ مهر ۱۲:۰۰",
+      "last_error": "وب‌وان ارسال را رد کرد (کد ۸؛ گاهی به‌جای محدودیت/تکرار به‌اشتباه «کمبود اعتبار» می‌گوید).",
+      "created_at": "2026-10-19 16:32:39"
+    },
+    {
+      "kind": "appointment_booked",
+      "status": "FAILED",
+      "body": "مانا کلینیک\nعماد عزیز\n۲۹ مهر ۱۲:۰۰",
+      "last_error": "وب‌وان ارسال را رد کرد (کد ۸؛ گاهی به‌جای محدودیت/تکرار به‌اشتباه «کمبود اعتبار» می‌گوید).",
+      "created_at": "2026-10-19 16:28:45"
+    }
+  ],
+  "code_compare": {
+    "haft_sms_uses_IsFlash": false,
+    "haft_sms_uses_ToNumber": true,
+    "haft_sms_uses_api_payamakapi": true
+  }
+}

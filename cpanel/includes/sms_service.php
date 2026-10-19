@@ -305,41 +305,26 @@ function sms_provider_send(array $config, string $phone, string $body): array
             'X-API-KEY: ' . $apiKey,
         ];
         $sender = (string) $config['sender'];
-        // Primary body matches working RestDocument sends: From + ToNumber + Content.
-        $payloads = [
-            ['From' => $sender, 'ToNumber' => $phone, 'Content' => $body],
-            // Some panel quirks historically returned HTTP 500 without IsFlash.
-            ['From' => $sender, 'ToNumber' => $phone, 'Content' => $body, 'IsFlash' => false],
-        ];
-        $last = ['status' => 'FAILED', 'error' => 'ارسال پیامک ناموفق بود.'];
-        foreach ($payloads as $index => $fields) {
-            $curl = curl_init('https://api.payamakapi.ir/api/v1/SMS/Send');
-            curl_setopt_array($curl, [
-                CURLOPT_POST => true,
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_CONNECTTIMEOUT => 10,
-                CURLOPT_TIMEOUT => 25,
-                CURLOPT_HTTPHEADER => $headers,
-                CURLOPT_POSTFIELDS => json_encode($fields, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR),
-            ]);
-            $raw = curl_exec($curl);
-            $http = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
-            curl_close($curl);
-            if ($raw === false) {
-                return ['status' => 'UNKNOWN', 'error' => 'پاسخ قطعی از سرویس دریافت نشد؛ قبل از ارسال مجدد گزارش پنل بررسی شود.'];
-            }
-            $parsed = sms_provider_parse_response((string) $raw, $http, $sender);
-            if (($parsed['status'] ?? '') === 'SENT') {
-                return $parsed;
-            }
-            $last = $parsed;
-            // Only fall through to IsFlash retry on gateway 500 from the bare payload.
-            if ($index === 0 && empty($parsed['retryable_500'])) {
-                break;
-            }
+        // عین هفت‌رخ (RestDocument): فقط From + ToNumber + Content — بدون IsFlash.
+        $fields = ['From' => $sender, 'ToNumber' => $phone, 'Content' => $body];
+        $curl = curl_init('https://api.payamakapi.ir/api/v1/SMS/Send');
+        curl_setopt_array($curl, [
+            CURLOPT_POST => true,
+            CURLOPT_RETURNTRANSFER => true,
+            CURLOPT_CONNECTTIMEOUT => 10,
+            CURLOPT_TIMEOUT => 25,
+            CURLOPT_HTTPHEADER => $headers,
+            CURLOPT_POSTFIELDS => json_encode($fields, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_THROW_ON_ERROR),
+        ]);
+        $raw = curl_exec($curl);
+        $http = (int) curl_getinfo($curl, CURLINFO_HTTP_CODE);
+        curl_close($curl);
+        if ($raw === false) {
+            return ['status' => 'UNKNOWN', 'error' => 'پاسخ قطعی از سرویس دریافت نشد؛ قبل از ارسال مجدد گزارش پنل بررسی شود.'];
         }
-        unset($last['retryable_500']);
-        return $last;
+        $parsed = sms_provider_parse_response((string) $raw, $http, $sender);
+        unset($parsed['retryable_500']);
+        return $parsed;
     }
 
     $curl = curl_init('https://rest.payamakapi.ir/api/v1/SMS/Send');
