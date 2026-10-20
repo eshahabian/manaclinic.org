@@ -1,0 +1,344 @@
+{
+    "groups": [
+        {
+            "phone_suffix": "6747",
+            "accounts": [
+                {
+                    "id": "03f8ececda635fe18f318786",
+                    "name": "فرید نصیریان",
+                    "username": "fnasiryan",
+                    "role": "PATIENT",
+                    "is_disabled": 0,
+                    "created_at": "2026-10-18 16:38:50",
+                    "appointments_count": 0,
+                    "workshop_enrollments_count": 0,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 0
+                },
+                {
+                    "id": "d15092908e65bc38d28ad28e",
+                    "name": "سعید نصیریان",
+                    "username": "snasiryan",
+                    "role": "PATIENT",
+                    "is_disabled": 0,
+                    "created_at": "2026-10-18 16:36:59",
+                    "appointments_count": 0,
+                    "workshop_enrollments_count": 0,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 0
+                }
+            ]
+        },
+        {
+            "phone_suffix": "9627",
+            "accounts": [
+                {
+                    "id": "1f008475b2cb4843c1c79fcb",
+                    "name": "نازنین حسینی پور",
+                    "username": "nhoseynipoor2",
+                    "role": "PATIENT",
+                    "is_disabled": 0,
+                    "created_at": "2026-10-17 17:50:10",
+                    "appointments_count": 1,
+                    "workshop_enrollments_count": 0,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 0
+                },
+                {
+                    "id": "ae5b4c229636eb258d922c48",
+                    "name": "نازنین حسینی پور",
+                    "username": "nhoseynipoor1",
+                    "role": "PATIENT",
+                    "is_disabled": 0,
+                    "created_at": "2026-09-13 09:52:51",
+                    "appointments_count": 1,
+                    "workshop_enrollments_count": 0,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 0
+                }
+            ]
+        },
+        {
+            "phone_suffix": "3610",
+            "accounts": [
+                {
+                    "id": "2cf71f656e2441b635ffac35",
+                    "name": "سمیه ثنایی",
+                    "username": "sthetwo1",
+                    "role": "PATIENT",
+                    "is_disabled": 0,
+                    "created_at": "2026-10-15 11:36:53",
+                    "appointments_count": 0,
+                    "workshop_enrollments_count": 0,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 0
+                },
+                {
+                    "id": "4150adb4876189617196c398",
+                    "name": "سمیه ثنایی",
+                    "username": "sthetwo",
+                    "role": "PATIENT",
+                    "is_disabled": 0,
+                    "created_at": "2026-10-14 18:59:01",
+                    "appointments_count": 1,
+                    "workshop_enrollments_count": 0,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 0
+                }
+            ]
+        },
+        {
+            "phone_suffix": "2590",
+            "accounts": [
+                {
+                    "id": "36dfdb042124cb0a89814c30",
+                    "name": "عطیه گارسچی",
+                    "username": "atieh",
+                    "role": "DOCTOR",
+                    "is_disabled": 0,
+                    "created_at": "2026-08-31 20:26:02",
+                    "appointments_count": 0,
+                    "workshop_enrollments_count": 0,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 1
+                },
+                {
+                    "id": "5ab59a6159031fe471789a1b",
+                    "name": "عطی",
+                    "username": "atig",
+                    "role": "PATIENT",
+                    "is_disabled": 0,
+                    "created_at": "2026-08-29 22:05:20",
+                    "appointments_count": 0,
+                    "workshop_enrollments_count": 1,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 0
+                },
+                {
+                    "id": "9a7bd82618bd8fe9f168d1aa",
+                    "name": "باران شاکری",
+                    "username": "bshakeri",
+                    "role": "PATIENT",
+                    "is_disabled": 0,
+                    "created_at": "2026-09-06 11:12:29",
+                    "appointments_count": 1,
+                    "workshop_enrollments_count": 1,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 0
+                }
+            ]
+        },
+        {
+            "phone_suffix": "4247",
+            "accounts": [
+                {
+                    "id": "42955c84b16ef33cd5d3fda9",
+                    "name": "سعید حجتی",
+                    "username": "hjti",
+                    "role": "PATIENT",
+                    "is_disabled": 0,
+                    "created_at": "2026-09-13 09:50:16",
+                    "appointments_count": 1,
+                    "workshop_enrollments_count": 0,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 0
+                },
+                {
+                    "id": "d49fb302f9e83b931c3a9cc7",
+                    "name": "سعید حجتی",
+                    "username": "shjti",
+                    "role": "PATIENT",
+                    "is_disabled": 0,
+                    "created_at": "2026-09-13 09:40:39",
+                    "appointments_count": 1,
+                    "workshop_enrollments_count": 0,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 0
+                }
+            ]
+        },
+        {
+            "phone_suffix": "4700",
+            "accounts": [
+                {
+                    "id": "51d105ffc3f68d34dba258f8",
+                    "name": "پریسا قانع",
+                    "username": "pqane",
+                    "role": "PATIENT",
+                    "is_disabled": 0,
+                    "created_at": "2026-09-24 12:58:35",
+                    "appointments_count": 0,
+                    "workshop_enrollments_count": 0,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 0
+                },
+                {
+                    "id": "eb83a8b94ae31855d8d9f92d",
+                    "name": "پریسا قانع",
+                    "username": "pghana",
+                    "role": "PATIENT",
+                    "is_disabled": 0,
+                    "created_at": "2026-09-13 09:44:10",
+                    "appointments_count": 1,
+                    "workshop_enrollments_count": 0,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 0
+                }
+            ]
+        },
+        {
+            "phone_suffix": "4057",
+            "accounts": [
+                {
+                    "id": "695a8589e05dfe4acd373b1a",
+                    "name": "مهبد محمدی",
+                    "username": "mmohammadi2",
+                    "role": "PATIENT",
+                    "is_disabled": 0,
+                    "created_at": "2026-10-18 16:54:43",
+                    "appointments_count": 1,
+                    "workshop_enrollments_count": 0,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 0
+                },
+                {
+                    "id": "7081127fe666491be9fbf199",
+                    "name": "مهبد محمدی",
+                    "username": "mmohammadi1",
+                    "role": "PATIENT",
+                    "is_disabled": 0,
+                    "created_at": "2026-10-11 12:28:29",
+                    "appointments_count": 1,
+                    "workshop_enrollments_count": 0,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 0
+                },
+                {
+                    "id": "805d9bcaff67096f910cdeed",
+                    "name": "مهبد محمدي",
+                    "username": "mmohammadi",
+                    "role": "PATIENT",
+                    "is_disabled": 0,
+                    "created_at": "2026-10-08 08:53:59",
+                    "appointments_count": 0,
+                    "workshop_enrollments_count": 0,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 0
+                }
+            ]
+        },
+        {
+            "phone_suffix": "3397",
+            "accounts": [
+                {
+                    "id": "72750a89a9a6ab3d5c2e2a48",
+                    "name": "حسین سلمانزاده",
+                    "username": "hsalmanzade",
+                    "role": "PATIENT",
+                    "is_disabled": 0,
+                    "created_at": "2026-09-12 10:33:18",
+                    "appointments_count": 2,
+                    "workshop_enrollments_count": 0,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 0
+                },
+                {
+                    "id": "a0892e604ca15ba3e148fd2a",
+                    "name": "کاملیا سلمانزاده",
+                    "username": "csalmanzade",
+                    "role": "PATIENT",
+                    "is_disabled": 0,
+                    "created_at": "2026-09-21 18:17:38",
+                    "appointments_count": 1,
+                    "workshop_enrollments_count": 0,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 0
+                }
+            ]
+        },
+        {
+            "phone_suffix": "9601",
+            "accounts": [
+                {
+                    "id": "8e8a49f83e5d5efbfa13ff9e",
+                    "name": "رضا پرستار",
+                    "username": "rprstar2",
+                    "role": "PATIENT",
+                    "is_disabled": 0,
+                    "created_at": "2026-09-21 18:15:43",
+                    "appointments_count": 1,
+                    "workshop_enrollments_count": 0,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 0
+                },
+                {
+                    "id": "ca4c5630b6599748fdae8968",
+                    "name": "رضا پرستار",
+                    "username": "rprstar",
+                    "role": "PATIENT",
+                    "is_disabled": 0,
+                    "created_at": "2026-09-07 15:55:29",
+                    "appointments_count": 1,
+                    "workshop_enrollments_count": 0,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 0
+                }
+            ]
+        },
+        {
+            "phone_suffix": "0927",
+            "accounts": [
+                {
+                    "id": "ab82f6a261390c5159ee2bfe",
+                    "name": "سعید برزگری",
+                    "username": "sbrzgri1",
+                    "role": "PATIENT",
+                    "is_disabled": 0,
+                    "created_at": "2026-10-18 16:43:42",
+                    "appointments_count": 0,
+                    "workshop_enrollments_count": 0,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 0
+                },
+                {
+                    "id": "e3bbe6b3f7bd1b3fa6864cfa",
+                    "name": "سعید برزگری",
+                    "username": "sbrzgri",
+                    "role": "PATIENT",
+                    "is_disabled": 0,
+                    "created_at": "2026-10-18 11:53:28",
+                    "appointments_count": 1,
+                    "workshop_enrollments_count": 0,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 0
+                }
+            ]
+        }
+    ],
+    "references": [
+        {
+            "TABLE_NAME": "wallets",
+            "COLUMN_NAME": "user_id"
+        },
+        {
+            "TABLE_NAME": "workshop_enrollments",
+            "COLUMN_NAME": "patient_id"
+        },
+        {
+            "TABLE_NAME": "doctor_profiles",
+            "COLUMN_NAME": "user_id"
+        },
+        {
+            "TABLE_NAME": "patient_journal_entries",
+            "COLUMN_NAME": "patient_id"
+        },
+        {
+            "TABLE_NAME": "articles",
+            "COLUMN_NAME": "author_id"
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "COLUMN_NAME": "patient_id"
+        }
+    ]
+}

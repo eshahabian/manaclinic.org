@@ -1,0 +1,456 @@
+[
+    {
+        "name": "نازنین حسینی پور",
+        "target_username": "nhoseynipoor1",
+        "references": {
+            "appointments.patient_id": [
+                {
+                    "patient_id": "1f008475b2cb4843c1c79fcb",
+                    "n": 1
+                },
+                {
+                    "patient_id": "ae5b4c229636eb258d922c48",
+                    "n": 1
+                }
+            ],
+            "notifications.recipient_user_id": [
+                {
+                    "recipient_user_id": "1f008475b2cb4843c1c79fcb",
+                    "n": 2
+                },
+                {
+                    "recipient_user_id": "ae5b4c229636eb258d922c48",
+                    "n": 1
+                }
+            ],
+            "patient_quiet_notices.patient_id": [
+                {
+                    "patient_id": "ae5b4c229636eb258d922c48",
+                    "n": 1
+                }
+            ],
+            "wallets.user_id": [
+                {
+                    "user_id": "1f008475b2cb4843c1c79fcb",
+                    "n": 1
+                },
+                {
+                    "user_id": "ae5b4c229636eb258d922c48",
+                    "n": 1
+                }
+            ]
+        },
+        "wallets": [
+            {
+                "user_id": "1f008475b2cb4843c1c79fcb",
+                "balance": -3000000,
+                "held_balance": 0,
+                "tx_count": 1
+            },
+            {
+                "user_id": "ae5b4c229636eb258d922c48",
+                "balance": 0,
+                "held_balance": 0,
+                "tx_count": 0
+            }
+        ]
+    },
+    {
+        "name": "سمیه ثنایی",
+        "target_username": "sthetwo",
+        "references": {
+            "appointments.patient_id": [
+                {
+                    "patient_id": "4150adb4876189617196c398",
+                    "n": 1
+                }
+            ],
+            "clinic_room_bookings.patient_id": [
+                {
+                    "patient_id": "4150adb4876189617196c398",
+                    "n": 1
+                }
+            ],
+            "notifications.recipient_user_id": [
+                {
+                    "recipient_user_id": "2cf71f656e2441b635ffac35",
+                    "n": 1
+                },
+                {
+                    "recipient_user_id": "4150adb4876189617196c398",
+                    "n": 2
+                }
+            ],
+            "wallets.user_id": [
+                {
+                    "user_id": "2cf71f656e2441b635ffac35",
+                    "n": 1
+                },
+                {
+                    "user_id": "4150adb4876189617196c398",
+                    "n": 1
+                }
+            ]
+        },
+        "wallets": [
+            {
+                "user_id": "2cf71f656e2441b635ffac35",
+                "balance": 0,
+                "held_balance": 0,
+                "tx_count": 0
+            },
+            {
+                "user_id": "4150adb4876189617196c398",
+                "balance": -1800000,
+                "held_balance": 0,
+                "tx_count": 1
+            }
+        ]
+    },
+    {
+        "name": "سعید حجتی",
+        "target_username": "shjti",
+        "references": {
+            "appointments.patient_id": [
+                {
+                    "patient_id": "42955c84b16ef33cd5d3fda9",
+                    "n": 1
+                },
+                {
+                    "patient_id": "d49fb302f9e83b931c3a9cc7",
+                    "n": 1
+                }
+            ],
+            "doctor_patient_charts.patient_id": [
+                {
+                    "patient_id": "42955c84b16ef33cd5d3fda9",
+                    "n": 1
+                },
+                {
+                    "patient_id": "d49fb302f9e83b931c3a9cc7",
+                    "n": 1
+                }
+            ],
+            "notifications.recipient_user_id": [
+                {
+                    "recipient_user_id": "42955c84b16ef33cd5d3fda9",
+                    "n": 1
+                },
+                {
+                    "recipient_user_id": "d49fb302f9e83b931c3a9cc7",
+                    "n": 1
+                }
+            ],
+            "patient_quiet_notices.patient_id": [
+                {
+                    "patient_id": "42955c84b16ef33cd5d3fda9",
+                    "n": 1
+                },
+                {
+                    "patient_id": "d49fb302f9e83b931c3a9cc7",
+                    "n": 1
+                }
+            ],
+            "wallets.user_id": [
+                {
+                    "user_id": "42955c84b16ef33cd5d3fda9",
+                    "n": 1
+                },
+                {
+                    "user_id": "d49fb302f9e83b931c3a9cc7",
+                    "n": 1
+                }
+            ]
+        },
+        "wallets": [
+            {
+                "user_id": "42955c84b16ef33cd5d3fda9",
+                "balance": 0,
+                "held_balance": 0,
+                "tx_count": 0
+            },
+            {
+                "user_id": "d49fb302f9e83b931c3a9cc7",
+                "balance": 0,
+                "held_balance": 0,
+                "tx_count": 0
+            }
+        ]
+    },
+    {
+        "name": "پریسا قانع",
+        "target_username": "pghana",
+        "references": {
+            "appointments.patient_id": [
+                {
+                    "patient_id": "eb83a8b94ae31855d8d9f92d",
+                    "n": 1
+                }
+            ],
+            "notifications.recipient_user_id": [
+                {
+                    "recipient_user_id": "51d105ffc3f68d34dba258f8",
+                    "n": 1
+                },
+                {
+                    "recipient_user_id": "eb83a8b94ae31855d8d9f92d",
+                    "n": 1
+                }
+            ],
+            "patient_quiet_notices.patient_id": [
+                {
+                    "patient_id": "eb83a8b94ae31855d8d9f92d",
+                    "n": 1
+                }
+            ],
+            "video_call_presence.user_id": [
+                {
+                    "user_id": "51d105ffc3f68d34dba258f8",
+                    "n": 1
+                }
+            ],
+            "wallets.user_id": [
+                {
+                    "user_id": "51d105ffc3f68d34dba258f8",
+                    "n": 1
+                },
+                {
+                    "user_id": "eb83a8b94ae31855d8d9f92d",
+                    "n": 1
+                }
+            ]
+        },
+        "wallets": [
+            {
+                "user_id": "51d105ffc3f68d34dba258f8",
+                "balance": 0,
+                "held_balance": 0,
+                "tx_count": 0
+            },
+            {
+                "user_id": "eb83a8b94ae31855d8d9f92d",
+                "balance": 0,
+                "held_balance": 0,
+                "tx_count": 0
+            }
+        ]
+    },
+    {
+        "name": "مهبد محمدي",
+        "target_username": "mmohammadi",
+        "references": {
+            "appointments.patient_id": [
+                {
+                    "patient_id": "7081127fe666491be9fbf199",
+                    "n": 1
+                }
+            ],
+            "notifications.recipient_user_id": [
+                {
+                    "recipient_user_id": "7081127fe666491be9fbf199",
+                    "n": 1
+                },
+                {
+                    "recipient_user_id": "805d9bcaff67096f910cdeed",
+                    "n": 1
+                }
+            ],
+            "video_call_presence.user_id": [
+                {
+                    "user_id": "805d9bcaff67096f910cdeed",
+                    "n": 1
+                }
+            ],
+            "wallets.user_id": [
+                {
+                    "user_id": "7081127fe666491be9fbf199",
+                    "n": 1
+                },
+                {
+                    "user_id": "805d9bcaff67096f910cdeed",
+                    "n": 1
+                }
+            ]
+        },
+        "wallets": [
+            {
+                "user_id": "7081127fe666491be9fbf199",
+                "balance": 0,
+                "held_balance": 0,
+                "tx_count": 0
+            },
+            {
+                "user_id": "805d9bcaff67096f910cdeed",
+                "balance": 0,
+                "held_balance": 0,
+                "tx_count": 0
+            }
+        ]
+    },
+    {
+        "name": "مهبد محمدي",
+        "target_username": "mmohammadi",
+        "references": {
+            "appointments.patient_id": [
+                {
+                    "patient_id": "695a8589e05dfe4acd373b1a",
+                    "n": 1
+                }
+            ],
+            "clinic_room_bookings.patient_id": [
+                {
+                    "patient_id": "695a8589e05dfe4acd373b1a",
+                    "n": 1
+                }
+            ],
+            "notifications.recipient_user_id": [
+                {
+                    "recipient_user_id": "695a8589e05dfe4acd373b1a",
+                    "n": 2
+                },
+                {
+                    "recipient_user_id": "805d9bcaff67096f910cdeed",
+                    "n": 1
+                }
+            ],
+            "video_call_presence.user_id": [
+                {
+                    "user_id": "805d9bcaff67096f910cdeed",
+                    "n": 1
+                }
+            ],
+            "wallets.user_id": [
+                {
+                    "user_id": "695a8589e05dfe4acd373b1a",
+                    "n": 1
+                },
+                {
+                    "user_id": "805d9bcaff67096f910cdeed",
+                    "n": 1
+                }
+            ]
+        },
+        "wallets": [
+            {
+                "user_id": "695a8589e05dfe4acd373b1a",
+                "balance": -3000000,
+                "held_balance": 0,
+                "tx_count": 1
+            },
+            {
+                "user_id": "805d9bcaff67096f910cdeed",
+                "balance": 0,
+                "held_balance": 0,
+                "tx_count": 0
+            }
+        ]
+    },
+    {
+        "name": "رضا پرستار",
+        "target_username": "rprstar",
+        "references": {
+            "appointments.patient_id": [
+                {
+                    "patient_id": "8e8a49f83e5d5efbfa13ff9e",
+                    "n": 1
+                },
+                {
+                    "patient_id": "ca4c5630b6599748fdae8968",
+                    "n": 1
+                }
+            ],
+            "notifications.recipient_user_id": [
+                {
+                    "recipient_user_id": "8e8a49f83e5d5efbfa13ff9e",
+                    "n": 1
+                },
+                {
+                    "recipient_user_id": "ca4c5630b6599748fdae8968",
+                    "n": 1
+                }
+            ],
+            "patient_quiet_notices.patient_id": [
+                {
+                    "patient_id": "ca4c5630b6599748fdae8968",
+                    "n": 1
+                }
+            ],
+            "wallets.user_id": [
+                {
+                    "user_id": "8e8a49f83e5d5efbfa13ff9e",
+                    "n": 1
+                },
+                {
+                    "user_id": "ca4c5630b6599748fdae8968",
+                    "n": 1
+                }
+            ]
+        },
+        "wallets": [
+            {
+                "user_id": "8e8a49f83e5d5efbfa13ff9e",
+                "balance": 0,
+                "held_balance": 0,
+                "tx_count": 0
+            },
+            {
+                "user_id": "ca4c5630b6599748fdae8968",
+                "balance": 0,
+                "held_balance": 0,
+                "tx_count": 0
+            }
+        ]
+    },
+    {
+        "name": "سعید برزگری",
+        "target_username": "sbrzgri",
+        "references": {
+            "appointments.patient_id": [
+                {
+                    "patient_id": "e3bbe6b3f7bd1b3fa6864cfa",
+                    "n": 1
+                }
+            ],
+            "clinic_room_bookings.patient_id": [
+                {
+                    "patient_id": "e3bbe6b3f7bd1b3fa6864cfa",
+                    "n": 1
+                }
+            ],
+            "notifications.recipient_user_id": [
+                {
+                    "recipient_user_id": "ab82f6a261390c5159ee2bfe",
+                    "n": 1
+                },
+                {
+                    "recipient_user_id": "e3bbe6b3f7bd1b3fa6864cfa",
+                    "n": 2
+                }
+            ],
+            "wallets.user_id": [
+                {
+                    "user_id": "ab82f6a261390c5159ee2bfe",
+                    "n": 1
+                },
+                {
+                    "user_id": "e3bbe6b3f7bd1b3fa6864cfa",
+                    "n": 1
+                }
+            ]
+        },
+        "wallets": [
+            {
+                "user_id": "ab82f6a261390c5159ee2bfe",
+                "balance": 0,
+                "held_balance": 0,
+                "tx_count": 0
+            },
+            {
+                "user_id": "e3bbe6b3f7bd1b3fa6864cfa",
+                "balance": -1500000,
+                "held_balance": 0,
+                "tx_count": 1
+            }
+        ]
+    }
+]

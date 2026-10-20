@@ -1,0 +1,934 @@
+{
+    "columns": [
+        {
+            "TABLE_NAME": "admin_staff_message_recipients",
+            "COLUMN_NAME": "to_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "admin_staff_messages",
+            "COLUMN_NAME": "from_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "appointment_shared_notes",
+            "COLUMN_NAME": "author_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "COLUMN_NAME": "patient_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "COLUMN_NAME": "created_by_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "COLUMN_NAME": "cancelled_by_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "articles",
+            "COLUMN_NAME": "author_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "articles",
+            "COLUMN_NAME": "submitted_by_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "assistant_sessions",
+            "COLUMN_NAME": "patient_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "assistant_sessions",
+            "COLUMN_NAME": "assigned_by_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "clinic_room_bookings",
+            "COLUMN_NAME": "patient_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "clinic_room_bookings",
+            "COLUMN_NAME": "booked_by_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "consult_requests",
+            "COLUMN_NAME": "called_by_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "doctor_highlights",
+            "COLUMN_NAME": "patient_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "doctor_patient_charts",
+            "COLUMN_NAME": "patient_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "doctor_profiles",
+            "COLUMN_NAME": "user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "doctor_session_notes",
+            "COLUMN_NAME": "patient_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "login_otp",
+            "COLUMN_NAME": "user_id",
+            "COLUMN_TYPE": "varchar(191)"
+        },
+        {
+            "TABLE_NAME": "mana_path_events",
+            "COLUMN_NAME": "user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "mana_path_profiles",
+            "COLUMN_NAME": "user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "mana_path_trees",
+            "COLUMN_NAME": "user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "notifications",
+            "COLUMN_NAME": "recipient_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "notifications",
+            "COLUMN_NAME": "sender_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "outreach_contacts",
+            "COLUMN_NAME": "linked_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "outside_payments",
+            "COLUMN_NAME": "created_by",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "password_reset_tokens",
+            "COLUMN_NAME": "user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "patient_care_notes",
+            "COLUMN_NAME": "patient_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "patient_journal_entries",
+            "COLUMN_NAME": "patient_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "patient_quiet_notices",
+            "COLUMN_NAME": "patient_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "patient_secretary_notes",
+            "COLUMN_NAME": "patient_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "patient_secretary_notes",
+            "COLUMN_NAME": "created_by",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "payments",
+            "COLUMN_NAME": "recorded_by_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "petty_cash_entries",
+            "COLUMN_NAME": "created_by",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "secretary_action_log",
+            "COLUMN_NAME": "user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "secretary_assigned_tasks",
+            "COLUMN_NAME": "user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "secretary_assigned_tasks",
+            "COLUMN_NAME": "created_by",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "secretary_daily_tasks",
+            "COLUMN_NAME": "user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "secretary_day_reports",
+            "COLUMN_NAME": "user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "secretary_to_admin_messages",
+            "COLUMN_NAME": "from_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "session_complaints",
+            "COLUMN_NAME": "patient_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "session_complaints",
+            "COLUMN_NAME": "created_by",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "staff_app_chat_archive",
+            "COLUMN_NAME": "user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "staff_app_emad_tasks",
+            "COLUMN_NAME": "created_by",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "staff_app_emad_tasks",
+            "COLUMN_NAME": "assignee_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "staff_app_members",
+            "COLUMN_NAME": "user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "staff_app_messages",
+            "COLUMN_NAME": "user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "staff_app_presence",
+            "COLUMN_NAME": "user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "staff_app_push",
+            "COLUMN_NAME": "user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "staff_app_reactions",
+            "COLUMN_NAME": "user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "staff_app_reads",
+            "COLUMN_NAME": "user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "staff_app_receipts",
+            "COLUMN_NAME": "user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "staff_app_rooms",
+            "COLUMN_NAME": "created_by",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "staff_handover_notes",
+            "COLUMN_NAME": "from_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "staff_handover_notes",
+            "COLUMN_NAME": "to_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "staff_shared_notes",
+            "COLUMN_NAME": "created_by",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "staff_shared_notes",
+            "COLUMN_NAME": "updated_by",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "staff_shifts",
+            "COLUMN_NAME": "user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "therapist_presence",
+            "COLUMN_NAME": "updated_by",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "user_mentions",
+            "COLUMN_NAME": "from_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "user_mentions",
+            "COLUMN_NAME": "to_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "users",
+            "COLUMN_NAME": "created_by_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "video_call_contact_stats",
+            "COLUMN_NAME": "host_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "video_call_contact_stats",
+            "COLUMN_NAME": "peer_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "video_call_presence",
+            "COLUMN_NAME": "user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "video_call_room_members",
+            "COLUMN_NAME": "user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "video_call_rooms",
+            "COLUMN_NAME": "host_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "video_call_signals",
+            "COLUMN_NAME": "sender_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "wallets",
+            "COLUMN_NAME": "user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "workshop_enrollments",
+            "COLUMN_NAME": "patient_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "workshop_enrollments",
+            "COLUMN_NAME": "created_by_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "workshop_path_notes",
+            "COLUMN_NAME": "author_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "workshop_payments",
+            "COLUMN_NAME": "recorded_by_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "workshop_qa_likes",
+            "COLUMN_NAME": "user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "workshop_qa_posts",
+            "COLUMN_NAME": "author_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "workshop_qa_posts",
+            "COLUMN_NAME": "audience_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "workshops",
+            "COLUMN_NAME": "created_by_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        },
+        {
+            "TABLE_NAME": "workshops",
+            "COLUMN_NAME": "updated_by_user_id",
+            "COLUMN_TYPE": "varchar(32)"
+        }
+    ],
+    "unique_indexes": [
+        {
+            "TABLE_NAME": "admin_staff_message_recipients",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "admin_staff_message_recipients",
+            "INDEX_NAME": "uq_admin_msg_recipient",
+            "cols": "message_id,to_user_id"
+        },
+        {
+            "TABLE_NAME": "admin_staff_messages",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "app_meta",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "k"
+        },
+        {
+            "TABLE_NAME": "app_settings",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "setting_key"
+        },
+        {
+            "TABLE_NAME": "appointment_shared_notes",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "articles",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "articles",
+            "INDEX_NAME": "slug",
+            "cols": "slug"
+        },
+        {
+            "TABLE_NAME": "assistant_sessions",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "availabilities",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "clinic_maintenance",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "k"
+        },
+        {
+            "TABLE_NAME": "clinic_room_bookings",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "collaboration_requests",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "consult_requests",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "doctor_highlights",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "doctor_patient_charts",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "doctor_patient_charts",
+            "INDEX_NAME": "uq_doctor_patient_chart",
+            "cols": "doctor_id,patient_id"
+        },
+        {
+            "TABLE_NAME": "doctor_profiles",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "doctor_profiles",
+            "INDEX_NAME": "user_id",
+            "cols": "user_id"
+        },
+        {
+            "TABLE_NAME": "doctor_session_notes",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "doctor_session_notes",
+            "INDEX_NAME": "uq_session_note_appointment",
+            "cols": "appointment_id"
+        },
+        {
+            "TABLE_NAME": "doctor_weekly_hours",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "doctor_id,weekday"
+        },
+        {
+            "TABLE_NAME": "login_otp",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "login_otp_limits",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "bucket"
+        },
+        {
+            "TABLE_NAME": "mana_path_events",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "mana_path_profiles",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "user_id"
+        },
+        {
+            "TABLE_NAME": "mana_path_trees",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "mana_path_trees",
+            "INDEX_NAME": "uq_mana_tree",
+            "cols": "user_id,tree_id"
+        },
+        {
+            "TABLE_NAME": "name_transliterations",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "name_transliterations",
+            "INDEX_NAME": "uniq_name_latin_part",
+            "cols": "persian,latin,part"
+        },
+        {
+            "TABLE_NAME": "notifications",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "outreach_contacts",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "outreach_contacts",
+            "INDEX_NAME": "uq_outreach_phone",
+            "cols": "phone"
+        },
+        {
+            "TABLE_NAME": "outside_payments",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "password_reset_tokens",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "patient_care_notes",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "patient_journal_entries",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "patient_journal_entries",
+            "INDEX_NAME": "uq_patient_journal_day",
+            "cols": "patient_id,entry_date"
+        },
+        {
+            "TABLE_NAME": "patient_quiet_notices",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "patient_id"
+        },
+        {
+            "TABLE_NAME": "patient_secretary_notes",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "payments",
+            "INDEX_NAME": "appointment_id",
+            "cols": "appointment_id"
+        },
+        {
+            "TABLE_NAME": "payments",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "petty_cash_entries",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "secretary_action_log",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "secretary_assigned_tasks",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "secretary_daily_tasks",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "secretary_daily_tasks",
+            "INDEX_NAME": "uniq_sec_daily_task",
+            "cols": "user_id,task_date,task_key"
+        },
+        {
+            "TABLE_NAME": "secretary_day_reports",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "secretary_day_reports",
+            "INDEX_NAME": "uq_sec_day_report",
+            "cols": "user_id,report_date"
+        },
+        {
+            "TABLE_NAME": "secretary_to_admin_messages",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "session_complaints",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "sms_entity_state",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "entity_key"
+        },
+        {
+            "TABLE_NAME": "sms_outbox",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "sms_outbox",
+            "INDEX_NAME": "uq_sms_dedup",
+            "cols": "dedup_key"
+        },
+        {
+            "TABLE_NAME": "staff_app_archive_files",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "staff_app_archive_meta",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "staff_app_chat_archive",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "staff_app_chat_archive",
+            "INDEX_NAME": "snapshot_key",
+            "cols": "snapshot_key"
+        },
+        {
+            "TABLE_NAME": "staff_app_emad_tasks",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "staff_app_files",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "staff_app_members",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "room_id,user_id"
+        },
+        {
+            "TABLE_NAME": "staff_app_messages",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "staff_app_presence",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "user_id"
+        },
+        {
+            "TABLE_NAME": "staff_app_push",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "staff_app_push",
+            "INDEX_NAME": "uniq_staff_push",
+            "cols": "user_id,endpoint_hash"
+        },
+        {
+            "TABLE_NAME": "staff_app_reactions",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "message_id,user_id"
+        },
+        {
+            "TABLE_NAME": "staff_app_reads",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "user_id,room_id"
+        },
+        {
+            "TABLE_NAME": "staff_app_receipts",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "user_id,room_id"
+        },
+        {
+            "TABLE_NAME": "staff_app_removals",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "message_id"
+        },
+        {
+            "TABLE_NAME": "staff_app_rooms",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "staff_app_vapid",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "staff_handover_notes",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "staff_shared_notes",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "staff_shifts",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "staff_slot_labels",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "slot"
+        },
+        {
+            "TABLE_NAME": "therapist_payout_lines",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "therapist_payouts",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "therapist_presence",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "doctor_id,day_date"
+        },
+        {
+            "TABLE_NAME": "user_mentions",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "users",
+            "INDEX_NAME": "email",
+            "cols": "email"
+        },
+        {
+            "TABLE_NAME": "users",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "users",
+            "INDEX_NAME": "users_username_unique",
+            "cols": "username"
+        },
+        {
+            "TABLE_NAME": "video_call_contact_stats",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "host_user_id,peer_user_id"
+        },
+        {
+            "TABLE_NAME": "video_call_meta",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "k"
+        },
+        {
+            "TABLE_NAME": "video_call_presence",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "user_id"
+        },
+        {
+            "TABLE_NAME": "video_call_room_members",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "room_id,user_id"
+        },
+        {
+            "TABLE_NAME": "video_call_rooms",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "video_call_rooms",
+            "INDEX_NAME": "uq_vcr_key",
+            "cols": "room_key"
+        },
+        {
+            "TABLE_NAME": "video_call_rooms",
+            "INDEX_NAME": "uq_vcr_token",
+            "cols": "share_token"
+        },
+        {
+            "TABLE_NAME": "video_call_signals",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "wallet_transactions",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "wallets",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "wallets",
+            "INDEX_NAME": "user_id",
+            "cols": "user_id"
+        },
+        {
+            "TABLE_NAME": "workshop_enrollments",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "workshop_enrollments",
+            "INDEX_NAME": "uq_workshop_patient",
+            "cols": "workshop_id,patient_id"
+        },
+        {
+            "TABLE_NAME": "workshop_media_items",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "workshop_path_notes",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "workshop_path_notes",
+            "INDEX_NAME": "uq_path_note",
+            "cols": "enrollment_id,session_id,kind"
+        },
+        {
+            "TABLE_NAME": "workshop_payments",
+            "INDEX_NAME": "enrollment_id",
+            "cols": "enrollment_id"
+        },
+        {
+            "TABLE_NAME": "workshop_payments",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "workshop_qa_likes",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "post_id,user_id"
+        },
+        {
+            "TABLE_NAME": "workshop_qa_posts",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "workshop_session_notes",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "workshop_sessions",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        },
+        {
+            "TABLE_NAME": "workshop_sessions",
+            "INDEX_NAME": "uq_workshop_session_date",
+            "cols": "workshop_id,session_date"
+        },
+        {
+            "TABLE_NAME": "workshops",
+            "INDEX_NAME": "PRIMARY",
+            "cols": "id"
+        }
+    ],
+    "wallet_schema": {
+        "Table": "wallets",
+        "Create Table": "CREATE TABLE `wallets` (\n  `id` varchar(32) NOT NULL,\n  `user_id` varchar(32) NOT NULL,\n  `balance` int NOT NULL DEFAULT '0',\n  `held_balance` int NOT NULL DEFAULT '0',\n  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  `updated_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,\n  PRIMARY KEY (`id`),\n  UNIQUE KEY `user_id` (`user_id`),\n  CONSTRAINT `fk_wallet_user` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci"
+    },
+    "wallet_transaction_schema": {
+        "Table": "wallet_transactions",
+        "Create Table": "CREATE TABLE `wallet_transactions` (\n  `id` varchar(32) NOT NULL,\n  `wallet_id` varchar(32) NOT NULL,\n  `kind` enum('TOPUP','PAYMENT','REFUND','HOLD','RELEASE','SETTLE','ADJUSTMENT') NOT NULL,\n  `amount` int NOT NULL,\n  `balance_after` int NOT NULL,\n  `held_after` int NOT NULL DEFAULT '0',\n  `reference_type` varchar(32) DEFAULT NULL,\n  `reference_id` varchar(32) DEFAULT NULL,\n  `description` varchar(255) DEFAULT NULL,\n  `created_at` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP,\n  PRIMARY KEY (`id`),\n  KEY `idx_wallet_tx` (`wallet_id`,`created_at`),\n  CONSTRAINT `fk_wtx_wallet` FOREIGN KEY (`wallet_id`) REFERENCES `wallets` (`id`) ON DELETE CASCADE\n) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci"
+    }
+}
