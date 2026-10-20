@@ -412,6 +412,10 @@ function sms_job_still_valid(PDO $pdo, array $job): bool
         if(isset($context['doctor_id']) && $context['doctor_id']!==null && $context['doctor_id']!=='' && (string)$a['doctor_id']!==(string)$context['doctor_id'])return false;
         return true;
     }
+    if($context['entity']==='workshop_broadcast'){
+        require_once __DIR__.'/workshop_broadcast.php';
+        return workshop_broadcast_job_valid($pdo,$job,$context);
+    }
     if($context['entity']==='doctor_digest'){
         return ($context['digest_date'] ?? '') === date('Y-m-d');
     }

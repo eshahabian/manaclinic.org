@@ -108,6 +108,9 @@ $doctorPathBoardById = $doctorPathBoardById ?? [];
           <?php if ($canAddMemberHere): ?>
             <input type="radio" name="<?= e($tabName) ?>" id="<?= e($tabName) ?>-member">
           <?php endif; ?>
+          <?php if(workshop_can_add_member(current_user())): ?>
+            <input type="radio" name="<?= e($tabName) ?>" id="<?= e($tabName) ?>-broadcast">
+          <?php endif; ?>
           <div class="wcard-tabbar">
             <label for="<?= e($tabName) ?>-files">فایل جلسات</label>
             <label for="<?= e($tabName) ?>-enroll">ثبت‌نام‌ها</label>
@@ -115,6 +118,9 @@ $doctorPathBoardById = $doctorPathBoardById ?? [];
               <label for="<?= e($tabName) ?>-path">مسیر</label>
             <?php endif; ?>
             <label for="<?= e($tabName) ?>-info">جزئیات</label>
+            <?php if(workshop_can_add_member(current_user())): ?>
+              <label for="<?= e($tabName) ?>-broadcast">پیامک گروهی</label>
+            <?php endif; ?>
             <?php if ($canAddMemberHere): ?>
               <label for="<?= e($tabName) ?>-member">اضافه کردن عضو</label>
             <?php endif; ?>
@@ -166,6 +172,11 @@ $doctorPathBoardById = $doctorPathBoardById ?? [];
           <?php if ($canAddMemberHere): ?>
             <div class="wcard-panel wcard-panel-member">
               <?php $memberWorkshop = $workshop; require __DIR__ . '/workshop_add_member_form.php'; ?>
+            </div>
+          <?php endif; ?>
+          <?php if(workshop_can_add_member(current_user())): ?>
+            <div class="wcard-panel wcard-panel-broadcast">
+              <?php $broadcastWorkshop=$workshop;require __DIR__.'/workshop_broadcast_form.php'; ?>
             </div>
           <?php endif; ?>
           <div class="wcard-panel wcard-panel-files">

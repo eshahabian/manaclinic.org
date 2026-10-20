@@ -1038,10 +1038,10 @@ function confirm_workshop_payment(PDO $pdo, array $paymentRow): void
 }
 
 /** ثبت ورودی کارگاه توسط منشی — برای همه منشی‌ها دیده می‌شود */
-/** مراجعه‌کنندگان و حساب مدیریتی عماد، بدون تغییر نقش حساب. */
+/** مراجعه‌کنندگان، درمانگران فعال و حساب مدیریتی عماد؛ بدون تغییر نقش حساب. */
 function workshop_member_user_sql(string $alias = 'u'): string
 {
-    return "({$alias}.role='PATIENT' OR ({$alias}.role='ADMIN' AND (LOWER({$alias}.username)='eshahabian' OR ({$alias}.name LIKE '%عماد%' AND {$alias}.name LIKE '%شهابیان%')))) AND COALESCE({$alias}.is_disabled,0)=0";
+    return "({$alias}.role='PATIENT' OR ({$alias}.role='DOCTOR' AND EXISTS (SELECT 1 FROM doctor_profiles member_dp WHERE member_dp.user_id={$alias}.id AND member_dp.is_active=1 AND member_dp.is_approved=1)) OR ({$alias}.role='ADMIN' AND (LOWER({$alias}.username)='eshahabian' OR ({$alias}.name LIKE '%عماد%' AND {$alias}.name LIKE '%شهابیان%')))) AND COALESCE({$alias}.is_disabled,0)=0";
 }
 
 /** افزودن عضو فقط برای سه حساب مشخص و منشی‌های فعال. */

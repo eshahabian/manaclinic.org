@@ -22,6 +22,11 @@ if (!$peerList) {
           <?php $memberWorkshop = $peer; require __DIR__ . '/workshop_add_member_form.php'; ?>
         </details>
       <?php endif; ?>
+      <?php if(workshop_can_add_member(current_user())): ?>
+        <details style="margin-top:.75rem"><summary class="btn btn-outline btn-sm">پیامک گروهی</summary>
+          <?php $broadcastWorkshop=$peer;require __DIR__.'/workshop_broadcast_form.php'; ?>
+        </details>
+      <?php endif; ?>
     </article>
   <?php endforeach; ?>
 </div>

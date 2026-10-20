@@ -247,6 +247,7 @@ $routes = [
     'POST /dashboard/session-note' => 'actions/appointment_shared_note.php',
     'POST /dashboard/pay' => 'actions/pay_appointment.php',
     'POST /staff/workshops/remove-member' => 'actions/workshop_remove_member.php',
+    'POST /staff/workshops/broadcast' => 'actions/workshop_broadcast.php',
     'POST /staff/workshops/add-member' => 'actions/workshop_add_member.php',
     'POST /enroll-workshop' => 'actions/enroll_workshop.php',
     'POST /pay-workshop' => 'actions/pay_workshop.php',
