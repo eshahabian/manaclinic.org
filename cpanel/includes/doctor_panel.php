@@ -175,6 +175,7 @@ function doctor_nav(): array
         $tail[]=['type'=>'group','label'=>'پیامک'];
         $tail[]=['type'=>'link','href'=>'/admin/sms-test','label'=>'تست پیامک'];
         $tail[]=['type'=>'link','href'=>'/admin/sms-broadcast','label'=>'پیامک همگانی'];
+        if (sms_settings_allowed(current_user())) $tail[]=['type'=>'link','href'=>'/admin/sms-notify','label'=>'مدیریت پیامک‌ها'];
         if (sms_settings_allowed(current_user())) $tail[]=['type'=>'link','href'=>'/admin/sms-settings','label'=>'تنظیمات پیامک'];
     }
     return array_merge($nav, $tail);

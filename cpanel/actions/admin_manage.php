@@ -5,7 +5,7 @@ require_once __DIR__ . '/../includes/outreach.php';
 require_once __DIR__ . '/../includes/mail.php';
 require_once __DIR__ . '/../includes/clinic_manage.php';
 $action = post('action');
-if ($action==='save_sms_settings' || $action==='sms_doctor_digest_manual') require_sms_settings_operator();
+if ($action==='save_sms_settings' || $action==='sms_doctor_digest_manual' || in_array($action,['save_sms_template','test_sms_template','save_sms_notify'],true)) require_sms_settings_operator();
 elseif (in_array($action,['sms_test','sms_broadcast','save_sms_notify'],true)) require_sms_operator();
 else require_site_admin();
 ensure_mail_schema($pdo);
@@ -60,25 +60,41 @@ if ($action === 'sms_test') {
     redirect('/admin/sms-test');
 }
 
-if ($action === 'save_sms_notify') {
-    $templates=[];
-    foreach(sms_template_catalog() as $kind=>$item){
-        $text=trim(post('template_'.$kind));
-        preg_match_all('/\{[^{}]+\}/u',$item[1],$matches);
-        $extraPatient=in_array($kind,['appointment_booked','appointment_cancelled','appointment_reminder','workshop_registered','workshop_reminder','doctor_appointment_booked','doctor_appointment_cancelled'],true);
-        $allowed=array_unique(array_merge($matches[0],$extraPatient?['{patient}']:[]));
-        preg_match_all('/\{[^{}]+\}/u',$text,$used);
-        if(mb_strlen($text)>500 || array_diff($used[0],$allowed) || ($kind==='login_otp' && $text!=='' && !str_contains($text,'{code}'))){
-            flash_set('error','متن پیامک معتبر نیست؛ حداکثر ۵۰۰ نویسه و فقط متغیرهای راهنما مجاز است. کد ورود باید {code} داشته باشد.');redirect('/admin/sms-notify');
-        }
-        $templates[$kind]=$text;
-    }
-    foreach($templates as $kind=>$text)mail_setting_set($pdo,'sms_template_'.$kind,$text);
 
-    foreach (['quiet', 'workshop', 'approval'] as $kind) {
-        mail_setting_set($pdo, 'sms_notify_' . $kind, isset($_POST['notify_' . $kind]) ? '1' : '0');
+if (in_array($action, ['save_sms_template','test_sms_template'], true)) {
+    $kind = post('kind');
+    $text = trim(post('template'));
+    $back = ($GLOBALS['path'] ?? '') === '/app/sms' ? '/app/sms' : '/admin/sms-notify';
+    $error = sms_template_error($kind, $text);
+    if ($kind === 'therapist_copy' && $text !== '' && $text !== '{message}') $error = 'کپی درمانگر عین پیام اصلی است؛ متن را در پیام اصلی ویرایش کنید.';
+    if ($error !== '') { flash_set('error', $error); redirect($back); }
+    if ($action === 'save_sms_template') {
+        $pdo->beginTransaction();
+        try {
+            mail_setting_set($pdo, 'sms_template_'.$kind, $text);
+            mail_setting_set($pdo, 'sms_kind_enabled_'.$kind, isset($_POST['enabled']) ? '1' : '0');
+            if (in_array($kind,['quiet','workshop_announcement'],true)) mail_setting_set($pdo,'sms_notify_'.($kind==='quiet'?'quiet':'workshop'),isset($_POST['enabled'])?'1':'0');
+            // Disabled queued jobs must not be resurrected when the switch is enabled again.
+            if (!isset($_POST['enabled'])) $pdo->prepare("UPDATE sms_outbox SET status='SKIPPED',last_error='این نوع پیامک توسط مدیر غیرفعال شد.' WHERE kind=? AND status='PENDING'")->execute([$kind]);
+            $pdo->commit();
+        } catch (Throwable $e) { if ($pdo->inTransaction()) $pdo->rollBack(); throw $e; }
+        flash_set('success', 'متن و وضعیت پیامک ذخیره شد.');
+    } else {
+        $phone = sms_iran_mobile(post('phone'));
+        if ($phone === null) { flash_set('error','شماره موبایل ایران را درست وارد کنید.'); redirect($back); }
+        if (!sms_connection_ready($pdo)) { flash_set('error','اتصال پیامک غیرفعال است.'); redirect($back); }
+        // One explicit test, using draft text and synthetic variables; no real appointment is changed.
+        if (isset($_SESSION['sms_template_test_at']) && time() - (int)$_SESSION['sms_template_test_at'] < 15) { flash_set('error','برای تست بعدی ۱۵ ثانیه صبر کنید.'); redirect($back); }
+        $_SESSION['sms_template_test_at'] = time();
+        $body = sms_template_render($pdo, $kind, sms_template_sample_variables(), $text);
+        $result = sms_send_immediate($pdo, $phone, $body, 'test', 'template-test:'.cuid(), null, ['entity'=>'template_test','template_kind'=>$kind]);
+        flash_set(!empty($result['ok']) ? 'success' : 'error', !empty($result['ok']) ? 'پیامک تست برای شماره انتخابی در سرویس پیامک پذیرفته شد؛ دریافت روی گوشی را بررسی کنید.' : ('ارسال تست انجام نشد: '.($result['error'] ?? sms_status_label($result['status']))));
     }
-    flash_set('success', 'تنظیم پیامک اطلاع‌رسانی ذخیره شد.');
+    redirect($back.'#sms-'.$kind);
+}
+
+if ($action === 'save_sms_notify') {
+    flash_set('error', 'تنظیمات را از کارت هر پیامک ذخیره کنید.');
     redirect('/admin/sms-notify');
 }
 

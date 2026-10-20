@@ -20,6 +20,23 @@ if (!staff_app_path_allowed($user, $path, $method)) {
     exit;
 }
 
+// SMS controls stay under /app so the staff Android wrapper can open them.
+if ($path === '/app/sms') {
+    require_once __DIR__ . '/../includes/outreach.php';
+    require_sms_settings_operator();
+    if ($method === 'POST') {
+        csrf_verify();
+        if (!in_array(post('action'), ['save_sms_template','test_sms_template'], true)) {
+            http_response_code(400); exit('درخواست نامعتبر است.');
+        }
+        require __DIR__ . '/../actions/admin_manage.php';
+    } elseif ($method === 'GET') {
+        $smsControlsApp = true;
+        require __DIR__ . '/admin/sms_notify.php';
+    } else { http_response_code(405); }
+    exit;
+}
+
 if ($path === '/app/profile' && $method === 'POST' && $role !== 'SECRETARY') {
     csrf_verify();
     if ($role === 'DOCTOR') {
@@ -602,6 +619,13 @@ if ($section === 'home') {
         <span class="sapp-ico sapp-ico-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="6" width="17" height="13" rx="2"/><path d="M3.5 10h17"/><path d="M16 15h.01"/></svg></span>
         <strong>تنخواه</strong>
         <em>Petty Cash</em>
+      </a>
+      <?php endif; ?>
+      <?php if (strtolower(trim((string) ($user['username'] ?? ''))) === 'eshahabian'): ?>
+      <a class="sapp-tile" href="<?= e(url('/app/sms')) ?>">
+        <span class="sapp-ico sapp-ico-pink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 8 6 8-6"/></svg></span>
+        <strong>مدیریت پیامک‌ها</strong>
+        <em>SMS Controls</em>
       </a>
       <?php endif; ?>
       <?php if (staff_app_home_tile_allowed($user, '/app/complaints')): ?>

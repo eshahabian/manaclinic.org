@@ -4,25 +4,88 @@ declare(strict_types=1);
 function sms_template_catalog(): array
 {
     return [
-        // مراجع — این قالب‌ها را تغییر ندهید مگر با تأیید صریح (مسیر پایدار وب‌وان).
+        // قالب‌های قابل مدیریت در پنل مدیر.
         'appointment_booked'=>['ثبت و تأیید نوبت','مانا کلینیک: نوبت شما در {datetime} ثبت شد.'],
         'appointment_cancelled'=>['لغو نوبت','مانا کلینیک: نوبت شما در {datetime} لغو شد.'],
         'appointment_reminder'=>['یادآوری نوبت','مانا کلینیک: یادآوری نوبت {datetime}'],
         'workshop_registered'=>['تأیید ثبت‌نام کارگاه','مانا کلینیک: ثبت‌نام کارگاه از {datetime}'],
         'workshop_reminder'=>['یادآوری کارگاه','مانا کلینیک: یادآوری کارگاه {datetime}'],
         'workshop_announcement'=>['معرفی کارگاه','مانا کلینیک: کارگاه جدید از {datetime}'],
-        'workshop_session_reflect'=>['یادداشت جلسه کارگاه','مانا کلینیک: جلسه برگزار شد. برداشت خود را در پنل مانا بنویسید.'],
-        'workshop_media_added'=>['فایل جدید کارگاه','مانا کلینیک: فایل جدیدی به کارگاه اضافه شد.'],
-        'workshop_presenter'=>['تأیید اجراکننده کارگاه','(متن پویا)'],
-        'workshop_presenter_copy'=>['نمونه اجراکننده برای عماد','(متن پویا)'],
+        'workshop_session_reflect'=>['یادداشت جلسه کارگاه','{message}'],
+        'workshop_media_added'=>['فایل جدید کارگاه','{message}'],
+        'workshop_presenter'=>['تأیید اجراکننده کارگاه','{message}'],
+        'workshop_presenter_copy'=>['نمونه اجراکننده برای عماد','{message}'],
         // درمانگر همان نوبت انتخاب‌شده در پنل
         'doctor_appointment_booked'=>['اعلام نوبت به درمانگر','مانا کلینیک: نوبت {patient} {datetime}'],
         'doctor_appointment_cancelled'=>['اعلام لغو به درمانگر','مانا کلینیک: لغو {patient} {datetime}'],
-        // خلاصه صبحگاهی (متن پویا از sms_doctor_daily_digest_body؛ این فقط برچسب ادمین است)
+        // قالب خلاصه صبحگاهی
         'doctor_daily_digest'=>['خلاصه نوبت‌های روز برای درمانگر','مانا کلینیک: نوبت {date}: {slots}'],
+        'therapist_copy'=>['کپی پیام درمانگر برای عماد','{message}'],
         'quiet'=>['پیگیری عدم مراجعه','مانا کلینیک: {message}'],
         'login_otp'=>['کد ورود','کد ورود شما {code}'],
     ];
+}
+
+
+/** Defaults preserve the existing sending policy until the manager changes a switch. */
+function sms_kind_enabled(PDO $pdo, string $kind): bool
+{
+    if (!isset(sms_template_catalog()[$kind])) return true;
+    if (in_array($kind, ['quiet','workshop_announcement'], true)) {
+        $legacy = $kind === 'quiet' ? 'quiet' : 'workshop';
+        $default = mail_setting_get($pdo, 'sms_notify_'.$legacy, '0');
+    } else $default = '1';
+    return mail_setting_get($pdo, 'sms_kind_enabled_'.$kind, $default) === '1';
+}
+
+function sms_template_tokens(string $kind): array
+{
+    $item = sms_template_catalog()[$kind] ?? null;
+    if (!$item) return [];
+    preg_match_all('/\{[a-z_]+\}/', $item[1], $matches);
+    return array_values(array_unique($matches[0]));
+}
+
+function sms_template_error(string $kind, string $text): string
+{
+    if (!isset(sms_template_catalog()[$kind])) return 'نوع پیامک نامعتبر است.';
+    if (mb_strlen($text) > 500) return 'متن حداکثر ۵۰۰ نویسه باشد.';
+    preg_match_all('/\{[^{}]*\}/u', $text, $used);
+    if (array_diff($used[0], sms_template_tokens($kind)) || preg_match('/[{}]/', preg_replace('/\{[a-z_]+\}/', '', $text))) return 'فقط متغیرهای راهنما مجازند.';
+    if ($kind === 'login_otp' && $text !== '' && !str_contains($text, '{code}')) return 'متن کد ورود باید {code} داشته باشد.';
+    return '';
+}
+
+function sms_kind_recipient(string $kind): string
+{
+    if (str_starts_with($kind, 'appointment_')) return 'مراجع همان نوبت؛ شماره موبایل حسابی که نوبت برای او ثبت شده است';
+    if (str_starts_with($kind, 'doctor_appointment_')) return 'درمانگر انتخاب‌شده برای همان نوبت';
+    return [
+        'doctor_daily_digest'=>'هر درمانگر دارای نوبت تأییدشده در همان روز',
+        'therapist_copy'=>'شخص مشخص: عماد شهابیان (حساب eshahabian)؛ کپی عین پیام درمانگر',
+        'workshop_registered'=>'مراجع ثبت‌نام‌شده در همان کارگاه',
+        'workshop_reminder'=>'اعضای تأییدشده همان کارگاه',
+        'workshop_announcement'=>'مراجعان قدیمی با انتخاب اطلاع‌رسانی هنگام ساخت کارگاه',
+        'workshop_session_reflect'=>'اعضای تأییدشده کارگاه پس از پایان جلسه',
+        'workshop_media_added'=>'اعضای تأییدشده همان کارگاه پس از افزودن فایل',
+        'workshop_presenter'=>'درمانگرانی که به‌عنوان اجراکننده همان کارگاه انتخاب شده‌اند',
+        'workshop_presenter_copy'=>'شخص مشخص: عماد شهابیان (حساب eshahabian)؛ نمونه پیام اجراکننده',
+        'quiet'=>'درمانگر مربوط، منشی‌ها و مدیر برای پیگیری مراجع بدون مراجعه',
+        'login_otp'=>'صاحب حساب متناظر با شماره درخواست‌کننده ورود پیامکی',
+    ][$kind] ?? '';
+}
+
+function sms_template_sample_variables(): array
+{
+    return ['datetime'=>'۱۴۰۵/۰۷/۲۹ ۱۳:۰۰','patient'=>'مراجع نمونه','date'=>'۲۹ مهر','slots'=>'۱۰:۰۰، ۱۳:۰۰','code'=>'123456','message'=>'مانا کلینیک: این یک پیام نمونه برای بررسی متن است.'];
+}
+
+/** Dynamic producers keep their original body by default; an override wraps {message}. */
+function sms_dynamic_body(PDO $pdo, string $kind, string $body): string
+{
+    if (!in_array($kind, ['workshop_presenter','workshop_presenter_copy','workshop_session_reflect','workshop_media_added'], true)) return $body;
+    if (trim(mail_setting_get($pdo, 'sms_template_'.$kind, '')) === '') return $body;
+    return sms_template_render($pdo, $kind, ['message'=>$body]);
 }
 
 function sms_first_name(string $fullName): string
@@ -37,53 +100,18 @@ function sms_first_name(string $fullName): string
     return $first !== '' ? $first : 'مراجع';
 }
 
-function sms_template_render(PDO $pdo, string $kind, array $variables): string
+function sms_template_render(PDO $pdo, string $kind, array $variables, ?string $draft = null): string
 {
     $catalog=sms_template_catalog();
     if (!isset($catalog[$kind])) {
         return '';
     }
-    $template=mail_setting_get($pdo,'sms_template_'.$kind,'');
+    $template=$draft ?? mail_setting_get($pdo,'sms_template_'.$kind,'');
     if(trim((string)$template)==='')$template=$catalog[$kind][1];
-    $isAppointment = str_starts_with($kind, 'appointment_');
-    $isWorkshop = str_starts_with($kind, 'workshop_');
-    $isDoctorAppt = str_starts_with($kind, 'doctor_appointment_');
-    if ($kind === 'login_otp') {
-        $candidate = trim((string) $template);
-        if ($candidate === '' || str_contains($candidate, "\n") || !str_contains($candidate, '{code}')) {
-            $template = $catalog[$kind][1];
-        }
-    } elseif ($isDoctorAppt) {
-        $candidate = trim((string) $template);
-        $bad = $candidate === ''
-            || !str_contains($candidate, '{datetime}')
-            || !str_contains($candidate, '{patient}')
-            || str_contains($candidate, "\n")
-            || mb_strlen($candidate) > 80;
-        if ($bad) {
-            $template = $catalog[$kind][1];
-        }
-        if (isset($variables['patient'])) {
-            $variables['patient'] = sms_first_name((string) $variables['patient']);
-        }
-    } elseif ($isAppointment || $isWorkshop) {
-        $candidate = trim((string) $template);
-        // قالب‌های بلند/با اسم/با پزشک که بعد از تغییر متن خراب شدند → برگرد به کاتالوگ کوتاه.
-        $bad = $candidate === ''
-            || !str_contains($candidate, '{datetime}')
-            || str_contains($candidate, '{patient}')
-            || str_contains($candidate, '{doctor}')
-            || str_contains($candidate, 'عزیز')
-            || str_contains($candidate, "\n")
-            || mb_strlen($candidate) > 80;
-        if ($bad) {
-            $template = $catalog[$kind][1];
-        }
-    }
     $map=[];foreach($variables as $key=>$value)$map['{'.$key.'}']=trim((string)$value);
     $body = trim(preg_replace('/\s+/u', ' ', strtr($template, $map)) ?? '');
-    if (mb_strlen($body) > 300) {
-        $body = mb_substr($body, 0, 297) . '…';
+    if (mb_strlen($body) > 500) {
+        $body = mb_substr($body, 0, 497) . '…';
     }
     return $body;
 }
@@ -101,10 +129,13 @@ function sms_send_immediate(
     ?string $expiresAt = null,
     array $context = []
 ): array {
+    if (!sms_connection_ready($pdo) || !sms_kind_enabled($pdo, $kind)) return ['ok'=>false,'status'=>'SKIPPED','error'=>'ارسال این نوع پیامک یا اتصال پیامک غیرفعال است.'];
+    $body = sms_dynamic_body($pdo, $kind, $body);
     $mobile = sms_iran_mobile($phone);
     if ($mobile === null) {
         return ['ok' => false, 'status' => 'FAILED', 'error' => 'شماره موبایل معتبر نیست.'];
     }
+    $context['body_prepared'] = 1;
     sms_queue_extended(
         $pdo,
         $mobile,
@@ -116,10 +147,15 @@ function sms_send_immediate(
         $context
     );
     $hash = hash('sha256', $dedup);
-    $job = $pdo->prepare("SELECT id FROM sms_outbox WHERE dedup_key=? ORDER BY created_at DESC LIMIT 1");
+    $job = $pdo->prepare("SELECT id,body,status,last_error FROM sms_outbox WHERE dedup_key=? ORDER BY created_at DESC LIMIT 1");
     $job->execute([$hash]);
-    $jobId = (string) ($job->fetchColumn() ?: '');
-    $result = sms_provider_send(sms_connection_config($pdo), $mobile, $body);
+    $queued = $job->fetch();
+    if (!$queued) return ['ok'=>false,'status'=>'SKIPPED','error'=>'پیامک وارد صف نشد.'];
+    $jobId = (string) $queued['id'];
+    $claim = $pdo->prepare("UPDATE sms_outbox SET status='PROCESSING',claimed_at=NOW() WHERE id=? AND status='PENDING'");
+    $claim->execute([$jobId]);
+    if (!$claim->rowCount()) return ['ok'=>$queued['status']==='SENT','status'=>(string)$queued['status'],'error'=>(string)($queued['last_error'] ?? '')];
+    $result = sms_provider_send(sms_connection_config($pdo), $mobile, (string) $queued['body']);
     if ($jobId !== '') {
         $pdo->prepare("UPDATE sms_outbox SET status=?,provider_id=?,last_error=?,sent_at=IF(?='SENT',NOW(),NULL),attempts=attempts+1,claimed_at=NOW() WHERE id=?")
             ->execute([$result['status'], $result['id'] ?? null, $result['error'] ?? null, $result['status'], $jobId]);
@@ -307,6 +343,8 @@ function sms_service_ensure_schema(PDO $pdo): void
 
 function sms_queue_extended(PDO $pdo, string $phone, string $body, string $kind, ?string $key = null, ?string $dueAt = null, ?string $expiresAt = null, array $context = []): bool
 {
+    if (!sms_kind_enabled($pdo, $kind)) return false;
+    if (empty($context['body_prepared'])) $body = sms_dynamic_body($pdo, $kind, $body);
     ensure_outreach_schema($pdo);
     $phone = sms_iran_mobile($phone);
     $body = trim($body);
@@ -414,6 +452,7 @@ function sms_plan_workshop(PDO $pdo, array $w, string $activated): void
 
 function sms_job_still_valid(PDO $pdo, array $job): bool
 {
+    if (!sms_kind_enabled($pdo, (string) $job['kind'])) return false;
     if (!empty($job['expires_at']) && strtotime($job['expires_at'])<=time())return false;
     $context=json_decode((string)($job['context_json']??''),true);
     if(!is_array($context)||!isset($context['entity']))return true;
@@ -690,6 +729,10 @@ function sms_doctor_daily_digest_body(string $doctorName, string $dayLabel, arra
     }
     if ($slots === []) {
         return 'مانا کلینیک: نوبتی برای ' . $dayLabel . ' نیست.';
+    }
+    global $pdo;
+    if ($pdo instanceof PDO && trim(mail_setting_get($pdo, 'sms_template_doctor_daily_digest', '')) !== '') {
+        return sms_template_render($pdo, 'doctor_daily_digest', ['date'=>$dayLabel,'slots'=>implode('، ', $slots)]);
     }
     $prefix = 'مانا کلینیک: نوبت ' . $dayLabel . ': ';
     $body = $prefix . implode('، ', $slots);

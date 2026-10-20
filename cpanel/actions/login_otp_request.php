@@ -3,7 +3,7 @@ declare(strict_types=1);
 require_once __DIR__.'/../includes/login_otp.php';
 $next=safe_next_path(post('next'));
 $retry='/login'.($next?'?next='.rawurlencode($next):'');
-if(!sms_connection_ready($pdo)){
+if(!sms_connection_ready($pdo) || !sms_kind_enabled($pdo, 'login_otp')){
     flash_set('error','ورود پیامکی پس از تکمیل تنظیمات اتصال پیامک فعال می‌شود. فعلاً با رمز عبور وارد شوید.');redirect($retry);
 }
 login_otp_schema($pdo);

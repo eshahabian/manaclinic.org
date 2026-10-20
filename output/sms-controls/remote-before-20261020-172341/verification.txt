@@ -1,0 +1,3 @@
+PASS 56 SMS controls checks; no provider calls
+PHP syntax PASS
+Deployment byte verification PASS

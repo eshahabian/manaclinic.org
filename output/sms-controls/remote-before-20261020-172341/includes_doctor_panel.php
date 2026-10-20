@@ -1,0 +1,457 @@
+<?php
+declare(strict_types=1);
+
+function doctor_ctx_user_id(array $ctx): string
+{
+    if (!empty($ctx['admin_mode'])) {
+        return (string) ($ctx['profile']['user_id'] ?? '');
+    }
+
+    return (string) ($ctx['user']['id'] ?? '');
+}
+
+/** صندوق اعلان: مدیر اعلان‌های خودش را می‌بیند؛ درمانگر اعلان‌های حساب خودش را. */
+function doctor_notification_user_id(array $ctx): string
+{
+    if (!empty($ctx['admin_mode'])) {
+        return (string) ($ctx['user']['id'] ?? '');
+    }
+
+    return doctor_ctx_user_id($ctx);
+}
+
+function doctor_ctx_user_name(array $ctx): string
+{
+    if (!empty($ctx['admin_mode'])) {
+        return (string) ($ctx['profile']['name'] ?? '');
+    }
+
+    return (string) ($ctx['user']['name'] ?? '');
+}
+
+/** ادمین، دکتر شیوا و دکتر عطیه گارسچی — ورود و خروج منشی‌ها */
+function doctor_can_view_staff_hours(?array $user = null): bool
+{
+    $user = $user ?? current_user();
+    if (!$user) {
+        return false;
+    }
+    $role = (string) ($user['role'] ?? '');
+    if ($role === 'ADMIN' || $role === 'SECRETARY') {
+        return true;
+    }
+    if ($role !== 'DOCTOR') {
+        return false;
+    }
+
+    return function_exists('doctor_has_shiva_access') && doctor_has_shiva_access($user);
+}
+
+/** پیام به منشی‌ها برای شیوا، عطیه گارسچی و ادمین */
+function doctor_can_message_secretaries(?array $user = null): bool
+{
+    return doctor_can_view_staff_hours($user);
+}
+
+function doctor_nav(): array
+{
+    $unread = 0;
+    global $pdo;
+    $ctx = is_array($GLOBALS['doctor_ctx'] ?? null) ? $GLOBALS['doctor_ctx'] : null;
+    $userId = $ctx ? doctor_ctx_user_id($ctx) : (string) (current_user()['id'] ?? '');
+    if ($pdo instanceof PDO && $userId !== '' && function_exists('count_unread_notifications')) {
+        $unread = count_unread_notifications($pdo, $userId);
+    }
+
+    $nav = [];
+    $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link(true) : null;
+    $consultLink = [
+        'type' => 'link',
+        'href' => '/doctor/consult-requests',
+        'label' => 'درخواست مشاوره',
+        'badge' => function_exists('consult_request_new_count') ? consult_request_new_count() : 0,
+        'badge_tone' => 'new',
+    ];
+    if ($videoLink) {
+        $nav[] = ['type' => 'group', 'label' => 'اصلی'];
+        $nav[] = $videoLink;
+        $nav[] = $consultLink;
+    } else {
+        $nav[] = ['type' => 'group', 'label' => 'اصلی'];
+        $nav[] = $consultLink;
+    }
+    if (!function_exists('clinic_rooms_user_allowed') && is_file(__DIR__ . '/clinic_rooms.php')) {
+        require_once __DIR__ . '/clinic_rooms.php';
+    }
+    $deskUser = current_user();
+    if ($deskUser && function_exists('clinic_rooms_user_allowed') && clinic_rooms_user_allowed($deskUser) && (string) ($deskUser['role'] ?? '') === 'DOCTOR') {
+        $nav[] = ['type' => 'link', 'href' => '/admin/rooms', 'label' => 'اتاق‌ها'];
+        $nav[] = ['type' => 'link', 'href' => '/admin/outreach', 'label' => 'مراجعه‌کنندگان قدیمی'];
+    }
+    if (!function_exists('clinic_can_add_therapist') && is_file(__DIR__ . '/doctor_profile_fields.php')) {
+        require_once __DIR__ . '/doctor_profile_fields.php';
+    }
+    if ($deskUser && (string) ($deskUser['role'] ?? '') === 'DOCTOR' && function_exists('clinic_can_add_therapist') && clinic_can_add_therapist($deskUser)) {
+        $nav[] = ['type' => 'link', 'href' => '/secretary/therapists', 'label' => 'درمانگرها'];
+    }
+
+    if (!function_exists('secretary_daily_tasks_can_review') && is_file(__DIR__ . '/secretary_daily_tasks.php')) {
+        require_once __DIR__ . '/secretary_daily_tasks.php';
+    }
+    $canReviewSecretaryTasks = function_exists('secretary_daily_tasks_can_review') && secretary_daily_tasks_can_review();
+    if (doctor_can_view_staff_hours() || doctor_can_message_secretaries() || $canReviewSecretaryTasks) {
+        $nav[] = ['type' => 'group', 'label' => 'منشی‌ها'];
+        if (doctor_can_message_secretaries()) {
+            $nav[] = ['type' => 'link', 'href' => '/doctor/secretary-messages', 'label' => 'پیام به منشی‌ها'];
+        }
+        if (doctor_can_view_staff_hours()) {
+            $nav[] = ['type' => 'link', 'href' => '/doctor/staff-hours', 'label' => 'ساعت کاری منشی‌ها'];
+        }
+        if ($canReviewSecretaryTasks) {
+            $nav[] = ['type' => 'link', 'href' => '/doctor/secretary-tasks', 'label' => 'وظایف منشی‌ها'];
+        }
+    }
+
+    $tail = [
+        ['type' => 'group', 'label' => 'درمانگرها'],
+        ['type' => 'link', 'href' => '/doctor/path', 'label' => 'اتاق ذهن'],
+    ];
+    if (!function_exists('session_feedback_can_review') && is_file(__DIR__ . '/session_complaints.php')) {
+        require_once __DIR__ . '/session_complaints.php';
+    }
+    if (function_exists('session_feedback_can_review') && session_feedback_can_review($deskUser)) {
+        $tail[] = ['type' => 'link', 'href' => '/doctor/feedback', 'label' => 'انتقادات و پیشنهادات'];
+    }
+    $tail = array_merge($tail, [
+        [
+            'type' => 'link',
+            'href' => '/doctor/notifications',
+            'label' => 'اعلان‌ها',
+            'badge' => $unread,
+            'badge_tone' => 'new',
+        ],
+        ['type' => 'link', 'href' => '/doctor/appointments', 'label' => 'نوبت‌ها'],
+        ['type' => 'link', 'href' => '/doctor/payouts', 'label' => 'پرداخت‌ها'],
+    ]);
+    if (!function_exists('petty_cash_user_allowed')) {
+        require_once __DIR__ . '/petty_cash.php';
+    }
+    if (!function_exists('doctor_has_shiva_access') && is_file(__DIR__ . '/doctor_profile_fields.php')) {
+        require_once __DIR__ . '/doctor_profile_fields.php';
+    }
+    if (!function_exists('patient_fee_can_edit') && is_file(__DIR__ . '/patient_fee.php')) {
+        require_once __DIR__ . '/patient_fee.php';
+    }
+    if (petty_cash_user_allowed()) {
+        $tail[] = ['type' => 'link', 'href' => '/doctor/petty-cash', 'label' => 'تنخواه'];
+    }
+    if (function_exists('patient_fee_can_edit') && patient_fee_can_edit($deskUser) && (string) ($deskUser['role'] ?? '') === 'DOCTOR') {
+        $tail[] = ['type' => 'link', 'href' => '/secretary/patients', 'label' => 'مراجعه‌کنندگان'];
+    }
+    $tail = array_merge($tail, [
+        ['type' => 'link', 'href' => '/doctor/availability', 'label' => 'روزهای خالی'],
+        ['type' => 'link', 'href' => '/doctor/appointment-history', 'label' => 'تاریخچه نوبت‌ها'],
+        // پرونده در منو مخفی است؛ مسیر /doctor/patients همچنان کار می‌کند
+        ['type' => 'link', 'href' => '/doctor/patients', 'label' => 'پرونده مراجعه‌کنندگان', 'hidden' => true],
+        [
+            'type' => 'link',
+            'href' => '/doctor/staff-messages',
+            'label' => 'پیام‌ها',
+            'badge' => (function_exists('mentions_unread_count') && $pdo instanceof PDO && current_user())
+                ? mentions_unread_count($pdo, (string) (current_user()['id'] ?? ''))
+                : 0,
+            'badge_tone' => 'new',
+        ],
+        ['type' => 'link', 'href' => '/doctor/profile', 'label' => 'پروفایل حرفه‌ای'],
+        ['type' => 'group', 'label' => 'محتوا'],
+        ['type' => 'link', 'href' => '/doctor/articles', 'label' => 'مقالات'],
+        ['type' => 'link', 'href' => '/doctor/workshops', 'label' => 'کارگاه‌ها'],
+        ['type' => 'group', 'label' => 'تنظیمات'],
+        ['type' => 'link', 'href' => '/change-password', 'label' => 'تغییر رمز عبور'],
+    ]);
+
+    require_once __DIR__ . '/outreach.php';
+    if (sms_operator_allowed(current_user())) {
+        $tail[]=['type'=>'group','label'=>'پیامک'];
+        $tail[]=['type'=>'link','href'=>'/admin/sms-test','label'=>'تست پیامک'];
+        $tail[]=['type'=>'link','href'=>'/admin/sms-broadcast','label'=>'پیامک همگانی'];
+        if (sms_settings_allowed(current_user())) $tail[]=['type'=>'link','href'=>'/admin/sms-notify','label'=>'مدیریت پیامک‌ها'];
+        if (sms_settings_allowed(current_user())) $tail[]=['type'=>'link','href'=>'/admin/sms-settings','label'=>'تنظیمات پیامک'];
+    }
+    return array_merge($nav, $tail);
+}
+
+/** پروفایل کاری درمانگر را می‌سازد یا فیلدهای خالی را پر می‌کند */
+function doctor_ensure_profile(PDO $pdo, string $userId, array $defaults = []): ?array
+{
+    if ($userId === '') {
+        return null;
+    }
+    $stmt = $pdo->prepare('SELECT dp.*, u.name, u.email FROM doctor_profiles dp JOIN users u ON u.id=dp.user_id WHERE dp.user_id=? LIMIT 1');
+    $stmt->execute([$userId]);
+    $row = $stmt->fetch();
+    $specialtyDefault = trim((string) ($defaults['specialty'] ?? 'روان‌شناسی'));
+    if ($specialtyDefault === '') {
+        $specialtyDefault = 'روان‌شناسی';
+    }
+    $bioDefault = (string) ($defaults['bio'] ?? '');
+    $priceDefault = (int) ($defaults['session_price'] ?? 3000000);
+    if ($priceDefault <= 0) {
+        $priceDefault = 3000000;
+    }
+
+    if ($row) {
+        $specialty = trim((string) ($row['specialty'] ?? ''));
+        $price = (int) ($row['session_price'] ?? 0);
+        $sets = [];
+        $params = [];
+        if ($specialty === '') {
+            $sets[] = 'specialty=?';
+            $params[] = $specialtyDefault;
+            $row['specialty'] = $specialtyDefault;
+        }
+        if ($price <= 0) {
+            $sets[] = 'session_price=?';
+            $params[] = $priceDefault;
+            $row['session_price'] = $priceDefault;
+        }
+        if (!empty($defaults['is_approved'])) {
+            $sets[] = 'is_approved=1';
+            $row['is_approved'] = 1;
+        }
+        if (!empty($defaults['is_active'])) {
+            $sets[] = 'is_active=1';
+            $row['is_active'] = 1;
+        }
+        if ($sets !== []) {
+            $params[] = $row['id'];
+            $pdo->prepare('UPDATE doctor_profiles SET ' . implode(', ', $sets) . ' WHERE id=?')->execute($params);
+        }
+        return $row;
+    }
+
+    $pdo->prepare('INSERT INTO doctor_profiles (id,user_id,specialty,bio,session_price,is_approved,is_active) VALUES (?,?,?,?,?,?,?)')
+        ->execute([
+            cuid(),
+            $userId,
+            $specialtyDefault,
+            $bioDefault,
+            $priceDefault,
+            !empty($defaults['is_approved']) ? 1 : 0,
+            !empty($defaults['is_active']) ? 1 : 0,
+        ]);
+    $stmt->execute([$userId]);
+    $created = $stmt->fetch();
+    return $created ?: null;
+}
+
+function admin_doctor_choices(PDO $pdo): array
+{
+    return $pdo->query("
+      SELECT dp.id, u.name
+      FROM doctor_profiles dp
+      JOIN users u ON u.id = dp.user_id
+      WHERE dp.is_approved = 1
+      ORDER BY
+        CASE WHEN u.name LIKE '%گرانمایه%' THEN 0 ELSE 1 END,
+        u.name ASC
+    ")->fetchAll() ?: [];
+}
+
+function admin_bind_doctor_profile(PDO $pdo): ?array
+{
+    $requested = trim((string) ($_GET['as_doctor'] ?? $_POST['as_doctor'] ?? ''));
+    if ($requested !== '') {
+        $_SESSION['admin_doctor_id'] = $requested;
+    }
+    $selected = trim((string) ($_SESSION['admin_doctor_id'] ?? ''));
+    $sql = "
+      SELECT dp.*, u.name, u.email
+      FROM doctor_profiles dp
+      JOIN users u ON u.id = dp.user_id
+      WHERE dp.is_approved = 1
+    ";
+    if ($selected !== '') {
+        $stmt = $pdo->prepare($sql . ' AND dp.id = ? LIMIT 1');
+        $stmt->execute([$selected]);
+        $row = $stmt->fetch();
+        if ($row) {
+            $_SESSION['admin_doctor_id'] = (string) $row['id'];
+
+            return $row;
+        }
+    }
+    $row = $pdo->query($sql . " ORDER BY CASE WHEN u.name LIKE '%گرانمایه%' THEN 0 ELSE 1 END, u.name ASC LIMIT 1")->fetch();
+    if ($row) {
+        $_SESSION['admin_doctor_id'] = (string) $row['id'];
+    }
+
+    return $row ?: null;
+}
+
+function admin_doctor_switcher_html(PDO $pdo, array $profile, string $action = '/admin/doctors'): string
+{
+    $choices = admin_doctor_choices($pdo);
+    if (!$choices) {
+        return '';
+    }
+    $current = (string) ($profile['id'] ?? '');
+    ob_start();
+    ?>
+    <form class="doc-admin-switcher" method="get" action="<?= e(url($action)) ?>">
+      <label for="as_doctor">ویرایش پنل درمانگر</label>
+      <select class="input" id="as_doctor" name="as_doctor" onchange="this.form.submit()">
+        <?php foreach ($choices as $d): ?>
+          <option value="<?= e((string) $d['id']) ?>" <?= $current === (string) $d['id'] ? 'selected' : '' ?>><?= e((string) $d['name']) ?></option>
+        <?php endforeach; ?>
+      </select>
+      <?php if ($current !== ''): ?>
+        <a class="btn btn-sm btn-primary" href="<?= e(url('/doctor/profile')) ?>?as_doctor=<?= e($current) ?>">ورود به پنل</a>
+      <?php endif; ?>
+    </form>
+    <?php
+    return ob_get_clean();
+}
+
+function oversight_home(?array $user = null): string
+{
+    $user = $user ?? (function_exists('current_user') ? current_user() : null);
+
+    return (string) ($user['role'] ?? '') === 'SECRETARY' ? '/secretary/messages' : '/doctor/notifications';
+}
+
+/** ساعت کاری و پیام به منشی‌ها: دکترهای مجاز و هر دو منشی، بدون ساختن پروفایل درمانگر برای منشی. */
+function require_clinic_oversight(PDO $pdo): array
+{
+    $peek = function_exists('current_user') ? current_user() : null;
+    if (is_array($peek) && (string) ($peek['role'] ?? '') === 'SECRETARY') {
+        $user = require_login(['SECRETARY']);
+        if (!doctor_can_view_staff_hours($user)) {
+            flash_set('error', 'این بخش برای این حساب باز نیست.');
+            redirect('/secretary/messages');
+        }
+        $ctx = [
+            'user' => $user,
+            'profile' => [
+                'id' => '',
+                'user_id' => (string) ($user['id'] ?? ''),
+                'name' => (string) ($user['name'] ?? ''),
+            ],
+            'secretary_mode' => true,
+        ];
+        $GLOBALS['doctor_ctx'] = $ctx;
+
+        return $ctx;
+    }
+
+    return require_doctor_profile($pdo);
+}
+
+function render_oversight_page(string $title, string $innerHtml): void
+{
+    $ctx = $GLOBALS['doctor_ctx'] ?? null;
+    if (is_array($ctx) && !empty($ctx['secretary_mode'])) {
+        require_once __DIR__ . '/secretary_panel.php';
+        render_secretary_page($title, $innerHtml);
+
+        return;
+    }
+    render_doctor_page($title, $innerHtml);
+}
+
+function require_doctor_profile(PDO $pdo): array
+{
+    $user = require_login(['DOCTOR']);
+    if (($user['role'] ?? '') === 'ADMIN') {
+        $profile = admin_bind_doctor_profile($pdo);
+        if (!$profile) {
+            flash_set('error', 'هنوز درمانگر تأییدشده‌ای نیست.');
+            redirect('/admin');
+        }
+        $ctx = ['user' => $user, 'profile' => $profile, 'admin_mode' => true];
+        $GLOBALS['doctor_ctx'] = $ctx;
+
+        return $ctx;
+    }
+    $profile = doctor_ensure_profile($pdo, (string) $user['id']);
+    if (!$profile || !(int) ($profile['is_approved'] ?? 0)) {
+        flash_set('error', 'حساب درمانگر شما هنوز توسط مدیر سایت تأیید نشده است.');
+        logout_user();
+        redirect('/login');
+    }
+    if (!(int) ($profile['is_active'] ?? 0)) {
+        flash_set('error', 'حساب درمانگر شما فعلاً غیرفعال است.');
+        logout_user();
+        redirect('/login');
+    }
+    $ctx = ['user' => $user, 'profile' => $profile];
+    $GLOBALS['doctor_ctx'] = $ctx;
+
+    return $ctx;
+}
+
+function render_doctor_page(string $title, string $innerHtml): void
+{
+    global $pageScripts, $pageHead, $pdo;
+    $ctx = is_array($GLOBALS['doctor_ctx'] ?? null) ? $GLOBALS['doctor_ctx'] : null;
+    $user = current_user();
+    $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+    $prefix = '';
+    if (
+        $currentPath !== '/doctor/profile'
+        && is_array($ctx['user'] ?? null)
+        && function_exists('doctor_skips_profile_gate')
+        && doctor_skips_profile_gate($ctx['user'])
+        && is_array($ctx['profile'] ?? null)
+        && function_exists('doctor_profile_is_complete')
+        && !doctor_profile_is_complete($ctx['profile'])
+    ) {
+        $prefix .= '<div class="doc-onboard-banner">پروفایل را تکمیل کنید. <a href="' . e(url('/doctor/profile')) . '">رفتن به پروفایل</a></div>';
+    }
+    $innerHtml = $prefix . $innerHtml;
+    if (function_exists('is_admin_user') && is_admin_user($user)) {
+        require_once __DIR__ . '/admin_panel.php';
+        render_admin_page($title, $innerHtml);
+        return;
+    }
+    $nav = doctor_nav();
+    $pageTitle = $title;
+    $GLOBALS['pageRobots'] = 'noindex,nofollow';
+    ob_start();
+    ?>
+    <div class="container-page panel-layout">
+      <aside class="panel side-nav doctor-side-nav">
+        <p class="side-nav-title">پنل درمانگر</p>
+        <nav>
+          <?php foreach ($nav as $item): ?>
+            <?php if (!empty($item['hidden'])) {
+                continue;
+            } ?>
+            <?php if (($item['type'] ?? 'link') === 'group'): ?>
+              <p class="side-nav-group"><?= e($item['label']) ?></p>
+            <?php else: ?>
+              <?php
+                $href = (string) $item['href'];
+                $active = str_contains($currentPath, $href);
+              ?>
+              <a class="<?= $active ? 'is-active' : '' ?>" href="<?= e(url($href)) ?>">
+                <span class="side-nav-link-main">
+                  <?php if (!empty($item['icon'])): ?>
+                    <img class="side-nav-call-logo" src="<?= e((string) $item['icon']) ?>" alt="" width="22" height="22">
+                  <?php endif; ?>
+                  <?= e($item['label']) ?>
+                </span>
+                <?php if ((int) ($item['badge'] ?? 0) > 0): ?>
+                  <span class="side-nav-badge<?= (($item['badge_tone'] ?? '') === 'new') ? ' side-nav-badge-new' : '' ?>"><?= e(to_fa_digits((string) (int) $item['badge'])) ?></span>
+                <?php endif; ?>
+              </a>
+            <?php endif; ?>
+          <?php endforeach; ?>
+        </nav>
+      </aside>
+      <div class="panel-main"><?= $innerHtml ?></div>
+    </div>
+    <?php
+    $content = ob_get_clean();
+    require __DIR__ . '/layout.php';
+}
