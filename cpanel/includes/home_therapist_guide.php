@@ -11,7 +11,7 @@ $guideWorkshops = array_values(array_map(static fn(array $workshop): array => [
     'title' => (string) $workshop['title'],
 ], array_filter(workshop_home_banners($pdo, null), static fn(array $workshop): bool => workshop_can_enroll($workshop) && workshop_promo_phase($workshop) !== 'done')));
 ?>
-<link rel="stylesheet" href="<?= e(url('/assets/css/therapist-guide.css')) ?>?v=20261021c">
+<link rel="stylesheet" href="<?= e(url('/assets/css/therapist-guide.css')) ?>?v=20261021d">
 <section class="mana-guide" aria-labelledby="mana-guide-title">
   <div class="mana-guide-row">
     <div class="mana-guide-copy">
