@@ -20,7 +20,7 @@
         var status = form.querySelector('[data-workshop-create-status]');
         button.disabled = true; status.textContent = 'در حال ساخت پروفایل…';
         try {
-          var response = await fetch(form.action, {method:'POST', body:new FormData(form), credentials:'same-origin'});
+          var response = await fetch(form.getAttribute('action'), {method:'POST', body:new FormData(form), credentials:'same-origin', headers:{'Accept':'application/json','X-Requested-With':'XMLHttpRequest'}});
           if (!response.headers.get('content-type') || response.headers.get('content-type').indexOf('application/json') === -1) throw new Error('نشست شما منقضی شده یا ارتباط برقرار نیست؛ صفحه را تازه کنید.');
           var result = await response.json();
           if (!response.ok || !result.ok) throw new Error(result.error || 'ساخت پروفایل انجام نشد.');

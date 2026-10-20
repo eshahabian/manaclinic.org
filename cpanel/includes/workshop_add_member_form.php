@@ -71,5 +71,5 @@ require_once __DIR__ . '/user_referral.php';
 <?php if (empty($GLOBALS['workshopMemberSearchLoaded'])): $GLOBALS['workshopMemberSearchLoaded'] = true; ?>
 <script src="<?= e(url('/assets/js/search-select.js')) ?>?v=20260905a" defer></script>
 <script src="<?= e(url('/assets/js/name-transliterate.js')) ?>?v=20260914a" defer></script>
-<script src="<?= e(url('/assets/js/workshop-member-search.js')) ?>?v=20261020profile" defer></script>
+<script src="<?= e(url('/assets/js/workshop-member-search.js')) ?>?v=20261020profile2" defer></script>
 <?php endif; ?>

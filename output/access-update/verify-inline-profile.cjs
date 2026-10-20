@@ -2,7 +2,7 @@ const {chromium}=require('C:/Users/Emad/.cache/codex-runtimes/codex-primary-runt
 (async()=>{const browser=await chromium.launch({executablePath:'C:/Program Files/Google/Chrome/Application/chrome.exe',headless:true});try{
  const page=await browser.newPage();await page.goto('file:///D:/Psychology/output/workshop-ui/fixture.html');
  await page.addScriptTag({path:'D:/Psychology/cpanel/assets/js/search-select.js'});
- await page.evaluate(()=>{window.fetch=async()=>new Response(JSON.stringify({ok:false,error:'این شماره موبایل قبلاً ثبت شده است.'}),{status:422,headers:{'content-type':'application/json'}});});
+ await page.evaluate(()=>{window.fetch=async(url,options)=>{if(url!=='/staff/workshops/add-member'||options.headers.Accept!=='application/json')throw new Error('Wrong request URL or headers');return new Response(JSON.stringify({ok:false,error:'این شماره موبایل قبلاً ثبت شده است.'}),{status:422,headers:{'content-type':'application/json'}});};});
  await page.addScriptTag({path:'D:/Psychology/cpanel/assets/js/workshop-member-search.js'});
  await page.locator('label[for="wcard-demo-member"]').click();await page.locator('[data-workshop-create-profile] summary').click();
  const form=page.locator('[data-workshop-create-form]');
@@ -11,7 +11,7 @@ const {chromium}=require('C:/Users/Emad/.cache/codex-runtimes/codex-primary-runt
  await form.locator('button[type="submit"]').click();
  await page.waitForFunction(()=>document.querySelector('[data-workshop-create-status]').textContent.includes('قبلاً'));
  if(await form.locator('[name="new_first_name"]').inputValue()!=='عضو')throw new Error('Failed request lost form input');
- await page.evaluate(()=>{window.fetch=async()=>new Response(JSON.stringify({ok:true,id:'new-test-id',name:'عضو آزمایشی',username:'testperson',phone:'09120000000'}),{headers:{'content-type':'application/json'}});});
+ await page.evaluate(()=>{window.fetch=async(url,options)=>{if(url!=='/staff/workshops/add-member'||options.headers.Accept!=='application/json')throw new Error('Wrong request URL or headers');return new Response(JSON.stringify({ok:true,id:'new-test-id',name:'عضو آزمایشی',username:'testperson',phone:'09120000000'}),{headers:{'content-type':'application/json'}});};});
  await form.locator('button[type="submit"]').click();await page.waitForFunction(()=>document.querySelector('#member-patient-demo').value==='new-test-id');
  if(await page.locator('[data-workshop-create-profile]').evaluate(el=>el.open))throw new Error('Create form did not close');
  if(!await page.locator('[data-workshop-profile-created]').isVisible())throw new Error('Missing success feedback');
