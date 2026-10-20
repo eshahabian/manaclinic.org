@@ -258,7 +258,8 @@ $doctorPathBoardById = $doctorPathBoardById ?? [];
             <?php endif; ?>
           </div>
         </div>
-      </article>
+        <?php $presenterWorkshop=$workshop;$presenterPostBase=$workshopPostBase;require __DIR__.'/workshop_presenters_form.php'; ?>
+    </article>
     <?php endforeach; ?>
   </div>
 <?php endif; ?>

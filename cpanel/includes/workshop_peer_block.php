@@ -27,6 +27,7 @@ if (!$peerList) {
           <?php $broadcastWorkshop=$peer;require __DIR__.'/workshop_broadcast_form.php'; ?>
         </details>
       <?php endif; ?>
+      <?php $presenterWorkshop=$peer;$presenterPostBase=($_SERVER['REQUEST_URI']??'')&&str_contains($_SERVER['REQUEST_URI'],'secretary')?'/secretary/workshops':'/doctor/workshops';require __DIR__.'/workshop_presenters_form.php'; ?>
     </article>
   <?php endforeach; ?>
 </div>

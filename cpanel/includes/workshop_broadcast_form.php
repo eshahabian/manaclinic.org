@@ -24,11 +24,14 @@ if(!workshop_can_add_member(current_user())||!isset($broadcastWorkshop))return;
     </div>
   </fieldset>
   <div style="display:flex;gap:.5rem;flex-wrap:wrap">
-    <button class="btn btn-outline btn-sm" type="submit">پیش‌نمایش گیرندگان</button>
+    <button class="btn btn-outline btn-sm" type="submit" disabled>پیش‌نمایش گیرندگان</button>
     <button class="btn btn-primary btn-sm" type="button" data-broadcast-send hidden>تأیید و ارسال پیامک</button>
   </div>
   <p class="muted" data-broadcast-status role="status" aria-live="polite"></p>
 </form>
-<?php if(empty($GLOBALS['workshopBroadcastLoaded'])): $GLOBALS['workshopBroadcastLoaded']=true; ?>
-<script src="<?= e(url('/assets/js/workshop-broadcast.js')) ?>?v=20261020b" defer></script>
-<?php endif; ?>
+<?php
+if(empty($GLOBALS['workshopBroadcastLoaded'])) {
+    $GLOBALS['workshopBroadcastLoaded']=true;
+    $GLOBALS['pageScripts']=($GLOBALS['pageScripts']??'').'<script src="'.e(url('/assets/js/workshop-broadcast.js')).'?v=20261020c" defer></script>';
+}
+?>

@@ -10,6 +10,7 @@ ensure_workshop_schema($pdo);
 ensure_workshop_media_schema($pdo);
 $action = post('action');
 $workshopBase = '/secretary/workshops';
+if ($action === 'save_presenters') require __DIR__.'/workshop_presenters_save.php';
 
 function secretary_resolve_doctor_id(PDO $pdo, string $doctorId): array
 {

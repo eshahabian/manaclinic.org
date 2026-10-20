@@ -412,6 +412,11 @@ function sms_job_still_valid(PDO $pdo, array $job): bool
         if(isset($context['doctor_id']) && $context['doctor_id']!==null && $context['doctor_id']!=='' && (string)$a['doctor_id']!==(string)$context['doctor_id'])return false;
         return true;
     }
+    if($context['entity']==='workshop_presenter'){
+        $q=$pdo->prepare('SELECT w.title,w.starts_at,w.ends_at,w.location,w.type,u.phone FROM workshop_presenters wp JOIN workshops w ON w.id=wp.workshop_id JOIN doctor_profiles dp ON dp.id=wp.doctor_id JOIN users u ON u.id=dp.user_id WHERE wp.workshop_id=? AND wp.doctor_id=? AND dp.is_active=1 AND dp.is_approved=1 AND COALESCE(u.is_disabled,0)=0');
+        $q->execute([$context['workshop_id'],$context['doctor_id']]);$w=$q->fetch();
+        return $w && sms_iran_mobile((string)$w['phone'])===$job['phone'] && hash('sha256',json_encode([$w['title'],$w['starts_at'],$w['ends_at'],$w['location'],$w['type']]))===($context['details_hash']??'');
+    }
     if($context['entity']==='workshop_broadcast'){
         require_once __DIR__.'/workshop_broadcast.php';
         return workshop_broadcast_job_valid($pdo,$job,$context);

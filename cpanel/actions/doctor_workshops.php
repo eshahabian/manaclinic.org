@@ -10,6 +10,7 @@ ensure_workshop_schema($pdo);
 ensure_workshop_media_schema($pdo);
 $action = post('action');
 $workshopBase = '/doctor/workshops';
+if ($action === 'save_presenters') require __DIR__.'/workshop_presenters_save.php';
 $actorUser = $ctx['user'] ?? current_user();
 $staffUserId = (string) ($actorUser['id'] ?? doctor_ctx_user_id($ctx));
 $staffLabel = function_exists('staff_actor_label') ? staff_actor_label($actorUser) : doctor_ctx_user_name($ctx);
