@@ -9,14 +9,14 @@ $ctx = require_doctor_profile($pdo);
 ensure_workshop_schema($pdo);
 ensure_workshop_media_schema($pdo);
 $action = post('action');
-$base = '/doctor/workshops';
+$workshopBase = '/doctor/workshops';
 $actorUser = $ctx['user'] ?? current_user();
 $staffUserId = (string) ($actorUser['id'] ?? doctor_ctx_user_id($ctx));
 $staffLabel = function_exists('staff_actor_label') ? staff_actor_label($actorUser) : doctor_ctx_user_name($ctx);
 
 if (in_array($action, ['approve_enrollment', 'mark_paid', 'enroll'], true)) {
     flash_set('error', 'تأیید عضویت کارگاه فقط با منشی است. شما فهرست افراد را می‌بینید.');
-    redirect($base);
+    redirect($workshopBase);
 }
 
 if ($action === 'create') {
@@ -213,7 +213,7 @@ if ($action === 'toggle') {
     $workshopRow = $row->fetch() ?: [];
     if (workshop_is_closed($workshopRow) || (string) ($workshopRow['status'] ?? '') === 'COMPLETED') {
         flash_set('error', 'این مورد تمام شده و ثبت‌نامش باز نمی‌شود.');
-        redirect($base);
+        redirect($workshopBase);
     }
     $open = !((int) ($workshopRow['enrollment_open'] ?? 0));
     $pdo->prepare('UPDATE workshops SET enrollment_open=? WHERE id=?')
@@ -227,10 +227,10 @@ if ($action === 'toggle') {
         }
         $doneLabel = workshop_is_offline((string) ($closed['type'] ?? '')) ? 'دوره' : 'کارگاه';
         flash_set('success', $doneLabel . ' تمام شد. ثبت‌نام جدید بسته است و در آرشیو می‌ماند.');
-        redirect($base . '?tab=archive');
+        redirect($workshopBase . '?tab=archive');
     } catch (RuntimeException $e) {
         flash_set('error', $e->getMessage());
-        redirect($base);
+        redirect($workshopBase);
     }
 } elseif ($action === 'delete') {
     $pdo->prepare('DELETE FROM workshops WHERE id=?')->execute([$id]);

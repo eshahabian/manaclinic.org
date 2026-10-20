@@ -1597,11 +1597,11 @@ function workshop_apply_url(string $workshopId): string
     return url('/workshops/apply?id=' . rawurlencode($workshopId));
 }
 
-function workshop_home_banners(PDO $pdo, int $limit = 8): array
+function workshop_home_banners(PDO $pdo, ?int $limit = 3): array
 {
     try {
         ensure_workshop_schema($pdo);
-        $limit = max(1, min(12, $limit));
+        $limitSql = $limit === null ? '' : ' LIMIT ' . max(1, min(12, $limit));
         $stmt = $pdo->query("
           SELECT w.*, u.name AS doctor_name
           FROM workshops w
@@ -1609,14 +1609,8 @@ function workshop_home_banners(PDO $pdo, int $limit = 8): array
           JOIN users u ON u.id = dp.user_id
           WHERE w.is_published = 1
             AND w.status IN ('PUBLISHED','COMPLETED')
-          ORDER BY
-            CASE
-              WHEN w.status = 'COMPLETED' OR w.closed_at IS NOT NULL OR (" . workshop_sql_end_in_past('w') . ") THEN 2
-              WHEN w.type = 'OFFLINE' OR w.ends_at IS NULL OR w.ends_at < '1970-01-02' OR (w.starts_at <= NOW() AND w.ends_at >= NOW()) THEN 0
-              ELSE 1
-            END,
-            w.starts_at DESC
-          LIMIT {$limit}
+          ORDER BY w.created_at DESC, w.id DESC
+          {$limitSql}
         ");
 
         return $stmt ? $stmt->fetchAll() : [];

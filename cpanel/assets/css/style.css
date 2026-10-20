@@ -805,6 +805,7 @@ html[data-theme="dark"] .home-daily-quote-text p {
 
 .home-workshop-banners { margin-top: 3rem; }
 .home-workshop-track {
+  direction: rtl;
   display: grid;
   gap: 1.25rem;
   align-items: stretch;

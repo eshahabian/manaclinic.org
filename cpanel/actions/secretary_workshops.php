@@ -9,7 +9,7 @@ $user = require_login(['SECRETARY']);
 ensure_workshop_schema($pdo);
 ensure_workshop_media_schema($pdo);
 $action = post('action');
-$base = '/secretary/workshops';
+$workshopBase = '/secretary/workshops';
 
 function secretary_resolve_doctor_id(PDO $pdo, string $doctorId): array
 {
@@ -37,7 +37,7 @@ if ($action === 'create') {
         $doctor = secretary_resolve_doctor_id($pdo, post('doctor_id'));
     } catch (RuntimeException $e) {
         flash_set('error', $e->getMessage());
-        redirect($base);
+        redirect($workshopBase);
     }
 
     $id = cuid();
@@ -81,7 +81,7 @@ if ($action === 'create') {
         $queueOutreach = !empty($_POST['notify_outreach']);
     } catch (Throwable $e) {
         if (!workshop_save_caught($pdo, $e)) {
-            redirect($base);
+            redirect($workshopBase);
         }
     }
 
@@ -128,25 +128,25 @@ if ($action === 'create') {
     );
 
     flash_set('success', 'کارگاه ایجاد شد. فایل هر جلسه را از ویرایش کارگاه بارگذاری کنید.');
-    redirect($base . '?edit=' . urlencode($id));
+    redirect($workshopBase . '?edit=' . urlencode($id));
 }
 
 if ($action === 'update') {
     $id = post('id');
     if ($id === '') {
         flash_set('error', 'کارگاه یافت نشد.');
-        redirect($base);
+        redirect($workshopBase);
     }
     $existing = $pdo->prepare('SELECT id, status FROM workshops WHERE id=? LIMIT 1');
     $existing->execute([$id]);
     $row = $existing->fetch();
     if (!$row) {
         flash_set('error', 'کارگاه یافت نشد.');
-        redirect($base);
+        redirect($workshopBase);
     }
     if (in_array($row['status'], ['COMPLETED', 'CANCELLED'], true)) {
         flash_set('error', 'کارگاه برگزار شده یا لغو شده قابل ویرایش نیست.');
-        redirect($base . '?edit=' . urlencode($id));
+        redirect($workshopBase . '?edit=' . urlencode($id));
     }
 
     try {
@@ -154,7 +154,7 @@ if ($action === 'update') {
         $doctor = secretary_resolve_doctor_id($pdo, post('doctor_id'));
     } catch (RuntimeException $e) {
         flash_set('error', $e->getMessage());
-        redirect($base . '?edit=' . urlencode($id));
+        redirect($workshopBase . '?edit=' . urlencode($id));
     }
 
     try {
@@ -192,12 +192,12 @@ if ($action === 'update') {
         staff_log_action($pdo, (string) $user['id'], 'workshop_update', 'workshop', $id);
     } catch (Throwable $e) {
         if (!workshop_save_caught($pdo, $e)) {
-            redirect($base . '?edit=' . urlencode($id));
+            redirect($workshopBase . '?edit=' . urlencode($id));
         }
     }
 
     flash_set('success', 'تغییرات کارگاه ذخیره شد.');
-    redirect($base);
+    redirect($workshopBase);
 }
 
 if ($action === 'mark_paid') {
@@ -219,7 +219,7 @@ if ($action === 'mark_paid') {
     if ($next !== '' && str_starts_with($next, '/secretary')) {
         redirect($next);
     }
-    redirect($base);
+    redirect($workshopBase);
 }
 
 if ($action === 'approve_enrollment') {
@@ -229,7 +229,7 @@ if ($action === 'approve_enrollment') {
     } catch (RuntimeException $e) {
         flash_set('error', $e->getMessage());
     }
-    redirect($base);
+    redirect($workshopBase);
 }
 
 if ($action === 'enroll') {
@@ -248,19 +248,19 @@ if ($action === 'enroll') {
     } catch (RuntimeException $e) {
         flash_set('error', $e->getMessage());
     }
-    redirect($base . '?tab=enroll');
+    redirect($workshopBase . '?tab=enroll');
 }
 
 $id = post('id');
 if ($id === '') {
-    redirect($base);
+    redirect($workshopBase);
 }
 
 $exists = $pdo->prepare('SELECT id FROM workshops WHERE id=?');
 $exists->execute([$id]);
 if (!$exists->fetch()) {
     flash_set('error', 'کارگاه یافت نشد.');
-    redirect($base);
+    redirect($workshopBase);
 }
 
 if ($action === 'toggle') {
@@ -299,7 +299,7 @@ if ($action === 'toggle') {
     $workshopRow = $row->fetch() ?: [];
     if (workshop_is_closed($workshopRow) || (string) ($workshopRow['status'] ?? '') === 'COMPLETED') {
         flash_set('error', 'این مورد تمام شده و ثبت‌نامش باز نمی‌شود.');
-        redirect($base);
+        redirect($workshopBase);
     }
     $open = !((int) ($workshopRow['enrollment_open'] ?? 0));
     $pdo->prepare('UPDATE workshops SET enrollment_open=?, updated_by_user_id=? WHERE id=?')->execute([$open ? 1 : 0, $user['id'], $id]);
@@ -311,10 +311,10 @@ if ($action === 'toggle') {
         staff_log_action($pdo, (string) $user['id'], 'workshop_close', 'workshop', $id);
         $doneLabel = workshop_is_offline((string) ($closed['type'] ?? '')) ? 'دوره' : 'کارگاه';
         flash_set('success', $doneLabel . ' تمام شد. ثبت‌نام جدید بسته است و در آرشیو می‌ماند.');
-        redirect($base . '?tab=archive');
+        redirect($workshopBase . '?tab=archive');
     } catch (RuntimeException $e) {
         flash_set('error', $e->getMessage());
-        redirect($base);
+        redirect($workshopBase);
     }
 } elseif ($action === 'delete') {
     $pdo->prepare('DELETE FROM workshops WHERE id=?')->execute([$id]);
@@ -322,4 +322,4 @@ if ($action === 'toggle') {
     flash_set('success', 'کارگاه حذف شد.');
 }
 
-redirect($base);
+redirect($workshopBase);
