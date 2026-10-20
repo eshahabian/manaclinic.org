@@ -2,6 +2,7 @@
 function e($v){return htmlspecialchars((string)$v,ENT_QUOTES,'UTF-8');}
 function url($v){return $v;}
 function current_user(){return ['id'=>'demo-admin','role'=>'ADMIN','username'=>'eshahabian'];}
+function password_field_html($id,$name,$opts=[]) {return '<div><label for="'.e($id).'">'.e($opts['label']).'</label><input class="input" type="password" required minlength="6" id="'.e($id).'" name="'.e($name).'" /></div>';}
 function csrf_field(){return '<input type="hidden" name="_csrf" value="test">';}
 function workshop_can_add_member($u){return true;}
 function workshop_member_user_sql($a){return '1=1';}

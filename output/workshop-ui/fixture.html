@@ -78,9 +78,97 @@
 
 
 
+<details class="workshop-create-profile" style="margin:.75rem 0" data-workshop-create-profile>
+
+  <summary class="btn btn-outline btn-sm">فرد در فهرست نیست؟ ساخت پروفایل جدید</summary>
+
+  <form class="stack" method="post" action="/staff/workshops/add-member" data-workshop-create-form data-workshop-select="member-patient-demo" data-transliterate-url="/api/transliterate-name" style="margin-top:.75rem">
+
+    <input type="hidden" name="_csrf" value="test">    <input type="hidden" name="action" value="create_profile">
+
+    <input type="hidden" name="workshop_id" value="demo">
+
+    <div class="grid-2">
+
+              <div>
+
+          <label class="label" for="member-profile-demo-new_first_name">نام</label>
+
+          <input class="input" id="member-profile-demo-new_first_name" name="new_first_name" required>
+
+        </div>
+
+              <div>
+
+          <label class="label" for="member-profile-demo-new_last_name">نام خانوادگی</label>
+
+          <input class="input" id="member-profile-demo-new_last_name" name="new_last_name" required>
+
+        </div>
+
+              <div>
+
+          <label class="label" for="member-profile-demo-new_name_en">نام به انگلیسی</label>
+
+          <input class="input" id="member-profile-demo-new_name_en" name="new_name_en" required dir="ltr">
+
+        </div>
+
+              <div>
+
+          <label class="label" for="member-profile-demo-new_surname">نام خانوادگی به انگلیسی</label>
+
+          <input class="input" id="member-profile-demo-new_surname" name="new_surname" required dir="ltr">
+
+        </div>
+
+            <div>
+
+        <label class="label" for="member-profile-demo-phone">موبایل</label>
+
+        <input class="input" id="member-profile-demo-phone" name="new_phone" dir="ltr" inputmode="tel" autocomplete="tel" required>
+
+      </div>
+
+      <div>
+
+        <label class="label" for="member-profile-demo-username">نام کاربری</label>
+
+        <input class="input" id="member-profile-demo-username" name="new_username" dir="ltr" pattern="[a-zA-Z0-9._-]{3,32}" required>
+
+      </div>
+
+      <div>
+
+        <label class="label" for="member-profile-demo-referral">معرف</label>
+
+        <select class="input" name="new_referral_source" id="member-profile-demo-referral" required><option value="">انتخاب معرف</option><option value="therapist">درمانگر</option><option value="clinic">کلینیک</option></select>      </div>
+
+      <div>
+
+        <label class="label">درمانگر مربوط به پروفایل</label>
+
+        <p class="muted">درمانگر همین کارگاه</p>
+
+      </div>
+
+      <div><label for="member-profile-demo-password">رمز عبور</label><input class="input" type="password" required minlength="6" id="member-profile-demo-password" name="new_password" /></div>      <div><label for="member-profile-demo-password-confirm">تکرار رمز عبور</label><input class="input" type="password" required minlength="6" id="member-profile-demo-password-confirm" name="new_password_confirm" /></div>    </div>
+
+    <p class="muted" data-workshop-create-status role="status" aria-live="polite">پس از ساخت پروفایل، فرد برای اضافه شدن به همین کارگاه انتخاب می‌شود.</p>
+
+    <button class="btn btn-primary btn-sm" type="submit">ساخت پروفایل و انتخاب عضو</button>
+
+  </form>
+
+</details>
+
+
+
 <script src="/assets/js/search-select.js?v=20260905a" defer></script>
 
-<script src="/assets/js/workshop-member-search.js?v=20261020a" defer></script>
+<script src="/assets/js/name-transliterate.js?v=20260914a" defer></script>
+
+<script src="/assets/js/workshop-member-search.js?v=20261020profile" defer></script>
 
             </div>
                     <div class="wcard-panel wcard-panel-files">
