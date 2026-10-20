@@ -6,19 +6,29 @@ ensure_mail_schema($pdo);
 ensure_outreach_schema($pdo);
 $settings=sms_connection_config($pdo);
 $workerSeen=mail_setting_get($pdo,'sms_worker_last_run','');
+$workerStale=sms_worker_is_stale($pdo);
+$cronUrl=sms_cron_url($pdo);
 $recent=$pdo->query('SELECT phone,body,status,due_at,last_error FROM sms_outbox ORDER BY created_at DESC LIMIT 25')->fetchAll()?:[];
 ob_start();
 ?>
 <h1>تنظیمات پیامک</h1>
 <p class="muted">سرویس: <a href="https://webone-sms.ir/" target="_blank" rel="noopener noreferrer">وب‌وان</a>. با کلید API و شماره خط ارسال می‌شود. تا تکمیل تنظیمات، پیامکی ارسال نمی‌شود.</p>
 <p><?= sms_connection_ready($pdo)?'ارسال پیامک فعال است.':'ارسال پیامک فعلاً خاموش است.' ?></p>
-<p class="muted">آخرین اجرای صف: <?= $workerSeen!==''?e(format_fa_datetime($workerSeen)):'هنوز اجرا نشده' ?></p>
-<p class="muted">هر روز از ساعت ۷ صبح، برای درمانگرانی که همان روز نوبت تأییدشده دارند، خلاصهٔ ساعت‌های نوبت پیامک می‌شود (کرون <code dir="ltr">sms-worker.php</code> لازم است).</p>
-<?php if (mail_setting_get($pdo,'sms_cron_installed','0')!=='1'): ?>
-<div class="panel">
-  <strong>یادآوری خودکار به زمان‌بندی هاست نیاز دارد.</strong>
-  <p>در بخش Cron Jobs سی‌پنل، زمان‌بندی را روی هر دقیقه (* * * * *) بگذارید و فرمان زیر را وارد کنید. نسخه PHP خط فرمان باید ۸ یا بالاتر باشد. سپس زمان آخرین اجرای صف را در همین صفحه بررسی کنید.</p>
+<p class="muted">آخرین اجرای صف: <?= $workerSeen!==''?e(format_fa_datetime($workerSeen)):'هنوز اجرا نشده' ?>
+  <?php if ($workerStale): ?>
+    <span style="color:#a33b3b"> — صف خودکار قطع است؛ خلاصهٔ صبحگاهی و یادآوری‌ها بدون کرون ارسال نمی‌شوند.</span>
+  <?php endif; ?>
+</p>
+<p class="muted">هر روز از ساعت ۷ صبح، برای درمانگرانی که همان روز نوبت تأییدشده دارند، خلاصهٔ ساعت‌های نوبت پیامک می‌شود.</p>
+<?php if ($workerStale || mail_setting_get($pdo,'sms_cron_installed','0')!=='1'): ?>
+<div class="panel" style="background:#fff5f5;border-color:#f0c0c0">
+  <strong>کرون هاست برای صف صبحگاهی لازم است.</strong>
+  <p>پیامک ثبت/لغو نوبت فوری است و بدون کرون می‌رود؛ خلاصهٔ صبحگاهی فقط وقتی worker هر دقیقه اجرا شود صف می‌شود.</p>
+  <p><strong>پیشنهادی (URL):</strong> در Cron Jobs سی‌پنل هر دقیقه این آدرس را صدا بزنید:</p>
+  <code dir="ltr" style="display:block;overflow-wrap:anywhere;user-select:all"><?= e($cronUrl) ?></code>
+  <p class="muted" style="margin-top:.75rem">یا فرمان PHP خط فرمان:</p>
   <code dir="ltr" style="display:block;overflow-wrap:anywhere">/usr/local/bin/php <?= e(dirname(__DIR__,2).'/sms-worker.php') ?> &gt; /dev/null 2&gt;&amp;1</code>
+  <p class="muted">بعد از تنظیم، «آخرین اجرای صف» باید هر دقیقه جلو برود.</p>
 </div>
 <?php endif; ?>
 <?php $otpStatus=mail_setting_get($pdo,'sms_otp_last_status',''); if($otpStatus!==''): ?>

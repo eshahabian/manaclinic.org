@@ -892,3 +892,45 @@ function sms_run_worker(PDO $pdo): void
     }finally{$pdo->query("SELECT RELEASE_LOCK('mana_sms_collect')");}
     sms_dispatch_pending($pdo);
 }
+
+/** توکن ثابت برای کرون URL (هر دقیقه از هاست). */
+function sms_cron_ensure_token(PDO $pdo): string
+{
+    ensure_mail_schema($pdo);
+    $token = trim((string) mail_setting_get($pdo, 'sms_cron_token', ''));
+    if ($token !== '' && preg_match('/^[a-f0-9]{32,64}$/D', $token)) {
+        return $token;
+    }
+    $token = bin2hex(random_bytes(24));
+    mail_setting_set($pdo, 'sms_cron_token', $token);
+    return $token;
+}
+
+function sms_cron_url(PDO $pdo): string
+{
+    $path = '/cron/sms?token=' . rawurlencode(sms_cron_ensure_token($pdo));
+    if (function_exists('seo_absolute_url')) {
+        return seo_absolute_url($path);
+    }
+    global $config;
+    $base = rtrim((string) (($config['app_url'] ?? '') ?: ($GLOBALS['config']['app_url'] ?? '')), '/');
+    if ($base === '') {
+        return url('/cron/sms') . '?token=' . rawurlencode(sms_cron_ensure_token($pdo));
+    }
+
+    return $base . $path;
+}
+
+function sms_worker_is_stale(PDO $pdo, int $maxAgeMinutes = 90): bool
+{
+    $seen = trim((string) mail_setting_get($pdo, 'sms_worker_last_run', ''));
+    if ($seen === '') {
+        return true;
+    }
+    $ts = strtotime($seen);
+    if (!$ts) {
+        return true;
+    }
+
+    return (time() - $ts) > ($maxAgeMinutes * 60);
+}
