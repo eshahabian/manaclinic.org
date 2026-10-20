@@ -1,31 +1,34 @@
 from pathlib import Path
 import ftplib, io, json, secrets, time, urllib.request, sys
+sys.stdout.reconfigure(encoding='utf-8')
 
 root=Path('D:/Psychology')
 cfg=json.loads((root/'.vscode/sftp.json').read_text('utf-8-sig'))
 folder=root/'output/workshop-image-change'
 folder.mkdir(exist_ok=True)
 token=secrets.token_hex(32)
-name='workshop-image-'+secrets.token_hex(12)+'.php'
+tag='workshop-image-'+secrets.token_hex(12)
+name=tag+'/index.php'
 php='''<?php
-if(time()>EXPIRES || !hash_equals('TOKEN',$_SERVER['HTTP_X_VERIFY_TOKEN']??'')){http_response_code(404);exit;}
+if(time()>EXPIRES || !hash_equals('SECRET_VALUE',$_SERVER['HTTP_X_VERIFY_TOKEN']??'')){http_response_code(404);exit;}
 header('Content-Type: application/json; charset=utf-8');
-$c=require __DIR__.'/config.php';
+$c=require dirname(__DIR__).'/config.php';
 $p=new PDO('mysql:host='.$c['db_host'].';dbname='.$c['db_name'].';charset=utf8mb4',$c['db_user'],$c['db_pass'],[PDO::ATTR_ERRMODE=>PDO::ERRMODE_EXCEPTION,PDO::ATTR_DEFAULT_FETCH_MODE=>PDO::FETCH_ASSOC]);
 if($_SERVER['REQUEST_METHOD']==='POST'){
 $v=json_decode(file_get_contents('php://input'),true);
-$q=$p->prepare('UPDATE workshops SET banner_url=? WHERE id=? AND COALESCE(banner_url,\'\')=?');
+$q=$p->prepare("UPDATE workshops SET banner_url=? WHERE id=? AND COALESCE(banner_url,'')=?");
 $q->execute([$v['new'],$v['id'],$v['old']]);echo json_encode(['updated'=>$q->rowCount()]);exit;
 }
 $q=$p->query("SELECT id,title,banner_url,created_at,starts_at,status FROM workshops WHERE title LIKE '%زوج%' ORDER BY created_at DESC,id DESC LIMIT 10");
 echo json_encode($q->fetchAll(),JSON_UNESCAPED_UNICODE);
-'''.replace('EXPIRES',str(int(time.time())+600)).replace('TOKEN',token)
+'''.replace('EXPIRES',str(int(time.time())+600)).replace('SECRET_VALUE',token)
 with ftplib.FTP() as f:
     f.connect(cfg['host'],int(cfg.get('port',21)),timeout=45)
     f.login(cfg['username'],cfg['password']);f.cwd('/public_html')
+    f.mkd(tag)
     f.storbinary('STOR '+name,io.BytesIO(php.encode()))
     def call(data=None):
-        req=urllib.request.Request('https://manaclinic.org/'+name,data=json.dumps(data).encode() if data else None,headers={'X-Verify-Token':token,'Content-Type':'application/json'})
+        req=urllib.request.Request('https://manaclinic.org/'+tag+'/',data=json.dumps(data).encode() if data else None,headers={'X-Verify-Token':token,'Content-Type':'application/json'})
         return json.loads(urllib.request.urlopen(req,timeout=45).read())
     try:
         rows=call()
@@ -49,4 +52,5 @@ with ftplib.FTP() as f:
             print(json.dumps({'updated':selected['title'],'image':new,'previous_preserved':True},ensure_ascii=False))
     finally:
         f.delete(name)
-        assert name not in f.nlst()
+        f.rmd(tag)
+        assert tag not in f.nlst()
