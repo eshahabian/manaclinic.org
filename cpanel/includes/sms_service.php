@@ -789,39 +789,48 @@ function sms_doctor_digests_for_date(PDO $pdo, string $ymd, ?array $doctorIds = 
 }
 
 /**
- * هر روز از ساعت ۷ صبح، برای درمانگرهایی که همان روز نوبت تأییدشده دارند یک پیامک صف می‌کند.
+ * صف پیامک برنامه نوبت درمانگرها:
+ * - از ساعت ۷ صبح: برنامهٔ همان روز
+ * - از ساعت ۲۲: برنامهٔ فردا
  */
 function sms_queue_doctor_daily_digests(PDO $pdo): int
 {
     if (!sms_connection_ready($pdo)) {
         return 0;
     }
-    // قبل از ۷ صبح صف نشود (کرون هر دقیقه است).
-    if ((int) date('G') < 7) {
-        return 0;
-    }
     ensure_outreach_schema($pdo);
-    $today = date('Y-m-d');
-    $dueAt = $today . ' 07:00:00';
-    $expiresAt = $today . ' 23:59:59';
+    $hour = (int) date('G');
     $queued = 0;
-    foreach (sms_doctor_digests_for_date($pdo, $today, null) as $pack) {
-        if (($pack['phone'] ?? null) === null) {
-            continue;
+    $queueDay = static function (PDO $pdo, string $ymd, string $dueAt, string $expiresAt, string $slot) use (&$queued): void {
+        foreach (sms_doctor_digests_for_date($pdo, $ymd, null) as $pack) {
+            if (($pack['phone'] ?? null) === null) {
+                continue;
+            }
+            $key = 'doctor-digest:' . $pack['doctor_id'] . ':' . $ymd . ':' . $slot;
+            if (sms_queue_extended(
+                $pdo,
+                (string) $pack['phone'],
+                (string) $pack['body'],
+                'doctor_daily_digest',
+                $key,
+                $dueAt,
+                $expiresAt,
+                ['entity' => 'doctor_digest', 'doctor_id' => $pack['doctor_id'], 'digest_date' => $ymd, 'slot' => $slot]
+            )) {
+                $queued++;
+            }
         }
-        $key = 'doctor-digest:' . $pack['doctor_id'] . ':' . $today;
-        if (sms_queue_extended(
-            $pdo,
-            (string) $pack['phone'],
-            (string) $pack['body'],
-            'doctor_daily_digest',
-            $key,
-            $dueAt,
-            $expiresAt,
-            ['entity' => 'doctor_digest', 'doctor_id' => $pack['doctor_id'], 'digest_date' => $today]
-        )) {
-            $queued++;
-        }
+    };
+    // صبح ۷ — برنامه امروز
+    if ($hour >= 7) {
+        $today = date('Y-m-d');
+        $queueDay($pdo, $today, $today . ' 07:00:00', $today . ' 23:59:59', 'am');
+    }
+    // شب ۲۲ — برنامه فردا
+    if ($hour >= 22) {
+        $today = date('Y-m-d');
+        $tomorrow = date('Y-m-d', strtotime('+1 day'));
+        $queueDay($pdo, $tomorrow, $today . ' 22:00:00', $tomorrow . ' 12:00:00', 'pm');
     }
 
     return $queued;
