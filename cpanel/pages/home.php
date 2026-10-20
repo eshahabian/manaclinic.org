@@ -64,10 +64,8 @@ ob_start();
 <?php endif; ?>
 
 <section class="container-page section">
-      <?php require __DIR__ . '/../includes/public_workshop_banners.php'; ?>
-
       <?php if (function_exists('assistant_enabled') ? assistant_enabled() : true): ?>
-      <a class="home-assistant-tile" href="<?= e(url('/assistant')) ?>">
+      <a class="home-assistant-tile" style="margin-top:0;margin-bottom:3rem" href="<?= e(url('/assistant')) ?>">
         <span class="home-assistant-icon" aria-hidden="true">
           <svg viewBox="0 0 64 64" width="56" height="56" fill="none">
             <rect x="14" y="22" width="36" height="28" rx="10" fill="#1a5c4a"/>
@@ -89,24 +87,8 @@ ob_start();
       </a>
       <?php endif; ?>
 
-      <div class="home-articles-block" style="margin-top:3rem">
-        <div class="section-head">
-          <div>
-            <h2>آخرین مقالات</h2>
-            <p class="muted">دانش کاربردی برای سلامت روان</p>
-          </div>
-        </div>
-        <?php if ($articles): ?>
-          <div class="therapists-all-link">
-            <a class="articles-all-link" href="<?= e(url('/articles')) ?>">مشاهده همه مقالات ←</a>
-          </div>
-        <?php endif; ?>
-        <div class="articles-showcase">
-          <?php foreach ($articles as $article): ?>
-            <?= clinic_article_card_html($article) ?>
-          <?php endforeach; ?>
-        </div>
-      </div>
+      <?php require __DIR__ . '/../includes/public_workshop_banners.php'; ?>
+      <?php require __DIR__ . '/../includes/home_therapist_guide.php'; ?>
 
       <div class="home-specialists-block" style="margin-top:3rem">
         <div class="section-head">
@@ -127,6 +109,25 @@ ob_start();
           <?php if (!$doctors): ?><p class="muted">هنوز متخصصی ثبت نشده است.</p><?php endif; ?>
         </div>
       </div>
+      <div class="home-articles-block" style="margin-top:3rem">
+        <div class="section-head">
+          <div>
+            <h2>آخرین مقالات</h2>
+            <p class="muted">دانش کاربردی برای سلامت روان</p>
+          </div>
+        </div>
+        <?php if ($articles): ?>
+          <div class="therapists-all-link">
+            <a class="articles-all-link" href="<?= e(url('/articles')) ?>">مشاهده همه مقالات ←</a>
+          </div>
+        <?php endif; ?>
+        <div class="articles-showcase">
+          <?php foreach ($articles as $article): ?>
+            <?= clinic_article_card_html($article) ?>
+          <?php endforeach; ?>
+        </div>
+      </div>
+
 </section>
 <?php
 $content = ob_get_clean();
