@@ -9,7 +9,7 @@ $memberReturn = (string) $user['role'] === 'SECRETARY' ? '/secretary/workshops' 
 $memberWorkshopId = post('workshop_id');
 $memberPatientId = post('patient_id');
 try {
-    $patient = $pdo->prepare("SELECT id FROM users WHERE id=? AND role='PATIENT' AND COALESCE(is_disabled,0)=0");
+    $patient = $pdo->prepare("SELECT u.id FROM users u WHERE u.id=? AND " . workshop_member_user_sql('u'));
     $patient->execute([$memberPatientId]);
     if (!$patient->fetchColumn()) throw new RuntimeException('مراجعه‌کننده فعال و معتبر انتخاب کنید.');
     workshop_enroll_by_staff($pdo, $memberWorkshopId, $memberPatientId, (string) $user['id'], staff_actor_label($user), false);

@@ -195,7 +195,9 @@ if ($foreignOn && $foreignUsd === null) {
     redirect('/secretary/patients');
 }
 
-$pdo->prepare('
+try {
+    user_phone_write($pdo, $phone, $userId, fn ($phone) =>
+        $pdo->prepare('
   UPDATE users
   SET preferred_doctor_id=?, phone=?,
       custom_fee_on=?, custom_fee_toman=?,
@@ -209,7 +211,11 @@ $pdo->prepare('
     $foreignOn,
     $foreignOn ? $foreignUsd : null,
     $userId,
-]);
+])
+    );
+} catch (RuntimeException $e) {
+    flash_set('error', $e->getMessage()); redirect('/secretary/patients');
+}
 
 flash_set('success', 'تغییرات کاربر ذخیره شد.');
 redirect('/secretary/patients');

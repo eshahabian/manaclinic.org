@@ -8132,3 +8132,40 @@ html.is-native-app body:has([data-livekit-v2]:not([hidden])) .site-chrome-call {
 .home-articles-block .section-head > div { text-align: right; }
 .doctor-profile-details { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1.5rem 2rem; }
 .doctor-profile-details .doctor-public-block { margin-top: 0; padding-top: 1.25rem; min-width: 0; }
+
+/* Workshop navigation and actions share one aligned, responsive toolbar. */
+.wcard-tabbar {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr));
+  gap: .5rem;
+  padding-block: .75rem;
+  border-block: 1px solid var(--line);
+}
+.wcard-tabbar .workshop-card-actions { display: contents; }
+.wcard-tabbar > label,
+.wcard-tabbar .workshop-card-actions .btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  min-height: 2.65rem;
+  box-sizing: border-box;
+  margin: 0;
+  padding: .55rem .65rem;
+  border-radius: .65rem;
+  font-size: .82rem;
+  font-weight: 600;
+  line-height: 1.5;
+  white-space: normal;
+  text-align: center;
+}
+.wcard-tabs > input[id$="-member"]:checked ~ .wcard-tabbar label[for$="-member"] {
+  background: var(--primary);
+  border-color: var(--primary);
+  color: #fff;
+}
+.wcard-tabs > input[id$="-member"]:checked ~ .wcard-panel-member { display: block; }
+.workshop-member-form { max-width: 42rem; padding-block: .75rem; }
+@media (max-width: 480px) {
+  .wcard-tabbar { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}

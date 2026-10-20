@@ -1,0 +1,626 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/seo.php';
+
+foreach (['pageTitle', 'pageDescription', 'pageCanonical', 'pageKeywords', 'pageRobots', 'pageImage', 'pageOgType', 'pageJsonLd'] as $seoKey) {
+    if (isset($$seoKey) && $$seoKey !== null && $$seoKey !== '') {
+        $GLOBALS[$seoKey] = $$seoKey;
+    } elseif (isset($GLOBALS[$seoKey])) {
+        $$seoKey = $GLOBALS[$seoKey];
+    }
+}
+
+$pageTitle = $GLOBALS['pageTitle'] ?? ($pageTitle ?? null);
+$pageHead = $GLOBALS['pageHead'] ?? ($pageHead ?? '');
+$pageScripts = $GLOBALS['pageScripts'] ?? ($pageScripts ?? '');
+$content = $GLOBALS['content'] ?? ($content ?? '');
+
+$user = current_user();
+$pdoRef = $GLOBALS['pdo'] ?? ($pdo ?? null);
+if ($user && $pdoRef instanceof PDO) {
+    require_once __DIR__ . '/user_avatar.php';
+    $user = user_hydrate_session_avatar($pdoRef, $user);
+}
+$panelHref = panel_href_for($user);
+$flash = flash_get();
+$colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'eshahabian') === 0;
+$pageBodyClass = trim((string) ($GLOBALS['pageBodyClass'] ?? ($pageBodyClass ?? '')));
+$bodyAttrs = '';
+if ($pageBodyClass !== '') {
+    $bodyAttrs .= ' class="' . e($pageBodyClass) . '"';
+}
+if ($colorfulParticles) {
+    $bodyAttrs .= ' data-particles="colorful"';
+}
+if ($user) {
+    $bodyAttrs .= ' data-session-guard="1" data-session-ping="' . e(url('/session/ping')) . '" data-logout="' . e(url('/logout')) . '"';
+}
+if ($user && ($user['role'] ?? '') === 'SECRETARY') {
+    $bodyAttrs .= ' data-secretary-desk="1" data-no-idle="1" data-heartbeat="' . e(url('/secretary/heartbeat')) . '" data-logout="' . e(url('/logout')) . '"';
+}
+$lookAvatarSrc = '';
+$lookAvatarInitial = 'م';
+$lookAvatarCanUpload = false;
+if ($user) {
+    if (!function_exists('user_avatar_src')) {
+        require_once __DIR__ . '/user_avatar.php';
+    }
+    $lookAvatarSrc = user_avatar_src((string) ($user['avatar_url'] ?? ''));
+    if ($lookAvatarSrc !== '') {
+        $lookAvatarSrc = url($lookAvatarSrc);
+    }
+    $lookAvatarInitial = user_avatar_initial((string) ($user['name'] ?? ''));
+    $lookAvatarCanUpload = true;
+}
+?>
+<!DOCTYPE html>
+<html lang="fa" dir="rtl" translate="no">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="google" content="notranslate">
+  <script>
+  (function(){
+    try {
+      var t = localStorage.getItem("mana-theme");
+      if (t === "dark" || t === "light") {
+        document.documentElement.setAttribute("data-theme", t);
+      }
+      var lookRaw = localStorage.getItem("mana-look");
+      if (lookRaw) {
+        var look = JSON.parse(lookRaw);
+        if (look && typeof look === "object") {
+          if (look.theme === "dark" || look.theme === "light") {
+            document.documentElement.setAttribute("data-theme", look.theme);
+          }
+          if (look.accent) document.documentElement.setAttribute("data-accent", look.accent);
+          if (look.text) document.documentElement.setAttribute("data-text", look.text);
+          if (look.ui) document.documentElement.setAttribute("data-ui", look.ui);
+        }
+      }
+      if (/ManaClinicApp/i.test(navigator.userAgent || "")) {
+        document.documentElement.classList.add("is-native-app");
+      }
+    } catch (e) {}
+  })();
+  </script>
+  <?= seo_render_head() ?>
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20261019footer2">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/mana-look.css')) ?>?v=20260930b">
+  <?php
+    // آزمایش سبک حس روان‌تر — برای خاموش کردن: false
+    $manaAppleFeelLight = true;
+  ?>
+  <?php if (!empty($manaAppleFeelLight)): ?>
+    <link rel="stylesheet" href="<?= e(url('/assets/css/apple-feel-trial.css')) ?>?v=20260318b">
+  <?php endif; ?>
+  <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
+  <script>
+  (function(){
+    var meta = document.querySelector('meta[name="csrf-token"]');
+    var token = meta ? meta.getAttribute("content") : "";
+    if (!token) return;
+    var origFetch = window.fetch;
+    window.fetch = function(input, init){
+      init = init || {};
+      var method = String(init.method || "GET").toUpperCase();
+      if (method !== "GET" && method !== "HEAD" && method !== "OPTIONS") {
+        var headers = new Headers(init.headers || {});
+        if (!headers.has("X-CSRF-Token")) headers.set("X-CSRF-Token", token);
+        init.headers = headers;
+      }
+      return origFetch.call(this, input, init);
+    };
+    function injectForms(){
+      document.querySelectorAll("form").forEach(function(form){
+        var method = (form.getAttribute("method") || "get").toLowerCase();
+        if (method !== "post" || form.querySelector('input[name="_csrf"]')) return;
+        var input = document.createElement("input");
+        input.type = "hidden";
+        input.name = "_csrf";
+        input.value = token;
+        form.appendChild(input);
+      });
+    }
+    if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", injectForms);
+    else injectForms();
+  })();
+  </script>
+  <?php if (!empty($pageHead)): ?>
+    <?= $pageHead ?>
+  <?php endif; ?>
+  <link rel="stylesheet" href="<?= e(url('/assets/css/local-font.css')) ?>">
+</head>
+<body<?= $bodyAttrs ?>>
+<canvas id="particle-canvas" aria-hidden="true"></canvas>
+<div class="site-layer">
+  <header class="site-header">
+    <div class="container-page header-inner">
+      <div class="header-brand">
+        <button type="button" class="nav-toggle" aria-label="منو" aria-expanded="false" aria-controls="mobile-nav">
+          <span class="nav-toggle-bars" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M4 7h16M4 12h16M4 17h16"/>
+            </svg>
+          </span>
+          <span class="nav-toggle-close" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round">
+              <path d="M6 6l12 12M18 6L6 18"/>
+            </svg>
+          </span>
+        </button>
+        <a class="brand" href="<?= e(url('/')) ?>">
+          <img class="brand-logo" src="<?= e(url('/assets/img/logo.png')) ?>" width="36" height="36" alt="">
+          <span class="brand-text">مانا کلینیک</span>
+        </a>
+        <button
+          type="button"
+          class="header-avatar"
+          id="mana-look-open"
+          aria-haspopup="dialog"
+          aria-controls="mana-look-screen"
+          aria-label="شخصی‌سازی ظاهر"
+          data-avatar-url="<?= e($lookAvatarSrc) ?>"
+          data-avatar-initial="<?= e($lookAvatarInitial) ?>"
+          data-can-upload="<?= $lookAvatarCanUpload ? '1' : '0' ?>"
+          data-avatar-post="<?= e(url('/account/avatar')) ?>"
+        >
+          <?php if ($lookAvatarSrc !== ''): ?>
+            <img src="<?= e($lookAvatarSrc) ?>" alt="" width="36" height="36">
+          <?php else: ?>
+            <span class="header-avatar-letter" aria-hidden="true"><?= e($lookAvatarInitial) ?></span>
+          <?php endif; ?>
+        </button>
+      </div>
+      <nav class="nav-links" id="site-nav">
+        <a href="<?= e(url('/')) ?>">صفحه اصلی</a>
+        <a href="<?= e(url('/services')) ?>">خدمات</a>
+        <a href="<?= e(url('/doctors')) ?>">متخصصان</a>
+        <a href="<?= e(url('/articles')) ?>">مقالات</a>
+        <a href="<?= e(url('/faq')) ?>">سوالات متداول</a>
+        <a href="<?= e(url('/about')) ?>">درباره ما</a>
+        <a href="<?= e(url('/contact')) ?>">تماس با ما</a>
+        <?php if ($panelHref): ?>
+          <a href="<?= e(url($panelHref)) ?>">پنل من</a>
+        <?php endif; ?>
+      </nav>
+      <div class="header-actions">
+        <button type="button" class="theme-toggle" id="theme-toggle" title="حالت شب" aria-label="حالت شب">
+          <svg class="icon-sun" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4"/>
+            <path d="M12 3v2M12 19v2M5 12H3M21 12h-2M6.2 6.2l1.4 1.4M16.4 16.4l1.4 1.4M6.2 17.8l1.4-1.4M16.4 7.6l1.4-1.4"/>
+          </svg>
+          <svg class="icon-moon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+            <path d="M20 14.5A8.5 8.5 0 1 1 9.5 4 7 7 0 0 0 20 14.5z"/>
+          </svg>
+        </button>
+        <?php if ($user): ?>
+          <span class="user-name"><?= e($user['name']) ?></span>
+          <a class="btn btn-outline" href="<?= e(url('/logout')) ?>">خروج</a>
+        <?php else: ?>
+          <a class="btn btn-outline" href="<?= e(url('/login')) ?>">ورود</a>
+          <a class="btn btn-primary" href="<?= e(url('/register')) ?>">ثبت‌نام</a>
+        <?php endif; ?>
+      </div>
+    </div>
+    <?php
+      $bookNext = '/doctors';
+      $bookHref = $user ? url($bookNext) : url('/register?next=' . rawurlencode($bookNext));
+      $workshopsHref = ($user && ($user['role'] ?? '') === 'PATIENT')
+        ? url('/dashboard/workshops')
+        : url('/#home-workshop-banners');
+      $navPath = (string) ($GLOBALS['path'] ?? '/');
+      $mobileHere = static function (string $hrefPath) use ($navPath): string {
+          $on = $hrefPath === '/'
+              ? $navPath === '/'
+              : ($navPath === $hrefPath || str_starts_with($navPath, $hrefPath . '/'));
+          return $on ? ' is-active' : '';
+      };
+    ?>
+    <div id="mobile-nav" class="mobile-nav" aria-label="منو" aria-hidden="true" inert>
+      <div class="container-page mobile-nav-inner">
+        <nav class="mobile-nav-list" aria-label="منوی سایت">
+          <a class="mobile-nav-cta" href="<?= e($bookHref) ?>">گرفتن نوبت</a>
+          <a href="<?= e($workshopsHref) ?>">کارگاه‌ها</a>
+          <a class="<?= e(trim($mobileHere('/'))) ?>" href="<?= e(url('/')) ?>">صفحه اصلی</a>
+          <a class="<?= e(trim($mobileHere('/services'))) ?>" href="<?= e(url('/services')) ?>">خدمات</a>
+          <a class="<?= e(trim($mobileHere('/doctors'))) ?>" href="<?= e(url('/doctors')) ?>">متخصصان</a>
+          <a class="<?= e(trim($mobileHere('/articles'))) ?>" href="<?= e(url('/articles')) ?>">مقالات</a>
+          <a class="<?= e(trim($mobileHere('/faq'))) ?>" href="<?= e(url('/faq')) ?>">سوالات متداول</a>
+          <a class="<?= e(trim($mobileHere('/about'))) ?>" href="<?= e(url('/about')) ?>">درباره ما</a>
+          <a class="<?= e(trim($mobileHere('/contact'))) ?>" href="<?= e(url('/contact')) ?>">تماس با ما</a>
+          <?php if ($panelHref): ?>
+            <a class="<?= e(trim($mobileHere($panelHref))) ?>" href="<?= e(url($panelHref)) ?>">پنل من</a>
+          <?php endif; ?>
+        </nav>
+        <div class="mobile-nav-panel" data-mobile-panel hidden></div>
+      </div>
+    </div>
+  </header>
+  <div class="mobile-nav-overlay" data-nav-overlay aria-hidden="true"></div>
+
+  <main>
+    <?php if ($flash): ?>
+      <div class="container-page" style="padding-top:1rem">
+        <div class="flash flash-<?= e($flash['type']) ?>" role="status"><?= e($flash['message']) ?></div>
+      </div>
+    <?php endif; ?>
+    <?php
+      $wayfindOn = !empty($manaAppleFeelLight);
+      $wayfindLabels = [
+          'DOCTOR' => 'پنل درمانگر',
+          'SECRETARY' => 'پنل منشی',
+          'ACCOUNTANT' => 'پنل حسابدار',
+          'ADMIN' => 'پنل مدیر',
+          'PATIENT' => 'پنل مراجعه‌کننده',
+      ];
+      $wayfindRole = (string) ($user['role'] ?? '');
+      $wayfindHref = $panelHref ?: null;
+      $wayfindLabel = $wayfindLabels[$wayfindRole] ?? null;
+      $wayfindTitle = trim((string) ($pageTitle ?? ''));
+      $wayfindPath = (string) ($GLOBALS['path'] ?? '');
+      $wayfindShow = $wayfindOn
+          && $wayfindHref
+          && $wayfindLabel
+          && $wayfindTitle !== ''
+          && $wayfindPath !== ''
+          && $wayfindPath !== $wayfindHref
+          && $wayfindPath !== '/'
+          && !str_starts_with($wayfindPath, '/video-call');
+    ?>
+    <?php if ($wayfindShow): ?>
+      <div class="container-page" style="padding-top:<?= $flash ? '0' : '.85rem' ?>">
+        <nav class="page-wayfind" aria-label="مسیر صفحه">
+          <a href="<?= e(url($wayfindHref)) ?>"><?= e($wayfindLabel) ?></a>
+          <span class="page-wayfind-sep" aria-hidden="true">/</span>
+          <span class="page-wayfind-here"><?= e($wayfindTitle) ?></span>
+        </nav>
+      </div>
+    <?php endif; ?>
+    <?= $content ?? '' ?>
+  </main>
+
+  <footer class="site-footer">
+    <?php $footerHideConsult = (string) ($GLOBALS['path'] ?? '/') === '/contact'; ?>
+    <div class="container-page footer-grid<?= $footerHideConsult ? ' is-compact' : '' ?>">
+      <div>
+        <p class="brand">
+          <img class="brand-logo" src="<?= e(url('/assets/img/logo.png')) ?>" width="36" height="36" alt="">
+          مانا کلینیک
+        </p>
+        <p class="footer-address muted">
+          سعادت‌آباد، خیابان ۳۱ شرقی (جندونی)، روبروی ساختمان پزشکان روزبه، پلاک ۴، واحد ۵، طبقه ۵
+        </p>
+        <p class="footer-contact muted">
+          <a href="tel:09101387838" dir="ltr">۰۹۱۰ ۱۳۸ ۷۸۳۸</a>
+          ·
+          <a href="tel:02122065774" dir="ltr">۰۲۱ ۲۲۰۶ ۵۷۷۴</a>
+        </p>
+        <?php
+          $footerPdo = $GLOBALS['pdo'] ?? null;
+          $footerMessengers = ($footerPdo instanceof PDO && function_exists('clinic_messenger_public'))
+              ? clinic_messenger_public($footerPdo)
+              : [
+                  ['key' => 'whatsapp', 'class' => 'footer-social-whatsapp', 'title' => 'واتساپ', 'aria' => 'چت در واتساپ', 'url' => 'https://wa.me/989101387838'],
+                  ['key' => 'telegram', 'class' => 'footer-social-telegram', 'title' => 'تلگرام', 'aria' => 'چت در تلگرام', 'url' => 'https://t.me/+989101387838'],
+                  ['key' => 'instagram', 'class' => 'footer-social-instagram', 'title' => 'اینستاگرام', 'aria' => 'صفحه اینستاگرام مانا کلینیک', 'url' => 'https://www.instagram.com/mana_clinic/'],
+              ];
+          $footerMessengerSvg = [
+              'whatsapp' => '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.435 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/></svg>',
+              'telegram' => '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M11.944 0A12 12 0 000 12a12 12 0 0012 12 12 12 0 0012-12A12 12 0 0012 0a12 12 0 00-.056 0zm4.962 7.224c.1-.002.321.023.465.14a.506.506 0 01.171.325c.016.093.036.306.02.472-.18 1.898-.962 6.502-1.36 8.627-.168.9-.499 1.201-.82 1.23-.696.065-1.225-.46-1.9-.902-1.056-.693-1.653-1.124-2.678-1.8-1.185-.78-.417-1.21.258-1.91.177-.184 3.247-2.977 3.307-3.23.007-.032.014-.15-.056-.212s-.174-.041-.249-.024c-.106.024-1.793 1.14-5.061 3.345-.48.33-.913.49-1.302.48-.428-.008-1.252-.241-1.865-.44-.752-.245-1.349-.374-1.297-.789.027-.216.325-.437.893-.663 3.498-1.524 5.83-2.529 6.998-3.014 3.332-1.386 4.025-1.627 4.476-1.635z"/></svg>',
+              'instagram' => '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>',
+              'bale' => '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M4 4h16a2 2 0 012 2v9a2 2 0 01-2 2H9l-5 4v-4H4a2 2 0 01-2-2V6a2 2 0 012-2z"/></svg>',
+          ];
+        ?>
+        <div class="footer-social" aria-label="پیام‌رسان‌ها">
+          <?php foreach ($footerMessengers as $messenger): ?>
+            <a class="footer-social-link <?= e((string) $messenger['class']) ?>" href="<?= e((string) $messenger['url']) ?>" target="_blank" rel="noopener noreferrer" title="<?= e((string) $messenger['title']) ?>" aria-label="<?= e((string) $messenger['aria']) ?>">
+              <?= $footerMessengerSvg[(string) $messenger['key']] ?? $footerMessengerSvg['bale'] ?>
+            </a>
+          <?php endforeach; ?>
+        </div>
+        <?php $footerVerses = glob(__DIR__ . '/../assets/img/hafez/verse-*.png') ?: []; ?>
+        <?php if ($footerVerses): ?>
+          <?php
+            $footerVerseFile = $footerVerses[array_rand($footerVerses)];
+            $footerVerseName = basename($footerVerseFile);
+            $footerVerseBounds = require __DIR__ . '/footer_verse_bounds.php';
+            $footerVerseSize = getimagesize($footerVerseFile);
+            [$verseWidth, $verseHeight, $verseX, $verseY, $verseVisibleWidth, $verseVisibleHeight]
+                = $footerVerseBounds[$footerVerseName] ?? [$footerVerseSize[0], $footerVerseSize[1], 0, 0, $footerVerseSize[0], $footerVerseSize[1]];
+          ?>
+          <div class="footer-verse-frame" aria-hidden="true">
+            <svg class="footer-verse-art" viewBox="<?= (int)$verseX ?> <?= (int)$verseY ?> <?= (int)$verseVisibleWidth ?> <?= (int)$verseVisibleHeight ?>" width="400" height="240" preserveAspectRatio="xMidYMid meet" focusable="false">
+              <image href="<?= e(url('/assets/img/hafez/' . $footerVerseName)) ?>" width="<?= (int)$verseWidth ?>" height="<?= (int)$verseHeight ?>" />
+            </svg>
+          </div>
+        <?php endif; ?>
+      </div>
+      <div>
+        <p class="footer-title">موقعیت مطب</p>
+        <a class="footer-map" href="https://www.google.com/maps?q=35.772637,51.377568" target="_blank" rel="noopener noreferrer" aria-label="باز کردن موقعیت مانا کلینیک در گوگل‌مپ">
+          <iframe
+            title="نقشه مانا کلینیک"
+            src="https://maps.google.com/maps?q=35.772637,51.377568&z=15&output=embed"
+            loading="lazy"
+            referrerpolicy="no-referrer-when-downgrade"
+            tabindex="-1"
+          ></iframe>
+        </a>
+      </div>
+      <?php if (!$footerHideConsult): ?>
+      <div>
+        <p class="footer-title">ثبت درخواست</p>
+        <p class="footer-consult-lead muted">نوع درخواست را انتخاب کنید؛ در اولین فرصت با شما تماس می‌گیریم.</p>
+        <?php
+          require __DIR__ . '/footer_request_form.php';
+        ?>
+      </div>
+      <?php endif; ?>
+    </div>
+    <div class="footer-copy">
+      <div>© <?= date('Y') ?> مانا کلینیک — همه حقوق محفوظ است.</div>
+      <p class="footer-tagline">فضای امن برای یادگیری، رشد و دریافت خدمات روانشناسی آنلاین.</p>
+    </div>
+  </footer>
+</div>
+<div id="mana-look-screen" class="mana-look" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="mana-look-title">
+  <div class="mana-look-panel">
+    <div class="mana-look-view is-active" data-look-view="hub">
+      <header class="mana-look-top">
+        <button type="button" class="mana-look-back" data-look-close aria-label="بستن">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div class="mana-look-heading">
+          <h2 id="mana-look-title">تنظیمات</h2>
+          <p class="mana-look-sub">ظاهر اپ را مال خودت کن</p>
+        </div>
+      </header>
+      <div class="mana-look-body">
+        <div class="mana-look-avatar-card" data-look-avatar-block>
+          <button type="button" class="mana-look-avatar-btn" data-look-avatar-pick aria-label="تغییر عکس پروفایل">
+            <span class="mana-look-avatar-face" data-look-avatar-face></span>
+            <span class="mana-look-avatar-cam" aria-hidden="true">
+              <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 8h3l2-2h6l2 2h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+            </span>
+          </button>
+          <input type="file" accept="image/jpeg,image/png,image/webp" data-look-avatar-file hidden>
+          <div class="mana-look-avatar-meta">
+            <strong data-look-avatar-name><?= e((string) ($user['name'] ?? 'مهمان')) ?></strong>
+            <p class="muted" data-look-avatar-hint><?= $lookAvatarCanUpload ? 'برای عوض کردن عکس، روی تصویر بزن' : 'با ورود می‌توانید عکس پروفایل بگذارید' ?></p>
+            <?php if ($lookAvatarCanUpload): ?>
+              <button type="button" class="mana-look-link" data-look-avatar-remove hidden>حذف عکس</button>
+            <?php endif; ?>
+          </div>
+        </div>
+
+        <button type="button" class="mana-look-dark-card" data-look-toggle-theme>
+          <span class="mana-look-icon-box" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4 7 7 0 0 0 20 14.5z"/></svg>
+          </span>
+          <span class="mana-look-dark-copy">
+            <strong>حالت شب</strong>
+            <small data-look-theme-hint>راحت‌تر برای چشم در شب</small>
+          </span>
+          <span class="mana-look-switch" data-look-theme-switch aria-hidden="true"><span class="mana-look-switch-knob"></span></span>
+        </button>
+
+        <p class="mana-look-section-label">شخصی‌سازی</p>
+        <button type="button" class="mana-look-row" data-look-goto="appearance">
+          <span class="mana-look-icon-box" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3l1.5 4.5L18 9l-4.5 1.5L12 15l-1.5-4.5L6 9l4.5-1.5L12 3z"/><path d="M5 16l.8 2.2L8 19l-2.2.8L5 22l-.8-2.2L2 19l2.2-.8L5 16z"/></svg>
+          </span>
+          <span class="mana-look-row-copy">
+            <strong>ظاهر</strong>
+            <small data-look-summary>مانا · متن پیش‌فرض · گرد</small>
+          </span>
+          <span class="mana-look-chevron" aria-hidden="true">‹</span>
+        </button>
+      </div>
+    </div>
+
+    <div class="mana-look-view" data-look-view="appearance" hidden>
+      <header class="mana-look-top">
+        <button type="button" class="mana-look-back" data-look-goto="hub" aria-label="بازگشت">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M15 18l-6-6 6-6"/></svg>
+        </button>
+        <div class="mana-look-heading">
+          <h2>ظاهر</h2>
+        </div>
+      </header>
+      <div class="mana-look-body">
+        <button type="button" class="mana-look-dark-card" data-look-toggle-theme>
+          <span class="mana-look-icon-box" aria-hidden="true">
+            <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 14.5A8.5 8.5 0 1 1 9.5 4 7 7 0 0 0 20 14.5z"/></svg>
+          </span>
+          <span class="mana-look-dark-copy">
+            <strong>حالت شب</strong>
+            <small data-look-theme-hint>راحت‌تر برای چشم در شب</small>
+          </span>
+          <span class="mana-look-switch" data-look-theme-switch aria-hidden="true"><span class="mana-look-switch-knob"></span></span>
+        </button>
+
+        <div class="mana-look-block">
+          <div class="mana-look-block-head">
+            <span>رنگ تم</span>
+            <strong data-look-accent-label>مانا</strong>
+          </div>
+          <div class="mana-look-swatches" role="listbox" aria-label="رنگ تم">
+            <button type="button" class="mana-look-swatch is-mana" data-look-accent="mana" aria-label="مانا" title="مانا"></button>
+            <button type="button" class="mana-look-swatch is-violet" data-look-accent="violet" aria-label="بنفش" title="بنفش"></button>
+            <button type="button" class="mana-look-swatch is-blue" data-look-accent="blue" aria-label="آبی" title="آبی"></button>
+            <button type="button" class="mana-look-swatch is-pink" data-look-accent="pink" aria-label="صورتی" title="صورتی"></button>
+            <button type="button" class="mana-look-swatch is-orange" data-look-accent="orange" aria-label="نارنجی" title="نارنجی"></button>
+          </div>
+        </div>
+
+        <div class="mana-look-block">
+          <div class="mana-look-block-head">
+            <span>اندازه متن</span>
+            <strong data-look-text-label>پیش‌فرض</strong>
+          </div>
+          <div class="mana-look-text-sizes" role="listbox" aria-label="اندازه متن">
+            <button type="button" class="mana-look-aa" data-look-text="default" style="font-size:.85rem" aria-label="پیش‌فرض">Aa</button>
+            <button type="button" class="mana-look-aa" data-look-text="medium" style="font-size:1rem" aria-label="متوسط">Aa</button>
+            <button type="button" class="mana-look-aa" data-look-text="large" style="font-size:1.15rem" aria-label="بزرگ">Aa</button>
+            <button type="button" class="mana-look-aa" data-look-text="xlarge" style="font-size:1.35rem" aria-label="خیلی بزرگ">Aa</button>
+          </div>
+        </div>
+
+        <div class="mana-look-block">
+          <div class="mana-look-block-head">
+            <span>سبک رابط</span>
+            <strong data-look-ui-label>گرد</strong>
+          </div>
+          <div class="mana-look-ui-styles" role="listbox" aria-label="سبک رابط">
+            <button type="button" class="mana-look-ui-card" data-look-ui="rounded">
+              <span class="mana-look-ui-preview is-rounded" aria-hidden="true"></span>
+              <span>گرد</span>
+            </button>
+            <button type="button" class="mana-look-ui-card" data-look-ui="soft">
+              <span class="mana-look-ui-preview is-soft" aria-hidden="true"></span>
+              <span>نرم</span>
+            </button>
+            <button type="button" class="mana-look-ui-card" data-look-ui="crisp">
+              <span class="mana-look-ui-preview is-crisp" aria-hidden="true"></span>
+              <span>تیز</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="mana-look-bar" data-look-bar hidden>
+      <span class="mana-look-changes"><span class="mana-look-dot" aria-hidden="true"></span> <span data-look-change-count>۰ تغییر</span></span>
+      <div class="mana-look-bar-actions">
+        <button type="button" class="mana-look-discard" data-look-discard>صرف‌نظر</button>
+        <button type="button" class="mana-look-review" data-look-review>مرور</button>
+      </div>
+    </footer>
+  </div>
+</div>
+<div class="site-chrome" aria-label="میانبرهای صفحه">
+  <a
+    class="site-chrome-btn site-chrome-call"
+    href="tel:09101387838"
+    title="تماس با مانا کلینیک"
+    aria-label="تماس مستقیم با موبایل کلینیک ۰۹۱۰۱۳۸۷۸۳۸"
+  >
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M22 16.9v2a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6 19.8 19.8 0 0 1-3.1-8.7A2 2 0 0 1 4.1 2h2a2 2 0 0 1 2 1.7c.1.9.3 1.8.7 2.6a2 2 0 0 1-.5 2.1L7.1 9.9a16 16 0 0 0 6 6l1.5-1.2a2 2 0 0 1 2.1-.4c.8.3 1.7.5 2.6.7A2 2 0 0 1 22 16.9z"/>
+    </svg>
+    <span>تماس</span>
+  </a>
+  <button type="button" class="site-chrome-btn site-chrome-top is-hidden" id="back-to-top" title="بازگشت به بالا" aria-label="بازگشت به بالا">
+    <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+      <path d="M6 14l6-6 6 6"/>
+    </svg>
+  </button>
+</div>
+<?php
+if (!function_exists('workshop_overview_modal_html')) {
+    require_once __DIR__ . '/workshop_overview.php';
+}
+echo workshop_overview_modal_html();
+$overviewJs = __DIR__ . '/../assets/js/workshop-overview.js';
+?>
+<script><?php if (is_file($overviewJs)) { echo file_get_contents($overviewJs); } ?></script>
+<script src="<?= e(url('/assets/js/particles.js')) ?>?v=20260904t"></script>
+<script src="<?= e(url('/assets/js/password-field.js')) ?>?v=20261014p"></script>
+<script src="<?= e(url('/assets/js/mobile-nav.js')) ?>?v=20260922a"></script>
+<script src="<?= e(url('/assets/js/site-chrome.js')) ?>?v=20260930look"></script>
+<script src="<?= e(url('/assets/js/mana-look.js')) ?>?v=20260930a"></script>
+<script src="<?= e(url('/assets/js/emoji-picker.js')) ?>?v=20260916e"></script>
+<?php if ($user): ?>
+<script>
+window.APP_BASE = <?= json_encode((static function (): string {
+    $u = url('/');
+    return ($u === '/' || $u === '') ? '' : rtrim($u, '/');
+})(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+window.__MENTIONS_SUGGEST__ = <?= json_encode(url('/api/mentions/suggest'), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;
+</script>
+<script src="<?= e(url('/assets/js/mentions.js')) ?>?v=20260916n"></script>
+<?php endif; ?>
+<?php
+$videoWatch = function_exists('video_call_watch_config') ? video_call_watch_config($user) : null;
+if ($videoWatch):
+?>
+<script>window.__VIDEO_CALL_WATCH__ = <?= json_encode($videoWatch, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;</script>
+<script src="<?= e(url('/assets/js/video-call-watch.js')) ?>?v=20260928home"></script>
+<?php endif; ?>
+<?php if ($user): ?>
+<script src="<?= e(url('/assets/js/session-guard.js')) ?>?v=20261001idle"></script>
+<?php endif; ?>
+<?php if ($user && ($user['role'] ?? '') === 'SECRETARY'): ?>
+<script src="<?= e(url('/assets/js/secretary-idle.js')) ?>?v=20261001idle"></script>
+<?php endif; ?>
+<?php
+$handoverBlock = $GLOBALS['handoverBlock'] ?? null;
+$adminStaffMsgBlock = $GLOBALS['adminStaffMsgBlock'] ?? null;
+if ($adminStaffMsgBlock && $user && ($user['role'] ?? '') === 'SECRETARY'):
+  $adminImg = trim((string) ($adminStaffMsgBlock['image_path'] ?? '')) !== '';
+  $adminMsgId = (string) ($adminStaffMsgBlock['message_id'] ?? '');
+?>
+<div class="handover-overlay" role="dialog" aria-modal="true" aria-labelledby="admin-msg-title">
+  <div class="handover-card">
+    <p class="handover-kicker">پیام فوری</p>
+    <h1 id="admin-msg-title">پیام از <?= e((string) ($adminStaffMsgBlock['from_name'] ?? 'مدیر/درمانگر')) ?></h1>
+    <p class="muted" style="margin:.35rem 0 0;font-size:.85rem">
+      <?= e(format_fa_datetime((string) ($adminStaffMsgBlock['created_at'] ?? ''))) ?>
+    </p>
+    <div class="handover-body rich-msg-body"><?= rich_html_for_display((string) ($adminStaffMsgBlock['body'] ?? '')) ?></div>
+    <?php if ($adminImg && $adminMsgId !== ''): ?>
+      <a href="<?= e(url('/staff/admin-message-image?id=' . rawurlencode($adminMsgId))) ?>" target="_blank" rel="noopener">
+        <img class="admin-staff-msg-thumb" src="<?= e(url('/staff/admin-message-image?id=' . rawurlencode($adminMsgId))) ?>" alt="عکس پیام مدیر">
+      </a>
+    <?php endif; ?>
+    <form method="post" action="<?= e(url('/secretary/admin-message/ack')) ?>" class="handover-actions" id="admin-msg-ack-form">
+      <input type="hidden" name="recipient_id" value="<?= e((string) ($adminStaffMsgBlock['recipient_id'] ?? '')) ?>">
+      <?= csrf_field() ?>
+      <label class="admin-msg-ack-check">
+        <input type="checkbox" id="admin-msg-ack-box" required>
+        <span>پیام را خواندم و متوجه شدم</span>
+      </label>
+      <button type="submit" class="btn btn-primary" id="admin-msg-ack-btn" disabled>خواندم</button>
+      <a class="btn btn-outline" href="<?= e(url('/logout')) ?>">خروج</a>
+    </form>
+  </div>
+</div>
+<script>
+(function(){
+  var box = document.getElementById('admin-msg-ack-box');
+  var btn = document.getElementById('admin-msg-ack-btn');
+  if (!box || !btn) return;
+  function sync(){ btn.disabled = !box.checked; }
+  box.addEventListener('change', sync);
+  sync();
+})();
+</script>
+<?php elseif ($handoverBlock && $user && ($user['role'] ?? '') === 'SECRETARY'):
+?>
+<div class="handover-overlay" role="dialog" aria-modal="true" aria-labelledby="handover-title">
+  <div class="handover-card">
+    <p class="handover-kicker">پیام همکار</p>
+    <h1 id="handover-title">پیامی از <?= e((string) ($handoverBlock['from_name'] ?? 'منشی')) ?></h1>
+    <p class="muted" style="margin:.35rem 0 0;font-size:.85rem">
+      <?= e(format_fa_datetime((string) ($handoverBlock['created_at'] ?? ''))) ?>
+      <?php if (!empty($handoverBlock['from_username'])): ?>
+        · <span dir="ltr"><?= e((string) $handoverBlock['from_username']) ?></span>
+      <?php endif; ?>
+    </p>
+    <div class="handover-body rich-msg-body"><?= rich_html_for_display((string) ($handoverBlock['body'] ?? '')) ?></div>
+    <form method="post" action="<?= e(url('/secretary/handover/ack')) ?>" class="handover-actions">
+      <input type="hidden" name="note_id" value="<?= e((string) ($handoverBlock['id'] ?? '')) ?>">
+      <?= csrf_field() ?>
+      <button type="submit" class="btn btn-primary">خواندم</button>
+      <a class="btn btn-outline" href="<?= e(url('/logout')) ?>">خروج</a>
+    </form>
+  </div>
+</div>
+<?php endif; ?>
+<?php if (!empty($pageScripts)): ?>
+  <?= $pageScripts ?>
+<?php endif; ?>
+</body>
+</html>

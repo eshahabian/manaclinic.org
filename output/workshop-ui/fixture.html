@@ -1,0 +1,91 @@
+<!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><title>بررسی چیدمان کارگاه</title><link rel="stylesheet" href="file:///D:/Psychology/cpanel/assets/css/style.css"><body><main style="max-width:1136px;margin:24px auto;padding:16px"><h1>کارگاه‌ها و دوره‌ها</h1>  <div class="stack">
+                      <article class="workshop-binder-card" id="workshop-demo">
+        <div class="workshop-card-row">
+          <div class="workshop-card-main" data-workshop-open role="button" tabindex="0">
+                        <strong>زوج‌درمانی</strong>
+            <span class="badge" style="margin-right:.5rem">حضوری</span>
+                          <span class="badge" style="margin-right:.35rem">هفتگی</span>
+                                                            <div class="muted" style="font-size:.85rem;margin-top:.35rem">
+                              چهارشنبه، ساعت ۱۸:۰۰ — چهارشنبه، ساعت ۱۸:۰۰                          </div>
+            <div class="muted" style="font-size:.85rem;margin-top:.25rem">
+              —              · ثبت‌نام: 0              · منتشر شده              · ثبت‌نام باز              · فعال            </div>
+                      </div>
+
+        </div>
+                <div class="wcard-tabs">
+          <input type="radio" name="wcard-demo" id="wcard-demo-files" checked>
+          <input type="radio" name="wcard-demo" id="wcard-demo-enroll" >
+                      <input type="radio" name="wcard-demo" id="wcard-demo-path" >
+                    <input type="radio" name="wcard-demo" id="wcard-demo-info" >
+                      <input type="radio" name="wcard-demo" id="wcard-demo-member">
+                    <div class="wcard-tabbar">
+            <label for="wcard-demo-files">فایل جلسات</label>
+            <label for="wcard-demo-enroll">ثبت‌نام‌ها</label>
+                          <label for="wcard-demo-path">مسیر</label>
+                        <label for="wcard-demo-info">جزئیات</label>
+                          <label for="wcard-demo-member">اضافه کردن عضو</label>
+                      <div class="workshop-card-actions">
+                          <a class="btn btn-outline btn-sm" href="/doctor/workshop-export?id=demo">خروجی ثبت‌نام‌ها</a>
+                                                          <a class="btn btn-outline btn-sm" href="/doctor/workshops?edit=demo#session-notes">یادداشت جلسات</a>
+                                                    <a class="btn btn-outline btn-sm" href="/doctor/workshops?edit=demo#workshop-form">ویرایش</a>
+              <form method="post" action="/doctor/workshops">
+                <input type="hidden" name="action" value="toggle_enrollment">
+                <input type="hidden" name="id" value="demo">
+                <button class="btn btn-outline btn-sm" type="submit">بستن ثبت‌نام</button>
+              </form>
+              <form method="post" action="/doctor/workshops" onsubmit="return confirm('تمام شود؟ ثبت‌نام جدید بسته می‌شود و در آرشیو می‌ماند.')">
+                <input type="hidden" name="action" value="close">
+                <input type="hidden" name="id" value="demo">
+                <button class="btn btn-outline btn-sm" type="submit">اتمام کارگاه</button>
+              </form>
+                                      <form method="post" action="/doctor/workshops">
+                <input type="hidden" name="action" value="complete">
+                <input type="hidden" name="id" value="demo">
+                <button class="btn btn-outline btn-sm" type="submit">تسویه و پایان</button>
+              </form>
+                        <form method="post" action="/doctor/workshops">
+              <input type="hidden" name="action" value="toggle">
+              <input type="hidden" name="id" value="demo">
+              <button class="btn btn-outline btn-sm" type="submit">لغو انتشار</button>
+            </form>
+            <form method="post" action="/doctor/workshops" onsubmit="return confirm('حذف شود؟')">
+              <input type="hidden" name="action" value="delete">
+              <input type="hidden" name="id" value="demo">
+              <button class="btn btn-danger btn-sm" type="submit">حذف</button>
+            </form>
+          </div>
+          </div>
+                      <div class="wcard-panel wcard-panel-member">
+              <form method="post" action="/staff/workshops/add-member" class="stack workshop-member-form">
+  <input type="hidden" name="_csrf" value="test">  <input type="hidden" name="workshop_id" value="demo">
+  <label class="label" for="member-patient-demo">انتخاب عضو برای «زوج‌درمانی»</label>
+  <select class="input" id="member-patient-demo" name="patient_id" required>
+    <option value="">انتخاب عضو</option>
+          <option value="demo-admin">عماد شهابیان — eshahabian</option>
+      </select>
+  <p class="muted">عضویت تأیید و از طریق پیامک و پنل اطلاع‌رسانی می‌شود. پرداخت جداگانه ثبت می‌شود.</p>
+  <button class="btn btn-primary" type="submit">اضافه کردن عضو</button>
+</form>
+            </div>
+                    <div class="wcard-panel wcard-panel-files">
+            <h3>فایل‌های هر جلسه</h3><p>جلسه اول</p>                      </div>
+          <div class="wcard-panel wcard-panel-enroll">
+                            <p class="muted" style="margin:.75rem 0 0;font-size:.85rem">هنوز کسی در این کارگاه ثبت‌نام نکرده است.</p>
+                      </div>
+                      <div class="wcard-panel wcard-panel-path">
+              <div class="workshop-path-people">
+                <ul class="workshop-path-people-list">
+                  <li>
+                    <span>یادداشت جلسه، پیام برای مراجع و فایل همان جلسه</span>
+                                      </li>
+                </ul>
+                              </div>
+                              <p class="muted" style="margin:.75rem 0 0">هنوز شرکت‌کننده تأییدشده‌ای نیست.</p>
+                          </div>
+                    <div class="wcard-panel wcard-panel-info">
+                                                                          <p class="muted" style="margin:.35rem 0 0">جزئیات دیگری ثبت نشده است.</p>
+                                  </div>
+        </div>
+      </article>
+      </div>
+</main></body></html>

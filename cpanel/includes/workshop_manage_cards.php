@@ -77,6 +77,47 @@ $doctorPathBoardById = $doctorPathBoardById ?? [];
               <div class="muted" style="font-size:.85rem;margin-top:.25rem">تاریخ اتمام: <?= e(format_fa_datetime($closedAtLabel)) ?></div>
             <?php endif; ?>
           </div>
+
+        </div>
+        <?php
+          $wid = (string) $workshop['id'];
+          $tabName = 'wcard-' . $wid;
+          $canAddMemberHere = !$archived && workshop_can_add_member(current_user());
+          $doctorBoardOpen = $workshopRole === 'doctor' && $openDoctorPathId !== '' && $openDoctorPathId === $wid;
+          $pathPeople = [];
+          if ($workshopRole === 'doctor') {
+              foreach (($workshopEnrollmentsById[$wid] ?? []) as $enr) {
+                  if (!is_array($enr)) {
+                      continue;
+                  }
+                  if (!in_array((string) ($enr['status'] ?? ''), ['CONFIRMED', 'COMPLETED'], true)) {
+                      continue;
+                  }
+                  $pathPeople[] = $enr;
+              }
+          }
+          $openTab = $doctorBoardOpen ? 'path' : 'files';
+        ?>
+        <div class="wcard-tabs">
+          <input type="radio" name="<?= e($tabName) ?>" id="<?= e($tabName) ?>-files" <?= $openTab === 'files' ? 'checked' : '' ?>>
+          <input type="radio" name="<?= e($tabName) ?>" id="<?= e($tabName) ?>-enroll" <?= $openTab === 'enroll' ? 'checked' : '' ?>>
+          <?php if ($workshopRole === 'doctor'): ?>
+            <input type="radio" name="<?= e($tabName) ?>" id="<?= e($tabName) ?>-path" <?= $openTab === 'path' ? 'checked' : '' ?>>
+          <?php endif; ?>
+          <input type="radio" name="<?= e($tabName) ?>" id="<?= e($tabName) ?>-info" <?= $openTab === 'info' ? 'checked' : '' ?>>
+          <?php if ($canAddMemberHere): ?>
+            <input type="radio" name="<?= e($tabName) ?>" id="<?= e($tabName) ?>-member">
+          <?php endif; ?>
+          <div class="wcard-tabbar">
+            <label for="<?= e($tabName) ?>-files">فایل جلسات</label>
+            <label for="<?= e($tabName) ?>-enroll">ثبت‌نام‌ها</label>
+            <?php if ($workshopRole === 'doctor'): ?>
+              <label for="<?= e($tabName) ?>-path">مسیر</label>
+            <?php endif; ?>
+            <label for="<?= e($tabName) ?>-info">جزئیات</label>
+            <?php if ($canAddMemberHere): ?>
+              <label for="<?= e($tabName) ?>-member">اضافه کردن عضو</label>
+            <?php endif; ?>
           <div class="workshop-card-actions">
             <?php if ($workshopRole === 'doctor'): ?>
               <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/workshop-export?id=' . $workshop['id'])) ?>">خروجی ثبت‌نام‌ها</a>
@@ -121,40 +162,12 @@ $doctorPathBoardById = $doctorPathBoardById ?? [];
               <button class="btn btn-danger btn-sm" type="submit">حذف</button>
             </form>
           </div>
-        </div>
-        <?php
-          $wid = (string) $workshop['id'];
-          $tabName = 'wcard-' . $wid;
-          $doctorBoardOpen = $workshopRole === 'doctor' && $openDoctorPathId !== '' && $openDoctorPathId === $wid;
-          $pathPeople = [];
-          if ($workshopRole === 'doctor') {
-              foreach (($workshopEnrollmentsById[$wid] ?? []) as $enr) {
-                  if (!is_array($enr)) {
-                      continue;
-                  }
-                  if (!in_array((string) ($enr['status'] ?? ''), ['CONFIRMED', 'COMPLETED'], true)) {
-                      continue;
-                  }
-                  $pathPeople[] = $enr;
-              }
-          }
-          $openTab = $doctorBoardOpen ? 'path' : 'files';
-        ?>
-        <div class="wcard-tabs">
-          <input type="radio" name="<?= e($tabName) ?>" id="<?= e($tabName) ?>-files" <?= $openTab === 'files' ? 'checked' : '' ?>>
-          <input type="radio" name="<?= e($tabName) ?>" id="<?= e($tabName) ?>-enroll" <?= $openTab === 'enroll' ? 'checked' : '' ?>>
-          <?php if ($workshopRole === 'doctor'): ?>
-            <input type="radio" name="<?= e($tabName) ?>" id="<?= e($tabName) ?>-path" <?= $openTab === 'path' ? 'checked' : '' ?>>
-          <?php endif; ?>
-          <input type="radio" name="<?= e($tabName) ?>" id="<?= e($tabName) ?>-info" <?= $openTab === 'info' ? 'checked' : '' ?>>
-          <div class="wcard-tabbar" role="tablist">
-            <label for="<?= e($tabName) ?>-files">فایل جلسات</label>
-            <label for="<?= e($tabName) ?>-enroll">ثبت‌نام‌ها</label>
-            <?php if ($workshopRole === 'doctor'): ?>
-              <label for="<?= e($tabName) ?>-path">مسیر</label>
-            <?php endif; ?>
-            <label for="<?= e($tabName) ?>-info">جزئیات</label>
           </div>
+          <?php if ($canAddMemberHere): ?>
+            <div class="wcard-panel wcard-panel-member">
+              <?php $memberWorkshop = $workshop; require __DIR__ . '/workshop_add_member_form.php'; ?>
+            </div>
+          <?php endif; ?>
           <div class="wcard-panel wcard-panel-files">
             <?= workshop_session_file_lines_html($staffSessions, url($workshopMediaPost), $wid) ?>
             <?php if (isset($pdo) && $pdo instanceof PDO && function_exists('workshop_bundle_manage_lines')): ?>

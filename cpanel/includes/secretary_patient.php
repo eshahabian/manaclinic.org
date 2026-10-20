@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/user_phone.php';
 
 /**
  * ساخت حساب مراجعه‌کننده توسط منشی/ادمین.
@@ -65,7 +66,9 @@ function secretary_create_patient_from_post(PDO $pdo, array $actor, array $opts 
     }
 
     $patientId = cuid();
-    $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,preferred_doctor_id,created_by_user_id,referral_source,must_change_password) VALUES (?,?,?,?,?,?,?,?,?,?,0)')
+    try {
+        user_phone_write($pdo, $newPhone, null, fn ($newPhone) =>
+            $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,preferred_doctor_id,created_by_user_id,referral_source,must_change_password) VALUES (?,?,?,?,?,?,?,?,?,?,0)')
         ->execute([
             $patientId,
             $newUsername,
@@ -77,7 +80,11 @@ function secretary_create_patient_from_post(PDO $pdo, array $actor, array $opts 
             $preferredDoctorId,
             $actorId,
             $referralSource,
-        ]);
+        ])
+        );
+    } catch (RuntimeException $e) {
+        return ['ok'=>false, 'error'=>$e->getMessage()];
+    }
     user_remember_password_plain($pdo, $patientId, $newPassword);
     if (function_exists('outreach_link_user_by_phone')) {
         outreach_link_user_by_phone($pdo, $newPhone, $patientId);
@@ -407,8 +414,12 @@ function secretary_complete_patient_profile(PDO $pdo, string $patientId): ?strin
     if ($referral === null) {
         return 'برای فعال کردن «' . (string) $row['name'] . '» معرف را انتخاب کنید.';
     }
-    $pdo->prepare('UPDATE users SET is_disabled=0, phone=?, preferred_doctor_id=?, referral_source=? WHERE id=?')
-        ->execute([$phone, $doctorId, $referral, $patientId]);
+    try {
+        user_phone_write($pdo, $phone, $patientId, fn ($phone) =>
+            $pdo->prepare('UPDATE users SET is_disabled=0, phone=?, preferred_doctor_id=?, referral_source=? WHERE id=?')
+        ->execute([$phone, $doctorId, $referral, $patientId])
+        );
+    } catch (RuntimeException $e) { return $e->getMessage(); }
     if (function_exists('ensure_wallet')) {
         require_once __DIR__ . '/wallet.php';
         ensure_wallet($pdo, $patientId);

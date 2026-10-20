@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/../includes/user_phone.php';
 
 // فرم قدیمی نوع حساب را جدا می‌فرستاد؛ دیگر حساب درمانگر از اینجا ساخته نمی‌شود
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !isset($_POST['submit_register'])) {
@@ -30,8 +31,8 @@ if ($surname === '' && $lastName !== '') {
 $name = trim($firstName . ' ' . $lastName);
 $username = mb_strtolower(post('username'));
 if ($username === '') {
-    $base = username_base_from_names($nameEn, $surname, $firstName, $lastName);
-    $username = unique_username($pdo, $base);
+    $usernameBase = username_base_from_names($nameEn, $surname, $firstName, $lastName);
+    $username = unique_username($pdo, $usernameBase);
 }
 $phone = normalize_phone(post('phone'));
 $password = (string) ($_POST['password'] ?? '');
@@ -96,8 +97,14 @@ require_once __DIR__ . '/../includes/wallet.php';
 
 $id = cuid();
 
-$pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,preferred_doctor_id,must_change_password) VALUES (?,?,?,?,?,?,?,?,0)')
-    ->execute([$id, $username, $name, $email, $phone, password_hash($password, PASSWORD_DEFAULT), 'PATIENT', null]);
+try {
+    user_phone_write($pdo, $phone, null, fn ($phone) =>
+        $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,preferred_doctor_id,must_change_password) VALUES (?,?,?,?,?,?,?,?,0)')
+    ->execute([$id, $username, $name, $email, $phone, password_hash($password, PASSWORD_DEFAULT), 'PATIENT', null])
+    );
+} catch (RuntimeException $e) {
+    flash_set('error', $e->getMessage()); redirect('/register');
+}
 if (function_exists('outreach_link_user_by_phone')) {
     outreach_link_user_by_phone($pdo, $phone, $id);
 }

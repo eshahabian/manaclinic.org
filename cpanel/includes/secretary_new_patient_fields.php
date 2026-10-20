@@ -56,7 +56,7 @@ $secretaryPatientHint = $secretaryPatientHint ?? 'مراجعه‌کننده با
       </div>
       <div style="grid-column:1/-1">
         <label class="label" for="new_phone">موبایل</label>
-        <input class="input" name="new_phone" id="new_phone" dir="ltr" inputmode="tel" autocomplete="tel" placeholder="مثلاً 0912... یا +1..." title="شماره ایران یا بین‌المللی">
+        <input class="input" name="new_phone" id="new_phone" dir="ltr" inputmode="tel" autocomplete="tel" placeholder="مثلاً 0912... یا +1..." title="شماره ایران یا بین‌المللی" required>
       </div>
       <div style="grid-column:1/-1">
         <label class="label" for="new_username">نام کاربری</label>

@@ -4,7 +4,8 @@ $user = require_login(['PATIENT']);
 require_once __DIR__ . '/../includes/mail.php';
 csrf_verify();
 $name = post('name');
-$phone = post('phone') ?: null;
+$phone = normalize_phone(post('phone'));
+require_once __DIR__ . '/../includes/user_phone.php';
 $email = mb_strtolower(trim(post('email')));
 if ($name === '') {
     flash_set('error', 'نام الزامی است.');
@@ -20,7 +21,13 @@ if ($taken->fetch()) {
     flash_set('error', 'این ایمیل قبلاً برای حساب دیگری ثبت شده است.');
     redirect('/dashboard/profile');
 }
-$pdo->prepare('UPDATE users SET name=?, phone=?, email=? WHERE id=?')->execute([$name, $phone, $email, $user['id']]);
+try {
+    user_phone_write($pdo, $phone, (string) $user['id'], fn ($phone) =>
+        $pdo->prepare('UPDATE users SET name=?, phone=?, email=? WHERE id=?')->execute([$name, $phone, $email, $user['id']])
+    );
+} catch (RuntimeException $e) {
+    flash_set('error', $e->getMessage()); redirect('/dashboard/profile');
+}
 $_SESSION['user']['name'] = $name;
 $_SESSION['user']['email'] = $email;
 flash_set('success', 'پروفایل ذخیره شد.');

@@ -141,7 +141,6 @@ ob_start();
 <link rel="stylesheet" href="/assets/vendor/jalali/jalalidatepicker.min.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <h1>کارگاه‌ها و دوره‌ها</h1>
-<?php require __DIR__ . '/../../includes/workshop_add_member_form.php'; ?>
 <p class="muted" style="margin-top:.35rem;font-size:.9rem">کارگاه خودتان را مدیریت می‌کنید و افرادش را می‌بینید؛ تأیید عضویت با منشی است. کارگاه‌هایی که مال شما نیست فقط با تعداد اعضا دیده می‌شود.</p>
 
 <?php if ($flash): ?>

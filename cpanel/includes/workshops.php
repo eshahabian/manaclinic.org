@@ -1026,6 +1026,12 @@ function confirm_workshop_payment(PDO $pdo, array $paymentRow): void
 }
 
 /** ثبت ورودی کارگاه توسط منشی — برای همه منشی‌ها دیده می‌شود */
+/** مراجعه‌کنندگان و حساب مدیریتی عماد، بدون تغییر نقش حساب. */
+function workshop_member_user_sql(string $alias = 'u'): string
+{
+    return "({$alias}.role='PATIENT' OR ({$alias}.role='ADMIN' AND (LOWER({$alias}.username)='eshahabian' OR ({$alias}.name LIKE '%عماد%' AND {$alias}.name LIKE '%شهابیان%')))) AND COALESCE({$alias}.is_disabled,0)=0";
+}
+
 /** افزودن عضو فقط برای سه حساب مشخص و منشی‌های فعال. */
 function workshop_can_add_member(?array $user): bool
 {
@@ -1097,7 +1103,7 @@ function workshop_enroll_by_staff(PDO $pdo, string $workshopId, string $patientI
         throw new RuntimeException('این مراجعه‌کننده قبلاً در این کارگاه ثبت شده است.');
     }
 
-    $patientStmt = $pdo->prepare("SELECT id, name FROM users WHERE id=? AND role='PATIENT' LIMIT 1");
+    $patientStmt = $pdo->prepare("SELECT u.id, u.name FROM users u WHERE u.id=? AND " . workshop_member_user_sql('u') . " LIMIT 1");
     $patientStmt->execute([$patientId]);
     $patient = $patientStmt->fetch();
     if (!$patient) {
