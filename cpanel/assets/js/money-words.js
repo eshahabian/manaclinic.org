@@ -32,7 +32,7 @@
   }
 
   function words(n) {
-    if (!n) return "";
+    if (!n) return "صفر تومان";
     var parts = [];
     var i = 0;
     while (n > 0 && i < scales.length) {

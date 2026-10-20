@@ -297,7 +297,7 @@ ob_start();
   <div class="grid-2">
     <div>
       <label class="label">هزینه (تومان)</label>
-      <input class="input" name="price" type="number" min="0" step="1000" value="<?= e((string) ($formData['price'] ?? 0)) ?>" required>
+      <input class="input" name="price" type="text" dir="ltr" inputmode="numeric" autocomplete="off" data-money value="<?= e((string) ($formData['price'] ?? 0)) ?>" required>
     </div>
     <div>
       <label class="label">ظرفیت (خالی = نامحدود)</label>
@@ -556,6 +556,7 @@ ob_start();
   }
 })();
 </script>
+<script src="<?= e(url('/assets/js/money-words.js')) ?>?v=20261020workshop"></script>
 <script src="<?= e(url('/assets/js/workshop-session-media.js')) ?>?v=20260928files"></script>
 <?php
 require_once __DIR__ . '/../../includes/workshop_path.php';

@@ -1,0 +1,129 @@
+{
+    "groups": [
+        {
+            "phone_suffix": "6747",
+            "accounts": [
+                {
+                    "id": "03f8ececda635fe18f318786",
+                    "name": "فرید نصیریان",
+                    "username": "fnasiryan",
+                    "role": "PATIENT",
+                    "is_disabled": 0,
+                    "created_at": "2026-10-18 16:38:50",
+                    "appointments_count": 0,
+                    "workshop_enrollments_count": 0,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 0
+                },
+                {
+                    "id": "d15092908e65bc38d28ad28e",
+                    "name": "سعید نصیریان",
+                    "username": "snasiryan",
+                    "role": "PATIENT",
+                    "is_disabled": 0,
+                    "created_at": "2026-10-18 16:36:59",
+                    "appointments_count": 0,
+                    "workshop_enrollments_count": 0,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 0
+                }
+            ]
+        },
+        {
+            "phone_suffix": "2590",
+            "accounts": [
+                {
+                    "id": "36dfdb042124cb0a89814c30",
+                    "name": "عطیه گارسچی",
+                    "username": "atieh",
+                    "role": "DOCTOR",
+                    "is_disabled": 0,
+                    "created_at": "2026-08-31 20:26:02",
+                    "appointments_count": 0,
+                    "workshop_enrollments_count": 0,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 1
+                },
+                {
+                    "id": "5ab59a6159031fe471789a1b",
+                    "name": "عطی",
+                    "username": "atig",
+                    "role": "PATIENT",
+                    "is_disabled": 0,
+                    "created_at": "2026-08-29 22:05:20",
+                    "appointments_count": 0,
+                    "workshop_enrollments_count": 1,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 0
+                },
+                {
+                    "id": "9a7bd82618bd8fe9f168d1aa",
+                    "name": "باران شاکری",
+                    "username": "bshakeri",
+                    "role": "PATIENT",
+                    "is_disabled": 0,
+                    "created_at": "2026-09-06 11:12:29",
+                    "appointments_count": 1,
+                    "workshop_enrollments_count": 1,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 0
+                }
+            ]
+        },
+        {
+            "phone_suffix": "3397",
+            "accounts": [
+                {
+                    "id": "72750a89a9a6ab3d5c2e2a48",
+                    "name": "حسین سلمانزاده",
+                    "username": "hsalmanzade",
+                    "role": "PATIENT",
+                    "is_disabled": 0,
+                    "created_at": "2026-09-12 10:33:18",
+                    "appointments_count": 2,
+                    "workshop_enrollments_count": 0,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 0
+                },
+                {
+                    "id": "a0892e604ca15ba3e148fd2a",
+                    "name": "کاملیا سلمانزاده",
+                    "username": "csalmanzade",
+                    "role": "PATIENT",
+                    "is_disabled": 0,
+                    "created_at": "2026-09-21 18:17:38",
+                    "appointments_count": 1,
+                    "workshop_enrollments_count": 0,
+                    "wallets_count": 1,
+                    "doctor_profiles_count": 0
+                }
+            ]
+        }
+    ],
+    "references": [
+        {
+            "TABLE_NAME": "wallets",
+            "COLUMN_NAME": "user_id"
+        },
+        {
+            "TABLE_NAME": "workshop_enrollments",
+            "COLUMN_NAME": "patient_id"
+        },
+        {
+            "TABLE_NAME": "doctor_profiles",
+            "COLUMN_NAME": "user_id"
+        },
+        {
+            "TABLE_NAME": "patient_journal_entries",
+            "COLUMN_NAME": "patient_id"
+        },
+        {
+            "TABLE_NAME": "articles",
+            "COLUMN_NAME": "author_id"
+        },
+        {
+            "TABLE_NAME": "appointments",
+            "COLUMN_NAME": "patient_id"
+        }
+    ]
+}

@@ -575,6 +575,18 @@ function workshop_notify_patients(
 }
 
 /** فیلدهای مشترک ایجاد/ویرایش کارگاه از POST */
+/** Parse grouped Persian/Arabic digits without truncating a formatted amount. */
+function workshop_price_from_input(string $value): int
+{
+    $digits = preg_replace('/[\s,\x{066c}\x{060c}]+/u', '', normalize_input($value)) ?? '';
+    if (!preg_match('/^[0-9]+$/D', $digits)) throw new RuntimeException('هزینه کارگاه را به تومان و فقط با عدد وارد کنید.');
+    $digits = ltrim($digits, '0');
+    if (strlen($digits) > 10 || (strlen($digits) === 10 && strcmp($digits, '2147483647') > 0)) {
+        throw new RuntimeException('هزینه واردشده بیش از محدوده مجاز است.');
+    }
+    return (int) $digits;
+}
+
 function workshop_save_fields_from_post(): array
 {
     $title = trim(post('title'));
@@ -583,7 +595,7 @@ function workshop_save_fields_from_post(): array
     $startTime = post('start_time');
     $endDate = post('end_date');
     $endTime = post('end_time');
-    $price = max(0, (int) post('price', '0'));
+    $price = workshop_price_from_input(post('price', '0'));
     $capacityRaw = trim(post('capacity'));
     $capacity = $capacityRaw === '' ? null : max(1, (int) $capacityRaw);
     $published = isset($_POST['published']);
