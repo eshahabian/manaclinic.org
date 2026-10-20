@@ -18,6 +18,33 @@ function workshop_presenter_message(array $workshop, string $name): string
         . "\nمحل برگزاری: " . $place . "\nکلینیک مانا";
 }
 
+function workshop_presenter_names(PDO $pdo, string $workshopId): array
+{
+    $q=$pdo->prepare('SELECT u.name FROM workshop_presenters wp JOIN doctor_profiles dp ON dp.id=wp.doctor_id JOIN users u ON u.id=dp.user_id WHERE wp.workshop_id=? AND dp.is_active=1 AND dp.is_approved=1 AND COALESCE(u.is_disabled,0)=0 ORDER BY u.name');
+    $q->execute([$workshopId]);return $q->fetchAll(PDO::FETCH_COLUMN);
+}
+
+function workshop_presenters_dispatch(PDO $pdo, string $workshopId): array
+{
+    $counts=['SENT'=>0,'FAILED'=>0,'UNKNOWN'=>0,'SKIPPED'=>0];
+    if(!sms_connection_ready($pdo)||(int)$pdo->query("SELECT GET_LOCK('mana_sms_dispatch',0)")->fetchColumn()!==1)return $counts;
+    try {
+        $q=$pdo->prepare("SELECT * FROM sms_outbox WHERE kind IN ('workshop_presenter','workshop_presenter_copy') AND status='PENDING' AND due_at<=NOW() AND JSON_UNQUOTE(JSON_EXTRACT(context_json,'$.workshop_id'))=? ORDER BY created_at,id LIMIT 30");
+        $q->execute([$workshopId]);
+        foreach($q->fetchAll() as $job){
+            $claim=$pdo->prepare("UPDATE sms_outbox SET status='PROCESSING',attempts=attempts+1,claimed_at=NOW() WHERE id=? AND status='PENDING'");$claim->execute([$job['id']]);if(!$claim->rowCount())continue;
+            if(!sms_job_still_valid($pdo,$job))$result=['status'=>'SKIPPED','error'=>'عضویت اجراکننده یا اطلاعات کارگاه تغییر کرده است.'];
+            else {
+                try{$result=sms_provider_send(sms_connection_config($pdo),(string)$job['phone'],(string)$job['body']);}
+                catch(Throwable $e){$result=['status'=>'UNKNOWN','error'=>'پاسخ قطعی از درگاه دریافت نشد.'];}
+            }
+            $pdo->prepare("UPDATE sms_outbox SET status=?,provider_id=?,last_error=?,sent_at=IF(?='SENT',NOW(),NULL) WHERE id=?")->execute([$result['status'],$result['id']??null,$result['error']??null,$result['status'],$job['id']]);
+            $counts[$result['status']]++;
+        }
+    } finally {$pdo->query("SELECT RELEASE_LOCK('mana_sms_dispatch')");}
+    return $counts;
+}
+
 function workshop_presenters_schema(PDO $pdo): void
 {
     static $ready=false; if($ready)return;

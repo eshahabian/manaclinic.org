@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__.'/workshop_presenters.php';
 ?>
       <section class="home-workshop-banners" id="home-workshop-banners" aria-labelledby="home-workshop-heading" style="margin-top:0">
         <div class="section-head">
@@ -21,7 +22,9 @@ declare(strict_types=1);
               $when = workshop_is_offline((string) ($promo['type'] ?? ''))
                   ? 'دوره آفلاین'
                   : (format_workshop_datetime_fa((string) ($promo['starts_at'] ?? '')) . ' تا ' . format_workshop_datetime_fa((string) ($promo['ends_at'] ?? '')));
-              $meta = trim(workshop_type_label((string) ($promo['type'] ?? '')) . ' · ' . (string) ($promo['doctor_name'] ?? '') . ' · ' . $when);
+              $presenterNames=workshop_presenter_names($pdo,(string)$promo['id']);
+              $presenterLabel=$presenterNames?'اجراکنندگان: '.implode('، ',$presenterNames):(string)($promo['doctor_name']??'');
+              $meta = trim(workshop_type_label((string) ($promo['type'] ?? '')) . ' · ' . $presenterLabel . ' · ' . $when);
               $canApply = workshop_can_enroll($promo) && $phase !== 'done' && (string) ($promo['status'] ?? '') === 'PUBLISHED';
               $bannerSrc = function_exists('workshop_promo_image_src')
                   ? workshop_promo_image_src($promo)

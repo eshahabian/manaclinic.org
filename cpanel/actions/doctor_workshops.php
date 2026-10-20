@@ -68,6 +68,7 @@ if ($action === 'create') {
         if(workshop_can_add_member(current_user())&&isset($_POST['presenters_present']))workshop_presenters_save($pdo,$id,(array)($_POST['presenters']??[]));
 
         db_commit($pdo);
+        if(isset($_POST['presenters_present'])){try{workshop_presenters_dispatch($pdo,$id);}catch(Throwable $dispatchError){error_log('Presenter SMS dispatch pending: '.$dispatchError->getMessage());}}
         $queueOutreach = !empty($_POST['notify_outreach']);
     } catch (Throwable $e) {
         if (!workshop_save_caught($pdo, $e)) {
@@ -161,6 +162,7 @@ if ($action === 'update') {
         if(workshop_can_add_member(current_user())&&isset($_POST['presenters_present']))workshop_presenters_save($pdo,$id,(array)($_POST['presenters']??[]));
 
         db_commit($pdo);
+        if(isset($_POST['presenters_present'])){try{workshop_presenters_dispatch($pdo,$id);}catch(Throwable $dispatchError){error_log('Presenter SMS dispatch pending: '.$dispatchError->getMessage());}}
     } catch (Throwable $e) {
         if (!workshop_save_caught($pdo, $e)) {
             redirect('/doctor/workshops?edit=' . urlencode($id));

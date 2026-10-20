@@ -82,6 +82,7 @@ if ($action === 'create') {
         $pdo->prepare('UPDATE workshops SET created_by_user_id=?, updated_by_user_id=? WHERE id=?')
             ->execute([$user['id'], $user['id'], $id]);
         db_commit($pdo);
+        if(isset($_POST['presenters_present'])){try{workshop_presenters_dispatch($pdo,$id);}catch(Throwable $dispatchError){error_log('Presenter SMS dispatch pending: '.$dispatchError->getMessage());}}
         staff_log_action($pdo, (string) $user['id'], 'workshop_create', 'workshop', $id);
         $queueOutreach = !empty($_POST['notify_outreach']);
     } catch (Throwable $e) {
@@ -195,6 +196,7 @@ if ($action === 'update') {
         $pdo->prepare('UPDATE workshops SET updated_by_user_id=? WHERE id=?')
             ->execute([$user['id'], $id]);
         db_commit($pdo);
+        if(isset($_POST['presenters_present'])){try{workshop_presenters_dispatch($pdo,$id);}catch(Throwable $dispatchError){error_log('Presenter SMS dispatch pending: '.$dispatchError->getMessage());}}
         staff_log_action($pdo, (string) $user['id'], 'workshop_update', 'workshop', $id);
     } catch (Throwable $e) {
         if (!workshop_save_caught($pdo, $e)) {
