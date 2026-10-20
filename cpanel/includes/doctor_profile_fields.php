@@ -175,8 +175,6 @@ function doctor_profile_is_complete(array $row): bool
     $year = (int) ($row['started_year'] ?? 0);
     $courses = doctor_courses_list((string) ($row['courses'] ?? ''));
     $degree = trim((string) ($row['degree'] ?? ''));
-    $bio = trim((string) ($row['bio'] ?? ''));
-    $bioLen = function_exists('mb_strlen') ? mb_strlen($bio) : strlen($bio);
     $maxYear = doctor_current_jalali_year();
 
     return $avatar !== ''
@@ -187,8 +185,7 @@ function doctor_profile_is_complete(array $row): bool
         && $year >= 1330
         && $year <= $maxYear
         && $courses !== []
-        && isset(doctor_degree_options()[$degree])
-        && $bioLen >= 20;
+        && isset(doctor_degree_options()[$degree]);
 }
 
 function doctor_is_shiva(?array $user): bool

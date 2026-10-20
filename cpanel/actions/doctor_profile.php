@@ -21,10 +21,9 @@ $approaches = doctor_profile_filter_keys((array) ($_POST['approaches'] ?? []), d
 $domains = doctor_profile_filter_keys((array) ($_POST['domains'] ?? []), doctor_domain_options());
 $focus = doctor_profile_filter_keys((array) ($_POST['focus'] ?? []), doctor_focus_options());
 $maxYear = doctor_current_jalali_year();
-$bioLen = function_exists('mb_strlen') ? mb_strlen($bio) : strlen($bio);
 
-if ($name === '' || $bioLen < 20 || $license === '' || !isset(doctor_degree_options()[$degree]) || doctor_courses_list($courses) === [] || $year < 1330 || $year > $maxYear || $price <= 0 || $approaches === [] || $domains === [] || $focus === []) {
-    flash_set('error', 'همه فیلدهای پروفایل الزامی است. حداقل یک مورد از هر فهرست چندانتخابی را برگزینید.');
+if ($name === '' || $license === '' || !isset(doctor_degree_options()[$degree]) || doctor_courses_list($courses) === [] || $year < 1330 || $year > $maxYear || $price <= 0 || $approaches === [] || $domains === [] || $focus === []) {
+    flash_set('error', 'همه فیلدهای پروفایل به‌جز «درباره من» الزامی است. حداقل یک مورد از هر فهرست چندانتخابی را برگزینید.');
     redirect(!empty($doctorProfileEmbedded) ? '/app/profile' : '/doctor/profile');
 }
 

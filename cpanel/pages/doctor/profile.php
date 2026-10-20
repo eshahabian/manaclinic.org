@@ -20,7 +20,7 @@ ob_start();
   <?php if ($incomplete && function_exists('doctor_skips_profile_gate') && doctor_skips_profile_gate($ctx['user'] ?? null)): ?>
     <p class="doc-onboard-banner">پروفایل را تکمیل کنید.</p>
   <?php elseif ($incomplete): ?>
-    <p class="doc-onboard-banner">برای ورود به بقیه پنل، این موارد را کامل کنید. همه فیلدها الزامی است.</p>
+    <p class="doc-onboard-banner">برای ورود به بقیه پنل، این موارد را کامل کنید. همه فیلدها به‌جز «درباره من» الزامی است.</p>
   <?php else: ?>
     <p class="muted" style="margin-top:.35rem;line-height:1.7">اطلاعات حرفه‌ای در صفحه عمومی شما دیده می‌شود؛ موبایل برای ارتباطات حساب است.</p>
   <?php endif; ?>
@@ -106,9 +106,9 @@ ob_start();
     </section>
 
     <section class="panel doc-profile-section">
-      <h2>درباره من</h2>
+      <h2>درباره من (اختیاری)</h2>
       <label class="label" for="bio">متن کوتاهی که ترجیح می‌دهید مراجع درباره شما بخواند</label>
-      <textarea class="input" name="bio" id="bio" rows="6" required minlength="20"><?= e((string) ($p['bio'] ?? '')) ?></textarea>
+      <textarea class="input" name="bio" id="bio" rows="6"><?= e((string) ($p['bio'] ?? '')) ?></textarea>
     </section>
 
     <section class="panel doc-profile-section">
