@@ -674,9 +674,20 @@ function workshop_save_sessions_and_media(PDO $pdo, string $workshopId, array $d
         workshop_sessions_extra_dates_from_post(),
         workshop_session_interval_normalize((string) ($data['session_interval'] ?? 'WEEKLY'))
     );
+    $prevSilent = $GLOBALS['workshop_media_silent'] ?? false;
+    $GLOBALS['workshop_media_silent'] = true;
     $saved = workshop_media_process_session_uploads($pdo, $workshopId, $doctorProfileId);
     $saved += workshop_media_process_form_uploads($pdo, $workshopId, $doctorProfileId);
     $saved += workshop_media_process_bundle_uploads($pdo, $workshopId, $doctorProfileId);
+    $GLOBALS['workshop_media_silent'] = $prevSilent;
+    if ($saved > 0 && !$prevSilent) {
+        try {
+            require_once __DIR__ . '/workshop_sms.php';
+            workshop_sms_notify_media_added($pdo, $workshopId, '', 'workshop-save:' . $workshopId . ':' . date('YmdHi'));
+        } catch (Throwable $e) {
+            error_log('Workshop save media SMS: ' . $e->getMessage());
+        }
+    }
     return $saved;
 }
 
@@ -1114,15 +1125,30 @@ function workshop_notify_member_joined(PDO $pdo, string $enrollmentId, string $m
         $context = ['entity'=>'enrollment', 'id'=>$enrollmentId, 'starts_at'=>$w['starts_at'], 'details_hash'=>$detailsHash];
         $body = workshop_member_sms_body((string) $w['title']);
         // همان کلید صف زمان‌بندی‌شده مانع ارسال دوباره در اجرای بعدی می‌شود.
+        $result = ['ok' => false, 'status' => 'FAILED'];
         if (sms_queue_extended($pdo, (string) $w['phone'], $body, 'workshop_registered', $key,
             null, date('Y-m-d H:i:s', time() + 86400), $context)) {
-            return sms_send_immediate($pdo, (string) $w['phone'], $body, 'workshop_registered', $key,
+            $result = sms_send_immediate($pdo, (string) $w['phone'], $body, 'workshop_registered', $key,
                 date('Y-m-d H:i:s', time() + 86400), $context);
+        } else {
+            $existing = $pdo->prepare('SELECT status FROM sms_outbox WHERE dedup_key=?');
+            $existing->execute([hash('sha256', $key)]);
+            $status = (string) ($existing->fetchColumn() ?: 'FAILED');
+            $result = ['ok' => $status === 'SENT', 'status' => $status];
         }
-        $existing = $pdo->prepare('SELECT status FROM sms_outbox WHERE dedup_key=?');
-        $existing->execute([hash('sha256', $key)]);
-        $status = (string) ($existing->fetchColumn() ?: 'FAILED');
-        return ['ok'=>$status === 'SENT', 'status'=>$status];
+        try {
+            require_once __DIR__ . '/workshop_sms.php';
+            workshop_sms_send_emad_sample(
+                $pdo,
+                $body,
+                'workshop_registered',
+                'emad-member:' . $enrollmentId . ':' . ($membershipEvent !== '' ? $membershipEvent : 'join'),
+                $context + ['recipient_phone' => (string) $w['phone'], 'workshop_id' => (string) ($w['id'] ?? '')]
+            );
+        } catch (Throwable $copyError) {
+            error_log('Workshop member Emad sample: ' . $copyError->getMessage());
+        }
+        return $result;
     } catch (Throwable $e) {
         error_log('Workshop member SMS failed: ' . $e->getMessage());
         return ['ok'=>false, 'status'=>'FAILED'];

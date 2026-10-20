@@ -11,6 +11,10 @@ function sms_template_catalog(): array
         'workshop_registered'=>['تأیید ثبت‌نام کارگاه','مانا کلینیک: ثبت‌نام کارگاه از {datetime}'],
         'workshop_reminder'=>['یادآوری کارگاه','مانا کلینیک: یادآوری کارگاه {datetime}'],
         'workshop_announcement'=>['معرفی کارگاه','مانا کلینیک: کارگاه جدید از {datetime}'],
+        'workshop_session_reflect'=>['یادداشت جلسه کارگاه','مانا کلینیک: جلسه برگزار شد. برداشت خود را در پنل مانا بنویسید.'],
+        'workshop_media_added'=>['فایل جدید کارگاه','مانا کلینیک: فایل جدیدی به کارگاه اضافه شد.'],
+        'workshop_presenter'=>['تأیید اجراکننده کارگاه','(متن پویا)'],
+        'workshop_presenter_copy'=>['نمونه اجراکننده برای عماد','(متن پویا)'],
         // درمانگر همان نوبت انتخاب‌شده در پنل
         'doctor_appointment_booked'=>['اعلام نوبت به درمانگر','مانا کلینیک: نوبت {patient} {datetime}'],
         'doctor_appointment_cancelled'=>['اعلام لغو به درمانگر','مانا کلینیک: لغو {patient} {datetime}'],
@@ -307,7 +311,7 @@ function sms_queue_extended(PDO $pdo, string $phone, string $body, string $kind,
     $phone = sms_iran_mobile($phone);
     $body = trim($body);
     if ($phone === null || $body === '') return false;
-    $maxLen = $kind === 'doctor_daily_digest' ? 1200 : 500;
+    $maxLen = in_array($kind, ['doctor_daily_digest', 'workshop_presenter', 'workshop_presenter_copy'], true) ? 1200 : 500;
     if (mb_strlen($body) > $maxLen) {
         $body = mb_substr($body, 0, $maxLen - 3) . '…';
     }
@@ -434,6 +438,24 @@ function sms_job_still_valid(PDO $pdo, array $job): bool
             $w['phone']=$copyPhone===false?'':(string)$copyPhone;
         }
         return $w && sms_iran_mobile((string)$w['phone'])===$job['phone'] && hash('sha256',json_encode([$w['title'],$w['starts_at'],$w['ends_at'],$w['location'],$w['type']]))===($context['details_hash']??'');
+    }
+    if($context['entity']==='workshop_copy'){
+        $q=$pdo->prepare("SELECT phone FROM users WHERE id=? AND LOWER(username)='eshahabian' AND COALESCE(is_disabled,0)=0");
+        $q->execute([$context['copy_for']??'']);
+        $phone=$q->fetchColumn();
+        return $phone!==false && sms_iran_mobile((string)$phone)===$job['phone'];
+    }
+    if($context['entity']==='workshop_session_reflect' || $context['entity']==='workshop_media'){
+        $stmt=$pdo->prepare('SELECT e.status,w.status AS workshop_status,w.starts_at,w.location,w.type,w.title FROM workshop_enrollments e JOIN workshops w ON w.id=e.workshop_id WHERE e.id=?');
+        $stmt->execute([$context['id']??'']);
+        $w=$stmt->fetch();
+        if(!$w||!in_array($w['status'],['CONFIRMED','COMPLETED'],true)||in_array($w['workshop_status'],['DRAFT','CANCELLED'],true))return false;
+        if(isset($context['session_id']) && ($context['entity']==='workshop_session_reflect')){
+            $s=$pdo->prepare('SELECT id FROM workshop_sessions WHERE id=? AND workshop_id=?');
+            $s->execute([$context['session_id'],$context['workshop_id']??'']);
+            if(!$s->fetchColumn())return false;
+        }
+        return true;
     }
     if($context['entity']==='workshop_broadcast'){
         require_once __DIR__.'/workshop_broadcast.php';
@@ -912,6 +934,8 @@ function sms_run_worker(PDO $pdo): void
     try{
         sms_collect_events($pdo);
         sms_queue_doctor_daily_digests($pdo);
+        require_once __DIR__ . '/workshop_sms.php';
+        workshop_sms_queue_session_reflections($pdo);
     }finally{$pdo->query("SELECT RELEASE_LOCK('mana_sms_collect')");}
     sms_dispatch_pending($pdo);
 }

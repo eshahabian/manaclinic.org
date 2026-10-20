@@ -1,0 +1,17 @@
+body[data-content-protected] {
+  -webkit-user-select: none;
+  user-select: none;
+}
+body[data-content-protected] img {
+  -webkit-user-drag: none;
+  -webkit-touch-callout: none;
+}
+body[data-content-protected] input,
+body[data-content-protected] textarea,
+body[data-content-protected] select,
+body[data-content-protected] [contenteditable]:not([contenteditable="false"]),
+body[data-content-protected] [data-allow-copy] {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}

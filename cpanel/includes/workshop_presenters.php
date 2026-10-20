@@ -5,14 +5,20 @@ function workshop_presenter_message(array $workshop, string $name): string
 {
     $start = strtotime((string) $workshop['starts_at']);
     $end = strtotime((string) $workshop['ends_at']);
+    if (!$start || !$end) {
+        throw new RuntimeException('زمان کارگاه نامعتبر است.');
+    }
     $days = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه', 'شنبه'];
     $when = ($workshop['session_interval'] ?? '') === 'WEEKLY'
         ? $days[(int) date('w', $start)] . '‌ها'
         : format_fa_day_long((string) $workshop['starts_at']);
+    $type = (string) ($workshop['type'] ?? '');
     $place = trim((string) ($workshop['location'] ?? ''));
-    if (($workshop['type'] ?? '') === 'ONLINE') $place = 'به‌صورت آنلاین';
-    if (($workshop['type'] ?? '') === 'OFFLINE') $place = 'به‌صورت آفلاین';
-    if ($place === '') throw new RuntimeException('محل برگزاری کارگاه را ابتدا ثبت کنید.');
+    if ($type === 'ONLINE') {
+        $place = 'به‌صورت آنلاین';
+    } elseif ($place === '') {
+        $place = 'نشانی ثبت‌شدهٔ کارگاه';
+    }
     return trim($name) . " گرامی\nحضور شما به‌عنوان اجراکننده کارگاه «" . $workshop['title'] . "» تأیید شد.\n"
         . $when . '، ساعت ' . to_fa_digits(date('H:i', $start)) . ' تا ' . to_fa_digits(date('H:i', $end))
         . "\nمحل برگزاری: " . $place . "\nکلینیک مانا";
@@ -79,13 +85,15 @@ function workshop_presenters_save(PDO $pdo, string $workshopId, array $ids): voi
             if ($phone===null) throw new RuntimeException('شماره موبایل یکی از اجراکنندگان معتبر نیست.');
             $body=workshop_presenter_message($workshop,(string)$doctor['name']);
             $pdo->prepare('INSERT INTO workshop_presenters(workshop_id,doctor_id) VALUES (?,?)')->execute([$workshopId,$doctor['id']]);
-            sms_queue_extended($pdo,$phone,$body,'workshop_presenter','workshop-presenter:'.cuid(),null,date('Y-m-d H:i:s',time()+86400),['entity'=>'workshop_presenter','workshop_id'=>$workshopId,'doctor_id'=>$doctor['id'],'details_hash'=>hash('sha256',json_encode([$workshop['title'],$workshop['starts_at'],$workshop['ends_at'],$workshop['location'],$workshop['type']]))]);
-            $copyQuery=$pdo->query("SELECT id,phone FROM users WHERE LOWER(username)='eshahabian' AND COALESCE(is_disabled,0)=0 LIMIT 1");$copyUser=$copyQuery->fetch();
-            $copyPhone=$copyUser?sms_iran_mobile((string)$copyUser['phone']):null;
-            if($copyPhone!==null&&$copyPhone!==$phone){
-                sms_queue_extended($pdo,$copyPhone,$body,'workshop_presenter_copy','workshop-presenter-copy:'.cuid(),null,date('Y-m-d H:i:s',time()+86400),['entity'=>'workshop_presenter','workshop_id'=>$workshopId,'doctor_id'=>$doctor['id'],'copy_for'=>$copyUser['id'],'details_hash'=>hash('sha256',json_encode([$workshop['title'],$workshop['starts_at'],$workshop['ends_at'],$workshop['location'],$workshop['type']]))]);
+            $detailsHash=hash('sha256',json_encode([$workshop['title'],$workshop['starts_at'],$workshop['ends_at'],$workshop['location'],$workshop['type']]));
+            $ctx=['entity'=>'workshop_presenter','workshop_id'=>$workshopId,'doctor_id'=>$doctor['id'],'details_hash'=>$detailsHash];
+            sms_queue_extended($pdo,$phone,$body,'workshop_presenter','workshop-presenter:'.cuid(),null,date('Y-m-d H:i:s',time()+86400),$ctx);
+            require_once __DIR__.'/workshop_sms.php';
+            $emad=workshop_sms_emad_user($pdo);
+            $emadPhone=$emad?sms_iran_mobile((string)($emad['phone']??'')):null;
+            if($emadPhone!==null&&$emadPhone!==$phone){
+                sms_queue_extended($pdo,$emadPhone,$body,'workshop_presenter_copy','workshop-presenter-copy:'.cuid(),null,date('Y-m-d H:i:s',time()+86400),$ctx+['copy_for'=>$emad['id']]);
             }
-
         }
         $pdo->prepare("DELETE FROM workshop_presenters WHERE workshop_id=? AND doctor_id NOT IN ($marks)")->execute(array_merge([$workshopId],$ids));
         if($ownsTransaction)$pdo->commit();

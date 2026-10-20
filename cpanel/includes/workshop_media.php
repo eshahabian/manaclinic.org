@@ -408,6 +408,16 @@ function workshop_media_save_upload(PDO $pdo, string $workshopId, ?string $docto
         $sort,
     ]);
 
+    $notify = !array_key_exists('workshop_media_silent', $GLOBALS) || !$GLOBALS['workshop_media_silent'];
+    if ($notify) {
+        try {
+            require_once __DIR__ . '/workshop_sms.php';
+            workshop_sms_notify_media_added($pdo, $workshopId, $id);
+        } catch (Throwable $e) {
+            error_log('Workshop media SMS notify: ' . $e->getMessage());
+        }
+    }
+
     return $id;
 }
 
@@ -423,6 +433,8 @@ function workshop_media_process_session_uploads(PDO $pdo, string $workshopId, ?s
     if (!is_array($files['name'] ?? null)) {
         return 0;
     }
+    $prevSilent = $GLOBALS['workshop_media_silent'] ?? false;
+    $GLOBALS['workshop_media_silent'] = true;
     $saved = 0;
     foreach ($files['name'] as $date => $kinds) {
         $date = (string) $date;
@@ -443,6 +455,15 @@ function workshop_media_process_session_uploads(PDO $pdo, string $workshopId, ?s
                 workshop_media_save_upload($pdo, $workshopId, $doctorProfileId, $kind, $title, null, $file, (string) $session['id']);
                 $saved++;
             }
+        }
+    }
+    $GLOBALS['workshop_media_silent'] = $prevSilent;
+    if ($saved > 0 && !$prevSilent) {
+        try {
+            require_once __DIR__ . '/workshop_sms.php';
+            workshop_sms_notify_media_added($pdo, $workshopId, '', 'session-batch:' . $workshopId . ':' . date('YmdHi'));
+        } catch (Throwable $e) {
+            error_log('Workshop session media SMS: ' . $e->getMessage());
         }
     }
     return $saved;
@@ -497,6 +518,8 @@ function workshop_media_process_path_session_files(
     if (!is_array($files['name'] ?? null) || $sessionId === '') {
         return 0;
     }
+    $prevSilent = $GLOBALS['workshop_media_silent'] ?? false;
+    $GLOBALS['workshop_media_silent'] = true;
     $saved = 0;
     foreach (['PDF', 'AUDIO', 'VIDEO'] as $kind) {
         $names = $files['name'][$kind] ?? null;
@@ -526,6 +549,15 @@ function workshop_media_process_path_session_files(
             $saved++;
         }
     }
+    $GLOBALS['workshop_media_silent'] = $prevSilent;
+    if ($saved > 0 && !$prevSilent) {
+        try {
+            require_once __DIR__ . '/workshop_sms.php';
+            workshop_sms_notify_media_added($pdo, $workshopId, '', 'path:' . $sessionId . ':' . date('YmdHi'));
+        } catch (Throwable $e) {
+            error_log('Workshop path media SMS: ' . $e->getMessage());
+        }
+    }
 
     return $saved;
 }
@@ -533,6 +565,8 @@ function workshop_media_process_path_session_files(
 /** فایل کلی دوره (پی‌دی‌اف یا صوت) و پاورپوینت کارگاه — بدون وابستگی به یک جلسه. */
 function workshop_media_process_bundle_uploads(PDO $pdo, string $workshopId, ?string $doctorProfileId): int
 {
+    $prevSilent = $GLOBALS['workshop_media_silent'] ?? false;
+    $GLOBALS['workshop_media_silent'] = true;
     $saved = 0;
     $course = $_FILES['course_file'] ?? [];
     if (is_array($course['name'] ?? null)) {
@@ -576,6 +610,15 @@ function workshop_media_process_bundle_uploads(PDO $pdo, string $workshopId, ?st
             }
             workshop_media_save_upload($pdo, $workshopId, $doctorProfileId, 'PPT', 'پاورپوینت کارگاه', null, $file, null, 'SLIDES');
             $saved++;
+        }
+    }
+    $GLOBALS['workshop_media_silent'] = $prevSilent;
+    if ($saved > 0 && !$prevSilent) {
+        try {
+            require_once __DIR__ . '/workshop_sms.php';
+            workshop_sms_notify_media_added($pdo, $workshopId, '', 'bundle:' . $workshopId . ':' . date('YmdHi'));
+        } catch (Throwable $e) {
+            error_log('Workshop bundle media SMS: ' . $e->getMessage());
         }
     }
 
@@ -627,6 +670,8 @@ function workshop_media_process_form_uploads(PDO $pdo, string $workshopId, ?stri
         return 0;
     }
 
+    $prevSilent = $GLOBALS['workshop_media_silent'] ?? false;
+    $GLOBALS['workshop_media_silent'] = true;
     $saved = 0;
     foreach ($kinds as $i => $kind) {
         $kind = (string) $kind;
@@ -649,6 +694,15 @@ function workshop_media_process_form_uploads(PDO $pdo, string $workshopId, ?stri
 
         workshop_media_save_upload($pdo, $workshopId, $doctorProfileId, $kind, $title, $description, $file);
         $saved++;
+    }
+    $GLOBALS['workshop_media_silent'] = $prevSilent;
+    if ($saved > 0 && !$prevSilent) {
+        try {
+            require_once __DIR__ . '/workshop_sms.php';
+            workshop_sms_notify_media_added($pdo, $workshopId, '', 'form:' . $workshopId . ':' . date('YmdHi'));
+        } catch (Throwable $e) {
+            error_log('Workshop form media SMS: ' . $e->getMessage());
+        }
     }
 
     return $saved;

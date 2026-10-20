@@ -27,6 +27,9 @@ $flash = flash_get();
 $colorfulParticles = $user && strcasecmp((string) ($user['username'] ?? ''), 'eshahabian') === 0;
 $pageBodyClass = trim((string) ($GLOBALS['pageBodyClass'] ?? ($pageBodyClass ?? '')));
 $bodyAttrs = '';
+$contentProtectionPath=parse_url($_SERVER['REQUEST_URI']??'/',PHP_URL_PATH)?:'/';
+$protectPublicContent=!preg_match('~^/(?:admin|doctor|secretary|patient|staff|app|login|register|logout|auth|password|session)(?:/|$)~',$contentProtectionPath);
+if($protectPublicContent)$bodyAttrs.=' data-content-protected="1"';
 if ($pageBodyClass !== '') {
     $bodyAttrs .= ' class="' . e($pageBodyClass) . '"';
 }
@@ -131,6 +134,9 @@ if ($user) {
     <?= $pageHead ?>
   <?php endif; ?>
   <link rel="stylesheet" href="<?= e(url('/assets/css/local-font.css')) ?>">
+<?php if($protectPublicContent): ?>
+  <link rel="stylesheet" href="<?= e(url('/assets/css/content-protection.css')) ?>?v=20261020">
+<?php endif; ?>
 </head>
 <body<?= $bodyAttrs ?>>
 <canvas id="particle-canvas" aria-hidden="true"></canvas>
@@ -621,6 +627,9 @@ if ($adminStaffMsgBlock && $user && ($user['role'] ?? '') === 'SECRETARY'):
 <?php endif; ?>
 <?php if (!empty($pageScripts)): ?>
   <?= $pageScripts ?>
+<?php endif; ?>
+<?php if($protectPublicContent): ?>
+<script src="<?= e(url('/assets/js/content-protection.js')) ?>?v=20261020" defer></script>
 <?php endif; ?>
 </body>
 </html>
