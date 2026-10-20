@@ -32,7 +32,22 @@ with ftplib.FTP() as f:
         return json.loads(urllib.request.urlopen(req,timeout=45).read())
     try:
         rows=call()
-        if len(sys.argv)==1:
+        if len(sys.argv)>1 and sys.argv[1]=='restore':
+            saved=json.loads((folder/'rollback.json').read_text('utf-8'))
+            original=saved['workshop']
+            selected=next(r for r in rows if r['id']==original['id'])
+            old_image=original['banner_url']
+            assert f.size(old_image.lstrip('/'))>0, 'Original image missing'
+            assert selected['banner_url'] in [saved['new'],old_image], 'Image changed since replacement'
+            if selected['banner_url']!=old_image:
+                result=call({'id':original['id'],'old':saved['new'],'new':old_image})
+                assert result['updated']==1,result
+            after=call()
+            assert next(r for r in after if r['id']==original['id'])['banner_url']==old_image
+            page=urllib.request.urlopen('https://manaclinic.org/workshops?verify='+secrets.token_hex(6),timeout=45).read().decode()
+            assert old_image in page and saved['new'] not in page, 'Public image verification failed'
+            print('PASS original image restored and verified on public workshops page')
+        elif len(sys.argv)==1:
             print(json.dumps(rows,ensure_ascii=False))
         else:
             selected=rows[0]
