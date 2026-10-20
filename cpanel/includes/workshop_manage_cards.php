@@ -96,9 +96,10 @@ $doctorPathBoardById = $doctorPathBoardById ?? [];
                   $pathPeople[] = $enr;
               }
           }
-          $openTab = $doctorBoardOpen ? 'path' : 'files';
+          $openTab = $doctorBoardOpen ? 'path' : 'summary';
         ?>
         <div class="wcard-tabs">
+          <input type="radio" name="<?= e($tabName) ?>" id="<?= e($tabName) ?>-summary" <?= $openTab === 'summary' ? 'checked' : '' ?>>
           <input type="radio" name="<?= e($tabName) ?>" id="<?= e($tabName) ?>-files" <?= $openTab === 'files' ? 'checked' : '' ?>>
           <input type="radio" name="<?= e($tabName) ?>" id="<?= e($tabName) ?>-enroll" <?= $openTab === 'enroll' ? 'checked' : '' ?>>
           <?php if ($workshopRole === 'doctor'): ?>
@@ -113,6 +114,7 @@ $doctorPathBoardById = $doctorPathBoardById ?? [];
             <input type="radio" name="<?= e($tabName) ?>" id="<?= e($tabName) ?>-presenters">
           <?php endif; ?>
           <div class="wcard-tabbar">
+            <label for="<?= e($tabName) ?>-summary">خلاصه</label>
             <label for="<?= e($tabName) ?>-files">فایل جلسات</label>
             <label for="<?= e($tabName) ?>-enroll">ثبت‌نام‌ها</label>
             <?php if ($workshopRole === 'doctor'): ?>
@@ -186,6 +188,9 @@ $doctorPathBoardById = $doctorPathBoardById ?? [];
               <?php $presenterWorkshop=$workshop;$presenterPostBase=$workshopPostBase;$presenterInline=true;require __DIR__.'/workshop_presenters_form.php';$presenterInline=false; ?>
             </div>
           <?php endif; ?>
+          <div class="wcard-panel wcard-panel-summary">
+            <?php require __DIR__.'/workshop_summary.php'; ?>
+          </div>
           <div class="wcard-panel wcard-panel-files">
             <?= workshop_session_file_lines_html($staffSessions, url($workshopMediaPost), $wid) ?>
             <?php if (isset($pdo) && $pdo instanceof PDO && function_exists('workshop_bundle_manage_lines')): ?>

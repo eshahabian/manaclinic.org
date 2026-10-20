@@ -11,6 +11,7 @@ const { chromium } = require('C:/Users/Emad/.cache/codex-runtimes/codex-primary-
     const boxes=[...el.querySelectorAll(':scope > label,.workshop-card-actions .btn')].map(e=>e.getBoundingClientRect());
     return {count:boxes.length,widths:boxes.map(r=>r.width),heights:boxes.map(r=>r.height),overflow:document.documentElement.scrollWidth>innerWidth};
    });
+   if(width===1190){const rows=await page.locator('.wcard-tabbar').evaluate(el=>new Set([...el.querySelectorAll(':scope > label,.workshop-card-actions .btn')].map(e=>Math.round(e.getBoundingClientRect().top))).size);if(rows!==2)throw Error('Expected two rows, got '+rows);}if(!await page.locator('.wcard-panel-summary').isVisible())throw Error('Summary not default');
    if(dimensions.overflow||new Set(dimensions.widths.map(Math.round)).size>2)throw new Error(JSON.stringify(dimensions));
    await page.locator('label[for="wcard-demo-member"]').click();
    if(!await page.locator('.wcard-panel-member').isVisible())throw new Error('Member panel did not open');

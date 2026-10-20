@@ -3,6 +3,7 @@ function e($v){return htmlspecialchars((string)$v,ENT_QUOTES,'UTF-8');}
 function url($v){return $v;}
 function current_user(){return ['id'=>'demo-admin','role'=>'ADMIN','username'=>'eshahabian'];}
 function password_field_html($id,$name,$opts=[]) {return '<div><label for="'.e($id).'">'.e($opts['label']).'</label><input class="input" type="password" required minlength="6" id="'.e($id).'" name="'.e($name).'" /></div>';}
+function to_fa_digits($v){return $v;}
 function csrf_field(){return '<input type="hidden" name="_csrf" value="test">';}
 function workshop_can_add_member($u){return true;}
 function workshop_member_user_sql($a){return '1=1';}
@@ -17,7 +18,7 @@ function format_price($v){return '—';}
 function workshop_closed_at($v){return null;}
 function workshop_close_action_label($v){return 'اتمام کارگاه';}
 function workshop_session_file_lines_html(...$args){return '<h3>فایل‌های هر جلسه</h3><p>جلسه اول</p>';}
-class UiDb extends PDO {function __construct(){} public function query(string $q,?int $mode=null,mixed ...$args):PDOStatement|false{return new UiStmt();}}
-class UiStmt extends PDOStatement {public function fetchAll(int $mode=PDO::FETCH_DEFAULT,mixed ...$args):array{return [['id'=>'demo-admin','name'=>'عماد شهابیان','username'=>'eshahabian','phone'=>'09121234567']];}}
+class UiDb extends PDO {function __construct(){} public function exec(string $q):int|false{return 0;} public function prepare(string $q,array $opts=[]):PDOStatement|false{return new UiStmt($q);} public function query(string $q,?int $mode=null,mixed ...$args):PDOStatement|false{return new UiStmt($q);}}
+class UiStmt extends PDOStatement {public function __construct(public string $q){} public function execute(?array $args=null):bool{return true;} public function fetchAll(int $mode=PDO::FETCH_DEFAULT,mixed ...$args):array{if($mode===PDO::FETCH_COLUMN)return str_contains($this->q,'SELECT u.name')?['درمانگر نمونه']:[];return [['id'=>'demo-admin','name'=>'عماد شهابیان','username'=>'eshahabian','phone'=>'09121234567']];}}
 $pdo=new UiDb();$workshopRole='doctor';$workshopEnrollmentsById=['demo'=>[['id'=>'demo-enrollment','patient_name'=>'عضو نمونه','status'=>'CONFIRMED']]];$workshopList=[['id'=>'demo','title'=>'زوج‌درمانی','type'=>'IN_PERSON','session_interval'=>'WEEKLY','starts_at'=>'2027-01-01 18:00:00','ends_at'=>'2027-03-01 18:00:00','price'=>0,'enrolled_count'=>0,'capacity'=>null,'is_published'=>1,'enrollment_open'=>1,'status'=>'PUBLISHED']];
 ?><!doctype html><html lang="fa" dir="rtl"><meta charset="utf-8"><title>بررسی چیدمان کارگاه</title><link rel="stylesheet" href="style.css"><body><main style="max-width:1136px;margin:24px auto;padding:16px"><h1>کارگاه‌ها و دوره‌ها</h1><?php require dirname(__DIR__).'/includes/workshop_manage_cards.php'; ?></main></body></html>

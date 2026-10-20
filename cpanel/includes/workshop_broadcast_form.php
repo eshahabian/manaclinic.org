@@ -13,13 +13,16 @@ if(!workshop_can_add_member(current_user())||!isset($broadcastWorkshop))return;
     <legend>گیرندگان پیامک</legend>
     <p class="muted">برای کنار گذاشتن فرد از این پیام، تیک نام او را بردارید.</p>
     <input type="hidden" name="selection_present" value="1">
-    <div style="max-height:16rem;overflow:auto;display:grid;gap:.5rem">
+    <label class="label" for="broadcast-search-<?= e((string)$broadcastWorkshop['id']) ?>">جستجوی گیرنده با نام یا موبایل</label>
+    <input class="input" type="search" id="broadcast-search-<?= e((string)$broadcastWorkshop['id']) ?>" data-recipient-search autocomplete="off" placeholder="نام یا شماره موبایل را بنویسید">
+    <p class="muted" data-recipient-count aria-live="polite"></p>
+    <div class="broadcast-recipient-list">
     <?php
       $broadcastMembersQuery=$pdo->prepare("SELECT u.id,u.name,u.phone FROM workshop_enrollments e JOIN users u ON u.id=e.patient_id WHERE e.workshop_id=? AND e.status IN ('CONFIRMED','COMPLETED') AND COALESCE(u.is_disabled,0)=0 ORDER BY u.name,u.id");
       $broadcastMembersQuery->execute([(string)$broadcastWorkshop['id']]);
       foreach($broadcastMembersQuery->fetchAll() as $broadcastMember):
     ?>
-      <label style="display:flex;align-items:center;gap:.5rem"><input type="checkbox" name="selected[]" value="<?= e((string)$broadcastMember['id']) ?>" checked> <span><?= e((string)$broadcastMember['name']) ?></span> <bdi class="muted"><?= e((string)$broadcastMember['phone']) ?></bdi></label>
+      <label data-recipient-row hidden><input type="checkbox" name="selected[]" value="<?= e((string)$broadcastMember['id']) ?>" checked> <span><?= e((string)$broadcastMember['name']) ?></span> <bdi class="muted"><?= e((string)$broadcastMember['phone']) ?></bdi></label>
     <?php endforeach; ?>
     </div>
   </fieldset>
@@ -32,6 +35,6 @@ if(!workshop_can_add_member(current_user())||!isset($broadcastWorkshop))return;
 <?php
 if(empty($GLOBALS['workshopBroadcastLoaded'])) {
     $GLOBALS['workshopBroadcastLoaded']=true;
-    $GLOBALS['pageScripts']=($GLOBALS['pageScripts']??'').'<script src="'.e(url('/assets/js/workshop-broadcast.js')).'?v=20261020c" defer></script>';
+    $GLOBALS['pageScripts']=($GLOBALS['pageScripts']??'').'<script src="'.e(url('/assets/js/workshop-broadcast.js')).'?v=20261020search" defer></script>';
 }
 ?>

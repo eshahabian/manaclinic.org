@@ -8187,3 +8187,17 @@ html.is-native-app body:has([data-livekit-v2]:not([hidden])) .site-chrome-call {
 
 .wcard-tabs > input[id$="-presenters"]:checked ~ .wcard-tabbar label[for$="-presenters"] { background:var(--primary);border-color:var(--primary);color:#fff; }
 .wcard-tabs > input[id$="-presenters"]:checked ~ .wcard-panel-presenters { display:block; }
+
+/* Equal workshop controls: sixteen desktop actions in two rows. */
+.wcard-tabbar { grid-template-columns:repeat(8,minmax(0,1fr)); }
+.wcard-tabbar > label,.wcard-tabbar .workshop-card-actions .btn { height:2.25rem;min-height:2.25rem;white-space:nowrap;font-size:.68rem;padding:.2rem; }
+.wcard-tabbar .workshop-card-actions > form { display:flex;min-width:0;margin:0; }
+.wcard-tabs > input[id$="-summary"]:checked ~ .wcard-tabbar label[for$="-summary"] { background:var(--primary);border-color:var(--primary);color:#fff; }
+.wcard-tabs > input[id$="-summary"]:checked ~ .wcard-panel-summary { display:block; }
+.workshop-summary-grid { display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.75rem; }
+.workshop-summary-grid > div { padding:.75rem;border:1px solid var(--line);border-radius:.6rem; }
+.broadcast-recipient-list { display:grid;gap:.5rem;max-height:16rem;overflow:auto; }
+[data-recipient-row] { display:flex;align-items:center;gap:.5rem; }
+[data-recipient-row][hidden] { display:none!important; }
+@media(max-width:1000px){.wcard-tabbar{grid-template-columns:repeat(4,minmax(0,1fr));}}
+@media(max-width:540px){.wcard-tabbar{grid-template-columns:repeat(2,minmax(0,1fr));}.workshop-summary-grid{grid-template-columns:1fr;}}

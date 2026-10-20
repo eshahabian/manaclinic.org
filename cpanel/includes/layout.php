@@ -89,7 +89,7 @@ if ($user) {
   })();
   </script>
   <?= seo_render_head() ?>
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20261020workshop-presenters">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20261020workshop-summary">
   <link rel="stylesheet" href="<?= e(url('/assets/css/mana-look.css')) ?>?v=20260930b">
   <?php
     // آزمایش سبک حس روان‌تر — برای خاموش کردن: false
