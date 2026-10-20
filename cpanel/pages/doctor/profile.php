@@ -3,6 +3,10 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../includes/doctor_panel.php';
 $ctx = require_doctor_profile($pdo);
 $p = $ctx['profile'];
+$contactOwnerId = doctor_ctx_user_id($ctx);
+$contactQuery = $pdo->prepare('SELECT phone FROM users WHERE id=?');
+$contactQuery->execute([$contactOwnerId]);
+$contactPhone = (string) ($contactQuery->fetchColumn() ?: '');
 $incomplete = !doctor_profile_is_complete($p);
 $approaches = doctor_profile_filter_keys(doctor_profile_json_list($p['approaches_json'] ?? ''), doctor_approach_options());
 $domains = doctor_profile_filter_keys(doctor_profile_json_list($p['domains_json'] ?? ''), doctor_domain_options());
@@ -18,7 +22,7 @@ ob_start();
   <?php elseif ($incomplete): ?>
     <p class="doc-onboard-banner">برای ورود به بقیه پنل، این موارد را کامل کنید. همه فیلدها الزامی است.</p>
   <?php else: ?>
-    <p class="muted" style="margin-top:.35rem;line-height:1.7">همین اطلاعات در صفحه عمومی شما دیده می‌شود.</p>
+    <p class="muted" style="margin-top:.35rem;line-height:1.7">اطلاعات حرفه‌ای در صفحه عمومی شما دیده می‌شود؛ موبایل برای ارتباطات حساب است.</p>
   <?php endif; ?>
 
   <form class="doc-profile-form" method="post" action="<?= e(url(!empty($doctorProfileEmbedded) ? '/app/profile' : '/doctor/profile')) ?>" enctype="multipart/form-data">
@@ -40,6 +44,13 @@ ob_start();
           <p class="muted" style="font-size:.8rem;margin:.4rem 0 0">jpg، png یا webp — حداکثر ۵ مگابایت</p>
         </div>
       </div>
+    </section>
+
+    <section class="panel doc-profile-section">
+      <h2>اطلاعات تماس حساب</h2>
+      <label class="label" for="doctor-contact-phone">موبایل</label>
+      <input class="input" id="doctor-contact-phone" name="phone" type="tel" dir="ltr" inputmode="tel" autocomplete="tel" value="<?= e($contactPhone) ?>" required>
+      <p class="muted" style="font-size:.85rem;margin:.4rem 0 0">برای دریافت پیامک‌های حساب؛ شماره جدید نباید برای حساب دیگری ثبت شده باشد.</p>
     </section>
 
     <section class="panel doc-profile-section">
