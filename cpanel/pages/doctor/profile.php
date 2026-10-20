@@ -114,7 +114,10 @@ ob_start();
     <section class="panel doc-profile-section">
       <h2>هزینه جلسه</h2>
       <label class="label" for="session_price">تومان</label>
-      <input class="input" type="number" name="session_price" id="session_price" value="<?= e((string) ($p['session_price'] ?? 3000000)) ?>" required dir="ltr" min="1">
+      <div class="input" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;height:auto">
+        <input type="text" name="session_price" id="session_price" value="<?= e((string) ($p['session_price'] ?? 3000000)) ?>" required dir="ltr" inputmode="numeric" autocomplete="off" data-money style="flex:1 1 140px;width:140px;min-width:0;border:0;background:transparent;color:inherit;font:inherit;outline-offset:3px" aria-describedby="session-price-words">
+        <span id="session-price-words" data-money-words aria-live="polite" style="flex:1 1 180px;color:var(--muted, #64736c);font-size:.85rem;line-height:1.8"></span>
+      </div>
     </section>
 
     <button class="btn btn-primary" type="submit"><?= $incomplete && empty($doctorProfileEmbedded) ? 'ذخیره و ورود به پنل' : 'ذخیره' ?></button>
@@ -122,6 +125,7 @@ ob_start();
 </div>
 <?php
 $GLOBALS['pageScripts'] = ($GLOBALS['pageScripts'] ?? '') . '
+<script src="' . e(url('/assets/js/money-words.js')) . '?v=20261020"></script>
 <script>
 (function(){
   var input = document.getElementById("avatar");

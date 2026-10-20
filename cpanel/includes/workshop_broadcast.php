@@ -1,11 +1,11 @@
 <?php
 declare(strict_types=1);
 
-function workshop_broadcast_members(PDO $pdo, string $workshopId): array
+function workshop_broadcast_members(PDO $pdo, string $workshopId, ?array $selected = null): array
 {
     $q=$pdo->prepare("SELECT e.patient_id,u.phone FROM workshop_enrollments e JOIN users u ON u.id=e.patient_id WHERE e.workshop_id=? AND e.status IN ('CONFIRMED','COMPLETED') AND COALESCE(u.is_disabled,0)=0 ORDER BY e.patient_id");
     $q->execute([$workshopId]);$phones=[];$invalid=0;
-    foreach($q->fetchAll() as $row){$phone=sms_iran_mobile((string)$row['phone']);if($phone===null){$invalid++;continue;}$phones[$phone][]=(string)$row['patient_id'];}
+    foreach($q->fetchAll() as $row){if($selected!==null&&!in_array((string)$row['patient_id'],$selected,true))continue;$phone=sms_iran_mobile((string)$row['phone']);if($phone===null){$invalid++;continue;}$phones[$phone][]=(string)$row['patient_id'];}
     ksort($phones);return ['phones'=>$phones,'invalid'=>$invalid];
 }
 
