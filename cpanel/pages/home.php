@@ -63,7 +63,7 @@ ob_start();
 </aside>
 <?php endif; ?>
 
-<section class="container-page section">
+<section class="container-page section home-content">
       <?php if (function_exists('assistant_enabled') ? assistant_enabled() : true): ?>
       <a class="home-assistant-tile" style="margin-top:0;margin-bottom:3rem" href="<?= e(url('/assistant')) ?>">
         <span class="home-assistant-icon" aria-hidden="true">

@@ -1,0 +1,148 @@
+[
+  {
+    "width": 1365,
+    "before": [
+      {
+        "name": "home-workshop-banners",
+        "heading": 32,
+        "link": 20,
+        "description": [
+          [
+            16,
+            16
+          ]
+        ]
+      },
+      {
+        "name": "home-specialists-block",
+        "heading": 32,
+        "link": 20,
+        "description": [
+          [
+            16,
+            16
+          ]
+        ]
+      },
+      {
+        "name": "home-articles-block",
+        "heading": 32,
+        "link": 20,
+        "description": [
+          [
+            16,
+            16
+          ]
+        ]
+      }
+    ],
+    "after": [
+      {
+        "name": "home-workshop-banners",
+        "heading": 16,
+        "link": 10,
+        "description": [
+          [
+            8,
+            8
+          ]
+        ]
+      },
+      {
+        "name": "home-specialists-block",
+        "heading": 16,
+        "link": 10,
+        "description": [
+          [
+            8,
+            8
+          ]
+        ]
+      },
+      {
+        "name": "home-articles-block",
+        "heading": 16,
+        "link": 10,
+        "description": [
+          [
+            8,
+            8
+          ]
+        ]
+      }
+    ]
+  },
+  {
+    "width": 390,
+    "before": [
+      {
+        "name": "home-workshop-banners",
+        "heading": 32,
+        "link": 20,
+        "description": [
+          [
+            16,
+            16
+          ]
+        ]
+      },
+      {
+        "name": "home-specialists-block",
+        "heading": 32,
+        "link": 20,
+        "description": [
+          [
+            16,
+            16
+          ]
+        ]
+      },
+      {
+        "name": "home-articles-block",
+        "heading": 32,
+        "link": 20,
+        "description": [
+          [
+            16,
+            16
+          ]
+        ]
+      }
+    ],
+    "after": [
+      {
+        "name": "home-workshop-banners",
+        "heading": 16,
+        "link": 10,
+        "description": [
+          [
+            8,
+            8
+          ]
+        ]
+      },
+      {
+        "name": "home-specialists-block",
+        "heading": 16,
+        "link": 10,
+        "description": [
+          [
+            8,
+            8
+          ]
+        ]
+      },
+      {
+        "name": "home-articles-block",
+        "heading": 16,
+        "link": 10,
+        "description": [
+          [
+            8,
+            8
+          ]
+        ]
+      }
+    ]
+  }
+]

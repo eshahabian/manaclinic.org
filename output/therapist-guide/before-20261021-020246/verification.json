@@ -1,0 +1,18 @@
+{
+  "status": "PASS",
+  "order": [
+    "class=\"home-assistant-tile\"",
+    "id=\"home-workshop-heading\"",
+    "id=\"mana-guide-title\"",
+    "class=\"home-specialists-block\"",
+    "class=\"home-articles-block\""
+  ],
+  "doctors": 15,
+  "courses": 1,
+  "files": [
+    "assets/img/therapist-guide-cartoon-v2.webp",
+    "assets/css/therapist-guide.css",
+    "includes/home_therapist_guide.php",
+    "pages/home.php"
+  ]
+}
