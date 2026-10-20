@@ -43,7 +43,14 @@ function sms_template_tokens(string $kind): array
     $item = sms_template_catalog()[$kind] ?? null;
     if (!$item) return [];
     preg_match_all('/\{[a-z_]+\}/', $item[1], $matches);
-    return array_values(array_unique($matches[0]));
+    $tokens = $matches[0];
+    if (in_array($kind, ['appointment_booked', 'appointment_cancelled', 'appointment_reminder'], true)) {
+        $tokens = array_merge($tokens, ['{patient}', '{doctor}']);
+    }
+    if (in_array($kind, ['workshop_registered', 'workshop_reminder'], true)) {
+        $tokens = array_merge($tokens, ['{patient}', '{workshop}', '{place}']);
+    }
+    return array_values(array_unique($tokens));
 }
 
 function sms_template_error(string $kind, string $text): string
@@ -77,7 +84,7 @@ function sms_kind_recipient(string $kind): string
 
 function sms_template_sample_variables(): array
 {
-    return ['datetime'=>'۱۴۰۵/۰۷/۲۹ ۱۳:۰۰','patient'=>'مراجع نمونه','date'=>'۲۹ مهر','slots'=>'۱۰:۰۰، ۱۳:۰۰','code'=>'123456','message'=>'مانا کلینیک: این یک پیام نمونه برای بررسی متن است.'];
+    return ['datetime'=>'۱۴۰۵/۰۷/۲۹ ۱۳:۰۰','patient'=>'مراجع نمونه','doctor'=>'درمانگر نمونه','workshop'=>'کارگاه نمونه','place'=>'محل نمونه','date'=>'۲۹ مهر','slots'=>'۱۰:۰۰، ۱۳:۰۰','code'=>'123456','message'=>'مانا کلینیک: این یک پیام نمونه برای بررسی متن است.'];
 }
 
 /** Dynamic producers keep their original body by default; an override wraps {message}. */
@@ -109,7 +116,8 @@ function sms_template_render(PDO $pdo, string $kind, array $variables, ?string $
     $template=$draft ?? mail_setting_get($pdo,'sms_template_'.$kind,'');
     if(trim((string)$template)==='')$template=$catalog[$kind][1];
     $map=[];foreach($variables as $key=>$value)$map['{'.$key.'}']=trim((string)$value);
-    $body = trim(preg_replace('/\s+/u', ' ', strtr($template, $map)) ?? '');
+    $body = str_replace(["\r\n", "\r"], "\n", strtr($template, $map));
+    $body = trim(preg_replace('/[^\S\n]+/u', ' ', $body) ?? '');
     if (mb_strlen($body) > 500) {
         $body = mb_substr($body, 0, 497) . '…';
     }

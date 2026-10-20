@@ -17,6 +17,22 @@ ob_start();
 <p><?php if (!empty($smsControlsApp)): ?><a href="<?= e(url('/app')) ?>">برگشت به خانه برنامه</a><?php else: ?><a href="<?= e(url('/admin/sms-settings')) ?>">تنظیمات اتصال پیامک</a><?php endif; ?> · <?= sms_connection_ready($pdo) ? 'اتصال ارسال فعال است' : 'اتصال ارسال غیرفعال است؛ تست هم ارسال نمی‌شود' ?></p>
 <p class="muted">تغییر متن روی پیام‌های جدید اعمال می‌شود. غیرفعال‌کردن، پیام‌های در انتظار همان نوع را هم متوقف می‌کند؛ پیام تحویل‌شده به سرویس قابل پس‌گرفتن نیست. فعال‌کردن دوباره پیام‌های متوقف‌شده را ارسال نمی‌کند.</p>
 <p class="muted">برای تست، شماره دلخواه را در همان کارت بنویسید. متن داخل کادر با اطلاعات نمونه ارسال می‌شود، حتی اگر ارسال خودکار آن نوع خاموش باشد. تست، تغییرات را ذخیره نمی‌کند و هیچ نوبتی را ثبت یا لغو نمی‌کند.</p>
+<section class="panel" aria-labelledby="sms-writing-help">
+  <h2 id="sms-writing-help">راهنمای نوشتن متن پیامک</h2>
+  <ul>
+    <li>برای رفتن به خط بعد، داخل کادر متن کلید Enter یا دکمه خط بعدِ صفحه‌کلید گوشی را بزنید. برای قرارگرفتن «مسیح» در خط بعد، قبل از آن Enter بزنید. نوشتن <code dir="ltr">\n</code> یا <code dir="ltr">&lt;br&gt;</code> دستور خط بعد نیست.</li>
+    <li>برای آوردن نام مراجع، عبارت <code dir="ltr">{patient}</code> را دقیقاً با حروف انگلیسی و آکولاد بنویسید؛ هنگام ارسال با نام ثبت‌شده مراجع جایگزین می‌شود. این متغیر فقط در کارت‌هایی قابل استفاده است که آن را در «متغیرهای مجاز» نشان می‌دهند.</li>
+    <li><code dir="ltr">{datetime}</code>: تاریخ و ساعت؛ <code dir="ltr">{doctor}</code>: نام درمانگر؛ <code dir="ltr">{workshop}</code>: نام کارگاه؛ <code dir="ltr">{place}</code>: محل کارگاه.</li>
+    <li><code dir="ltr">{date}</code>: روز خلاصه نوبت‌ها؛ <code dir="ltr">{slots}</code>: ساعت نوبت‌ها؛ <code dir="ltr">{code}</code>: کد ورود؛ <code dir="ltr">{message}</code>: متن ساخته‌شده برای رویداد. فقط از متغیرهای مجاز همان کارت استفاده کنید. نام متغیر را فارسی نکنید.</li>
+    <li>متن معمولی عیناً ارسال می‌شود؛ نام ثابت «مسیح» همیشه همان نام می‌ماند. برای نام هر مراجع از متغیر استفاده کنید. HTML، رنگ و دستورات قالب‌بندی پشتیبانی نمی‌شوند.</li>
+    <li>کادر متن حداکثر ۵۰۰ نویسه دارد؛ نام‌ها و اطلاعات جایگزین‌شده هم به طول نهایی اضافه می‌شوند و متن نهایی بیش از ۵۰۰ نویسه کوتاه می‌شود. پذیرش این طول توسط سرویس پیامک تضمین نمی‌شود.</li>
+  </ul>
+  <p><strong>نمونه برای پیام نوبت مراجع:</strong> این متن را می‌توانید در کارت ثبت، لغو یا یادآوری نوبت بنویسید و جمله آخر را متناسب با نوع پیام تغییر دهید.</p>
+  <pre dir="rtl" style="white-space:pre-wrap;overflow-wrap:anywhere;font-family:inherit">مانا کلینیک
+{patient} عزیز
+نوبت شما: {datetime}</pre>
+  <p class="muted">پیش‌نمایش هر کارت با اطلاعات ساختگی به‌روز می‌شود؛ پیش از ذخیره، جای نام‌ها و خط‌های متن را در آن بررسی کنید. ذخیره، متن پیام‌های قبلاً واردشده به صف را تغییر نمی‌دهد.</p>
+</section>
 <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,340px),1fr));gap:1rem;align-items:start">
 <?php foreach ($catalog as $kind => $item):
     $saved = mail_setting_get($pdo, 'sms_template_'.$kind, '');
@@ -36,7 +52,7 @@ ob_start();
     <?php if ($copy): ?><small>برای تغییر متن کپی، پیام اصلی درمانگر را ویرایش کنید.</small><?php endif; ?>
     <small>متغیرهای مجاز: <bdi dir="ltr"><?= e(implode(' / ', sms_template_tokens($kind))) ?></bdi></small>
     <?php if (in_array('{message}', sms_template_tokens($kind), true)): ?><small>متغیر {message} متن واقعی ساخته‌شده از اطلاعات رویداد است؛ نمونه زیر صرفاً برای تست است.</small><?php endif; ?>
-    <details><summary>متن پیش‌فرض</summary><p style="overflow-wrap:anywhere"><?= e($item[1]) ?></p></details>
+    <details><summary>متن پیش‌فرض</summary><p style="white-space:pre-wrap;overflow-wrap:anywhere"><?= e($item[1]) ?></p></details>
     <strong>پیش‌نمایش با اطلاعات نمونه</strong>
     <p data-sms-preview style="white-space:pre-wrap;overflow-wrap:anywhere;background:#f4f7f7;padding:.75rem;border-radius:.6rem"><?= e(sms_template_render($pdo, $kind, $samples, $text)) ?></p>
     <button type="submit" name="action" value="save_sms_template" class="btn btn-primary">ذخیره متن و وضعیت</button>
@@ -53,7 +69,7 @@ ob_start();
   <?php foreach ($recent as $job): ?>
   <article style="padding:.75rem 0;border-bottom:1px solid #ddd">
     <strong dir="ltr"><?= e($job['phone']) ?></strong> · <?= e(sms_status_label($job['status'])) ?> · <?= e(format_fa_datetime($job['created_at'])) ?>
-    <p style="overflow-wrap:anywhere"><?= e($job['body']) ?></p>
+    <p style="white-space:pre-wrap;overflow-wrap:anywhere"><?= e($job['body']) ?></p>
     <?php if (!empty($job['last_error'])): ?><p class="muted"><?= e($job['last_error']) ?></p><?php endif; ?>
   </article>
   <?php endforeach; ?>
@@ -68,7 +84,7 @@ ob_start();
     text.addEventListener('input', function () {
       let value = text.value.trim() || defaults[form.elements.kind.value];
       value = value.replace(/\{([a-z_]+)\}/g, function (token, name) { return samples[name] === undefined ? token : samples[name]; });
-      value = value.replace(/\s+/g, ' ').trim();
+      value = value.replace(/\r\n?/g, '\n').replace(/[^\S\n]+/gu, ' ').trim();
       preview.textContent = Array.from(value).length > 500 ? Array.from(value).slice(0, 497).join('') + '…' : value;
     });
     form.addEventListener('submit', function (event) {
