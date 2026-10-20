@@ -10,3 +10,8 @@
 .home-content .home-specialists-block .therapists-all-link,
 .home-content .home-articles-block .therapists-all-link { margin-bottom: .625rem; }
 .mana-guide-art img { display: block; width: 100%; height: auto; }
+/* A drawn speech cloud keeps the Persian lettering crisp at every size. */
+.mana-guide-question { position: relative; width: min(100%, 27rem); margin: 0 auto -.5rem; filter: drop-shadow(0 8px 12px rgba(35, 75, 55, .06)); }
+.mana-guide-art .mana-guide-question-shape { display: block; width: 100%; height: auto; overflow: visible; }
+.mana-guide-question-text { position: absolute; inset: 26% 15% auto; text-align: center; color: #2d5744; font-size: clamp(.9rem, 1.2vw, 1.05rem); font-weight: 600; line-height: 1.95; }
+@media (max-width: 700px) { .mana-guide-question { width: min(100%, 24rem); } .mana-guide-question-text { font-size: clamp(.85rem, 4vw, 1rem); } }
