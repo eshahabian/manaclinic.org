@@ -8,6 +8,9 @@ require_once __DIR__ . '/../includes/notifications.php';
 $user = require_login(['SECRETARY']);
 ensure_workshop_schema($pdo);
 ensure_workshop_media_schema($pdo);
+require_once __DIR__.'/../includes/workshop_presenters.php';
+workshop_presenters_schema($pdo);
+ensure_outreach_schema($pdo);
 $action = post('action');
 $workshopBase = '/secretary/workshops';
 if ($action === 'save_presenters') require __DIR__.'/workshop_presenters_save.php';
@@ -75,6 +78,7 @@ if ($action === 'create') {
 
         workshop_save_sessions_and_media($pdo, $id, $data, null);
         workshop_store_banner_from_request($pdo, $id);
+        if(workshop_can_add_member(current_user())&&isset($_POST['presenters_present']))workshop_presenters_save($pdo,$id,(array)($_POST['presenters']??[]));
         $pdo->prepare('UPDATE workshops SET created_by_user_id=?, updated_by_user_id=? WHERE id=?')
             ->execute([$user['id'], $user['id'], $id]);
         db_commit($pdo);
@@ -187,6 +191,7 @@ if ($action === 'update') {
         ]);
         workshop_save_sessions_and_media($pdo, $id, $data, null);
         workshop_store_banner_from_request($pdo, $id);
+        if(workshop_can_add_member(current_user())&&isset($_POST['presenters_present']))workshop_presenters_save($pdo,$id,(array)($_POST['presenters']??[]));
         $pdo->prepare('UPDATE workshops SET updated_by_user_id=? WHERE id=?')
             ->execute([$user['id'], $id]);
         db_commit($pdo);

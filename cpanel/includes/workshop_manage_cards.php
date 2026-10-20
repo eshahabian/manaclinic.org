@@ -110,6 +110,7 @@ $doctorPathBoardById = $doctorPathBoardById ?? [];
           <?php endif; ?>
           <?php if(workshop_can_add_member(current_user())): ?>
             <input type="radio" name="<?= e($tabName) ?>" id="<?= e($tabName) ?>-broadcast">
+            <input type="radio" name="<?= e($tabName) ?>" id="<?= e($tabName) ?>-presenters">
           <?php endif; ?>
           <div class="wcard-tabbar">
             <label for="<?= e($tabName) ?>-files">فایل جلسات</label>
@@ -120,6 +121,7 @@ $doctorPathBoardById = $doctorPathBoardById ?? [];
             <label for="<?= e($tabName) ?>-info">جزئیات</label>
             <?php if(workshop_can_add_member(current_user())): ?>
               <label for="<?= e($tabName) ?>-broadcast">پیامک گروهی</label>
+              <label for="<?= e($tabName) ?>-presenters">اجراکنندگان کارگاه</label>
             <?php endif; ?>
             <?php if ($canAddMemberHere): ?>
               <label for="<?= e($tabName) ?>-member">اضافه کردن عضو</label>
@@ -177,6 +179,11 @@ $doctorPathBoardById = $doctorPathBoardById ?? [];
           <?php if(workshop_can_add_member(current_user())): ?>
             <div class="wcard-panel wcard-panel-broadcast">
               <?php $broadcastWorkshop=$workshop;require __DIR__.'/workshop_broadcast_form.php'; ?>
+            </div>
+          <?php endif; ?>
+          <?php if(workshop_can_add_member(current_user())): ?>
+            <div class="wcard-panel wcard-panel-presenters">
+              <?php $presenterWorkshop=$workshop;$presenterPostBase=$workshopPostBase;$presenterInline=true;require __DIR__.'/workshop_presenters_form.php';$presenterInline=false; ?>
             </div>
           <?php endif; ?>
           <div class="wcard-panel wcard-panel-files">
@@ -258,7 +265,6 @@ $doctorPathBoardById = $doctorPathBoardById ?? [];
             <?php endif; ?>
           </div>
         </div>
-        <?php $presenterWorkshop=$workshop;$presenterPostBase=$workshopPostBase;require __DIR__.'/workshop_presenters_form.php'; ?>
     </article>
     <?php endforeach; ?>
   </div>

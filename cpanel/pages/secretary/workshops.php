@@ -254,6 +254,7 @@ ob_start();
     </select>
   </div>
 
+  <?php $presenterEditWorkshop=$editWorkshop;require __DIR__.'/../../includes/workshop_presenters_fields.php'; ?>
   <div><label class="label">نام کارگاه</label><input class="input" name="title" required value="<?= e($formData['title'] ?? '') ?>"></div>
   <div>
     <label class="label">نوع</label>

@@ -8,6 +8,9 @@ require_once __DIR__ . '/../includes/workshop_media.php';
 $ctx = require_doctor_profile($pdo);
 ensure_workshop_schema($pdo);
 ensure_workshop_media_schema($pdo);
+require_once __DIR__.'/../includes/workshop_presenters.php';
+workshop_presenters_schema($pdo);
+ensure_outreach_schema($pdo);
 $action = post('action');
 $workshopBase = '/doctor/workshops';
 if ($action === 'save_presenters') require __DIR__.'/workshop_presenters_save.php';
@@ -62,6 +65,7 @@ if ($action === 'create') {
 
         workshop_save_sessions_and_media($pdo, $id, $data, $ctx['profile']['id']);
         workshop_store_banner_from_request($pdo, $id);
+        if(workshop_can_add_member(current_user())&&isset($_POST['presenters_present']))workshop_presenters_save($pdo,$id,(array)($_POST['presenters']??[]));
 
         db_commit($pdo);
         $queueOutreach = !empty($_POST['notify_outreach']);
@@ -154,6 +158,7 @@ if ($action === 'update') {
 
         workshop_save_sessions_and_media($pdo, $id, $data, $ctx['profile']['id']);
         workshop_store_banner_from_request($pdo, $id);
+        if(workshop_can_add_member(current_user())&&isset($_POST['presenters_present']))workshop_presenters_save($pdo,$id,(array)($_POST['presenters']??[]));
 
         db_commit($pdo);
     } catch (Throwable $e) {

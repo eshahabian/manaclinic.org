@@ -1,0 +1,326 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/../includes/workshops.php';
+require_once __DIR__ . '/../includes/workshop_media.php';
+require_once __DIR__ . '/../includes/notifications.php';
+
+$user = require_login(['SECRETARY']);
+ensure_workshop_schema($pdo);
+ensure_workshop_media_schema($pdo);
+$action = post('action');
+$workshopBase = '/secretary/workshops';
+if ($action === 'save_presenters') require __DIR__.'/workshop_presenters_save.php';
+
+function secretary_resolve_doctor_id(PDO $pdo, string $doctorId): array
+{
+    if ($doctorId === '') {
+        throw new RuntimeException('درمانگر را انتخاب کنید.');
+    }
+    $stmt = $pdo->prepare("
+      SELECT dp.id, u.name
+      FROM doctor_profiles dp
+      JOIN users u ON u.id = dp.user_id
+      WHERE dp.id = ? AND dp.is_approved = 1 AND dp.is_active = 1
+      LIMIT 1
+    ");
+    $stmt->execute([$doctorId]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        throw new RuntimeException('درمانگر معتبر نیست.');
+    }
+    return $row;
+}
+
+if ($action === 'create') {
+    try {
+        $data = workshop_save_fields_from_post();
+        $doctor = secretary_resolve_doctor_id($pdo, post('doctor_id'));
+    } catch (RuntimeException $e) {
+        flash_set('error', $e->getMessage());
+        redirect($workshopBase);
+    }
+
+    $id = cuid();
+    $queueOutreach = false;
+    try {
+        $pdo->beginTransaction();
+        $pdo->prepare('
+          INSERT INTO workshops
+            (id, doctor_id, title, type, session_interval, starts_at, ends_at, items_to_bring, notes, description, price, capacity, location, location_lat, location_lng, meeting_url, content_url, group_url, is_published, enrollment_open, status)
+          VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)
+        ')->execute([
+            $id,
+            $doctor['id'],
+            $data['title'],
+            $data['type'],
+            $data['session_interval'],
+            $data['starts_at'],
+            $data['ends_at'],
+            $data['items_to_bring'],
+            $data['notes'],
+            $data['description'],
+            $data['price'],
+            $data['capacity'],
+            $data['location'],
+            $data['location_lat'],
+            $data['location_lng'],
+            $data['meeting_url'],
+            $data['content_url'],
+            $data['group_url'],
+            1,
+            1,
+            'PUBLISHED',
+        ]);
+
+        workshop_save_sessions_and_media($pdo, $id, $data, null);
+        workshop_store_banner_from_request($pdo, $id);
+        $pdo->prepare('UPDATE workshops SET created_by_user_id=?, updated_by_user_id=? WHERE id=?')
+            ->execute([$user['id'], $user['id'], $id]);
+        db_commit($pdo);
+        staff_log_action($pdo, (string) $user['id'], 'workshop_create', 'workshop', $id);
+        $queueOutreach = !empty($_POST['notify_outreach']);
+    } catch (Throwable $e) {
+        if (!workshop_save_caught($pdo, $e)) {
+            redirect($workshopBase);
+        }
+    }
+
+    if ($queueOutreach && function_exists('outreach_queue_workshop')) {
+        try {
+            outreach_queue_workshop($pdo, (string) $data['title'], (string) $data['starts_at']);
+        } catch (Throwable $ignored) {
+        }
+    }
+
+    $creatorName = (string) ($user['name'] ?? 'منشی');
+    workshop_notify_doctors(
+        $pdo,
+        $creatorName,
+        $data['title'],
+        $data['type'],
+        $data['starts_at'],
+        null,
+        (string) $doctor['name']
+    );
+    workshop_notify_patients(
+        $pdo,
+        $id,
+        $data['title'],
+        $data['type'],
+        $data['starts_at'],
+        (string) ($user['id'] ?? '')
+    );
+    notify_doctor_profile(
+        $pdo,
+        (string) $doctor['id'],
+        'کارگاه جدید برای شما',
+        staff_actor_label($user) . " کارگاه «{$data['title']}» را به نام شما ثبت کرد.",
+        '/doctor/workshops',
+        'workshop'
+    );
+    notify_role(
+        $pdo,
+        'SECRETARY',
+        'کارگاه جدید',
+        staff_actor_label($user) . " کارگاه «{$data['title']}» را ثبت کرد.",
+        '/secretary/workshops',
+        'workshop'
+    );
+
+    flash_set('success', 'کارگاه ایجاد شد. فایل هر جلسه را از ویرایش کارگاه بارگذاری کنید.');
+    redirect($workshopBase . '?edit=' . urlencode($id));
+}
+
+if ($action === 'update') {
+    $id = post('id');
+    if ($id === '') {
+        flash_set('error', 'کارگاه یافت نشد.');
+        redirect($workshopBase);
+    }
+    $existing = $pdo->prepare('SELECT id, status FROM workshops WHERE id=? LIMIT 1');
+    $existing->execute([$id]);
+    $row = $existing->fetch();
+    if (!$row) {
+        flash_set('error', 'کارگاه یافت نشد.');
+        redirect($workshopBase);
+    }
+    if (in_array($row['status'], ['COMPLETED', 'CANCELLED'], true)) {
+        flash_set('error', 'کارگاه برگزار شده یا لغو شده قابل ویرایش نیست.');
+        redirect($workshopBase . '?edit=' . urlencode($id));
+    }
+
+    try {
+        $data = workshop_save_fields_from_post();
+        $doctor = secretary_resolve_doctor_id($pdo, post('doctor_id'));
+    } catch (RuntimeException $e) {
+        flash_set('error', $e->getMessage());
+        redirect($workshopBase . '?edit=' . urlencode($id));
+    }
+
+    try {
+        $pdo->beginTransaction();
+        $pdo->prepare('
+          UPDATE workshops SET
+            doctor_id=?, title=?, type=?, session_interval=?, starts_at=?, ends_at=?, items_to_bring=?, notes=?, description=?,
+            price=?, capacity=?, location=?, location_lat=?, location_lng=?, meeting_url=?, content_url=?, group_url=?
+          WHERE id=?
+        ')->execute([
+            $doctor['id'],
+            $data['title'],
+            $data['type'],
+            $data['session_interval'],
+            $data['starts_at'],
+            $data['ends_at'],
+            $data['items_to_bring'],
+            $data['notes'],
+            $data['description'],
+            $data['price'],
+            $data['capacity'],
+            $data['location'],
+            $data['location_lat'],
+            $data['location_lng'],
+            $data['meeting_url'],
+            $data['content_url'],
+            $data['group_url'],
+            $id,
+        ]);
+        workshop_save_sessions_and_media($pdo, $id, $data, null);
+        workshop_store_banner_from_request($pdo, $id);
+        $pdo->prepare('UPDATE workshops SET updated_by_user_id=? WHERE id=?')
+            ->execute([$user['id'], $id]);
+        db_commit($pdo);
+        staff_log_action($pdo, (string) $user['id'], 'workshop_update', 'workshop', $id);
+    } catch (Throwable $e) {
+        if (!workshop_save_caught($pdo, $e)) {
+            redirect($workshopBase . '?edit=' . urlencode($id));
+        }
+    }
+
+    flash_set('success', 'تغییرات کارگاه ذخیره شد.');
+    redirect($workshopBase);
+}
+
+if ($action === 'mark_paid') {
+    $enrollmentId = post('enrollment_id');
+    try {
+        workshop_mark_paid_by_staff(
+            $pdo,
+            $enrollmentId,
+            (string) $user['id'],
+            staff_actor_label($user),
+            $_FILES['receipt'] ?? []
+        );
+        staff_log_action($pdo, (string) $user['id'], 'workshop_mark_paid', 'enrollment', $enrollmentId);
+        flash_set('success', 'پرداخت با فیش ثبت شد. برای ورود به «دوره‌های من»، عضویت را جداگانه تأیید کنید.');
+    } catch (RuntimeException $e) {
+        flash_set('error', $e->getMessage());
+    }
+    $next = trim((string) ($_POST['next'] ?? ''));
+    if ($next !== '' && str_starts_with($next, '/secretary')) {
+        redirect($next);
+    }
+    redirect($workshopBase);
+}
+
+if ($action === 'approve_enrollment') {
+    try {
+        workshop_approve_enrollment_by_staff($pdo, post('enrollment_id'), (string) $user['id'], staff_actor_label($user));
+        flash_set('success', 'عضویت تأیید شد و کارگاه به «دوره‌های من» مراجعه‌کننده منتقل شد.');
+    } catch (RuntimeException $e) {
+        flash_set('error', $e->getMessage());
+    }
+    redirect($workshopBase);
+}
+
+if ($action === 'enroll') {
+    $workshopId = post('workshop_id');
+    $patientId = post('patient_id');
+    try {
+        workshop_enroll_by_staff(
+            $pdo,
+            $workshopId,
+            $patientId,
+            (string) $user['id'],
+            staff_actor_label($user)
+        );
+        staff_log_action($pdo, (string) $user['id'], 'workshop_enroll', 'workshop', $workshopId);
+        flash_set('success', 'ورودی کارگاه ثبت شد و برای همه منشی‌ها نمایش داده می‌شود.');
+    } catch (RuntimeException $e) {
+        flash_set('error', $e->getMessage());
+    }
+    redirect($workshopBase . '?tab=enroll');
+}
+
+$id = post('id');
+if ($id === '') {
+    redirect($workshopBase);
+}
+
+$exists = $pdo->prepare('SELECT id FROM workshops WHERE id=?');
+$exists->execute([$id]);
+if (!$exists->fetch()) {
+    flash_set('error', 'کارگاه یافت نشد.');
+    redirect($workshopBase);
+}
+
+if ($action === 'toggle') {
+    $row = $pdo->prepare('SELECT is_published, title, type, starts_at, doctor_id FROM workshops WHERE id=?');
+    $row->execute([$id]);
+    $workshopRow = $row->fetch();
+    $pub = !(bool) $workshopRow['is_published'];
+    $pdo->prepare('UPDATE workshops SET is_published=?, status=?, updated_by_user_id=? WHERE id=?')
+        ->execute([$pub ? 1 : 0, $pub ? 'PUBLISHED' : 'DRAFT', $user['id'], $id]);
+    staff_log_action($pdo, (string) $user['id'], $pub ? 'workshop_publish' : 'workshop_unpublish', 'workshop', $id);
+    if ($pub) {
+        $docName = $pdo->prepare('SELECT u.name FROM doctor_profiles dp JOIN users u ON u.id=dp.user_id WHERE dp.id=?');
+        $docName->execute([$workshopRow['doctor_id']]);
+        workshop_notify_doctors(
+            $pdo,
+            (string) ($user['name'] ?? 'منشی'),
+            (string) $workshopRow['title'],
+            (string) $workshopRow['type'],
+            (string) $workshopRow['starts_at'],
+            null,
+            (string) ($docName->fetchColumn() ?: '')
+        );
+        workshop_notify_patients(
+            $pdo,
+            $id,
+            (string) $workshopRow['title'],
+            (string) $workshopRow['type'],
+            (string) $workshopRow['starts_at'],
+            (string) ($user['id'] ?? '')
+        );
+    }
+    flash_set('success', $pub ? 'کارگاه منتشر شد.' : 'انتشار لغو شد.');
+} elseif ($action === 'toggle_enrollment') {
+    $row = $pdo->prepare('SELECT enrollment_open, closed_at, status FROM workshops WHERE id=?');
+    $row->execute([$id]);
+    $workshopRow = $row->fetch() ?: [];
+    if (workshop_is_closed($workshopRow) || (string) ($workshopRow['status'] ?? '') === 'COMPLETED') {
+        flash_set('error', 'این مورد تمام شده و ثبت‌نامش باز نمی‌شود.');
+        redirect($workshopBase);
+    }
+    $open = !((int) ($workshopRow['enrollment_open'] ?? 0));
+    $pdo->prepare('UPDATE workshops SET enrollment_open=?, updated_by_user_id=? WHERE id=?')->execute([$open ? 1 : 0, $user['id'], $id]);
+    staff_log_action($pdo, (string) $user['id'], $open ? 'workshop_enroll_open' : 'workshop_enroll_close', 'workshop', $id);
+    flash_set('success', $open ? 'ثبت‌نام باز شد.' : 'ثبت‌نام بسته شد.');
+} elseif ($action === 'close') {
+    try {
+        $closed = workshop_close_early($pdo, $id, (string) ($user['id'] ?? ''));
+        staff_log_action($pdo, (string) $user['id'], 'workshop_close', 'workshop', $id);
+        $doneLabel = workshop_is_offline((string) ($closed['type'] ?? '')) ? 'دوره' : 'کارگاه';
+        flash_set('success', $doneLabel . ' تمام شد. ثبت‌نام جدید بسته است و در آرشیو می‌ماند.');
+        redirect($workshopBase . '?tab=archive');
+    } catch (RuntimeException $e) {
+        flash_set('error', $e->getMessage());
+        redirect($workshopBase);
+    }
+} elseif ($action === 'delete') {
+    $pdo->prepare('DELETE FROM workshops WHERE id=?')->execute([$id]);
+    staff_log_action($pdo, (string) $user['id'], 'workshop_delete', 'workshop', $id);
+    flash_set('success', 'کارگاه حذف شد.');
+}
+
+redirect($workshopBase);

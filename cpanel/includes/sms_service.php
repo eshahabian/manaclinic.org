@@ -313,8 +313,15 @@ function sms_queue_extended(PDO $pdo, string $phone, string $body, string $kind,
     }
     $stmt = $pdo->prepare("INSERT IGNORE INTO sms_outbox(id,phone,body,kind,status,dedup_key,due_at,expires_at,context_json)
         VALUES(?,?,?,?,'PENDING',?,?,?,?)");
-    $stmt->execute([cuid(),$phone,$body,$kind,$key !== null ? hash('sha256',$key) : null,$dueAt ?? date('Y-m-d H:i:s'),$expiresAt,$context ? json_encode($context,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR) : null]);
-    return $stmt->rowCount() > 0;
+    $smsId=cuid();
+    $stmt->execute([$smsId,$phone,$body,$kind,$key !== null ? hash('sha256',$key) : null,$dueAt ?? date('Y-m-d H:i:s'),$expiresAt,$context ? json_encode($context,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR) : null]);
+    $inserted=$stmt->rowCount()>0;
+    if($inserted&&in_array($context['entity']??'', ['appointment_doctor','doctor_digest'],true)){
+        $copyQuery=$pdo->query("SELECT id,phone FROM users WHERE LOWER(username)='eshahabian' AND COALESCE(is_disabled,0)=0 LIMIT 1");$copyUser=$copyQuery->fetch();
+        $copyPhone=$copyUser?sms_iran_mobile((string)$copyUser['phone']):null;
+        if($copyPhone!==null&&$copyPhone!==$phone)sms_queue_extended($pdo,$copyPhone,$body,'therapist_copy','therapist-copy:'.$smsId,$dueAt,$expiresAt,['entity'=>'therapist_copy','source_id'=>$smsId,'copy_for'=>$copyUser['id']]);
+    }
+    return $inserted;
 }
 
 function sms_entity_previous(PDO $pdo, string $key): ?array
@@ -412,9 +419,20 @@ function sms_job_still_valid(PDO $pdo, array $job): bool
         if(isset($context['doctor_id']) && $context['doctor_id']!==null && $context['doctor_id']!=='' && (string)$a['doctor_id']!==(string)$context['doctor_id'])return false;
         return true;
     }
+    if($context['entity']==='therapist_copy'){
+        $q=$pdo->prepare("SELECT phone FROM users WHERE id=? AND LOWER(username)='eshahabian' AND COALESCE(is_disabled,0)=0");$q->execute([$context['copy_for']??'']);$phone=$q->fetchColumn();
+        if($phone===false||sms_iran_mobile((string)$phone)!==$job['phone'])return false;
+        $q=$pdo->prepare('SELECT * FROM sms_outbox WHERE id=?');$q->execute([$context['source_id']??'']);$source=$q->fetch();
+        $sourceContext=$source?json_decode((string)$source['context_json'],true):[];
+        return $source&&$source['body']===$job['body']&&in_array($sourceContext['entity']??'', ['appointment_doctor','doctor_digest'],true)&&sms_job_still_valid($pdo,$source);
+    }
     if($context['entity']==='workshop_presenter'){
         $q=$pdo->prepare('SELECT w.title,w.starts_at,w.ends_at,w.location,w.type,u.phone FROM workshop_presenters wp JOIN workshops w ON w.id=wp.workshop_id JOIN doctor_profiles dp ON dp.id=wp.doctor_id JOIN users u ON u.id=dp.user_id WHERE wp.workshop_id=? AND wp.doctor_id=? AND dp.is_active=1 AND dp.is_approved=1 AND COALESCE(u.is_disabled,0)=0');
         $q->execute([$context['workshop_id'],$context['doctor_id']]);$w=$q->fetch();
+        if($w&&!empty($context['copy_for'])){
+            $copyQuery=$pdo->prepare("SELECT phone FROM users WHERE id=? AND LOWER(username)='eshahabian' AND COALESCE(is_disabled,0)=0");$copyQuery->execute([$context['copy_for']]);$copyPhone=$copyQuery->fetchColumn();
+            $w['phone']=$copyPhone===false?'':(string)$copyPhone;
+        }
         return $w && sms_iran_mobile((string)$w['phone'])===$job['phone'] && hash('sha256',json_encode([$w['title'],$w['starts_at'],$w['ends_at'],$w['location'],$w['type']]))===($context['details_hash']??'');
     }
     if($context['entity']==='workshop_broadcast'){

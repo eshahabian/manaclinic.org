@@ -20,6 +20,7 @@ function workshop_presenter_message(array $workshop, string $name): string
 
 function workshop_presenters_schema(PDO $pdo): void
 {
+    static $ready=false; if($ready)return;
     $pdo->exec("CREATE TABLE IF NOT EXISTS workshop_presenters (
       workshop_id VARCHAR(32) NOT NULL, doctor_id VARCHAR(32) NOT NULL,
       assigned_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -27,19 +28,20 @@ function workshop_presenters_schema(PDO $pdo): void
       FOREIGN KEY(workshop_id) REFERENCES workshops(id) ON DELETE CASCADE,
       FOREIGN KEY(doctor_id) REFERENCES doctor_profiles(id) ON DELETE CASCADE
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $ready=true;
 }
 
 function workshop_presenters_save(PDO $pdo, string $workshopId, array $ids): void
 {
-    workshop_presenters_schema($pdo);
+    if(!$pdo->inTransaction())workshop_presenters_schema($pdo);
     $ids = array_values(array_unique(array_filter(array_map('strval', $ids))));
     if (!$ids) throw new RuntimeException('حداقل یک اجراکننده انتخاب کنید.');
     $marks = implode(',', array_fill(0, count($ids), '?'));
     $q = $pdo->prepare("SELECT dp.id,u.name,u.phone FROM doctor_profiles dp JOIN users u ON u.id=dp.user_id WHERE dp.id IN ($marks) AND dp.is_active=1 AND dp.is_approved=1 AND COALESCE(u.is_disabled,0)=0");
     $q->execute($ids); $doctors = $q->fetchAll();
     if (count($doctors) !== count($ids)) throw new RuntimeException('درمانگر انتخاب‌شده معتبر نیست.');
-    ensure_outreach_schema($pdo);
-    $pdo->beginTransaction();
+    $ownsTransaction=!$pdo->inTransaction();
+    if($ownsTransaction){ensure_outreach_schema($pdo);$pdo->beginTransaction();}
     try {
         $q=$pdo->prepare('SELECT * FROM workshops WHERE id=? FOR UPDATE');$q->execute([$workshopId]);$workshop=$q->fetch();
         if (!$workshop) throw new RuntimeException('کارگاه پیدا نشد.');
@@ -51,8 +53,14 @@ function workshop_presenters_save(PDO $pdo, string $workshopId, array $ids): voi
             $body=workshop_presenter_message($workshop,(string)$doctor['name']);
             $pdo->prepare('INSERT INTO workshop_presenters(workshop_id,doctor_id) VALUES (?,?)')->execute([$workshopId,$doctor['id']]);
             sms_queue_extended($pdo,$phone,$body,'workshop_presenter','workshop-presenter:'.cuid(),null,date('Y-m-d H:i:s',time()+86400),['entity'=>'workshop_presenter','workshop_id'=>$workshopId,'doctor_id'=>$doctor['id'],'details_hash'=>hash('sha256',json_encode([$workshop['title'],$workshop['starts_at'],$workshop['ends_at'],$workshop['location'],$workshop['type']]))]);
+            $copyQuery=$pdo->query("SELECT id,phone FROM users WHERE LOWER(username)='eshahabian' AND COALESCE(is_disabled,0)=0 LIMIT 1");$copyUser=$copyQuery->fetch();
+            $copyPhone=$copyUser?sms_iran_mobile((string)$copyUser['phone']):null;
+            if($copyPhone!==null&&$copyPhone!==$phone){
+                sms_queue_extended($pdo,$copyPhone,$body,'workshop_presenter_copy','workshop-presenter-copy:'.cuid(),null,date('Y-m-d H:i:s',time()+86400),['entity'=>'workshop_presenter','workshop_id'=>$workshopId,'doctor_id'=>$doctor['id'],'copy_for'=>$copyUser['id'],'details_hash'=>hash('sha256',json_encode([$workshop['title'],$workshop['starts_at'],$workshop['ends_at'],$workshop['location'],$workshop['type']]))]);
+            }
+
         }
         $pdo->prepare("DELETE FROM workshop_presenters WHERE workshop_id=? AND doctor_id NOT IN ($marks)")->execute(array_merge([$workshopId],$ids));
-        $pdo->commit();
-    } catch(Throwable $e) { if($pdo->inTransaction())$pdo->rollBack();throw $e; }
+        if($ownsTransaction)$pdo->commit();
+    } catch(Throwable $e) { if($ownsTransaction&&$pdo->inTransaction())$pdo->rollBack();throw $e; }
 }

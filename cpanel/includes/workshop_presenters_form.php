@@ -8,8 +8,8 @@ $presenterQuery=$pdo->prepare('SELECT doctor_id FROM workshop_presenters WHERE w
 $presenterQuery->execute([$presenterWorkshopId]);$presenterSelected=$presenterQuery->fetchAll(PDO::FETCH_COLUMN);
 $presenterChoices=$pdo->query('SELECT dp.id,u.name FROM doctor_profiles dp JOIN users u ON u.id=dp.user_id WHERE dp.is_active=1 AND dp.is_approved=1 AND COALESCE(u.is_disabled,0)=0 ORDER BY u.name')->fetchAll();
 ?>
-<details style="margin-top:.75rem">
-  <summary class="btn btn-outline btn-sm">اجراکنندگان کارگاه</summary>
+<?php if(empty($presenterInline)): ?><details style="margin-top:.75rem">
+  <summary class="btn btn-outline btn-sm">اجراکنندگان کارگاه</summary><?php endif; ?>
   <form method="post" action="<?= e(url($presenterPostBase)) ?>" class="stack" style="padding:.75rem">
     <?= csrf_field() ?>
     <input type="hidden" name="action" value="save_presenters">
@@ -22,4 +22,4 @@ $presenterChoices=$pdo->query('SELECT dp.id,u.name FROM doctor_profiles dp JOIN 
     </div>
     <button class="btn btn-primary btn-sm" type="submit">ذخیره اجراکنندگان و اطلاع‌رسانی</button>
   </form>
-</details>
+<?php if(empty($presenterInline)): ?></details><?php endif; ?>
