@@ -1069,7 +1069,7 @@ function workshop_remove_member(PDO $pdo, string $enrollmentId, array $actor): v
 }
 
 /** پس از ثبت قطعی عضویت؛ شکست پیامک نباید عضویت موفق را خراب کند. */
-function workshop_notify_member_joined(PDO $pdo, string $enrollmentId): array
+function workshop_notify_member_joined(PDO $pdo, string $enrollmentId, string $membershipEvent = ''): array
 {
     require_once __DIR__ . '/notifications.php';
     require_once __DIR__ . '/sms_service.php';
@@ -1090,6 +1090,15 @@ function workshop_notify_member_joined(PDO $pdo, string $enrollmentId): array
         $detailsHash = hash('sha256', json_encode([$w['starts_at'], $w['location'], $w['type'], $w['title']]));
         $fingerprint = hash('sha256', json_encode([$w['enrollment_status'], $detailsHash, $w['status']]));
         $key = 'enrollment:' . $enrollmentId . ':registered:' . $fingerprint;
+        if ($membershipEvent !== '') {
+            ensure_outreach_schema($pdo);
+            // A rejoin is a fresh notification, while scheduled scanning must not duplicate it.
+            sms_entity_save($pdo, 'enrollment:' . $enrollmentId, $fingerprint, (string) $w['enrollment_status']);
+            $stale = $pdo->prepare("UPDATE sms_outbox SET status='SKIPPED',last_error='عضویت دوباره ثبت شد.' WHERE kind='workshop_registered' AND status='PENDING' AND context_json LIKE ?");
+            $stale->execute(['%"id":"' . $enrollmentId . '"%']);
+            $key .= ':membership:' . $membershipEvent;
+        }
+
         $context = ['entity'=>'enrollment', 'id'=>$enrollmentId, 'starts_at'=>$w['starts_at'], 'details_hash'=>$detailsHash];
         $body = workshop_member_sms_body((string) $w['title']);
         // همان کلید صف زمان‌بندی‌شده مانع ارسال دوباره در اجرای بعدی می‌شود.
@@ -1142,7 +1151,7 @@ function workshop_enroll_by_staff(PDO $pdo, string $workshopId, string $patientI
         throw new RuntimeException('مراجعه‌کننده معتبر نیست.');
     }
 
-    if (!$recordPaid && $existing) {
+    if (!$recordPaid && $existing && (string) $existing['status'] !== 'CANCELLED') {
         throw new RuntimeException('این فرد سابقه عضویت دارد؛ از بخش ثبت‌نام‌ها وضعیت او را بررسی کنید.');
     }
 
@@ -1162,18 +1171,28 @@ function workshop_enroll_by_staff(PDO $pdo, string $workshopId, string $patientI
             if (!workshop_has_capacity($pdo, $currentWorkshop)) {
                 throw new RuntimeException('ظرفیت این کارگاه تکمیل شده است.');
             }
+            $exists->execute([$workshopId, $patientId]);
+            $existing = $exists->fetch();
+            if ($existing && (string) $existing['status'] !== 'CANCELLED') {
+                throw new RuntimeException('این فرد قبلاً عضو است یا عضویتش نیاز به بررسی دارد.');
+            }
+
         }
         if ($existing && in_array((string) $existing['status'], ['CANCELLED', 'REFUNDED'], true)) {
             $enrollmentId = (string) $existing['id'];
             $pdo->prepare("UPDATE workshop_enrollments SET status='CONFIRMED', enrolled_at=NOW(), created_by_user_id=? WHERE id=?")
                 ->execute([$staffUserId, $enrollmentId]);
-            $pdo->prepare('DELETE FROM workshop_payments WHERE enrollment_id=?')->execute([$enrollmentId]);
+            if ($recordPaid) {
+                $pdo->prepare('DELETE FROM workshop_payments WHERE enrollment_id=?')->execute([$enrollmentId]);
+            }
         } else {
             $pdo->prepare('INSERT INTO workshop_enrollments (id, workshop_id, patient_id, status, created_by_user_id) VALUES (?,?,?,?,?)')
                 ->execute([$enrollmentId, $workshopId, $patientId, 'CONFIRMED', $staffUserId]);
         }
+        if ($recordPaid || !$existing) {
         $pdo->prepare('INSERT INTO workshop_payments (id, enrollment_id, amount, status, ref_id, recorded_by_user_id) VALUES (?,?,?,?,?,?)')
             ->execute([$paymentId, $enrollmentId, $amount, ($recordPaid || $amount <= 0) ? 'PAID' : 'PENDING', $recordPaid ? 'SECRETARY' : null, $staffUserId]);
+        }
         $pdo->commit();
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
@@ -1182,7 +1201,7 @@ function workshop_enroll_by_staff(PDO $pdo, string $workshopId, string $patientI
         throw new RuntimeException('ثبت ورودی کارگاه انجام نشد: ' . $e->getMessage());
     }
 
-    try { $memberSmsResult = workshop_notify_member_joined($pdo, $enrollmentId); } catch (Throwable $e) { error_log('Workshop member notice: ' . $e->getMessage()); }
+    try { $memberSmsResult = workshop_notify_member_joined($pdo, $enrollmentId, $existing ? cuid() : ''); } catch (Throwable $e) { error_log('Workshop member notice: ' . $e->getMessage()); }
 
     $when = format_fa_datetime((string) $workshop['starts_at']);
     $patientName = (string) $patient['name'];

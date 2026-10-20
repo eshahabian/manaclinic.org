@@ -52,7 +52,7 @@ if ($editWorkshop) {
 $activeBinder = $binderInitial !== '' ? $binderInitial : 'in-person';
 
 $enrollPatients = $pdo->query("
-  SELECT u.id, u.name, u.username
+  SELECT u.id, u.name, u.username, u.phone
   FROM users u
   WHERE " . workshop_member_user_sql('u') . "
   ORDER BY u.name ASC
@@ -156,7 +156,7 @@ ob_start();
           <select class="input" name="patient_id" id="enroll_patient_id" required>
             <option value="">— انتخاب مراجعه‌کننده —</option>
             <?php foreach ($enrollPatients as $p): ?>
-              <option value="<?= e($p['id']) ?>"><?= e($p['name']) ?> (<?= e((string) $p['username']) ?>)</option>
+              <option value="<?= e($p['id']) ?>"><?= e($p['name']) ?> (<?= e((string) $p['username']) ?>) <?= e((string) ($p['phone'] ?? '')) ?></option>
             <?php endforeach; ?>
           </select>
         </div>
@@ -404,7 +404,7 @@ ob_start();
 <script>
 (function(){
   if (window.enhanceSearchSelect) {
-    enhanceSearchSelect(document.getElementById("enroll_patient_id"), { placeholder: "جستجو یا انتخاب مراجعه‌کننده" });
+    enhanceSearchSelect(document.getElementById("enroll_patient_id"), { placeholder: "جستجو با نام، نام کاربری یا شماره موبایل" });
     enhanceSearchSelect(document.getElementById("enroll_workshop_id"), { placeholder: "جستجو یا انتخاب کارگاه" });
   }
   function faToEn(str){ return String(str).replace(/[۰-۹]/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹".indexOf(d); }); }

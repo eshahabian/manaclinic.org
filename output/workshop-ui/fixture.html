@@ -57,43 +57,47 @@
           </div>
                       <div class="wcard-panel wcard-panel-member">
               <form method="post" action="/staff/workshops/add-member" class="stack workshop-member-form">
+
   <input type="hidden" name="_csrf" value="test">  <input type="hidden" name="workshop_id" value="demo">
+
   <label class="label" for="member-patient-demo">انتخاب عضو برای «زوج‌درمانی»</label>
-  <select class="input" id="member-patient-demo" name="patient_id" required>
+
+  <select class="input" id="member-patient-demo" name="patient_id" data-workshop-member-select required>
+
     <option value="">انتخاب عضو</option>
-          <option value="demo-admin">عماد شهابیان — eshahabian</option>
+
+                <option value="demo-admin" data-search="عماد شهابیان eshahabian 09121234567 +989121234567 00989121234567">عماد شهابیان — eshahabian — 09121234567</option>
+
       </select>
+
   <p class="muted">عضویت تأیید و از طریق پیامک و پنل اطلاع‌رسانی می‌شود. پرداخت جداگانه ثبت می‌شود.</p>
+
   <button class="btn btn-primary" type="submit">اضافه کردن عضو</button>
+
 </form>
+
+
+
+<script src="/assets/js/search-select.js?v=20260905a" defer></script>
+
+<script src="/assets/js/workshop-member-search.js?v=20261020a" defer></script>
+
             </div>
                     <div class="wcard-panel wcard-panel-files">
             <h3>فایل‌های هر جلسه</h3><p>جلسه اول</p>                      </div>
           <div class="wcard-panel wcard-panel-enroll">
                             <div class="workshop-enroll-desk">
-
     <h3 class="workshop-enroll-desk-title">افراد کارگاه</h3>
-
     <p class="muted" style="font-size:.8rem;margin:0 0 .65rem">تأیید عضویت با منشی است. اینجا فقط نام افراد و وضعیت‌شان دیده می‌شود.</p>
-
                 <div class="workshop-enroll-desk-row">
-
         <strong>عضو نمونه</strong>
-
         <span class="badge">عضو</span>
-
         <form method="post" action="/staff/workshops/remove-member" onsubmit="return confirm('عضویت این فرد در کارگاه حذف شود؟ سوابق پرداخت حفظ می‌شوند.')">
-
   <input type="hidden" name="_csrf" value="test">  <input type="hidden" name="enrollment_id" value="demo-enrollment">
-
   <button type="submit" class="btn btn-danger btn-sm workshop-remove-member">حذف عضو</button>
-
 </form>
-
       </div>
-
       </div>
-
                       </div>
                       <div class="wcard-panel wcard-panel-path">
               <div class="workshop-path-people">
