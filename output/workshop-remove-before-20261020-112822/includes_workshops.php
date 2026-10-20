@@ -1,0 +1,1938 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/wallet.php';
+
+function ensure_workshop_schema(PDO $pdo): void
+{
+    ensure_wallet_schema($pdo);
+    $pdo->exec("
+      CREATE TABLE IF NOT EXISTS workshops (
+        id VARCHAR(32) PRIMARY KEY,
+        doctor_id VARCHAR(32) NOT NULL,
+        title VARCHAR(255) NOT NULL,
+        type ENUM('IN_PERSON','ONLINE','OFFLINE') NOT NULL,
+        session_interval ENUM('DAILY','WEEKLY','MONTHLY') NOT NULL DEFAULT 'WEEKLY',
+        starts_at DATETIME NOT NULL,
+        ends_at DATETIME NOT NULL,
+        items_to_bring TEXT NULL,
+        notes TEXT NULL,
+        description TEXT NULL,
+        price INT NOT NULL DEFAULT 0,
+        capacity INT NULL,
+        location TEXT NULL,
+        location_lat DECIMAL(10, 7) NULL,
+        location_lng DECIMAL(10, 7) NULL,
+        meeting_url VARCHAR(500) NULL,
+        content_url VARCHAR(500) NULL,
+        is_published TINYINT(1) NOT NULL DEFAULT 0,
+        enrollment_open TINYINT(1) NOT NULL DEFAULT 1,
+        status ENUM('DRAFT','PUBLISHED','CANCELLED','COMPLETED') NOT NULL DEFAULT 'DRAFT',
+        closed_at DATETIME NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_workshop_doctor (doctor_id),
+        INDEX idx_workshop_type (type, is_published, starts_at),
+        CONSTRAINT fk_workshop_doctor FOREIGN KEY (doctor_id) REFERENCES doctor_profiles(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+      CREATE TABLE IF NOT EXISTS workshop_enrollments (
+        id VARCHAR(32) PRIMARY KEY,
+        workshop_id VARCHAR(32) NOT NULL,
+        patient_id VARCHAR(32) NOT NULL,
+        status ENUM('PENDING_PAYMENT','CONFIRMED','CANCELLED','REFUNDED','COMPLETED') NOT NULL DEFAULT 'PENDING_PAYMENT',
+        enrolled_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uq_workshop_patient (workshop_id, patient_id),
+        INDEX idx_enrollment_patient (patient_id),
+        CONSTRAINT fk_enroll_workshop FOREIGN KEY (workshop_id) REFERENCES workshops(id) ON DELETE CASCADE,
+        CONSTRAINT fk_enroll_patient FOREIGN KEY (patient_id) REFERENCES users(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+      CREATE TABLE IF NOT EXISTS workshop_payments (
+        id VARCHAR(32) PRIMARY KEY,
+        enrollment_id VARCHAR(32) NOT NULL UNIQUE,
+        amount INT NOT NULL,
+        wallet_amount INT NOT NULL DEFAULT 0,
+        authority VARCHAR(100) NULL,
+        ref_id VARCHAR(100) NULL,
+        status ENUM('PENDING','PAID','FAILED','REFUNDED') NOT NULL DEFAULT 'PENDING',
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        CONSTRAINT fk_wpay_enrollment FOREIGN KEY (enrollment_id) REFERENCES workshop_enrollments(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+    ");
+    workshop_ensure_columns($pdo);
+    workshop_sync_publish_flags($pdo);
+    ensure_workshop_session_notes_schema($pdo);
+    require_once __DIR__ . '/workshop_path.php';
+    ensure_workshop_path_notes_schema($pdo);
+    require_once __DIR__ . '/workshop_qa.php';
+    ensure_workshop_qa_schema($pdo);
+    workshop_archive_expired($pdo);
+}
+
+function ensure_workshop_session_notes_schema(PDO $pdo): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $pdo->exec("
+      CREATE TABLE IF NOT EXISTS workshop_session_notes (
+        id VARCHAR(32) PRIMARY KEY,
+        workshop_id VARCHAR(32) NOT NULL,
+        doctor_id VARCHAR(32) NOT NULL,
+        session_title VARCHAR(255) NOT NULL,
+        session_at DATETIME NULL,
+        note_text MEDIUMTEXT NOT NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        INDEX idx_wsn_workshop (workshop_id, session_at),
+        CONSTRAINT fk_wsn_workshop FOREIGN KEY (workshop_id) REFERENCES workshops(id) ON DELETE CASCADE,
+        CONSTRAINT fk_wsn_doctor FOREIGN KEY (doctor_id) REFERENCES doctor_profiles(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
+    try {
+        $col = $pdo->query("SHOW COLUMNS FROM workshop_session_notes LIKE 'session_id'")->fetch();
+        if (!$col) {
+            $pdo->exec("ALTER TABLE workshop_session_notes ADD COLUMN session_id VARCHAR(32) NULL AFTER doctor_id");
+            $pdo->exec("ALTER TABLE workshop_session_notes ADD INDEX idx_wsn_session (workshop_id, session_id)");
+        }
+    } catch (Throwable $ignored) {
+    }
+    $ready = true;
+}
+
+function workshop_ensure_columns(PDO $pdo): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $hasEnrollmentOpen = $pdo->query("SHOW COLUMNS FROM workshops LIKE 'enrollment_open'")->fetch();
+    if (!$hasEnrollmentOpen) {
+        $pdo->exec('ALTER TABLE workshops ADD COLUMN enrollment_open TINYINT(1) NOT NULL DEFAULT 1 AFTER is_published');
+    }
+    $hasLocationLat = $pdo->query("SHOW COLUMNS FROM workshops LIKE 'location_lat'")->fetch();
+    if (!$hasLocationLat) {
+        $pdo->exec('ALTER TABLE workshops ADD COLUMN location_lat DECIMAL(10, 7) NULL AFTER location');
+        $pdo->exec('ALTER TABLE workshops ADD COLUMN location_lng DECIMAL(10, 7) NULL AFTER location_lat');
+    }
+    $locationCol = $pdo->query("SHOW COLUMNS FROM workshops LIKE 'location'")->fetch();
+    if ($locationCol && stripos((string) $locationCol['Type'], 'varchar') !== false) {
+        $pdo->exec('ALTER TABLE workshops MODIFY location TEXT NULL');
+    }
+    $hasGroupUrl = $pdo->query("SHOW COLUMNS FROM workshops LIKE 'group_url'")->fetch();
+    if (!$hasGroupUrl) {
+        $pdo->exec('ALTER TABLE workshops ADD COLUMN group_url VARCHAR(500) NULL AFTER content_url');
+    }
+    $hasClosedAt = $pdo->query("SHOW COLUMNS FROM workshops LIKE 'closed_at'")->fetch();
+    if (!$hasClosedAt) {
+        $pdo->exec('ALTER TABLE workshops ADD COLUMN closed_at DATETIME NULL AFTER status');
+    }
+    $hasCreatedBy = $pdo->query("SHOW COLUMNS FROM workshops LIKE 'created_by_user_id'")->fetch();
+    if (!$hasCreatedBy) {
+        $pdo->exec('ALTER TABLE workshops ADD COLUMN created_by_user_id VARCHAR(32) NULL AFTER status');
+    }
+    $hasUpdatedBy = $pdo->query("SHOW COLUMNS FROM workshops LIKE 'updated_by_user_id'")->fetch();
+    if (!$hasUpdatedBy) {
+        $pdo->exec('ALTER TABLE workshops ADD COLUMN updated_by_user_id VARCHAR(32) NULL AFTER created_by_user_id');
+    }
+    $hasEnrollCreatedBy = $pdo->query("SHOW COLUMNS FROM workshop_enrollments LIKE 'created_by_user_id'")->fetch();
+    if (!$hasEnrollCreatedBy) {
+        $pdo->exec('ALTER TABLE workshop_enrollments ADD COLUMN created_by_user_id VARCHAR(32) NULL AFTER patient_id');
+    }
+    $hasPayReceipt = $pdo->query("SHOW COLUMNS FROM workshop_payments LIKE 'receipt_path'")->fetch();
+    if (!$hasPayReceipt) {
+        $pdo->exec('ALTER TABLE workshop_payments ADD COLUMN receipt_path VARCHAR(255) NULL AFTER ref_id');
+    }
+    $hasPayRecorder = $pdo->query("SHOW COLUMNS FROM workshop_payments LIKE 'recorded_by_user_id'")->fetch();
+    if (!$hasPayRecorder) {
+        $pdo->exec('ALTER TABLE workshop_payments ADD COLUMN recorded_by_user_id VARCHAR(32) NULL AFTER receipt_path');
+    }
+    $hasSessionInterval = $pdo->query("SHOW COLUMNS FROM workshops LIKE 'session_interval'")->fetch();
+    if (!$hasSessionInterval) {
+        $pdo->exec("ALTER TABLE workshops ADD COLUMN session_interval ENUM('DAILY','WEEKLY','MONTHLY') NOT NULL DEFAULT 'DAILY' AFTER type");
+    }
+    $hasBanner = $pdo->query("SHOW COLUMNS FROM workshops LIKE 'banner_url'")->fetch();
+    if (!$hasBanner) {
+        $pdo->exec('ALTER TABLE workshops ADD COLUMN banner_url VARCHAR(255) NULL AFTER description');
+    }
+    $ready = true;
+}
+
+/** هم‌خوان‌سازی وضعیت انتشار (رفع ناسازگاری is_published و status) */
+function workshop_sync_publish_flags(PDO $pdo): void
+{
+    $pdo->exec("UPDATE workshops SET status = 'PUBLISHED' WHERE is_published = 1 AND status = 'DRAFT'");
+}
+
+/** JOIN درمانگران تأییدشده و فعال */
+function workshop_active_doctor_join(string $workshopAlias = 'w'): string
+{
+    $a = $workshopAlias;
+    return "JOIN doctor_profiles dp ON dp.id = {$a}.doctor_id AND dp.is_approved = 1 AND dp.is_active = 1";
+}
+
+/** تاریخ‌های ثابت برای دوره آفلاین (بدون زمان‌بندی واقعی) */
+function workshop_offline_datetimes(): array
+{
+    return [
+        'starts_at' => '2000-01-01 00:00:00',
+        'ends_at' => '2099-12-31 23:59:59',
+    ];
+}
+
+function workshop_is_offline(string $type): bool
+{
+    return $type === 'OFFLINE';
+}
+
+function workshop_session_interval_options(): array
+{
+    return [
+        'DAILY' => 'روزانه — هر روز یک جلسه',
+        'WEEKLY' => 'هفتگی — هر هفته یک جلسه',
+        'MONTHLY' => 'ماهانه — هر ماه یک جلسه',
+    ];
+}
+
+function workshop_session_interval_normalize(?string $value): string
+{
+    $value = strtoupper(trim((string) $value));
+    return in_array($value, ['DAILY', 'WEEKLY', 'MONTHLY'], true) ? $value : 'WEEKLY';
+}
+
+function workshop_session_interval_label(?string $value, bool $short = true): string
+{
+    $value = workshop_session_interval_normalize($value);
+    if ($short) {
+        return match ($value) {
+            'DAILY' => 'روزانه',
+            'MONTHLY' => 'ماهانه',
+            default => 'هفتگی',
+        };
+    }
+    return workshop_session_interval_options()[$value] ?? 'هفتگی — هر هفته یک جلسه';
+}
+
+function workshop_session_interval_field_html(?string $current, bool $isNew = false): string
+{
+    $selected = $isNew && ($current === null || $current === '')
+        ? 'WEEKLY'
+        : workshop_session_interval_normalize($current ?: 'DAILY');
+    $html = '<div id="field-session-interval">';
+    $html .= '<label class="label" for="workshop-session-interval">فاصله جلسات</label>';
+    $html .= '<select class="input" name="session_interval" id="workshop-session-interval">';
+    foreach (workshop_session_interval_options() as $val => $label) {
+        $sel = $selected === $val ? ' selected' : '';
+        $html .= '<option value="' . e($val) . '"' . $sel . '>' . e($label) . '</option>';
+    }
+    $html .= '</select>';
+    $html .= '<p class="muted" style="font-size:.8rem;margin:.35rem 0 0;line-height:1.6">از تاریخ شروع تا پایان، جلسات با همین فاصله ساخته می‌شوند. کارگاه‌های قبلی را هم از همین‌جا می‌توانید روزانه، هفتگی یا ماهانه کنید.</p>';
+    $html .= '</div>';
+    return $html;
+}
+
+/** زمان واقعی کارگاه؛ تاریخ خالی / صفر / نامعتبر = null (جلسات هفتگی بدون بازه) */
+function workshop_datetime_ts(?string $value): ?int
+{
+    $value = trim(str_replace('T', ' ', (string) $value));
+    if ($value === '' || str_starts_with($value, '0000-00-00')) {
+        return null;
+    }
+    if (!preg_match('/^(19|20)\d{2}-\d{2}-\d{2}(?:[ T]\d{2}:\d{2}(?::\d{2})?)?/', $value)) {
+        return null;
+    }
+    $ts = strtotime($value);
+    if ($ts === false || $ts < strtotime('1970-01-02 00:00:00')) {
+        return null;
+    }
+
+    return $ts;
+}
+
+/** SQL: کارگاه زمان‌دار که پایانش گذشته (تاریخ خالی آرشیو نیست) */
+function workshop_sql_col(string $alias, string $column): string
+{
+    return $alias === '' ? $column : $alias . '.' . $column;
+}
+
+function workshop_sql_end_in_past(string $alias = 'w'): string
+{
+    $type = workshop_sql_col($alias, 'type');
+    $ends = workshop_sql_col($alias, 'ends_at');
+
+    return "{$type} <> 'OFFLINE' AND {$ends} IS NOT NULL AND {$ends} >= '1970-01-02' AND {$ends} <= NOW()";
+}
+
+/** SQL: هنوز در جریان — آفلاین، بدون تاریخ، یا پایان در آینده، و زودتر بسته نشده */
+function workshop_sql_not_ended(string $alias = 'w'): string
+{
+    $type = workshop_sql_col($alias, 'type');
+    $ends = workshop_sql_col($alias, 'ends_at');
+    $closed = workshop_sql_col($alias, 'closed_at');
+
+    return "({$type} = 'OFFLINE' OR {$ends} IS NULL OR {$ends} < '1970-01-02' OR {$ends} > NOW()) AND {$closed} IS NULL";
+}
+
+function workshop_closed_at(array $workshop): ?string
+{
+    $raw = trim((string) ($workshop['closed_at'] ?? ''));
+    if ($raw === '' || str_starts_with($raw, '0000-00-00')) {
+        return null;
+    }
+    $ts = workshop_datetime_ts($raw);
+
+    return $ts === null ? null : date('Y-m-d H:i:s', $ts);
+}
+
+function workshop_is_closed(array $workshop): bool
+{
+    return workshop_closed_at($workshop) !== null;
+}
+
+function workshop_close_action_label(array $workshop): string
+{
+    return workshop_is_offline((string) ($workshop['type'] ?? '')) ? 'اتمام دوره' : 'اتمام کارگاه';
+}
+
+/** کارگاه‌هایی که مراجعه‌کننده در لیست «دوره‌های من» می‌بیند (هنوز تمام نشده) */
+function workshop_patient_list_sql(string $alias = 'w'): string
+{
+    $a = $alias;
+    return "{$a}.is_published = 1 AND {$a}.status NOT IN ('CANCELLED', 'COMPLETED') AND " . workshop_sql_not_ended($a);
+}
+
+/** کارگاه‌هایی که مراجعه‌کننده هنوز می‌تواند ثبت‌نام کند (تا دکتر ببندد) */
+function workshop_patient_enrollable_sql(string $alias = 'w'): string
+{
+    $a = $alias;
+    return workshop_patient_list_sql($a) . " AND {$a}.enrollment_open = 1";
+}
+
+function workshop_can_enroll(array $workshop): bool
+{
+    if (workshop_is_closed($workshop)) {
+        return false;
+    }
+    $status = strtoupper(trim((string) ($workshop['status'] ?? $workshop['workshop_status'] ?? '')));
+    if (in_array($status, ['COMPLETED', 'CANCELLED'], true)) {
+        return false;
+    }
+
+    return (bool) ($workshop['enrollment_open'] ?? 1);
+}
+
+/** لینک geo برای انتخاب اپ مسیریابی روی موبایل */
+function workshop_navigation_geo_uri(?float $lat, ?float $lng, ?string $address = null): ?string
+{
+    if ($lat !== null && $lng !== null && $lat >= -90 && $lat <= 90 && $lng >= -180 && $lng <= 180) {
+        return 'geo:' . rtrim(rtrim(sprintf('%.7F', $lat), '0'), '.')
+            . ',' . rtrim(rtrim(sprintf('%.7F', $lng), '0'), '.');
+    }
+    $address = trim((string) $address);
+    if ($address !== '') {
+        return 'geo:0,0?q=' . rawurlencode($address);
+    }
+    return null;
+}
+
+function workshop_coords_from_row(array $row): ?array
+{
+    if (!isset($row['location_lat'], $row['location_lng']) || $row['location_lat'] === null || $row['location_lng'] === null) {
+        return null;
+    }
+    return [(float) $row['location_lat'], (float) $row['location_lng']];
+}
+
+function workshop_navigation_uri_from_row(array $row): ?string
+{
+    $coords = workshop_coords_from_row($row);
+    if ($coords) {
+        return workshop_navigation_geo_uri($coords[0], $coords[1], (string) ($row['location'] ?? ''));
+    }
+    return workshop_navigation_geo_uri(null, null, (string) ($row['location'] ?? ''));
+}
+
+function workshop_location_from_post(string $type): array
+{
+    if ($type !== 'IN_PERSON') {
+        return [null, null, null];
+    }
+    $location = trim(post('location')) ?: null;
+    $latRaw = trim(post('location_lat'));
+    $lngRaw = trim(post('location_lng'));
+    $lat = $latRaw !== '' ? (float) $latRaw : null;
+    $lng = $lngRaw !== '' ? (float) $lngRaw : null;
+    return [$location, $lat, $lng];
+}
+
+function patient_courses_new_count(PDO $pdo, string $patientId): int
+{
+    return patient_workshop_nav_counts($pdo, $patientId)['available'];
+}
+
+function patient_workshop_nav_counts(PDO $pdo, string $patientId): array
+{
+    ensure_workshop_schema($pdo);
+    $available = $pdo->prepare('
+      SELECT COUNT(*) FROM workshops w
+      ' . workshop_active_doctor_join('w') . '
+      WHERE ' . workshop_patient_enrollable_sql('w') . '
+        AND NOT EXISTS (
+          SELECT 1 FROM workshop_enrollments e
+          WHERE e.workshop_id = w.id AND e.patient_id = ?
+            AND e.status IN ("PENDING_PAYMENT","CONFIRMED","COMPLETED")
+        )
+    ');
+    $available->execute([$patientId]);
+    $requested = $pdo->prepare('
+      SELECT COUNT(*) FROM workshop_enrollments
+      WHERE patient_id = ? AND status = "PENDING_PAYMENT"
+    ');
+    $requested->execute([$patientId]);
+    $mine = $pdo->prepare('
+      SELECT COUNT(*) FROM workshop_enrollments
+      WHERE patient_id = ? AND status IN ("CONFIRMED","COMPLETED")
+    ');
+    $mine->execute([$patientId]);
+    $ongoing = $pdo->prepare('
+      SELECT COUNT(*) FROM workshops w
+      ' . workshop_active_doctor_join('w') . '
+      WHERE ' . workshop_patient_list_sql('w') . '
+        AND NOT (w.type <> "OFFLINE" AND w.starts_at > NOW())
+    ');
+    $ongoing->execute();
+    $fresh = $pdo->prepare('
+      SELECT COUNT(*) FROM workshops w
+      ' . workshop_active_doctor_join('w') . '
+      WHERE ' . workshop_patient_list_sql('w') . '
+        AND w.type <> "OFFLINE" AND w.starts_at > NOW()
+    ');
+    $fresh->execute();
+    return [
+        'available' => (int) $available->fetchColumn(),
+        'requested' => (int) $requested->fetchColumn(),
+        'mine' => (int) $mine->fetchColumn(),
+        'ongoing' => (int) $ongoing->fetchColumn(),
+        'new' => (int) $fresh->fetchColumn(),
+    ];
+}
+
+/** تقسیم فهرست منتشرشده به «در حال برگزاری» و «جدید» (شروع‌نشده) */
+function patient_workshops_for_phase(array $grouped, string $phase): array
+{
+    $wantNew = $phase === 'new';
+    $out = ['in-person' => [], 'online' => [], 'offline' => [], 'archive' => []];
+    foreach (['in-person', 'online', 'offline', 'archive'] as $tab) {
+        foreach ($grouped[$tab] ?? [] as $workshop) {
+            if (!is_array($workshop)) {
+                continue;
+            }
+            $isNew = workshop_promo_phase($workshop) === 'upcoming';
+            if ($wantNew === $isNew) {
+                $out[$tab][] = $workshop;
+            }
+        }
+    }
+
+    return $out;
+}
+
+function patient_workshop_phase_tabs(string $phase): array
+{
+    $ongoing = $phase !== 'new';
+
+    return [
+        'in-person' => [
+            'label' => 'حضوری',
+            'class' => 'binder-tab-in-person',
+            'empty' => $ongoing ? 'کارگاه حضوری در حال برگزاری نیست.' : 'دوره حضوری جدیدی برای ثبت‌نام نیست.',
+        ],
+        'online' => [
+            'label' => 'آنلاین',
+            'class' => 'binder-tab-online',
+            'empty' => $ongoing ? 'کارگاه آنلاین در حال برگزاری نیست.' : 'دوره آنلاین جدیدی برای ثبت‌نام نیست.',
+        ],
+        'offline' => [
+            'label' => 'آفلاین',
+            'class' => 'binder-tab-offline',
+            'empty' => $ongoing ? 'دوره آفلاین در حال برگزاری نیست.' : 'دوره آفلاین جدیدی نیست.',
+        ],
+    ];
+}
+
+function patient_enrollments_filter_status(array $enrollmentsByTab, array $statuses): array
+{
+    $out = ['in-person' => [], 'online' => [], 'offline' => [], 'archive' => []];
+    foreach ($enrollmentsByTab as $tab => $rows) {
+        if (!isset($out[$tab])) {
+            $out[$tab] = [];
+        }
+        foreach ($rows as $row) {
+            if (in_array((string) ($row['status'] ?? ''), $statuses, true)) {
+                $out[$tab][] = $row;
+            }
+        }
+    }
+    return $out;
+}
+
+/** اطلاع درمانگران از کارگاه جدید (اختیاری: حذف یک پروفایل از لیست) */
+function workshop_notify_doctors(
+    PDO $pdo,
+    string $creatorName,
+    string $title,
+    string $type,
+    string $startsAt,
+    ?string $excludeDoctorProfileId = null,
+    ?string $ownerDoctorName = null
+): void {
+    require_once __DIR__ . '/notifications.php';
+    $sql = 'SELECT dp.user_id FROM doctor_profiles dp WHERE dp.is_approved = 1 AND dp.is_active = 1';
+    $params = [];
+    if ($excludeDoctorProfileId) {
+        $sql .= ' AND dp.id != ?';
+        $params[] = $excludeDoctorProfileId;
+    }
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $typeLabel = workshop_type_label($type);
+    $ownerHint = $ownerDoctorName ? " — درمانگر: «{$ownerDoctorName}»" : '';
+    if (workshop_is_offline($type)) {
+        $body = "«{$creatorName}» دوره آفلاین «{$title}» منتشر کرد{$ownerHint}. در بخش خدمات سایت اعلام می‌شود و مراجعه‌کنندگان از پیام‌ها مطلع می‌شوند.";
+    } else {
+        $when = format_fa_datetime($startsAt);
+        $body = "«{$creatorName}» کارگاه {$typeLabel} «{$title}» ({$when}) منتشر کرد{$ownerHint}. در بخش خدمات سایت اعلام می‌شود و مراجعه‌کنندگان از پیام‌ها مطلع می‌شوند.";
+    }
+    foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $userId) {
+        notify_user(
+            $pdo,
+            (string) $userId,
+            'کارگاه جدید',
+            $body,
+            '/doctor/workshops',
+            'workshop'
+        );
+    }
+}
+
+/** اطلاع سایر درمانگران از کارگاه جدید */
+function workshop_notify_other_doctors(
+    PDO $pdo,
+    string $excludeDoctorProfileId,
+    string $creatorName,
+    string $title,
+    string $type,
+    string $startsAt
+): void {
+    workshop_notify_doctors($pdo, $creatorName, $title, $type, $startsAt, $excludeDoctorProfileId);
+}
+
+/** اطلاع همه مراجعه‌کنندگان از کارگاه/دوره جدید (پیام‌ها + لینک ثبت‌نام) */
+function workshop_notify_patients(
+    PDO $pdo,
+    string $workshopId,
+    string $title,
+    string $type,
+    string $startsAt,
+    ?string $senderUserId = null
+): int {
+    require_once __DIR__ . '/notifications.php';
+    $workshopId = trim($workshopId);
+    if ($workshopId === '') {
+        return 0;
+    }
+    $typeLabel = workshop_type_label($type);
+    $link = '/workshops/apply?id=' . rawurlencode($workshopId);
+    if (workshop_is_offline($type)) {
+        $notifTitle = 'دوره جدید: ' . $title;
+        $body = "دوره آفلاین «{$title}» اعلام شد. برای دیدن جزئیات و ثبت‌نام روی مشاهده بزنید؛ دوره‌ها از بخش خدمات سایت هم قابل ثبت‌نام هستند.";
+    } else {
+        $when = format_fa_datetime($startsAt);
+        $notifTitle = 'کارگاه جدید: ' . $title;
+        $body = "کارگاه {$typeLabel} «{$title}» ({$when}) اعلام شد. برای دیدن جزئیات و ثبت‌نام روی مشاهده بزنید؛ کارگاه‌ها از بخش خدمات سایت هم قابل ثبت‌نام هستند.";
+    }
+    $stmt = $pdo->prepare("SELECT id FROM users WHERE role = 'PATIENT'");
+    $stmt->execute();
+    $ids = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    foreach ($ids as $userId) {
+        notify_user(
+            $pdo,
+            (string) $userId,
+            $notifTitle,
+            $body,
+            $link,
+            'workshop',
+            $senderUserId,
+            'broadcast'
+        );
+    }
+
+    return count($ids);
+}
+
+/** فیلدهای مشترک ایجاد/ویرایش کارگاه از POST */
+function workshop_save_fields_from_post(): array
+{
+    $title = trim(post('title'));
+    $type = post('type');
+    $startDate = post('start_date');
+    $startTime = post('start_time');
+    $endDate = post('end_date');
+    $endTime = post('end_time');
+    $price = max(0, (int) post('price', '0'));
+    $capacityRaw = trim(post('capacity'));
+    $capacity = $capacityRaw === '' ? null : max(1, (int) $capacityRaw);
+    $published = isset($_POST['published']);
+
+    if ($title === '' || !in_array($type, ['IN_PERSON', 'ONLINE', 'OFFLINE'], true)) {
+        throw new RuntimeException('اطلاعات کارگاه ناقص است.');
+    }
+
+    if (workshop_is_offline($type)) {
+        $placeholders = workshop_offline_datetimes();
+        $startsAt = $placeholders['starts_at'];
+        $endsAt = $placeholders['ends_at'];
+    } else {
+        $startsAt = workshop_datetime_from_post($startDate, $startTime);
+        $endsAt = workshop_datetime_from_post($endDate, $endTime);
+        if (strtotime($endsAt) <= strtotime($startsAt)) {
+            throw new RuntimeException('زمان پایان باید بعد از شروع باشد.');
+        }
+    }
+
+    if ($type === 'ONLINE' && trim(post('meeting_url')) === '') {
+        throw new RuntimeException('برای کارگاه آنلاین، لینک جلسه الزامی است.');
+    }
+    if ($type === 'IN_PERSON' && trim(post('location')) === '') {
+        throw new RuntimeException('برای کارگاه حضوری، آدرس محل برگزاری را بنویسید.');
+    }
+    if ($type === 'IN_PERSON') {
+        $latRaw = trim(post('location_lat'));
+        $lngRaw = trim(post('location_lng'));
+        if ($latRaw === '' || $lngRaw === '') {
+            throw new RuntimeException('روی نقشه موقعیت کارگاه را انتخاب کنید.');
+        }
+    }
+
+    $sessionInterval = workshop_is_offline($type)
+        ? 'DAILY'
+        : workshop_session_interval_normalize(post('session_interval'));
+
+    [$location, $meetingUrl, $contentUrl, $locationLat, $locationLng] = workshop_type_urls_from_post($type);
+    $groupUrl = trim(post('group_url')) ?: null;
+    if ($groupUrl !== null && !preg_match('#^https?://#i', $groupUrl)) {
+        throw new RuntimeException('لینک گروه باید با http:// یا https:// شروع شود.');
+    }
+
+    return [
+        'title' => $title,
+        'type' => $type,
+        'session_interval' => $sessionInterval,
+        'starts_at' => $startsAt,
+        'ends_at' => $endsAt,
+        'price' => $price,
+        'capacity' => $capacity,
+        'published' => $published,
+        'items_to_bring' => trim(post('items_to_bring')) ?: null,
+        'notes' => trim(post('notes')) ?: null,
+        'description' => trim(post('description')) ?: null,
+        'location' => $location,
+        'location_lat' => $locationLat,
+        'location_lng' => $locationLng,
+        'meeting_url' => $meetingUrl,
+        'content_url' => $contentUrl,
+        'group_url' => $groupUrl,
+    ];
+}
+
+function workshop_save_sessions_and_media(PDO $pdo, string $workshopId, array $data, ?string $doctorProfileId): int
+{
+    require_once __DIR__ . '/workshop_sessions.php';
+    require_once __DIR__ . '/workshop_media.php';
+    workshop_sessions_sync(
+        $pdo,
+        $workshopId,
+        (string) $data['type'],
+        (string) $data['starts_at'],
+        (string) $data['ends_at'],
+        workshop_sessions_extra_dates_from_post(),
+        workshop_session_interval_normalize((string) ($data['session_interval'] ?? 'WEEKLY'))
+    );
+    $saved = workshop_media_process_session_uploads($pdo, $workshopId, $doctorProfileId);
+    $saved += workshop_media_process_form_uploads($pdo, $workshopId, $doctorProfileId);
+    $saved += workshop_media_process_bundle_uploads($pdo, $workshopId, $doctorProfileId);
+    return $saved;
+}
+
+/** true یعنی داده‌ها ذخیره شده‌اند و خطای commit کاذب بوده است. */
+function workshop_save_caught(PDO $pdo, Throwable $e): bool
+{
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
+    $msg = $e->getMessage();
+    if (stripos($msg, 'no active transaction') !== false) {
+        return true;
+    }
+    if ($e instanceof PDOException) {
+        flash_set('error', 'ذخیره کارگاه انجام نشد. یک بار دیگر تلاش کنید.');
+        return false;
+    }
+    flash_set('error', $msg !== '' ? $msg : 'ذخیره کارگاه انجام نشد.');
+
+    return false;
+}
+
+function workshop_group_link_label(?string $url): string
+{
+    $url = strtolower((string) $url);
+    if (str_contains($url, 't.me') || str_contains($url, 'telegram')) {
+        return 'عضویت در گروه تلگرام';
+    }
+    if (str_contains($url, 'wa.me') || str_contains($url, 'whatsapp') || str_contains($url, 'chat.whatsapp')) {
+        return 'عضویت در گروه واتساپ';
+    }
+    return 'عضویت در گروه';
+}
+
+function workshop_approved_doctors(PDO $pdo): array
+{
+    return $pdo->query("
+      SELECT dp.id, u.name
+      FROM doctor_profiles dp
+      JOIN users u ON u.id = dp.user_id
+      WHERE dp.is_approved = 1 AND dp.is_active = 1
+      ORDER BY u.name ASC
+    ")->fetchAll();
+}
+
+function workshop_session_notes_list(PDO $pdo, string $workshopId): array
+{
+    ensure_workshop_session_notes_schema($pdo);
+    $stmt = $pdo->prepare('
+      SELECT * FROM workshop_session_notes
+      WHERE workshop_id = ?
+      ORDER BY COALESCE(session_at, created_at) DESC, created_at DESC
+    ');
+    $stmt->execute([$workshopId]);
+    return $stmt->fetchAll();
+}
+
+function workshop_session_notes_map(PDO $pdo, string $workshopId): array
+{
+    $bySession = [];
+    $byDate = [];
+    foreach (workshop_session_notes_list($pdo, $workshopId) as $note) {
+        if (!is_array($note)) {
+            continue;
+        }
+        $sid = trim((string) ($note['session_id'] ?? ''));
+        if ($sid !== '' && !isset($bySession[$sid])) {
+            $bySession[$sid] = $note;
+        }
+        $date = substr((string) ($note['session_at'] ?? ''), 0, 10);
+        if ($date !== '' && !isset($byDate[$date])) {
+            $byDate[$date] = $note;
+        }
+    }
+
+    return ['by_session' => $bySession, 'by_date' => $byDate];
+}
+
+function workshop_session_note_save(
+    PDO $pdo,
+    string $workshopId,
+    string $doctorProfileId,
+    string $sessionTitle,
+    string $noteText,
+    ?string $sessionAt,
+    ?string $noteId = null,
+    ?string $sessionId = null
+): string {
+    ensure_workshop_session_notes_schema($pdo);
+    $sessionTitle = trim($sessionTitle);
+    $noteText = function_exists('sanitize_rich_html') ? sanitize_rich_html($noteText) : trim($noteText);
+    $sessionId = $sessionId !== null ? trim($sessionId) : '';
+    $own = $pdo->prepare('SELECT id FROM workshops WHERE id=? AND doctor_id=? LIMIT 1');
+    $own->execute([$workshopId, $doctorProfileId]);
+    if (!$own->fetch()) {
+        throw new RuntimeException('کارگاه یافت نشد.');
+    }
+    if ($sessionTitle === '') {
+        throw new RuntimeException('عنوان جلسه الزامی است.');
+    }
+    if ($sessionAt !== null && $sessionAt !== '') {
+        if (!strtotime($sessionAt)) {
+            throw new RuntimeException('تاریخ جلسه نامعتبر است.');
+        }
+    } else {
+        $sessionAt = null;
+    }
+
+    if ($sessionId !== '' && $noteId === null) {
+        $found = $pdo->prepare('SELECT id FROM workshop_session_notes WHERE workshop_id=? AND doctor_id=? AND session_id=? LIMIT 1');
+        $found->execute([$workshopId, $doctorProfileId, $sessionId]);
+        $noteId = (string) ($found->fetchColumn() ?: '') ?: null;
+    }
+
+    if ($noteText === '') {
+        if ($noteId) {
+            $pdo->prepare('DELETE FROM workshop_session_notes WHERE id=? AND workshop_id=? AND doctor_id=?')
+                ->execute([$noteId, $workshopId, $doctorProfileId]);
+        }
+        return (string) ($noteId ?? '');
+    }
+
+    if ($noteId) {
+        $pdo->prepare('
+          UPDATE workshop_session_notes
+          SET session_title=?, session_at=?, note_text=?, session_id=COALESCE(?, session_id)
+          WHERE id=? AND workshop_id=? AND doctor_id=?
+        ')->execute([$sessionTitle, $sessionAt, $noteText, $sessionId !== '' ? $sessionId : null, $noteId, $workshopId, $doctorProfileId]);
+        return $noteId;
+    }
+
+    $id = cuid();
+    $pdo->prepare('
+      INSERT INTO workshop_session_notes (id, workshop_id, doctor_id, session_id, session_title, session_at, note_text)
+      VALUES (?,?,?,?,?,?,?)
+    ')->execute([$id, $workshopId, $doctorProfileId, $sessionId !== '' ? $sessionId : null, $sessionTitle, $sessionAt, $noteText]);
+    return $id;
+}
+
+function workshop_session_note_delete(PDO $pdo, string $noteId, string $doctorProfileId): void
+{
+    ensure_workshop_session_notes_schema($pdo);
+    $pdo->prepare('DELETE FROM workshop_session_notes WHERE id=? AND doctor_id=?')->execute([$noteId, $doctorProfileId]);
+}
+
+/** لیست ثبت‌نام‌شدگان فعال کارگاه برای خروجی */
+function workshop_enrollments_export_rows(PDO $pdo, string $workshopId): array
+{
+    $stmt = $pdo->prepare("
+      SELECT e.id AS enrollment_id, e.status, e.enrolled_at,
+             u.name AS patient_name, u.username, u.phone, u.email,
+             wp.amount, wp.wallet_amount, wp.status AS pay_status, wp.ref_id
+      FROM workshop_enrollments e
+      JOIN users u ON u.id = e.patient_id
+      LEFT JOIN workshop_payments wp ON wp.enrollment_id = e.id
+      WHERE e.workshop_id = ?
+      ORDER BY e.enrolled_at ASC
+    ");
+    $stmt->execute([$workshopId]);
+    return $stmt->fetchAll();
+}
+
+function workshop_normalize_time(string $time): string
+{
+    $time = trim($time);
+    if (preg_match('/^\d{1,2}:\d{2}:\d{2}$/', $time)) {
+        return $time;
+    }
+    if (preg_match('/^\d{1,2}:\d{2}$/', $time)) {
+        return $time . ':00';
+    }
+    throw new RuntimeException('ساعت نامعتبر است.');
+}
+
+function workshop_datetime_from_post(string $date, string $time): string
+{
+    $date = trim($date);
+    if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+        throw new RuntimeException('تاریخ را از تقویم شمسی انتخاب کنید.');
+    }
+    $dt = $date . ' ' . workshop_normalize_time($time);
+    if (!strtotime($dt)) {
+        throw new RuntimeException('زمان کارگاه نامعتبر است.');
+    }
+    return $dt;
+}
+
+function workshop_type_from_tab(string $tab): string
+{
+    return match ($tab) {
+        'online' => 'ONLINE',
+        'offline' => 'OFFLINE',
+        default => 'IN_PERSON',
+    };
+}
+
+function workshop_tab_from_type(string $type): string
+{
+    return match ($type) {
+        'ONLINE' => 'online',
+        'OFFLINE' => 'offline',
+        default => 'in-person',
+    };
+}
+
+function workshop_type_label(string $type): string
+{
+    return match ($type) {
+        'ONLINE' => 'آنلاین',
+        'OFFLINE' => 'آفلاین',
+        default => 'حضوری',
+    };
+}
+
+function enrollment_status_label(string $status): string
+{
+    return match ($status) {
+        'PENDING_PAYMENT' => 'در انتظار تأیید',
+        'CONFIRMED' => 'تأیید شده',
+        'CANCELLED' => 'لغو شده',
+        'REFUNDED' => 'بازپرداخت شده',
+        'COMPLETED' => 'برگزار شده',
+        default => $status,
+    };
+}
+
+function workshop_refund_allowed(string $startsAt): bool
+{
+    return strtotime($startsAt) - time() >= 24 * 3600;
+}
+
+function workshop_enrollment_count(PDO $pdo, string $workshopId): int
+{
+    $stmt = $pdo->prepare("
+      SELECT COUNT(*) FROM workshop_enrollments
+      WHERE workshop_id = ? AND status IN ('PENDING_PAYMENT','CONFIRMED','COMPLETED')
+    ");
+    $stmt->execute([$workshopId]);
+    return (int) $stmt->fetchColumn();
+}
+
+function workshop_has_capacity(PDO $pdo, array $workshop): bool
+{
+    if ($workshop['capacity'] === null || $workshop['capacity'] === '') {
+        return true;
+    }
+    return workshop_enrollment_count($pdo, $workshop['id']) < (int) $workshop['capacity'];
+}
+
+function workshop_type_urls_from_post(string $type): array
+{
+    $meetingUrl = null;
+    $contentUrl = null;
+    [$location, $lat, $lng] = workshop_location_from_post($type);
+    if ($type === 'ONLINE') {
+        $meetingUrl = trim(post('meeting_url')) ?: null;
+        $location = null;
+        $lat = null;
+        $lng = null;
+    } elseif ($type === 'OFFLINE') {
+        $contentUrl = trim(post('content_url')) ?: null;
+        $location = null;
+        $lat = null;
+        $lng = null;
+    }
+    return [$location, $meetingUrl, $contentUrl, $lat, $lng];
+}
+
+function workshop_datetime_parts(string $datetime): array
+{
+    $ts = strtotime($datetime);
+    if (!$ts) {
+        return ['date' => '', 'time' => '', 'jalali' => ''];
+    }
+    $ymd = date('Y-m-d', $ts);
+    $time = date('H:i', $ts);
+    [$jy, $jm, $jd] = gregorian_to_jalali(
+        (int) date('Y', $ts),
+        (int) date('m', $ts),
+        (int) date('d', $ts)
+    );
+    $jalali = $jy . '/' . $jm . '/' . $jd;
+    return ['date' => $ymd, 'time' => $time, 'jalali' => $jalali];
+}
+
+/**
+ * ثبت پرداخت کارگاه — عضویت را تأیید نمی‌کند؛ تا تأیید منشی/درمانگر/مدیر در «درخواست‌ها» می‌ماند.
+ */
+function confirm_workshop_payment(PDO $pdo, array $paymentRow): void
+{
+    require_once __DIR__ . '/notifications.php';
+
+    $pdo->prepare("UPDATE workshop_payments SET status='PAID', ref_id=? WHERE id=?")
+        ->execute([$paymentRow['ref_id'] ?? null, $paymentRow['id']]);
+
+    $info = $pdo->prepare("
+      SELECT e.status AS enrollment_status, w.title, w.starts_at, w.doctor_id, dp.user_id AS doctor_user_id, u.name AS patient_name
+      FROM workshop_enrollments e
+      JOIN workshops w ON w.id = e.workshop_id
+      JOIN doctor_profiles dp ON dp.id = w.doctor_id
+      JOIN users u ON u.id = e.patient_id
+      WHERE e.id = ?
+      LIMIT 1
+    ");
+    $info->execute([$paymentRow['enrollment_id']]);
+    $row = $info->fetch();
+    if (!$row) {
+        return;
+    }
+
+    $totalAmount = (int) $paymentRow['amount'];
+    if ($totalAmount > 0) {
+        $netAmount = $totalAmount - (int) ($paymentRow['wallet_amount'] ?? 0);
+        if ($netAmount > 0) {
+            wallet_hold_for_doctor(
+                $pdo,
+                (string) $row['doctor_user_id'],
+                $netAmount,
+                'workshop_enrollment',
+                (string) $paymentRow['enrollment_id'],
+                'پرداخت کارگاه: ' . $row['title']
+            );
+        }
+        $walletAmount = (int) ($paymentRow['wallet_amount'] ?? 0);
+        if ($walletAmount > 0) {
+            wallet_hold_for_doctor(
+                $pdo,
+                (string) $row['doctor_user_id'],
+                $walletAmount,
+                'workshop_enrollment',
+                (string) $paymentRow['enrollment_id'],
+                'پرداخت از کیف پول — کارگاه: ' . $row['title']
+            );
+        }
+    }
+
+    $when = format_fa_datetime((string) $row['starts_at']);
+    $patientName = (string) $row['patient_name'];
+    $awaiting = (string) ($row['enrollment_status'] ?? '') === 'PENDING_PAYMENT';
+    $payNote = $awaiting
+        ? "پرداخت کرد و منتظر تأیید عضویت است."
+        : "پرداخت کرد.";
+    notify_role(
+        $pdo,
+        'SECRETARY',
+        'پرداخت کارگاه',
+        "«{$patientName}» برای کارگاه «{$row['title']}» ({$when}) {$payNote}",
+        '/secretary/workshops',
+        'workshop'
+    );
+    notify_doctor_profile(
+        $pdo,
+        (string) $row['doctor_id'],
+        'پرداخت کارگاه',
+        "«{$patientName}» برای کارگاه «{$row['title']}» ({$when}) {$payNote}",
+        '/doctor/workshops',
+        'workshop'
+    );
+}
+
+/** ثبت ورودی کارگاه توسط منشی — برای همه منشی‌ها دیده می‌شود */
+/** مراجعه‌کنندگان و حساب مدیریتی عماد، بدون تغییر نقش حساب. */
+function workshop_member_user_sql(string $alias = 'u'): string
+{
+    return "({$alias}.role='PATIENT' OR ({$alias}.role='ADMIN' AND (LOWER({$alias}.username)='eshahabian' OR ({$alias}.name LIKE '%عماد%' AND {$alias}.name LIKE '%شهابیان%')))) AND COALESCE({$alias}.is_disabled,0)=0";
+}
+
+/** افزودن عضو فقط برای سه حساب مشخص و منشی‌های فعال. */
+function workshop_can_add_member(?array $user): bool
+{
+    require_once __DIR__ . '/doctor_profile_fields.php';
+    return $user !== null && empty($user['is_disabled'])
+        && in_array((string) ($user['role'] ?? ''), ['ADMIN', 'DOCTOR', 'SECRETARY'], true)
+        && clinic_can_add_therapist($user);
+}
+
+/** پس از ثبت قطعی عضویت؛ شکست پیامک نباید عضویت موفق را خراب کند. */
+function workshop_notify_member_joined(PDO $pdo, string $enrollmentId): void
+{
+    require_once __DIR__ . '/notifications.php';
+    require_once __DIR__ . '/sms_service.php';
+    $stmt = $pdo->prepare("SELECT w.*, e.id AS enrollment_id, e.patient_id, e.status AS enrollment_status,
+        e.enrolled_at, u.name AS patient_name, u.phone FROM workshop_enrollments e
+        JOIN workshops w ON w.id=e.workshop_id JOIN users u ON u.id=e.patient_id WHERE e.id=?");
+    $stmt->execute([$enrollmentId]);
+    $w = $stmt->fetch();
+    if (!$w || !in_array($w['enrollment_status'], ['CONFIRMED', 'COMPLETED'], true)) return;
+    try {
+        notify_user($pdo, (string) $w['patient_id'], 'عضویت کارگاه تأیید شد',
+            'عضویت شما در «' . $w['title'] . '» تأیید شد. جزئیات را در «دوره‌های من» ببینید.',
+            '/dashboard/workshops/mine', 'workshop');
+    } catch (Throwable $e) {
+        error_log('Workshop member notification failed: ' . $e->getMessage());
+    }
+    try {
+        $detailsHash = hash('sha256', json_encode([$w['starts_at'], $w['location'], $w['type'], $w['title']]));
+        $fingerprint = hash('sha256', json_encode([$w['enrollment_status'], $detailsHash, $w['status']]));
+        $key = 'enrollment:' . $enrollmentId . ':registered:' . $fingerprint;
+        $context = ['entity'=>'enrollment', 'id'=>$enrollmentId, 'starts_at'=>$w['starts_at'], 'details_hash'=>$detailsHash];
+        $body = 'مانا کلینیک: عضویت شما در کارگاه «' . $w['title'] . '» تأیید شد. جزئیات در پنل شما.';
+        // همان کلید صف زمان‌بندی‌شده مانع ارسال دوباره در اجرای بعدی می‌شود.
+        if (sms_queue_extended($pdo, (string) $w['phone'], $body, 'workshop_registered', $key,
+            null, date('Y-m-d H:i:s', time() + 86400), $context)) {
+            sms_send_immediate($pdo, (string) $w['phone'], $body, 'workshop_registered', $key,
+                date('Y-m-d H:i:s', time() + 86400), $context);
+        }
+    } catch (Throwable $e) {
+        error_log('Workshop member SMS failed: ' . $e->getMessage());
+    }
+}
+
+function workshop_enroll_by_staff(PDO $pdo, string $workshopId, string $patientId, string $staffUserId, string $staffLabel, bool $recordPaid = true): string
+{
+    $stmt = $pdo->prepare('
+      SELECT w.* FROM workshops w
+      ' . workshop_active_doctor_join('w') . '
+      WHERE w.id = ? AND ' . workshop_patient_list_sql('w') . '
+      LIMIT 1
+    ');
+    $stmt->execute([$workshopId]);
+    $workshop = $stmt->fetch();
+    if (!$workshop) {
+        throw new RuntimeException('کارگاه برای ثبت ورودی در دسترس نیست.');
+    }
+    if (!workshop_has_capacity($pdo, $workshop)) {
+        throw new RuntimeException('ظرفیت این کارگاه تکمیل شده است.');
+    }
+
+    $exists = $pdo->prepare('
+      SELECT id, status FROM workshop_enrollments
+      WHERE workshop_id = ? AND patient_id = ?
+    ');
+    $exists->execute([$workshopId, $patientId]);
+    $existing = $exists->fetch();
+    if ($existing && in_array((string) $existing['status'], ['PENDING_PAYMENT', 'CONFIRMED', 'COMPLETED'], true)) {
+        throw new RuntimeException('این مراجعه‌کننده قبلاً در این کارگاه ثبت شده است.');
+    }
+
+    $patientStmt = $pdo->prepare("SELECT u.id, u.name FROM users u WHERE u.id=? AND " . workshop_member_user_sql('u') . " LIMIT 1");
+    $patientStmt->execute([$patientId]);
+    $patient = $patientStmt->fetch();
+    if (!$patient) {
+        throw new RuntimeException('مراجعه‌کننده معتبر نیست.');
+    }
+
+    if (!$recordPaid && $existing) {
+        throw new RuntimeException('این فرد سابقه عضویت دارد؛ از بخش ثبت‌نام‌ها وضعیت او را بررسی کنید.');
+    }
+
+    $enrollmentId = cuid();
+    $paymentId = cuid();
+    $amount = (int) $workshop['price'];
+
+    $pdo->beginTransaction();
+    try {
+        if (!$recordPaid) {
+            $locked = $pdo->prepare('SELECT * FROM workshops WHERE id=? FOR UPDATE');
+            $locked->execute([$workshopId]);
+            $currentWorkshop = $locked->fetch();
+            if (!$currentWorkshop || workshop_is_archived($currentWorkshop) || empty($currentWorkshop['is_published'])) {
+                throw new RuntimeException('کارگاه برای افزودن عضو در دسترس نیست.');
+            }
+            if (!workshop_has_capacity($pdo, $currentWorkshop)) {
+                throw new RuntimeException('ظرفیت این کارگاه تکمیل شده است.');
+            }
+        }
+        if ($existing && in_array((string) $existing['status'], ['CANCELLED', 'REFUNDED'], true)) {
+            $enrollmentId = (string) $existing['id'];
+            $pdo->prepare("UPDATE workshop_enrollments SET status='CONFIRMED', enrolled_at=NOW(), created_by_user_id=? WHERE id=?")
+                ->execute([$staffUserId, $enrollmentId]);
+            $pdo->prepare('DELETE FROM workshop_payments WHERE enrollment_id=?')->execute([$enrollmentId]);
+        } else {
+            $pdo->prepare('INSERT INTO workshop_enrollments (id, workshop_id, patient_id, status, created_by_user_id) VALUES (?,?,?,?,?)')
+                ->execute([$enrollmentId, $workshopId, $patientId, 'CONFIRMED', $staffUserId]);
+        }
+        $pdo->prepare('INSERT INTO workshop_payments (id, enrollment_id, amount, status, ref_id, recorded_by_user_id) VALUES (?,?,?,?,?,?)')
+            ->execute([$paymentId, $enrollmentId, $amount, ($recordPaid || $amount <= 0) ? 'PAID' : 'PENDING', $recordPaid ? 'SECRETARY' : null, $staffUserId]);
+        $pdo->commit();
+    } catch (Throwable $e) {
+        if ($pdo->inTransaction()) {
+            $pdo->rollBack();
+        }
+        throw new RuntimeException('ثبت ورودی کارگاه انجام نشد: ' . $e->getMessage());
+    }
+
+    try { workshop_notify_member_joined($pdo, $enrollmentId); } catch (Throwable $e) { error_log('Workshop member notice: ' . $e->getMessage()); }
+
+    $when = format_fa_datetime((string) $workshop['starts_at']);
+    $patientName = (string) $patient['name'];
+    $title = (string) $workshop['title'];
+    notify_role(
+        $pdo,
+        'SECRETARY',
+        'ورودی کارگاه توسط منشی',
+        "«{$patientName}» در کارگاه «{$title}» ({$when}) توسط {$staffLabel} ثبت شد.",
+        '/secretary/workshops?tab=enroll',
+        'workshop'
+    );
+    notify_doctor_profile(
+        $pdo,
+        (string) $workshop['doctor_id'],
+        'ورودی کارگاه توسط منشی',
+        "«{$patientName}» در کارگاه «{$title}» ({$when}) توسط {$staffLabel} ثبت شد.",
+        '/doctor/workshops',
+        'workshop'
+    );
+
+    return $enrollmentId;
+}
+
+function workshop_staff_enrollments_grouped(PDO $pdo, array $workshopIds = []): array
+{
+    ensure_workshop_schema($pdo);
+    $sql = "
+      SELECT e.id, e.workshop_id, e.status, e.enrolled_at, e.created_by_user_id,
+             u.name AS patient_name, u.phone AS patient_phone, u.username AS patient_username,
+             wp.id AS payment_id, wp.amount, wp.status AS pay_status, wp.receipt_path, wp.ref_id,
+             cu.name AS actor_name, cu.username AS actor_username,
+             ru.name AS recorder_name, ru.username AS recorder_username
+      FROM workshop_enrollments e
+      JOIN users u ON u.id = e.patient_id
+      LEFT JOIN workshop_payments wp ON wp.enrollment_id = e.id
+      LEFT JOIN users cu ON cu.id = e.created_by_user_id
+      LEFT JOIN users ru ON ru.id = wp.recorded_by_user_id
+      WHERE e.status IN ('PENDING_PAYMENT','CONFIRMED','COMPLETED')
+    ";
+    $params = [];
+    $workshopIds = array_values(array_unique(array_filter(array_map('strval', $workshopIds))));
+    if ($workshopIds) {
+        $sql .= ' AND e.workshop_id IN (' . implode(',', array_fill(0, count($workshopIds), '?')) . ')';
+        $params = $workshopIds;
+    }
+    $sql .= ' ORDER BY e.enrolled_at DESC';
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $grouped = [];
+    foreach ($stmt->fetchAll() as $row) {
+        $grouped[(string) $row['workshop_id']][] = $row;
+    }
+    return $grouped;
+}
+
+function workshop_approve_enrollment_by_staff(PDO $pdo, string $enrollmentId, string $staffUserId, string $staffLabel): void
+{
+    require_once __DIR__ . '/notifications.php';
+    ensure_workshop_schema($pdo);
+    $stmt = $pdo->prepare("
+      SELECT e.*, w.title, w.starts_at, w.doctor_id, w.price,
+             wp.id AS payment_id, wp.amount, wp.status AS pay_status, wp.wallet_amount,
+             u.name AS patient_name
+      FROM workshop_enrollments e
+      JOIN workshops w ON w.id = e.workshop_id
+      JOIN users u ON u.id = e.patient_id
+      LEFT JOIN workshop_payments wp ON wp.enrollment_id = e.id
+      WHERE e.id = ?
+      LIMIT 1
+    ");
+    $stmt->execute([$enrollmentId]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        throw new RuntimeException('ثبت‌نام یافت نشد.');
+    }
+    if (in_array((string) $row['status'], ['CONFIRMED', 'COMPLETED'], true)) {
+        return;
+    }
+    if (in_array((string) $row['status'], ['CANCELLED', 'REFUNDED'], true)) {
+        throw new RuntimeException('این ثبت‌نام لغو شده است.');
+    }
+
+    $pdo->prepare("UPDATE workshop_enrollments SET status='CONFIRMED' WHERE id=?")->execute([$enrollmentId]);
+
+    // کارگاه رایگان: پرداخت را هم ببند تا در صف پرداخت نماند
+    $amount = (int) ($row['amount'] ?? $row['price'] ?? 0);
+    $paymentId = (string) ($row['payment_id'] ?? '');
+    if ($amount <= 0) {
+        if ($paymentId === '') {
+            $paymentId = cuid();
+            $pdo->prepare('INSERT INTO workshop_payments (id, enrollment_id, amount, status, ref_id, recorded_by_user_id) VALUES (?,?,?,?,?,?)')
+                ->execute([$paymentId, $enrollmentId, 0, 'PAID', 'STAFF_APPROVE', $staffUserId]);
+        } elseif ((string) ($row['pay_status'] ?? '') !== 'PAID') {
+            $pdo->prepare("UPDATE workshop_payments SET status='PAID', ref_id=COALESCE(NULLIF(ref_id,''),'STAFF_APPROVE'), recorded_by_user_id=? WHERE id=?")
+                ->execute([$staffUserId, $paymentId]);
+        }
+    }
+
+    workshop_notify_member_joined($pdo, $enrollmentId);
+}
+
+/** ثبت پرداخت نقدی/فیش کارگاه توسط کارکنان — عضویت را جداگانه باید تأیید کرد */
+function workshop_mark_paid_by_staff(PDO $pdo, string $enrollmentId, string $staffUserId, string $staffLabel, array $file): void
+{
+    ensure_workshop_schema($pdo);
+    $stmt = $pdo->prepare("
+      SELECT e.*, w.title, w.starts_at, w.doctor_id,
+             wp.id AS payment_id, wp.amount, wp.status AS pay_status, wp.receipt_path, wp.wallet_amount,
+             u.name AS patient_name
+      FROM workshop_enrollments e
+      JOIN workshops w ON w.id = e.workshop_id
+      JOIN users u ON u.id = e.patient_id
+      LEFT JOIN workshop_payments wp ON wp.enrollment_id = e.id
+      WHERE e.id = ?
+      LIMIT 1
+    ");
+    $stmt->execute([$enrollmentId]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        throw new RuntimeException('ثبت‌نام یافت نشد.');
+    }
+    if (in_array((string) $row['status'], ['CANCELLED', 'REFUNDED'], true)) {
+        throw new RuntimeException('این ثبت‌نام لغو شده است.');
+    }
+
+    $relative = staff_save_receipt($file, (string) ($row['payment_id'] ?: $enrollmentId));
+    if (!empty($row['receipt_path'])) {
+        $old = staff_receipt_abs((string) $row['receipt_path']);
+        if (is_file($old)) {
+            @unlink($old);
+        }
+    }
+
+    $paymentId = (string) ($row['payment_id'] ?? '');
+    $wasUnpaid = (string) ($row['pay_status'] ?? '') !== 'PAID';
+
+    if ($paymentId === '') {
+        $paymentId = cuid();
+        $pdo->prepare('INSERT INTO workshop_payments (id, enrollment_id, amount, status, ref_id, receipt_path, recorded_by_user_id) VALUES (?,?,?,?,?,?,?)')
+            ->execute([$paymentId, $enrollmentId, (int) ($row['amount'] ?? 0), 'PAID', 'SECRETARY', $relative, $staffUserId]);
+    } else {
+        $pdo->prepare('UPDATE workshop_payments SET receipt_path=?, recorded_by_user_id=? WHERE id=?')
+            ->execute([$relative, $staffUserId, $paymentId]);
+        if ($wasUnpaid) {
+            confirm_workshop_payment($pdo, [
+                'id' => $paymentId,
+                'enrollment_id' => $enrollmentId,
+                'amount' => (int) ($row['amount'] ?? 0),
+                'wallet_amount' => (int) ($row['wallet_amount'] ?? 0),
+                'ref_id' => 'SECRETARY',
+            ]);
+            $pdo->prepare('UPDATE workshop_payments SET recorded_by_user_id=? WHERE id=?')
+                ->execute([$staffUserId, $paymentId]);
+        }
+    }
+
+    if ($wasUnpaid) {
+        $when = format_fa_datetime((string) $row['starts_at']);
+        require_once __DIR__ . '/notifications.php';
+        notify_role(
+            $pdo,
+            'SECRETARY',
+            'پرداخت کارگاه توسط کارکنان',
+            "پرداخت «{$row['patient_name']}» برای کارگاه «{$row['title']}» ({$when}) توسط {$staffLabel} با فیش ثبت شد. عضویت هنوز نیاز به تأیید دارد.",
+            '/secretary/workshops',
+            'workshop'
+        );
+    }
+}
+
+/** درخواست عضویت را برای دکتر عطیه گارسچی هم بفرست، اگر خودش درمانگر همان کارگاه نباشد */
+function workshop_notify_garsichi_request(PDO $pdo, string $title, string $body, string $exceptDoctorProfileId = ''): void
+{
+    require_once __DIR__ . '/notifications.php';
+    try {
+        $stmt = $pdo->query("
+          SELECT u.id AS user_id, dp.id AS profile_id
+          FROM users u
+          JOIN doctor_profiles dp ON dp.user_id = u.id
+          WHERE u.role = 'DOCTOR' AND u.name LIKE '%گارسچی%'
+        ");
+        foreach ($stmt->fetchAll() as $row) {
+            if ($exceptDoctorProfileId !== '' && (string) ($row['profile_id'] ?? '') === $exceptDoctorProfileId) {
+                continue;
+            }
+            $userId = (string) ($row['user_id'] ?? '');
+            if ($userId === '') {
+                continue;
+            }
+            notify_user($pdo, $userId, $title, $body, '/doctor/workshops?tab=requests', 'workshop');
+        }
+    } catch (Throwable $ignored) {
+    }
+}
+
+/** آیا این ثبت‌نام متعلق به کارگاه همین درمانگر است؟ */
+function workshop_enrollment_belongs_to_doctor(PDO $pdo, string $enrollmentId, string $doctorProfileId): bool
+{
+    $stmt = $pdo->prepare('
+      SELECT 1
+      FROM workshop_enrollments e
+      JOIN workshops w ON w.id = e.workshop_id
+      WHERE e.id = ? AND w.doctor_id = ?
+      LIMIT 1
+    ');
+    $stmt->execute([$enrollmentId, $doctorProfileId]);
+    return (bool) $stmt->fetchColumn();
+}
+
+function cancel_workshop_enrollment(PDO $pdo, string $enrollmentId, bool $forceNoRefund = false): array
+{
+    $stmt = $pdo->prepare("
+      SELECT e.*, w.starts_at, w.title, w.doctor_id, dp.user_id AS doctor_user_id, wp.amount, wp.wallet_amount, wp.status AS pay_status
+      FROM workshop_enrollments e
+      JOIN workshops w ON w.id = e.workshop_id
+      JOIN doctor_profiles dp ON dp.id = w.doctor_id
+      LEFT JOIN workshop_payments wp ON wp.enrollment_id = e.id
+      WHERE e.id = ?
+      LIMIT 1
+    ");
+    $stmt->execute([$enrollmentId]);
+    $row = $stmt->fetch();
+    if (!$row) {
+        throw new RuntimeException('ثبت‌نام یافت نشد.');
+    }
+    if (!in_array($row['status'], ['PENDING_PAYMENT', 'CONFIRMED'], true)) {
+        throw new RuntimeException('این ثبت‌نام قابل لغو نیست.');
+    }
+
+    $refundable = !$forceNoRefund
+        && (
+            ($row['status'] === 'CONFIRMED' && ($row['pay_status'] ?? '') === 'PAID' && workshop_refund_allowed((string) $row['starts_at']))
+            || ($row['status'] === 'PENDING_PAYMENT' && ($row['pay_status'] ?? '') === 'PAID')
+        );
+
+    if ($refundable) {
+        $paidAmount = (int) $row['amount'];
+        wallet_refund_from_doctor_hold(
+            $pdo,
+            (string) $row['doctor_user_id'],
+            (string) $row['patient_id'],
+            $paidAmount,
+            $enrollmentId,
+            'لغو کارگاه: ' . $row['title']
+        );
+        $pdo->prepare("UPDATE workshop_payments SET status='REFUNDED' WHERE enrollment_id=?")->execute([$enrollmentId]);
+        $pdo->prepare("UPDATE workshop_enrollments SET status='REFUNDED' WHERE id=?")->execute([$enrollmentId]);
+        return ['status' => 'REFUNDED', 'refunded' => true, 'amount' => $paidAmount];
+    }
+
+    if ($row['status'] === 'PENDING_PAYMENT') {
+        $pdo->prepare("UPDATE workshop_payments SET status='FAILED' WHERE enrollment_id=? AND status='PENDING'")
+            ->execute([$enrollmentId]);
+    }
+    $pdo->prepare("UPDATE workshop_enrollments SET status='CANCELLED' WHERE id=?")->execute([$enrollmentId]);
+    return ['status' => 'CANCELLED', 'refunded' => false, 'amount' => 0];
+}
+
+function complete_workshop(PDO $pdo, string $workshopId, string $doctorProfileId): int
+{
+    $stmt = $pdo->prepare('SELECT * FROM workshops WHERE id=? AND doctor_id=? LIMIT 1');
+    $stmt->execute([$workshopId, $doctorProfileId]);
+    $workshop = $stmt->fetch();
+    if (!$workshop) {
+        throw new RuntimeException('کارگاه یافت نشد.');
+    }
+
+    $docUser = $pdo->prepare('SELECT user_id FROM doctor_profiles WHERE id=?');
+    $docUser->execute([$doctorProfileId]);
+    $doctorUserId = (string) $docUser->fetchColumn();
+
+    $enrollments = $pdo->prepare("
+      SELECT e.id, wp.amount
+      FROM workshop_enrollments e
+      JOIN workshop_payments wp ON wp.enrollment_id = e.id AND wp.status = 'PAID'
+      WHERE e.workshop_id = ? AND e.status = 'CONFIRMED'
+    ");
+    $enrollments->execute([$workshopId]);
+    $settled = 0;
+
+    foreach ($enrollments->fetchAll() as $enrollment) {
+        wallet_settle_doctor_hold(
+            $pdo,
+            $doctorUserId,
+            (int) $enrollment['amount'],
+            (string) $enrollment['id'],
+            'تسویه کارگاه: ' . $workshop['title']
+        );
+        $pdo->prepare("UPDATE workshop_enrollments SET status='COMPLETED' WHERE id=?")
+            ->execute([$enrollment['id']]);
+        $settled++;
+    }
+
+    $pdo->prepare("UPDATE workshops SET status='COMPLETED', enrollment_open=0 WHERE id=?")->execute([$workshopId]);
+    return $settled;
+}
+
+/**
+ * پایان زودتر از تاریخ برنامه‌ریزی‌شده. ثبت‌نام‌ها و پرداخت‌ها دست نمی‌خورند.
+ *
+ * @return array<string, mixed>
+ */
+function workshop_close_early(PDO $pdo, string $workshopId, string $actorId, ?string $doctorProfileId = null): array
+{
+    $sql = 'SELECT id, title, type, status, closed_at FROM workshops WHERE id=?';
+    $params = [$workshopId];
+    if ($doctorProfileId !== null && $doctorProfileId !== '') {
+        $sql .= ' AND doctor_id=?';
+        $params[] = $doctorProfileId;
+    }
+    $sql .= ' LIMIT 1';
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    $row = $stmt->fetch();
+    if (!$row) {
+        throw new RuntimeException('کارگاه یافت نشد.');
+    }
+    if ((string) ($row['status'] ?? '') === 'CANCELLED') {
+        throw new RuntimeException('کارگاه لغوشده را نمی‌توان تمام کرد.');
+    }
+    if (workshop_is_closed($row) || (string) ($row['status'] ?? '') === 'COMPLETED') {
+        throw new RuntimeException('این مورد قبلاً تمام شده است.');
+    }
+
+    $pdo->prepare('UPDATE workshops SET closed_at=NOW(), enrollment_open=0, updated_by_user_id=? WHERE id=? AND closed_at IS NULL')
+        ->execute([$actorId !== '' ? $actorId : null, $workshopId]);
+
+    $fresh = $pdo->prepare('SELECT id, title, type, status, closed_at FROM workshops WHERE id=? LIMIT 1');
+    $fresh->execute([$workshopId]);
+    $saved = $fresh->fetch();
+
+    return is_array($saved) ? $saved : $row;
+}
+
+function workshop_banner_storage_root(): string
+{
+    $root = dirname(__DIR__) . '/uploads/workshops';
+    if (!is_dir($root)) {
+        @mkdir($root, 0755, true);
+    }
+
+    return $root;
+}
+
+function workshop_banner_src(?string $path): string
+{
+    $path = trim((string) $path);
+    if ($path === '') {
+        return '';
+    }
+    if (str_starts_with($path, 'http://') || str_starts_with($path, 'https://')) {
+        return $path;
+    }
+
+    return url($path);
+}
+
+/** بنر سفارشی آپلودشده، وگرنه عکس طراحی‌شده همان موضوع دوره */
+function workshop_designed_banner_file(array $workshop): string
+{
+    $title = (string) ($workshop['title'] ?? '');
+    $type = (string) ($workshop['type'] ?? '');
+
+    if (preg_match('/زوج|رابطه|ازدواج|همسر/u', $title)) {
+        return 'couples.jpg';
+    }
+    if (preg_match('/MBSR|مایند|mindful|استرس|اضطراب|آرامش|ذهن|مدیتیشن|آگاه|تنظیم هیجان/iu', $title)) {
+        if ($type === 'OFFLINE') {
+            return 'mind2.jpg';
+        }
+        if ($type === 'ONLINE') {
+            return 'online.jpg';
+        }
+
+        return 'mind.jpg';
+    }
+    if ($type === 'ONLINE') {
+        return 'online.jpg';
+    }
+    if ($type === 'OFFLINE') {
+        return 'offline.jpg';
+    }
+
+    return 'inperson.jpg';
+}
+
+function workshop_promo_image_src(array $workshop): string
+{
+    $custom = workshop_banner_src((string) ($workshop['banner_url'] ?? ''));
+    if ($custom !== '') {
+        return $custom;
+    }
+
+    return url('/assets/img/workshops/' . workshop_designed_banner_file($workshop));
+}
+
+/** توضیح کوتاه اهداف دوره برای پنجره صفحه اول (نه متن توضیحات پنل) */
+function workshop_promo_blurb(array $workshop): string
+{
+    $title = (string) ($workshop['title'] ?? '');
+    $type = (string) ($workshop['type'] ?? '');
+
+    if (preg_match('/زوج|رابطه|ازدواج|همسر/u', $title)) {
+        return 'هدف این دوره، بهتر شدن گفتگو و درک متقابل زوج‌ها، کم‌کردن تنش‌های تکراری و ساختن رابطه‌ای امن‌تر و نزدیک‌تر است.';
+    }
+    if (preg_match('/MBSR|مایند|mindful|استرس|اضطراب|آرامش|ذهن|مدیتیشن|آگاه|تنظیم هیجان/iu', $title)) {
+        return match ($type) {
+            'OFFLINE' => 'هدف این دوره آفلاین، یادگیری گام‌به‌گام ذهن‌آگاهی برای کاهش استرس است؛ تمرین‌ها را با فایل‌های ضبط‌شده و با سرعت خودتان انجام می‌دهید.',
+            'ONLINE' => 'هدف این کارگاه آنلاین، تمرین ذهن‌آگاهی برای کاهش استرس و آرام‌کردن ذهن در جلسات زنده از راه دور است.',
+            default => 'هدف این کارگاه حضوری، یادگیری مهارت‌های ذهن‌آگاهی برای کاهش استرس روزمره، آرام‌کردن ذهن و تمرین حضور در لحظه در فضای گروهی است.',
+        };
+    }
+
+    return match ($type) {
+        'OFFLINE' => 'هدف این دوره آفلاین، یادگیری مهارت‌های کاربردی سلامت روان با محتوای ضبط‌شده و تمرین در زمان دلخواه شماست.',
+        'ONLINE' => 'هدف این کارگاه آنلاین، یادگیری مهارت‌های سلامت روان در جلسات زنده و قابل پیگیری از خانه است.',
+        default => 'هدف این کارگاه حضوری، تمرین مهارت‌های سلامت روان در فضای گروهی و همراهی درمانگر است.',
+    };
+}
+
+function workshop_delete_banner_file(?string $publicPath): void
+{
+    $publicPath = (string) $publicPath;
+    if ($publicPath === '' || !str_starts_with($publicPath, '/uploads/workshops/')) {
+        return;
+    }
+    $full = workshop_banner_storage_root() . '/' . basename($publicPath);
+    if (is_file($full)) {
+        @unlink($full);
+    }
+}
+
+function workshop_save_banner_upload(string $workshopId, array $file): string
+{
+    if (($file['error'] ?? UPLOAD_ERR_NO_FILE) === UPLOAD_ERR_NO_FILE) {
+        return '';
+    }
+    if (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK) {
+        throw new RuntimeException('آپلود بنر ناموفق بود.');
+    }
+    $mime = function_exists('article_detect_mime')
+        ? article_detect_mime((string) $file['tmp_name'])
+        : strtolower((string) ($file['type'] ?? ''));
+    $allowed = ['image/jpeg' => 'jpg', 'image/png' => 'png', 'image/webp' => 'webp'];
+    if (($file['size'] ?? 0) > 6 * 1024 * 1024) {
+        throw new RuntimeException('حجم بنر حداکثر ۶ مگابایت باشد.');
+    }
+    if (!isset($allowed[$mime])) {
+        throw new RuntimeException('فرمت بنر باید jpg، png یا webp باشد.');
+    }
+    workshop_banner_storage_root();
+    $name = $workshopId . '-banner-' . substr(cuid(), 0, 8) . '.' . $allowed[$mime];
+    $dest = workshop_banner_storage_root() . '/' . $name;
+    if (!move_uploaded_file((string) $file['tmp_name'], $dest)) {
+        throw new RuntimeException('ذخیره بنر ناموفق بود.');
+    }
+
+    return '/uploads/workshops/' . $name;
+}
+
+function workshop_store_banner_from_request(PDO $pdo, string $workshopId): void
+{
+    $uploaded = workshop_save_banner_upload($workshopId, $_FILES['banner'] ?? []);
+    if ($uploaded === '') {
+        return;
+    }
+    $prev = $pdo->prepare('SELECT banner_url FROM workshops WHERE id=? LIMIT 1');
+    $prev->execute([$workshopId]);
+    $old = (string) ($prev->fetchColumn() ?: '');
+    $pdo->prepare('UPDATE workshops SET banner_url=? WHERE id=?')->execute([$uploaded, $workshopId]);
+    if ($old !== '' && $old !== $uploaded) {
+        workshop_delete_banner_file($old);
+    }
+}
+
+function workshop_promo_phase(array $workshop): string
+{
+    if (workshop_is_archived($workshop) || (string) ($workshop['status'] ?? '') === 'COMPLETED') {
+        return 'done';
+    }
+    if (workshop_is_offline((string) ($workshop['type'] ?? ''))) {
+        return 'ongoing';
+    }
+    $start = strtotime((string) ($workshop['starts_at'] ?? ''));
+    if ($start !== false && $start > time()) {
+        return 'upcoming';
+    }
+
+    return 'ongoing';
+}
+
+function workshop_promo_phase_label(string $phase): string
+{
+    return match ($phase) {
+        'done' => 'برگزار شده',
+        'ongoing' => 'در حال برگزاری',
+        default => 'به‌زودی',
+    };
+}
+
+function workshop_apply_url(string $workshopId): string
+{
+    return url('/workshops/apply?id=' . rawurlencode($workshopId));
+}
+
+function workshop_home_banners(PDO $pdo, ?int $limit = 3): array
+{
+    try {
+        ensure_workshop_schema($pdo);
+        $limitSql = $limit === null ? '' : ' LIMIT ' . max(1, min(12, $limit));
+        $stmt = $pdo->query("
+          SELECT w.*, u.name AS doctor_name
+          FROM workshops w
+          " . workshop_active_doctor_join('w') . "
+          JOIN users u ON u.id = dp.user_id
+          WHERE w.is_published = 1
+            AND w.status IN ('PUBLISHED','COMPLETED')
+          ORDER BY w.created_at DESC, w.id DESC
+          {$limitSql}
+        ");
+
+        return $stmt ? $stmt->fetchAll() : [];
+    } catch (Throwable $e) {
+        return [];
+    }
+}
+
+/** کارگاه تمام‌شده یا لغوشده در آرشیو دیده می‌شود */
+function workshop_is_archived(array $workshop): bool
+{
+    $status = strtoupper(trim((string) ($workshop['workshop_status'] ?? '')));
+    if ($status === '') {
+        $status = strtoupper(trim((string) ($workshop['status'] ?? '')));
+    }
+    if (in_array($status, ['COMPLETED', 'CANCELLED', 'ARCHIVE', 'ARCHIVED'], true)) {
+        return true;
+    }
+    if (workshop_is_closed($workshop)) {
+        return true;
+    }
+    if (workshop_is_offline((string) ($workshop['type'] ?? ''))) {
+        return false;
+    }
+    $end = workshop_datetime_ts((string) ($workshop['ends_at'] ?? ''));
+
+    return $end !== null && $end <= time();
+}
+
+/** کارگاه حضوری/آنلاین که زمانش گذشته، تسویه و به آرشیو می‌رود */
+function workshop_archive_expired(PDO $pdo): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    try {
+        $pdo->exec("
+          UPDATE workshops
+          SET status = 'PUBLISHED'
+          WHERE status = 'COMPLETED'
+            AND (ends_at IS NULL OR ends_at < '1970-01-02')
+        ");
+    } catch (Throwable $e) {
+        // ستون یا enum قدیمی — ادامه بده
+    }
+    try {
+        $rows = $pdo->query("
+          SELECT id, doctor_id FROM workshops
+          WHERE status NOT IN ('COMPLETED','CANCELLED')
+            AND " . workshop_sql_end_in_past('') . "
+        ")->fetchAll();
+    } catch (Throwable $e) {
+        return;
+    }
+    foreach ($rows as $row) {
+        $id = (string) ($row['id'] ?? '');
+        $doctorId = (string) ($row['doctor_id'] ?? '');
+        if ($id === '' || $doctorId === '') {
+            continue;
+        }
+        try {
+            complete_workshop($pdo, $id, $doctorId);
+        } catch (Throwable $e) {
+            // اگر تسویه نشد، فقط در تب آرشیو دیده می‌شود تا درمانگر دستی «تسویه و پایان» بزند
+        }
+    }
+}
+
+/** گروه‌بندی برای تب‌های رنگی کارگاه */
+function workshop_group_for_tabs(array $workshops): array
+{
+    $out = [
+        'in-person' => [],
+        'online' => [],
+        'offline' => [],
+        'archive' => [],
+    ];
+    foreach ($workshops as $workshop) {
+        if (workshop_is_archived($workshop)) {
+            $out['archive'][] = $workshop;
+            continue;
+        }
+        $type = (string) ($workshop['type'] ?? '');
+        if ($type === 'ONLINE') {
+            $out['online'][] = $workshop;
+        } elseif ($type === 'OFFLINE') {
+            $out['offline'][] = $workshop;
+        } else {
+            $out['in-person'][] = $workshop;
+        }
+    }
+    return $out;
+}
+
+/**
+ * داده تب‌های کارگاه برای پنل مراجعه‌کننده (داشبورد و دوره‌های من).
+ *
+ * @return array{
+ *   wallet: array,
+ *   grouped: array<string, array>,
+ *   enrollmentsByTab: array<string, array>,
+ *   enrollByWorkshop: array<string, array>,
+ *   binderTabs: array<string, array{label: string, class: string, empty: string}>,
+ *   enrollUrl: string,
+ *   payUrl: string,
+ *   cancelUrl: string
+ * }
+ */
+/**
+ * نام اعضای تأییدشدهٔ کارگاه‌ها. فقط برای کارگاه‌هایی که بیننده خودش عضو آن‌هاست صدا زده می‌شود.
+ *
+ * @param list<string> $workshopIds
+ * @return array<string, list<string>>
+ */
+function workshop_member_names_grouped(PDO $pdo, array $workshopIds): array
+{
+    $ids = [];
+    foreach ($workshopIds as $id) {
+        $id = trim((string) $id);
+        if ($id !== '') {
+            $ids[$id] = $id;
+        }
+    }
+    $ids = array_values($ids);
+    if ($ids === []) {
+        return [];
+    }
+    $marks = implode(',', array_fill(0, count($ids), '?'));
+    $stmt = $pdo->prepare("
+      SELECT e.workshop_id, u.name
+      FROM workshop_enrollments e
+      JOIN users u ON u.id = e.patient_id
+      WHERE e.workshop_id IN ($marks)
+        AND e.status IN ('CONFIRMED','COMPLETED')
+      ORDER BY u.name ASC
+    ");
+    $stmt->execute($ids);
+    $grouped = [];
+    foreach ($stmt->fetchAll() as $row) {
+        if (!is_array($row)) {
+            continue;
+        }
+        $wid = (string) ($row['workshop_id'] ?? '');
+        $name = trim((string) ($row['name'] ?? ''));
+        if ($wid === '' || $name === '') {
+            continue;
+        }
+        $grouped[$wid][] = $name;
+    }
+
+    return $grouped;
+}
+
+function patient_workshop_tab_data(PDO $pdo, string $patientId): array
+{
+    require_once __DIR__ . '/workshop_media.php';
+    require_once __DIR__ . '/workshop_sessions.php';
+    require_once __DIR__ . '/workshop_overview.php';
+    ensure_workshop_schema($pdo);
+    ensure_workshop_media_schema($pdo);
+    ensure_workshop_sessions_schema($pdo);
+    $wallet = ensure_wallet($pdo, $patientId);
+
+    $published = $pdo->query("
+      SELECT w.*, u.name AS doctor_name,
+        (SELECT COUNT(*) FROM workshop_enrollments e WHERE e.workshop_id = w.id AND e.status IN ('CONFIRMED','COMPLETED')) AS member_count,
+        (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = 'VIDEO') AS video_count,
+        (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = 'AUDIO') AS audio_count,
+        (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = 'PDF') AS pdf_count
+      FROM workshops w
+      " . workshop_active_doctor_join('w') . "
+      JOIN users u ON u.id = dp.user_id
+      WHERE w.is_published = 1
+      ORDER BY w.starts_at DESC
+    ")->fetchAll();
+
+    $mine = $pdo->prepare("
+      SELECT e.*, w.title, w.starts_at, w.ends_at, w.closed_at, w.type, w.session_interval, w.status AS workshop_status,
+             w.meeting_url, w.content_url, w.group_url, w.location,
+             w.location_lat, w.location_lng, w.items_to_bring, w.description, w.price,
+             (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = 'VIDEO') AS video_count,
+             (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = 'AUDIO') AS audio_count,
+             (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = 'PDF') AS pdf_count,
+             wp.amount, wp.wallet_amount, wp.status AS pay_status, u.name AS doctor_name
+      FROM workshop_enrollments e
+      JOIN workshops w ON w.id = e.workshop_id
+      JOIN doctor_profiles dp ON dp.id = w.doctor_id
+      JOIN users u ON u.id = dp.user_id
+      LEFT JOIN workshop_payments wp ON wp.enrollment_id = e.id
+      WHERE e.patient_id = ?
+      ORDER BY e.enrolled_at DESC
+    ");
+    $mine->execute([$patientId]);
+    $myEnrollments = $mine->fetchAll();
+
+    $enrollByWorkshop = [];
+    $memberWorkshopIds = [];
+    foreach ($myEnrollments as $row) {
+        $wid = (string) ($row['workshop_id'] ?? '');
+        if ($wid !== '' && !isset($enrollByWorkshop[$wid])) {
+            $enrollByWorkshop[$wid] = $row;
+        }
+        if ($wid !== '' && in_array((string) ($row['status'] ?? ''), ['CONFIRMED', 'COMPLETED'], true)) {
+            $memberWorkshopIds[$wid] = $wid;
+        }
+    }
+    $memberNamesByWorkshop = workshop_member_names_grouped($pdo, array_values($memberWorkshopIds));
+
+    $visible = [];
+    foreach ($published as $workshop) {
+        if ((string) ($workshop['status'] ?? '') === 'CANCELLED' && empty($enrollByWorkshop[(string) $workshop['id']])) {
+            continue;
+        }
+        $visible[] = $workshop;
+    }
+    $grouped = workshop_group_for_tabs($visible);
+
+    $enrollmentsByTab = [
+        'in-person' => [],
+        'online' => [],
+        'offline' => [],
+        'archive' => [],
+    ];
+    foreach ($myEnrollments as $row) {
+        if (workshop_is_archived([
+            'status' => (string) ($row['workshop_status'] ?? ''),
+            'type' => (string) ($row['type'] ?? ''),
+            'ends_at' => (string) ($row['ends_at'] ?? ''),
+            'closed_at' => (string) ($row['closed_at'] ?? ''),
+        ])) {
+            $enrollmentsByTab['archive'][] = $row;
+            continue;
+        }
+        $tab = workshop_tab_from_type((string) ($row['type'] ?? ''));
+        $enrollmentsByTab[$tab][] = $row;
+    }
+
+    $sessionIds = [];
+    foreach ($visible as $workshop) {
+        $sessionIds[] = (string) ($workshop['id'] ?? '');
+    }
+    foreach ($myEnrollments as $row) {
+        $sessionIds[] = (string) ($row['workshop_id'] ?? '');
+    }
+    $sessionsByWorkshop = workshop_sessions_map_for_ids($pdo, array_values(array_unique(array_filter($sessionIds))));
+
+    return [
+        'wallet' => $wallet,
+        'grouped' => $grouped,
+        'enrollmentsByTab' => $enrollmentsByTab,
+        'enrollByWorkshop' => $enrollByWorkshop,
+        'memberNamesByWorkshop' => $memberNamesByWorkshop,
+        'sessionsByWorkshop' => $sessionsByWorkshop,
+        'binderTabs' => [
+            'in-person' => ['label' => 'حضوری', 'class' => 'binder-tab-in-person', 'empty' => 'کارگاه حضوری فعالی برای ثبت‌نام نیست.'],
+            'online' => ['label' => 'آنلاین', 'class' => 'binder-tab-online', 'empty' => 'کارگاه آنلاین فعالی برای ثبت‌نام نیست.'],
+            'offline' => ['label' => 'آفلاین', 'class' => 'binder-tab-offline', 'empty' => 'دوره آفلاین فعالی برای ثبت‌نام نیست.'],
+        ],
+        'enrollUrl' => url('/enroll-workshop'),
+        'payUrl' => url('/pay-workshop'),
+        'cancelUrl' => url('/cancel-enrollment'),
+    ];
+}

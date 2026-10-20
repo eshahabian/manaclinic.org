@@ -15,6 +15,8 @@ const { chromium } = require('C:/Users/Emad/.cache/codex-runtimes/codex-primary-
    await page.locator('label[for="wcard-demo-member"]').click();
    if(!await page.locator('.wcard-panel-member').isVisible())throw new Error('Member panel did not open');
    if(await page.locator('#member-patient-demo option[value="demo-admin"]').count()!==1)throw new Error('Admin candidate missing');
+   await page.locator('label[for="wcard-demo-enroll"]').click();
+   if(!await page.locator('.workshop-remove-member').isVisible())throw new Error('Removal control missing');
    await page.screenshot({path:'D:/Psychology/output/workshop-ui/'+width+'.png',fullPage:true});
    console.log('PASS responsive workshop toolbar '+width+'px; '+dimensions.count+' aligned controls; member tab works');
   }

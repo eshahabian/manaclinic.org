@@ -26,6 +26,7 @@ $enrollmentDeskPeopleOnly = !empty($enrollmentDeskPeopleOnly);
       <div class="workshop-enroll-desk-row">
         <strong><?= e((string) ($enr['patient_name'] ?? '')) ?></strong>
         <span class="badge"><?= e($statusLabel) ?></span>
+        <?php require __DIR__ . '/workshop_remove_member_button.php'; ?>
       </div>
     <?php endforeach; ?>
   </div>
@@ -59,6 +60,7 @@ $enrollmentDeskPeopleOnly = !empty($enrollmentDeskPeopleOnly);
           <?php endif; ?>
         </div>
         <div class="workshop-enroll-desk-actions">
+          <?php require __DIR__ . '/workshop_remove_member_button.php'; ?>
           <span class="badge"><?= e(enrollment_status_label((string) $enr['status'])) ?></span>
           <?php if ($paid): ?>
             <span class="badge" style="background:var(--bg-soft)">پرداخت شده</span>
