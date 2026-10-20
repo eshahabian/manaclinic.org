@@ -246,6 +246,7 @@ $routes = [
     'GET /dashboard/session-note' => 'pages/patient/session_shared_note.php',
     'POST /dashboard/session-note' => 'actions/appointment_shared_note.php',
     'POST /dashboard/pay' => 'actions/pay_appointment.php',
+    'POST /staff/workshops/add-member' => 'actions/workshop_add_member.php',
     'POST /enroll-workshop' => 'actions/enroll_workshop.php',
     'POST /pay-workshop' => 'actions/pay_workshop.php',
     'POST /cancel-enrollment' => 'actions/cancel_enrollment.php',

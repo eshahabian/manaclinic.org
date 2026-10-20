@@ -1,0 +1,563 @@
+<?php
+declare(strict_types=1);
+
+require_once __DIR__ . '/../../includes/secretary_panel.php';
+require_once __DIR__ . '/../../includes/workshops.php';
+require_once __DIR__ . '/../../includes/workshop_media.php';
+require_once __DIR__ . '/../../includes/workshop_sessions.php';
+require_once __DIR__ . '/../../includes/workshop_overview.php';
+
+$user = require_login(['SECRETARY']);
+ensure_workshop_schema($pdo);
+ensure_workshop_media_schema($pdo);
+
+$doctors = workshop_approved_doctors($pdo);
+$editId = trim((string) ($_GET['edit'] ?? ''));
+$editWorkshop = null;
+if ($editId !== '') {
+    $es = $pdo->prepare('SELECT * FROM workshops WHERE id=? LIMIT 1');
+    $es->execute([$editId]);
+    $editWorkshop = $es->fetch();
+    if (!$editWorkshop) {
+        flash_set('error', 'کارگاه برای ویرایش یافت نشد.');
+        redirect('/secretary/workshops');
+    }
+}
+
+$workshops = $pdo->query('
+  SELECT w.*, u.name AS doctor_name,
+    cu.name AS created_by_name, cu.username AS created_by_username,
+    (SELECT COUNT(*) FROM workshop_enrollments e
+     WHERE e.workshop_id = w.id AND e.status IN ("PENDING_PAYMENT","CONFIRMED","COMPLETED")) AS enrolled_count,
+    (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = "VIDEO") AS video_count,
+    (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = "AUDIO") AS audio_count,
+    (SELECT COUNT(*) FROM workshop_media_items m WHERE m.workshop_id = w.id AND m.kind = "PDF") AS pdf_count
+  FROM workshops w
+  JOIN doctor_profiles dp ON dp.id = w.doctor_id
+  JOIN users u ON u.id = dp.user_id
+  LEFT JOIN users cu ON cu.id = w.created_by_user_id
+  ORDER BY w.created_at DESC
+')->fetchAll();
+$sessionsByWorkshop = workshop_sessions_map_for_ids($pdo, array_map(static fn ($w) => (string) $w['id'], $workshops));
+
+$grouped = workshop_group_for_tabs($workshops);
+$tabParam = trim((string) ($_GET['tab'] ?? ''));
+if ($editWorkshop) {
+    $binderInitial = 'new';
+} elseif (in_array($tabParam, ['in-person', 'online', 'offline', 'new', 'archive', 'enroll'], true)) {
+    $binderInitial = $tabParam;
+} else {
+    $binderInitial = '';
+}
+$activeBinder = $binderInitial !== '' ? $binderInitial : 'in-person';
+
+$enrollPatients = $pdo->query("
+  SELECT u.id, u.name, u.username
+  FROM users u
+  WHERE u.role='PATIENT'
+  ORDER BY u.name ASC
+")->fetchAll();
+$enrollWorkshops = [];
+foreach ($workshops as $w) {
+    if (!workshop_is_archived($w) && (int) ($w['is_published'] ?? 0) === 1 && ($w['status'] ?? '') !== 'CANCELLED') {
+        $enrollWorkshops[] = $w;
+    }
+}
+$recentEnrollments = secretary_recent_shared_enrollments($pdo, 25);
+$workshopEnrollmentsById = workshop_staff_enrollments_grouped($pdo);
+
+$flash = flash_get();
+$formAction = $editWorkshop ? 'update' : 'create';
+$formTitle = $editWorkshop ? 'ویرایش کارگاه' : 'کارگاه جدید';
+$formSubmit = $editWorkshop ? 'ذخیره تغییرات' : 'ایجاد کارگاه';
+$formData = $editWorkshop ?: [];
+$selectedDoctorId = (string) ($formData['doctor_id'] ?? '');
+
+if ($editWorkshop) {
+    $startParts = workshop_datetime_parts((string) $editWorkshop['starts_at']);
+    $endParts = workshop_datetime_parts((string) $editWorkshop['ends_at']);
+} else {
+    $startParts = ['date' => '', 'time' => '10:00', 'jalali' => ''];
+    $endParts = ['date' => '', 'time' => '18:00', 'jalali' => ''];
+}
+
+$workshopMedia = [];
+$workshopSessions = [];
+if ($editWorkshop) {
+    workshop_sessions_sync(
+        $pdo,
+        (string) $editWorkshop['id'],
+        (string) $editWorkshop['type'],
+        (string) $editWorkshop['starts_at'],
+        (string) $editWorkshop['ends_at'],
+        [],
+        workshop_session_interval_normalize((string) ($editWorkshop['session_interval'] ?? 'DAILY'))
+    );
+    $workshopMedia = workshop_media_list($pdo, (string) $editWorkshop['id']);
+    $workshopSessions = workshop_sessions_with_media($pdo, (string) $editWorkshop['id']);
+}
+global $config;
+$mediaMaxMb = (int) ($config['workshop_media_max_mb'] ?? 300);
+
+ob_start();
+?>
+<link rel="stylesheet" href="/assets/vendor/jalali/jalalidatepicker.min.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<h1>کارگاه‌ها و دوره‌ها</h1>
+<p class="muted" style="margin-top:.35rem;font-size:.9rem">کارگاه‌ها و دوره‌ها یک فهرست هستند. حضوری و آنلاین پس از پایان زمان به آرشیو می‌روند. اگر زودتر بسته شد، «اتمام کارگاه» یا برای دوره آفلاین «اتمام دوره» را بزنید.</p>
+
+<?php if ($flash): ?>
+  <div class="panel" style="margin-top:1rem;font-size:.9rem;border-color:<?= $flash['type'] === 'success' ? 'var(--success)' : 'var(--danger)' ?>;color:<?= $flash['type'] === 'success' ? 'var(--success)' : 'var(--danger)' ?>">
+    <?= e($flash['message']) ?>
+  </div>
+<?php endif; ?>
+
+<div class="binder-tile" data-binder-tabs data-binder-initial="<?= e($activeBinder) ?>" data-binder-tone="<?= e($activeBinder) ?>" style="margin-top:1.5rem">
+  <div class="binder-tabs" role="tablist" aria-label="دسته‌بندی کارگاه‌ها">
+    <button type="button" class="binder-tab binder-tab-in-person<?= $activeBinder === 'in-person' ? ' is-active' : '' ?>" role="tab" data-binder-tab="in-person" aria-selected="<?= $activeBinder === 'in-person' ? 'true' : 'false' ?>">
+      حضوری <span class="binder-tab-count"><?= count($grouped['in-person']) ?></span>
+    </button>
+    <button type="button" class="binder-tab binder-tab-online<?= $activeBinder === 'online' ? ' is-active' : '' ?>" role="tab" data-binder-tab="online" aria-selected="<?= $activeBinder === 'online' ? 'true' : 'false' ?>">
+      آنلاین <span class="binder-tab-count"><?= count($grouped['online']) ?></span>
+    </button>
+    <button type="button" class="binder-tab binder-tab-offline<?= $activeBinder === 'offline' ? ' is-active' : '' ?>" role="tab" data-binder-tab="offline" aria-selected="<?= $activeBinder === 'offline' ? 'true' : 'false' ?>">
+      آفلاین <span class="binder-tab-count"><?= count($grouped['offline']) ?></span>
+    </button>
+    <button type="button" class="binder-tab binder-tab-appts<?= $activeBinder === 'enroll' ? ' is-active' : '' ?>" role="tab" data-binder-tab="enroll" data-binder-tone="appts" aria-selected="<?= $activeBinder === 'enroll' ? 'true' : 'false' ?>">
+      ثبت ورودی <span class="binder-tab-count"><?= count($recentEnrollments) ?></span>
+    </button>
+    <button type="button" class="binder-tab binder-tab-new<?= $activeBinder === 'new' ? ' is-active' : '' ?>" role="tab" data-binder-tab="new" aria-selected="<?= $activeBinder === 'new' ? 'true' : 'false' ?>">
+      <?= $editWorkshop ? 'ویرایش کارگاه' : 'کارگاه جدید' ?>
+    </button>
+    <button type="button" class="binder-tab binder-tab-archive<?= $activeBinder === 'archive' ? ' is-active' : '' ?>" role="tab" data-binder-tab="archive" aria-selected="<?= $activeBinder === 'archive' ? 'true' : 'false' ?>">
+      آرشیو <span class="binder-tab-count"><?= count($grouped['archive']) ?></span>
+    </button>
+  </div>
+  <div class="binder-body">
+    <section class="binder-panel<?= $activeBinder === 'in-person' ? ' is-active' : '' ?>" data-binder-panel="in-person" role="tabpanel"<?= $activeBinder === 'in-person' ? '' : ' hidden' ?>>
+      <?php $workshopList = $grouped['in-person']; $workshopEmpty = 'کارگاه حضوری فعالی نیست.'; $workshopRole = 'secretary'; $workshopYmdPrefix = 'sec-ip'; $workshopYmdKind = 'manage'; require __DIR__ . '/../../includes/workshop_ymd_list.php'; ?>
+    </section>
+    <section class="binder-panel<?= $activeBinder === 'online' ? ' is-active' : '' ?>" data-binder-panel="online" role="tabpanel"<?= $activeBinder === 'online' ? '' : ' hidden' ?>>
+      <?php $workshopList = $grouped['online']; $workshopEmpty = 'کارگاه آنلاین فعالی نیست.'; $workshopRole = 'secretary'; $workshopYmdPrefix = 'sec-on'; $workshopYmdKind = 'manage'; require __DIR__ . '/../../includes/workshop_ymd_list.php'; ?>
+    </section>
+    <section class="binder-panel<?= $activeBinder === 'offline' ? ' is-active' : '' ?>" data-binder-panel="offline" role="tabpanel"<?= $activeBinder === 'offline' ? '' : ' hidden' ?>>
+      <?php $workshopList = $grouped['offline']; $workshopEmpty = 'دوره آفلاین فعالی نیست.'; $workshopRole = 'secretary'; $workshopYmdPrefix = 'sec-off'; $workshopYmdKind = 'manage'; require __DIR__ . '/../../includes/workshop_ymd_list.php'; ?>
+    </section>
+    <section class="binder-panel<?= $activeBinder === 'archive' ? ' is-active' : '' ?>" data-binder-panel="archive" role="tabpanel"<?= $activeBinder === 'archive' ? '' : ' hidden' ?>>
+      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">کارگاه‌ها و دوره‌هایی که زمانشان تمام شده، یا با اتمام زودتر بسته شده‌اند، اینجا می‌مانند. ثبت‌نام‌ها و پرداخت‌ها حذف نمی‌شوند.</p>
+      <?php $workshopList = $grouped['archive']; $workshopEmpty = 'هنوز کارگاهی در آرشیو نیست.'; $workshopRole = 'secretary'; $workshopYmdPrefix = 'sec-arch'; $workshopYmdKind = 'manage'; require __DIR__ . '/../../includes/workshop_ymd_list.php'; ?>
+    </section>
+    <section class="binder-panel<?= $activeBinder === 'enroll' ? ' is-active' : '' ?>" data-binder-panel="enroll" role="tabpanel"<?= $activeBinder === 'enroll' ? '' : ' hidden' ?>>
+      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem;line-height:1.7">ورودی کارگاه را اینجا ثبت کنید. همان لحظه برای منشی‌های دیگر هم دیده می‌شود تا ثبت تکراری پیش نیاید.</p>
+      <form class="panel form-stack" method="post" action="<?= e(url('/secretary/workshops')) ?>" style="margin:0 0 1.25rem">
+        <input type="hidden" name="action" value="enroll">
+        <div>
+          <label class="label" for="enroll_patient_id">مراجعه‌کننده</label>
+          <select class="input" name="patient_id" id="enroll_patient_id" required>
+            <option value="">— انتخاب مراجعه‌کننده —</option>
+            <?php foreach ($enrollPatients as $p): ?>
+              <option value="<?= e($p['id']) ?>"><?= e($p['name']) ?> (<?= e((string) $p['username']) ?>)</option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <div>
+          <label class="label" for="enroll_workshop_id">کارگاه</label>
+          <select class="input" name="workshop_id" id="enroll_workshop_id" required>
+            <option value="">— انتخاب کارگاه —</option>
+            <?php foreach ($enrollWorkshops as $w): ?>
+              <option value="<?= e($w['id']) ?>">
+                <?= e($w['title']) ?> — <?= e($w['doctor_name'] ?? '') ?>
+                <?= !empty($w['capacity']) ? ' · ظرفیت ' . (int) $w['enrolled_count'] . '/' . (int) $w['capacity'] : '' ?>
+              </option>
+            <?php endforeach; ?>
+          </select>
+        </div>
+        <button class="btn btn-primary" type="submit">ثبت ورودی</button>
+      </form>
+      <h3 style="margin:0 0 .75rem;font-size:1rem">ثبت‌نام‌های اخیر همه منشی‌ها</h3>
+      <div class="stack">
+        <?php foreach ($recentEnrollments as $row): ?>
+          <div class="row-between" style="border:1px solid var(--line);border-radius:.75rem;padding:.75rem;background:#fff">
+            <div>
+              <strong><?= e((string) $row['patient_name']) ?></strong>
+              <?php if (!empty($row['patient_phone'])): ?>
+                <div class="muted" style="font-size:.85rem"><a href="tel:<?= e((string) $row['patient_phone']) ?>" dir="ltr" style="color:inherit"><?= e((string) $row['patient_phone']) ?></a></div>
+              <?php endif; ?>
+              <div class="muted" style="font-size:.85rem">کارگاه: <?= e((string) $row['workshop_title']) ?></div>
+              <div class="muted" style="font-size:.85rem">دکتر: <?= e((string) $row['doctor_name']) ?></div>
+              <div style="font-size:.85rem;margin-top:.25rem"><?= e(format_fa_datetime((string) $row['enrolled_at'])) ?></div>
+              <?php if (!empty($row['actor_name']) || !empty($row['actor_username'])): ?>
+                <?= staff_sign_html(['name' => $row['actor_name'] ?? '', 'username' => $row['actor_username'] ?? ''], 'ثبت توسط') ?>
+              <?php else: ?>
+                <span class="staff-sign">ثبت‌نام آنلاین توسط مراجعه‌کننده</span>
+              <?php endif; ?>
+            </div>
+            <div style="display:flex;flex-direction:column;align-items:flex-end;gap:.35rem">
+              <span class="badge"><?= e(enrollment_status_label((string) $row['status'])) ?></span>
+              <span class="muted" style="font-size:.8rem"><?= ((string) ($row['pay_status'] ?? '') === 'PAID') ? 'پرداخت شده' : 'بدون پرداخت' ?></span>
+              <?php if (!empty($row['receipt_path']) && !empty($row['id'])): ?>
+                <span class="muted" style="font-size:.75rem">فیش ثبت شده</span>
+              <?php endif; ?>
+            </div>
+          </div>
+        <?php endforeach; ?>
+        <?php if (!$recentEnrollments): ?><p class="muted">هنوز ورودی ثبت نشده است.</p><?php endif; ?>
+      </div>
+    </section>
+    <section class="binder-panel<?= $activeBinder === 'new' ? ' is-active' : '' ?>" data-binder-panel="new" role="tabpanel"<?= $activeBinder === 'new' ? '' : ' hidden' ?>>
+      <div class="stack">
+<?php if ($editWorkshop && $workshopMedia): ?>
+  <section class="panel stack" style="margin-bottom:0">
+    <div class="row-between" style="align-items:center;gap:.75rem;flex-wrap:wrap">
+      <h3 style="margin:0;font-size:.95rem">فایل‌های بارگذاری‌شده</h3>
+      <?= workshop_media_counts_html(workshop_media_kind_counts_from_list($workshopMedia), false) ?>
+    </div>
+    <?php foreach ($workshopMedia as $media): ?>
+      <div class="panel" style="padding:.75rem;font-size:.9rem">
+        <div class="row-between" style="align-items:flex-start;gap:.75rem">
+          <div style="min-width:0">
+            <strong><?= e($media['title']) ?></strong>
+            <span class="badge" style="margin-right:.35rem"><?= e(workshop_media_kind_label($media['kind'])) ?></span>
+            <div class="muted" style="font-size:.8rem;margin-top:.25rem"><?= e($media['original_name']) ?> · <?= e(workshop_media_format_size((int)$media['file_size'])) ?></div>
+          </div>
+          <form method="post" action="<?= e(url('/secretary/workshop-media')) ?>" onsubmit="return confirm('این فایل حذف شود؟')">
+            <input type="hidden" name="action" value="delete">
+            <input type="hidden" name="workshop_id" value="<?= e($editWorkshop['id']) ?>">
+            <input type="hidden" name="item_id" value="<?= e($media['id']) ?>">
+            <button type="submit" class="btn btn-danger btn-sm">حذف</button>
+          </form>
+        </div>
+      </div>
+    <?php endforeach; ?>
+  </section>
+<?php endif; ?>
+
+<form class="panel form-stack" id="workshop-form" method="post" action="<?= e(url('/secretary/workshops')) ?>" enctype="multipart/form-data">
+  <input type="hidden" name="action" value="<?= e($formAction) ?>">
+  <?php if ($editWorkshop): ?>
+    <input type="hidden" name="id" value="<?= e($editWorkshop['id']) ?>">
+  <?php endif; ?>
+  <div class="row-between" style="align-items:center;margin-bottom:.25rem">
+    <h2 style="margin:0;font-size:1.05rem"><?= e($formTitle) ?></h2>
+    <?php if ($editWorkshop): ?>
+      <a href="<?= e(url('/secretary/workshops')) ?>" style="font-size:.85rem;color:var(--primary)">انصراف از ویرایش</a>
+    <?php endif; ?>
+  </div>
+
+  <div>
+    <label class="label">درمانگر مسئول</label>
+    <select class="input" name="doctor_id" required>
+      <option value="">انتخاب درمانگر...</option>
+      <?php foreach ($doctors as $doc): ?>
+        <option value="<?= e($doc['id']) ?>"<?= $selectedDoctorId === $doc['id'] ? ' selected' : '' ?>><?= e($doc['name']) ?></option>
+      <?php endforeach; ?>
+    </select>
+  </div>
+
+  <div><label class="label">نام کارگاه</label><input class="input" name="title" required value="<?= e($formData['title'] ?? '') ?>"></div>
+  <div>
+    <label class="label">نوع</label>
+    <select class="input" name="type" id="workshop-type" required>
+      <?php
+        $types = ['IN_PERSON' => 'حضوری', 'ONLINE' => 'آنلاین', 'OFFLINE' => 'آفلاین (فایل/ویدیو)'];
+        $currentType = $formData['type'] ?? 'IN_PERSON';
+        foreach ($types as $val => $label):
+      ?>
+        <option value="<?= e($val) ?>"<?= $currentType === $val ? ' selected' : '' ?>><?= e($label) ?></option>
+      <?php endforeach; ?>
+    </select>
+  </div>
+  <div id="field-schedule" class="workshop-type-block">
+    <div class="grid-2">
+      <div>
+        <label class="label">شروع — تاریخ (شمسی)</label>
+        <input class="input workshop-date-view" type="text" id="workshop-start-date-view" data-jdp data-jdp-only-date autocomplete="off" readonly placeholder="انتخاب تاریخ" value="<?= e($startParts['jalali']) ?>">
+        <input type="hidden" name="start_date" id="workshop-start-date" value="<?= e($startParts['date']) ?>">
+      </div>
+      <div>
+        <label class="label">شروع — ساعت</label>
+        <input class="input" type="time" name="start_time" id="workshop-start-time" value="<?= e($startParts['time']) ?>">
+      </div>
+    </div>
+    <div class="grid-2" style="margin-top:.75rem">
+      <div>
+        <label class="label">پایان — تاریخ (شمسی)</label>
+        <input class="input workshop-date-view" type="text" id="workshop-end-date-view" data-jdp data-jdp-only-date autocomplete="off" readonly placeholder="انتخاب تاریخ" value="<?= e($endParts['jalali']) ?>">
+        <input type="hidden" name="end_date" id="workshop-end-date" value="<?= e($endParts['date']) ?>">
+      </div>
+      <div>
+        <label class="label">پایان — ساعت</label>
+        <input class="input" type="time" name="end_time" id="workshop-end-time" value="<?= e($endParts['time']) ?>">
+      </div>
+    </div>
+    <div style="margin-top:.75rem">
+      <?= workshop_session_interval_field_html($formData['session_interval'] ?? null, !$editWorkshop) ?>
+    </div>
+  </div>
+  <div class="grid-2">
+    <div>
+      <label class="label">هزینه (تومان)</label>
+      <input class="input" name="price" type="number" min="0" step="1000" value="<?= e((string) ($formData['price'] ?? 0)) ?>" required>
+    </div>
+    <div>
+      <label class="label">ظرفیت (خالی = نامحدود)</label>
+      <input class="input" name="capacity" type="number" min="1" value="<?= e((string) ($formData['capacity'] ?? '')) ?>">
+    </div>
+  </div>
+
+  <div id="field-in-person" class="workshop-type-block" hidden>
+    <label class="label" for="workshop-location">آدرس محل برگزاری</label>
+    <textarea class="input" name="location" id="workshop-location" rows="3"><?= e((string) ($formData['location'] ?? '')) ?></textarea>
+    <input type="hidden" name="location_lat" id="workshop-location-lat" value="<?= e((string) ($formData['location_lat'] ?? '')) ?>">
+    <input type="hidden" name="location_lng" id="workshop-location-lng" value="<?= e((string) ($formData['location_lng'] ?? '')) ?>">
+    <p class="muted" id="workshop-coords-hint" style="font-size:.8rem;margin:.5rem 0 0;line-height:1.6"></p>
+    <button type="button" class="btn btn-outline btn-sm" id="toggle-workshop-map" style="margin-top:.5rem">انتخاب موقعیت روی نقشه</button>
+    <div id="workshop-map-wrap" hidden style="margin-top:.75rem">
+      <div id="workshop-map" class="workshop-map-panel"></div>
+    </div>
+  </div>
+
+  <div id="field-online" class="workshop-type-block" hidden>
+    <label class="label">لینک جلسه آنلاین</label>
+    <input class="input" name="meeting_url" dir="ltr" placeholder="https://..." value="<?= e((string) ($formData['meeting_url'] ?? '')) ?>">
+  </div>
+
+  <div>
+    <label class="label">لینک گروه تلگرام / واتساپ (اختیاری)</label>
+    <input class="input" name="group_url" dir="ltr" placeholder="https://t.me/... یا https://chat.whatsapp.com/..." value="<?= e((string) ($formData['group_url'] ?? '')) ?>">
+    <p class="muted" style="font-size:.8rem;margin:.35rem 0 0;line-height:1.6">مراجعه‌کنندگان پس از ثبت‌نام و تأیید، این لینک را برای عضویت در گروه می‌بینند.</p>
+  </div>
+
+  <?php
+    $workshopMediaPost = '/secretary/workshop-media';
+    $editWorkshopId = $editWorkshop['id'] ?? null;
+    require __DIR__ . '/../../includes/workshop_session_media_form.php';
+  ?>
+
+  <div>
+    <label class="label">توضیح برای صفحه اول</label>
+    <textarea class="input" name="description" rows="4" placeholder="با کلیک روی بنر، این متن در پنجره توضیح دیده می‌شود"><?= e((string) ($formData['description'] ?? '')) ?></textarea>
+  </div>
+  <div>
+    <label class="label" for="workshop-banner">بنر تبلیغاتی صفحه اول</label>
+    <?php if (!empty($formData['banner_url'])): ?>
+      <p class="muted" style="font-size:.8rem;margin:0 0 .4rem">بنر فعلی روی صفحه اول نمایش داده می‌شود.</p>
+      <img src="<?= e(workshop_banner_src((string) $formData['banner_url'])) ?>" alt="" style="max-width:16rem;border-radius:.7rem;display:block;margin-bottom:.5rem">
+    <?php endif; ?>
+    <input class="input" type="file" name="banner" id="workshop-banner" accept="image/jpeg,image/png,image/webp">
+    <p class="muted" style="font-size:.8rem;margin:.35rem 0 0">اختیاری؛ اگر خالی بماند عکس طراحی‌شده همان دوره در صفحه اول دیده می‌شود.</p>
+  </div>
+  <div>
+    <label class="label">موارد همراه</label>
+    <textarea class="input" name="items_to_bring" rows="2"><?= e((string) ($formData['items_to_bring'] ?? '')) ?></textarea>
+  </div>
+  <div>
+    <label class="label">یادداشت</label>
+    <textarea class="input" name="notes" rows="2" data-emoji-field><?= e((string) ($formData['notes'] ?? '')) ?></textarea>
+  </div>
+  <?php if (!$editWorkshop): ?>
+    <label style="display:flex;gap:.5rem;align-items:flex-start;font-size:.9rem;line-height:1.7">
+      <input type="checkbox" name="notify_outreach" value="1">
+      <span>به فهرست مراجعه‌کنندگان قدیمی هم برای این کارگاه پیامک در صف گذاشته شود. تا آماده شدن پنل پیامک ارسال نمی‌شود.</span>
+    </label>
+  <?php endif; ?>
+  <button class="btn btn-primary" type="submit"><?= e($formSubmit) ?></button>
+</form>
+      </div>
+    </section>
+  </div>
+</div>
+
+<template id="session-media-row-template">
+  <div class="session-media-row panel" style="padding:.75rem;font-size:.9rem;background:#fff">
+    <div class="grid-2">
+      <div>
+        <label class="label">نوع</label>
+        <select class="input" name="media_kind[]">
+          <option value="VIDEO">ویدیو</option>
+          <option value="AUDIO">صوت</option>
+        </select>
+      </div>
+      <div>
+        <label class="label">عنوان</label>
+        <input class="input" name="media_title[]" placeholder="مثلاً: جلسه اول">
+      </div>
+    </div>
+    <div style="margin-top:.5rem">
+      <label class="label">توضیح (اختیاری)</label>
+      <textarea class="input" name="media_description[]" rows="2"></textarea>
+    </div>
+    <div style="margin-top:.5rem">
+      <label class="label">فایل</label>
+      <input class="input session-media-file" type="file" name="media_files[]" accept="video/*,audio/*,.mp3,.m4a,.wav,.ogg,.mp4,.webm,.mov">
+    </div>
+    <button type="button" class="btn btn-outline btn-sm remove-session-media-row" style="margin-top:.5rem">حذف این ردیف</button>
+  </div>
+</template>
+
+<script src="<?= e(url('/assets/js/search-select.js')) ?>?v=20260905a"></script>
+<script src="<?= e(url('/assets/js/binder-tabs.js')) ?>?v=20260906v"></script>
+<script src="<?= e(url('/assets/js/ymd-cascade.js')) ?>?v=20260910r"></script>
+<script src="/assets/vendor/jalali/jalaali.min.js"></script>
+<script src="/assets/vendor/jalali/jalalidatepicker.min.js"></script>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+<script>
+(function(){
+  if (window.enhanceSearchSelect) {
+    enhanceSearchSelect(document.getElementById("enroll_patient_id"), { placeholder: "جستجو یا انتخاب مراجعه‌کننده" });
+    enhanceSearchSelect(document.getElementById("enroll_workshop_id"), { placeholder: "جستجو یا انتخاب کارگاه" });
+  }
+  function faToEn(str){ return String(str).replace(/[۰-۹]/g, function(d){ return "۰۱۲۳۴۵۶۷۸۹".indexOf(d); }); }
+  function pad(n){ return (n < 10 ? "0" : "") + n; }
+  function syncJalali(viewId, hiddenId){
+    var view = document.getElementById(viewId);
+    var hidden = document.getElementById(hiddenId);
+    if (!view || !hidden) return;
+    var t = faToEn(view.value).replace(/-/g, "/").trim();
+    var p = t.split("/");
+    if (p.length !== 3) { hidden.value = ""; return; }
+    var g = jalaali.toGregorian(parseInt(p[0],10), parseInt(p[1],10), parseInt(p[2],10));
+    hidden.value = g.gy + "-" + pad(g.gm) + "-" + pad(g.gd);
+  }
+
+  var typeSelect = document.getElementById("workshop-type");
+  var blockSchedule = document.getElementById("field-schedule");
+  var blockInPerson = document.getElementById("field-in-person");
+  var blockOnline = document.getElementById("field-online");
+  var sessionRows = document.getElementById("session-media-rows");
+  var sessionRowTemplate = document.getElementById("session-media-row-template");
+  var addSessionRowBtn = document.getElementById("add-session-media-row");
+  var startView = document.getElementById("workshop-start-date-view");
+  var endView = document.getElementById("workshop-end-date-view");
+  var startTime = document.getElementById("workshop-start-time");
+  var endTime = document.getElementById("workshop-end-time");
+  var hasExistingMedia = <?= $editWorkshop && $workshopMedia ? 'true' : 'false' ?>;
+  var locationInput = document.getElementById("workshop-location");
+  var locationLatInput = document.getElementById("workshop-location-lat");
+  var locationLngInput = document.getElementById("workshop-location-lng");
+  var coordsHint = document.getElementById("workshop-coords-hint");
+  var mapWrap = document.getElementById("workshop-map-wrap");
+  var mapToggle = document.getElementById("toggle-workshop-map");
+  var mapInstance = null;
+  var mapMarker = null;
+
+  function updateCoordsHint(){
+    if (!coordsHint) return;
+    var lat = locationLatInput && locationLatInput.value;
+    var lng = locationLngInput && locationLngInput.value;
+    coordsHint.textContent = (lat && lng) ? ("موقعیت نقشه ثبت شد: " + lat + " ، " + lng) : "هنوز موقعیت روی نقشه انتخاب نشده است.";
+  }
+  function setMapCoords(lat, lng, pan){
+    if (locationLatInput) locationLatInput.value = Number(lat).toFixed(6);
+    if (locationLngInput) locationLngInput.value = Number(lng).toFixed(6);
+    updateCoordsHint();
+    if (mapInstance) {
+      var ll = L.latLng(lat, lng);
+      if (mapMarker) mapMarker.setLatLng(ll);
+      else mapMarker = L.marker(ll).addTo(mapInstance);
+      if (pan) mapInstance.setView(ll, 15);
+    }
+  }
+  function addSessionMediaRow(){
+    if (!sessionRows || !sessionRowTemplate) return;
+    var node = sessionRowTemplate.content.cloneNode(true);
+    sessionRows.appendChild(node);
+    var rows = sessionRows.querySelectorAll(".session-media-row");
+    var last = rows[rows.length - 1];
+    if (last) {
+      var removeBtn = last.querySelector(".remove-session-media-row");
+      if (removeBtn) removeBtn.addEventListener("click", function(){
+        var isOffline = typeSelect && typeSelect.value === "OFFLINE";
+        if (isOffline && sessionRows.querySelectorAll(".session-media-row").length <= 1 && !hasExistingMedia) {
+          alert("حداقل یک فایل برای دوره آفلاین لازم است.");
+          return;
+        }
+        last.remove();
+      });
+    }
+  }
+  function syncTypeBlocks(){
+    if (!typeSelect) return;
+    var t = typeSelect.value;
+    var isOffline = t === "OFFLINE";
+    if (blockSchedule) blockSchedule.hidden = isOffline;
+    if (blockInPerson) blockInPerson.hidden = t !== "IN_PERSON";
+    if (blockOnline) blockOnline.hidden = t !== "ONLINE";
+    if (locationInput) locationInput.required = t === "IN_PERSON";
+    if (startView) startView.required = !isOffline;
+    if (endView) endView.required = !isOffline;
+    if (startTime) startTime.required = !isOffline;
+    if (endTime) endTime.required = !isOffline;
+    if (isOffline && sessionRows && !sessionRows.children.length) addSessionMediaRow();
+  }
+  function initWorkshopMap(){
+    if (mapInstance || !window.L) return;
+    var el = document.getElementById("workshop-map");
+    if (!el) return;
+    var lat = locationLatInput && locationLatInput.value ? parseFloat(locationLatInput.value) : 35.6892;
+    var lng = locationLngInput && locationLngInput.value ? parseFloat(locationLngInput.value) : 51.3890;
+    var zoom = (locationLatInput && locationLatInput.value) ? 15 : 11;
+    mapInstance = L.map(el, { scrollWheelZoom: true }).setView([lat, lng], zoom);
+    L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", { maxZoom: 19, attribution: "&copy; OpenStreetMap" }).addTo(mapInstance);
+    if (locationLatInput && locationLatInput.value && locationLngInput && locationLngInput.value) {
+      mapMarker = L.marker([lat, lng]).addTo(mapInstance);
+    }
+    mapInstance.on("click", function(e){ setMapCoords(e.latlng.lat, e.latlng.lng, false); });
+    setTimeout(function(){ mapInstance.invalidateSize(); }, 200);
+  }
+
+  updateCoordsHint();
+  if (mapToggle && mapWrap) {
+    mapToggle.addEventListener("click", function(){
+      var open = mapWrap.hidden;
+      mapWrap.hidden = !open;
+      mapToggle.textContent = open ? "بستن نقشه" : "انتخاب روی نقشه";
+      if (open) initWorkshopMap();
+    });
+  }
+  if (addSessionRowBtn) addSessionRowBtn.addEventListener("click", addSessionMediaRow);
+  if (typeSelect) { typeSelect.addEventListener("change", syncTypeBlocks); syncTypeBlocks(); }
+
+  jalaliDatepicker.startWatch({
+    selector: ".workshop-date-view", time: false, hideAfterChange: true,
+    showTodayBtn: true, showEmptyBtn: true, autoReadOnlyInput: true, zIndex: 100000, container: "body"
+  });
+  [
+    ["workshop-start-date-view","workshop-start-date"],
+    ["workshop-end-date-view","workshop-end-date"],
+    ["extra-session-date-view","extra-session-date"]
+  ].forEach(function(pair){
+    var el = document.getElementById(pair[0]);
+    if (!el) return;
+    el.addEventListener("jdp:change", function(){ syncJalali(pair[0], pair[1]); });
+    el.addEventListener("change", function(){ syncJalali(pair[0], pair[1]); });
+  });
+
+  var form = document.getElementById("workshop-form");
+  if (form) {
+    form.addEventListener("submit", function(e){
+      var t = typeSelect ? typeSelect.value : "";
+      if (t !== "OFFLINE") {
+        syncJalali("workshop-start-date-view", "workshop-start-date");
+        syncJalali("workshop-end-date-view", "workshop-end-date");
+        var sd = document.getElementById("workshop-start-date");
+        var ed = document.getElementById("workshop-end-date");
+        if (!sd || !sd.value || !ed || !ed.value) {
+          e.preventDefault(); alert("تاریخ شروع و پایان را انتخاب کنید."); return;
+        }
+      } else {
+        syncJalali("extra-session-date-view", "extra-session-date");
+      }
+      if (t === "IN_PERSON") {
+        if (locationInput && !locationInput.value.trim()) { e.preventDefault(); alert("آدرس را بنویسید."); return; }
+        if (!locationLatInput.value || !locationLngInput.value) { e.preventDefault(); alert("موقعیت روی نقشه را انتخاب کنید."); }
+      }
+    });
+  }
+})();
+</script>
+<script src="<?= e(url('/assets/js/workshop-session-media.js')) ?>?v=20260928files"></script>
+<?php
+require_once __DIR__ . '/../../includes/workshop_path.php';
+echo workshop_offline_protect_script([], workshop_media_watermark_for_user($user, $pdo));
+render_secretary_page('کارگاه‌ها', ob_get_clean());

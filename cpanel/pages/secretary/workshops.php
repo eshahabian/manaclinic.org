@@ -104,6 +104,7 @@ ob_start();
 <link rel="stylesheet" href="/assets/vendor/jalali/jalalidatepicker.min.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <h1>کارگاه‌ها و دوره‌ها</h1>
+<?php require __DIR__ . '/../../includes/workshop_add_member_form.php'; ?>
 <p class="muted" style="margin-top:.35rem;font-size:.9rem">کارگاه‌ها و دوره‌ها یک فهرست هستند. حضوری و آنلاین پس از پایان زمان به آرشیو می‌روند. اگر زودتر بسته شد، «اتمام کارگاه» یا برای دوره آفلاین «اتمام دوره» را بزنید.</p>
 
 <?php if ($flash): ?>

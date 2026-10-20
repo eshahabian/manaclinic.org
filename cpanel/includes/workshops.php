@@ -1026,7 +1026,51 @@ function confirm_workshop_payment(PDO $pdo, array $paymentRow): void
 }
 
 /** ثبت ورودی کارگاه توسط منشی — برای همه منشی‌ها دیده می‌شود */
-function workshop_enroll_by_staff(PDO $pdo, string $workshopId, string $patientId, string $staffUserId, string $staffLabel): string
+/** افزودن عضو فقط برای سه حساب مشخص و منشی‌های فعال. */
+function workshop_can_add_member(?array $user): bool
+{
+    require_once __DIR__ . '/doctor_profile_fields.php';
+    return $user !== null && empty($user['is_disabled'])
+        && in_array((string) ($user['role'] ?? ''), ['ADMIN', 'DOCTOR', 'SECRETARY'], true)
+        && clinic_can_add_therapist($user);
+}
+
+/** پس از ثبت قطعی عضویت؛ شکست پیامک نباید عضویت موفق را خراب کند. */
+function workshop_notify_member_joined(PDO $pdo, string $enrollmentId): void
+{
+    require_once __DIR__ . '/notifications.php';
+    require_once __DIR__ . '/sms_service.php';
+    $stmt = $pdo->prepare("SELECT w.*, e.id AS enrollment_id, e.patient_id, e.status AS enrollment_status,
+        e.enrolled_at, u.name AS patient_name, u.phone FROM workshop_enrollments e
+        JOIN workshops w ON w.id=e.workshop_id JOIN users u ON u.id=e.patient_id WHERE e.id=?");
+    $stmt->execute([$enrollmentId]);
+    $w = $stmt->fetch();
+    if (!$w || !in_array($w['enrollment_status'], ['CONFIRMED', 'COMPLETED'], true)) return;
+    try {
+        notify_user($pdo, (string) $w['patient_id'], 'عضویت کارگاه تأیید شد',
+            'عضویت شما در «' . $w['title'] . '» تأیید شد. جزئیات را در «دوره‌های من» ببینید.',
+            '/dashboard/workshops/mine', 'workshop');
+    } catch (Throwable $e) {
+        error_log('Workshop member notification failed: ' . $e->getMessage());
+    }
+    try {
+        $detailsHash = hash('sha256', json_encode([$w['starts_at'], $w['location'], $w['type'], $w['title']]));
+        $fingerprint = hash('sha256', json_encode([$w['enrollment_status'], $detailsHash, $w['status']]));
+        $key = 'enrollment:' . $enrollmentId . ':registered:' . $fingerprint;
+        $context = ['entity'=>'enrollment', 'id'=>$enrollmentId, 'starts_at'=>$w['starts_at'], 'details_hash'=>$detailsHash];
+        $body = 'مانا کلینیک: عضویت شما در کارگاه «' . $w['title'] . '» تأیید شد. جزئیات در پنل شما.';
+        // همان کلید صف زمان‌بندی‌شده مانع ارسال دوباره در اجرای بعدی می‌شود.
+        if (sms_queue_extended($pdo, (string) $w['phone'], $body, 'workshop_registered', $key,
+            null, date('Y-m-d H:i:s', time() + 86400), $context)) {
+            sms_send_immediate($pdo, (string) $w['phone'], $body, 'workshop_registered', $key,
+                date('Y-m-d H:i:s', time() + 86400), $context);
+        }
+    } catch (Throwable $e) {
+        error_log('Workshop member SMS failed: ' . $e->getMessage());
+    }
+}
+
+function workshop_enroll_by_staff(PDO $pdo, string $workshopId, string $patientId, string $staffUserId, string $staffLabel, bool $recordPaid = true): string
 {
     $stmt = $pdo->prepare('
       SELECT w.* FROM workshops w
@@ -1060,12 +1104,27 @@ function workshop_enroll_by_staff(PDO $pdo, string $workshopId, string $patientI
         throw new RuntimeException('مراجعه‌کننده معتبر نیست.');
     }
 
+    if (!$recordPaid && $existing) {
+        throw new RuntimeException('این فرد سابقه عضویت دارد؛ از بخش ثبت‌نام‌ها وضعیت او را بررسی کنید.');
+    }
+
     $enrollmentId = cuid();
     $paymentId = cuid();
     $amount = (int) $workshop['price'];
 
     $pdo->beginTransaction();
     try {
+        if (!$recordPaid) {
+            $locked = $pdo->prepare('SELECT * FROM workshops WHERE id=? FOR UPDATE');
+            $locked->execute([$workshopId]);
+            $currentWorkshop = $locked->fetch();
+            if (!$currentWorkshop || workshop_is_archived($currentWorkshop) || empty($currentWorkshop['is_published'])) {
+                throw new RuntimeException('کارگاه برای افزودن عضو در دسترس نیست.');
+            }
+            if (!workshop_has_capacity($pdo, $currentWorkshop)) {
+                throw new RuntimeException('ظرفیت این کارگاه تکمیل شده است.');
+            }
+        }
         if ($existing && in_array((string) $existing['status'], ['CANCELLED', 'REFUNDED'], true)) {
             $enrollmentId = (string) $existing['id'];
             $pdo->prepare("UPDATE workshop_enrollments SET status='CONFIRMED', enrolled_at=NOW(), created_by_user_id=? WHERE id=?")
@@ -1076,7 +1135,7 @@ function workshop_enroll_by_staff(PDO $pdo, string $workshopId, string $patientI
                 ->execute([$enrollmentId, $workshopId, $patientId, 'CONFIRMED', $staffUserId]);
         }
         $pdo->prepare('INSERT INTO workshop_payments (id, enrollment_id, amount, status, ref_id, recorded_by_user_id) VALUES (?,?,?,?,?,?)')
-            ->execute([$paymentId, $enrollmentId, $amount, 'PAID', 'SECRETARY', $staffUserId]);
+            ->execute([$paymentId, $enrollmentId, $amount, ($recordPaid || $amount <= 0) ? 'PAID' : 'PENDING', $recordPaid ? 'SECRETARY' : null, $staffUserId]);
         $pdo->commit();
     } catch (Throwable $e) {
         if ($pdo->inTransaction()) {
@@ -1084,6 +1143,8 @@ function workshop_enroll_by_staff(PDO $pdo, string $workshopId, string $patientI
         }
         throw new RuntimeException('ثبت ورودی کارگاه انجام نشد: ' . $e->getMessage());
     }
+
+    try { workshop_notify_member_joined($pdo, $enrollmentId); } catch (Throwable $e) { error_log('Workshop member notice: ' . $e->getMessage()); }
 
     $when = format_fa_datetime((string) $workshop['starts_at']);
     $patientName = (string) $patient['name'];
@@ -1183,14 +1244,7 @@ function workshop_approve_enrollment_by_staff(PDO $pdo, string $enrollmentId, st
         }
     }
 
-    notify_user(
-        $pdo,
-        (string) $row['patient_id'],
-        'عضویت کارگاه تأیید شد',
-        "عضویت شما در «{$row['title']}» تأیید شد و در «دوره‌های من» قرار گرفت.",
-        '/dashboard/workshops/mine',
-        'workshop'
-    );
+    workshop_notify_member_joined($pdo, $enrollmentId);
 }
 
 /** ثبت پرداخت نقدی/فیش کارگاه توسط کارکنان — عضویت را جداگانه باید تأیید کرد */
