@@ -326,7 +326,14 @@ if ($user) {
             </a>
           <?php endforeach; ?>
         </div>
-        <?php $footerVerses = glob(__DIR__ . '/../assets/img/hafez/verse-*.png') ?: []; ?>
+        <?php
+          // Keep one copy of each artwork in the random footer rotation.
+          $footerVerseDuplicates = ['verse-02.png', 'verse-04.png', 'verse-06.png', 'verse-07.png', 'verse-09.png', 'verse-10.png', 'verse-12.png', 'verse-13.png', 'verse-14.png', 'verse-17.png', 'verse-18.png', 'verse-19.png', 'verse-22.png', 'verse-23.png', 'verse-24.png'];
+          $footerVerses = array_values(array_filter(
+              glob(__DIR__ . '/../assets/img/hafez/verse-*.png') ?: [],
+              static fn(string $file): bool => !in_array(basename($file), $footerVerseDuplicates, true)
+          ));
+        ?>
         <?php if ($footerVerses): ?>
           <?php
             $footerVerseFile = $footerVerses[array_rand($footerVerses)];
@@ -338,7 +345,7 @@ if ($user) {
           ?>
           <div class="footer-verse-frame" aria-hidden="true">
             <svg class="footer-verse-art" viewBox="<?= (int)$verseX ?> <?= (int)$verseY ?> <?= (int)$verseVisibleWidth ?> <?= (int)$verseVisibleHeight ?>" width="400" height="240" preserveAspectRatio="xMidYMid meet" focusable="false">
-              <image href="<?= e(url('/assets/img/hafez/' . $footerVerseName)) ?>" width="<?= (int)$verseWidth ?>" height="<?= (int)$verseHeight ?>" />
+              <image href="<?= e(url('/assets/img/hafez/' . $footerVerseName)) ?>?v=<?= (int)filemtime($footerVerseFile) ?>" width="<?= (int)$verseWidth ?>" height="<?= (int)$verseHeight ?>" />
             </svg>
           </div>
         <?php endif; ?>
