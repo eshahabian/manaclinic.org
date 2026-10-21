@@ -12,13 +12,21 @@ export default function TestsPage() {
         ابزارهای استاندارد غربالگری و خودارزیابی. محتوای هر آزمون به‌زودی فعال
         می‌شود.
       </p>
-      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {psychTestsCatalog.map((test) => (
           <Link
             key={test.slug}
             href={`/tests/${test.slug}`}
-            className="panel min-w-0 p-4 transition hover:-translate-y-1 hover:shadow-md"
+            className="panel relative isolate min-w-0 overflow-hidden p-4 transition hover:-translate-y-1 hover:shadow-md"
           >
+            <Image
+              src={`/images/tests/${test.slug}.webp`}
+              alt=""
+              aria-hidden="true"
+              fill
+              sizes="(min-width: 1024px) 33vw, (min-width: 640px) 50vw, 100vw"
+              className="pointer-events-none -z-10 scale-105 select-none object-cover opacity-[0.14] blur-[2px]"
+            />
             <div className="mb-3 flex items-center gap-3">
               <Image
                 src={`/images/tests/${test.slug}.webp`}
