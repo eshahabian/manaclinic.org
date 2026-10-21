@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/../../includes/admin_panel.php';
-require_once __DIR__ . '/../../includes/user_cleanup.php';
+require_once __DIR__ . '/../../includes/admin_user_search.php';
 require_once __DIR__ . '/../../includes/outreach.php';
 require_once __DIR__ . '/../../includes/secretary_patient.php';
 require_once __DIR__ . '/../../includes/user_referral.php';
@@ -19,7 +19,7 @@ if (function_exists('users_backfill_created_by')) {
     ensure_staff_desk_schema($pdo);
 }
 $users = $pdo->query("
-  SELECT u.id, u.username, u.name, u.role, u.created_at, u.last_login_at, u.password_plain, u.is_disabled, u.referral_source,
+  SELECT u.id, u.username, u.name, u.phone, u.role, u.created_at, u.last_login_at, u.password_plain, u.is_disabled, u.referral_source,
          cu.name AS created_by_name, cu.username AS created_by_username, cu.role AS created_by_role
   FROM users u
   LEFT JOIN users cu ON cu.id = u.created_by_user_id
@@ -29,10 +29,12 @@ $usersDisabledPage = str_ends_with((string) ($GLOBALS['path'] ?? ''), '/admin/us
 if ($usersDisabledPage) {
     $users = array_values(array_filter($users, static fn($u) => (int) ($u['is_disabled'] ?? 0) === 1));
 }
-$cleanupTargets = find_cleanup_test_users($pdo);
-$appointmentCount = (int) $pdo->query('SELECT COUNT(*) FROM appointments')->fetchColumn();
-$patients = array_values(array_filter($users, static fn($u) => $u['role'] === 'PATIENT'));
+$patientCount = count(array_filter($users, static fn($u) => ($u['role'] ?? '') === 'PATIENT'));
 $doctorCount = count(array_filter($users, static fn($u) => ($u['role'] ?? '') === 'DOCTOR'));
+$totalCount = count($users);
+$searchQuery = is_string($_GET['q'] ?? null) ? mb_substr(trim($_GET['q']), 0, 120) : '';
+$users = admin_user_search_filter($users, $searchQuery);
+$patients = array_values(array_filter($users, static fn($u) => $u['role'] === 'PATIENT'));
 
 ob_start();
 ?>
@@ -49,7 +51,7 @@ ob_start();
 <div class="grid-2" style="margin-top:1rem">
   <div class="panel" style="margin:0">
     <div class="muted">مراجعه‌کننده</div>
-    <strong style="font-size:1.7rem;line-height:1.4"><?= e(to_fa_digits((string) count($patients))) ?></strong>
+    <strong style="font-size:1.7rem;line-height:1.4"><?= e(to_fa_digits((string) $patientCount)) ?></strong>
   </div>
   <div class="panel" style="margin:0">
     <div class="muted">درمانگر</div>
@@ -57,93 +59,15 @@ ob_start();
   </div>
 </div>
 
-<?php if (!$usersDisabledPage): ?>
-<div class="panel" style="margin-top:1rem">
-  <h2 style="margin:0 0 .5rem;font-size:1rem">تغییر رمز هر کاربر</h2>
-  <p class="muted" style="font-size:.9rem;line-height:1.8;margin:0 0 .75rem">
-    رمز هر حساب را از اینجا عوض کنید. اگر «در ورود بعدی عوض شود» را بزنید، همان کاربر با رمز جدید وارد می‌شود و باید رمز خودش را بسازد.
-  </p>
-  <form method="post" action="<?= e(url('/admin/users')) ?>" class="form-stack" autocomplete="off">
-    <?= csrf_field() ?>
-    <input type="hidden" name="action" value="set_password">
-    <div>
-      <label class="label">کاربر</label>
-      <select class="input" name="user_id" required>
-        <option value="">انتخاب کنید</option>
-        <?php foreach ($users as $u): ?>
-          <option value="<?= e($u['id']) ?>">
-            <?= e($u['name']) ?> — <?= e(role_label($u['role'])) ?>
-            <?php if (!empty($u['username'])): ?> (<?= e((string) $u['username']) ?>)<?php endif; ?>
-          </option>
-        <?php endforeach; ?>
-      </select>
-    </div>
-    <div>
-      <label class="label">رمز جدید</label>
-      <input class="input" type="password" name="new_password" required minlength="6" dir="ltr" autocomplete="new-password">
-    </div>
-    <div>
-      <label class="label">تکرار رمز جدید</label>
-      <input class="input" type="password" name="new_password_confirm" required minlength="6" dir="ltr" autocomplete="new-password">
-    </div>
-    <label style="display:flex;gap:.5rem;align-items:center;font-size:.9rem">
-      <input type="checkbox" name="must_change_password" value="1" checked>
-      در ورود بعدی رمز را عوض کند
-    </label>
-    <button type="submit" class="btn btn-primary">ذخیره رمز</button>
-  </form>
-</div>
-
-<div class="panel" style="margin-top:1rem;border-color:var(--danger)">
-  <h2 style="margin:0 0 .5rem;font-size:1rem">پاک‌سازی سریع</h2>
-  <p class="muted" style="font-size:.9rem;line-height:1.8;margin:0 0 .75rem">
-    هدف: برهان شاوردی، عماد، علی رضایی
-    · پیدا شده: <strong><?= count($cleanupTargets) ?></strong>
-    · نوبت‌های ثبت‌شده: <strong><?= $appointmentCount ?></strong>
-  </p>
-  <?php if ($cleanupTargets): ?>
-    <ul style="margin:0 0 .75rem;padding-right:1.2rem;font-size:.9rem">
-      <?php foreach ($cleanupTargets as $t): ?>
-        <li><?= e($t['name']) ?> <span class="muted" dir="ltr">(<?= e((string)$t['username']) ?>)</span></li>
-      <?php endforeach; ?>
-    </ul>
-  <?php else: ?>
-    <p class="muted" style="font-size:.85rem">با الگو پیدا نشد؛ از لیست پایین تیک بزن و حذف کن.</p>
-  <?php endif; ?>
-  <form method="post" action="<?= e(url('/admin/users')) ?>" style="display:inline" onsubmit="return confirm('کاربران پیدا شده + تمام نوبت‌ها حذف شوند؟');">
-    <?= csrf_field() ?>
-    <input type="hidden" name="action" value="cleanup_named_and_appointments">
-    <button type="submit" class="btn btn-danger">حذف کاربران پیدا شده + تمام نوبت‌ها</button>
-  </form>
-</div>
-
-<?php if ($patients): ?>
-<div class="panel" style="margin-top:1rem">
-  <h2 style="margin:0 0 .75rem;font-size:1rem">حذف دستی مراجعه‌کنندگان (لیست منشی از اینجا می‌آید)</h2>
-  <form method="post" action="<?= e(url('/admin/users')) ?>" onsubmit="return confirm('مراجعه‌کنندگان انتخاب‌شده حذف شوند؟');">
-    <?= csrf_field() ?>
-    <input type="hidden" name="action" value="delete_selected">
-    <div class="stack" style="margin-bottom:1rem">
-      <?php foreach ($patients as $p): ?>
-        <label style="display:flex;gap:.6rem;align-items:center;padding:.45rem 0;border-bottom:1px solid var(--line);font-size:.95rem;flex-wrap:wrap">
-          <input type="checkbox" name="user_ids[]" value="<?= e($p['id']) ?>">
-          <span><?= e($p['name']) ?></span>
-          <span class="muted" dir="ltr" style="font-size:.8rem"><?= e((string)$p['username']) ?></span>
-          <span class="muted" style="font-size:.8rem;margin-inline-start:auto">
-            <?= e(user_created_by_label([
-                'name' => $p['created_by_name'] ?? '',
-                'username' => $p['created_by_username'] ?? '',
-                'role' => $p['created_by_role'] ?? '',
-            ], 'ثبت‌کننده نامشخص')) ?>
-          </span>
-        </label>
-      <?php endforeach; ?>
-    </div>
-    <button type="submit" class="btn btn-danger">حذف انتخاب‌شده‌ها</button>
-  </form>
-</div>
-<?php endif; ?>
-<?php endif; ?>
+<form method="get" action="<?= e(url($usersDisabledPage ? '/admin/users-disabled' : '/admin/users')) ?>" class="panel" role="search" style="margin-top:1rem">
+  <label class="label" for="admin-user-search">جستجوی کاربران</label>
+  <div style="display:flex;gap:.6rem;flex-wrap:wrap;align-items:center">
+    <input class="input" id="admin-user-search" type="search" name="q" maxlength="120" value="<?= e($searchQuery) ?>" placeholder="نام، شماره موبایل یا نام کاربری" style="flex:1;min-width:12rem">
+    <button class="btn btn-primary" type="submit">جستجو</button>
+    <?php if ($searchQuery !== ''): ?><a class="btn btn-outline" href="<?= e(url($usersDisabledPage ? '/admin/users-disabled' : '/admin/users')) ?>">نمایش همه</a><?php endif; ?>
+  </div>
+  <p class="muted" style="margin:.6rem 0 0;font-size:.85rem"><?= e(to_fa_digits((string) count($users))) ?> کاربر از <?= e(to_fa_digits((string) $totalCount)) ?></p>
+</form>
 
 <div class="panel admin-users-board" style="padding:0;margin-top:1rem">
   <table class="table admin-users-table">
@@ -294,11 +218,37 @@ ob_start();
         </tr>
       <?php endforeach; ?>
       <?php if (!$users): ?>
-        <tr><td colspan="10" class="muted" style="text-align:center;padding:1.2rem"><?= $usersDisabledPage ? 'کاربر غیرفعالی نیست.' : 'کاربری ثبت نشده است.' ?></td></tr>
+        <tr><td colspan="10" class="muted" style="text-align:center;padding:1.2rem"><?= $searchQuery !== '' ? 'کاربری با این مشخصات پیدا نشد.' : ($usersDisabledPage ? 'کاربر غیرفعالی نیست.' : 'کاربری ثبت نشده است.') ?></td></tr>
       <?php endif; ?>
     </tbody>
   </table>
 </div>
+<?php if (!$usersDisabledPage && $patients): ?>
+<div class="panel" style="margin-top:1rem">
+  <h2 style="margin:0 0 .75rem;font-size:1rem">حذف دستی مراجعه‌کنندگان (لیست منشی از اینجا می‌آید)</h2>
+  <form method="post" action="<?= e(url('/admin/users')) ?>" onsubmit="return confirm('مراجعه‌کنندگان انتخاب‌شده حذف شوند؟');">
+    <?= csrf_field() ?>
+    <input type="hidden" name="action" value="delete_selected">
+    <div class="stack" style="margin-bottom:1rem">
+      <?php foreach ($patients as $p): ?>
+        <label style="display:flex;gap:.6rem;align-items:center;padding:.45rem 0;border-bottom:1px solid var(--line);font-size:.95rem;flex-wrap:wrap">
+          <input type="checkbox" name="user_ids[]" value="<?= e($p['id']) ?>">
+          <span><?= e($p['name']) ?></span>
+          <span class="muted" dir="ltr" style="font-size:.8rem"><?= e((string)$p['username']) ?></span>
+          <span class="muted" style="font-size:.8rem;margin-inline-start:auto">
+            <?= e(user_created_by_label([
+                'name' => $p['created_by_name'] ?? '',
+                'username' => $p['created_by_username'] ?? '',
+                'role' => $p['created_by_role'] ?? '',
+            ], 'ثبت‌کننده نامشخص')) ?>
+          </span>
+        </label>
+      <?php endforeach; ?>
+    </div>
+    <button type="submit" class="btn btn-danger">حذف انتخاب‌شده‌ها</button>
+  </form>
+</div>
+<?php endif; ?>
 <script>
 (function(){
   function closeAll(root){

@@ -12,30 +12,30 @@ export default function TestsPage() {
         ابزارهای استاندارد غربالگری و خودارزیابی. محتوای هر آزمون به‌زودی فعال
         می‌شود.
       </p>
-      <div className="mt-8 grid gap-5 md:grid-cols-2">
+      <div className="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {psychTestsCatalog.map((test) => (
           <Link
             key={test.slug}
             href={`/tests/${test.slug}`}
-            className="panel transition hover:-translate-y-1 hover:shadow-md"
+            className="panel min-w-0 p-4 transition hover:-translate-y-1 hover:shadow-md"
           >
-            <div className="mb-3 flex items-center gap-4">
+            <div className="mb-3 flex items-center gap-3">
               <Image
                 src={`/images/tests/${test.slug}.webp`}
                 alt=""
-                width={112}
-                height={112}
-                className="rounded-2xl"
+                width={72}
+                height={72}
+                className="shrink-0 rounded-2xl"
               />
               <div className="flex-1">
                 <div className="flex items-start justify-between gap-3">
                   <span className="badge">{test.category}</span>
                   <span className="text-xs text-muted">{test.abbr}</span>
                 </div>
-                <h2 className="text-xl font-bold leading-8">{test.title}</h2>
+                <h2 className="text-base font-bold leading-7">{test.title}</h2>
               </div>
             </div>
-            <p className="mt-3 text-sm leading-7 text-muted">
+            <p className="mt-3 line-clamp-2 text-sm leading-7 text-muted">
               {test.description}
             </p>
             <p className="mt-3 text-sm text-muted">⏱ {test.duration}</p>

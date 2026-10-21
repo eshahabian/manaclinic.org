@@ -1,0 +1,338 @@
+<?php
+declare(strict_types=1);
+require_once __DIR__ . '/../../includes/admin_panel.php';
+require_once __DIR__ . '/../../includes/user_cleanup.php';
+require_once __DIR__ . '/../../includes/outreach.php';
+require_once __DIR__ . '/../../includes/secretary_patient.php';
+require_once __DIR__ . '/../../includes/user_referral.php';
+require_site_admin();
+
+ensure_users_password_plain_schema($pdo);
+ensure_users_disabled_schema($pdo);
+if (function_exists('ensure_outreach_schema')) {
+    ensure_outreach_schema($pdo);
+}
+$lastTherapy = function_exists('patient_last_therapy_map') ? patient_last_therapy_map($pdo) : [];
+if (function_exists('users_backfill_created_by')) {
+    users_backfill_created_by($pdo);
+} elseif (function_exists('ensure_staff_desk_schema')) {
+    ensure_staff_desk_schema($pdo);
+}
+$users = $pdo->query("
+  SELECT u.id, u.username, u.name, u.role, u.created_at, u.last_login_at, u.password_plain, u.is_disabled, u.referral_source,
+         cu.name AS created_by_name, cu.username AS created_by_username, cu.role AS created_by_role
+  FROM users u
+  LEFT JOIN users cu ON cu.id = u.created_by_user_id
+  ORDER BY u.created_at DESC
+")->fetchAll();
+$usersDisabledPage = str_ends_with((string) ($GLOBALS['path'] ?? ''), '/admin/users-disabled');
+if ($usersDisabledPage) {
+    $users = array_values(array_filter($users, static fn($u) => (int) ($u['is_disabled'] ?? 0) === 1));
+}
+$cleanupTargets = find_cleanup_test_users($pdo);
+$appointmentCount = (int) $pdo->query('SELECT COUNT(*) FROM appointments')->fetchColumn();
+$patients = array_values(array_filter($users, static fn($u) => $u['role'] === 'PATIENT'));
+$doctorCount = count(array_filter($users, static fn($u) => ($u['role'] ?? '') === 'DOCTOR'));
+
+ob_start();
+?>
+<h1><?= $usersDisabledPage ? 'کاربران غیر فعال شده' : 'مدیریت کاربران' ?></h1>
+<p class="muted" style="margin-top:.35rem;line-height:1.8">
+  <?php if ($usersDisabledPage): ?>
+    هر حسابی که غیرفعال شود اینجا می‌آید. ورودش بسته است و درمانگر غیرفعال از فهرست عمومی حذف می‌شود. با «فعال» دوباره برمی‌گردد.
+  <?php else: ?>
+    ستون «رمز فعلی» فقط برای ادمین است. رمزهایی که از این به‌بعد ثبت یا عوض شوند اینجا دیده می‌شوند؛ رمزهای خیلی قدیمی که قبل از این قابلیت ذخیره نشده‌اند قابل بازیابی نیستند.
+    حساب غیرفعال در «کاربران غیر فعال شده» هم دیده می‌شود.
+  <?php endif; ?>
+</p>
+
+<div class="grid-2" style="margin-top:1rem">
+  <div class="panel" style="margin:0">
+    <div class="muted">مراجعه‌کننده</div>
+    <strong style="font-size:1.7rem;line-height:1.4"><?= e(to_fa_digits((string) count($patients))) ?></strong>
+  </div>
+  <div class="panel" style="margin:0">
+    <div class="muted">درمانگر</div>
+    <strong style="font-size:1.7rem;line-height:1.4"><?= e(to_fa_digits((string) $doctorCount)) ?></strong>
+  </div>
+</div>
+
+<?php if (!$usersDisabledPage): ?>
+<div class="panel" style="margin-top:1rem">
+  <h2 style="margin:0 0 .5rem;font-size:1rem">تغییر رمز هر کاربر</h2>
+  <p class="muted" style="font-size:.9rem;line-height:1.8;margin:0 0 .75rem">
+    رمز هر حساب را از اینجا عوض کنید. اگر «در ورود بعدی عوض شود» را بزنید، همان کاربر با رمز جدید وارد می‌شود و باید رمز خودش را بسازد.
+  </p>
+  <form method="post" action="<?= e(url('/admin/users')) ?>" class="form-stack" autocomplete="off">
+    <?= csrf_field() ?>
+    <input type="hidden" name="action" value="set_password">
+    <div>
+      <label class="label">کاربر</label>
+      <select class="input" name="user_id" required>
+        <option value="">انتخاب کنید</option>
+        <?php foreach ($users as $u): ?>
+          <option value="<?= e($u['id']) ?>">
+            <?= e($u['name']) ?> — <?= e(role_label($u['role'])) ?>
+            <?php if (!empty($u['username'])): ?> (<?= e((string) $u['username']) ?>)<?php endif; ?>
+          </option>
+        <?php endforeach; ?>
+      </select>
+    </div>
+    <div>
+      <label class="label">رمز جدید</label>
+      <input class="input" type="password" name="new_password" required minlength="6" dir="ltr" autocomplete="new-password">
+    </div>
+    <div>
+      <label class="label">تکرار رمز جدید</label>
+      <input class="input" type="password" name="new_password_confirm" required minlength="6" dir="ltr" autocomplete="new-password">
+    </div>
+    <label style="display:flex;gap:.5rem;align-items:center;font-size:.9rem">
+      <input type="checkbox" name="must_change_password" value="1" checked>
+      در ورود بعدی رمز را عوض کند
+    </label>
+    <button type="submit" class="btn btn-primary">ذخیره رمز</button>
+  </form>
+</div>
+
+<div class="panel" style="margin-top:1rem;border-color:var(--danger)">
+  <h2 style="margin:0 0 .5rem;font-size:1rem">پاک‌سازی سریع</h2>
+  <p class="muted" style="font-size:.9rem;line-height:1.8;margin:0 0 .75rem">
+    هدف: برهان شاوردی، عماد، علی رضایی
+    · پیدا شده: <strong><?= count($cleanupTargets) ?></strong>
+    · نوبت‌های ثبت‌شده: <strong><?= $appointmentCount ?></strong>
+  </p>
+  <?php if ($cleanupTargets): ?>
+    <ul style="margin:0 0 .75rem;padding-right:1.2rem;font-size:.9rem">
+      <?php foreach ($cleanupTargets as $t): ?>
+        <li><?= e($t['name']) ?> <span class="muted" dir="ltr">(<?= e((string)$t['username']) ?>)</span></li>
+      <?php endforeach; ?>
+    </ul>
+  <?php else: ?>
+    <p class="muted" style="font-size:.85rem">با الگو پیدا نشد؛ از لیست پایین تیک بزن و حذف کن.</p>
+  <?php endif; ?>
+  <form method="post" action="<?= e(url('/admin/users')) ?>" style="display:inline" onsubmit="return confirm('کاربران پیدا شده + تمام نوبت‌ها حذف شوند؟');">
+    <?= csrf_field() ?>
+    <input type="hidden" name="action" value="cleanup_named_and_appointments">
+    <button type="submit" class="btn btn-danger">حذف کاربران پیدا شده + تمام نوبت‌ها</button>
+  </form>
+</div>
+
+<?php if ($patients): ?>
+<div class="panel" style="margin-top:1rem">
+  <h2 style="margin:0 0 .75rem;font-size:1rem">حذف دستی مراجعه‌کنندگان (لیست منشی از اینجا می‌آید)</h2>
+  <form method="post" action="<?= e(url('/admin/users')) ?>" onsubmit="return confirm('مراجعه‌کنندگان انتخاب‌شده حذف شوند؟');">
+    <?= csrf_field() ?>
+    <input type="hidden" name="action" value="delete_selected">
+    <div class="stack" style="margin-bottom:1rem">
+      <?php foreach ($patients as $p): ?>
+        <label style="display:flex;gap:.6rem;align-items:center;padding:.45rem 0;border-bottom:1px solid var(--line);font-size:.95rem;flex-wrap:wrap">
+          <input type="checkbox" name="user_ids[]" value="<?= e($p['id']) ?>">
+          <span><?= e($p['name']) ?></span>
+          <span class="muted" dir="ltr" style="font-size:.8rem"><?= e((string)$p['username']) ?></span>
+          <span class="muted" style="font-size:.8rem;margin-inline-start:auto">
+            <?= e(user_created_by_label([
+                'name' => $p['created_by_name'] ?? '',
+                'username' => $p['created_by_username'] ?? '',
+                'role' => $p['created_by_role'] ?? '',
+            ], 'ثبت‌کننده نامشخص')) ?>
+          </span>
+        </label>
+      <?php endforeach; ?>
+    </div>
+    <button type="submit" class="btn btn-danger">حذف انتخاب‌شده‌ها</button>
+  </form>
+</div>
+<?php endif; ?>
+<?php endif; ?>
+
+<div class="panel admin-users-board" style="padding:0;margin-top:1rem">
+  <table class="table admin-users-table">
+    <colgroup>
+      <col class="admin-users-col-name">
+      <col class="admin-users-col-user">
+      <col class="admin-users-col-role">
+      <col class="admin-users-col-by">
+      <col class="admin-users-col-by">
+      <col class="admin-users-col-pass">
+      <col class="admin-users-col-date">
+      <col class="admin-users-col-date">
+      <col class="admin-users-col-date">
+      <col class="admin-users-col-ops">
+    </colgroup>
+    <thead>
+      <tr>
+        <th>نام</th>
+        <th>نام کاربری</th>
+        <th>نقش</th>
+        <th>ثبت توسط</th>
+        <th>معرف</th>
+        <th>رمز فعلی</th>
+        <th>عضویت</th>
+        <th>آخرین ورود</th>
+        <th>آخرین تراپی</th>
+        <th>عملیات</th>
+      </tr>
+    </thead>
+    <tbody>
+      <?php foreach ($users as $u): ?>
+        <?php
+          $plain = trim((string) ($u['password_plain'] ?? ''));
+          $creator = user_created_by_label([
+              'name' => $u['created_by_name'] ?? '',
+              'username' => $u['created_by_username'] ?? '',
+              'role' => $u['created_by_role'] ?? '',
+          ], '—');
+          $uid = (string) ($u['id'] ?? '');
+          $editId = 'admin-edit-' . preg_replace('/[^a-zA-Z0-9_-]/', '', $uid);
+        ?>
+        <tr>
+          <td>
+            <?= e($u['name']) ?>
+            <?php if (!empty($u['is_disabled'])): ?>
+              <span class="muted" style="font-size:.8rem"> — غیرفعال</span>
+            <?php endif; ?>
+          </td>
+          <td dir="ltr"><?= e((string) $u['username']) ?></td>
+          <td><?= e(role_label($u['role'])) ?></td>
+          <td style="font-size:.85rem"><?= e($creator) ?></td>
+          <td>
+            <form method="post" action="<?= e(url('/admin/users')) ?>" style="margin:0">
+              <?= csrf_field() ?>
+              <input type="hidden" name="action" value="set_referral">
+              <input type="hidden" name="user_id" value="<?= e($uid) ?>">
+              <input type="hidden" name="return_to" value="<?= e($usersDisabledPage ? '/admin/users-disabled' : '/admin/users') ?>">
+              <select class="input" name="referral_source" aria-label="معرف" onchange="this.form.submit()" style="min-width:9rem;padding:.35rem .5rem">
+                <option value="">انتخاب معرف</option>
+                <option value="therapist"<?= (($u['referral_source'] ?? '') === 'therapist') ? ' selected' : '' ?>>درمانگر</option>
+                <option value="clinic"<?= (($u['referral_source'] ?? '') === 'clinic') ? ' selected' : '' ?>>کلینیک</option>
+              </select>
+            </form>
+          </td>
+          <td>
+            <?php if ($plain !== ''): ?>
+              <code class="admin-password-plain" dir="ltr"><?= e($plain) ?></code>
+            <?php else: ?>
+              <span class="muted" style="font-size:.85rem">ثبت نشده</span>
+            <?php endif; ?>
+          </td>
+          <td><?= e(format_fa_datetime($u['created_at'])) ?></td>
+          <td><?= !empty($u['last_login_at']) ? e(format_fa_datetime((string) $u['last_login_at'])) : '—' ?></td>
+          <td>
+            <?php if (($u['role'] ?? '') === 'PATIENT' && !empty($lastTherapy[$uid])): ?>
+              <?= e(format_fa_datetime((string) $lastTherapy[$uid])) ?>
+            <?php else: ?>
+              —
+            <?php endif; ?>
+          </td>
+          <td class="admin-user-ops">
+            <div class="admin-ops" data-admin-ops>
+              <div class="admin-ops-bar" role="group" aria-label="عملیات کاربر">
+                <button type="button" class="admin-ops-btn" data-admin-panel="edit" data-admin-edit-toggle="<?= e($editId) ?>" aria-expanded="false" aria-controls="<?= e($editId) ?>">
+                  ویرایش
+                </button>
+                <button type="button" class="admin-ops-btn" data-admin-panel="pass" aria-expanded="false" aria-controls="<?= e($editId) ?>-pass">
+                  رمز
+                </button>
+                <?php
+                  $me = current_user();
+                  $canDisable = user_disable_actor_allowed($me)
+                    && strcasecmp((string) ($u['username'] ?? ''), 'eshahabian') !== 0
+                    && (string) ($me['id'] ?? '') !== $uid;
+                ?>
+                <?php if ($canDisable): ?>
+                  <form method="post" action="<?= e(url('/admin/users')) ?>" class="admin-ops-delete">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="toggle_disabled">
+                    <input type="hidden" name="user_id" value="<?= e($uid) ?>">
+                    <input type="hidden" name="return_to" value="<?= e($usersDisabledPage ? '/admin/users-disabled' : '/admin/users') ?>">
+                    <button type="submit" class="admin-ops-btn"><?= !empty($u['is_disabled']) ? 'فعال' : 'غیرفعال' ?></button>
+                  </form>
+                <?php endif; ?>
+                <?php if ($u['role'] !== 'ADMIN'): ?>
+                  <form method="post" action="<?= e(url('/admin/users')) ?>" class="admin-ops-delete" onsubmit="return confirm('این کاربر و همه داده‌هایش از سایت و دیتابیس حذف شود؟');">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="action" value="delete_user">
+                    <input type="hidden" name="user_id" value="<?= e($uid) ?>">
+                    <button type="submit" class="admin-ops-btn admin-ops-btn-danger">حذف</button>
+                  </form>
+                <?php endif; ?>
+              </div>
+
+              <form method="post" action="<?= e(url('/admin/users')) ?>" class="admin-ops-panel" id="<?= e($editId) ?>-pass" hidden autocomplete="off" data-admin-panel-body="pass">
+                <?= csrf_field() ?>
+                <input type="hidden" name="action" value="set_password">
+                <input type="hidden" name="user_id" value="<?= e($uid) ?>">
+                <p class="admin-ops-panel-title">تغییر رمز عبور</p>
+                <div class="admin-ops-pass-row">
+                  <input class="input" type="password" name="new_password" required minlength="6" dir="ltr" placeholder="رمز جدید (حداقل ۶ کاراکتر)" autocomplete="new-password" aria-label="رمز جدید">
+                  <button type="submit" class="btn btn-primary btn-sm">ثبت رمز</button>
+                </div>
+              </form>
+
+              <form method="post" action="<?= e(url('/admin/users')) ?>" class="admin-ops-panel" id="<?= e($editId) ?>" hidden autocomplete="off" data-admin-panel-body="edit">
+                <?= csrf_field() ?>
+                <input type="hidden" name="action" value="update_profile">
+                <input type="hidden" name="user_id" value="<?= e($uid) ?>">
+                <p class="admin-ops-panel-title">ویرایش نام و نام کاربری</p>
+                <div class="admin-ops-fields">
+                  <label>
+                    <span class="label">نام</span>
+                    <input class="input" type="text" name="name" required value="<?= e((string) $u['name']) ?>" autocomplete="off">
+                  </label>
+                  <label>
+                    <span class="label">نام کاربری</span>
+                    <input class="input" type="text" name="username" required dir="ltr" value="<?= e((string) $u['username']) ?>" pattern="[a-zA-Z0-9._\-]{3,32}" autocomplete="off">
+                  </label>
+                </div>
+                <div class="admin-ops-panel-actions">
+                  <button type="submit" class="btn btn-primary btn-sm">ذخیره</button>
+                  <button type="button" class="btn btn-outline btn-sm" data-admin-edit-cancel="<?= e($editId) ?>">بستن</button>
+                </div>
+              </form>
+            </div>
+          </td>
+        </tr>
+      <?php endforeach; ?>
+      <?php if (!$users): ?>
+        <tr><td colspan="10" class="muted" style="text-align:center;padding:1.2rem"><?= $usersDisabledPage ? 'کاربر غیرفعالی نیست.' : 'کاربری ثبت نشده است.' ?></td></tr>
+      <?php endif; ?>
+    </tbody>
+  </table>
+</div>
+<script>
+(function(){
+  function closeAll(root){
+    var scope = root || document;
+    scope.querySelectorAll("[data-admin-ops]").forEach(function(ops){
+      ops.querySelectorAll(".admin-ops-panel").forEach(function(p){ p.hidden = true; });
+      ops.querySelectorAll(".admin-ops-btn[aria-expanded]").forEach(function(b){
+        b.setAttribute("aria-expanded", "false");
+        b.classList.remove("is-on");
+      });
+    });
+  }
+
+  document.querySelectorAll("[data-admin-ops]").forEach(function(ops){
+    ops.querySelectorAll(".admin-ops-btn[data-admin-panel]").forEach(function(btn){
+      btn.addEventListener("click", function(){
+        var kind = btn.getAttribute("data-admin-panel");
+        var panel = ops.querySelector('[data-admin-panel-body="' + kind + '"]');
+        if (!panel) return;
+        var willOpen = panel.hasAttribute("hidden");
+        closeAll();
+        if (!willOpen) return;
+        panel.hidden = false;
+        btn.setAttribute("aria-expanded", "true");
+        btn.classList.add("is-on");
+        var focusEl = panel.querySelector("input:not([type=hidden])");
+        if (focusEl) focusEl.focus();
+      });
+    });
+    ops.querySelectorAll("[data-admin-edit-cancel]").forEach(function(btn){
+      btn.addEventListener("click", function(){ closeAll(ops); });
+    });
+  });
+})();
+</script>
+<?php
+render_admin_page($usersDisabledPage ? 'کاربران غیر فعال شده' : 'مدیریت کاربران', ob_get_clean());
