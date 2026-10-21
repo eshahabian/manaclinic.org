@@ -18,7 +18,7 @@ $guideWorkshops = array_values(array_map(static fn(array $workshop): array => [
       <p class="eyebrow">لازم نیست از همان اول همه‌چیز را بدانی</p>
       <h2 id="mana-guide-title">تو هم چالش انتخاب تراپیست داری؟</h2>
       <p>وقتی نمی‌دانی از کجا شروع کنی، انتخاب درمانگر می‌تواند سخت باشد. شاید بخواهی دربارهٔ حال خودت حرف بزنی، برای رابطه‌ات کمک بگیری یا فرزندت را بهتر درک کنی. بیایید از چیزی شروع کنیم که برای تو مهم است.</p>
-      <span class="mana-guide-note">چند سؤال کوتاه، یک قدم روشن‌تر</span>
+      <span class="mana-guide-note">۱۰ سؤال کوتاه درباره تجربه‌های روزمره و ترجیح‌های تو</span>
     </div>
     <div class="mana-guide-art" aria-hidden="true">
       <div class="mana-guide-question">
@@ -41,7 +41,7 @@ $guideWorkshops = array_values(array_map(static fn(array $workshop): array => [
     <div class="mana-guide-copy">
       <p class="eyebrow">از نیاز تو تا مسیر مناسب تو</p>
       <h2>آگاهانه تراپیست رو انتخاب کن</h2>
-      <p>با پاسخ به چند سؤال، حوزهٔ مناسب برای شروع را پیدا کن و درمانگرانی را ببین که در همان حوزه فعالیت می‌کنند. اگر هدفت یادگیری و رشد باشد، مسیر دوره‌ها و کارگاه‌ها را هم می‌بینی.</p>
+      <p>با پاسخ به ۱۰ سؤال درباره تجربه‌های روزمره و ترجیح‌هایت، حوزه‌های قابل بررسی و درمانگران مرتبط را ببین. این راهنما برای انتخاب مسیر شروع است و تست تشخیصی نیست. اگر هدفت یادگیری و رشد باشد، مسیر دوره‌ها و کارگاه‌ها را هم می‌بینی.</p>
       <button class="btn btn-primary" type="button" data-guide-start hidden>شروع راهنمای انتخاب درمانگر <span aria-hidden="true">←</span></button>
       <noscript><a href="<?= e(url('/doctors')) ?>">مشاهده و انتخاب درمانگران</a></noscript>
     </div>
@@ -53,4 +53,4 @@ $guideWorkshops = array_values(array_map(static fn(array $workshop): array => [
   <div id="mana-guide-content"></div>
 </dialog>
 <script type="application/json" id="mana-guide-data"><?= json_encode(['doctors' => $guideDoctors, 'courses' => $guideWorkshops, 'domains' => doctor_domain_options(), 'focus' => doctor_focus_options(), 'directory' => url('/doctors'), 'workshops' => url('/workshops'), 'contact' => url('/contact')], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
-<script src="<?= e(url('/assets/js/therapist-guide.js')) ?>?v=20261021a" defer></script>
+<script src="<?= e(url('/assets/js/therapist-guide.js')) ?>?v=20261021f" defer></script>

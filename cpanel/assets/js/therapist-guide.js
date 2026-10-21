@@ -6,12 +6,18 @@
   if (!dialog || !root || !trigger || !dialog.showModal) return;
   const data = JSON.parse(document.getElementById('mana-guide-data').textContent);
   const questions = [
-    {key:'domain', title:'برای چه کسی و چه موضوعی دنبال کمک هستی؟', options:[['individual','برای حال خودم'],['child','برای فرزندم'],['couples','برای رابطه عاطفی یا زندگی مشترک'],['premarital','برای تصمیم پیش از ازدواج'],['family','برای مسائل خانوادگی']]},
-    {key:'age', title:'سن کسی که قرار است مشاوره بگیرد چقدر است؟', options:[['child','زیر ۱۲ سال'],['teen','۱۲ تا ۱۷ سال'],['adult','۱۸ سال یا بیشتر']]},
-    {key:'focus', multi:true, title:'این روزها چه چیزهایی بیشتر ذهنت را درگیر کرده؟', hint:'می‌توانی چند گزینه انتخاب کنی؛ در مرحلهٔ بعد اصلی‌ترین دغدغه را مشخص می‌کنی.', options:[['anxiety','نگرانی و دلشوره'],['panic','حملات ترس و اضطراب شدید'],['depression','افت انرژی، انگیزه یا لذت'],['ocd','افکار مزاحم یا رفتارهای تکراری'],['relationships','چالش در روابط عاطفی'],['grief','سوگ، فقدان یا تغییر مهم زندگی'],['trauma','تجربه‌های آسیب‌زا'],['growth','خودشناسی، اعتمادبه‌نفس و رشد فردی'],['other','مسئلهٔ دیگری دارم یا هنوز مطمئن نیستم']]},
-    {key:'primary', title:'دوست داری ابتدا روی کدام موضوع کار کنی؟', options:[]},
-    {key:'impact', title:'این موضوع چقدر روی زندگی روزمره‌ات اثر گذاشته؟', options:[['mild','گاهی پیش می‌آید و معمولاً از پسش برمی‌آیم'],['medium','تکرار می‌شود و ذهنم را درگیر می‌کند'],['high','روی خواب، کار، تحصیل یا روابطم اثر گذاشته'],['severe','مدتی است به‌تنهایی از پس آن برنمی‌آیم']]},
-    {key:'goal', title:'الان از این مسیر چه انتظاری داری؟', options:[['therapy','گفت‌وگوی شخصی و کمک برای مسئله‌ام'],['learn','یادگیری مهارت و شرکت در دوره یا کارگاه'],['unsure','هنوز نمی‌دانم؛ برای شروع راهنمایی می‌خواهم']]}
+    {key:'domain', title:'دوست داری این گفت‌وگو برای کدام بخش از زندگی‌ات باشد؟', options:[['individual','برای خودم و تجربه‌های شخصی‌ام'],['child','برای همراهی بهتر با فرزندم'],['couples','برای رابطه عاطفی یا زندگی مشترکم'],['premarital','برای شناخت بیشتر پیش از ازدواج'],['family','برای ارتباط بین اعضای خانواده']]},
+    {key:'age', title:'کسی که قرار است در جلسات همراهی شود، در کدام گروه سنی است؟', options:[['child','زیر ۱۲ سال'],['teen','۱۲ تا ۱۷ سال'],['adult','۱۸ سال یا بیشتر']]},
+    ...[
+      ['unwind','وقتی روزت تمام می‌شود و وقت استراحت می‌رسد، چقدر پیش می‌آید ذهنت هنوز مشغول کارهای فردا و اتفاق‌های احتمالی باشد؟','anxiety'],
+      ['start','برای شروع کارهای معمول روز، چقدر پیش می‌آید بیشتر از قبل به خودت فرصت یا فشار بدهی؟','depression'],
+      ['check','وقتی از خانه بیرون می‌روی یا کاری را تحویل می‌دهی، چقدر پیش می‌آید با وجود بررسی قبلی، دوباره برگردی تا مطمئن شوی؟','ocd'],
+      ['plans','وقتی برنامه‌ای هنوز قطعی نیست، چقدر پیش می‌آید مرور حالت‌های مختلف، تمرکزت را از کارهای دیگر بگیرد؟','anxiety'],
+      ['enjoy','وقتی فرصت کاری را داری که معمولاً دوستش داری، چقدر پیش می‌آید مثل گذشته برایت کشش نداشته باشد؟','depression'],
+      ['repeat','وقتی می‌خواهی سراغ کار بعدی بروی، چقدر پیش می‌آید احساس کنی باید کار قبلی را دوباره انجام بدهی تا بتوانی رهایش کنی؟','ocd']
+    ].map(([key,title,area])=>({key,title,area,hint:'با توجه به تجربهٔ چند هفتهٔ اخیرِ کسی که قرار است در جلسات شرکت کند پاسخ بده؛ پاسخ درست یا غلطی وجود ندارد.',options:[['0','هیچ‌وقت یا به‌ندرت'],['1','گاهی'],['2','بیشتر وقت‌ها'],['3','تقریباً همیشه'],['skip','مطمئن نیستم / ترجیح می‌دهم پاسخ ندهم']]})),
+    {key:'gender', title:'برای گفت‌وگو با درمانگر، با کدام گزینه راحت‌تری؟', options:[['female','ترجیح می‌دهم درمانگرم خانم باشد'],['male','ترجیح می‌دهم درمانگرم آقا باشد'],['any','خانم یا آقا بودن برایم تفاوتی ندارد'],['unsure','هنوز ترجیح مشخصی ندارم']]},
+    {key:'goal', title:'برای قدم بعدی، کدام مسیر به خواسته‌ات نزدیک‌تر است؟', options:[['therapy','جلسه مشاوره متناسب با موضوعی که انتخاب کردم'],['learn','آشنایی با دوره‌ها و کارگاه‌ها'],['unsure','ابتدا راهنمایی بگیرم و بعد تصمیم بگیرم']]}
   ];
   let step = 0, answers = {};
   const el = (tag, text, cls) => { const n = document.createElement(tag); if (text) n.textContent = text; if (cls) n.className = cls; return n; };
@@ -22,7 +28,6 @@
   function render() {
     root.replaceChildren();
     const q = questions[step];
-    if (q.key === 'primary') q.options = questions[2].options.filter(([key]) => (answers.focus || []).includes(key));
     root.append(el('p',`سؤال ${fa(step+1)} از ${fa(questions.length)}`,'mana-guide-small'));
     const progress=el('progress',null,'mana-guide-progress'); progress.max=questions.length; progress.value=step+1; progress.setAttribute('aria-label','پیشرفت راهنما'); root.append(progress);
     const title=el('h2',q.title); title.id='mana-guide-dialog-title'; title.tabIndex=-1; root.append(title);
@@ -36,30 +41,48 @@
       const selected=Array.from(fields.querySelectorAll('input:checked')).map(i=>i.value);
       if(!selected.length) { error.textContent='برای ادامه یک گزینه انتخاب کن.'; return; }
       answers[q.key]=q.multi?selected:selected[0];
-      if(q.key==='focus' && !selected.includes(answers.primary)) delete answers.primary;
       if(step===questions.length-1) result(); else { step++; render(); }
     },'btn btn-primary'));
     if(step>0) nav.append(button('قبلی',()=>{step--;render();}));
-    root.append(nav,el('p','این راهنما تشخیص یا ارزیابی بالینی نیست. در خطر فوری، به خدمات اورژانسی محل زندگی‌ات مراجعه کن.','mana-guide-small'));
+    root.append(nav,el('p','پاسخ‌ها برای پیشنهاد حوزهٔ کاری درمانگر استفاده می‌شوند. این راهنما تست تشخیصی معتبر نیست؛ پاسخ‌ها ذخیره یا ارسال نمی‌شوند.','mana-guide-small'));
     focusTitle();
   }
   function result() {
     root.replaceChildren();
     const title=el('h2','یک نقطهٔ شروع برای تو'); title.id='mana-guide-dialog-title'; title.tabIndex=-1; root.append(title);
     const domain = answers.age!=='adult' && answers.domain==='individual' ? 'child' : answers.domain;
-    const focus=answers.primary==='other'?'':answers.primary;
-    root.append(el('p',`مسیر پیشنهادی: ${data.domains[domain]}${focus ? ' · '+data.focus[focus] : ''}`));
-    root.append(el('p','این پیشنهاد از موضوع مراجعه و دغدغهٔ اصلی تو ساخته شده است. گروه سنی دقیق، شیوهٔ جلسه و تناسب نهایی را پیش از رزرو با کلینیک هماهنگ کن.','mana-guide-small'));
-    const matches=data.doctors.filter(doc=>doc.domains.includes(domain) && (!focus || doc.focus.includes(focus)));
+    root.append(el('p','مسیر قابل بررسی: '+data.domains[domain]));
+    root.append(el('p','این فهرست بر اساس موضوع مراجعه، پاسخ‌های روزمره و حوزهٔ ثبت‌شدهٔ درمانگران مرتب شده است. این پاسخ‌ها علت تجربه‌ها یا وجود اختلال را مشخص نمی‌کنند؛ تناسب نهایی را با کلینیک و درمانگر بررسی کن.','mana-guide-small'));
+    ['gender'].forEach(key=>{
+      const q=questions.find(item=>item.key===key);
+      const selected=q.options.find(([value])=>value===answers[key]);
+      if(selected) root.append(el('p',selected[1],'mana-guide-small'));
+    });
+    if(answers.gender==='female'||answers.gender==='male') root.append(el('p','ترجیح خانم یا آقا بودن درمانگر در این فهرست اعمال نشده است؛ هنگام هماهنگی با کلینیک آن را مطرح کن.','mana-guide-small'));
+    root.append(el('p','گروه سنی دقیق و شیوهٔ جلسه را پیش از رزرو هماهنگ کن.','mana-guide-small'));
+    // A directory sorting heuristic, not a clinical scale or diagnostic cutoff.
+    // Both questions in an area must be answered; skipped answers are not zeroes.
+    const weights={};
+    ['anxiety','depression','ocd'].forEach(area=>{
+      const items=questions.filter(q=>q.area===area);
+      if(items.every(q=>['0','1','2','3'].includes(answers[q.key]))) {
+        weights[area]=Math.min(...items.map(q=>Number(answers[q.key])));
+      }
+    });
+    const highest=Math.max(0,...Object.values(weights));
+    const areas=highest>0?Object.keys(weights).filter(area=>weights[area]===highest):[];
+    const descriptions={anxiety:'آرام‌تر شدن ذهن در موقعیت‌های نامطمئن',depression:'پیدا کردن ریتم و دل‌چسبی بیشتر در روزمره',ocd:'راحت‌تر عبور کردن از بررسی و تکرار کارها'};
+    if(areas.length) root.append(el('p','برای شروع گفت‌وگو می‌توانی این موضوع‌ها را مطرح کنی: '+areas.map(area=>descriptions[area]).join('؛ ')));
+    const matches=data.doctors.filter(doc=>doc.domains.includes(domain))
+      .map(doc=>({doc,relevance:areas.filter(area=>doc.focus.includes(area)).length}))
+      .sort((a,b)=>b.relevance-a.relevance).map(item=>item.doc);
     if(matches.length) {
       root.append(el('p','درمانگران دارای حوزهٔ ثبت‌شدهٔ مرتبط:'));
-      matches.slice(0,3).forEach(doc=>{const a=link(doc.name,doc.href); a.append(el('span',`مشاهدهٔ پروفایل · ${data.domains[domain]}${focus ? ' · '+data.focus[focus] : ''}`));root.append(a);});
-    } else root.append(el('p','در فهرست فعلی، درمانگری با این ترکیب حوزه‌های ثبت‌شده پیدا نشد. برای راهنمایی بیشتر با کلینیک هماهنگ کن یا همهٔ درمانگران را ببین.'));
-    if(answers.impact==='high'||answers.impact==='severe') root.append(el('p','چون این موضوع روی زندگی‌ات اثر قابل‌توجهی گذاشته، گفت‌وگو با متخصص را در اولویت بگذار. کارگاه جایگزین ارزیابی فردی نیست.'));
+      matches.slice(0,3).forEach(doc=>{const a=link(doc.name,doc.href); a.append(el('span','مشاهدهٔ پروفایل · '+data.domains[domain]));root.append(a);});
+    } else root.append(el('p','در فهرست فعلی، درمانگری با این حوزهٔ ثبت‌شده پیدا نشد. برای راهنمایی بیشتر با کلینیک هماهنگ کن یا همهٔ درمانگران را ببین.'));
     if(answers.goal!=='therapy') {
-      const words={anxiety:['اضطراب','نگرانی'],panic:['پانیک'],depression:['افسردگی'],ocd:['وسواس'],relationships:['رابطه','روابط','زوج'],grief:['سوگ','فقدان'],trauma:['تروما','آسیب'],growth:['خودشناسی','رشد فردی','اعتمادبه‌نفس']};
-      const domainWords={child:['کودک','نوجوان','فرزند'],couples:['زوج','رابطه','روابط'],premarital:['ازدواج'],family:['خانواده']};
-      const terms=[...(words[focus]||[]),...(domainWords[domain]||[])];
+      const domainWords={child:['کودک','نوجوان','فرزند'],couples:['زوج','رابطه','روابط'],premarital:['ازدواج'],family:['خانواده'],individual:['خودشناسی','رشد فردی','مهارت']};
+      const terms=domainWords[domain]||[];
       const courses=(data.courses||[]).filter(course=>terms.some(word=>course.title.includes(word))).slice(0,3);
       if(courses.length) {
         root.append(el('p','کارگاه‌های قابل بررسی، بر اساس موضوع عنوان:'));
