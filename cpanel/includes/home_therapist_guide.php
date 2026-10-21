@@ -53,4 +53,4 @@ $guideWorkshops = array_values(array_map(static fn(array $workshop): array => [
   <div id="mana-guide-content"></div>
 </dialog>
 <script type="application/json" id="mana-guide-data"><?= json_encode(['doctors' => $guideDoctors, 'courses' => $guideWorkshops, 'domains' => doctor_domain_options(), 'focus' => doctor_focus_options(), 'directory' => url('/doctors'), 'workshops' => url('/workshops'), 'contact' => url('/contact')], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
-<script src="<?= e(url('/assets/js/therapist-guide.js')) ?>?v=20261021f" defer></script>
+<script src="<?= e(url('/assets/js/therapist-guide.js')) ?>?v=20261021g" defer></script>
