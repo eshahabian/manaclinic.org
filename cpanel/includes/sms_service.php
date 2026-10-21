@@ -68,7 +68,7 @@ function sms_kind_recipient(string $kind): string
     if (str_starts_with($kind, 'appointment_')) return 'مراجع همان نوبت؛ شماره موبایل حسابی که نوبت برای او ثبت شده است';
     if (str_starts_with($kind, 'doctor_appointment_')) return 'درمانگر انتخاب‌شده برای همان نوبت';
     return [
-        'doctor_daily_digest'=>'هر درمانگر دارای نوبت تأییدشده در همان روز',
+        'doctor_daily_digest'=>'هر درمانگر دارای نوبت تأییدشده؛ برنامه فردا ساعت ۲۰ به وقت تهران',
         'therapist_copy'=>'شخص مشخص: عماد شهابیان (حساب eshahabian)؛ کپی عین پیام درمانگر',
         'workshop_registered'=>'مراجع ثبت‌نام‌شده در همان کارگاه',
         'workshop_reminder'=>'اعضای تأییدشده همان کارگاه',
@@ -509,7 +509,9 @@ function sms_job_still_valid(PDO $pdo, array $job): bool
         return workshop_broadcast_job_valid($pdo,$job,$context);
     }
     if($context['entity']==='doctor_digest'){
-        return ($context['digest_date'] ?? '') === date('Y-m-d');
+        return ($context['digest_date'] ?? '') === date('Y-m-d')
+            || (($context['slot'] ?? '') === 'pm' && (int) date('G') >= 20
+                && ($context['digest_date'] ?? '') === date('Y-m-d', strtotime('+1 day')));
     }
     $stmt=$pdo->prepare('SELECT e.status,w.status AS workshop_status,w.starts_at,w.location,w.type,w.title FROM workshop_enrollments e JOIN workshops w ON w.id=e.workshop_id WHERE e.id=?');$stmt->execute([$context['id']]);$w=$stmt->fetch();
     if(!$w||!in_array($w['status'],['CONFIRMED','COMPLETED'],true)||in_array($w['workshop_status'],['DRAFT','CANCELLED','COMPLETED'],true)||$w['starts_at']!==$context['starts_at'])return false;
@@ -842,7 +844,7 @@ function sms_doctor_digests_for_date(PDO $pdo, string $ymd, ?array $doctorIds = 
 /**
  * صف پیامک برنامه نوبت درمانگرها:
  * - از ساعت ۷ صبح: برنامهٔ همان روز
- * - از ساعت ۲۲: برنامهٔ فردا
+ * - از ساعت ۲۰: برنامهٔ فردا
  */
 function sms_queue_doctor_daily_digests(PDO $pdo): int
 {
@@ -877,11 +879,11 @@ function sms_queue_doctor_daily_digests(PDO $pdo): int
         $today = date('Y-m-d');
         $queueDay($pdo, $today, $today . ' 07:00:00', $today . ' 23:59:59', 'am');
     }
-    // شب ۲۲ — برنامه فردا
-    if ($hour >= 22) {
+    // شب ۲۰ — برنامه فردا
+    if ($hour >= 20) {
         $today = date('Y-m-d');
         $tomorrow = date('Y-m-d', strtotime('+1 day'));
-        $queueDay($pdo, $tomorrow, $today . ' 22:00:00', $tomorrow . ' 12:00:00', 'pm');
+        $queueDay($pdo, $tomorrow, $today . ' 20:00:00', $tomorrow . ' 12:00:00', 'pm');
     }
 
     return $queued;
