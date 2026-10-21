@@ -11,7 +11,7 @@ $guideWorkshops = array_values(array_map(static fn(array $workshop): array => [
     'title' => (string) $workshop['title'],
 ], array_filter(workshop_home_banners($pdo, null), static fn(array $workshop): bool => workshop_can_enroll($workshop) && workshop_promo_phase($workshop) !== 'done')));
 ?>
-<link rel="stylesheet" href="<?= e(url('/assets/css/therapist-guide.css')) ?>?v=20261021d">
+<link rel="stylesheet" href="<?= e(url('/assets/css/therapist-guide.css')) ?>?v=20261021m">
 <section class="mana-guide" aria-labelledby="mana-guide-title">
   <div class="mana-guide-row">
     <div class="mana-guide-copy">
@@ -49,8 +49,8 @@ $guideWorkshops = array_values(array_map(static fn(array $workshop): array => [
   </div>
 </section>
 <dialog id="mana-guide-dialog" class="mana-guide-dialog" aria-labelledby="mana-guide-dialog-title">
-  <div class="mana-guide-dialog-head"><span class="eyebrow">راهنمای انتخاب درمانگر مانا</span><button type="button" class="mana-guide-close" data-guide-close aria-label="بستن راهنما">×</button></div>
+  <div class="mana-guide-dialog-head"><span class="eyebrow">راهنمای انتخاب درمانگر مانا</span><button type="button" class="mana-guide-close" data-guide-close aria-label="بستن راهنما"><svg viewBox="0 0 24 24" aria-hidden="true" focusable="false" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="m6 6 12 12M18 6 6 18"/></svg></button></div>
   <div id="mana-guide-content"></div>
 </dialog>
-<script type="application/json" id="mana-guide-data"><?= json_encode(['questions' => require __DIR__ . '/therapist_guide_questions.php', 'submit' => url('/therapist-guide/submit'), 'callback' => url('/therapist-guide/callback'), 'csrf' => csrf_token(), 'doctors' => $guideDoctors, 'courses' => $guideWorkshops, 'domains' => doctor_domain_options(), 'focus' => doctor_focus_options(), 'directory' => url('/doctors'), 'workshops' => url('/workshops'), 'contact' => url('/contact')], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
-<script src="<?= e(url('/assets/js/therapist-guide.js')) ?>?v=20261021l" defer></script>
+<script type="application/json" id="mana-guide-data"><?= json_encode(['version' => '20261021m', 'questions' => require __DIR__ . '/therapist_guide_questions.php', 'submit' => url('/therapist-guide/submit'), 'callback' => url('/therapist-guide/callback'), 'csrf' => csrf_token(), 'doctors' => $guideDoctors, 'courses' => $guideWorkshops, 'domains' => doctor_domain_options(), 'focus' => doctor_focus_options(), 'directory' => url('/doctors'), 'workshops' => url('/workshops'), 'contact' => url('/contact')], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
+<script src="<?= e(url('/assets/js/therapist-guide.js')) ?>?v=20261021m" defer></script>

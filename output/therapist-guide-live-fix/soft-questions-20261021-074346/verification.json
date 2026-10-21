@@ -1,0 +1,15 @@
+{
+  "status": "PASS",
+  "files": [
+    "actions/therapist_guide_submit.php",
+    "includes/therapist_guide_questions.php",
+    "assets/js/therapist-guide.js",
+    "assets/css/therapist-guide.css",
+    "includes/home_therapist_guide.php"
+  ],
+  "version": "20261021m",
+  "staged_php_syntax": true,
+  "live_byte_match": true,
+  "neutral_question_copy": true,
+  "centered_svg_close": true
+}

@@ -11,7 +11,8 @@ def post(path,body,csrf=None):
   with client.open(req,timeout=40) as r:return r.status,json.loads(r.read())
  except urllib.error.HTTPError as e:return e.code,json.loads(e.read())
 try:
- status,res=post(d['submit'],{'answers':json.dumps(answers),'submission':nonce,'action':'show_result'});report['result_saved']=status==200 and res.get('ok')
+ status,_=post(d['submit'],{'answers':json.dumps(answers),'submission':nonce,'action':'show_result','version':'20261021l'});report['stale_question_version_rejected']=status==409
+ status,res=post(d['submit'],{'answers':json.dumps(answers),'submission':nonce,'action':'show_result','version':d['version']});report['result_saved']=status==200 and res.get('ok')
  base={'submission':nonce,'name':'آزمون تماس راهنما','phone':'۰۹۰۰۰۰۰۰۰۰۰'}
  status,_=post(d['callback'],dict(base,submission=secrets.token_hex(16)));report['requires_completed_result']=status==422
  status,_=post(d['callback'],dict(base,phone='123'));report['rejects_invalid_phone']=status==422
@@ -47,7 +48,7 @@ finally:
  finally:ftp.delete(folder+'/index.php');ftp.rmd(folder);ftp.quit()
  report['server']=audit
  (root/'output/therapist-guide-live-fix/callback-e2e.json').write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding='utf-8');print(json.dumps(report,ensure_ascii=True,indent=2))
-assert all(report.get(k) for k in ['result_saved','requires_completed_result','rejects_invalid_phone','csrf_rejected','contact_saved','retry_success'])
+assert all(report.get(k) for k in ['stale_question_version_rejected','result_saved','requires_completed_result','rejects_invalid_phone','csrf_rejected','contact_saved','retry_success'])
 assert audit['one_contact_record'] and audit['normalized_phone'] and audit['no_answers_or_analysis'] and all(audit['named_allowed'])
 assert audit['access_checks']['SECRETARY']=={'contact_visible':True,'private_results_allowed':False}
 for role in ['DOCTOR','ADMIN']:

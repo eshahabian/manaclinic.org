@@ -38,7 +38,7 @@
         nav.querySelectorAll('button').forEach(b=>b.disabled=true);
         error.textContent='در حال ثبت پاسخ‌ها…';
         try {
-          const response=await fetch(data.submit,{method:'POST',credentials:'same-origin',headers:{'Accept':'application/json','X-CSRF-Token':data.csrf},body:new URLSearchParams({answers:JSON.stringify(answers),submission,action:'show_result'})});
+          const response=await fetch(data.submit,{method:'POST',credentials:'same-origin',headers:{'Accept':'application/json','X-CSRF-Token':data.csrf},body:new URLSearchParams({answers:JSON.stringify(answers),submission,version:data.version,action:'show_result'})});
           const saved=await response.json();
           if(!response.ok || !saved.ok) throw new Error(saved.error||'ثبت پاسخ‌ها انجام نشد.');
           if(currentRun===runId && dialog.open) result();

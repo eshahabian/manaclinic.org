@@ -4,7 +4,7 @@ root=Path.cwd();cookies=http.cookiejar.CookieJar();client=urllib.request.build_o
 with client.open('https://manaclinic.org/?guide-e2e='+secrets.token_hex(8),timeout=40) as r:html=r.read().decode('utf-8-sig')
 data=json.loads(re.search(r'<script type="application/json" id="mana-guide-data">(.*?)</script>',html,re.S).group(1));answers={q['key']:q['options'][0][0] for q in data['questions']['premarital']};answers['domain']='premarital';nonce=secrets.token_hex(16)
 key=hmac.new(data['csrf'].encode(),nonce.encode(),hashlib.sha256).hexdigest()
-body=urllib.parse.urlencode({'answers':json.dumps(answers),'submission':nonce,'action':'show_result'}).encode()
+body=urllib.parse.urlencode({'answers':json.dumps(answers),'submission':nonce,'action':'show_result','version':data['version']}).encode()
 req=urllib.request.Request('https://manaclinic.org'+data['submit'],data=body,headers={'Accept':'application/json','X-CSRF-Token':data['csrf']})
 try:
  with client.open(req,timeout=45) as r:status=r.status;result=r.read().decode()

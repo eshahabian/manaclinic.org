@@ -5,6 +5,11 @@ header('Cache-Control: no-store');
 require_once __DIR__ . '/../includes/therapist_guide_results.php';
 try {
     csrf_verify();
+    if (($_POST['version'] ?? '') !== '20261021m') {
+        http_response_code(409);
+        echo json_encode(['ok' => false, 'error' => 'سؤال‌ها به‌روز شده‌اند؛ صفحه را تازه کن و راهنما را دوباره شروع کن.'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
     // Accept the previous form during rollout; the current form records the submit action.
     if (($_POST['action'] ?? '') !== 'show_result' && ($_POST['consent'] ?? '') !== '1') {
         throw new InvalidArgumentException('پاسخ‌ها را با دکمه ثبت پاسخ‌ها و دیدن نتیجه ارسال کن.');
@@ -32,7 +37,7 @@ try {
         $snapshot['submission_notice'] = 'با زدن ثبت پاسخ‌ها و دیدن نتیجه، پاسخ‌ها و نتیجه برای بررسی توسط تیم مجاز کلینیک ذخیره می‌شوند.';
         $snapshot['submission_action'] = ($_POST['action'] ?? '') === 'show_result' ? 'show_result' : 'legacy_consent';
         $stmt = $pdo->prepare('INSERT INTO therapist_guide_results (id,user_id,domain,version,snapshot_json) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE id=id');
-        $stmt->execute([$id, current_user()['id'] ?? null, $snapshot['domain'], '20261021k', json_encode($snapshot, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)]);
+        $stmt->execute([$id, current_user()['id'] ?? null, $snapshot['domain'], '20261021m', json_encode($snapshot, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)]);
         $_SESSION['guide_last_submission'] = time();
     }
     echo json_encode(['ok' => true], JSON_UNESCAPED_UNICODE);

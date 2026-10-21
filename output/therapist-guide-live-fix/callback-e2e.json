@@ -1,4 +1,5 @@
 {
+  "stale_question_version_rejected": true,
   "result_saved": true,
   "requires_completed_result": true,
   "rejects_invalid_phone": true,
