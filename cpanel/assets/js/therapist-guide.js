@@ -329,12 +329,28 @@
     const highest=Math.max(0,...Object.values(weights));
     const areas=highest>0?Object.keys(weights).filter(area=>weights[area]===highest):[];
     const descriptions={anxiety:'آرام‌تر شدن ذهن در موقعیت‌های نامطمئن',depression:'پیدا کردن ریتم و دل‌چسبی بیشتر در روزمره',ocd:'راحت‌تر عبور کردن از بررسی و تکرار کارها'};
-    if(answers.domain!=='individual') {
+    const summary=el('div',null,'mana-guide-summary');
+    summary.append(el('h3','برداشت کوتاه از پاسخ‌هایت'));
+    if(answers.domain==='individual') {
+      summary.append(el('p',areas.length
+        ? 'در پاسخ‌هایت، موضوع «'+areas.map(area=>descriptions[area]).join(' و ')+'» بیشتر به چشم می‌آید.'
+        : 'پاسخ‌های فعلی برای برجسته کردن یک موضوع مشخص کافی نیستند.'));
+      summary.append(el('p','می‌توانی جلسه اول را با یک نمونه از روزمره‌ات شروع کنی تا نیازت روشن‌تر شود.'));
+    } else {
       const lastQuestion=questions[7];
       const priority=lastQuestion.options.find(([value])=>value===answers[lastQuestion.key]);
-      if(priority && priority[0]!=='skip') root.append(el('p','اولویت تو برای شروع: '+priority[1]));
+      const nextSteps={
+        child:'یک موقعیت واقعی از تعامل با فرزندت را به جلسه بیاور تا نیاز او و شیوه همراهی تو با هم بررسی شوند.',
+        couples:'برای شروع، یک اختلاف تکرارشونده و انتظار خودت از طرف مقابل را با درمانگر بررسی کن.',
+        premarital:'برای شروع، یک تصمیم واقعی پیش رو را بررسی کنید تا انتظارها و تفاوت‌ها روشن‌تر شوند.',
+        family:'برای شروع، یک موقعیت خانوادگی مشخص و نقش هر نفر را با درمانگر مرور کن.'
+      };
+      summary.append(el('p',priority && priority[0]!=='skip'
+        ? 'از انتخابت پیداست که این خواسته برای شروع مهم‌تر است: «'+priority[1]+'».'
+        : 'هنوز اولویت مشخصی برای شروع انتخاب نکرده‌ای؛ می‌توان آن را در جلسه اول روشن کرد.'));
+      summary.append(el('p',nextSteps[answers.domain]));
     }
-    if(areas.length) root.append(el('p','برای شروع گفت‌وگو می‌توانی این موضوع‌ها را مطرح کنی: '+areas.map(area=>descriptions[area]).join('؛ ')));
+    root.append(summary);
     const matches=data.doctors.filter(doc=>doc.domains.includes(domain))
       .map(doc=>({doc,relevance:areas.filter(area=>doc.focus.includes(area)).length}))
       .sort((a,b)=>b.relevance-a.relevance).map(item=>item.doc);
