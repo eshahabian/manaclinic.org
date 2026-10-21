@@ -7637,16 +7637,7 @@ html[data-theme="dark"] .emoji-picker-panel {
   max-width: none;
   object-fit: cover;
   object-position: left center;
-  opacity: .63;
-  filter: blur(2px) saturate(.8);
-  pointer-events: none;
-}
-.service-card::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: -1;
-  background: linear-gradient(to left, var(--card) 5%, color-mix(in srgb, var(--card) 94%, transparent) 40%, color-mix(in srgb, var(--card) 35%, transparent) 100%);
+  opacity: 1;
   pointer-events: none;
 }
 .service-card:hover {
