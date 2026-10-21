@@ -23,8 +23,42 @@ $pageDescription = trim((string) ($test['description'] ?? '')) !== ''
 $pageCanonical = url('/tests/' . $test['slug']);
 $pageKeywords = $test['title'] . ', ' . ($test['abbr'] ?? '') . ', آزمون روانشناسی, مانا کلینیک';
 
+require_once __DIR__ . '/../includes/psych_assessments.php';
+if (!psych_assessment_enabled($slug)) {
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST') {
+        http_response_code(404);
+        header('Content-Type: application/json; charset=utf-8');
+        header('Cache-Control: no-store');
+        echo json_encode(['error' => 'این آزمون هنوز فعال نشده است.'], JSON_UNESCAPED_UNICODE);
+        exit;
+    }
+    $pageRobots = 'noindex,follow';
+    $pageHead = ($pageHead ?? '') . '<link rel="stylesheet" href="' . e(url('/assets/css/bdi.css?v=4')) . '">';
+    ob_start();
+    ?>
+    <section class="container-page section assessment-coming-soon">
+      <a href="<?= e(url('/tests')) ?>">← آزمون‌های روان‌شناسی</a>
+      <article class="panel" style="margin-top:1.5rem;max-width:44rem;margin-inline:auto;text-align:center;padding:2rem">
+        <img src="<?= e(url('/assets/img/tests/' . $slug . '.webp')) ?>" width="180" height="180" alt="" style="border-radius:24px;max-width:100%;height:auto">
+        <h1><?= e($test['title']) ?></h1>
+        <p class="muted"><?= e($test['description']) ?></p>
+        <span class="badge">به‌زودی</span>
+        <p class="muted">این آزمون هنوز برای اجرا فعال نشده است.</p>
+      </article>
+    </section>
+    <?php
+    $content = ob_get_clean();
+    require __DIR__ . '/../includes/layout.php';
+    exit;
+}
+
 if ($slug === 'bdi') {
     require __DIR__ . '/test_bdi.php';
+    exit;
+}
+
+if (isset(psych_assessment_specs()[$slug])) {
+    require __DIR__ . '/test_assessment.php';
     exit;
 }
 

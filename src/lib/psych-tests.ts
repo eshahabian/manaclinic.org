@@ -42,7 +42,7 @@ export const psychTestsCatalog: PsychTest[] = [
     abbr: "GHQ-28",
     category: "سلامت عمومی",
     description:
-      "غربالگری وضعیت روانی و علائم ناراحتی در چهار هفتهٔ اخیر.",
+      "غربالگری وضعیت روانی و علائم ناراحتی در چند هفته اخیر.",
     duration: "۱۰ دقیقه",
     ready: false,
   },
@@ -59,7 +59,7 @@ export const psychTestsCatalog: PsychTest[] = [
   {
     slug: "pss",
     title: "مقیاس استرس ادراک‌شده",
-    abbr: "PSS",
+    abbr: "PSS-10",
     category: "استرس",
     description: "میزان استرس درک‌شده در یک ماه گذشته.",
     duration: "۵ دقیقه",

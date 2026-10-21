@@ -1,0 +1,1 @@
+PASS reviewed publication, exact byte verification, live ten-tile listing, BDI active, other nine disabled

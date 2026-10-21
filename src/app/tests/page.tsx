@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { psychTestsCatalog } from "@/lib/psych-tests";
 
 export const metadata = { title: "آزمون‌های روانشناسی" };
@@ -18,11 +19,22 @@ export default function TestsPage() {
             href={`/tests/${test.slug}`}
             className="panel transition hover:-translate-y-1 hover:shadow-md"
           >
-            <div className="mb-3 flex items-start justify-between gap-3">
-              <span className="badge">{test.category}</span>
-              <span className="text-xs text-muted">{test.abbr}</span>
+            <div className="mb-3 flex items-center gap-4">
+              <Image
+                src={`/images/tests/${test.slug}.webp`}
+                alt=""
+                width={112}
+                height={112}
+                className="rounded-2xl"
+              />
+              <div className="flex-1">
+                <div className="flex items-start justify-between gap-3">
+                  <span className="badge">{test.category}</span>
+                  <span className="text-xs text-muted">{test.abbr}</span>
+                </div>
+                <h2 className="text-xl font-bold leading-8">{test.title}</h2>
+              </div>
             </div>
-            <h2 className="text-xl font-bold leading-8">{test.title}</h2>
             <p className="mt-3 text-sm leading-7 text-muted">
               {test.description}
             </p>

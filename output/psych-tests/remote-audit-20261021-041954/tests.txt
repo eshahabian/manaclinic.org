@@ -1,0 +1,3 @@
+PASS PHP syntax
+PASS 143 assessment checks
+PASS ten report renderers, independent AI flags and MMPI invalidity guard

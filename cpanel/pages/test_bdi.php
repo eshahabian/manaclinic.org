@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
-require_once __DIR__ . '/../includes/bdi.php';
+require_once __DIR__ . '/../includes/psych_assessments.php';
+if (!psych_assessment_enabled('bdi')) { http_response_code(404); exit; }
 header('Cache-Control: private, no-store, max-age=0');
 header('Referrer-Policy: no-referrer');
 $form = bdi_licensed_form();
@@ -11,6 +12,10 @@ $choices = [];
 $action = (string) ($_POST['bdi_action'] ?? '');
 $isPost = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST';
 $isAi = $isPost && $action === 'ai';
+if ($isAi && !psych_assessment_ai_enabled('bdi')) {
+    http_response_code(404); header('Content-Type: application/json; charset=utf-8');
+    echo json_encode(['error'=>'تحلیل هوش مصنوعی این آزمون فعال نشده است.'], JSON_UNESCAPED_UNICODE); exit;
+}
 $provider = (string) (parse_url(assistant_ai_config()['base_url'], PHP_URL_HOST) ?: 'سرویس هوش مصنوعی کلینیک');
 if ($isPost) {
     try {
@@ -73,9 +78,9 @@ ob_start();
       <h1>نگاهی مهربان‌تر به حال این روزها</h1>
       <p>پرسشنامه افسردگی بک، نسخه دوم؛ بررسی شدت نشانه‌های گزارش‌شده در دو هفته اخیر، شامل امروز. نتیجه یک نقطه شروع برای گفت‌وگوست و تشخیص پزشکی نیست.</p>
       <a class="btn btn-primary" href="#<?= $result ? 'bdi-result' : 'bdi-form' ?>"><?= $result ? 'مشاهده گزارش من' : ($form ? 'شروع پرسشنامه' : 'تحلیل پاسخنامه موجود') ?></a>
-    </div><div class="bdi-hero-art" aria-hidden="true"><span>✦</span><div>حال تو<br><strong>ارزش شنیدن دارد</strong></div><span>☾</span></div>
+    </div><div class="bdi-hero-art" aria-hidden="true"><img src="<?= e(url('/assets/img/tests/bdi.webp')) ?>" width="240" height="240" alt="" style="width:100%;height:auto;border-radius:28px"></div>
   </section>
-  <div class="bdi-meta"><div><small>بازه بررسی</small><strong>دو هفته اخیر</strong></div><div><small>پرسشنامه</small><strong>۲۱ سؤال</strong></div><div><small>امتیاز کل</small><strong>صفر تا ۶۳</strong></div><div><small>همراه نتیجه</small><strong>نمودار و تحلیل اختیاری</strong></div></div>
+  <div class="bdi-meta"><div><small>بازه بررسی</small><strong>دو هفته اخیر</strong></div><div><small>پرسشنامه</small><strong>۲۱ سؤال</strong></div><div><small>امتیاز کل</small><strong>صفر تا ۶۳</strong></div><div><small>همراه نتیجه</small><strong><?= psych_assessment_ai_enabled('bdi') ? 'نمودار و تحلیل اختیاری' : 'نمودار نتیجه' ?></strong></div></div>
   <?php if ($result): ?>
   <section id="bdi-result" class="bdi-report" aria-labelledby="bdi-result-title">
     <div class="bdi-section-title"><div><span class="bdi-tag">گزارش همین پاسخنامه</span><h2 id="bdi-result-title">تصویری از پاسخ‌های تو</h2></div><button type="button" class="btn btn-outline" data-bdi-print>چاپ گزارش</button></div>
@@ -99,6 +104,7 @@ ob_start();
         <details><summary>مشاهده امتیازهای دقیق</summary><ol><?php foreach ($result['answers'] as $score): ?><li><?= e(to_fa_digits((string) $score)) ?> از ۳</li><?php endforeach; ?></ol></details>
       </article>
     </div>
+    <?php if (psych_assessment_ai_enabled('bdi')): ?>
     <article class="bdi-card bdi-ai"><span class="bdi-tag">✦ همراه هوشمند مانا</span><h3>از عددها به قدم بعدی</h3>
       <p>امتیاز و طبقه‌بندی با قواعد ثابت محاسبه شده‌اند. تحلیل زیر در صورت درخواست توسط هوش مصنوعی تولید می‌شود و ممکن است خطا داشته باشد؛ توسط متخصص بازبینی نشده است.</p>
       <?php if ($result['safety_followup']): ?><p><?= e(bdi_safety_message()) ?></p>
@@ -113,6 +119,7 @@ ob_start();
       </form><div data-bdi-ai-status role="status" aria-live="polite"></div><div data-bdi-ai-output></div>
       <?php endif; ?>
     </article>
+    <?php endif; ?>
     <article class="bdi-card"><h3>قدم بعدی، با توجه به حال تو</h3><p><?= in_array($result['band'], ['moderate','severe'], true) ? 'بهتر است برای ارزیابی دقیق‌تر با روان‌شناس یا روان‌پزشک گفت‌وگو کنید؛ اگر نشانه‌ها عملکرد روزانه را مختل کرده‌اند، پیگیری را زودتر انجام دهید.' : 'اگر این نشانه‌ها ادامه دارند، زندگی روزمره را مختل کرده‌اند یا نگران حال خود هستید، حتی با امتیاز پایین با متخصص گفت‌وگو کنید.' ?></p><a class="btn btn-outline" href="<?= e(url('/doctors')) ?>">گفت‌وگو با متخصص</a></article>
   </section>
   <?php endif; ?>

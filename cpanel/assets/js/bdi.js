@@ -2,16 +2,20 @@
   'use strict';
   const scoreForm = document.querySelector('[data-bdi-score]');
   if (scoreForm) {
-    const item9 = scoreForm.querySelector('[name="answers[9]"]');
-    const item9Choices = scoreForm.querySelectorAll('[name="choices[9]"]');
     const safety = scoreForm.querySelector('[data-bdi-safety]');
+    const safetyItems = scoreForm.hasAttribute('data-psych-score') ? JSON.parse(scoreForm.dataset.safetyItems || '[]') : [9];
     const updateSafety = () => {
-      const choice = scoreForm.querySelector('[name="choices[9]"]:checked');
-      const value = item9 ? item9.value : choice?.dataset.score;
-      safety.hidden = !['1', '2', '3'].includes(value);
+      const positive = safetyItems.some((id) => {
+        const names = [`answers[${id}]`, `choices[${id}]`, `values[${id}]`];
+        const fields = [...scoreForm.elements].filter((field) => names.includes(field.name));
+        return [...fields].some((field) => {
+          if (field.type === 'radio' && !field.checked) return false;
+          return Number(field.dataset.score ?? field.value) > 0;
+        });
+      });
+      safety.hidden = !positive;
     };
-    item9?.addEventListener('change', updateSafety);
-    item9Choices.forEach((input) => input.addEventListener('change', updateSafety));
+    scoreForm.addEventListener('change', updateSafety);
     updateSafety();
     if (scoreForm.hasAttribute('data-bdi-questionnaire')) {
       const items = [...scoreForm.querySelectorAll('[data-bdi-item]')];

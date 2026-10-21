@@ -1,0 +1,1 @@
+PASS BDI live full-form scoring, chart, missing-answer validation, safety handling and AI login gate; other nine POST/AI endpoints blocked

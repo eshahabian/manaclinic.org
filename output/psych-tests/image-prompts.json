@@ -1,0 +1,56 @@
+{
+  "mode": "built-in image_gen",
+  "style": "Square soft 3D clay-and-frosted-glass editorial illustration. Warm ivory backdrop, subtle lavender glow; lilac, dusty mauve and sage accents; diffuse studio light; central subject, generous breathing room; no text, logos, watermarks, medical claims or realistic people.",
+  "assets": [
+    {
+      "slug": "bdi",
+      "path": "C:\\Users\\Emad\\.codex\\generated_images\\01a15bc7-56f0-75d3-8cc3-4fecc58df5db\\exec-b806270e-1715-4a36-93b7-e520d80a3186.png",
+      "prompt_subject": "a small living seedling receiving one gentle shaft of warm sunlight beneath a soft lavender cloud, a compassionate metaphor for low mood and hope"
+    },
+    {
+      "slug": "bai",
+      "path": "C:\\Users\\Emad\\.codex\\generated_images\\01a15bc7-56f0-75d3-8cc3-4fecc58df5db\\exec-a82d7445-a3b9-41f1-b606-49c8e63103a8.png",
+      "prompt_subject": "a softly tangled lavender silk ribbon gently unwinding around one smooth mint ceramic pebble, a compassionate metaphor for anxiety becoming understandable"
+    },
+    {
+      "slug": "dass-21",
+      "path": "C:\\Users\\Emad\\.codex\\generated_images\\01a15bc7-56f0-75d3-8cc3-4fecc58df5db\\exec-657ab47f-1a0c-4ebb-a987-e8fc2500054b.png",
+      "prompt_subject": "three distinct soft sculptural petals, lavender, muted rose and mint, gently overlapping in a balanced triangular composition, representing three dimensions of emotion"
+    },
+    {
+      "slug": "ghq",
+      "path": "C:\\Users\\Emad\\.codex\\generated_images\\01a15bc7-56f0-75d3-8cc3-4fecc58df5db\\exec-74909ac7-a122-42c2-ab03-7248862c38c5.png",
+      "prompt_subject": "four smooth rounded pastel ceramic pebbles balanced harmoniously inside a protective open circular arch, representing general wellbeing in four dimensions"
+    },
+    {
+      "slug": "scl-90",
+      "path": "C:\\Users\\Emad\\.codex\\generated_images\\01a15bc7-56f0-75d3-8cc3-4fecc58df5db\\exec-cddc5a8d-bbfe-4ebc-bf1e-f1bc161e5264.png",
+      "prompt_subject": "nine small rounded translucent pastel glass tiles arranged as a harmonious three by three mosaic, with subtle varying translucency, representing a broad symptom profile without diagnosis"
+    },
+    {
+      "slug": "pss",
+      "path": "C:\\Users\\Emad\\.codex\\generated_images\\01a15bc7-56f0-75d3-8cc3-4fecc58df5db\\exec-280b2b58-74c9-43a8-a406-2089e371ccbf.png",
+      "prompt_subject": "a soft lavender cord forming one loose knot and then flowing freely beside a smooth cream orb, representing perceived stress and space to breathe"
+    },
+    {
+      "slug": "neo",
+      "path": "C:\\Users\\Emad\\.codex\\generated_images\\01a15bc7-56f0-75d3-8cc3-4fecc58df5db\\exec-d9462a52-186a-404e-81c9-067c6fcc993c.png",
+      "prompt_subject": "exactly five distinct rounded sculptural petals arranged in a simple five-petal flower around a pearl centre, each petal a subtly different pastel tint, representing the five personality factors"
+    },
+    {
+      "slug": "swls",
+      "path": "C:\\Users\\Emad\\.codex\\generated_images\\01a15bc7-56f0-75d3-8cc3-4fecc58df5db\\exec-fb5aed29-db09-4caf-9f8d-05964a9727b2.png",
+      "prompt_subject": "a small softly sculpted ceramic bowl holding a flourishing sprig and a warm golden pearl of sunlight, representing reflection on satisfaction with life"
+    },
+    {
+      "slug": "mmpi",
+      "path": "C:\\Users\\Emad\\.codex\\generated_images\\01a15bc7-56f0-75d3-8cc3-4fecc58df5db\\exec-bba55f15-c2da-4bfb-82c0-2cf7cd87ef4b.png",
+      "prompt_subject": "three layered translucent abstract human profile silhouettes made of smooth lavender and mint glass, with no realistic facial features, representing careful multidimensional personality assessment"
+    },
+    {
+      "slug": "ybocs",
+      "path": "C:\\Users\\Emad\\.codex\\generated_images\\01a15bc7-56f0-75d3-8cc3-4fecc58df5db\\exec-1d68e690-67cd-41fd-b23e-309f15405431.png",
+      "prompt_subject": "a smooth lavender ribbon forming a gentle circular loop that opens into a clear flowing path, representing understanding repetitive thoughts and actions without stigma"
+    }
+  ]
+}

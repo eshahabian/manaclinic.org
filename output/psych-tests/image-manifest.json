@@ -1,0 +1,62 @@
+[
+  {
+    "slug": "bdi",
+    "width": 512,
+    "height": 512,
+    "bytes": 18264
+  },
+  {
+    "slug": "bai",
+    "width": 512,
+    "height": 512,
+    "bytes": 11562
+  },
+  {
+    "slug": "dass-21",
+    "width": 512,
+    "height": 512,
+    "bytes": 11430
+  },
+  {
+    "slug": "ghq",
+    "width": 512,
+    "height": 512,
+    "bytes": 13470
+  },
+  {
+    "slug": "scl-90",
+    "width": 512,
+    "height": 512,
+    "bytes": 16708
+  },
+  {
+    "slug": "pss",
+    "width": 512,
+    "height": 512,
+    "bytes": 12198
+  },
+  {
+    "slug": "neo",
+    "width": 512,
+    "height": 512,
+    "bytes": 12004
+  },
+  {
+    "slug": "swls",
+    "width": 512,
+    "height": 512,
+    "bytes": 22054
+  },
+  {
+    "slug": "mmpi",
+    "width": 512,
+    "height": 512,
+    "bytes": 11162
+  },
+  {
+    "slug": "ybocs",
+    "width": 512,
+    "height": 512,
+    "bytes": 12318
+  }
+]

@@ -1,21 +1,22 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/bdi.php';
+require_once __DIR__ . '/psych_assessments.php';
 
 /**
  * فهرست آزمون‌های روانشناسی — دادهٔ اولیه تا محتوا از طرف شما جایگزین شود.
  */
 function psych_tests_catalog(): array
 {
-    return [
+    $tests = [
         [
             'slug' => 'bdi',
             'title' => 'پرسشنامه افسردگی بک',
             'abbr' => 'BDI-II',
             'category' => 'خلقی',
-            'description' => 'بررسی شدت نشانه‌های افسردگی در دو هفته اخیر؛ ۲۱ سؤال با نمودار نتیجه و تحلیل اختیاری هوش مصنوعی.',
+            'description' => 'بررسی شدت نشانه‌های افسردگی در دو هفته اخیر.',
             'duration' => '۵–۱۰ دقیقه',
-            'ready' => bdi_licensed_form() !== null,
+            'ready' => psych_assessment_enabled('bdi') && bdi_licensed_form() !== null,
         ],
         [
             'slug' => 'bai',
@@ -40,7 +41,7 @@ function psych_tests_catalog(): array
             'title' => 'پرسشنامه سلامت عمومی',
             'abbr' => 'GHQ-28',
             'category' => 'سلامت عمومی',
-            'description' => 'غربالگری وضعیت روانی و علائم ناراحتی در چهار هفتهٔ اخیر.',
+            'description' => 'غربالگری وضعیت روانی و علائم ناراحتی در چند هفته اخیر.',
             'duration' => '۱۰ دقیقه',
             'ready' => false,
         ],
@@ -56,7 +57,7 @@ function psych_tests_catalog(): array
         [
             'slug' => 'pss',
             'title' => 'مقیاس استرس ادراک‌شده',
-            'abbr' => 'PSS',
+            'abbr' => 'PSS-10',
             'category' => 'استرس',
             'description' => 'میزان استرس درک‌شده در یک ماه گذشته.',
             'duration' => '۵ دقیقه',
@@ -99,6 +100,14 @@ function psych_tests_catalog(): array
             'ready' => false,
         ],
     ];
+    foreach ($tests as &$item) {
+        $item['enabled'] = psych_assessment_enabled($item['slug']);
+        $item['ready'] = $item['enabled'] && ($item['slug'] === 'bdi'
+            ? bdi_licensed_form() !== null : psych_assessment_form($item['slug']) !== null);
+        $item['image'] = '/assets/img/tests/' . $item['slug'] . '.webp';
+    }
+    unset($item);
+    return $tests;
 }
 
 function psych_test_by_slug(string $slug): ?array
