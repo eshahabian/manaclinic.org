@@ -12,7 +12,7 @@ function psych_tests_catalog(): array
             'title' => 'پرسشنامه افسردگی بک',
             'abbr' => 'BDI-II',
             'category' => 'خلقی',
-            'description' => 'سنجش شدت علائم افسردگی در هفتهٔ اخیر.',
+            'description' => 'سنجش شدت نشانه‌های افسردگی در دو هفته اخیر؛ راهنمای امتیازدهی و تحلیل پاسخنامه نسخه دوم بک.',
             'duration' => '۵–۱۰ دقیقه',
             'ready' => false,
         ],

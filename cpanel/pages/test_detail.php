@@ -23,6 +23,11 @@ $pageDescription = trim((string) ($test['description'] ?? '')) !== ''
 $pageCanonical = url('/tests/' . $test['slug']);
 $pageKeywords = $test['title'] . ', ' . ($test['abbr'] ?? '') . ', آزمون روانشناسی, مانا کلینیک';
 
+if ($slug === 'bdi') {
+    require __DIR__ . '/test_bdi.php';
+    exit;
+}
+
 ob_start();
 ?>
 <div class="container-page section">

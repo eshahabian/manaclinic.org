@@ -13,7 +13,7 @@ ob_start();
 <div class="container-page section">
   <h1>آزمون‌های روانشناسی</h1>
   <p class="muted" style="max-width:40rem;line-height:1.9">
-    ابزارهای استاندارد غربالگری و خودارزیابی. محتوای هر آزمون به‌زودی فعال می‌شود.
+    ابزارهای غربالگری و خودارزیابی؛ وضعیت دسترسی هر آزمون در کارت آن مشخص است. نتیجه جایگزین ارزیابی بالینی نیست.
   </p>
   <div class="grid-2" style="margin-top:2rem">
     <?php foreach ($tests as $test): ?>
@@ -25,7 +25,9 @@ ob_start();
         <h2 style="margin:.75rem 0 0;font-size:1.15rem;line-height:1.7"><?= e($test['title']) ?></h2>
         <p class="muted" style="margin-top:.75rem;line-height:1.8;font-size:.9rem"><?= e($test['description']) ?></p>
         <p class="muted" style="margin-top:.75rem;font-size:.85rem">⏱ <?= e($test['duration']) ?></p>
-        <?php if (!$test['ready']): ?>
+        <?php if ($test['slug'] === 'bdi'): ?>
+          <p style="margin-top:.75rem;font-size:.85rem;color:var(--accent)">امتیازدهی، نمودار و تحلیل پاسخنامه موجود</p>
+        <?php elseif (!$test['ready']): ?>
           <p style="margin-top:.75rem;font-size:.85rem;color:var(--accent)">به‌زودی</p>
         <?php endif; ?>
       </a>

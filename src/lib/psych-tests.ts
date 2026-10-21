@@ -14,7 +14,7 @@ export const psychTestsCatalog: PsychTest[] = [
     title: "پرسشنامه افسردگی بک",
     abbr: "BDI-II",
     category: "خلقی",
-    description: "سنجش شدت علائم افسردگی در هفتهٔ اخیر.",
+    description: "سنجش شدت نشانه‌های افسردگی در دو هفته اخیر.",
     duration: "۵–۱۰ دقیقه",
     ready: false,
   },

@@ -461,7 +461,8 @@ if (preg_match('#^/articles/([a-zA-Z0-9_-]+)$#', $path, $m) && $method === 'GET'
     require __DIR__ . '/pages/article_detail.php';
     exit;
 }
-if (preg_match('#^/tests/([a-zA-Z0-9_-]+)$#', $path, $m) && $method === 'GET') {
+if (preg_match('#^/tests/([a-zA-Z0-9_-]+)$#', $path, $m)
+    && ($method === 'GET' || ($method === 'POST' && $m[1] === 'bdi'))) {
     $_GET['slug'] = $m[1];
     require __DIR__ . '/pages/test_detail.php';
     exit;
