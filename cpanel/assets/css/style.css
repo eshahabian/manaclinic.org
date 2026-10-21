@@ -7637,7 +7637,7 @@ html[data-theme="dark"] .emoji-picker-panel {
   max-width: none;
   object-fit: cover;
   object-position: left center;
-  opacity: .42;
+  opacity: .63;
   filter: blur(2px) saturate(.8);
   pointer-events: none;
 }
