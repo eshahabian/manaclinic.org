@@ -123,6 +123,7 @@ ob_start();
   <div class="services-grid">
     <?php foreach ($services as $item): ?>
       <a class="service-card" href="<?= e(url((string) $item['href'])) ?>">
+        <img class="service-card-background" src="<?= e(url('/assets/img/services/' . $item['icon'] . '.webp')) ?>" alt="" aria-hidden="true" loading="lazy" decoding="async" width="768" height="512">
         <span class="service-card-icon"><?= services_icon_svg((string) $item['icon']) ?></span>
         <h2 class="service-card-title"><?= e((string) $item['title']) ?></h2>
         <p class="service-card-desc"><?= e((string) $item['desc']) ?></p>
