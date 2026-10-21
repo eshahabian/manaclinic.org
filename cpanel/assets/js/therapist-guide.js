@@ -6,7 +6,8 @@
   if (!dialog || !root || !trigger || !dialog.showModal) return;
   const data = JSON.parse(document.getElementById('mana-guide-data').textContent);
   function questionsFor(domain) { return data.questions[domain] || data.questions.individual; }
-  let step = 0, answers = {}, submission = null, runId = 0, consent = false;
+  let step = 0, answers = {}, submission = null, runId = 0;
+  let callbackState = {name:'', phone:'', saved:false};
   const el = (tag, text, cls) => { const n = document.createElement(tag); if (text) n.textContent = text; if (cls) n.className = cls; return n; };
   const fa = n => String(n).replace(/\d/g, d => '۰۱۲۳۴۵۶۷۸۹'[d]);
   function button(text, action, cls='btn btn-outline') { const b=el('button',text,cls); b.type='button'; b.addEventListener('click',action); return b; }
@@ -24,29 +25,20 @@
     q.options.forEach(([value,label]) => { const item=el('label',null,'mana-guide-option'); const input=el('input'); input.type=q.multi?'checkbox':'radio'; input.name=q.key; input.value=value; input.checked=q.multi?(answers[q.key]||[]).includes(value):answers[q.key]===value; item.append(input,el('span',label)); fields.append(item); });
     root.append(fields);
     const error=el('p',null,'mana-guide-error'); error.setAttribute('role','alert'); root.append(error);
-    let consentInput;
-    if(step===questions.length-1) {
-      const notice=el('label',null,'mana-guide-option');
-      consentInput=el('input'); consentInput.type='checkbox'; consentInput.checked=consent;
-      notice.append(consentInput,el('span','می‌دانم پاسخ‌ها و نتیجه برای بررسی توسط عماد شهابیان، عطیه گارسچی و شیوا گرانمایه‌پور ثبت می‌شوند.'));
-      root.append(notice);
-    }
     const nav=el('div',null,'mana-guide-actions');
     nav.append(button(step===questions.length-1?'ثبت پاسخ‌ها و دیدن نتیجه':'ادامه',async () => {
       const selected=Array.from(fields.querySelectorAll('input:checked')).map(i=>i.value);
       if(!selected.length) { error.textContent='برای ادامه یک گزینه انتخاب کن.'; return; }
-      if(q.key==='domain' && answers.domain!==selected[0]) { answers={}; consent=false; }
-      if(answers[q.key]!==selected[0]) submission=null;
+      if(q.key==='domain' && answers.domain!==selected[0]) { answers={}; }
+      if(answers[q.key]!==selected[0]) { submission=null; callbackState.saved=false; }
       answers[q.key]=q.multi?selected:selected[0];
       if(step===questions.length-1) {
-        consent=consentInput.checked;
-        if(!consent) { error.textContent='برای ثبت و دیدن نتیجه، اطلاعیه دسترسی کلینیک را تأیید کن.'; return; }
         const currentRun=runId;
         if(!submission) submission=Array.from(crypto.getRandomValues(new Uint8Array(16)),n=>n.toString(16).padStart(2,'0')).join('');
         nav.querySelectorAll('button').forEach(b=>b.disabled=true);
         error.textContent='در حال ثبت پاسخ‌ها…';
         try {
-          const response=await fetch(data.submit,{method:'POST',credentials:'same-origin',headers:{'Accept':'application/json','X-CSRF-Token':data.csrf},body:new URLSearchParams({answers:JSON.stringify(answers),submission,consent:'1'})});
+          const response=await fetch(data.submit,{method:'POST',credentials:'same-origin',headers:{'Accept':'application/json','X-CSRF-Token':data.csrf},body:new URLSearchParams({answers:JSON.stringify(answers),submission,action:'show_result'})});
           const saved=await response.json();
           if(!response.ok || !saved.ok) throw new Error(saved.error||'ثبت پاسخ‌ها انجام نشد.');
           if(currentRun===runId && dialog.open) result();
@@ -59,8 +51,45 @@
       } else { step++; render(); }
     },'btn btn-primary'));
     if(step>0) nav.append(button('قبلی',()=>{step--;render();}));
-    root.append(nav,el('p','پاسخ‌ها برای پیشنهاد حوزهٔ درمانگر استفاده می‌شوند و با تأیید تو در پایان برای افراد مجاز کلینیک ثبت می‌شوند. این راهنما تست تشخیصی معتبر نیست.','mana-guide-small'));
+    root.append(nav,el('p','با زدن «ثبت پاسخ‌ها و دیدن نتیجه»، پاسخ‌ها و نتیجه برای بررسی توسط تیم مجاز کلینیک ذخیره می‌شوند. این راهنما تست تشخیصی معتبر نیست.','mana-guide-small'));
     focusTitle();
+  }
+  function callbackForm() {
+    const box=el('details',null,'mana-guide-callback');
+    box.append(el('summary','دوست داری برای راهنمایی با تو تماس بگیریم؟ (اختیاری)'));
+    const form=el('form');
+    form.append(el('p','اگر مایل هستی، نام و شماره موبایلت را بنویس. اطلاعات تماس برای پیگیری در اختیار منشی‌های کلینیک قرار می‌گیرد؛ پاسخ سؤال‌ها و تحلیل در این درخواست نمایش داده نمی‌شوند.','mana-guide-small'));
+    const nameLabel=el('label','نام و نام خانوادگی');
+    const nameInput=el('input',null,'input'); nameInput.name='name'; nameInput.type='text'; nameInput.autocomplete='name'; nameInput.required=true; nameInput.minLength=3; nameInput.maxLength=100; nameInput.value=callbackState.name;
+    nameLabel.append(nameInput);
+    const phoneLabel=el('label','شماره موبایل');
+    const phoneInput=el('input',null,'input'); phoneInput.name='phone'; phoneInput.type='tel'; phoneInput.inputMode='tel'; phoneInput.autocomplete='tel'; phoneInput.required=true; phoneInput.maxLength=40; phoneInput.dir='ltr'; phoneInput.value=callbackState.phone;
+    phoneLabel.append(phoneInput);
+    nameInput.addEventListener('input',()=>{callbackState.name=nameInput.value;});
+    phoneInput.addEventListener('input',()=>{callbackState.phone=phoneInput.value;});
+    const status=el('p',callbackState.saved?'درخواست تماس ثبت شد؛ منشی کلینیک آن را پیگیری می‌کند.':'','mana-guide-small'); status.setAttribute('role','status');
+    const submit=el('button',callbackState.saved?'درخواست تماس ثبت شد':'ثبت درخواست تماس','btn btn-primary'); submit.type='submit';
+    if(callbackState.saved) { submit.disabled=true; nameInput.disabled=true; phoneInput.disabled=true; }
+    form.append(nameLabel,phoneLabel,submit,status);
+    form.addEventListener('submit',async event=>{
+      event.preventDefault();
+      if(callbackState.saved || submit.disabled) return;
+      const currentRun=runId, currentSubmission=submission;
+      callbackState.name=nameInput.value; callbackState.phone=phoneInput.value;
+      submit.disabled=true; status.textContent='در حال ثبت درخواست تماس…';
+      try {
+        const response=await fetch(data.callback,{method:'POST',credentials:'same-origin',headers:{'Accept':'application/json','X-CSRF-Token':data.csrf},body:new URLSearchParams({submission:currentSubmission,name:nameInput.value,phone:phoneInput.value})});
+        const saved=await response.json();
+        if(!response.ok || !saved.ok) throw new Error(saved.error||'درخواست تماس ثبت نشد.');
+        if(currentRun!==runId || currentSubmission!==submission) return;
+        callbackState.saved=true; submit.textContent='درخواست تماس ثبت شد'; nameInput.disabled=true; phoneInput.disabled=true;
+        status.textContent='درخواست تماس ثبت شد؛ منشی کلینیک آن را پیگیری می‌کند.';
+      } catch(e) {
+        if(currentRun!==runId || currentSubmission!==submission) return;
+        status.textContent=e.message||'ارتباط برقرار نشد؛ دوباره تلاش کن.'; submit.disabled=false;
+      }
+    });
+    box.append(form); return box;
   }
   function result() {
     const questions=questionsFor(answers.domain);
@@ -133,10 +162,11 @@
       root.append(link('بررسی دوره‌ها و کارگاه‌ها ←',data.workshops));
     }
     root.append(link('مشاهدهٔ همهٔ درمانگران ←',data.directory),link('هماهنگی با کلینیک ←',data.contact));
-    const nav=el('div',null,'mana-guide-actions'); nav.append(button('ویرایش پاسخ‌ها',()=>{step=questions.length-1;render();}),button('شروع دوباره',()=>{step=0;answers={};submission=null;consent=false;runId++;render();})); root.append(nav);focusTitle();
+    root.append(callbackForm());
+    const nav=el('div',null,'mana-guide-actions'); nav.append(button('ویرایش پاسخ‌ها',()=>{step=questions.length-1;render();}),button('شروع دوباره',()=>{step=0;answers={};submission=null;callbackState={name:'',phone:'',saved:false};runId++;render();})); root.append(nav);focusTitle();
   }
   trigger.hidden=false;
-  trigger.addEventListener('click',()=>{step=0;answers={};submission=null;consent=false;runId++;dialog.showModal();render();});
+  trigger.addEventListener('click',()=>{step=0;answers={};submission=null;callbackState={name:'',phone:'',saved:false};runId++;dialog.showModal();render();});
   document.querySelector('[data-guide-close]').addEventListener('click',()=>dialog.close());
-  dialog.addEventListener('close',()=>{answers={};submission=null;consent=false;runId++;root.replaceChildren();trigger.focus();});
+  dialog.addEventListener('close',()=>{answers={};submission=null;callbackState={name:'',phone:'',saved:false};runId++;root.replaceChildren();trigger.focus();});
 })();

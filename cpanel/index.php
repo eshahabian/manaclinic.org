@@ -184,6 +184,7 @@ $routes = [
     'GET /rules' => 'pages/rules.php',
     'GET /contact' => 'pages/contact.php',
     'GET /collaborate' => 'pages/collaborate.php',
+    'POST /therapist-guide/callback' => 'actions/therapist_guide_callback.php',
     'POST /therapist-guide/submit' => 'actions/therapist_guide_submit.php',
     'POST /collaborate' => 'actions/collaborate.php',
     'POST /consult-request' => 'actions/consult_request.php',

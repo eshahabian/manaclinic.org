@@ -1,0 +1,16 @@
+{
+  "status": "PASS",
+  "files": [
+    "includes/consult_requests.php",
+    "actions/consult_request_done.php",
+    "actions/consult_request_reopen.php",
+    "actions/therapist_guide_callback.php",
+    "index.php",
+    "assets/js/therapist-guide.js",
+    "includes/home_therapist_guide.php"
+  ],
+  "version": "20261021l",
+  "staged_php_syntax": true,
+  "live_byte_match": true,
+  "optional_callback": true
+}

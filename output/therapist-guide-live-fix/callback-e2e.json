@@ -1,0 +1,34 @@
+{
+  "result_saved": true,
+  "requires_completed_result": true,
+  "rejects_invalid_phone": true,
+  "csrf_rejected": true,
+  "contact_saved": true,
+  "retry_success": true,
+  "server": {
+    "one_contact_record": true,
+    "normalized_phone": true,
+    "no_answers_or_analysis": true,
+    "access_checks": {
+      "SECRETARY": {
+        "contact_visible": true,
+        "private_results_allowed": false
+      },
+      "DOCTOR": {
+        "contact_visible": false,
+        "private_results_allowed": false
+      },
+      "ADMIN": {
+        "contact_visible": false,
+        "private_results_allowed": false
+      }
+    },
+    "named_allowed": [
+      true,
+      true,
+      true
+    ],
+    "synthetic_contacts_removed": 1,
+    "synthetic_results_removed": 1
+  }
+}

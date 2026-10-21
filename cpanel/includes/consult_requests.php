@@ -1,6 +1,26 @@
 <?php
 declare(strict_types=1);
 
+function consult_guide_contact_allowed(PDO $pdo, ?array $user = null): bool
+{
+    $user = $user ?? current_user();
+    if (!$user || !empty($user['is_disabled'])) return false;
+    if (($user['role'] ?? '') === 'SECRETARY') return true;
+    require_once __DIR__ . '/therapist_guide_results.php';
+    return therapist_guide_can_read($pdo, $user);
+}
+
+function consult_require_record_access(PDO $pdo, string $id, array $user): void
+{
+    $stmt = $pdo->prepare('SELECT message FROM consult_requests WHERE id=?');
+    $stmt->execute([$id]);
+    if ($stmt->fetchColumn() === 'درخواست تماس پس از راهنمای انتخاب درمانگر'
+        && !consult_guide_contact_allowed($pdo, $user)) {
+        http_response_code(403);
+        exit('دسترسی به این درخواست تماس برای این حساب فعال نیست.');
+    }
+}
+
 function ensure_consult_requests_schema(PDO $pdo): void
 {
     static $ready = false;
@@ -51,9 +71,10 @@ function consult_request_new_count(): int
     }
     try {
         ensure_consult_requests_schema($db);
+        $guideFilter = consult_guide_contact_allowed($db) ? '' : " AND message <> 'درخواست تماس پس از راهنمای انتخاب درمانگر'";
         return (int) $db->query("
           SELECT COUNT(*) FROM consult_requests
-          WHERE status IS NULL OR TRIM(status) = '' OR LOWER(TRIM(status)) = 'new'
+          WHERE (status IS NULL OR TRIM(status) = '' OR LOWER(TRIM(status)) = 'new') {$guideFilter}
         ")->fetchColumn();
     } catch (Throwable $e) {
         return 0;
@@ -63,10 +84,12 @@ function consult_request_new_count(): int
 function consult_request_list(PDO $pdo): array
 {
     ensure_consult_requests_schema($pdo);
+    $guideFilter = consult_guide_contact_allowed($pdo) ? '' : " WHERE message <> 'درخواست تماس پس از راهنمای انتخاب درمانگر'";
     return $pdo->query("
       SELECT id, name, phone, message, status, created_at, seen_at,
              called_by_user_id, called_by_name, called_by_role
       FROM consult_requests
+      {$guideFilter}
       ORDER BY (status = 'new') DESC, created_at DESC
       LIMIT 150
     ")->fetchAll();

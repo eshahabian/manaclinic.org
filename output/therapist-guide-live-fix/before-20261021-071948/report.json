@@ -1,0 +1,55 @@
+{
+  "index.php": {
+    "exists": true,
+    "same_as_local": false
+  },
+  "includes/home_therapist_guide.php": {
+    "exists": true,
+    "same_as_local": true
+  },
+  "includes/staff_app.php": {
+    "exists": true,
+    "same_as_local": true
+  },
+  "pages/staff_app.php": {
+    "exists": true,
+    "same_as_local": false
+  },
+  "assets/js/therapist-guide.js": {
+    "exists": true,
+    "same_as_local": true
+  },
+  "includes/therapist_guide_questions.php": {
+    "exists": true,
+    "same_as_local": true
+  },
+  "includes/therapist_guide_results.php": {
+    "exists": true,
+    "same_as_local": true
+  },
+  "actions/therapist_guide_submit.php": {
+    "exists": true,
+    "same_as_local": true
+  },
+  "pages/staff_therapist_guide.php": {
+    "exists": true,
+    "same_as_local": true
+  },
+  "live": {
+    "data_keys": [
+      "questions",
+      "submit",
+      "csrf",
+      "doctors",
+      "courses",
+      "domains",
+      "focus",
+      "directory",
+      "workshops",
+      "contact"
+    ],
+    "script": [
+      "/assets/js/therapist-guide.js?v=20261021i"
+    ]
+  }
+}

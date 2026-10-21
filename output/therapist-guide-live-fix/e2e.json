@@ -1,0 +1,7 @@
+{
+  "status": 200,
+  "response": "{\"ok\":true}",
+  "cleanup": {
+    "synthetic_rows_removed": 1
+  }
+}

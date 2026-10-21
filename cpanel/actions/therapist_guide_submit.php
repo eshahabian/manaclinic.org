@@ -5,7 +5,10 @@ header('Cache-Control: no-store');
 require_once __DIR__ . '/../includes/therapist_guide_results.php';
 try {
     csrf_verify();
-    if (($_POST['consent'] ?? '') !== '1') throw new InvalidArgumentException('برای ثبت پاسخ‌ها، اطلاعیه دسترسی کلینیک را تأیید کن.');
+    // Accept the previous form during rollout; the current form records the submit action.
+    if (($_POST['action'] ?? '') !== 'show_result' && ($_POST['consent'] ?? '') !== '1') {
+        throw new InvalidArgumentException('پاسخ‌ها را با دکمه ثبت پاسخ‌ها و دیدن نتیجه ارسال کن.');
+    }
     $raw = $_POST['answers'] ?? '';
     $nonce = $_POST['submission'] ?? '';
     if (!is_string($raw) || strlen($raw) > 8000 || !is_string($nonce) || !preg_match('/^[a-f0-9]{32}$/D', $nonce)) {
@@ -26,9 +29,10 @@ try {
         }
         $snapshot['doctors'] = therapist_guide_recommendations($pdo, $snapshot);
         $snapshot['route_label'] = doctor_domain_options()[$snapshot['route']] ?? $snapshot['route'];
-        $snapshot['consent'] = 'پاسخ‌ها و نتیجه برای عماد شهابیان، عطیه گارسچی و شیوا گرانمایه‌پور قابل مشاهده است.';
+        $snapshot['submission_notice'] = 'با زدن ثبت پاسخ‌ها و دیدن نتیجه، پاسخ‌ها و نتیجه برای بررسی توسط تیم مجاز کلینیک ذخیره می‌شوند.';
+        $snapshot['submission_action'] = ($_POST['action'] ?? '') === 'show_result' ? 'show_result' : 'legacy_consent';
         $stmt = $pdo->prepare('INSERT INTO therapist_guide_results (id,user_id,domain,version,snapshot_json) VALUES (?,?,?,?,?) ON DUPLICATE KEY UPDATE id=id');
-        $stmt->execute([$id, current_user()['id'] ?? null, $snapshot['domain'], '20261021i', json_encode($snapshot, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)]);
+        $stmt->execute([$id, current_user()['id'] ?? null, $snapshot['domain'], '20261021k', json_encode($snapshot, JSON_UNESCAPED_UNICODE | JSON_THROW_ON_ERROR)]);
         $_SESSION['guide_last_submission'] = time();
     }
     echo json_encode(['ok' => true], JSON_UNESCAPED_UNICODE);

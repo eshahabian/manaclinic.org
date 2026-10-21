@@ -1,0 +1,544 @@
+<?php
+declare(strict_types=1);
+
+$configFile = __DIR__ . '/config.php';
+if (!is_file($configFile)) {
+    http_response_code(500);
+    echo 'فایل config.php یافت نشد. از config.sample.php کپی کنید.';
+    exit;
+}
+
+$config = require $configFile;
+
+date_default_timezone_set($config['timezone'] ?? 'Asia/Tehran');
+
+@ini_set('display_errors', '0');
+header_remove('X-Powered-By');
+
+session_name($config['session_name'] ?? 'mana_clinic_sess');
+if (session_status() !== PHP_SESSION_ACTIVE) {
+    $secure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+        || ((string) ($_SERVER['SERVER_PORT'] ?? '') === '443')
+        || str_starts_with((string) ($config['app_url'] ?? ''), 'https://')
+        || strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https';
+    session_set_cookie_params([
+        'lifetime' => 0,
+        'path' => '/',
+        'secure' => $secure,
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ]);
+    session_start();
+}
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: SAMEORIGIN');
+header('Referrer-Policy: strict-origin-when-cross-origin');
+header('X-XSS-Protection: 0');
+header('Permissions-Policy: camera=(self), microphone=(self), geolocation=()');
+if (str_starts_with((string) ($config['app_url'] ?? ''), 'https://')
+    || (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+    || strtolower((string) ($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '')) === 'https') {
+    header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
+}
+
+require_once __DIR__ . '/includes/db.php';
+require_once __DIR__ . '/includes/helpers.php';
+require_once __DIR__ . '/includes/appointment_session.php';
+require_once __DIR__ . '/includes/name_transliterations.php';
+require_once __DIR__ . '/includes/auth.php';
+require_once __DIR__ . '/includes/staff_desk.php';
+require_once __DIR__ . '/includes/secretary_patient.php';
+require_once __DIR__ . '/includes/zarinpal.php';
+require_once __DIR__ . '/includes/view.php';
+require_once __DIR__ . '/includes/notifications.php';
+require_once __DIR__ . '/includes/psych_tests.php';
+require_once __DIR__ . '/includes/wallet.php';
+require_once __DIR__ . '/includes/workshops.php';
+require_once __DIR__ . '/includes/workshop_media.php';
+require_once __DIR__ . '/includes/assistant.php';
+require_once __DIR__ . '/includes/seed_articles.php';
+require_once __DIR__ . '/includes/articles.php';
+require_once __DIR__ . '/includes/handover.php';
+require_once __DIR__ . '/includes/admin_staff_messages.php';
+require_once __DIR__ . '/includes/secretary_to_admin.php';
+require_once __DIR__ . '/includes/staff_board.php';
+require_once __DIR__ . '/includes/user_cleanup.php';
+require_once __DIR__ . '/includes/outreach.php';
+require_once __DIR__ . '/includes/seo.php';
+require_once __DIR__ . '/includes/doctor_profile_fields.php';
+require_once __DIR__ . '/includes/clinic_directory.php';
+require_once __DIR__ . '/includes/service_page_helpers.php';
+require_once __DIR__ . '/includes/video_call.php';
+require_once __DIR__ . '/includes/patient_journal.php';
+require_once __DIR__ . '/includes/mail.php';
+require_once __DIR__ . '/includes/clinic_manage.php';
+require_once __DIR__ . '/includes/mentions.php';
+require_once __DIR__ . '/includes/consult_requests.php';
+
+$pdo = db_connect($config);
+
+$path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+$base = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/\\');
+if ($base === '/' || $base === '\\') {
+    $base = '';
+}
+while ($base !== '' && ($path === $base || str_starts_with($path, $base . '/'))) {
+    $path = substr($path, strlen($base)) ?: '/';
+}
+$path = '/' . trim($path, '/');
+if ($path !== '/') {
+    $path = rtrim($path, '/');
+}
+$GLOBALS['path'] = $path;
+
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+// Crawlers often probe with HEAD; treat it like GET for public routes.
+$isHeadRequest = strtoupper((string) $method) === 'HEAD';
+if ($isHeadRequest) {
+    $method = 'GET';
+    // Keep response headers, drop body (valid HEAD).
+    ob_start(static fn (): string => '');
+}
+$isStaffApp = $path === '/app' || str_starts_with($path, '/app/');
+$isStaffPoll = $isStaffApp && (
+    $path === '/app/presence'
+    || $path === '/app/push/subscribe'
+    || preg_match('#^/app/chat/[a-f0-9]{24}/receipts$#', $path) === 1
+    || preg_match('#^/app/file/[a-f0-9]{24}$#', $path) === 1
+);
+$isLightRequest = $path === '/video-signal' || $path === '/secretary/heartbeat' || $path === '/session/ping' || $isStaffPoll;
+
+// برنامه کارکنان خودش جدول‌هایش را می‌سازد. این بلوک روی هر کلیک،
+// ALTER و اسکن‌های سایت را هم اجرا می‌کرد و بخش بعد دیر باز می‌شد.
+if (!$isLightRequest && !$isStaffApp) {
+    ensure_doctor_profile_schema($pdo);
+    ensure_workshop_schema($pdo);
+    ensure_workshop_media_schema($pdo);
+    ensure_articles_schema($pdo);
+    require_once __DIR__ . '/includes/availability.php';
+    ensure_availability_schema($pdo);
+    if (function_exists('doctor_availability_resync_all_weekly')) {
+        doctor_availability_resync_all_weekly($pdo);
+    }
+    ensure_assistant_schema($pdo);
+    ensure_staff_desk_schema($pdo);
+    if (function_exists('ensure_appointment_session_schema')) {
+        ensure_appointment_session_schema($pdo);
+    }
+    ensure_handover_schema($pdo);
+    ensure_secretary_to_admin_schema($pdo);
+    ensure_patient_journal_schema($pdo);
+    ensure_notifications_table($pdo);
+    ensure_mail_schema($pdo);
+    ensure_mentions_schema($pdo);
+    if (function_exists('ensure_wallet_schema')) {
+        ensure_wallet_schema($pdo);
+    }
+    if (function_exists('ensure_admin_staff_messages_schema')) {
+        ensure_admin_staff_messages_schema($pdo);
+    }
+    purge_dummy_clinic_bookings($pdo);
+    if (function_exists('ensure_users_disabled_schema')) {
+        ensure_users_disabled_schema($pdo);
+    }
+    if (function_exists('purge_removed_user_traces')) {
+        purge_removed_user_traces($pdo);
+    }
+    if (function_exists('outreach_scan_quiet_patients')) {
+        outreach_scan_quiet_patients($pdo);
+    }
+}
+
+if (strtoupper((string) $method) === 'POST') {
+    csrf_verify();
+}
+
+// seed مقالات فقط روی صفحات عمومی GET — نه روی API چت (جلوگیری از HTML/تایم‌اوت وسط گفتگو)
+$isAssistantApi = str_starts_with($path, '/assistant/chat') || str_starts_with($path, '/assistant/send');
+if ($method === 'GET' && !$isAssistantApi && !$isLightRequest && !$isStaffApp) {
+    ensure_featured_psychology_article($pdo);
+    ensure_latest_couples_research_article($pdo);
+}
+
+// مسیرهای اکشن
+$routes = [
+    'GET /' => 'pages/home.php',
+    'GET /doctors' => 'pages/doctors.php',
+    'GET /workshops' => 'pages/workshops.php',
+    'GET /workshops/apply' => 'pages/workshop_apply.php',
+    'GET /articles' => 'pages/articles.php',
+    'GET /guides/first-therapy-session' => 'pages/guide_first_session.php',
+    'GET /issues' => 'pages/issues.php',
+    'GET /sitemap.xml' => 'pages/sitemap.php',
+    'GET /tests' => 'pages/tests.php',
+    'GET /about' => 'pages/about.php',
+    'GET /services' => 'pages/services.php',
+    'GET /services/individual' => 'pages/service_individual.php',
+    'GET /services/couples' => 'pages/service_couples.php',
+    'GET /services/child' => 'pages/service_child.php',
+    'GET /services/premarital' => 'pages/service_premarital.php',
+    'GET /services/family' => 'pages/service_family.php',
+    'GET /services/assessments' => 'pages/service_assessments.php',
+    'GET /services/workshops' => 'pages/service_workshops.php',
+    'GET /faq' => 'pages/faq.php',
+    'GET /rules' => 'pages/rules.php',
+    'GET /contact' => 'pages/contact.php',
+    'GET /collaborate' => 'pages/collaborate.php',
+    'POST /therapist-guide/submit' => 'actions/therapist_guide_submit.php',
+    'POST /collaborate' => 'actions/collaborate.php',
+    'POST /consult-request' => 'actions/consult_request.php',
+    'POST /consult-requests/done' => 'actions/consult_request_done.php',
+    'POST /consult-requests/reopen' => 'actions/consult_request_reopen.php',
+    'GET /assistant' => 'pages/assistant.php',
+    'POST /assistant/chat' => 'actions/assistant_chat.php',
+    'POST /assistant/send' => 'actions/assistant_send.php',
+    'GET /assistant/report' => 'pages/assistant_report.php',
+    'GET /login' => 'pages/login.php',
+    'GET /register' => 'pages/register.php',
+    'GET /logout' => 'pages/logout.php',
+    'POST /login' => 'actions/login.php',
+    'POST /login/otp' => 'actions/login_otp_request.php',
+    'POST /register' => 'actions/register.php',
+    'GET /forgot-password' => 'pages/forgot_password.php',
+    'POST /forgot-password' => 'actions/forgot_password.php',
+    'GET /reset-password' => 'pages/reset_password.php',
+    'POST /reset-password' => 'actions/reset_password.php',
+    'GET /change-password' => 'pages/change_password.php',
+    'POST /change-password' => 'actions/change_password.php',
+    'GET /video-call' => 'pages/video_call.php',
+    'POST /video-call' => 'pages/video_call.php',
+    'POST /video-signal' => 'actions/video_signal.php',
+
+    'GET /dashboard' => 'pages/patient/dashboard.php',
+    'GET /dashboard/path' => 'pages/patient/mana_path2.php',
+    'POST /dashboard/path' => 'actions/patient_mana_path.php',
+    'GET /dashboard/path/report' => 'pages/patient/mana_path2_report.php',
+    'POST /dashboard/path/report' => 'actions/patient_mana_path.php',
+    'POST /dashboard/path/report/ai' => 'actions/patient_path_ai.php',
+    'GET /dashboard/path2' => 'pages/patient/mana_path.php',
+    'POST /dashboard/path2' => 'actions/patient_mana_path.php',
+    'GET /dashboard/path2/report' => 'pages/patient/mana_path2_report.php',
+    'GET /dashboard/appointments' => 'pages/patient/appointments.php',
+    'GET /dashboard/workshops' => 'pages/patient/workshops.php',
+    'GET /dashboard/workshops/ongoing' => 'pages/patient/workshops.php',
+    'GET /dashboard/workshops/new' => 'pages/patient/workshops.php',
+    'GET /dashboard/workshops/requested' => 'pages/patient/workshops.php',
+    'GET /dashboard/workshops/mine' => 'pages/patient/workshops.php',
+    'GET /dashboard/workshops/path' => 'pages/patient/workshop_path.php',
+    'POST /dashboard/workshops/path-note' => 'actions/patient_workshop_path_note.php',
+    'POST /dashboard/workshops/qa' => 'actions/patient_workshop_qa.php',
+    'GET /dashboard/courses' => 'pages/patient/courses.php',
+    'GET /dashboard/courses-new' => 'pages/patient/courses_new.php',
+    'GET /dashboard/courses/media' => 'pages/patient/course_media.php',
+    'GET /dashboard/courses/offline' => 'pages/patient/offline_course.php',
+    'GET /dashboard/messages' => 'pages/patient/messages.php',
+    'POST /dashboard/messages/read' => 'actions/patient_notifications.php',
+    'GET /dashboard/mentions' => 'pages/mentions.php',
+    'POST /dashboard/mentions' => 'pages/mentions.php',
+    'GET /dashboard/journal' => 'pages/patient/journal.php',
+    'POST /dashboard/journal' => 'actions/patient_journal.php',
+    'GET /dashboard/wallet' => 'pages/patient/wallet.php',
+    'GET /dashboard/feedback' => 'pages/patient/feedback.php',
+    'POST /dashboard/feedback' => 'actions/patient_feedback.php',
+    'GET /dashboard/profile' => 'pages/patient/profile.php',
+    'POST /dashboard/profile' => 'actions/patient_profile.php',
+    'POST /account/avatar' => 'actions/user_avatar.php',
+    'POST /dashboard/care-notes' => 'actions/patient_care_note.php',
+    'GET /dashboard/session-note' => 'pages/patient/session_shared_note.php',
+    'POST /dashboard/session-note' => 'actions/appointment_shared_note.php',
+    'POST /dashboard/pay' => 'actions/pay_appointment.php',
+    'POST /staff/workshops/remove-member' => 'actions/workshop_remove_member.php',
+    'POST /staff/workshops/broadcast' => 'actions/workshop_broadcast.php',
+    'POST /staff/workshops/add-member' => 'actions/workshop_add_member.php',
+    'POST /enroll-workshop' => 'actions/enroll_workshop.php',
+    'POST /pay-workshop' => 'actions/pay_workshop.php',
+    'POST /cancel-enrollment' => 'actions/cancel_enrollment.php',
+    'POST /cancel-appointment' => 'actions/cancel_appointment.php',
+    'POST /appointment-call-request' => 'actions/appointment_call_request.php',
+    'POST /dashboard/upload-receipt' => 'actions/patient_receipt.php',
+    'POST /book' => 'actions/book.php',
+
+    'GET /secretary' => 'pages/secretary/dashboard.php',
+    'GET /secretary/book' => 'pages/secretary/book.php',
+    'POST /secretary/book' => 'actions/secretary_book.php',
+    'POST /secretary/delete-patient' => 'actions/secretary_delete_patient.php',
+    'GET /secretary/appointments' => 'pages/secretary/appointments.php',
+    'POST /secretary/appointments' => 'actions/secretary_appointments.php',
+    'GET /secretary/complaints' => 'pages/secretary/complaints.php',
+    'POST /secretary/complaints' => 'actions/secretary_complaint.php',
+    'GET /secretary/patients' => 'pages/secretary/patients.php',
+    'POST /secretary/patients' => 'actions/secretary_create_patient.php',
+    'GET /secretary/users' => 'pages/secretary/users.php',
+    'POST /secretary/users' => 'actions/secretary_users.php',
+    'GET /secretary/therapists' => 'pages/secretary/therapists.php',
+    'POST /secretary/therapists' => 'actions/secretary_therapists.php',
+    'GET /secretary/therapist-days' => 'pages/secretary/therapist_days.php',
+    'POST /secretary/therapist-days' => 'actions/secretary_therapist_days.php',
+    'GET /secretary/payouts' => 'pages/secretary/payouts.php',
+    'POST /secretary/payouts' => 'actions/secretary_payout_settle.php',
+    'GET /accountant' => 'pages/accountant/dashboard.php',
+    'GET /accountant/payments' => 'pages/accountant/payments.php',
+    'GET /accountant/outside' => 'pages/accountant/outside.php',
+    'POST /accountant/outside' => 'actions/accountant_outside.php',
+    'GET /accountant/payouts' => 'pages/accountant/payouts.php',
+    'POST /accountant/payouts' => 'actions/secretary_payout_settle.php',
+    'GET /accountant/petty-cash' => 'pages/petty_cash.php',
+    'POST /accountant/petty-cash' => 'actions/petty_cash.php',
+    'GET /secretary/balances' => 'pages/secretary/balances.php',
+    'GET /secretary/petty-cash' => 'pages/petty_cash.php',
+    'POST /secretary/petty-cash' => 'actions/petty_cash.php',
+    'GET /secretary/messages' => 'pages/secretary/messages.php',
+    'GET /secretary/consult-requests' => 'pages/consult_requests.php',
+    'GET /secretary/colleague-messages' => 'pages/secretary/colleague_messages.php',
+    'GET /secretary/board' => 'pages/secretary/board.php',
+    'GET /secretary/mentions' => 'pages/mentions.php',
+    'POST /secretary/mentions' => 'pages/mentions.php',
+    'GET /secretary/colleague' => 'pages/secretary/colleague.php',
+    'POST /secretary/notifications/read' => 'actions/secretary_notifications.php',
+    'POST /secretary/patient-message' => 'actions/secretary_patient_message.php',
+    'GET /secretary/workshops' => 'pages/secretary/workshops.php',
+    'POST /secretary/workshops' => 'actions/secretary_workshops.php',
+    'POST /secretary/workshop-media' => 'actions/secretary_workshop_media.php',
+    'GET /secretary/articles' => 'pages/secretary/articles.php',
+    'POST /secretary/articles' => 'actions/secretary_articles.php',
+    'GET /secretary/intakes' => 'pages/secretary/intakes.php',
+    'GET /secretary/daily-tasks' => 'pages/secretary/daily_tasks.php',
+    'POST /secretary/daily-tasks' => 'actions/secretary_daily_tasks.php',
+    'GET /secretary/secretary-tasks' => 'pages/secretary/secretary_tasks.php',
+    'GET /secretary/hours' => 'pages/secretary/hours.php',
+    'POST /secretary/hours' => 'actions/secretary_day_report.php',
+    'GET /secretary/profile' => 'pages/secretary/profile.php',
+    'POST /secretary/heartbeat' => 'actions/secretary_heartbeat.php',
+    'POST /session/ping' => 'actions/session_ping.php',
+    'POST /secretary/receipt' => 'actions/secretary_receipt.php',
+    'GET /staff/receipt' => 'actions/staff_receipt_file.php',
+    'GET /petty-cash/receipt' => 'actions/petty_cash_receipt.php',
+
+    'GET /doctor' => 'pages/doctor/dashboard.php',
+    'GET /doctor/path' => 'pages/patient/mana_path2.php',
+    'POST /doctor/path' => 'actions/patient_mana_path.php',
+    'GET /doctor/path/report' => 'pages/patient/mana_path2_report.php',
+    'POST /doctor/path/report' => 'actions/patient_mana_path.php',
+    'POST /doctor/path/report/ai' => 'actions/patient_path_ai.php',
+    'GET /doctor/intakes' => 'pages/doctor/intakes.php',
+    'GET /doctor/notifications' => 'pages/doctor/notifications.php',
+    'GET /doctor/consult-requests' => 'pages/consult_requests.php',
+    'GET /doctor/collaboration-requests' => 'pages/doctor/collaboration_requests.php',
+    'GET /doctor/profile' => 'pages/doctor/profile.php',
+    'POST /doctor/profile' => 'actions/doctor_profile.php',
+    'GET /doctor/availability' => 'pages/doctor/availability.php',
+    'POST /doctor/availability' => 'actions/doctor_availability.php',
+    'GET /doctor/payouts' => 'pages/doctor/payouts.php',
+    'GET /doctor/petty-cash' => 'pages/petty_cash.php',
+    'POST /doctor/petty-cash' => 'actions/petty_cash.php',
+    'GET /doctor/appointment-history' => 'pages/doctor/appointment_history.php',
+    'GET /doctor/feedback' => 'pages/doctor/feedback.php',
+    'POST /doctor/feedback' => 'actions/doctor_feedback.php',
+    'GET /doctor/appointments' => 'pages/doctor/appointments.php',
+    'GET /doctor/session-note' => 'pages/doctor/session_shared_note.php',
+    'POST /doctor/session-note' => 'actions/appointment_shared_note.php',
+    'POST /doctor/appointments' => 'actions/doctor_appointments.php',
+    'GET /doctor/workshops' => 'pages/doctor/workshops.php',
+    'GET /doctor/workshops/path' => 'pages/doctor/workshop_path.php',
+    'POST /doctor/workshops/path-note' => 'actions/doctor_workshop_path_note.php',
+    'POST /doctor/workshops/doctor-path' => 'actions/doctor_workshop_doctor_path.php',
+    'GET /doctor/workshops/qa' => 'pages/doctor/workshop_qa.php',
+    'POST /doctor/workshops/qa' => 'actions/doctor_workshop_qa.php',
+    'POST /doctor/workshops' => 'actions/doctor_workshops.php',
+    'POST /doctor/workshop-media' => 'actions/doctor_workshop_media.php',
+    'POST /doctor/workshop-session-note' => 'actions/doctor_workshop_session_note.php',
+    'GET /doctor/workshop-export' => 'actions/doctor_workshop_export.php',
+    'GET /doctor/articles' => 'pages/doctor/articles.php',
+    'POST /doctor/articles' => 'actions/doctor_articles.php',
+    'GET /doctor/patients' => 'pages/doctor/patients.php',
+    'POST /doctor/notifications/read' => 'actions/doctor_notifications.php',
+    'GET /doctor/hours' => 'pages/doctor/hours.php',
+    'GET /doctor/secretary-tasks' => 'pages/doctor/secretary_tasks.php',
+    'POST /doctor/secretary-tasks' => 'actions/secretary_assigned_tasks.php',
+    'GET /doctor/staff-hours' => 'pages/doctor/staff_hours.php',
+    'POST /doctor/staff-hours' => 'actions/doctor_staff_hours.php',
+    'GET /doctor/staff-hours-export' => 'actions/doctor_staff_hours_export.php',
+    'GET /doctor/staff-messages' => 'pages/doctor/staff_messages.php',
+    'GET /doctor/staff-board' => 'pages/doctor/staff_board.php',
+    'GET /doctor/secretary-messages' => 'pages/doctor/secretary_messages.php',
+    'POST /doctor/secretary-messages' => 'actions/doctor_secretary_messages.php',
+    'GET /doctor/mentions' => 'pages/mentions.php',
+    'POST /doctor/mentions' => 'pages/mentions.php',
+
+    'GET /admin' => 'pages/admin/dashboard.php',
+    'GET /admin/feedback' => 'pages/admin/feedback.php',
+    'POST /admin/feedback' => 'actions/admin_feedback.php',
+    'GET /admin/consult-requests' => 'pages/consult_requests.php',
+    'GET /admin/workshop-file-log' => 'pages/admin/workshop_file_log.php',
+    'GET /admin/doctors' => 'pages/admin/doctors.php',
+    'POST /admin/doctors' => 'actions/admin_doctors.php',
+    'GET /admin/users' => 'pages/admin/users.php',
+    'POST /admin/users' => 'actions/admin_users.php',
+    'GET /admin/users-disabled' => 'pages/admin/users.php',
+    'GET /admin/messengers' => 'pages/admin/messengers.php',
+    'POST /admin/messengers' => 'actions/admin_manage.php',
+    'GET /admin/sms-test' => 'pages/admin/sms_test.php',
+    'GET /admin/sms-settings' => 'pages/admin/sms_settings.php',
+    'POST /admin/sms-settings' => 'actions/admin_manage.php',
+    'POST /admin/sms-test' => 'actions/admin_manage.php',
+    'GET /admin/sms-notify' => 'pages/admin/sms_notify.php',
+    'POST /admin/sms-notify' => 'actions/admin_manage.php',
+    'GET /admin/sms-broadcast' => 'pages/admin/sms_broadcast.php',
+    'POST /admin/sms-broadcast' => 'actions/admin_manage.php',
+    'GET /admin/sms-doctor-digest' => 'pages/admin/sms_doctor_digest.php',
+    'POST /admin/sms-doctor-digest' => 'actions/admin_manage.php',
+    'GET /cron/sms' => 'pages/cron_sms.php',
+    'POST /cron/sms' => 'pages/cron_sms.php',
+    'GET /admin/gateway' => 'pages/admin/gateway.php',
+    'POST /admin/gateway' => 'actions/admin_manage.php',
+    'GET /admin/outreach' => 'pages/admin/outreach.php',
+    'POST /admin/outreach' => 'actions/admin_outreach.php',
+    'GET /admin/articles' => 'pages/admin/articles.php',
+    'POST /admin/articles' => 'actions/admin_articles.php',
+    'GET /admin/appointments' => 'pages/admin/appointments.php',
+    'POST /admin/appointments' => 'actions/admin_appointments.php',
+    'GET /admin/rooms' => 'pages/admin/rooms.php',
+    'POST /admin/rooms' => 'actions/admin_rooms.php',
+    'GET /admin/messages' => 'pages/admin/messages.php',
+    'POST /admin/messages' => 'actions/admin_messages.php',
+    'GET /admin/secretary-tasks' => 'pages/admin/secretary_tasks.php',
+    'POST /admin/secretary-tasks' => 'actions/secretary_assigned_tasks.php',
+    'GET /admin/staff-hours' => 'pages/admin/staff_hours.php',
+    'GET /admin/staff-hours-export' => 'actions/admin_staff_hours_export.php',
+    'GET /admin/staff-messages' => 'pages/admin/staff_messages.php',
+    'POST /admin/staff-messages' => 'actions/admin_messages.php',
+    'GET /admin/secretary-messages' => 'pages/admin/secretary_messages.php',
+    'POST /admin/secretary-messages' => 'actions/admin_secretary_messages.php',
+    'GET /admin/staff-board' => 'pages/admin/staff_board.php',
+    'GET /admin/mentions' => 'pages/mentions.php',
+    'POST /admin/mentions' => 'pages/mentions.php',
+    'GET /admin/mail' => 'pages/admin/mail.php',
+    'POST /admin/mail' => 'actions/admin_mail.php',
+    'POST /secretary/handover' => 'actions/secretary_handover.php',
+    'POST /secretary/handover/ack' => 'actions/secretary_handover_ack.php',
+    'POST /secretary/admin-message/ack' => 'actions/secretary_admin_msg_ack.php',
+    'POST /secretary/to-admin' => 'actions/secretary_to_admin.php',
+    'GET /staff/admin-message-image' => 'actions/admin_staff_message_image.php',
+
+    'GET /api/slots' => 'actions/slots.php',
+    'GET /api/availability-days' => 'actions/availability_days.php',
+    'GET /api/transliterate-name' => 'actions/transliterate_name.php',
+    'GET /api/staff-board' => 'actions/staff_board.php',
+    'POST /api/staff-board' => 'actions/staff_board.php',
+    'GET /api/mentions/suggest' => 'actions/mentions_suggest.php',
+    'GET /payments/verify' => 'actions/payment_verify.php',
+    'GET /install' => 'install.php',
+];
+if ($path === '/install' && empty($config['allow_install'])) {
+    http_response_code(404);
+    $pageTitle = 'یافت نشد';
+    require __DIR__ . '/pages/404.php';
+    exit;
+}
+
+$key = $method . ' ' . $path;
+
+// مسیرهای پویا
+if (preg_match('#^/reset-password/([a-fA-F0-9]{32,64})$#', $path, $m) && $method === 'GET') {
+    $_GET['token'] = strtolower($m[1]);
+    if (empty($_GET['c']) && !empty($_GET['token'])) {
+        $_GET['c'] = $_GET['token'];
+    }
+    require __DIR__ . '/pages/reset_password.php';
+    exit;
+}
+if (preg_match('#^/issues/([a-z]+)$#', $path, $m) && $method === 'GET') {
+    $_GET['topic'] = $m[1];
+    require __DIR__ . '/pages/issue.php';
+    exit;
+}
+if (preg_match('#^/doctors/([a-zA-Z0-9_-]+)$#', $path, $m) && $method === 'GET') {
+    $_GET['id'] = $m[1];
+    require __DIR__ . '/pages/doctor_detail.php';
+    exit;
+}
+if (preg_match('#^/articles/([a-zA-Z0-9_-]+)$#', $path, $m) && $method === 'GET') {
+    $_GET['slug'] = $m[1];
+    require __DIR__ . '/pages/article_detail.php';
+    exit;
+}
+if (preg_match('#^/tests/([a-zA-Z0-9_-]+)$#', $path, $m)
+    && in_array($method, ['GET', 'POST'], true)) {
+    $_GET['slug'] = $m[1];
+    require __DIR__ . '/pages/test_detail.php';
+    exit;
+}
+if (preg_match('#^/workshop-media/stream$#', $path) && $method === 'GET') {
+    require __DIR__ . '/actions/workshop_media_stream.php';
+    exit;
+}
+
+if (preg_match('#^/secretary/patients/([a-zA-Z0-9_-]+)/referral$#', $path, $m) && $method === 'POST') {
+    $_GET['id'] = $m[1];
+    require __DIR__ . '/actions/secretary_patient_referral.php';
+    exit;
+}
+if (preg_match('#^/secretary/patients/([a-zA-Z0-9_-]+)$#', $path, $m) && $method === 'GET') {
+    $_GET['id'] = $m[1];
+    require __DIR__ . '/pages/secretary/patient_detail.php';
+    exit;
+}
+
+if (preg_match('#^/secretary/intakes/([a-zA-Z0-9_-]+)$#', $path, $m) && $method === 'GET') {
+    $_GET['id'] = $m[1];
+    require __DIR__ . '/pages/secretary/intake_detail.php';
+    exit;
+}
+if (preg_match('#^/secretary/intakes/([a-zA-Z0-9_-]+)/assign$#', $path, $m) && $method === 'POST') {
+    $_GET['id'] = $m[1];
+    require __DIR__ . '/actions/secretary_intake_assign.php';
+    exit;
+}
+
+if (preg_match('#^/doctor/intakes/([a-zA-Z0-9_-]+)$#', $path, $m) && $method === 'GET') {
+    $_GET['id'] = $m[1];
+    require __DIR__ . '/pages/doctor/intake_detail.php';
+    exit;
+}
+
+// پرونده خصوصی مراجعه‌کننده — فقط دکتر
+if (preg_match('#^/doctor/patients/([a-zA-Z0-9_-]+)$#', $path, $m)) {
+    $_GET['id'] = $m[1];
+    if ($method === 'GET') {
+        require __DIR__ . '/pages/doctor/patient_chart.php';
+        exit;
+    }
+}
+if (preg_match('#^/doctor/patients/([a-zA-Z0-9_-]+)/history$#', $path, $m) && $method === 'POST') {
+    $_GET['id'] = $m[1];
+    require __DIR__ . '/actions/doctor_patient_history.php';
+    exit;
+}
+if (preg_match('#^/doctor/patients/([a-zA-Z0-9_-]+)/session-note$#', $path, $m) && $method === 'POST') {
+    $_GET['id'] = $m[1];
+    require __DIR__ . '/actions/doctor_session_note.php';
+    exit;
+}
+if (preg_match('#^/doctor/patients/([a-zA-Z0-9_-]+)/highlight$#', $path, $m) && $method === 'POST') {
+    $_GET['id'] = $m[1];
+    require __DIR__ . '/actions/doctor_highlight.php';
+    exit;
+}
+
+if ($path === '/app' || str_starts_with($path, '/app/')) {
+    require __DIR__ . '/pages/staff_app.php';
+    exit;
+}
+
+if (isset($routes[$key])) {
+    require __DIR__ . '/' . $routes[$key];
+    exit;
+}
+
+if ($method === 'GET' && $path === '/doctor/workshops/doctor-path') {
+    redirect('/doctor/workshops');
+}
+
+http_response_code(404);
+$pageTitle = 'یافت نشد';
+require __DIR__ . '/pages/404.php';

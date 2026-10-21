@@ -13,6 +13,7 @@ ensure_consult_requests_schema($pdo);
 
 $id = post('id');
 if ($id !== '' && preg_match('/^[a-f0-9]{24}$/', $id)) {
+    consult_require_record_access($pdo, $id, $user);
     $actorName = trim((string) ($user['name'] ?? ''));
     if ($actorName === '') {
         $actorName = trim((string) ($user['username'] ?? ''));

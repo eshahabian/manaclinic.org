@@ -1,0 +1,12 @@
+{
+  "status": "PASS",
+  "files": [
+    "actions/therapist_guide_submit.php",
+    "assets/js/therapist-guide.js",
+    "includes/home_therapist_guide.php"
+  ],
+  "version": "20261021k",
+  "staged_php_syntax": true,
+  "live_byte_match": true,
+  "separate_checkbox": false
+}
