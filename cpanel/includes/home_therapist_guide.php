@@ -1,6 +1,6 @@
 <?php
 declare(strict_types=1);
-// Only the existing public directory fields leave the server; answers stay in memory.
+// Public doctor fields and shared question definitions; submissions require explicit notice.
 $guideDoctors = array_map(static fn(array $doc): array => [
     'name' => (string) $doc['name'],
     'href' => url('/doctors/' . rawurlencode((string) $doc['id'])),
@@ -52,5 +52,5 @@ $guideWorkshops = array_values(array_map(static fn(array $workshop): array => [
   <div class="mana-guide-dialog-head"><span class="eyebrow">راهنمای انتخاب درمانگر مانا</span><button type="button" class="mana-guide-close" data-guide-close aria-label="بستن راهنما">×</button></div>
   <div id="mana-guide-content"></div>
 </dialog>
-<script type="application/json" id="mana-guide-data"><?= json_encode(['doctors' => $guideDoctors, 'courses' => $guideWorkshops, 'domains' => doctor_domain_options(), 'focus' => doctor_focus_options(), 'directory' => url('/doctors'), 'workshops' => url('/workshops'), 'contact' => url('/contact')], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
-<script src="<?= e(url('/assets/js/therapist-guide.js')) ?>?v=20261021h" defer></script>
+<script type="application/json" id="mana-guide-data"><?= json_encode(['questions' => require __DIR__ . '/therapist_guide_questions.php', 'submit' => url('/therapist-guide/submit'), 'csrf' => csrf_token(), 'doctors' => $guideDoctors, 'courses' => $guideWorkshops, 'domains' => doctor_domain_options(), 'focus' => doctor_focus_options(), 'directory' => url('/doctors'), 'workshops' => url('/workshops'), 'contact' => url('/contact')], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?></script>
+<script src="<?= e(url('/assets/js/therapist-guide.js')) ?>?v=20261021i" defer></script>

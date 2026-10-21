@@ -38,6 +38,11 @@ function staff_app_limited_doctor(array $user): bool
 
 function staff_app_path_allowed(array $user, string $path, string $method): bool
 {
+    if ($path === '/app/therapist-guide' || str_starts_with($path, '/app/therapist-guide/')) {
+        require_once __DIR__ . '/therapist_guide_results.php';
+        return $path === '/app/therapist-guide' && $method === 'GET'
+            && therapist_guide_can_read($GLOBALS['pdo'], $user);
+    }
     if (!staff_app_limited_doctor($user)) {
         return true;
     }

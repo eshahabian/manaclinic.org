@@ -20,6 +20,11 @@ if (!staff_app_path_allowed($user, $path, $method)) {
     exit;
 }
 
+if ($path === '/app/therapist-guide') {
+    require __DIR__ . '/staff_therapist_guide.php';
+    exit;
+}
+
 // SMS controls stay under /app so the staff Android wrapper can open them.
 if ($path === '/app/sms') {
     require_once __DIR__ . '/../includes/outreach.php';
@@ -626,6 +631,13 @@ if ($section === 'home') {
         <span class="sapp-ico sapp-ico-pink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 8 6 8-6"/></svg></span>
         <strong>مدیریت پیامک‌ها</strong>
         <em>SMS Controls</em>
+      </a>
+      <?php endif; ?>
+      <?php if (staff_app_home_tile_allowed($user, '/app/therapist-guide')): ?>
+      <a class="sapp-tile" href="<?= e(url('/app/therapist-guide')) ?>">
+        <span class="sapp-ico sapp-ico-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8v3H8zM8 12h8M8 16h5"/><path d="M8 5H5v16h14V5h-3"/></svg></span>
+        <strong>راهنمای انتخاب درمانگر</strong>
+        <em>پاسخ‌ها و نتیجه‌ها</em>
       </a>
       <?php endif; ?>
       <?php if (staff_app_home_tile_allowed($user, '/app/complaints')): ?>
