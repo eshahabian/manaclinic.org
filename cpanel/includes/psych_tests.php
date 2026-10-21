@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/bdi.php';
 
 /**
  * فهرست آزمون‌های روانشناسی — دادهٔ اولیه تا محتوا از طرف شما جایگزین شود.
@@ -12,9 +13,9 @@ function psych_tests_catalog(): array
             'title' => 'پرسشنامه افسردگی بک',
             'abbr' => 'BDI-II',
             'category' => 'خلقی',
-            'description' => 'سنجش شدت نشانه‌های افسردگی در دو هفته اخیر؛ راهنمای امتیازدهی و تحلیل پاسخنامه نسخه دوم بک.',
+            'description' => 'بررسی شدت نشانه‌های افسردگی در دو هفته اخیر؛ ۲۱ سؤال با نمودار نتیجه و تحلیل اختیاری هوش مصنوعی.',
             'duration' => '۵–۱۰ دقیقه',
-            'ready' => false,
+            'ready' => bdi_licensed_form() !== null,
         ],
         [
             'slug' => 'bai',

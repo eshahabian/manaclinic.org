@@ -7,6 +7,7 @@ $form = bdi_licensed_form();
 $result = null;
 $error = '';
 $posted = [];
+$choices = [];
 $action = (string) ($_POST['bdi_action'] ?? '');
 $isPost = ($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'POST';
 $isAi = $isPost && $action === 'ai';
@@ -15,9 +16,16 @@ if ($isPost) {
     try {
         if (($_POST['adult'] ?? '') !== '1') throw new InvalidArgumentException('این بخش خودارزیابی برای افراد ۱۸ سال به بالاست؛ افراد زیر ۱۸ سال با متخصص اقدام کنند.');
         if (!$form && ($_POST['existing_form'] ?? '') !== '1') throw new InvalidArgumentException('این ابزار فقط برای پاسخنامه تکمیل‌شده نسخه دوم بک است.');
-        if (!is_array($_POST['answers'] ?? null)) throw new InvalidArgumentException('پاسخ‌ها را کامل وارد کنید.');
-        $posted = $_POST['answers'];
-        $result = bdi_score($posted);
+        if ($form && !$isAi) {
+            if (!is_array($_POST['choices'] ?? null)) throw new InvalidArgumentException('پاسخ‌ها را کامل وارد کنید.');
+            $choices = $_POST['choices'];
+            $result = bdi_score_choices($form, $choices);
+            $posted = $result['answers'];
+        } else {
+            if (!is_array($_POST['answers'] ?? null)) throw new InvalidArgumentException('پاسخ‌ها را کامل وارد کنید.');
+            $posted = $_POST['answers'];
+            $result = bdi_score($posted);
+        }
         if ($isAi) {
             header('Content-Type: application/json; charset=utf-8');
             if (!current_user()) {
@@ -54,11 +62,11 @@ if ($isPost) {
         }
     }
 }
-$pageHead = ($pageHead ?? '') . '<link rel="stylesheet" href="' . e(url('/assets/css/bdi.css?v=1')) . '">';
-$pageScripts = ($pageScripts ?? '') . '<script src="' . e(url('/assets/js/bdi.js?v=1')) . '" defer></script>';
+$pageHead = ($pageHead ?? '') . '<link rel="stylesheet" href="' . e(url('/assets/css/bdi.css?v=2')) . '">';
+$pageScripts = ($pageScripts ?? '') . '<script src="' . e(url('/assets/js/bdi.js?v=2')) . '" defer></script>';
 ob_start();
 ?>
-<main class="bdi-room container-page section">
+<section class="bdi-room container-page section" aria-label="پرسشنامه افسردگی بک">
   <a class="bdi-back" href="<?= e(url('/tests')) ?>">← آزمون‌های روان‌شناسی</a>
   <section class="bdi-hero">
     <div><span class="bdi-tag">خودشناسی با مانا · BDI-II</span>
@@ -110,33 +118,50 @@ ob_start();
   <?php endif; ?>
   <section class="bdi-card bdi-entry" id="bdi-form">
     <h2><?= $form ? 'پاسخ به پرسشنامه' : 'ورود امتیاز پاسخنامه تکمیل‌شده' ?></h2>
-    <?php if ($form): ?><p><?= nl2br(e($form['instructions'])) ?></p>
+    <?php if ($form): ?><p>هر گزینه را با توجه به <strong>دو هفته گذشته، شامل امروز</strong> انتخاب کنید. در هر سؤال فقط یک گزینه انتخاب می‌شود؛ اگر چند گزینه درباره شما صدق می‌کند، گزینه‌ای با شدت بیشتر را انتخاب کنید.</p>
+      <details><summary>راهنمای متن اصلی و منبع نسخه فارسی</summary><p><?= nl2br(e($form['instructions'])) ?></p><p class="bdi-note">در نسخه آنلاین، انتخاب گزینه جای علامت‌زدن پاسخنامه کاغذی را می‌گیرد.</p><p class="bdi-note"><?= e($form['source']) ?>. این معرفی منبع به معنی تأیید بالینی اختصاصی این نسخه آنلاین نیست.</p><?php if (!empty($form['source_url'])): ?><a href="<?= e($form['source_url']) ?>" target="_blank" rel="noopener noreferrer">مشاهده منبع دانشگاهی</a><?php endif; ?></details>
     <?php else: ?><p>اگر نسخه معتبر <strong>BDI-II</strong> را قبلاً تکمیل کرده‌اید، امتیاز هر سؤال را از پاسخنامه وارد کنید. این فرم، خود پرسشنامه نیست؛ بدون متن سؤال‌ها امتیازها را حدس نزنید. انتشار سؤال‌های فارسی پس از آماده‌شدن نسخه معتبر و مجاز انجام می‌شود.</p><?php endif; ?>
     <p class="bdi-note">پاسخ خالی، صفر محسوب نمی‌شود. برای پرسشنامه کامل باید هر ۲۱ پاسخ مشخص باشد. این بخش برای خودارزیابی مستقل بزرگسالان است؛ افراد زیر ۱۸ سال با متخصص اقدام کنند.</p>
     <?php if ($error): ?><div class="bdi-safety" role="alert"><?= e($error) ?></div><?php endif; ?>
-    <form method="post" action="<?= e(url('/tests/bdi')) ?>" data-bdi-score>
+    <form method="post" action="<?= e(url('/tests/bdi')) ?>" data-bdi-score <?= $form ? 'data-bdi-questionnaire' : '' ?>>
       <?= csrf_field() ?><input type="hidden" name="bdi_action" value="score">
-      <div class="bdi-input-grid <?= $form ? 'bdi-full-form' : '' ?>">
+      <?php if ($form): ?>
+      <div class="bdi-progress" data-bdi-progress hidden><div><span data-bdi-step-label></span><span data-bdi-answered></span></div><progress max="21" value="0" aria-label="پیشرفت پاسخ به پرسشنامه"></progress></div>
+      <div class="bdi-questions">
+        <?php for ($id=1; $id<=21; $id++): $selected = $choices[$id] ?? ''; ?>
+        <fieldset class="bdi-question" data-bdi-item="<?= $id ?>"><legend><?= e(to_fa_digits((string) $id) . '. ' . $form['items'][$id]['text']) ?></legend>
+          <?php foreach ($form['items'][$id]['options'] as $index=>$option): ?>
+          <label class="bdi-option"><input type="radio" name="choices[<?= $id ?>]" value="<?= $index ?>" data-score="<?= $option['score'] ?>" required <?= is_scalar($selected) && (string)$selected === (string)$index ? 'checked' : '' ?>><span><?= e($option['text']) ?></span></label>
+          <?php endforeach; ?>
+        </fieldset>
+        <?php endfor; ?>
+      </div>
+      <p class="bdi-answer-error" role="alert" data-bdi-answer-error hidden>لطفاً یکی از گزینه‌ها را انتخاب کنید.</p>
+      <div class="bdi-step-actions" data-bdi-navigation hidden><button type="button" class="btn btn-outline" data-bdi-prev>سؤال قبل</button><button type="button" class="btn btn-primary" data-bdi-next>سؤال بعد</button></div>
+      <?php else: ?>
+      <div class="bdi-input-grid">
         <?php for ($id=1; $id<=21; $id++): $selected = $posted[$id] ?? ''; ?>
-        <div class="bdi-input-item"><label for="bdi-q<?= $id ?>"><?= $form ? e(to_fa_digits((string) $id) . '. ' . $form['items'][$id]['text']) : 'سؤال ' . e(to_fa_digits((string) $id)) ?></label>
+        <div class="bdi-input-item"><label for="bdi-q<?= $id ?>"><?= 'سؤال ' . e(to_fa_digits((string) $id)) ?></label>
           <select class="input" name="answers[<?= $id ?>]" id="bdi-q<?= $id ?>" required><option value="">انتخاب کنید</option>
-          <?php $options = $form ? $form['items'][$id]['options'] : array_map(static fn($n)=>['score'=>$n,'text'=>to_fa_digits((string)$n)], range(0,3)); foreach ($options as $option): ?>
-            <option value="<?= $option['score'] ?>" <?= (string)$selected === (string)$option['score'] ? 'selected' : '' ?>><?= e($option['text']) ?></option>
+          <?php $options = array_map(static fn($n)=>['score'=>$n,'text'=>to_fa_digits((string)$n)], range(0,3)); foreach ($options as $option): ?>
+            <option value="<?= $option['score'] ?>" <?= is_scalar($selected) && (string)$selected === (string)$option['score'] ? 'selected' : '' ?>><?= e($option['text']) ?></option>
           <?php endforeach; ?></select></div>
         <?php endfor; ?>
       </div>
+      <?php endif; ?>
       <div class="bdi-safety" data-bdi-safety role="alert" <?= (isset($posted[9]) && is_scalar($posted[9]) && in_array((string)$posted[9], ['1','2','3'],true)) ? '' : 'hidden' ?>><?= e(bdi_safety_message()) ?></div>
-      <label class="bdi-check"><input type="checkbox" name="adult" value="1" required <?= ($_POST['adult'] ?? '') === '1' ? 'checked' : '' ?>> ۱۸ سال یا بیشتر دارم و می‌دانم نتیجه، تشخیص پزشکی نیست.</label>
+      <div data-bdi-finish><label class="bdi-check"><input type="checkbox" name="adult" value="1" required <?= ($_POST['adult'] ?? '') === '1' ? 'checked' : '' ?>> ۱۸ سال یا بیشتر دارم و می‌دانم نتیجه، تشخیص پزشکی نیست.</label>
       <?php if (!$form): ?><label class="bdi-check"><input type="checkbox" name="existing_form" value="1" required <?= ($_POST['existing_form'] ?? '') === '1' ? 'checked' : '' ?>> این امتیازها از پاسخنامه تکمیل‌شده نسخه دوم بک (BDI-II) هستند.</label><?php endif; ?>
       <p class="bdi-note">با محاسبه نتیجه، هیچ داده‌ای به هوش مصنوعی ارسال نمی‌شود. تحلیل هوش مصنوعی یک مرحله جداگانه با رضایت شماست.</p>
       <button type="submit" class="btn btn-primary">محاسبه امتیاز و ساخت نمودار</button>
+      </div>
     </form>
   </section>
   <section class="bdi-card bdi-method"><h2>امتیازدهی چگونه انجام می‌شود؟</h2><p>۲۱ امتیاز صفر تا سه با هم جمع می‌شوند. راهنمای عمومی نسخه دوم: صفر تا ۱۳ حداقل، ۱۴ تا ۱۹ خفیف، ۲۰ تا ۲۸ متوسط و ۲۹ تا ۶۳ شدید. این طبقه‌ها شدت نشانه‌ها را توصیف می‌کنند؛ تفسیر نهایی به مصاحبه، شرایط فرد و نسخه معتبر آزمون وابسته است.</p>
     <p>BDI-II بازه دو هفته را می‌سنجد؛ با نسخه قدیمی بک یا پرسشنامه‌های بازنویسی‌شده قابل جایگزینی نیست.</p>
     <p class="bdi-note">منابع: <a href="https://www.pearsonassessments.com/en-us/en-us/Store/Professional-Assessments/Personality-%26-Biopsychosocial/Beck-Depression-Inventory/p/100000159" target="_blank" rel="noopener noreferrer">معرفی ناشر Pearson</a> · <a href="https://www.nctsn.org/measures/beck-depression-inventory-second-edition" target="_blank" rel="noopener noreferrer">راهنمای ساختار و تفسیر NCTSN</a></p>
   </section>
-</main>
+</section>
 <?php
 $content = ob_get_clean();
 require __DIR__ . '/../includes/layout.php';

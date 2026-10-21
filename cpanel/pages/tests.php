@@ -26,7 +26,7 @@ ob_start();
         <p class="muted" style="margin-top:.75rem;line-height:1.8;font-size:.9rem"><?= e($test['description']) ?></p>
         <p class="muted" style="margin-top:.75rem;font-size:.85rem">⏱ <?= e($test['duration']) ?></p>
         <?php if ($test['slug'] === 'bdi'): ?>
-          <p style="margin-top:.75rem;font-size:.85rem;color:var(--accent)">امتیازدهی، نمودار و تحلیل پاسخنامه موجود</p>
+          <p style="margin-top:.75rem;font-size:.85rem;color:var(--accent)"><?= $test['ready'] ? 'شروع پرسشنامه · نمودار و تحلیل هوش مصنوعی' : 'امتیازدهی، نمودار و تحلیل پاسخنامه موجود' ?></p>
         <?php elseif (!$test['ready']): ?>
           <p style="margin-top:.75rem;font-size:.85rem;color:var(--accent)">به‌زودی</p>
         <?php endif; ?>
