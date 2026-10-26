@@ -1,0 +1,13 @@
+{
+  "trackedFilesRestored": 18,
+  "newFilesArchived": 16,
+  "activeFilesMatchBaseline": true,
+  "newCallFilesAbsent": true,
+  "testsPreserved": true,
+  "deploymentScopeUnchanged": true,
+  "liveHostModified": false,
+  "privateConfigurationCopied": false,
+  "restoredPhpSyntaxPassed": 13,
+  "restoredJavascriptSyntaxPassed": 3,
+  "restoredWorkingTreeHashesRecorded": true
+}

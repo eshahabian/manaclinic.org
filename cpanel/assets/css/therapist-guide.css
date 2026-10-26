@@ -19,3 +19,12 @@
 /* A geometric icon stays centered independently of Persian font metrics. */
 .mana-guide-close { display: inline-grid; place-items: center; padding: 0; line-height: 1; flex: 0 0 38px; box-sizing: border-box; }
 .mana-guide-close svg { display: block; width: 18px; height: 18px; pointer-events: none; }
+
+/* Compact assistant entry beside the therapist selection heading. */
+.mana-guide-heading { display: flex; align-items: center; gap: .85rem; }
+.mana-guide-heading h2 { flex: 1; min-width: 0; }
+.mana-guide-assistant { display: inline-grid; place-items: center; flex: 0 0 60px; width: 60px; height: 60px; border: 1px solid #c9dfd3; border-radius: 18px; background: #eff8f2; box-shadow: 0 4px 14px #254f4510; transition: background .2s, box-shadow .2s; }
+.mana-guide-assistant span, .mana-guide-assistant svg { display: block; width: 48px; height: 48px; }
+.mana-guide-assistant:hover { background: #dff1e7; box-shadow: 0 6px 18px #254f4520; }
+.mana-guide-assistant:focus-visible { outline: 3px solid #c09d49; outline-offset: 4px; }
+@media (max-width: 700px) { .mana-guide-heading { gap: .6rem; } .mana-guide-assistant { flex-basis: 50px; width: 50px; height: 50px; border-radius: 15px; } .mana-guide-assistant span, .mana-guide-assistant svg { width: 42px; height: 42px; } }

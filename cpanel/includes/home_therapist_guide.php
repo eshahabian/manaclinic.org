@@ -11,12 +11,29 @@ $guideWorkshops = array_values(array_map(static fn(array $workshop): array => [
     'title' => (string) $workshop['title'],
 ], array_filter(workshop_home_banners($pdo, null), static fn(array $workshop): bool => workshop_can_enroll($workshop) && workshop_promo_phase($workshop) !== 'done')));
 ?>
-<link rel="stylesheet" href="<?= e(url('/assets/css/therapist-guide.css')) ?>?v=20261021m">
+<link rel="stylesheet" href="<?= e(url('/assets/css/therapist-guide.css')) ?>?v=20261026a">
 <section class="mana-guide" aria-labelledby="mana-guide-title">
   <div class="mana-guide-row">
     <div class="mana-guide-copy">
       <p class="eyebrow">لازم نیست از همان اول همه‌چیز را بدانی</p>
-      <h2 id="mana-guide-title">تو هم چالش انتخاب تراپیست داری؟</h2>
+      <div class="mana-guide-heading">
+        <h2 id="mana-guide-title">تو هم چالش انتخاب تراپیست داری؟</h2>
+        <?php if (function_exists('assistant_enabled') ? assistant_enabled() : true): ?>
+        <a class="mana-guide-assistant" href="<?= e(url('/assistant')) ?>" aria-label="شروع گفتگو با دستیار هوشمند مانا" title="گفتگو با دستیار هوشمند مانا">
+          <span aria-hidden="true"><svg viewBox="0 0 64 64" width="56" height="56" fill="none">
+            <rect x="14" y="22" width="36" height="28" rx="10" fill="#1a5c4a"/>
+            <rect x="18" y="26" width="28" height="20" rx="7" fill="#e8f6f1"/>
+            <circle cx="26" cy="36" r="3.2" fill="#1a5c4a"/>
+            <circle cx="38" cy="36" r="3.2" fill="#1a5c4a"/>
+            <path d="M28 42c1.6 1.4 6.4 1.4 8 0" stroke="#1a5c4a" stroke-width="2" stroke-linecap="round"/>
+            <rect x="29" y="12" width="6" height="10" rx="3" fill="#2d8a6e"/>
+            <circle cx="32" cy="11" r="4" fill="#7ed6b5"/>
+            <rect x="8" y="30" width="6" height="12" rx="3" fill="#2d8a6e"/>
+            <rect x="50" y="30" width="6" height="12" rx="3" fill="#2d8a6e"/>
+          </svg></span>
+        </a>
+        <?php endif; ?>
+      </div>
       <p>وقتی نمی‌دانی از کجا شروع کنی، انتخاب درمانگر می‌تواند سخت باشد. شاید بخواهی دربارهٔ حال خودت حرف بزنی، برای رابطه‌ات کمک بگیری یا فرزندت را بهتر درک کنی. بیایید از چیزی شروع کنیم که برای تو مهم است.</p>
       <span class="mana-guide-note">۱۰ سؤال کوتاه درباره تجربه‌های روزمره و ترجیح‌های تو</span>
     </div>

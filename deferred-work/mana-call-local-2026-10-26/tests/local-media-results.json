@@ -1,0 +1,68 @@
+{
+  "fixture": true,
+  "productionServerTested": false,
+  "relayReadinessCheck": true,
+  "externalRequests": 0,
+  "results": [
+    {
+      "media": "video",
+      "clients": [
+        [
+          {
+            "state": "connected",
+            "ice": "complete",
+            "signaling": "stable",
+            "audio": 19,
+            "video": 7,
+            "relay": true,
+            "errors": [],
+            "policy": "relay"
+          }
+        ],
+        [
+          {
+            "state": "connected",
+            "ice": "complete",
+            "signaling": "stable",
+            "audio": 19,
+            "video": 7,
+            "relay": true,
+            "errors": [],
+            "policy": "relay"
+          }
+        ]
+      ],
+      "hangup": "both clients exited"
+    },
+    {
+      "media": "audio",
+      "clients": [
+        [
+          {
+            "state": "connected",
+            "ice": "complete",
+            "signaling": "stable",
+            "audio": 19,
+            "video": 0,
+            "relay": true,
+            "errors": [],
+            "policy": "relay"
+          }
+        ],
+        [
+          {
+            "state": "connected",
+            "ice": "complete",
+            "signaling": "stable",
+            "audio": 19,
+            "video": 0,
+            "relay": true,
+            "errors": [],
+            "policy": "relay"
+          }
+        ]
+      ],
+      "hangup": "both clients exited"
+    }
+  ]
+}

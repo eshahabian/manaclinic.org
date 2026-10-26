@@ -64,28 +64,6 @@ ob_start();
 <?php endif; ?>
 
 <section class="container-page section home-content">
-      <?php if (function_exists('assistant_enabled') ? assistant_enabled() : true): ?>
-      <a class="home-assistant-tile" style="margin-top:0;margin-bottom:3rem" href="<?= e(url('/assistant')) ?>">
-        <span class="home-assistant-icon" aria-hidden="true">
-          <svg viewBox="0 0 64 64" width="56" height="56" fill="none">
-            <rect x="14" y="22" width="36" height="28" rx="10" fill="#1a5c4a"/>
-            <rect x="18" y="26" width="28" height="20" rx="7" fill="#e8f6f1"/>
-            <circle cx="26" cy="36" r="3.2" fill="#1a5c4a"/>
-            <circle cx="38" cy="36" r="3.2" fill="#1a5c4a"/>
-            <path d="M28 42c1.6 1.4 6.4 1.4 8 0" stroke="#1a5c4a" stroke-width="2" stroke-linecap="round"/>
-            <rect x="29" y="12" width="6" height="10" rx="3" fill="#2d8a6e"/>
-            <circle cx="32" cy="11" r="4" fill="#7ed6b5"/>
-            <rect x="8" y="30" width="6" height="12" rx="3" fill="#2d8a6e"/>
-            <rect x="50" y="30" width="6" height="12" rx="3" fill="#2d8a6e"/>
-          </svg>
-        </span>
-        <span class="home-assistant-copy">
-          <span class="home-assistant-eyebrow">دستیار هوشمند مانا</span>
-          <span class="home-assistant-title">فقط کافیه حالت رو بهم بگی</span>
-          <span class="home-assistant-cta">شروع گفتگو</span>
-        </span>
-      </a>
-      <?php endif; ?>
 
       <?php require __DIR__ . '/../includes/public_workshop_banners.php'; ?>
       <?php require __DIR__ . '/../includes/home_therapist_guide.php'; ?>

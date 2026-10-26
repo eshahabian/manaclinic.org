@@ -1,0 +1,182 @@
+{
+  "baseCommit": "81fff1efb091aaa54b557053143c63accf47703b",
+  "reason": "User requested postponement and complete local rollback",
+  "originalTestsPath": "output/mana-call-check",
+  "tracked": [
+    {
+      "path": ".gitignore",
+      "savedSha256": "62ff1b1913bebf65afda12ad5087ff243e56176dd8bfee80d1d9a654945a9b17",
+      "baselineSha256": "211e03d4499458bbc14429480a683b9b38f0256880aa246833f1e2bd1ced3765",
+      "restoredWorkingTreeSha256": "211e03d4499458bbc14429480a683b9b38f0256880aa246833f1e2bd1ced3765"
+    },
+    {
+      "path": "cpanel/.htaccess",
+      "savedSha256": "874f29f96737d13f401c8fdf64ce2f19e5880c14e324dfb94c9ecd1a66208b73",
+      "baselineSha256": "281b0a502c7a9013306d1fc425b62911f971fc1966fcafe6e2421c0ccf71b11a",
+      "restoredWorkingTreeSha256": "90fc55d7b4f3c3a337b0510e89f5f42a607f0829b8aec45fdc25092ac6e5ff91"
+    },
+    {
+      "path": "cpanel/actions/livekit_token.php",
+      "savedSha256": "76e5eeb0438acfb8380e9d03ded0357b5bc9b7c09caa8aaf4a2eb26aa8a17bfa",
+      "baselineSha256": "9a6717e448099f1ec43451162442bab5faf3a8ee3df729173a938307856aca34",
+      "restoredWorkingTreeSha256": "b06099f0e08b964d3f88317b355234023098b1ac2dd14a393b5857f8ad7708c5"
+    },
+    {
+      "path": "cpanel/actions/video_signal.php",
+      "savedSha256": "f2e04f293988439448c5e4c2d85f6e3e0438dcba5d5657c7adcc82765bbfb4bc",
+      "baselineSha256": "c781dc0fb0c075fec874f708a627efd18ab82f0e56f6406cc5ab7ed2b3fbba0f",
+      "restoredWorkingTreeSha256": "953f6f7ab61e9d9ffb5a9a14b2cc1cbe7652b5819c5956b83d137a34180a389d"
+    },
+    {
+      "path": "cpanel/assets/js/video-call-livekit-bridge-v3.js",
+      "savedSha256": "a82d18d36c068feac3f50ee4422b087adeb5a08da5432a4770ffc0db8bc65558",
+      "baselineSha256": "4c03dcfad744f01d937236489eebd538926c5112efbe850a8e6ccc57bd04b20d",
+      "restoredWorkingTreeSha256": "4c03dcfad744f01d937236489eebd538926c5112efbe850a8e6ccc57bd04b20d"
+    },
+    {
+      "path": "cpanel/assets/js/video-call-livekit-ui.js",
+      "savedSha256": "d497972bda605767fa945c043e29b1d526c173648045300de17923d77ed6464e",
+      "baselineSha256": "9723818c9af12c105bf649bd40d46d837d62a55ff1c7cdccf576eeeff86bb237",
+      "restoredWorkingTreeSha256": "9723818c9af12c105bf649bd40d46d837d62a55ff1c7cdccf576eeeff86bb237"
+    },
+    {
+      "path": "cpanel/assets/js/video-call-watch.js",
+      "savedSha256": "6a0bd8d927fa64e425a23f8ec67154d8b9b99ffe41a51b1578e3dde22c901623",
+      "baselineSha256": "e61198f966681ec9fe4ee1541577fe058580f8f8dce909ccf944cb0d28795504",
+      "restoredWorkingTreeSha256": "3ac67480586607b69a6c99a2b591c595aee033ca66f5f6b06a89706a3b4b0bf5"
+    },
+    {
+      "path": "cpanel/includes/auth.php",
+      "savedSha256": "7bc6932294e620396b40567e01603e41c0b0b6161b47a64ac1a2a35e05a54109",
+      "baselineSha256": "b28ea4be9f15dceba60a346741545f21400aae1b5c9fe69c31f438c5df2ad4d3",
+      "restoredWorkingTreeSha256": "acb6a02cac08a72a4fe9626c9313ac8e170498be8814c7ac81507edfb4e719a0"
+    },
+    {
+      "path": "cpanel/includes/layout.php",
+      "savedSha256": "b4265db895ee3de0237195be358b751537b14e60bb6cfced9c659e36a19bf8be",
+      "baselineSha256": "d3ff5d061acf2ae09046270d2383266d19400b5f840b96f879d954a9f0bc2453",
+      "restoredWorkingTreeSha256": "71ba18ff209c1800b441b67e65cecbc1954c1848412288a59a832a49dfb0c97b"
+    },
+    {
+      "path": "cpanel/includes/livekit.php",
+      "savedSha256": "66997358ede5990a65269617f13cfb61cf267878db46eb8964de2cf7919f033d",
+      "baselineSha256": "66997358ede5990a65269617f13cfb61cf267878db46eb8964de2cf7919f033d",
+      "restoredWorkingTreeSha256": "a710d039115ccd1e7500b60911a43ca41151f4ad169f36a1b1adfac145e0c516"
+    },
+    {
+      "path": "cpanel/includes/staff_app.php",
+      "savedSha256": "13e4a9007cfba345e66c1f5dd3334bdd3009cae4d65a066e3925baa881e9d34d",
+      "baselineSha256": "b1f3eced1bd3b2833a54d16ba6807e9289478b8473df4832a1c7ae13fa5f4d7f",
+      "restoredWorkingTreeSha256": "b1f3eced1bd3b2833a54d16ba6807e9289478b8473df4832a1c7ae13fa5f4d7f"
+    },
+    {
+      "path": "cpanel/includes/video_call.php",
+      "savedSha256": "fd564ce586de52221ae795d6ff8135ce1565f5f69d3888060f9e45e54a117f9e",
+      "baselineSha256": "d83b61dcb80f5b09d7980d318f81c96b6be5e2a13ea9e5cc1604cf29ac9bcd78",
+      "restoredWorkingTreeSha256": "d83b61dcb80f5b09d7980d318f81c96b6be5e2a13ea9e5cc1604cf29ac9bcd78"
+    },
+    {
+      "path": "cpanel/index.php",
+      "savedSha256": "d0023f127d5db69fafba308ebc2a2c935fc6b2340f71489c7ca5840281ad7cbc",
+      "baselineSha256": "3d8a7991ca089d2fa5f08f01b5bf12f23e109ecb23e3eea5f24c5ddaf949857b",
+      "restoredWorkingTreeSha256": "3d8a7991ca089d2fa5f08f01b5bf12f23e109ecb23e3eea5f24c5ddaf949857b"
+    },
+    {
+      "path": "cpanel/pages/staff_app.php",
+      "savedSha256": "89915a825792393582bfb25482812290219bd6580292a4c01355de00a16ce50c",
+      "baselineSha256": "be1fff0f4d01a01456112cfbd0221b1780faa93ecd3769f8a5c9c2807b5aa5f9",
+      "restoredWorkingTreeSha256": "be1fff0f4d01a01456112cfbd0221b1780faa93ecd3769f8a5c9c2807b5aa5f9"
+    },
+    {
+      "path": "cpanel/pages/video_call.php",
+      "savedSha256": "eb72819024a39bed4017efe22d19205b80028f6b2a6b01e3f813862b8d4aa1a2",
+      "baselineSha256": "110c722cf60812644bdd76594ae4063bff1c4c6102fde9262e149a2a34baf14a",
+      "restoredWorkingTreeSha256": "110c722cf60812644bdd76594ae4063bff1c4c6102fde9262e149a2a34baf14a"
+    },
+    {
+      "path": "cpanel/pages/video_call_embed.php",
+      "savedSha256": "41d58a0f1e9a7a1e722b60eae2439fa926c49b2fa76aba3113c66438bbb058fa",
+      "baselineSha256": "a459397b38491c8d8c0d659e3729e24d205bb672ff6d9c6149a713645b3c9c5d",
+      "restoredWorkingTreeSha256": "fe85e5f70a7be326013b94e7e4bbac94a835942985e7c737135aa93da6405d3e"
+    },
+    {
+      "path": "cpanel/pages/video_call_livekit.php",
+      "savedSha256": "b812cfb849cffe604fcd164b23a7710fbff079cc9d1e1169e703589c70b40c8e",
+      "baselineSha256": "588b369bcd439200e6b05e735c6cfecdd94a2e41ce69be77ca3cd35646530c35",
+      "restoredWorkingTreeSha256": "588b369bcd439200e6b05e735c6cfecdd94a2e41ce69be77ca3cd35646530c35"
+    },
+    {
+      "path": "cpanel/pages/video_call_v2.php",
+      "savedSha256": "aaf3f42aef3bd0f28b40cb7b1284572840a577746a8be455b71b73721af6ac0d",
+      "baselineSha256": "a862e66c0f08e5c95b9ae0a41b7569745deacfeab3c19e1fd68029f4659d96f5",
+      "restoredWorkingTreeSha256": "4120462fee4dc3556664bf981286cb480c94f34558b6b51993994716b89a6c5f"
+    }
+  ],
+  "added": [
+    {
+      "path": "cpanel/actions/video_signal_local.php",
+      "savedSha256": "69a0604d3921b69aca9733271bc8cfc2415f354a0e68179faa56f5f3c0fd9368"
+    },
+    {
+      "path": "cpanel/assets/css/video-call-local.css",
+      "savedSha256": "55e23724ce248680cb291dda5537580d74da63f6c273c5e0107925abfb0e71aa"
+    },
+    {
+      "path": "cpanel/assets/js/mana-call-local-check.js",
+      "savedSha256": "904cf65df257e23a8f98f97c39dd55ae2d4345d76b3b71fb9c670acdad484723"
+    },
+    {
+      "path": "cpanel/assets/js/video-call-local.js",
+      "savedSha256": "83393201f1eb678899cecb0f2f373b95776287278d2b93946bee38ce02727658"
+    },
+    {
+      "path": "cpanel/assets/vendor/livekit/LICENSE",
+      "savedSha256": "09e8a9bcec8067104652c168685ab0931e7868f9c8284b66f5ae6edae5f1130b"
+    },
+    {
+      "path": "cpanel/assets/vendor/livekit/README.md",
+      "savedSha256": "d2a2fe54c5016d724b72169799d2ef37e0afe7c69def1426ca66feb13085dffb"
+    },
+    {
+      "path": "cpanel/assets/vendor/livekit/livekit-client.umd.min.js",
+      "savedSha256": "03c99cd584ee6d7cdb855615df835bf893fa7760912f24f8b5cb5e831598d832"
+    },
+    {
+      "path": "cpanel/config.call-local.sample.php",
+      "savedSha256": "6a592e11bceabbc44ba85273120314bbd3b855a0a2859e40b3895e0887495732"
+    },
+    {
+      "path": "cpanel/includes/mana_local_call.php",
+      "savedSha256": "c997461456c53afb593f790e6cf157370c85e263678eaabe16f8e96f93a77693"
+    },
+    {
+      "path": "cpanel/pages/staff_mana_call_settings.php",
+      "savedSha256": "da13edc5afe32fd57b44a59c7179af5a80f16fb5ff623e4d5430b3ed8b663852"
+    },
+    {
+      "path": "cpanel/pages/staff_mana_local_settings.php",
+      "savedSha256": "edb0b809a319ad14bc3e5b579e22be94f1722d8082ef6e11ca7bdf24ee2aeee4"
+    },
+    {
+      "path": "cpanel/pages/video_call_connect.php",
+      "savedSha256": "492f5ae1f3f98741c53c8d455d7d1c6fb57994798c5fdcaf55495b003274614d"
+    },
+    {
+      "path": "cpanel/pages/video_call_local.php",
+      "savedSha256": "0db557889ddc537fadf81684f84e2dd8e796c7e49277edf54b61da0eeaf0d433"
+    },
+    {
+      "path": "docs/mana-call-domestic.md",
+      "savedSha256": "ce15442395d8df416f18ade4fba81144d3af997cb4db1d207d3333bdb9b37f30"
+    },
+    {
+      "path": "docs/mana-call-server-switch.md",
+      "savedSha256": "59ea37a5a3d5e9972dc60eb2f37f6f36a4bc43d1973ff36d8504dc52aa4bd305"
+    },
+    {
+      "path": "ops/mana-call/turnserver.conf.sample",
+      "savedSha256": "2ca6b28e8bd0b968733e4e0e5d5dd4244e84f89aef69115a0c616c3ab98a93c0"
+    }
+  ],
+  "restored": true
+}

@@ -65,3 +65,6 @@ next-env.d.ts
 # Keep only a pointer README inside /backups — never commit zip/media dumps.
 /backups/*
 !/backups/README.md
+
+# Independent local repository copy
+/manaclinic.org/

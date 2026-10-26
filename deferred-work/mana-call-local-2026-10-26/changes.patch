@@ -1,0 +1,495 @@
+diff --git a/.gitignore b/.gitignore
+index 54b70f9..9c9c866 100644
+--- a/.gitignore
++++ b/.gitignore
+@@ -36,6 +36,7 @@ yarn-error.log*
+ 
+ /cpanel/config.php
+ /cpanel/config.sms.php
++/cpanel/config.call-local.php
+ 
+ # SFTP credentials (copy from sftp.json.example)
+ .vscode/sftp.json
+diff --git a/cpanel/.htaccess b/cpanel/.htaccess
+index 78e4455..e754c73 100644
+--- a/cpanel/.htaccess
++++ b/cpanel/.htaccess
+@@ -16,7 +16,7 @@ RewriteRule ^ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
+ # فیش و فایل خصوصی مستقیم از وب باز نشود
+ RewriteRule ^uploads/receipts(/|$) - [F]
+ RewriteRule ^storage(/|$) - [F]
+-RewriteRule ^(config\.php|config\.sample\.php|install\.php)$ - [F]
++RewriteRule ^(config\.php|config\.sample\.php|config\.call-local(?:\.sample)?\.php|install\.php)$ - [F]
+ RewriteRule \.(env|sql|log|bak|old)$ - [F]
+ 
+ # Staff PWA: revalidate the worker and manifest so installs pick up scope changes.
+@@ -40,7 +40,7 @@ RewriteRule \.(env|sql|log|bak|old)$ - [F]
+ # renderer completely and preserve the room/media query in the standalone call.
+ RewriteCond %{QUERY_STRING} (^|&)answer=1(&|$) [NC]
+ RewriteCond %{QUERY_STRING} (^|&)room=[^&]+ [NC]
+-RewriteRule ^video-call/?$ /video-call-live?%{QUERY_STRING} [R=302,L,NE]
++RewriteRule ^video-call/?$ /video-call-connect?%{QUERY_STRING} [R=302,L,NE]
+ 
+ # Preserve the original lobby UI. Therapist media opens inside the workspace;
+ # patient answers still use the standalone LiveKit page.
+diff --git a/cpanel/actions/livekit_token.php b/cpanel/actions/livekit_token.php
+index e004189..d404ac1 100644
+--- a/cpanel/actions/livekit_token.php
++++ b/cpanel/actions/livekit_token.php
+@@ -5,6 +5,7 @@ require_once __DIR__ . '/../includes/livekit.php';
+ require_once __DIR__ . '/../includes/video_call.php';
+ 
+ $user = require_login();
++csrf_verify();
+ if (!video_call_allowed($user)) {
+     video_call_json(['ok' => false, 'error' => 'دسترسی به تماس برای این حساب فعال نیست.'], 403);
+ }
+@@ -41,6 +42,9 @@ try {
+     if ($stableRoomId === '') {
+         throw new RuntimeException('شناسه پایدار جلسه موجود نیست.');
+     }
++    // Authentication and CSRF checks are complete; release PHP's session lock
++    // so ringing/presence requests cannot queue behind token issuance.
++    if (session_status() === PHP_SESSION_ACTIVE) session_write_close();
+     $token = mana_livekit_token($user, $stableRoomId);
+     video_call_json([
+         'ok' => true,
+diff --git a/cpanel/actions/video_signal.php b/cpanel/actions/video_signal.php
+index aadbc6c..8d4e7d9 100644
+--- a/cpanel/actions/video_signal.php
++++ b/cpanel/actions/video_signal.php
+@@ -143,6 +143,10 @@ if ($action === 'open') {
+         video_call_json(['error' => 'اتاق تماس در دسترس نیست.'], 403);
+     }
+     video_call_bump_room_contacts($pdo, $user, $openRoom);
++    if (video_call_is_clinician($user)) {
++        require_once __DIR__ . '/../includes/mana_local_call.php';
++        mana_call_bind_room($pdo, $openRoom);
++    }
+     video_call_clear_ended_signals($pdo, (string) ($openRoom['room_key'] ?? ''));
+     video_call_json(video_call_session_payload($pdo, $user, $openRoom, $media));
+ }
+@@ -165,6 +169,8 @@ if ($action === 'create_group') {
+         );
+         $media = trim((string) ($body['media'] ?? 'video')) === 'audio' ? 'audio' : 'video';
+         video_call_bump_room_contacts($pdo, $user, $room);
++        require_once __DIR__ . '/../includes/mana_local_call.php';
++        mana_call_bind_room($pdo, $room);
+         video_call_clear_ended_signals($pdo, (string) ($room['room_key'] ?? ''));
+         video_call_json(video_call_session_payload($pdo, $user, $room, $media));
+     } catch (RuntimeException $e) {
+diff --git a/cpanel/assets/js/video-call-livekit-bridge-v3.js b/cpanel/assets/js/video-call-livekit-bridge-v3.js
+index e766085..2180115 100644
+--- a/cpanel/assets/js/video-call-livekit-bridge-v3.js
++++ b/cpanel/assets/js/video-call-livekit-bridge-v3.js
+@@ -80,6 +80,13 @@
+   function go(i) {
+     if (!i || !i.room) return;
+     stopMedia();
++    // Local WebRTC lives on its own page: never load two media engines together.
++    if (i.engine === "local") {
++      var q = new URLSearchParams({ room: String(i.room), media: i.media === "audio" ? "audio" : "video" });
++      if (i.answer) q.set("answer", "1");
++      location.href = "/video-call-local?" + q.toString();
++      return;
++    }
+     var home = document.querySelector("[data-livekit-home]");
+     if (home && window.ManaLiveKitUi && typeof window.ManaLiveKitUi.open === "function") {
+       if (i.canStart) ringRoom(i);
+@@ -117,6 +124,7 @@
+       media: root.getAttribute("data-media") || "video",
+       group: root.getAttribute("data-group") === "1",
+       canStart: root.getAttribute("data-can-start") === "1",
++      engine: root.getAttribute("data-call-engine") || "livekit",
+       answer: qs.get("answer") === "1"
+     });
+   }
+diff --git a/cpanel/assets/js/video-call-livekit-ui.js b/cpanel/assets/js/video-call-livekit-ui.js
+index 5ff4ab1..cdb26ca 100644
+--- a/cpanel/assets/js/video-call-livekit-ui.js
++++ b/cpanel/assets/js/video-call-livekit-ui.js
+@@ -400,9 +400,12 @@
+     audioOnly=root.dataset.media==='audio';
+     if(!key){status('اتاق تماس مشخص نیست.');return;}
+     busy=true;buttons(false);status('در حال دریافت دسترسی امن…');
++    var tokenController=new AbortController();
++    var tokenTimeout=setTimeout(function(){tokenController.abort();},15000);
+     try{
+-      var r=await fetch('/livekit-token',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','Accept':'application/json'},body:JSON.stringify({room:key})});
++      var r=await fetch('/livekit-token',{method:'POST',credentials:'same-origin',headers:{'Content-Type':'application/json','Accept':'application/json','X-CSRF-Token':(document.querySelector('meta[name="csrf-token"]')||{}).content||''},body:JSON.stringify({room:key}),signal:tokenController.signal});
+       var d=await r.json();
++      clearTimeout(tokenTimeout);
+       if(!r.ok||!d.ok)throw new Error(d.error||'خطای اتصال');
+       var url=String(d.serverUrl||'');
+       if(url.indexOf('https://')===0)url='wss://'+url.slice(8);
+@@ -443,9 +446,11 @@
+       joined=true;busy=false;buttons(true);unlock();setCallStatus();
+       if(bgSelect&&bgSelect.value&&bgSelect.value!=='none')setBackground(bgSelect.value);
+     }catch(e){
+-      busy=false;joined=false;status(e&&e.message?e.message:'اتصال برقرار نشد.');
++      busy=false;joined=false;status(e&&e.name==='AbortError'?'دریافت مجوز تماس طول کشید. اتصال اینترنت را بررسی کنید و دوباره بزنید.':(e&&e.message?e.message:'اتصال برقرار نشد.'));
+       if(room){try{room.disconnect();}catch(x){}room=null;}
+       buttons(false);
++    }finally{
++      clearTimeout(tokenTimeout);
+     }
+   }
+ 
+@@ -549,4 +554,4 @@
+     var isMobile=/Android|iPhone|iPad|iPod|Mobile/i.test(navigator.userAgent||'');
+     if(!isMobile)setTimeout(connect,120);
+   }
+-})();
+\ No newline at end of file
++})();
+diff --git a/cpanel/assets/js/video-call-watch.js b/cpanel/assets/js/video-call-watch.js
+index 18270cb..df6a611 100644
+--- a/cpanel/assets/js/video-call-watch.js
++++ b/cpanel/assets/js/video-call-watch.js
+@@ -11,9 +11,10 @@
+   var banner = null;
+   var current = null;
+   var activeRoom = "";
++  var inboxBusy = false;
+ 
+-  function post(body) {
+-    return fetch(cfg.signalUrl, {
++  function post(body, local) {
++    return fetch(local ? (cfg.localSignalUrl || "/video-signal-local") : cfg.signalUrl, {
+       method: "POST",
+       credentials: "same-origin",
+       headers: {
+@@ -28,16 +29,16 @@
+ 
+   function onLiveKitCallPage() {
+     var path = (location.pathname || "").replace(/\/+$/, "");
+-    if (path.indexOf("/video-call-live") >= 0 || path.indexOf("/video-call-embed") >= 0) return true;
++    if (path.indexOf("/video-call-live") >= 0 || path.indexOf("/video-call-embed") >= 0 || path.indexOf("/video-call-local") >= 0) return true;
+     if (document.querySelector("[data-livekit-v2]:not([hidden])")) return true;
+     if (window.__MANA_LIVEKIT_CALL_ACTIVE__) return true;
+     return false;
+   }
+ 
+-  function ackRoom(room) {
++  function ackRoom(room, local) {
+     var body = { action: "ack_ring" };
+     if (room) body.room = String(room);
+-    return post(body).catch(function () {});
++    return post(body, local).catch(function () {});
+   }
+ 
+   function mediaOf(item) {
+@@ -71,15 +72,15 @@
+     return window.__VC_PRIMING__;
+   }
+ 
+-  function markAnswered(room) {
++  function markAnswered(room, local) {
+     if (!room) return;
+-    try { sessionStorage.setItem("mana-ack-room-" + room, String(Date.now())); } catch (e) {}
++    try { sessionStorage.setItem("mana-ack-room-" + (local ? "local-" : "") + room, String(Date.now())); } catch (e) {}
+   }
+ 
+-  function recentlyAnswered(room) {
++  function recentlyAnswered(room, local) {
+     if (!room) return false;
+     try {
+-      var t = parseInt(sessionStorage.getItem("mana-ack-room-" + room) || "0", 10);
++      var t = parseInt(sessionStorage.getItem("mana-ack-room-" + (local ? "local-" : "") + room) || "0", 10);
+       return t && (Date.now() - t) < 120000;
+     } catch (e) { return false; }
+   }
+@@ -87,14 +88,19 @@
+   function goToCall() {
+     var media = mediaOf(current);
+     var room = current && current.room ? String(current.room) : "";
+-    markAnswered(room);
+-    ackRoom(room);
++    var local = current && current.engine === "local";
++    markAnswered(room, local);
++    ackRoom(room, local);
+     stopAlert(true);
++    if (local) {
++      window.location.href = "/video-call-local?room=" + encodeURIComponent(room) + "&answer=1&media=" + encodeURIComponent(media);
++      return;
++    }
+     if (document.querySelector("[data-livekit-home]") && window.ManaLiveKitUi && typeof window.ManaLiveKitUi.open === "function") {
+       window.ManaLiveKitUi.open({ room: room, media: media, answer: true });
+       return;
+     }
+-    var url = "/video-call";
++    var url = "/video-call-live";
+     var q = "answer=1&media=" + encodeURIComponent(media);
+     if (room) q = "room=" + encodeURIComponent(room) + "&" + q;
+     window.location.href = url + "?" + q;
+@@ -103,13 +109,14 @@
+   function stopAlert(keepSeen) {
+     ringing = false;
+     var room = current && current.room ? String(current.room) : activeRoom;
++    var local = current && current.engine === "local";
+     current = null;
+     activeRoom = "";
+     if (ringAudio) { ringAudio.pause(); try { ringAudio.currentTime = 0; } catch (e) {} }
+     if (titleTimer) { clearInterval(titleTimer); titleTimer = null; }
+     document.title = origTitle;
+     if (banner) banner.hidden = true;
+-    if (!keepSeen && room) ackRoom(room);
++    if (!keepSeen && room) ackRoom(room, local);
+   }
+ 
+   function ensureBanner() {
+@@ -158,27 +165,31 @@
+       if (ringing) stopAlert(true);
+       return;
+     }
+-    post({ action: "inbox" }).then(function (data) {
++    if (inboxBusy) return;
++    inboxBusy = true;
++    post({ action: "inbox" }, true).catch(function () {
++      return post({ action: "inbox" });
++    }).then(function (data) {
+       if (document.hidden || !data || !data.ok) return;
+       var items = data.items || [];
+       if (!items.length) { if (ringing) stopAlert(true); return; }
+       var item = items[0];
+       if (!item) return;
+-      if (recentlyAnswered(item.room)) {
+-        ackRoom(item.room);
++      if (recentlyAnswered(item.room, item.engine === "local")) {
++        ackRoom(item.room, item.engine === "local");
+         return;
+       }
+       if (ringing && activeRoom && String(item.room) === activeRoom) return;
+       if (seen[item.id]) return;
+       seen[item.id] = true;
+       startAlert(item);
+-    }).catch(function () {});
++    }).catch(function () {}).finally(function () { inboxBusy = false; });
+   }
+ 
+   if ("Notification" in window && Notification.permission === "default") {
+     document.addEventListener("click", function () { Notification.requestPermission().catch(function () {}); }, { once: true });
+   }
+-  function schedule() { setTimeout(function () { tick(); schedule(); }, document.hidden ? 25000 : 8000); }
++  function schedule() { setTimeout(function () { tick(); schedule(); }, document.hidden ? 25000 : 2000); }
+   tick(); schedule();
+   document.addEventListener("visibilitychange", function () {
+     if (!document.hidden) tick();
+diff --git a/cpanel/includes/auth.php b/cpanel/includes/auth.php
+index 1078fd0..b1da094 100644
+--- a/cpanel/includes/auth.php
++++ b/cpanel/includes/auth.php
+@@ -394,7 +394,7 @@ function require_login(?array $roles = null): array
+         }
+     }
+     if (($user['role'] ?? '') === 'DOCTOR' && $pdo instanceof PDO && function_exists('doctor_must_complete_profile') && doctor_must_complete_profile($pdo, $user)) {
+-        $profileAllowed = ['/doctor/profile', '/logout', '/change-password', '/session/ping', '/secretary/heartbeat', '/video-call', '/video-signal', '/video-call-live', '/video-call-v2', '/video-call-embed', '/livekit-token'];
++        $profileAllowed = ['/doctor/profile', '/logout', '/change-password', '/session/ping', '/secretary/heartbeat', '/video-call', '/video-signal', '/video-signal-local', '/video-call-local', '/video-call-connect', '/video-call-live', '/video-call-v2', '/video-call-embed', '/livekit-token'];
+         if (!function_exists('secretary_daily_tasks_can_review') && is_file(__DIR__ . '/secretary_daily_tasks.php')) {
+             require_once __DIR__ . '/secretary_daily_tasks.php';
+         }
+diff --git a/cpanel/includes/layout.php b/cpanel/includes/layout.php
+index 90ea067..218b362 100644
+--- a/cpanel/includes/layout.php
++++ b/cpanel/includes/layout.php
+@@ -560,7 +560,7 @@ $videoWatch = function_exists('video_call_watch_config') ? video_call_watch_conf
+ if ($videoWatch):
+ ?>
+ <script>window.__VIDEO_CALL_WATCH__ = <?= json_encode($videoWatch, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?>;</script>
+-<script src="<?= e(url('/assets/js/video-call-watch.js')) ?>?v=20260928home"></script>
++<script src="<?= e(url('/assets/js/video-call-watch.js')) ?>?v=20261025local"></script>
+ <?php endif; ?>
+ <?php if ($user): ?>
+ <script src="<?= e(url('/assets/js/session-guard.js')) ?>?v=20261001idle"></script>
+diff --git a/cpanel/includes/staff_app.php b/cpanel/includes/staff_app.php
+index ee183b5..c591d1b 100644
+--- a/cpanel/includes/staff_app.php
++++ b/cpanel/includes/staff_app.php
+@@ -2730,7 +2730,7 @@ function staff_app_render(string $active, string $title, string $description, st
+   <?php $videoWatch = !$locked && $user && staff_app_mana_call_allowed($user) ? video_call_watch_config($user) : null; ?>
+   <?php if ($videoWatch): ?>
+     <script>window.__VIDEO_CALL_WATCH__ = <?= json_encode($videoWatch, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;</script>
+-    <script src="<?= e(url('/assets/js/video-call-watch.js')) ?>?v=20260928home"></script>
++    <script src="<?= e(url('/assets/js/video-call-watch.js')) ?>?v=20261025local"></script>
+   <?php endif; ?>
+   <?php if ($user): ?>
+     <script src="<?= e(url('/assets/js/session-guard.js')) ?>?v=20261001idle"></script>
+diff --git a/cpanel/includes/video_call.php b/cpanel/includes/video_call.php
+index 073b2e2..8a80d2f 100644
+--- a/cpanel/includes/video_call.php
++++ b/cpanel/includes/video_call.php
+@@ -164,6 +164,7 @@ function video_call_watch_config(?array $user): ?array
+ 
+     return [
+         'signalUrl' => url('/video-signal'),
++        'localSignalUrl' => url('/video-signal-local'),
+         'callUrl' => url('/video-call'),
+         'peerName' => 'درمانگر',
+         'ringUrl' => url('/assets/audio/incoming-call.ogg'),
+@@ -973,6 +974,8 @@ function video_call_direct_url(string $peerId, string $media = 'video'): string
+ 
+ function video_call_session_payload(PDO $pdo, array $user, array $room, string $media = 'video'): array
+ {
++    require_once __DIR__ . '/mana_local_call.php';
++    $engine = mana_call_room_mode($pdo, $room);
+     $media = $media === 'audio' ? 'audio' : 'video';
+     $members = video_call_room_members_public($pdo, $room);
+     $peerName = (string) ($room['title'] ?? 'جلسه');
+@@ -997,7 +1000,8 @@ function video_call_session_payload(PDO $pdo, array $user, array $room, string $
+         'shareUrl' => $clinician ? video_call_share_url($room) : '',
+         'canStart' => $clinician,
+         'me' => $me,
+-        'iceServers' => video_call_ice_servers(),
++        'engine' => $engine,
++        'iceServers' => $engine === 'local' ? [] : video_call_ice_servers(),
+     ];
+ }
+ 
+diff --git a/cpanel/index.php b/cpanel/index.php
+index 84e0c3d..9ddacf5 100644
+--- a/cpanel/index.php
++++ b/cpanel/index.php
+@@ -106,7 +106,8 @@ $isStaffPoll = $isStaffApp && (
+     || preg_match('#^/app/chat/[a-f0-9]{24}/receipts$#', $path) === 1
+     || preg_match('#^/app/file/[a-f0-9]{24}$#', $path) === 1
+ );
+-$isLightRequest = $path === '/video-signal' || $path === '/secretary/heartbeat' || $path === '/session/ping' || $isStaffPoll;
++$isLightRequest = in_array($path, ['/video-signal', '/video-signal-local', '/video-call', '/video-call-local', '/video-call-connect', '/video-call-live', '/video-call-v2', '/video-call-embed', '/livekit-token'], true)
++    || $path === '/secretary/heartbeat' || $path === '/session/ping' || $isStaffPoll;
+ 
+ // برنامه کارکنان خودش جدول‌هایش را می‌سازد. این بلوک روی هر کلیک،
+ // ALTER و اسکن‌های سایت را هم اجرا می‌کرد و بخش بعد دیر باز می‌شد.
+@@ -207,6 +208,9 @@ $routes = [
+     'GET /change-password' => 'pages/change_password.php',
+     'POST /change-password' => 'actions/change_password.php',
+     'GET /video-call' => 'pages/video_call.php',
++    'GET /video-call-local' => 'pages/video_call_local.php',
++    'GET /video-call-connect' => 'pages/video_call_connect.php',
++    'POST /video-signal-local' => 'actions/video_signal_local.php',
+     'POST /video-call' => 'pages/video_call.php',
+     'POST /video-signal' => 'actions/video_signal.php',
+ 
+diff --git a/cpanel/pages/staff_app.php b/cpanel/pages/staff_app.php
+index 25d0d18..4d21d07 100644
+--- a/cpanel/pages/staff_app.php
++++ b/cpanel/pages/staff_app.php
+@@ -20,6 +20,15 @@ if (!staff_app_path_allowed($user, $path, $method)) {
+     exit;
+ }
+ 
++if ($path === '/app/mana-call-settings') {
++    if (!staff_app_is_eshahabian($user)) {
++        http_response_code(403);
++        exit('دسترسی ندارید.');
++    }
++    require __DIR__ . '/staff_mana_call_settings.php';
++    exit;
++}
++
+ if ($path === '/app/therapist-guide') {
+     require __DIR__ . '/staff_therapist_guide.php';
+     exit;
+@@ -627,6 +636,11 @@ if ($section === 'home') {
+       </a>
+       <?php endif; ?>
+       <?php if (strtolower(trim((string) ($user['username'] ?? ''))) === 'eshahabian'): ?>
++      <a class="sapp-tile" href="<?= e(url('/app/mana-call-settings')) ?>">
++        <span class="sapp-ico sapp-ico-amber" aria-hidden="true">☎</span>
++        <strong>سرور تماس مانا</strong>
++        <em>انتخاب سرور و بررسی اتصال</em>
++      </a>
+       <a class="sapp-tile" href="<?= e(url('/app/sms')) ?>">
+         <span class="sapp-ico sapp-ico-pink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 8 6 8-6"/></svg></span>
+         <strong>مدیریت پیامک‌ها</strong>
+diff --git a/cpanel/pages/video_call.php b/cpanel/pages/video_call.php
+index e3ee485..ede67f5 100644
+--- a/cpanel/pages/video_call.php
++++ b/cpanel/pages/video_call.php
+@@ -2,6 +2,7 @@
+ declare(strict_types=1);
+ 
+ require_once __DIR__ . '/../includes/video_call.php';
++require_once __DIR__ . '/../includes/mana_local_call.php';
+ require_once __DIR__ . '/../includes/workshops.php';
+ require_once __DIR__ . '/../includes/doctor_profile_fields.php';
+ 
+@@ -59,7 +60,7 @@ if ($joinToken !== '') {
+         flash_set('error', 'لینک جلسه نامعتبر است.');
+         redirect('/video-call');
+     }
+-    redirect('/video-call-live?room=' . rawurlencode((string) $room['room_key']) . '&joincall=1');
++    redirect(mana_call_entry_url($pdo, $room, $media, true));
+ }
+ 
+ if ($workshopId !== '') {
+@@ -93,6 +94,7 @@ if ($roomKey !== '') {
+ }
+ 
+ $pageTitle = 'تماس مانا';
++if ($room && $clinician && ($peerId !== '' || $workshopId !== '')) mana_call_bind_room($pdo, $room);
+ $GLOBALS['pageRobots'] = 'noindex,nofollow';
+ $patients = $clinician ? video_call_contacts($pdo, $user, '', 'PATIENT', 40) : [];
+ $contacts = $clinician ? [] : video_call_contacts($pdo, $user, '', '', 5);
+@@ -180,6 +182,7 @@ $wmName = $peerName !== '' ? $peerName : 'جلسه';
+     </div>
+     <div class="stack video-call-page vc-in-tile<?= $clinician ? '' : ' is-guard' ?>" data-video-call
+       data-signal-url="<?= e(url('/video-signal')) ?>"
++      data-call-engine="<?= e((string) ($session['engine'] ?? mana_call_mode($pdo))) ?>"
+       data-room="<?= e((string) ($session['room'] ?? '')) ?>"
+       data-me="<?= e((string) ($user['id'] ?? '')) ?>"
+       data-peer-name="<?= e($wmName) ?>"
+@@ -373,10 +376,10 @@ if ($clinician) {
+ $GLOBALS['pageScripts'] = '<script>window.__MANA_LIVEKIT_EMBED__=true;window.__MANA_LIVEKIT_REDIRECT__=true;window.__VIDEO_ICE__ = '
+     . json_encode(video_call_ice_servers(), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES)
+     . ';</script>'
+-    . '<script src="https://cdn.jsdelivr.net/npm/livekit-client@2.22.3/dist/livekit-client.umd.min.js"></script>'
+-    . '<script src="' . e(url('/assets/js/video-call-livekit-ui.js')) . '?v=20260928home"></script>'
++    . '<script src="' . e(url('/assets/vendor/livekit/livekit-client.umd.min.js')) . '?v=2.22.3"></script>'
++    . '<script src="' . e(url('/assets/js/video-call-livekit-ui.js')) . '?v=20261025call"></script>'
+     . '<script src="' . e(url('/assets/js/video-call-lobby.js')) . '?v=20261018invite"></script>'
+-    . '<script src="' . e(url('/assets/js/video-call-livekit-bridge-v3.js')) . '?v=20260928home"></script>';
++    . '<script src="' . e(url('/assets/js/video-call-livekit-bridge-v3.js')) . '?v=20261025local"></script>';
+ 
+ $role = (string) ($user['role'] ?? '');
+ if ($clinician && staff_app_allowed($user)) {
+diff --git a/cpanel/pages/video_call_embed.php b/cpanel/pages/video_call_embed.php
+index b950be1..634f70e 100644
+--- a/cpanel/pages/video_call_embed.php
++++ b/cpanel/pages/video_call_embed.php
+@@ -64,7 +64,7 @@ $canRecord = (string) ($user['role'] ?? '') === 'DOCTOR';
+   </div>
+ </div>
+ <script src="<?= e(url('/assets/js/session-guard.js')) ?>?v=20260928sess"></script>
+-<script src="https://cdn.jsdelivr.net/npm/livekit-client@2.22.3/dist/livekit-client.umd.min.js"></script>
++<script src="<?= e(url('/assets/vendor/livekit/livekit-client.umd.min.js')) ?>?v=2.22.3"></script>
+ <script>
+ (function(){
+ var root=document.getElementById('call'),key=root.dataset.room||'',audioOnly=root.dataset.media==='audio',canRecord=root.dataset.canRecord==='1';
+diff --git a/cpanel/pages/video_call_livekit.php b/cpanel/pages/video_call_livekit.php
+index 41d7a12..504867e 100644
+--- a/cpanel/pages/video_call_livekit.php
++++ b/cpanel/pages/video_call_livekit.php
+@@ -146,8 +146,8 @@ try {
+   }
+ } catch (e) {}
+ </script>
+-<script src="https://cdn.jsdelivr.net/npm/livekit-client@2.22.3/dist/livekit-client.umd.min.js"></script>
+-<script src="<?= e(url('/assets/js/video-call-livekit-ui.js')) ?>?v=20260928home"></script>
++<script src="<?= e(url('/assets/vendor/livekit/livekit-client.umd.min.js')) ?>?v=2.22.3"></script>
++<script src="<?= e(url('/assets/js/video-call-livekit-ui.js')) ?>?v=20261025call"></script>
+ 
+ <?php endif; ?>
+ <?php
+diff --git a/cpanel/pages/video_call_v2.php b/cpanel/pages/video_call_v2.php
+index 7a815ce..094d4a6 100644
+--- a/cpanel/pages/video_call_v2.php
++++ b/cpanel/pages/video_call_v2.php
+@@ -28,7 +28,7 @@ ob_start(); ?>
+   <?php if($clinician): ?><button class="mana-ctl record" id="record" aria-label="ضبط"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="6" fill="currentColor" stroke="none"/></svg></button><?php endif; ?>
+  </div></div>
+ </div>
+-<script src="https://cdn.jsdelivr.net/npm/livekit-client@2.22.3/dist/livekit-client.umd.min.js"></script>
++<script src="<?= e(url('/assets/vendor/livekit/livekit-client.umd.min.js')) ?>?v=2.22.3"></script>
+ <script>(function(){
+ var root=document.getElementById('manaLive'),roomKey=root.dataset.room,clinician=root.dataset.clinician==='1',status=document.getElementById('status'),grid=document.getElementById('remoteGrid'),localHost=document.getElementById('localHost'),room=null,startAt=Date.now(),rec=null,chunks=[];
+ function setStatus(s){status.textContent=s;status.hidden=false} function id(s){return 'p-'+String(s).replace(/[^a-zA-Z0-9_-]/g,'_')}
