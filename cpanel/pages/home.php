@@ -66,6 +66,27 @@ ob_start();
 <section class="container-page section home-content">
 
       <?php require __DIR__ . '/../includes/public_workshop_banners.php'; ?>
+      <?php if (function_exists('assistant_enabled') ? assistant_enabled() : true): ?>
+      <a class="home-assistant-tile" href="<?= e(url('/assistant')) ?>">
+        <span class="home-assistant-icon" aria-hidden="true">
+          <svg viewBox="0 0 64 64" width="56" height="56" fill="none" focusable="false">
+            <circle cx="32" cy="32" r="29" fill="#e0f2e9"/>
+            <path d="M13 27c0-9 7-15 17-15h3c10 0 17 6 17 15v7c0 9-7 15-17 15h-8l-10 6 2-12c-3-3-4-6-4-9v-7Z" fill="#1a5c4a"/>
+            <rect x="19" y="22" width="25" height="18" rx="8" fill="#f0fbf5"/>
+            <path d="M24 29c1-2 3-2 4 0m7 0c1-2 3-2 4 0" stroke="#1a5c4a" stroke-width="2.4" stroke-linecap="round"/>
+            <path d="M28 34c2 2 5 2 7 0" stroke="#2d8a6e" stroke-width="2" stroke-linecap="round"/>
+            <path d="M49 7l1.8 5.2L56 14l-5.2 1.8L49 21l-1.8-5.2L42 14l5.2-1.8L49 7Z" fill="#c4a267"/>
+            <circle cx="12" cy="17" r="2.5" fill="#7ac5a5"/>
+            <path d="M48 45v8m-4-4h8" stroke="#7ac5a5" stroke-width="2.5" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <span class="home-assistant-copy">
+          <span class="home-assistant-eyebrow">دستیار هوشمند مانا</span>
+          <span class="home-assistant-title">فقط کافیه حالت رو بهم بگی</span>
+          <span class="home-assistant-cta">شروع گفتگو</span>
+        </span>
+      </a>
+      <?php endif; ?>
       <?php require __DIR__ . '/../includes/home_therapist_guide.php'; ?>
 
       <div class="home-specialists-block" style="margin-top:3rem">

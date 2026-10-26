@@ -19,12 +19,3 @@
 /* A geometric icon stays centered independently of Persian font metrics. */
 .mana-guide-close { display: inline-grid; place-items: center; padding: 0; line-height: 1; flex: 0 0 38px; box-sizing: border-box; }
 .mana-guide-close svg { display: block; width: 18px; height: 18px; pointer-events: none; }
-
-/* Assistant conversation link below the short-question note. */
-.mana-guide-assistant { display: flex; align-items: center; gap: .75rem; width: fit-content; max-width: 100%; box-sizing: border-box; margin-top: 1.15rem; padding: .55rem 1rem .55rem 1.2rem; border: 1px solid #c9dfd3; border-radius: 1.2rem; background: #eff8f2; color: #1a5c4a; text-decoration: none; box-shadow: 0 4px 14px #254f4510; transition: background .2s, box-shadow .2s; }
-.mana-guide-assistant-icon { display: grid; place-items: center; flex: 0 0 48px; }
-.mana-guide-assistant-icon svg { display: block; width: 48px; height: 48px; }
-.mana-guide-assistant-label { font-size: 1rem; font-weight: 600; line-height: 1.9; }
-.mana-guide-assistant:hover { background: #dff1e7; box-shadow: 0 6px 18px #254f4520; }
-.mana-guide-assistant:focus-visible { outline: 3px solid #c09d49; outline-offset: 4px; }
-@media (max-width: 700px) { .mana-guide-assistant { gap: .5rem; padding: .5rem .75rem; } .mana-guide-assistant-icon { flex-basis: 42px; } .mana-guide-assistant-icon svg { width: 42px; height: 42px; } .mana-guide-assistant-label { font-size: .92rem; } }
