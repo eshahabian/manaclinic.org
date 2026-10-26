@@ -85,6 +85,7 @@ ob_start();
           <span class="home-assistant-title">فقط کافیه حالت رو بهم بگی</span>
           <span class="home-assistant-cta">شروع گفتگو</span>
         </span>
+        <img class="home-assistant-art" src="<?= e(url('/assets/img/assistant-conversation-v1.png')) ?>" alt="" width="768" height="356" loading="lazy" decoding="async">
       </a>
       <?php endif; ?>
       <?php require __DIR__ . '/../includes/home_therapist_guide.php'; ?>
