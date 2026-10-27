@@ -3,17 +3,17 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/wallet.php';
 
-/** بیش از ۲۴ ساعت مانده باشد کل مبلغ، وگرنه ۷۰٪ (۳۰٪ کسر می‌شود). */
+/** حداقل ۲۴ ساعت مانده باشد کل مبلغ؛ کمتر از ۲۴ ساعت هیچ مبلغی برنمی‌گردد. */
 function appointment_refund_rate(string $startsAt): float
 {
     $secondsLeft = strtotime($startsAt) - time();
 
-    return $secondsLeft >= 24 * 3600 ? 1.0 : 0.7;
+    return $secondsLeft >= 24 * 3600 ? 1.0 : 0.0;
 }
 
 /**
  * فقط نوبت پرداخت‌شده به کیف پول برمی‌گردد.
- * مراجع و بیش از ۲۴ ساعت: کل مبلغ. کمتر از ۲۴ ساعت: ۷۰٪.
+ * مراجع و حداقل ۲۴ ساعت: کل مبلغ. کمتر از ۲۴ ساعت: صفر.
  * منشی یا کلینیک: همیشه کل مبلغ.
  */
 function appointment_cancel_refund_amount(array $row, string $side): int
@@ -78,10 +78,10 @@ function appointment_visit_fee_amount(PDO $pdo, array $row, string $appointmentI
 function appointment_refund_hint(string $startsAt): string
 {
     if (appointment_refund_rate($startsAt) >= 1.0) {
-        return 'بیش از ۲۴ ساعت مانده است و کل مبلغ به کیف پول برمی‌گردد.';
+        return 'حداقل ۲۴ ساعت مانده است و کل مبلغ به کیف پول برمی‌گردد.';
     }
 
-    return 'کمتر از ۲۴ ساعت مانده است؛ ۳۰٪ کسر می‌شود و ۷۰٪ به کیف پول برمی‌گردد.';
+    return 'کمتر از ۲۴ ساعت مانده است؛ هزینه جلسه قابل استرداد نیست.';
 }
 
 function patient_can_cancel_appointment(string $status): bool
@@ -222,12 +222,9 @@ function secretary_mark_patient_cancelled(PDO $pdo, string $appointmentId, array
     $row['amount'] = appointment_visit_fee_amount($pdo, $row, $appointmentId);
     $refundAmount = appointment_cancel_refund_amount($row, $side);
     if ($refundAmount > 0 && !appointment_refund_already($pdo, $appointmentId)) {
-        $kept = max(0, (int) ($row['amount'] ?? 0) - $refundAmount);
         $noteBit = $side === 'clinic'
             ? 'بازگشت وجه جلسه انجام‌نشده — کنسلی منشی، کل مبلغ ویزیت'
-            : ($kept > 0
-                ? 'بازگشت وجه جلسه انجام‌نشده — ۳۰٪ کسر شد و بقیه واریز شد'
-                : 'بازگشت وجه جلسه انجام‌نشده — کل مبلغ ویزیت');
+            : 'بازگشت وجه جلسه انجام‌نشده — لغو حداقل ۲۴ ساعت قبل، کل مبلغ ویزیت';
         wallet_credit_balance(
             $pdo,
             (string) $row['patient_id'],
@@ -377,7 +374,7 @@ function secretary_patient_cancel_form(string $appointmentId, string $status, st
       <input type="hidden" name="next" value="<?= e($next) ?>">
       <label class="label" for="cancel-side-<?= e($appointmentId) ?>">کنسلی از کدام سمت است؟</label>
       <select class="input" id="cancel-side-<?= e($appointmentId) ?>" name="cancel_side" required>
-        <option value="patient">از سمت مراجع — بیش از ۲۴ ساعت کل مبلغ، کمتر از ۲۴ ساعت ۳۰٪ کسر و بقیه به کیف پول</option>
+        <option value="patient">از سمت مراجع — حداقل ۲۴ ساعت کل مبلغ، کمتر از ۲۴ ساعت بدون استرداد</option>
         <option value="clinic">از سمت منشی — حتی یک دقیقه مانده باشد کل مبلغ به کیف پول برمی‌گردد</option>
       </select>
       <label class="label" for="cancel-note-<?= e($appointmentId) ?>">یادداشت کنسلی</label>
