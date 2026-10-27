@@ -84,7 +84,7 @@ ob_start();
   <?php if ($slotPrefillActive): ?>
     <p class="muted" style="margin:0 0 1rem;font-size:.9rem">
       از جدول هفت‌روزه انتخاب شد<?= $preDateJalali !== '' ? ' · تاریخ ' . e(to_fa_digits($preDateJalali)) : '' ?><?= $preTime !== '' ? ' · ساعت ' . e(to_fa_digits($preTime)) : '' ?>.
-      فقط مراجعه‌کننده را انتخاب کنید.
+      مراجعه‌کننده یا درمانگر (برای نوبت تراپی شخصی) را انتخاب کنید.
     </p>
   <?php endif; ?>
   <div>
@@ -98,6 +98,9 @@ ob_start();
           $pname = trim((string) ($p['name'] ?? ''));
           $doc = trim((string) ($p['doctor_name'] ?? ''));
           $label = $pname;
+          if (strtoupper((string) ($p['role'] ?? '')) === 'DOCTOR') {
+              $label .= ' — درمانگر';
+          }
           if ($uname !== '') {
               $label .= ' (' . $uname . ')';
           }

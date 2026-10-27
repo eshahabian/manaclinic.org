@@ -304,12 +304,15 @@ function secretary_mark_patient_cancelled(PDO $pdo, string $appointmentId, array
     if ($refundAmount > 0) {
         $patientNote .= ' ' . format_price($refundAmount) . ' به کیف پول شما برگشت.';
     }
+    if (!function_exists('therapy_self_appointments_path_for_id')) {
+        require_once __DIR__ . '/booking_terms.php';
+    }
     notify_user(
         $pdo,
         (string) $row['patient_id'],
         'نوبت لغو شد',
         $patientNote,
-        '/dashboard/appointments',
+        therapy_self_appointments_path_for_id($pdo, (string) $row['patient_id']),
         'appointment',
         (string) ($actor['id'] ?? '') ?: null
     );

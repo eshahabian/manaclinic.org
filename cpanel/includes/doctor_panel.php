@@ -131,6 +131,7 @@ function doctor_nav(): array
             'badge_tone' => 'new',
         ],
         ['type' => 'link', 'href' => '/doctor/appointments', 'label' => 'نوبت‌ها'],
+        ['type' => 'link', 'href' => '/doctor/therapy', 'label' => 'نوبت تراپی من'],
         ['type' => 'link', 'href' => '/doctor/payouts', 'label' => 'پرداخت‌ها'],
     ]);
     if (!function_exists('petty_cash_user_allowed')) {

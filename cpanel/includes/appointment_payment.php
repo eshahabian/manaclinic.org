@@ -195,12 +195,15 @@ function staff_confirm_appointment_payment(
         staff_log_action($pdo, $staffUserId, 'appointment_confirm_payment', 'appointment', $appointmentId, $patientName);
     }
 
+    if (!function_exists('therapy_self_appointments_path_for_id')) {
+        require_once __DIR__ . '/booking_terms.php';
+    }
     notify_user(
         $pdo,
         (string) ($row['patient_user_id'] ?? ''),
         'نوبت رزرو شد',
         "پرداخت نوبت {$when}{$roomBit} تأیید شد و وقت شما رزرو گردید.",
-        '/dashboard/appointments',
+        therapy_self_appointments_path_for_id($pdo, (string) ($row['patient_user_id'] ?? '')),
         'appointment',
         $staffUserId !== '' ? $staffUserId : null
     );
@@ -444,12 +447,15 @@ function staff_approve_appointment_booking(PDO $pdo, string $appointmentId, arra
         staff_log_action($pdo, $staffUserId, 'appointment_approve_booking', 'appointment', $appointmentId, $patientName);
     }
 
+    if (!function_exists('therapy_self_appointments_path_for_id')) {
+        require_once __DIR__ . '/booking_terms.php';
+    }
     notify_user(
         $pdo,
         (string) ($row['patient_user_id'] ?? ''),
         'درخواست نوبت در حال بررسی است',
         "درخواست نوبت {$when} بدون پرداخت آنلاین پذیرفته شد و در حال بررسی است. تا تأیید پرداخت توسط منشی، رزرو نهایی نمی‌شود.",
-        '/dashboard/appointments',
+        therapy_self_appointments_path_for_id($pdo, (string) ($row['patient_user_id'] ?? '')),
         'appointment',
         $staffUserId !== '' ? $staffUserId : null
     );
@@ -544,12 +550,15 @@ function staff_reject_appointment_booking(PDO $pdo, string $appointmentId, array
         }
     }
 
+    if (!function_exists('therapy_self_appointments_path_for_id')) {
+        require_once __DIR__ . '/booking_terms.php';
+    }
     notify_user(
         $pdo,
         (string) ($row['patient_user_id'] ?? ''),
         'درخواست نوبت تأیید نشد',
         "درخواست نوبت {$when} توسط منشی تأیید نشد. در صورت نیاز ساعت دیگری انتخاب کنید.",
-        '/dashboard/appointments',
+        therapy_self_appointments_path_for_id($pdo, (string) ($row['patient_user_id'] ?? '')),
         'appointment',
         $staffUserId !== '' ? $staffUserId : null
     );
@@ -702,12 +711,15 @@ function staff_confirm_receipt_payment(PDO $pdo, string $paymentId, array $actor
     $patientName = (string) ($row['patient_name'] ?? 'مراجعه‌کننده');
     $when = format_fa_datetime((string) ($row['starts_at'] ?? ''));
     if (function_exists('notify_user')) {
+        if (!function_exists('therapy_self_appointments_path_for_id')) {
+            require_once __DIR__ . '/booking_terms.php';
+        }
         notify_user(
             $pdo,
             (string) ($row['patient_user_id'] ?? ''),
             'پرداخت نوبت تأیید شد',
             "فیش نوبت {$when} تأیید شد و وقت شما ثبت گردید.",
-            '/dashboard/appointments',
+            therapy_self_appointments_path_for_id($pdo, (string) ($row['patient_user_id'] ?? '')),
             'appointment',
             $staffUserId !== '' ? $staffUserId : null
         );

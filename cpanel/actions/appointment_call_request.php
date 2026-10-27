@@ -8,9 +8,12 @@ require_once __DIR__ . '/../includes/video_call.php';
 header('Content-Type: application/json; charset=utf-8');
 
 $user = current_user();
-if (!$user || ($user['role'] ?? '') !== 'PATIENT') {
+if (!$user || !function_exists('user_can_self_book_therapy')) {
+    require_once __DIR__ . '/../includes/booking_terms.php';
+}
+if (!$user || !user_can_self_book_therapy($user)) {
     http_response_code(401);
-    echo json_encode(['error' => 'لطفاً با حساب مراجعه‌کننده وارد شوید.'], JSON_UNESCAPED_UNICODE);
+    echo json_encode(['error' => 'برای درخواست تماس وارد شوید.'], JSON_UNESCAPED_UNICODE);
     exit;
 }
 

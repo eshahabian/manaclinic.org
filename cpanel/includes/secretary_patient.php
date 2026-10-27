@@ -260,7 +260,7 @@ function secretary_patient_directory(PDO $pdo): array
       LEFT JOIN users cu ON cu.id = u.created_by_user_id
       LEFT JOIN doctor_profiles dp ON dp.id = u.preferred_doctor_id
       LEFT JOIN users du ON du.id = dp.user_id
-      WHERE u.role = 'PATIENT'
+      WHERE u.role IN ('PATIENT', 'DOCTOR')
          OR LOWER(u.username) = 'eshahabian'
          OR (u.name LIKE '%عماد%' AND u.name LIKE '%شهابیان%')
       ORDER BY u.name ASC

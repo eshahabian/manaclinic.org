@@ -51,6 +51,9 @@ $articles = $articles->fetchAll();
 
 $currentUser = current_user();
 $isPatientViewer = $currentUser && ($currentUser['role'] ?? '') === 'PATIENT';
+$canSelfBook = $currentUser && user_can_self_book_therapy($currentUser);
+$isOwnProfile = $currentUser && (string) ($currentUser['id'] ?? '') === (string) ($doctor['user_id'] ?? '');
+$afterBookPath = therapy_self_appointments_path($currentUser) . '?booked=1';
 $approaches = doctor_profile_filter_keys(doctor_profile_json_list($doctor['approaches_json'] ?? ''), doctor_approach_options());
 $domains = doctor_profile_filter_keys(doctor_profile_json_list($doctor['domains_json'] ?? ''), doctor_domain_options());
 $focus = doctor_profile_filter_keys(doctor_profile_json_list($doctor['focus_json'] ?? ''), doctor_focus_options());
@@ -298,8 +301,10 @@ $pageScripts = '
   var timeEl = document.getElementById("book-time");
   var errEl = document.getElementById("book-error");
   var loggedIn = ' . json_encode((bool) $currentUser) . ';
-  var isPatient = ' . json_encode(($currentUser['role'] ?? '') === 'PATIENT') . ';
+  var canBook = ' . json_encode((bool) $canSelfBook) . ';
+  var isOwnProfile = ' . json_encode((bool) $isOwnProfile) . ';
   var loginUrl = ' . json_encode(url('/login') . '?next=' . urlencode(url('/doctors/' . $doctor['id']))) . ';
+  var afterBookUrl = ' . json_encode(url($afterBookPath)) . ';
   var slotsUrl = ' . json_encode(url('/api/slots')) . ';
   var bookUrl = ' . json_encode(url('/book')) . ';
 
@@ -420,7 +425,8 @@ $pageScripts = '
   document.getElementById("book-submit").onclick = function(){
     errEl.style.display = "none";
     if (!loggedIn) { location.href = loginUrl; return; }
-    if (!isPatient) { errEl.textContent = "فقط مراجعه‌کنندگان می‌توانند از این صفحه نوبت رزرو کنند. منشی از پنل منشی رزرو کند."; errEl.style.display="block"; return; }
+    if (isOwnProfile) { errEl.textContent = "نمی‌توانید برای خودتان نوبت بگیرید. درمانگر دیگری را انتخاب کنید."; errEl.style.display="block"; return; }
+    if (!canBook) { errEl.textContent = "برای رزرو نوبت با حساب مراجعه‌کننده یا درمانگر وارد شوید. منشی از پنل منشی هم می‌تواند رزرو کند."; errEl.style.display="block"; return; }
     if (!dateEl.value || !timeEl.value) { errEl.textContent = "تاریخ و ساعت را انتخاب کنید."; errEl.style.display="block"; return; }
     var termsCb = document.getElementById("terms-accept");
     if (!termsCb || !termsCb.checked) { errEl.textContent = "لطفاً شرایط رزرو را بپذیرید."; errEl.style.display="block"; return; }
@@ -435,9 +441,9 @@ $pageScripts = '
       .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })
       .then(function(res){
         if (!res.ok) { errEl.textContent = res.j.error || "رزرو ناموفق بود"; errEl.style.display="block"; return; }
-        if (res.j.awaitingApproval) { location.href = ' . json_encode(url('/dashboard/appointments?booked=1')) . '; return; }
+        if (res.j.awaitingApproval) { location.href = afterBookUrl; return; }
         if (res.j.paymentUrl) { location.href = res.j.paymentUrl; return; }
-        location.href = ' . json_encode(url('/dashboard/appointments?booked=1')) . ';
+        location.href = afterBookUrl;
       })
       .catch(function(){ errEl.textContent = "خطای شبکه"; errEl.style.display="block"; });
   };

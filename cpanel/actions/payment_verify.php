@@ -3,13 +3,16 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/workshops.php';
 
+require_once __DIR__ . '/../includes/booking_terms.php';
+
 $authority = (string) ($_GET['Authority'] ?? $_GET['authority'] ?? '');
 $status = (string) ($_GET['Status'] ?? $_GET['status'] ?? '');
 $kind = (string) ($_GET['kind'] ?? '');
+$appointmentsHome = therapy_self_appointments_path(current_user());
 
 if ($authority === '') {
     flash_set('error', 'اطلاعات پرداخت ناقص بود.');
-    redirect('/dashboard/appointments');
+    redirect($appointmentsHome);
 }
 
 // پرداخت کارگاه
@@ -67,23 +70,23 @@ $stmt->execute([$authority]);
 $payment = $stmt->fetch();
 if (!$payment) {
     flash_set('error', 'تراکنش یافت نشد.');
-    redirect('/dashboard/appointments');
+    redirect($appointmentsHome);
 }
 
 if (($payment['status'] ?? '') === 'PAID') {
     flash_set('success', 'پرداخت قبلاً ثبت شده است.');
-    redirect('/dashboard/appointments');
+    redirect($appointmentsHome);
 }
 if (($payment['status'] ?? '') !== 'PENDING') {
     flash_set('error', 'این تراکنش قابل تأیید نیست.');
-    redirect('/dashboard/appointments');
+    redirect($appointmentsHome);
 }
 
 if ($status !== 'OK') {
     $pdo->prepare("UPDATE payments SET status='FAILED' WHERE id=? AND status='PENDING'")->execute([$payment['id']]);
     $pdo->prepare("UPDATE appointments SET status='CANCELLED' WHERE id=? AND status='PENDING_PAYMENT'")->execute([$payment['appointment_id']]);
     flash_set('error', 'پرداخت لغو شد.');
-    redirect('/dashboard/appointments');
+    redirect($appointmentsHome);
 }
 
 $verified = zarinpal_verify($config, $authority, (int)$payment['amount']);
@@ -91,7 +94,7 @@ if (empty($verified['ok'])) {
     $pdo->prepare("UPDATE payments SET status='FAILED' WHERE id=? AND status='PENDING'")->execute([$payment['id']]);
     $pdo->prepare("UPDATE appointments SET status='CANCELLED' WHERE id=? AND status='PENDING_PAYMENT'")->execute([$payment['appointment_id']]);
     flash_set('error', 'پرداخت ناموفق بود.');
-    redirect('/dashboard/appointments');
+    redirect($appointmentsHome);
 }
 
 $pdo->prepare("UPDATE payments SET status='PAID', ref_id=? WHERE id=?")
@@ -139,4 +142,4 @@ if ($appInfo) {
 }
 
 flash_set('success', 'پرداخت ثبت شد و درخواست در حال بررسی است. پس از تأیید منشی، نوبت رزرو می‌شود.');
-redirect('/dashboard/appointments');
+redirect($appointmentsHome);

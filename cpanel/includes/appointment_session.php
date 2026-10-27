@@ -133,12 +133,16 @@ function appointment_expire_unpaid_holds(PDO $pdo): int
                 $when = function_exists('format_fa_datetime')
                     ? format_fa_datetime((string) ($row['starts_at'] ?? ''))
                     : (string) ($row['starts_at'] ?? '');
+                if (!function_exists('therapy_self_appointments_path_for_id')) {
+                    require_once __DIR__ . '/booking_terms.php';
+                }
+                $holdPatientId = (string) ($row['patient_id'] ?? '');
                 notify_user(
                     $pdo,
-                    (string) ($row['patient_id'] ?? ''),
+                    $holdPatientId,
                     'رزرو موقت لغو شد',
                     "وقت {$when} چون تا یک ساعت پرداختش تأیید نشد، آزاد گردید. در صورت نیاز دوباره درخواست دهید.",
-                    '/dashboard/appointments',
+                    therapy_self_appointments_path_for_id($pdo, $holdPatientId),
                     'appointment'
                 );
             }
@@ -686,12 +690,15 @@ function appointment_reschedule(PDO $pdo, array $actor, string $appointmentId, i
     }
     $patientId = (string) ($row['patient_id'] ?? '');
     if ($patientId !== '') {
+        if (!function_exists('therapy_self_appointments_path_for_id')) {
+            require_once __DIR__ . '/booking_terms.php';
+        }
         notify_user(
             $pdo,
             $patientId,
             'ساعت نوبت تغییر کرد',
             "ساعت نوبت شما به {$when} تغییر کرد.",
-            '/dashboard/appointments',
+            therapy_self_appointments_path_for_id($pdo, $patientId),
             'appointment',
             $actorId !== '' ? $actorId : null
         );
@@ -819,18 +826,16 @@ function appointment_shared_note_load_context(PDO $pdo, array $user, string $app
 
     $role = (string) ($user['role'] ?? '');
     $uid = (string) ($user['id'] ?? '');
-    $allowed = false;
-    if ($role === 'PATIENT' && $uid === (string) ($row['patient_id'] ?? '')) {
-        $allowed = true;
-    } elseif ($role === 'DOCTOR' && $uid === (string) ($row['doctor_user_id'] ?? '')) {
-        $allowed = true;
-    } elseif ($role === 'ADMIN') {
-        $allowed = true;
-    }
+    $isClient = $uid !== '' && $uid === (string) ($row['patient_id'] ?? '');
+    $isTreatingDoctor = $role === 'DOCTOR' && $uid === (string) ($row['doctor_user_id'] ?? '');
+    $allowed = $isClient || $isTreatingDoctor || $role === 'ADMIN';
 
     if (!$allowed) {
         return ['ok' => false, 'error' => 'دسترسی به این یادداشت ندارید.'];
     }
+
+    $row['_viewer_is_client'] = $isClient;
+    $row['_viewer_is_treating_doctor'] = $isTreatingDoctor;
 
     return ['ok' => true, 'row' => $row];
 }
@@ -862,7 +867,17 @@ function appointment_shared_note_add(PDO $pdo, array $user, string $appointmentI
     }
 
     $role = (string) ($user['role'] ?? '');
-    $authorRole = $role === 'ADMIN' ? 'ADMIN' : ($role === 'DOCTOR' ? 'DOCTOR' : 'PATIENT');
+    $row = is_array($ctx['row'] ?? null) ? $ctx['row'] : [];
+    // اگر درمانگر خودش مراجع این نوبت باشد، یادداشت را به‌عنوان مراجع ثبت کن.
+    if (!empty($row['_viewer_is_client'])) {
+        $authorRole = 'PATIENT';
+    } elseif ($role === 'ADMIN') {
+        $authorRole = 'ADMIN';
+    } elseif ($role === 'DOCTOR' || !empty($row['_viewer_is_treating_doctor'])) {
+        $authorRole = 'DOCTOR';
+    } else {
+        $authorRole = 'PATIENT';
+    }
     $id = function_exists('cuid') ? cuid() : bin2hex(random_bytes(12));
     $pdo->prepare('INSERT INTO appointment_shared_notes (id, appointment_id, author_user_id, author_role, body) VALUES (?,?,?,?,?)')
         ->execute([$id, $appointmentId, (string) $user['id'], $authorRole, $body]);

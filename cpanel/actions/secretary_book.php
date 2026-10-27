@@ -96,6 +96,10 @@ if (!$doctor) {
     flash_set('error', 'دکتر یافت نشد.');
     $bookRedirect('/secretary/appointments?tab=new');
 }
+if ($patientId !== '' && (string) ($doctor['user_id'] ?? '') === $patientId) {
+    flash_set('error', 'نمی‌توان برای خودِ درمانگر، نوبت همان درمانگر را ثبت کرد.');
+    $bookRedirect('/secretary/appointments?tab=new');
+}
 
 $av = $pdo->prepare('SELECT * FROM availabilities WHERE doctor_id=? AND date=?');
 $av->execute([$doctorId, $date]);
@@ -319,12 +323,15 @@ try {
         'appointment'
     );
     $roomBit = $roomNo > 0 && function_exists('clinic_room_label') ? ' در ' . clinic_room_label($roomNo) : '';
+    if (!function_exists('therapy_self_appointments_path_for_id')) {
+        require_once __DIR__ . '/../includes/booking_terms.php';
+    }
     notify_user(
         $pdo,
         $patientId,
         'نوبت شما ثبت شد',
         "نوبت شما برای {$when}{$roomBit}{$seriesBit} توسط {$actorName} ثبت شد و در پنل شما و درمانگر دیده می‌شود.",
-        '/dashboard/appointments',
+        therapy_self_appointments_path_for_id($pdo, $patientId),
         'appointment',
         $actorId
     );

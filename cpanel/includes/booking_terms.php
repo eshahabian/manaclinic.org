@@ -1,6 +1,36 @@
 <?php
 declare(strict_types=1);
 
+/** مراجع یا درمانگر می‌تواند برای خودش (به‌عنوان مراجع) نوبت تراپی بگیرد. */
+function user_can_self_book_therapy(?array $user): bool
+{
+    $role = strtoupper((string) ($user['role'] ?? ''));
+
+    return $role === 'PATIENT' || $role === 'DOCTOR';
+}
+
+/** مسیر فهرست نوبت‌های شخصی بعد از رزرو، بر اساس نقش. */
+function therapy_self_appointments_path(?array $user): string
+{
+    return strtoupper((string) ($user['role'] ?? '')) === 'DOCTOR'
+        ? '/doctor/therapy'
+        : '/dashboard/appointments';
+}
+
+/** مسیر نوبت‌های شخصی برای user_id (مراجع یا درمانگر). */
+function therapy_self_appointments_path_for_id(PDO $pdo, string $userId): string
+{
+    $userId = trim($userId);
+    if ($userId === '') {
+        return '/dashboard/appointments';
+    }
+    $stmt = $pdo->prepare('SELECT role FROM users WHERE id = ? LIMIT 1');
+    $stmt->execute([$userId]);
+    $role = strtoupper((string) ($stmt->fetchColumn() ?: ''));
+
+    return $role === 'DOCTOR' ? '/doctor/therapy' : '/dashboard/appointments';
+}
+
 function booking_terms_accepted(): bool
 {
     return post('accept_terms') === '1' || isset($_POST['accept_terms']);

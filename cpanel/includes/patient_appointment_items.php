@@ -24,7 +24,10 @@ $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/
         $modeBadge = function_exists('appointment_session_mode_badge_html')
             ? appointment_session_mode_badge_html((string) ($a['session_mode'] ?? 'IN_PERSON'))
             : '';
-        $noteUrl = url('/dashboard/session-note?appointment=' . rawurlencode((string) ($a['id'] ?? '')));
+        $noteBase = isset($appointmentClientNotePath) && is_string($appointmentClientNotePath) && $appointmentClientNotePath !== ''
+            ? $appointmentClientNotePath
+            : '/dashboard/session-note';
+        $noteUrl = url($noteBase . '?appointment=' . rawurlencode((string) ($a['id'] ?? '')));
         $showMana = function_exists('appointment_mana_call_should_show') && appointment_mana_call_should_show($a);
         $manaActive = $showMana && function_exists('appointment_mana_call_is_active') && appointment_mana_call_is_active($a);
         $appId = (string) ($a['id'] ?? '');

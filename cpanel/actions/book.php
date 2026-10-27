@@ -8,9 +8,9 @@ require_once __DIR__ . '/../includes/availability.php';
 require_once __DIR__ . '/../includes/appointment_session.php';
 
 $user = current_user();
-if (!$user || $user['role'] !== 'PATIENT') {
+if (!$user || !user_can_self_book_therapy($user)) {
     http_response_code(401);
-    echo json_encode(['error' => 'لطفاً با حساب مراجعه‌کننده وارد شوید.']);
+    echo json_encode(['error' => 'برای رزرو نوبت وارد شوید (مراجعه‌کننده یا درمانگر).']);
     exit;
 }
 
@@ -46,6 +46,11 @@ $doctor = $doc->fetch();
 if (!$doctor) {
     http_response_code(404);
     echo json_encode(['error' => 'دکتر یافت نشد.']);
+    exit;
+}
+if ((string) ($doctor['user_id'] ?? '') === (string) ($user['id'] ?? '')) {
+    http_response_code(400);
+    echo json_encode(['error' => 'نمی‌توانید برای خودتان نوبت بگیرید. درمانگر دیگری را انتخاب کنید.']);
     exit;
 }
 
