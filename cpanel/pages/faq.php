@@ -93,9 +93,6 @@ ob_start();
   <p class="muted legal-lead">
     پاسخ پرسش‌های پرتکرار درباره رزرو نوبت، کنسلی، پرداخت، جلسات آنلاین و خدمات مانا کلینیک سعادت‌آباد.
   </p>
-  <p>
-    <a class="btn btn-outline" href="<?= e(url('/rules')) ?>">قوانین و شرایط استفاده</a>
-  </p>
 
   <div class="faq-list">
     <p><a href="<?= e(url('/guides/first-therapy-session')) ?>">راهنمای جلسه اول روان‌درمانی و انتخاب درمانگر</a></p>
