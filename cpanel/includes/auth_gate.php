@@ -59,13 +59,13 @@ $nameDict = isset($pdo) ? build_name_transliterations_client_map($pdo) : [];
         <p class="auth-hint"><?= $otpReady
           ? 'کد ۶ رقمی ارسال‌شده را وارد کنید. در صورت نیاز می‌توانید دوباره کد بگیرید.'
           : 'شماره موبایل ثبت‌شده در حساب را وارد کنید. ارسال کد برای شماره‌های ایران است.' ?></p>
-        <form class="auth-form" method="post" action="<?= e(url('/login/otp')) ?>" data-otp-phone-form>
+        <form class="auth-form" method="post" action="<?= e(url('/login/otp')) ?>" data-otp-phone-form data-otp-busy-label="در حال ارسال…" onsubmit="return typeof window.manaAuthOtpBusy!=='function'||window.manaAuthOtpBusy(this)">
           <?= csrf_field() ?>
           <input type="hidden" name="next" value="<?= e($authNext) ?>">
           <label class="auth-line">موبایل<input name="phone" required dir="ltr" inputmode="tel" autocomplete="tel" value="<?= e($otpPhone) ?>"<?= $otpReady ? ' aria-describedby="otp-code-step"' : '' ?>></label>
           <button class="auth-submit" type="submit"><?= $otpReady ? 'ارسال مجدد کد' : 'دریافت کد ورود' ?></button>
         </form>
-        <form class="auth-form<?= $otpReady ? '' : ' is-otp-pending' ?>" method="post" action="<?= e($smsLoginHref) ?>" data-otp-code-form<?= $otpReady ? '' : ' inert aria-disabled="true"' ?> id="otp-code-step">
+        <form class="auth-form<?= $otpReady ? '' : ' is-otp-pending' ?>" method="post" action="<?= e($smsLoginHref) ?>" data-otp-code-form data-otp-busy-label="در حال تأیید…" onsubmit="return typeof window.manaAuthOtpBusy!=='function'||window.manaAuthOtpBusy(this)"<?= $otpReady ? '' : ' inert aria-disabled="true"' ?> id="otp-code-step">
           <?= csrf_field() ?>
           <input type="hidden" name="next" value="<?= e($authNext) ?>">
           <input type="hidden" name="login_method" value="otp">
@@ -183,9 +183,24 @@ window.ManaAuthGate = {
   nameDict: <?= json_encode($nameDict, JSON_UNESCAPED_UNICODE) ?>,
   minPass: <?= (int) password_min_length() ?>
 };
+window.manaAuthOtpBusy = function (form) {
+  if (!form || form.getAttribute('data-otp-busy') === '1') return false;
+  form.setAttribute('data-otp-busy', '1');
+  var btn = form.querySelector('button[type="submit"]');
+  if (btn) {
+    var label = form.getAttribute('data-otp-busy-label') || 'لطفاً صبر کنید…';
+    btn.textContent = label;
+    btn.setAttribute('aria-busy', 'true');
+    btn.classList.add('is-busy');
+    btn.style.pointerEvents = 'none';
+    // disabled را بعد از شروع ارسال می‌گذاریم تا بعضی مرورگرها فرم را قطع نکنند
+    window.setTimeout(function () { btn.disabled = true; }, 0);
+  }
+  return true;
+};
 </script>
 <?php
 $GLOBALS['pageBodyClass'] = trim(($GLOBALS['pageBodyClass'] ?? '') . ' is-auth');
 $GLOBALS['pageScripts'] = ($GLOBALS['pageScripts'] ?? '')
     . '<script src="' . e(url('/assets/js/name-transliterate.js')) . '?v=20260914a"></script>'
-    . '<script src="' . e(url('/assets/js/auth-gate.js')) . '?v=20261028a"></script>';
+    . '<script src="' . e(url('/assets/js/auth-gate.js')) . '?v=20261028b"></script>';
