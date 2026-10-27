@@ -188,4 +188,4 @@ window.ManaAuthGate = {
 $GLOBALS['pageBodyClass'] = trim(($GLOBALS['pageBodyClass'] ?? '') . ' is-auth');
 $GLOBALS['pageScripts'] = ($GLOBALS['pageScripts'] ?? '')
     . '<script src="' . e(url('/assets/js/name-transliterate.js')) . '?v=20260914a"></script>'
-    . '<script src="' . e(url('/assets/js/auth-gate.js')) . '?v=20260914a"></script>';
+    . '<script src="' . e(url('/assets/js/auth-gate.js')) . '?v=20261028a"></script>';

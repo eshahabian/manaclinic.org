@@ -88,6 +88,40 @@
     });
   }
 
+  var otpPhoneForm = document.querySelector("[data-otp-phone-form]");
+  if (otpPhoneForm) {
+    otpPhoneForm.addEventListener("submit", function (e) {
+      if (otpPhoneForm.getAttribute("data-otp-sending") === "1") {
+        e.preventDefault();
+        return;
+      }
+      otpPhoneForm.setAttribute("data-otp-sending", "1");
+      var btn = otpPhoneForm.querySelector('button[type="submit"]');
+      if (btn) {
+        btn.disabled = true;
+        btn.setAttribute("aria-busy", "true");
+        btn.textContent = "در حال ارسال…";
+      }
+    });
+  }
+
+  var otpCodeForm = document.querySelector("[data-otp-code-form]");
+  if (otpCodeForm) {
+    otpCodeForm.addEventListener("submit", function (e) {
+      if (otpCodeForm.getAttribute("data-otp-verifying") === "1") {
+        e.preventDefault();
+        return;
+      }
+      otpCodeForm.setAttribute("data-otp-verifying", "1");
+      var btn = otpCodeForm.querySelector('button[type="submit"]');
+      if (btn) {
+        btn.disabled = true;
+        btn.setAttribute("aria-busy", "true");
+        btn.textContent = "در حال تأیید…";
+      }
+    });
+  }
+
   var form = document.getElementById("register-form");
   if (form) {
     form.addEventListener("submit", function (e) {
