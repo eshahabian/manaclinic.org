@@ -1,0 +1,1 @@
+{"before":{"appointment_booked":false,"doctor_appointment_booked":false},"after":{"appointment_booked":true,"doctor_appointment_booked":true},"send":{"ok":true,"status":"SENT","error":"","doctor_ok":true,"doctor_status":"SENT","doctor_error":""},"ready":true}
