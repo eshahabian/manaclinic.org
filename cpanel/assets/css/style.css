@@ -1842,70 +1842,108 @@ body.home-workshop-locked { overflow: hidden; }
 }
 
 .home-assistant-tile {
+  position: relative;
+  overflow: hidden;
   display: flex;
   align-items: center;
-  gap: 1.15rem;
-  margin-top: 2.75rem;
-  padding: 1.35rem 1.5rem;
-  border-radius: 1.25rem;
+  gap: .85rem;
+  margin-top: 1.75rem;
+  margin-bottom: 1.25rem;
+  padding: .85rem 1.1rem;
+  border-radius: 1rem;
   text-decoration: none;
   color: inherit;
   background:
     radial-gradient(circle at 12% 20%, rgba(126, 214, 181, .35), transparent 42%),
     linear-gradient(135deg, #f3fbf7 0%, #e4f3ec 55%, #d7ebe2 100%);
   border: 1px solid rgba(26, 92, 74, .14);
-  box-shadow: 0 14px 36px rgba(26, 46, 40, .08);
+  box-shadow: 0 8px 22px rgba(26, 46, 40, .07);
   transition: transform .18s ease, box-shadow .18s ease;
 }
 .home-assistant-tile:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 18px 42px rgba(26, 46, 40, .12);
+  transform: translateY(-2px);
+  box-shadow: 0 12px 28px rgba(26, 46, 40, .1);
 }
 .home-assistant-icon {
   flex: 0 0 auto;
-  width: 4.25rem;
-  height: 4.25rem;
+  width: 2.85rem;
+  height: 2.85rem;
   display: grid;
   place-items: center;
-  border-radius: 1.1rem;
+  border-radius: .85rem;
   background: rgba(255, 255, 255, .72);
   border: 1px solid rgba(26, 92, 74, .1);
 }
+.home-assistant-icon svg {
+  width: 36px;
+  height: 36px;
+}
 .home-assistant-copy {
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: .35rem;
+  gap: .15rem;
   min-width: 0;
 }
 .home-assistant-eyebrow {
-  font-size: .78rem;
+  font-size: .72rem;
   color: var(--primary);
   font-weight: 600;
 }
 .home-assistant-title {
-  font-size: clamp(1.15rem, 2.4vw, 1.45rem);
+  font-size: clamp(.95rem, 1.8vw, 1.1rem);
   font-weight: 700;
-  line-height: 1.55;
+  line-height: 1.45;
   color: #14352c;
 }
 .home-assistant-cta {
-  margin-top: .2rem;
-  font-size: .9rem;
+  margin-top: .1rem;
+  font-size: .8rem;
   font-weight: 600;
   color: var(--primary);
+}
+.home-assistant-art {
+  display: block;
+  width: clamp(120px, 18vw, 200px);
+  height: 84px;
+  object-fit: contain;
+  flex: 0 1 200px;
+  margin-inline-start: auto;
+  pointer-events: none;
+}
+@media (max-width: 700px) {
+  .home-assistant-art {
+    width: 110px;
+    height: 72px;
+    flex-basis: 110px;
+  }
 }
 @media (max-width: 560px) {
   .home-assistant-tile {
     align-items: flex-start;
-    padding: 1.15rem 1.1rem;
+    padding: .75rem .9rem;
+    flex-wrap: wrap;
+    column-gap: .65rem;
+    row-gap: .2rem;
   }
   .home-assistant-icon {
-    width: 3.6rem;
-    height: 3.6rem;
+    width: 2.5rem;
+    height: 2.5rem;
   }
   .home-assistant-icon svg {
-    width: 44px;
-    height: 44px;
+    width: 32px;
+    height: 32px;
+  }
+  .home-assistant-copy {
+    flex: 1;
+  }
+  .home-assistant-art {
+    flex: 0 0 100%;
+    width: 100%;
+    height: 72px;
+    margin: 0;
+    object-position: left center;
   }
 }
 

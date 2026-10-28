@@ -68,7 +68,8 @@ ob_start();
       <?php if (function_exists('assistant_enabled') ? assistant_enabled() : true): ?>
       <a class="home-assistant-tile" href="<?= e(url('/assistant')) ?>">
         <span class="home-assistant-icon" aria-hidden="true">
-          <svg viewBox="0 0 64 64" width="56" height="56" fill="none" focusable="false">
+          <svg viewBox="0 0 64 64" width="36" height="36" fill="none" focusable="false">
+
             <circle cx="32" cy="32" r="29" fill="#e0f2e9"/>
             <path d="M13 27c0-9 7-15 17-15h3c10 0 17 6 17 15v7c0 9-7 15-17 15h-8l-10 6 2-12c-3-3-4-6-4-9v-7Z" fill="#1a5c4a"/>
             <rect x="19" y="22" width="25" height="18" rx="8" fill="#f0fbf5"/>

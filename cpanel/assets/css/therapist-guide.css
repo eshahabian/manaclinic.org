@@ -20,18 +20,7 @@
 .mana-guide-close { display: inline-grid; place-items: center; padding: 0; line-height: 1; flex: 0 0 38px; box-sizing: border-box; }
 .mana-guide-close svg { display: block; width: 18px; height: 18px; pointer-events: none; }
 
-/* Keep the assistant banner close to the next section and fill its open side. */
-.home-assistant-tile { position: relative; overflow: hidden; }
-.home-assistant-copy { position: relative; z-index: 1; }
-.home-assistant-art { display: block; width: clamp(180px, 28vw, 340px); height: 140px; object-fit: contain; flex: 0 1 340px; margin-inline-start: auto; pointer-events: none; }
+/* Assistant tile sizing lives in style.css so it works without this guide sheet. */
 .home-assistant-tile + .mana-guide { margin-top: 1rem; }
 .home-assistant-tile + .mana-guide > .mana-guide-row:first-child { padding-top: .5rem; }
 .home-assistant-tile + .mana-guide > .mana-guide-row:first-child .mana-guide-art { padding-top: 0; }
-@media (max-width: 700px) {
-  .home-assistant-art { width: 145px; height: 110px; flex-basis: 145px; }
-}
-@media (max-width: 480px) {
-  .home-assistant-tile { flex-wrap: wrap; column-gap: .75rem; row-gap: .25rem; }
-  .home-assistant-copy { flex: 1; }
-  .home-assistant-art { flex: 0 0 100%; width: 100%; height: 105px; margin: 0; object-position: left center; }
-}
