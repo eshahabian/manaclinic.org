@@ -88,7 +88,13 @@ ob_start();
       </a>
       <?php endif; ?>
       <?php require __DIR__ . '/../includes/public_workshop_banners.php'; ?>
-      <?php require __DIR__ . '/../includes/home_therapist_guide.php'; ?>
+      <?php
+      // TEMP hide whole therapist-guide block; set true to restore
+      $showHomeTherapistGuide = false;
+      if ($showHomeTherapistGuide) {
+          require __DIR__ . '/../includes/home_therapist_guide.php';
+      }
+      ?>
 
       <div class="home-specialists-block" style="margin-top:3rem">
         <div class="section-head">
