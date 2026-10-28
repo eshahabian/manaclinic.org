@@ -16,7 +16,8 @@ $guideWorkshops = array_values(array_map(static fn(array $workshop): array => [
   <div class="mana-guide-row">
     <div class="mana-guide-copy">
       <p class="eyebrow">لازم نیست از همان اول همه‌چیز را بدانی</p>
-      <h2 id="mana-guide-title">تو هم چالش انتخاب تراپیست داری؟</h2>
+      <?php /* TEMP: restore visible title «تو هم چالش انتخاب تراپیست داری؟» when asked */ ?>
+      <h2 id="mana-guide-title" class="sr-only">راهنمای انتخاب درمانگر</h2>
       <p>وقتی نمی‌دانی از کجا شروع کنی، انتخاب درمانگر می‌تواند سخت باشد. شاید بخواهی دربارهٔ حال خودت حرف بزنی، برای رابطه‌ات کمک بگیری یا فرزندت را بهتر درک کنی. بیایید از چیزی شروع کنیم که برای تو مهم است.</p>
       <span class="mana-guide-note">۱۰ سؤال کوتاه درباره تجربه‌های روزمره و ترجیح‌های تو</span>
     </div>

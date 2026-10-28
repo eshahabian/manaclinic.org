@@ -65,7 +65,6 @@ ob_start();
 
 <section class="container-page section home-content">
 
-      <?php require __DIR__ . '/../includes/public_workshop_banners.php'; ?>
       <?php if (function_exists('assistant_enabled') ? assistant_enabled() : true): ?>
       <a class="home-assistant-tile" href="<?= e(url('/assistant')) ?>">
         <span class="home-assistant-icon" aria-hidden="true">
@@ -88,6 +87,7 @@ ob_start();
         <img class="home-assistant-art" src="<?= e(url('/assets/img/assistant-conversation-v1.png')) ?>" alt="" width="768" height="356" loading="lazy" decoding="async">
       </a>
       <?php endif; ?>
+      <?php require __DIR__ . '/../includes/public_workshop_banners.php'; ?>
       <?php require __DIR__ . '/../includes/home_therapist_guide.php'; ?>
 
       <div class="home-specialists-block" style="margin-top:3rem">
