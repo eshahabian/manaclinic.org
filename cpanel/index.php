@@ -41,7 +41,59 @@ if (str_starts_with((string) ($config['app_url'] ?? ''), 'https://')
     header('Strict-Transport-Security: max-age=31536000; includeSubDomains');
 }
 
+$path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
+$base = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/\\');
+if ($base === '/' || $base === '\\') {
+    $base = '';
+}
+while ($base !== '' && ($path === $base || str_starts_with($path, $base . '/'))) {
+    $path = substr($path, strlen($base)) ?: '/';
+}
+$path = '/' . trim($path, '/');
+if ($path !== '/') {
+    $path = rtrim($path, '/');
+}
+$GLOBALS['path'] = $path;
+
+$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
+// Crawlers often probe with HEAD; treat it like GET for public routes.
+$isHeadRequest = strtoupper((string) $method) === 'HEAD';
+if ($isHeadRequest) {
+    $method = 'GET';
+    // Keep response headers, drop body (valid HEAD).
+    ob_start(static fn (): string => '');
+}
+$isStaffApp = $path === '/app' || str_starts_with($path, '/app/');
+$isStaffPoll = $isStaffApp && (
+    $path === '/app/presence'
+    || $path === '/app/push/subscribe'
+    || preg_match('#^/app/chat/[a-f0-9]{24}/receipts$#', $path) === 1
+    || preg_match('#^/app/file/[a-f0-9]{24}$#', $path) === 1
+);
+$isLightRequest = $path === '/video-signal' || $path === '/secretary/heartbeat' || $path === '/session/ping' || $isStaffPoll;
+
+// پینگ/heartbeat هر چند ثانیه یک‌بار می‌آید؛ کل سایت را برایشان لود نکن.
+if ($path === '/session/ping' || $path === '/secretary/heartbeat') {
+    require_once __DIR__ . '/includes/db.php';
+    require_once __DIR__ . '/includes/schema_boot.php';
+    require_once __DIR__ . '/includes/helpers.php';
+    require_once __DIR__ . '/includes/auth.php';
+    $GLOBALS['clinic_skip_schema_boot'] = true;
+    $pdo = db_connect($config);
+    if (strtoupper((string) $method) === 'POST') {
+        csrf_verify();
+    }
+    if ($path === '/secretary/heartbeat') {
+        require_once __DIR__ . '/includes/staff_desk.php';
+        require __DIR__ . '/actions/secretary_heartbeat.php';
+        exit;
+    }
+    require __DIR__ . '/actions/session_ping.php';
+    exit;
+}
+
 require_once __DIR__ . '/includes/db.php';
+require_once __DIR__ . '/includes/schema_boot.php';
 require_once __DIR__ . '/includes/helpers.php';
 require_once __DIR__ . '/includes/appointment_session.php';
 require_once __DIR__ . '/includes/name_transliterations.php';
@@ -77,40 +129,10 @@ require_once __DIR__ . '/includes/consult_requests.php';
 
 $pdo = db_connect($config);
 
-$path = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
-$base = rtrim(dirname($_SERVER['SCRIPT_NAME'] ?? ''), '/\\');
-if ($base === '/' || $base === '\\') {
-    $base = '';
-}
-while ($base !== '' && ($path === $base || str_starts_with($path, $base . '/'))) {
-    $path = substr($path, strlen($base)) ?: '/';
-}
-$path = '/' . trim($path, '/');
-if ($path !== '/') {
-    $path = rtrim($path, '/');
-}
-$GLOBALS['path'] = $path;
-
-$method = $_SERVER['REQUEST_METHOD'] ?? 'GET';
-// Crawlers often probe with HEAD; treat it like GET for public routes.
-$isHeadRequest = strtoupper((string) $method) === 'HEAD';
-if ($isHeadRequest) {
-    $method = 'GET';
-    // Keep response headers, drop body (valid HEAD).
-    ob_start(static fn (): string => '');
-}
-$isStaffApp = $path === '/app' || str_starts_with($path, '/app/');
-$isStaffPoll = $isStaffApp && (
-    $path === '/app/presence'
-    || $path === '/app/push/subscribe'
-    || preg_match('#^/app/chat/[a-f0-9]{24}/receipts$#', $path) === 1
-    || preg_match('#^/app/file/[a-f0-9]{24}$#', $path) === 1
-);
-$isLightRequest = $path === '/video-signal' || $path === '/secretary/heartbeat' || $path === '/session/ping' || $isStaffPoll;
-
 // برنامه کارکنان خودش جدول‌هایش را می‌سازد. این بلوک روی هر کلیک،
 // ALTER و اسکن‌های سایت را هم اجرا می‌کرد و بخش بعد دیر باز می‌شد.
-if (!$isLightRequest && !$isStaffApp) {
+// بعد از یک‌بار بوت موفق، تا عوض شدن نسخهٔ schema_boot دیگر SHOW COLUMNS نمی‌زند.
+if (!$isLightRequest && !$isStaffApp && !clinic_schema_is_current($pdo)) {
     ensure_doctor_profile_schema($pdo);
     ensure_workshop_schema($pdo);
     ensure_workshop_media_schema($pdo);
@@ -144,6 +166,12 @@ if (!$isLightRequest && !$isStaffApp) {
     if (function_exists('purge_removed_user_traces')) {
         purge_removed_user_traces($pdo);
     }
+    if (function_exists('outreach_scan_quiet_patients')) {
+        outreach_scan_quiet_patients($pdo);
+    }
+    clinic_schema_mark_current($pdo);
+} elseif (!$isLightRequest && !$isStaffApp) {
+    // کارهای روزانه سبک؛ فقط وقتی اسکیما از قبل آماده است
     if (function_exists('outreach_scan_quiet_patients')) {
         outreach_scan_quiet_patients($pdo);
     }

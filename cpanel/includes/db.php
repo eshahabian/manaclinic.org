@@ -48,6 +48,14 @@ function db_ensure_schema(PDO $pdo): void
     }
     $done = true;
 
+    // پینگ سبک یا وقتی بوت اسکیما قبلاً زده شده — SHOW COLUMNS تکراری نزن
+    if (!empty($GLOBALS['clinic_skip_schema_boot'])) {
+        return;
+    }
+    if (function_exists('clinic_schema_is_current') && clinic_schema_is_current($pdo)) {
+        return;
+    }
+
     try {
         $has = $pdo->query("SHOW COLUMNS FROM doctor_profiles LIKE 'is_approved'")->fetch();
         if (!$has) {
