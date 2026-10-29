@@ -1,0 +1,31 @@
+{
+  "account": "eshahabian",
+  "tests": {
+    "app": true,
+    "petty_view": true,
+    "petty_write": true,
+    "feedback_review": true,
+    "/app": true,
+    "/app/appointments": true,
+    "/app/rooms": true,
+    "/app/chat": true,
+    "/app/hours": true,
+    "/app/consult": true,
+    "/app/checklist": true,
+    "/app/petty-cash": true,
+    "/app/complaints": true,
+    "/app/balances": true,
+    "/app/therapists": true,
+    "/app/sms": true,
+    "/app/therapist-guide": true,
+    "/video-call": true,
+    "doctor_stays_limited": true,
+    "patient_stays_denied": true
+  },
+  "hashes": {
+    "includes/staff_app.php": "b3fec5853282b66c2cd6e6d5be92cb1b4be0306b4b31a972ab81059c201294fc",
+    "includes/petty_cash.php": "66fbd0d187e57359ae33744a3531a8d0c159a1164c1ab47d103d8e19037d5c48",
+    "pages/staff_app.php": "10f9e37894a9bf43dfcc625b0b6fd086d63fe98dfb7653a66b9faf5f2972092d",
+    "includes/session_complaints.php": "065fe790508cc9f9e7494cd24b5838b11f1af8b47b64e1b847d7e26bff263408"
+  }
+}

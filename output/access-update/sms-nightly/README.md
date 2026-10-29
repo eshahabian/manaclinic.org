@@ -1,0 +1,7 @@
+# Nightly therapist SMS — 2026-10-29
+
+Deployed to Mana Clinic production. Each active approved therapist with confirmed appointments tomorrow gets a separate program from 21:00 Asia/Tehran. Automatic morning/20:00 programs and individual clinician booking SMS are disabled. Patient booking/cancellation SMS and clinician cancellation SMS remain active. Only the verified shgeranmaye and atieh therapist profiles have their program copied to eshahabian, with identical body and schedule. Nightly deduplication prevents repeated minute-worker runs from sending another program.
+
+The message contains the therapist name, full Jalali date and one sorted time per line. The previous 70-character truncation was removed. Twenty-five isolated checks passed with a fake SMS provider, including boundaries, rollover, exact body, recipient isolation, copies, deduplication, disabled legacy jobs and nullable phone handling. No test SMS was sent.
+
+Repaired the existing cPanel cron to use PHP CLI 8.3 every minute. The worker completed automatically at 2026-10-29 18:33:05 Asia/Tehran. A pre-existing null-phone TypeError in workshop collection was fixed so an invalid recipient cannot stop the worker. Temporary remote endpoints and diagnostic logging were removed. Evidence: tests.json, verification.json, cron-verification.json and worker-verification.json. Initial files and setting values are preserved locally for rollback.

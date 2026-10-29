@@ -16,14 +16,14 @@ ob_start();
 <p><?= sms_connection_ready($pdo)?'ارسال پیامک فعال است.':'ارسال پیامک فعلاً خاموش است.' ?></p>
 <p class="muted">آخرین اجرای صف: <?= $workerSeen!==''?e(format_fa_datetime($workerSeen)):'هنوز اجرا نشده' ?>
   <?php if ($workerStale): ?>
-    <span style="color:#a33b3b"> — صف خودکار قطع است؛ خلاصهٔ صبحگاهی و یادآوری‌ها بدون کرون ارسال نمی‌شوند.</span>
+    <span style="color:#a33b3b"> — صف خودکار قطع است؛ برنامهٔ شبانه و یادآوری‌ها بدون کرون ارسال نمی‌شوند.</span>
   <?php endif; ?>
 </p>
-<p class="muted">هر روز از ساعت ۷ صبح، برای درمانگرانی که همان روز نوبت تأییدشده دارند، خلاصهٔ ساعت‌های نوبت پیامک می‌شود.</p>
+<p class="muted">هر شب ساعت ۲۰ به وقت تهران، برنامه نوبت‌های تأییدشده فردا جداگانه برای هر درمانگر ارسال می‌شود. فقط کپی برنامه شیوا و عطیه برای عماد شهابیان می‌رود.</p>
 <?php if ($workerStale || mail_setting_get($pdo,'sms_cron_installed','0')!=='1'): ?>
 <div class="panel" style="background:#fff5f5;border-color:#f0c0c0">
-  <strong>کرون هاست برای صف صبحگاهی لازم است.</strong>
-  <p>پیامک ثبت/لغو نوبت فوری است و بدون کرون می‌رود؛ خلاصهٔ صبحگاهی فقط وقتی worker هر دقیقه اجرا شود صف می‌شود.</p>
+  <strong>کرون هاست برای صف شبانه لازم است.</strong>
+  <p>پیامک ثبت/لغو نوبت مراجع و لغو نوبت درمانگر فوری است؛ پیامک تک‌نوبتی رزرو برای درمانگر غیرفعال است. برنامهٔ شبانه فقط وقتی worker هر دقیقه اجرا شود صف می‌شود.</p>
   <p><strong>پیشنهادی (URL):</strong> در Cron Jobs سی‌پنل هر دقیقه این آدرس را صدا بزنید:</p>
   <code dir="ltr" style="display:block;overflow-wrap:anywhere;user-select:all"><?= e($cronUrl) ?></code>
   <p class="muted" style="margin-top:.75rem">یا فرمان PHP خط فرمان:</p>

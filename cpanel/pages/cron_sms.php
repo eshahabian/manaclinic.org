@@ -2,7 +2,7 @@
 declare(strict_types=1);
 
 /**
- * کرون HTTP برای صف پیامک / خلاصه صبحگاهی درمانگرها.
+ * کرون HTTP برای صف پیامک / برنامه شبانه درمانگرها.
  * مثال: هر دقیقه GET https://manaclinic.org/cron/sms?token=…
  */
 header('Content-Type: application/json; charset=utf-8');

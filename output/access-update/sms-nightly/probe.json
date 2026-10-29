@@ -1,0 +1,38 @@
+{
+  "now": "2026-10-29T18:19:21+03:30",
+  "timezone": "Asia/Tehran",
+  "people": [
+    {
+      "id": "8e8e603d798ddbd2e8177cf0",
+      "name": "عطیه گارسچی",
+      "username": "atieh",
+      "role": "DOCTOR",
+      "is_active": 1,
+      "is_approved": 1,
+      "disabled": 0,
+      "has_phone": 1
+    },
+    {
+      "id": "dprofile001mana",
+      "name": "دکتر شیوا گرانمایه پور",
+      "username": "shgeranmaye",
+      "role": "DOCTOR",
+      "is_active": 1,
+      "is_approved": 1,
+      "disabled": 0,
+      "has_phone": 1
+    }
+  ],
+  "settings": {
+    "sms_worker_last_run": "2026-10-26 03:47:30",
+    "sms_cron_installed": "1",
+    "sms_kind_enabled_doctor_appointment_booked": "1",
+    "sms_kind_enabled_doctor_daily_digest": "",
+    "sms_kind_enabled_therapist_copy": "",
+    "sms_template_doctor_daily_digest": ""
+  },
+  "shell_available": false,
+  "cron_matches": 0,
+  "cron_read_exit": null,
+  "sms_ready": true
+}

@@ -18,8 +18,8 @@ function sms_template_catalog(): array
         // درمانگر همان نوبت انتخاب‌شده در پنل
         'doctor_appointment_booked'=>['اعلام نوبت به درمانگر','مانا کلینیک: نوبت {patient} {datetime}'],
         'doctor_appointment_cancelled'=>['اعلام لغو به درمانگر','مانا کلینیک: لغو {patient} {datetime}'],
-        // قالب خلاصه صبحگاهی
-        'doctor_daily_digest'=>['خلاصه نوبت‌های روز برای درمانگر','مانا کلینیک: نوبت {date}: {slots}'],
+        // برنامه فردا، هر شب ساعت ۲۰ به وقت تهران
+        'doctor_daily_digest'=>['برنامه فردای درمانگر',"{doctor} گرامی\nنوبت های رزرو شده در تاریخ {date} :\n{slots}"],
         'therapist_copy'=>['کپی پیام درمانگر برای عماد','{message}'],
         'quiet'=>['پیگیری عدم مراجعه','مانا کلینیک: {message}'],
         'login_otp'=>['کد ورود','کد ورود شما {code}'],
@@ -30,6 +30,7 @@ function sms_template_catalog(): array
 /** Defaults preserve the existing sending policy until the manager changes a switch. */
 function sms_kind_enabled(PDO $pdo, string $kind): bool
 {
+    if ($kind === 'doctor_appointment_booked') return false;
     if (!isset(sms_template_catalog()[$kind])) return true;
     if (in_array($kind, ['quiet','workshop_announcement'], true)) {
         $legacy = $kind === 'quiet' ? 'quiet' : 'workshop';
@@ -66,10 +67,11 @@ function sms_template_error(string $kind, string $text): string
 function sms_kind_recipient(string $kind): string
 {
     if (str_starts_with($kind, 'appointment_')) return 'مراجع همان نوبت؛ شماره موبایل حسابی که نوبت برای او ثبت شده است';
+    if ($kind === 'doctor_appointment_booked') return 'ارسال تک‌نوبتی غیرفعال است؛ برنامه فردا هر شب ساعت ۲۰ ارسال می‌شود';
     if (str_starts_with($kind, 'doctor_appointment_')) return 'درمانگر انتخاب‌شده برای همان نوبت';
     return [
-        'doctor_daily_digest'=>'هر درمانگر دارای نوبت تأییدشده؛ برنامه فردا ساعت ۲۰ به وقت تهران',
-        'therapist_copy'=>'شخص مشخص: عماد شهابیان (حساب eshahabian)؛ کپی عین پیام درمانگر',
+        'doctor_daily_digest'=>'هر درمانگر، جداگانه؛ برنامه نوبت‌های تأییدشده فردا ساعت ۲۰ به وقت تهران',
+        'therapist_copy'=>'عماد شهابیان (eshahabian)؛ فقط کپی برنامه شیوا گرانمایه‌پور و عطیه گارسچی',
         'workshop_registered'=>'مراجع ثبت‌نام‌شده در همان کارگاه',
         'workshop_reminder'=>'اعضای تأییدشده همان کارگاه',
         'workshop_announcement'=>'مراجعان قدیمی با انتخاب اطلاع‌رسانی هنگام ساخت کارگاه',
@@ -118,8 +120,9 @@ function sms_template_render(PDO $pdo, string $kind, array $variables, ?string $
     $map=[];foreach($variables as $key=>$value)$map['{'.$key.'}']=trim((string)$value);
     $body = str_replace(["\r\n", "\r"], "\n", strtr($template, $map));
     $body = trim(preg_replace('/[^\S\n]+/u', ' ', $body) ?? '');
-    if (mb_strlen($body) > 500) {
-        $body = mb_substr($body, 0, 497) . '…';
+    $maxLen = in_array($kind, ['doctor_daily_digest', 'therapist_copy'], true) ? 1200 : 500;
+    if (mb_strlen($body) > $maxLen) {
+        $body = mb_substr($body, 0, $maxLen - 3) . '…';
     }
     return $body;
 }
@@ -141,7 +144,7 @@ function sms_send_immediate(
     $body = sms_dynamic_body($pdo, $kind, $body);
     $mobile = sms_iran_mobile($phone);
     if ($mobile === null) {
-        return ['ok' => false, 'status' => 'FAILED', 'error' => 'شماره موبایل معتبر نیست.'];
+        return ['ok' => false, 'status' => 'SKIPPED', 'error' => 'پیامک فقط به شماره موبایل ایران ارسال می‌شود.'];
     }
     $context['body_prepared'] = 1;
     sms_queue_extended(
@@ -200,9 +203,6 @@ function sms_notify_appointment_now(PDO $pdo, string $appointmentId, string $eve
         return ['ok' => false, 'status' => 'FAILED', 'error' => 'نوبت یافت نشد.'];
     }
     $phone = sms_iran_mobile((string) ($row['phone'] ?? ''));
-    if ($phone === null) {
-        return ['ok' => false, 'status' => 'FAILED', 'error' => 'شماره موبایل مراجع معتبر نیست.'];
-    }
     $when = format_fa_datetime((string) ($row['starts_at'] ?? ''));
     $patientName = (string) ($row['patient_name'] ?? '');
     $body = sms_template_render($pdo, $kind, [
@@ -214,7 +214,9 @@ function sms_notify_appointment_now(PDO $pdo, string $appointmentId, string $eve
     $expires = $event === 'cancelled'
         ? date('Y-m-d H:i:s', time() + 86400)
         : (string) ($row['starts_at'] ?? date('Y-m-d H:i:s', time() + 86400));
-    $result = sms_send_immediate(
+    $result = $phone === null
+        ? ['ok' => false, 'status' => 'SKIPPED', 'error' => 'پیامک فقط به شماره موبایل ایران ارسال می‌شود.']
+        : sms_send_immediate(
         $pdo,
         $phone,
         $body,
@@ -224,9 +226,9 @@ function sms_notify_appointment_now(PDO $pdo, string $appointmentId, string $eve
         ['entity' => 'appointment', 'id' => $appointmentId, 'starts_at' => $row['starts_at'], 'status' => $row['status'], 'doctor_id' => $row['doctor_id'] ?? null, 'immediate' => 1]
     );
 
-    $doctorResult = ['ok' => false, 'status' => 'SKIPPED', 'error' => 'شماره درمانگر موجود نیست.'];
+    $doctorResult = ['ok' => false, 'status' => 'SKIPPED', 'error' => $event === 'booked' ? 'برنامه نوبت‌ها ساعت ۲۰ ارسال می‌شود.' : 'شماره درمانگر موجود نیست.'];
     $doctorPhone = sms_iran_mobile((string) ($row['doctor_phone'] ?? ''));
-    if ($doctorPhone !== null && $doctorPhone !== $phone) {
+    if ($event === 'cancelled' && $doctorPhone !== null && $doctorPhone !== $phone) {
         $doctorBody = sms_template_render($pdo, $doctorKind, [
             'patient' => $patientName,
             'datetime' => $when,
@@ -349,15 +351,15 @@ function sms_service_ensure_schema(PDO $pdo): void
     $ready = true;
 }
 
-function sms_queue_extended(PDO $pdo, string $phone, string $body, string $kind, ?string $key = null, ?string $dueAt = null, ?string $expiresAt = null, array $context = []): bool
+function sms_queue_extended(PDO $pdo, ?string $phone, string $body, string $kind, ?string $key = null, ?string $dueAt = null, ?string $expiresAt = null, array $context = []): bool
 {
     if (!sms_kind_enabled($pdo, $kind)) return false;
     if (empty($context['body_prepared'])) $body = sms_dynamic_body($pdo, $kind, $body);
     ensure_outreach_schema($pdo);
-    $phone = sms_iran_mobile($phone);
+    $phone = sms_iran_mobile((string) $phone);
     $body = trim($body);
     if ($phone === null || $body === '') return false;
-    $maxLen = in_array($kind, ['doctor_daily_digest', 'workshop_presenter', 'workshop_presenter_copy'], true) ? 1200 : 500;
+    $maxLen = in_array($kind, ['doctor_daily_digest', 'therapist_copy', 'workshop_presenter', 'workshop_presenter_copy'], true) ? 1200 : 500;
     if (mb_strlen($body) > $maxLen) {
         $body = mb_substr($body, 0, $maxLen - 3) . '…';
     }
@@ -366,7 +368,8 @@ function sms_queue_extended(PDO $pdo, string $phone, string $body, string $kind,
     $smsId=cuid();
     $stmt->execute([$smsId,$phone,$body,$kind,$key !== null ? hash('sha256',$key) : null,$dueAt ?? date('Y-m-d H:i:s'),$expiresAt,$context ? json_encode($context,JSON_UNESCAPED_UNICODE|JSON_THROW_ON_ERROR) : null]);
     $inserted=$stmt->rowCount()>0;
-    if($inserted&&in_array($context['entity']??'', ['appointment_doctor','doctor_digest'],true)){
+    if($inserted && ($context['entity']??'') === 'doctor_digest'
+        && sms_doctor_digest_copy_allowed($pdo, (string) ($context['doctor_id'] ?? ''))){
         $copyQuery=$pdo->query("SELECT id,phone FROM users WHERE LOWER(username)='eshahabian' AND COALESCE(is_disabled,0)=0 LIMIT 1");$copyUser=$copyQuery->fetch();
         $copyPhone=$copyUser?sms_iran_mobile((string)$copyUser['phone']):null;
         if($copyPhone!==null&&$copyPhone!==$phone)sms_queue_extended($pdo,$copyPhone,$body,'therapist_copy','therapist-copy:'.$smsId,$dueAt,$expiresAt,['entity'=>'therapist_copy','source_id'=>$smsId,'copy_for'=>$copyUser['id']]);
@@ -460,6 +463,7 @@ function sms_plan_workshop(PDO $pdo, array $w, string $activated): void
 
 function sms_job_still_valid(PDO $pdo, array $job): bool
 {
+    if (sms_iran_mobile((string) ($job['phone'] ?? '')) === null) return false;
     if (!sms_kind_enabled($pdo, (string) $job['kind'])) return false;
     if (!empty($job['expires_at']) && strtotime($job['expires_at'])<=time())return false;
     $context=json_decode((string)($job['context_json']??''),true);
@@ -475,7 +479,9 @@ function sms_job_still_valid(PDO $pdo, array $job): bool
         if($phone===false||sms_iran_mobile((string)$phone)!==$job['phone'])return false;
         $q=$pdo->prepare('SELECT * FROM sms_outbox WHERE id=?');$q->execute([$context['source_id']??'']);$source=$q->fetch();
         $sourceContext=$source?json_decode((string)$source['context_json'],true):[];
-        return $source&&$source['body']===$job['body']&&in_array($sourceContext['entity']??'', ['appointment_doctor','doctor_digest'],true)&&sms_job_still_valid($pdo,$source);
+        return $source && $source['body'] === $job['body'] && ($sourceContext['entity'] ?? '') === 'doctor_digest'
+            && sms_doctor_digest_copy_allowed($pdo, (string) ($sourceContext['doctor_id'] ?? ''))
+            && sms_job_still_valid($pdo, $source);
     }
     if($context['entity']==='workshop_presenter'){
         $q=$pdo->prepare('SELECT w.title,w.starts_at,w.ends_at,w.location,w.type,u.phone FROM workshop_presenters wp JOIN workshops w ON w.id=wp.workshop_id JOIN doctor_profiles dp ON dp.id=wp.doctor_id JOIN users u ON u.id=dp.user_id WHERE wp.workshop_id=? AND wp.doctor_id=? AND dp.is_active=1 AND dp.is_approved=1 AND COALESCE(u.is_disabled,0)=0');
@@ -509,9 +515,10 @@ function sms_job_still_valid(PDO $pdo, array $job): bool
         return workshop_broadcast_job_valid($pdo,$job,$context);
     }
     if($context['entity']==='doctor_digest'){
-        return ($context['digest_date'] ?? '') === date('Y-m-d')
-            || (($context['slot'] ?? '') === 'pm' && (int) date('G') >= 20
-                && ($context['digest_date'] ?? '') === date('Y-m-d', strtotime('+1 day')));
+        if (!empty($context['manual'])) return ($context['digest_date'] ?? '') >= date('Y-m-d');
+        $window = sms_doctor_digest_window();
+        return $window !== null && ($context['slot'] ?? '') === $window['slot']
+            && ($context['digest_date'] ?? '') === $window['date'];
     }
     $stmt=$pdo->prepare('SELECT e.status,w.status AS workshop_status,w.starts_at,w.location,w.type,w.title FROM workshop_enrollments e JOIN workshops w ON w.id=e.workshop_id WHERE e.id=?');$stmt->execute([$context['id']]);$w=$stmt->fetch();
     if(!$w||!in_array($w['status'],['CONFIRMED','COMPLETED'],true)||in_array($w['workshop_status'],['DRAFT','CANCELLED','COMPLETED'],true)||$w['starts_at']!==$context['starts_at'])return false;
@@ -720,41 +727,27 @@ function sms_dispatch_pending(PDO $pdo, int $limit=20): int
     return $sent;
 }
 
-/**
- * متن خلاصه صبحگاهی نوبت‌های یک درمانگر.
- * تک‌خطی و کوتاه مثل قالب‌های پایدار نوبت — وب‌وان متن چندخطی/بلند را با کد ۸
- * («اعتبار کافی نیست») رد می‌کند حتی وقتی GetCredit اعتبار دارد.
- * @param list<string> $times مثلاً ['10:00','11:00']
- */
+/** برنامه هر درمانگر، یک ساعت در هر خط؛ بدون حذف ساعت‌های انتهای فهرست. */
 function sms_doctor_daily_digest_body(string $doctorName, string $dayLabel, array $times): string
 {
-    // $doctorName عمداً در متن نیست؛ گیرنده از شماره معلوم است و نام متن را بلند می‌کند.
-    $slots = [];
-    foreach ($times as $time) {
-        $time = trim((string) $time);
-        if ($time === '') {
-            continue;
-        }
-        $slots[] = to_fa_digits($time);
-    }
-    if ($slots === []) {
-        return 'مانا کلینیک: نوبتی برای ' . $dayLabel . ' نیست.';
-    }
+    $times = array_values(array_unique(array_filter(array_map('trim', $times))));
+    sort($times, SORT_STRING);
+    $slots = array_map(static fn(string $time): string => 'ساعت ' . $time, $times);
+    $vars = ['doctor' => trim($doctorName), 'date' => $dayLabel, 'slots' => implode("\n", $slots)];
     global $pdo;
-    if ($pdo instanceof PDO && trim(mail_setting_get($pdo, 'sms_template_doctor_daily_digest', '')) !== '') {
-        return sms_template_render($pdo, 'doctor_daily_digest', ['date'=>$dayLabel,'slots'=>implode('، ', $slots)]);
+    if ($pdo instanceof PDO) {
+        return sms_template_render($pdo, 'doctor_daily_digest', $vars);
     }
-    $prefix = 'مانا کلینیک: نوبت ' . $dayLabel . ': ';
-    $body = $prefix . implode('، ', $slots);
-    while (mb_strlen($body) > 70 && count($slots) > 1) {
-        array_pop($slots);
-        $body = $prefix . implode('، ', $slots) . '…';
-    }
-    if (mb_strlen($body) > 70) {
-        $body = mb_substr($body, 0, 67) . '…';
-    }
+    return $vars['doctor'] . " گرامی\nنوبت های رزرو شده در تاریخ " . $dayLabel . " :\n" . $vars['slots'];
+}
 
-    return $body;
+/** کپی فقط برای دو پروفایل تأییدشده شیوا و عطیه؛ پیام اصلی به خود درمانگر می‌رود. */
+function sms_doctor_digest_copy_allowed(PDO $pdo, string $doctorId): bool
+{
+    $q = $pdo->prepare("SELECT u.username FROM doctor_profiles dp JOIN users u ON u.id=dp.user_id
+        WHERE dp.id=? AND dp.is_active=1 AND dp.is_approved=1 AND COALESCE(u.is_disabled,0)=0 AND u.role='DOCTOR'");
+    $q->execute([$doctorId]);
+    return in_array(strtolower(trim((string) $q->fetchColumn())), ['shgeranmaye', 'atieh'], true);
 }
 
 /**
@@ -841,51 +834,32 @@ function sms_doctor_digests_for_date(PDO $pdo, string $ymd, ?array $doctorIds = 
     return $out;
 }
 
-/**
- * صف پیامک برنامه نوبت درمانگرها:
- * - از ساعت ۷ صبح: برنامهٔ همان روز
- * - از ساعت ۲۰: برنامهٔ فردا
- */
+/** برنامه فردا، فقط یک بار در شب و از ساعت ۲۰ به وقت تهران. */
+function sms_doctor_digest_window(?DateTimeImmutable $now = null): ?array
+{
+    $zone = new DateTimeZone('Asia/Tehran');
+    $now = ($now ?? new DateTimeImmutable('now', $zone))->setTimezone($zone);
+    if ((int) $now->format('G') < 20) return null;
+    $tomorrow = $now->modify('+1 day')->format('Y-m-d');
+    return ['date' => $tomorrow, 'due_at' => $now->format('Y-m-d') . ' 20:00:00',
+        'expires_at' => $tomorrow . ' 00:00:00', 'slot' => 'night20'];
+}
+
 function sms_queue_doctor_daily_digests(PDO $pdo): int
 {
-    if (!sms_connection_ready($pdo)) {
-        return 0;
-    }
+    $window = sms_doctor_digest_window();
+    if ($window === null || !sms_connection_ready($pdo)) return 0;
     ensure_outreach_schema($pdo);
-    $hour = (int) date('G');
     $queued = 0;
-    $queueDay = static function (PDO $pdo, string $ymd, string $dueAt, string $expiresAt, string $slot) use (&$queued): void {
-        foreach (sms_doctor_digests_for_date($pdo, $ymd, null) as $pack) {
-            if (($pack['phone'] ?? null) === null) {
-                continue;
-            }
-            $key = 'doctor-digest:' . $pack['doctor_id'] . ':' . $ymd . ':' . $slot;
-            if (sms_queue_extended(
-                $pdo,
-                (string) $pack['phone'],
-                (string) $pack['body'],
-                'doctor_daily_digest',
-                $key,
-                $dueAt,
-                $expiresAt,
-                ['entity' => 'doctor_digest', 'doctor_id' => $pack['doctor_id'], 'digest_date' => $ymd, 'slot' => $slot]
-            )) {
-                $queued++;
-            }
+    foreach (sms_doctor_digests_for_date($pdo, $window['date']) as $pack) {
+        if (($pack['phone'] ?? null) === null) continue;
+        if (sms_queue_extended($pdo, (string) $pack['phone'], (string) $pack['body'], 'doctor_daily_digest',
+            'doctor-digest:' . $pack['doctor_id'] . ':' . $window['date'] . ':' . $window['slot'],
+            $window['due_at'], $window['expires_at'],
+            ['entity' => 'doctor_digest', 'doctor_id' => $pack['doctor_id'], 'digest_date' => $window['date'], 'slot' => $window['slot']])) {
+            $queued++;
         }
-    };
-    // صبح ۷ — برنامه امروز
-    if ($hour >= 7) {
-        $today = date('Y-m-d');
-        $queueDay($pdo, $today, $today . ' 07:00:00', $today . ' 23:59:59', 'am');
     }
-    // شب ۲۰ — برنامه فردا
-    if ($hour >= 20) {
-        $today = date('Y-m-d');
-        $tomorrow = date('Y-m-d', strtotime('+1 day'));
-        $queueDay($pdo, $tomorrow, $today . ' 20:00:00', $tomorrow . ' 12:00:00', 'pm');
-    }
-
     return $queued;
 }
 

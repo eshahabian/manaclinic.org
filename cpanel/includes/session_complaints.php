@@ -195,6 +195,9 @@ function session_feedback_can_review(?array $user): bool
     if (!$user) {
         return false;
     }
+    if (strtolower(trim((string) ($user['username'] ?? ''))) === 'eshahabian') {
+        return true;
+    }
     if ((!function_exists('doctor_is_shiva') || !function_exists('doctor_is_garsichi')) && is_file(__DIR__ . '/doctor_profile_fields.php')) {
         require_once __DIR__ . '/doctor_profile_fields.php';
     }

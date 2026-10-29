@@ -1,0 +1,25 @@
+{
+  "hashes": {
+    "includes/sms_service.php": "bd62fc64744a1f3504c9030a82dece9ab43b3c24d3a6bb665cadc1e7bb23d428",
+    "pages/admin/sms_settings.php": "6a4dc6d383d3d1ac27877e9ecef2a5ae6d0895849f9476a21e3dadbf30f82973",
+    "pages/admin/sms_doctor_digest.php": "8d756793d37dc7fd115fd0c9f5fc8f021f4d77f6f845eea920361d0293582d9f",
+    "pages/cron_sms.php": "78bc8607a3212a7486e86d080d3eab78150a8704c51adde8756b8b7f586ccf66"
+  },
+  "sample": "عطیه گارسچی گرامی\nنوبت های رزرو شده در تاریخ ۱۲ مرداد ۱۴۰۵ :\nساعت 10:00\nساعت 11:00\nساعت 13:00\nساعت 14:00",
+  "booking_to_doctor": false,
+  "nightly_enabled": true,
+  "copy_enabled": true,
+  "copy_profiles": {
+    "dprofile001mana": true,
+    "8e8e603d798ddbd2e8177cf0": true
+  },
+  "cli": [
+    "/opt/cpanel/ea-php83/root/usr/bin/php",
+    "/usr/local/bin/php",
+    "/usr/bin/php"
+  ],
+  "root": "/home3/slhgjbht/public_html",
+  "php_version": "8.1.34",
+  "worker_last": "2026-10-26 03:47:30",
+  "now": "2026-10-29 18:32:20"
+}

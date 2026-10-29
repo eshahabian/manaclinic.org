@@ -9,6 +9,7 @@ $path = (string) ($GLOBALS['path'] ?? '/app');
 $method = strtoupper((string) ($_SERVER['REQUEST_METHOD'] ?? 'GET'));
 $userId = (string) ($user['id'] ?? '');
 $role = (string) ($user['role'] ?? '');
+$canManageApp = $role === 'SECRETARY' || staff_app_is_eshahabian($user);
 $name = trim((string) ($user['name'] ?? ''));
 
 // Check every app route before any data is read or any POST action runs.
@@ -358,7 +359,7 @@ if ($method === 'POST' && $path === '/app/petty-cash') {
 }
 
 if ($method === 'POST' && $path === '/app/therapists') {
-    if ($role !== 'SECRETARY') {
+    if (!$canManageApp) {
         flash_set('error', 'فهرست درمانگرها با منشی است.');
         redirect('/app');
     }
@@ -368,7 +369,7 @@ if ($method === 'POST' && $path === '/app/therapists') {
 }
 
 if ($method === 'POST' && $path === '/app/appointments') {
-    if ($role !== 'SECRETARY') {
+    if (!$canManageApp) {
         flash_set('error', 'ثبت وقت با منشی است.');
         redirect('/app/appointments');
     }
@@ -378,7 +379,7 @@ if ($method === 'POST' && $path === '/app/appointments') {
 
 if ($method === 'POST' && $path === '/app/rooms') {
     csrf_verify();
-    if ($role !== 'SECRETARY') {
+    if (!$canManageApp) {
         flash_set('error', 'رزرو اتاق با منشی است.');
         redirect('/app/rooms');
     }
@@ -468,7 +469,7 @@ if ($method === 'POST' && $path === '/app/complaints') {
         }
         redirect('/app/complaints');
     }
-    if ($role !== 'SECRETARY') {
+    if (!$canManageApp) {
         flash_set('error', 'ثبت انتقاد و پیشنهاد در برنامه، با منشی است.');
         redirect('/app/complaints');
     }
@@ -654,7 +655,7 @@ if ($section === 'home') {
 }
 
 if ($section === 'therapists') {
-    if ($role !== 'SECRETARY') {
+    if (!$canManageApp) {
         flash_set('error', 'فهرست درمانگرها با منشی است.');
         redirect('/app');
     }
@@ -725,7 +726,7 @@ if ($section === 'appointments') {
     $nextDay = $selectedDate->modify('+1 day')->format('Y-m-d');
     $weekday = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه', 'شنبه'][(int) $selectedDate->format('w')];
     $bookForm = '';
-    if ($role === 'SECRETARY') {
+    if ($canManageApp) {
         $secretaryBookEmbedded = true;
         $secretaryBookNext = '/app/appointments?day=' . $selectedDay;
         require __DIR__ . '/secretary/book.php';
@@ -733,7 +734,7 @@ if ($section === 'appointments') {
         $GLOBALS['pageHead'] = '<link rel="stylesheet" href="/assets/vendor/jalali/jalalidatepicker.min.css">';
         $GLOBALS['pageScripts'] = (string) ($secretaryBookScripts ?? '');
     }
-    if ($role === 'SECRETARY' && !function_exists('appointment_time_edit_form_html')) {
+    if ($canManageApp && !function_exists('appointment_time_edit_form_html')) {
         require_once __DIR__ . '/../includes/appointment_session.php';
     }
     $rows = [];
@@ -820,7 +821,7 @@ if ($section === 'appointments') {
                 <?php endif; ?>
               </div>
               <small><?= e($detail) ?><?php if (!$roomOnly && $roomNo < 1 && (string) ($row['session_mode'] ?? '') !== 'ONLINE'): ?> · اتاق هنوز انتخاب نشده<?php endif; ?></small>
-              <?php if ($role === 'SECRETARY' && !$roomOnly && trim((string) ($row['id'] ?? '')) !== '' && function_exists('appointment_time_edit_form_html')): ?>
+              <?php if ($canManageApp && !$roomOnly && trim((string) ($row['id'] ?? '')) !== '' && function_exists('appointment_time_edit_form_html')): ?>
                 <details class="appt-one-edit">
                   <summary class="btn btn-outline btn-sm">ویرایش</summary>
                   <div style="margin-top:.55rem">
@@ -861,7 +862,7 @@ if ($section === 'rooms') {
         error_log('staff app rooms: ' . $e->getMessage());
         $error = 'بارگذاری اتاق‌ها الان ممکن نیست.';
     }
-    if ($role === 'SECRETARY') {
+    if ($canManageApp) {
         try {
             $roomPatients = $pdo->query("SELECT id, name, phone FROM users WHERE role='PATIENT' AND COALESCE(is_disabled,0)=0 ORDER BY name ASC")->fetchAll() ?: [];
             $roomDoctors = $pdo->query("
@@ -907,7 +908,7 @@ if ($section === 'rooms') {
             $clockChoices[] = sprintf('%02d:30', $hour);
         }
     }
-    if ($role === 'SECRETARY') {
+    if ($canManageApp) {
         $GLOBALS['pageHead'] = '<link rel="stylesheet" href="/assets/vendor/jalali/jalalidatepicker.min.css">';
         $GLOBALS['pageScripts'] = '<script src="' . e(url('/assets/js/search-select.js')) . '?v=20261007cmp"></script>'
             . '<script src="/assets/vendor/jalali/jalaali.min.js"></script>'
@@ -985,7 +986,7 @@ if ($section === 'rooms') {
 </script>';
     }
     $roomOpt = ['patient_id' => '', 'doctor_id' => '', 'workshop_session_id' => ''];
-    if ($role === 'SECRETARY') {
+    if ($canManageApp) {
         foreach ($roomPatients as $person) {
             $roomOpt['patient_id'] .= '<option value="' . e((string) $person['id']) . '">' . e((string) $person['name']) . '</option>';
         }
@@ -1000,13 +1001,13 @@ if ($section === 'rooms') {
     ob_start();
     ?>
     <h1>شرایط اتاق‌ها</h1>
-    <p class="muted"><?= $role === 'SECRETARY' ? 'روز را انتخاب کنید و اتاق را رزرو کنید. اگر رزرو اشتباه بود، از همان کارت ویرایش کنید.' : 'وضعیت اتاق‌ها در روز انتخاب‌شده.' ?></p>
+    <p class="muted"><?= $canManageApp ? 'روز را انتخاب کنید و اتاق را رزرو کنید. اگر رزرو اشتباه بود، از همان کارت ویرایش کنید.' : 'وضعیت اتاق‌ها در روز انتخاب‌شده.' ?></p>
     <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin:.75rem 0">
       <a class="btn btn-outline btn-sm" href="<?= e(url('/app/rooms?day=' . rawurlencode($roomPrev))) ?>">روز قبل</a>
       <strong><?= e(to_jalali_label($roomDay)) ?></strong>
       <a class="btn btn-outline btn-sm" href="<?= e(url('/app/rooms?day=' . rawurlencode($roomNext))) ?>">روز بعد</a>
     </div>
-    <?php if ($role === 'SECRETARY'): ?>
+    <?php if ($canManageApp): ?>
       <label class="label" for="room-day-view">تاریخ رزرو</label>
       <input class="input" id="room-day-view" type="text" data-jdp data-jdp-only-date readonly autocomplete="off" value="<?= e($roomJalali) ?>" style="max-width:16rem;cursor:pointer">
     <?php endif; ?>
@@ -1041,7 +1042,7 @@ if ($section === 'rooms') {
               <article class="sapp-row">
                 <strong><?= e($state) ?> · <?= e(format_fa_time(date('Y-m-d H:i:s', $start))) ?> تا <?= e(format_fa_time(date('Y-m-d H:i:s', $end))) ?></strong>
                 <div><?= e($purposeText !== '' ? $purposeText : 'بدون توضیح') ?></div>
-                <?php if ($role === 'SECRETARY' && $end >= $now): ?>
+                <?php if ($canManageApp && $end >= $now): ?>
                   <?php
                     $editKind = (string) ($row['kind'] ?? '');
                     $editPurpose = $editKind === 'WORKSHOP' ? 'workshop' : ($editKind === 'APPOINTMENT' ? 'therapy' : 'block');
@@ -1149,7 +1150,7 @@ if ($section === 'rooms') {
             <?php endforeach; ?>
           </div>
         <?php endif; ?>
-        <?php if ($role === 'SECRETARY' && $error === ''): ?>
+        <?php if ($canManageApp && $error === ''): ?>
           <form class="sapp-compose panel" method="post" action="<?= e(url('/app/rooms')) ?>" data-room-book>
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="assign">
@@ -2136,7 +2137,7 @@ if ($section === 'profile') {
 }
 
 if ($section === 'balances') {
-    if ($role !== 'SECRETARY') {
+    if (!$canManageApp) {
         flash_set('error', 'بدهکاران و بستانکاران با منشی است.');
         redirect('/app');
     }
@@ -2156,7 +2157,7 @@ try {
 } catch (Throwable $e) {
     $complaints = [];
 }
-if ($role === 'SECRETARY') {
+if ($canManageApp) {
     require_once __DIR__ . '/../includes/secretary_patient.php';
     try {
         $patients = secretary_bookable_patients($pdo);
@@ -2167,13 +2168,13 @@ if ($role === 'SECRETARY') {
 ob_start();
 ?>
 <h1>انتقادات و پیشنهادات</h1>
-<p class="muted"><?= $role === 'SECRETARY' ? 'اسم شخص را از فهرست انتخاب کنید تا نام، شماره تماس و درمانگرش مشخص شود. مورد برای دکتر شیوا گرانمایه‌پور و دکتر عطیه گارسچی می‌رود.' : 'انتقادها و پیشنهادهایی که مراجع یا منشی ثبت کرده اینجاست.' ?></p>
-<?php if ($role === 'SECRETARY'): ?>
+<p class="muted"><?= $canManageApp ? 'اسم شخص را از فهرست انتخاب کنید تا نام، شماره تماس و درمانگرش مشخص شود. مورد برای دکتر شیوا گرانمایه‌پور و دکتر عطیه گارسچی می‌رود.' : 'انتقادها و پیشنهادهایی که مراجع یا منشی ثبت کرده اینجاست.' ?></p>
+<?php if ($canManageApp): ?>
   <?= session_feedback_form_html('/app/complaints', true, $patients, '', '', '') ?>
 <?php endif; ?>
 <?= session_feedback_list_html($complaints, 'هنوز انتقاد یا پیشنهادی ثبت نشده است.', '/app/complaints', session_feedback_can_manage($user)) ?>
 <?php
-if ($role === 'SECRETARY') {
+if ($canManageApp) {
     $GLOBALS['pageScripts'] = session_feedback_assets(true);
 }
 staff_app_render('complaints', 'انتقادات و پیشنهادات', $descriptions['complaints'], ob_get_clean());

@@ -77,7 +77,7 @@ function staff_app_home_tile_allowed(array $user, string $path): bool
         return false;
     }
     if (in_array($path, ['/app/balances', '/app/therapists'], true)) {
-        return ($user['role'] ?? '') === 'SECRETARY';
+        return ($user['role'] ?? '') === 'SECRETARY' || staff_app_is_eshahabian($user);
     }
     if ($path === '/app/petty-cash') {
         require_once __DIR__ . '/petty_cash.php';

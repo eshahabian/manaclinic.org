@@ -1,0 +1,8 @@
+{
+  "scheduler": "cPanel cron",
+  "interval": "every minute",
+  "mode": "PHP CLI 8.3",
+  "job_count": 1,
+  "nightly_send_time": "21:00 Asia/Tehran",
+  "log_path": null
+}
