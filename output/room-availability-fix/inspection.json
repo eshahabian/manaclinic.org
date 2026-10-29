@@ -1,0 +1,88 @@
+{
+  "fallback_query": "ok",
+  "room_counts": [
+    {
+      "room_no": 2,
+      "total": 6
+    },
+    {
+      "room_no": 4,
+      "total": 8
+    },
+    {
+      "room_no": 1,
+      "total": 4
+    },
+    {
+      "room_no": 3,
+      "total": 3
+    }
+  ],
+  "server_date": "2026-10-29",
+  "target_appointments": [
+    {
+      "room_no": 4,
+      "status": "CONFIRMED",
+      "total": 7
+    },
+    {
+      "room_no": 1,
+      "status": "CONFIRMED",
+      "total": 1
+    }
+  ],
+  "target_reservations": [
+    {
+      "room_no": 1,
+      "kind": "APPOINTMENT",
+      "status": "CONFIRMED",
+      "total": 1
+    }
+  ],
+  "doctor_target": [
+    {
+      "room_no": 4,
+      "session_mode": "ONLINE",
+      "total": 6
+    }
+  ],
+  "target_segments": [
+    {
+      "start": "00:00",
+      "end": "24:00",
+      "busy": false
+    }
+  ],
+  "days": [
+    {
+      "date": "2026-10-29",
+      "segments": [
+        {
+          "start": "00:00",
+          "end": "10:00",
+          "busy": false
+        },
+        {
+          "start": "10:00",
+          "end": "11:00",
+          "busy": true
+        },
+        {
+          "start": "11:00",
+          "end": "14:00",
+          "busy": false
+        },
+        {
+          "start": "14:00",
+          "end": "19:00",
+          "busy": true
+        },
+        {
+          "start": "19:00",
+          "end": "24:00",
+          "busy": false
+        }
+      ]
+    }
+  ]
+}

@@ -757,10 +757,6 @@ if ($section === 'appointments') {
     <?php if ($bookForm !== ''): ?>
       <h1>ثبت وقت</h1>
       <?= $bookForm ?>
-      <?php
-        require_once __DIR__ . '/../includes/staff_app_appointment_parties.php';
-        echo staff_app_appointment_parties_html($pdo, $user, $selectedDay, $_GET);
-      ?>
       <h2 class="sapp-day">وقت‌های روز</h2>
     <?php else: ?>
       <h1>وقت‌ها</h1>
