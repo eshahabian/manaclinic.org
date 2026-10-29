@@ -20,6 +20,25 @@ try {
     $walletMap = [];
 }
 $doctors = secretary_active_doctors($pdo);
+// Prefer the saved assignment; infer only from multiple confirmed sessions with one active therapist.
+$bookingDoctors = array_column($doctors, null, 'id');
+try {
+    $stableDoctors = $pdo->query("SELECT patient_id, MIN(doctor_id) AS doctor_id FROM appointments
+        WHERE status IN ('CONFIRMED','COMPLETED') GROUP BY patient_id
+        HAVING COUNT(DISTINCT doctor_id)=1 AND COUNT(*)>=2")->fetchAll() ?: [];
+    $stableByPatient = array_column($stableDoctors, 'doctor_id', 'patient_id');
+    foreach ($patients as &$bookingPatient) {
+        if (trim((string) ($bookingPatient['preferred_doctor_id'] ?? '')) !== '') continue;
+        $stableId = (string) ($stableByPatient[(string) ($bookingPatient['id'] ?? '')] ?? '');
+        if ($stableId !== '' && isset($bookingDoctors[$stableId])) {
+            $bookingPatient['preferred_doctor_id'] = $stableId;
+            $bookingPatient['doctor_name'] = (string) $bookingDoctors[$stableId]['name'];
+        }
+    }
+    unset($bookingPatient);
+} catch (Throwable $e) {
+    error_log('booking therapist suggestion: ' . $e->getMessage());
+}
 $preDoctorId = trim((string) ($_GET['doctor_id'] ?? ''));
 $preDate = trim((string) ($_GET['date'] ?? ''));
 $preTime = trim((string) ($_GET['time'] ?? ''));
@@ -74,7 +93,7 @@ foreach ($stmt->fetchAll() as $row) {
 
 ob_start();
 ?>
-<p class="muted" style="margin:0 0 1rem">ابتدا دکتر را انتخاب کنید؛ فقط روزهایی که دکتر وقت خالی گذاشته قابل انتخاب هستند.</p>
+<p class="muted" style="margin:0 0 1rem">ابتدا درمانگر را انتخاب کنید؛ فقط روزهایی که درمانگر وقت خالی گذاشته قابل انتخاب هستند.</p>
 
 <form class="panel form-stack" method="post" action="<?= e(url((!empty($secretaryBookNext) && is_string($secretaryBookNext) && str_starts_with($secretaryBookNext, '/app')) ? $secretaryBookNext : '/secretary/book')) ?>" id="secretary-book-form" style="margin-top:0" enctype="multipart/form-data">
   <?= csrf_field() ?>
@@ -94,23 +113,16 @@ ob_start();
       <?php foreach ($patients as $p): ?>
         <?php
           $phone = trim((string) ($p['phone'] ?? ''));
-          $uname = trim((string) ($p['username'] ?? ''));
           $pname = trim((string) ($p['name'] ?? ''));
           $doc = trim((string) ($p['doctor_name'] ?? ''));
           $label = $pname;
-          if (strtoupper((string) ($p['role'] ?? '')) === 'DOCTOR') {
-              $label .= ' — درمانگر';
-          }
-          if ($uname !== '') {
-              $label .= ' (' . $uname . ')';
-          }
           if ($phone !== '') {
               $label .= ' · ' . $phone;
           }
           if ($doc !== '') {
               $label .= ' — ' . $doc;
           }
-          $searchBits = trim($pname . ' ' . $uname . ' ' . $phone . ' ' . $doc);
+          $searchBits = trim($pname . ' ' . $phone . ' ' . $doc);
           $savedReferral = function_exists('user_referral_normalize')
               ? (user_referral_normalize((string) ($p['referral_source'] ?? '')) ?? '')
               : '';
@@ -130,7 +142,7 @@ ob_start();
         <option value="<?= e((string) ($p['book_id'] ?? $p['id'])) ?>" data-search="<?= e($searchBits) ?>" data-referral="<?= e($savedReferral) ?>" data-needs-setup="<?= $needsSetup ? '1' : '0' ?>" data-inactive="<?= $inactive ? '1' : '0' ?>" data-muted="<?= $inactive ? '1' : '0' ?>" data-phone="<?= e($phone) ?>" data-doctor="<?= e((string) ($p['preferred_doctor_id'] ?? '')) ?>" data-wallet="<?= e($walletAttr) ?>" data-fee="<?= e($feeAttr) ?>"><?= e($label) ?></option>
       <?php endforeach; ?>
     </select>
-    <p class="muted" style="margin:.35rem 0 0;font-size:.8rem">در باکس بالا نام، نام کاربری یا شماره موبایل را تایپ کنید.</p>
+    <p class="muted" style="margin:.35rem 0 0;font-size:.8rem">در باکس بالا نام یا شماره موبایل را تایپ کنید.</p>
     <div id="legacy-patient-setup" class="panel" hidden style="margin-top:.75rem;background:#fff8e8;border-color:#e6c56a">
       <p style="margin:0 0 .7rem;font-weight:700">این کاربر قدیمی و غیرفعال است یا پروفایل کامل ندارد. تا فعال نشود و این موارد پر نشود، نوبت ثبت نمی‌شود.</p>
       <label>
@@ -166,18 +178,21 @@ ob_start();
   </div>
 
   <div>
-    <label class="label">دکتر</label>
+    <label class="label" for="doctor_id">درمانگر</label>
+    <div style="display:grid;grid-template-columns:minmax(0,1fr) 2.75rem;gap:.5rem;align-items:start">
     <select class="input" name="doctor_id" id="doctor_id" required>
       <option value="">انتخاب کنید</option>
       <?php foreach ($doctors as $d): ?>
         <option value="<?= e($d['id']) ?>" data-price="<?= e((string) (int) ($d['session_price'] ?? 0)) ?>"<?= $preDoctorId === (string) $d['id'] ? ' selected' : '' ?>><?= e($d['name']) ?> — <?= e($d['specialty']) ?></option>
       <?php endforeach; ?>
     </select>
+    <button type="button" class="btn btn-outline" id="sec-doctor-clear" aria-label="پاک کردن درمانگر" title="پاک کردن درمانگر" style="padding:0;min-height:2.75rem;font-size:1.4rem">×</button>
+    </div>
   </div>
 
   <div>
     <label class="label" for="sec-date-view">انتخاب از روی تقویم</label>
-    <input class="input" type="text" id="sec-date-view" data-jdp data-jdp-only-date autocomplete="off" readonly placeholder="<?= $preDoctorId !== '' ? 'تاریخ شمسی خالی' : 'ابتدا دکتر را انتخاب کنید' ?>"<?= $preDoctorId !== '' ? '' : ' disabled' ?> value="<?= e($preDateJalali) ?>">
+    <input class="input" type="text" id="sec-date-view" data-jdp data-jdp-only-date autocomplete="off" readonly placeholder="<?= $preDoctorId !== '' ? 'تاریخ شمسی خالی' : 'ابتدا درمانگر را انتخاب کنید' ?>"<?= $preDoctorId !== '' ? '' : ' disabled' ?> value="<?= e($preDateJalali) ?>">
     <input type="hidden" name="date" id="sec-date" required value="<?= e($preDate) ?>">
   </div>
 
@@ -205,6 +220,12 @@ ob_start();
         ? appointment_room_pick_html('room_no', 'sec-room')
         : '';
   ?>
+
+  <section class="panel" id="sec-room-availability" aria-label="ساعت‌های آزاد و پر اتاق" style="margin:0" aria-live="polite">
+    <strong>ساعت‌های آزاد و پر اتاق</strong>
+    <p class="muted" data-room-status>ابتدا تاریخ و اتاق را انتخاب کنید.</p>
+    <div class="stack" data-room-segments></div>
+  </section>
 
   <div>
     <label class="label" for="sec-repeat">تکرار این نوبت</label>
@@ -276,8 +297,8 @@ $secretaryBookScripts = '
   var doctorSearchApi = null;
   var legacyDoctorApi = null;
   if (window.enhanceSearchSelect) {
-    enhanceSearchSelect(patientEl, { placeholder: "جستجو با نام، یوزر یا موبایل…" });
-    doctorSearchApi = enhanceSearchSelect(doctorEl, { placeholder: "جستجو یا انتخاب دکتر" });
+    enhanceSearchSelect(patientEl, { placeholder: "جستجو با نام یا موبایل…" });
+    doctorSearchApi = enhanceSearchSelect(doctorEl, { placeholder: "جستجو یا انتخاب درمانگر" });
   }
 
   var legacyBox = document.getElementById("legacy-patient-setup");
@@ -689,6 +710,7 @@ $secretaryBookScripts = '
   }
 
   function loadSlots(opts){
+    if (window.manaBookingRoomRefresh) window.manaBookingRoomRefresh();
     opts = opts || {};
     if (!opts.keepTime) {
       timeEl.value = "";
@@ -728,7 +750,7 @@ $secretaryBookScripts = '
     errEl.style.display = "none";
     var g = String(gDate).substring(0,10);
     if (!doctorEl.value) {
-      errEl.textContent = "ابتدا دکتر را انتخاب کنید.";
+      errEl.textContent = "ابتدا درمانگر را انتخاب کنید.";
       errEl.style.display = "block";
       return;
     }
@@ -737,7 +759,7 @@ $secretaryBookScripts = '
       if (!set[g] && !opts.force) {
         dateEl.value = "";
         dateView.value = "";
-        errEl.textContent = "این تاریخ برای دکتر انتخاب‌شده خالی نیست.";
+        errEl.textContent = "این تاریخ برای درمانگر انتخاب‌شده خالی نیست.";
         errEl.style.display = "block";
         loadSlots();
         return;
@@ -804,7 +826,7 @@ $secretaryBookScripts = '
     errEl.style.display = "none";
     var hasDoctor = !!doctorEl.value;
     dateView.disabled = !hasDoctor;
-    dateView.placeholder = hasDoctor ? "تاریخ شمسی خالی" : "ابتدا دکتر را انتخاب کنید";
+    dateView.placeholder = hasDoctor ? "تاریخ شمسی خالی" : "ابتدا درمانگر را انتخاب کنید";
     loadSlots();
     refreshAvailability();
   });
@@ -833,7 +855,7 @@ $secretaryBookScripts = '
     }
     if (!doctorEl.value) {
       e.preventDefault();
-      errEl.textContent = "دکتر را انتخاب کنید.";
+      errEl.textContent = "درمانگر را انتخاب کنید.";
       errEl.style.display = "block";
       var doctorInput = doctorEl.closest(".search-select") && doctorEl.closest(".search-select").querySelector(".search-select-input");
       (doctorInput || doctorEl).focus();
@@ -967,3 +989,5 @@ $secretaryBookScripts = '
 })();
 </script>
 ';
+
+$secretaryBookScripts .= '<script src="' . e(url('/assets/js/booking-assist.js')) . '?v=20261029a"></script>';

@@ -453,6 +453,7 @@ $routes = [
     'GET /staff/admin-message-image' => 'actions/admin_staff_message_image.php',
 
     'GET /api/slots' => 'actions/slots.php',
+    'GET /api/room-availability' => 'actions/room_availability.php',
     'GET /api/availability-days' => 'actions/availability_days.php',
     'GET /api/transliterate-name' => 'actions/transliterate_name.php',
     'GET /api/staff-board' => 'actions/staff_board.php',

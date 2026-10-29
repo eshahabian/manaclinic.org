@@ -1,0 +1,6 @@
+{
+  "anonymous_access_blocked": true,
+  "live_room_reads": true,
+  "only_time_status_fields": true,
+  "therapist_history_query": true
+}

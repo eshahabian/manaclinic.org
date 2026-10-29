@@ -1,0 +1,9 @@
+{
+  "hashes": {
+    "pages/secretary/book.php": "b2b5c6b2d029b235aabbe33f00f8e0e8fe1021efa67151ebaff28adde31dd739",
+    "index.php": "9bf76bb91587f25b4a086d05bdd4e4ca345f54717c585c0a5b1bc6011fa375b2",
+    "includes/booking_room_availability.php": "66ff8ce0e94b33e75ac2df26a4d3a59a3937e3638b4243955a8c6424cd6ba391",
+    "actions/room_availability.php": "8b7e805fe96dae3d17f2570e2dbfbed77481f22f0ac13ed76e62def05e74081e",
+    "assets/js/booking-assist.js": "e5cc8cb5fd32f1dd1393562d51cfb3cf638a63c8d741fa290040174023920b82"
+  }
+}
