@@ -452,7 +452,9 @@ if ($method === 'POST' && $path === '/app/rooms') {
     } catch (Throwable $e) {
         flash_set('error', $e->getMessage());
     }
-    redirect('/app/rooms?day=' . rawurlencode($day));
+    $returnRoom = (int) (post('room_no') ?: post('room_tab'));
+    if (!in_array($returnRoom, clinic_rooms_numbers(), true)) $returnRoom = 1;
+    redirect('/app/rooms?day=' . rawurlencode($day) . '&room=' . $returnRoom);
 }
 
 if ($method === 'POST' && $path === '/app/complaints') {
@@ -876,6 +878,8 @@ if ($section === 'rooms') {
         }
     }
     $numbers = function_exists('clinic_rooms_numbers') ? clinic_rooms_numbers() : [1, 2, 3];
+    $activeRoom = (int) ($_GET['room'] ?? 1);
+    if (!in_array($activeRoom, $numbers, true)) $activeRoom = (int) $numbers[0];
     $byRoom = [];
     foreach ($numbers as $number) {
         $byRoom[(int) $number] = [];
@@ -926,7 +930,7 @@ if ($section === 'rooms') {
       if(p.length!==3||!window.jalaali) return;
       var g=jalaali.toGregorian(parseInt(p[0],10),parseInt(p[1],10),parseInt(p[2],10));
       var key=g.gy+"-"+pad(g.gm)+"-"+pad(g.gd);
-      if(key!==current) location.href=base+"?day="+key;
+      if(key!==current) location.href=base+"?day="+key+"&room="+' . json_encode($activeRoom) . ';
     });
   }
   document.querySelectorAll("[data-room-book]").forEach(function(form){
@@ -998,12 +1002,13 @@ if ($section === 'rooms') {
     }
     ob_start();
     ?>
-    <h1>شرایط اتاق‌ها</h1>
+    <section class="panel" id="room-reservations" aria-label="رزرو اتاق‌ها">
+    <h1>رزرو اتاق‌ها</h1>
     <p class="muted"><?= $canManageApp ? 'روز را انتخاب کنید و اتاق را رزرو کنید. اگر رزرو اشتباه بود، از همان کارت ویرایش کنید.' : 'وضعیت اتاق‌ها در روز انتخاب‌شده.' ?></p>
     <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin:.75rem 0">
-      <a class="btn btn-outline btn-sm" href="<?= e(url('/app/rooms?day=' . rawurlencode($roomPrev))) ?>">روز قبل</a>
+      <a class="btn btn-outline btn-sm" href="<?= e(url('/app/rooms?day=' . rawurlencode($roomPrev) . '&room=' . $activeRoom)) ?>">روز قبل</a>
       <strong><?= e(to_jalali_label($roomDay)) ?></strong>
-      <a class="btn btn-outline btn-sm" href="<?= e(url('/app/rooms?day=' . rawurlencode($roomNext))) ?>">روز بعد</a>
+      <a class="btn btn-outline btn-sm" href="<?= e(url('/app/rooms?day=' . rawurlencode($roomNext) . '&room=' . $activeRoom)) ?>">روز بعد</a>
     </div>
     <?php if ($canManageApp): ?>
       <label class="label" for="room-day-view">تاریخ رزرو</label>
@@ -1020,8 +1025,73 @@ if ($section === 'rooms') {
       <template id="room-opts-patient_id"><?= $roomOpt['patient_id'] ?></template>
       <template id="room-opts-doctor_id"><?= $roomOpt['doctor_id'] ?></template>
       <template id="room-opts-workshop_session_id"><?= $roomOpt['workshop_session_id'] ?></template>
-      <?php foreach ($byRoom as $number => $items): ?>
-        <h2 class="sapp-day"><?= e(function_exists('clinic_room_label') ? clinic_room_label((int) $number) : ('اتاق ' . to_fa_digits((string) $number))) ?></h2>
+      <nav class="sapp-check-tabs" aria-label="انتخاب اتاق" style="flex-wrap:nowrap">
+        <?php foreach ($numbers as $tabRoom): ?>
+          <a class="sapp-check-tab<?= $activeRoom === (int) $tabRoom ? ' is-active' : '' ?>" href="<?= e(url('/app/rooms?day=' . rawurlencode($roomDay) . '&room=' . (int) $tabRoom . '#room-reservations')) ?>"<?= $activeRoom === (int) $tabRoom ? ' aria-current="page"' : '' ?>><?= e(clinic_room_label((int) $tabRoom)) ?></a>
+        <?php endforeach; ?>
+      </nav>
+      <?php foreach ([$activeRoom => $byRoom[$activeRoom]] as $number => $items): ?>
+        <?php if ($canManageApp && $error === ''): ?>
+          <form class="form-stack" style="margin-top:.5rem" method="post" action="<?= e(url('/app/rooms')) ?>" data-room-book>
+            <?= csrf_field() ?>
+            <input type="hidden" name="action" value="assign">
+            <input type="hidden" name="hour_only" value="1">
+            <input type="hidden" name="day" value="<?= e($roomDay) ?>">
+            <input type="hidden" name="room_tab" value="<?= (int) $activeRoom ?>">
+            <input type="hidden" name="room_no" value="<?= (int) $number ?>">
+            <strong>رزرو <?= e(function_exists('clinic_room_label') ? clinic_room_label((int) $number) : '') ?></strong>
+            <label class="label">ساعت
+              <select class="input" name="start_time" required>
+                <option value="">یک ساعت را انتخاب کنید</option>
+                <?php foreach ($clockChoices as $clock): ?>
+                  <?php if (!str_ends_with($clock, ':00')) { continue; } ?>
+                  <option value="<?= e($clock) ?>"><?= e(to_fa_digits($clock)) ?> تا <?= e(to_fa_digits(sprintf('%02d:00', ((int) substr($clock, 0, 2)) + 1))) ?></option>
+                <?php endforeach; ?>
+              </select>
+            </label>
+            <p class="muted" style="margin:0;font-size:.8rem">هر رزرو فقط یک ساعت است و از ساعت کناری جدا می‌ماند.</p>
+            <label class="label">برای چیست؟
+              <select class="input" name="purpose" data-purpose required>
+                <option value="">انتخاب کنید</option>
+                <option value="therapy">تراپی</option>
+                <option value="workshop">کارگاه</option>
+                <option value="block">سایر</option>
+              </select>
+            </label>
+            <div data-for="therapy" hidden>
+              <label class="label">مراجعه‌کننده
+                <select class="input" name="patient_id" data-search data-options="patient_id">
+                  <option value="">انتخاب مراجعه‌کننده</option>
+                </select>
+              </label>
+              <label class="label">درمانگر
+                <select class="input" name="doctor_id" data-search data-options="doctor_id">
+                  <option value="">انتخاب درمانگر</option>
+                </select>
+              </label>
+            </div>
+            <div data-for="workshop" hidden>
+              <label class="label">کارگاه
+                <select class="input" name="workshop_session_id" data-search data-options="workshop_session_id">
+                  <option value="">انتخاب کارگاه</option>
+                </select>
+              </label>
+            </div>
+            <div data-for="block" hidden>
+              <label class="label">عنوان<input class="input" name="block_title" maxlength="255" placeholder="مثلاً جلسه تیم"></label>
+            </div>
+            <label class="label">یادداشت<input class="input" name="note" maxlength="255"></label>
+            <label style="display:flex;gap:8px;align-items:center">
+              <input type="checkbox" name="repeat_weekly" value="1" data-repeat>
+              <span>تکرار هر هفته</span>
+            </label>
+            <div data-repeat-fields hidden>
+              <label class="label">چند هفته<input class="input" name="repeat_weeks" inputmode="numeric" placeholder="مثلاً ۸" disabled></label>
+            </div>
+            <button class="btn btn-primary" type="submit">رزرو اتاق</button>
+          </form>
+        <?php endif; ?>
+        <h2 class="sapp-day" style="font-size:1rem;margin-top:1.3rem">رزروهای ثبت‌شده</h2>
         <?php if ($items === []): ?>
           <p class="muted">در این روز رزروی نیست.</p>
         <?php else: ?>
@@ -1067,6 +1137,7 @@ if ($section === 'rooms') {
                         <input type="hidden" name="hour_only" value="1">
                         <input type="hidden" name="booking_id" value="<?= e((string) ($row['id'] ?? '')) ?>">
                         <input type="hidden" name="day" value="<?= e($roomDay) ?>">
+            <input type="hidden" name="room_tab" value="<?= (int) $activeRoom ?>">
                         <label class="label">اتاق
                           <select class="input" name="room_no">
                             <?php foreach ($numbers as $editRoom): ?>
@@ -1138,6 +1209,7 @@ if ($section === 'rooms') {
                       <?= csrf_field() ?>
                       <input type="hidden" name="action" value="release_hour">
                       <input type="hidden" name="day" value="<?= e($roomDay) ?>">
+            <input type="hidden" name="room_tab" value="<?= (int) $activeRoom ?>">
                       <input type="hidden" name="booking_id" value="<?= e((string) ($row['id'] ?? '')) ?>">
                       <input type="hidden" name="slice_start" value="<?= e(date('Y-m-d H:i:s', $start)) ?>">
                       <button class="btn btn-outline btn-sm" type="submit">آزاد کردن این ساعت</button>
@@ -1148,67 +1220,9 @@ if ($section === 'rooms') {
             <?php endforeach; ?>
           </div>
         <?php endif; ?>
-        <?php if ($canManageApp && $error === ''): ?>
-          <form class="sapp-compose panel" method="post" action="<?= e(url('/app/rooms')) ?>" data-room-book>
-            <?= csrf_field() ?>
-            <input type="hidden" name="action" value="assign">
-            <input type="hidden" name="hour_only" value="1">
-            <input type="hidden" name="day" value="<?= e($roomDay) ?>">
-            <input type="hidden" name="room_no" value="<?= (int) $number ?>">
-            <strong>رزرو <?= e(function_exists('clinic_room_label') ? clinic_room_label((int) $number) : '') ?></strong>
-            <label class="label">ساعت
-              <select class="input" name="start_time" required>
-                <option value="">یک ساعت را انتخاب کنید</option>
-                <?php foreach ($clockChoices as $clock): ?>
-                  <?php if (!str_ends_with($clock, ':00')) { continue; } ?>
-                  <option value="<?= e($clock) ?>"><?= e(to_fa_digits($clock)) ?> تا <?= e(to_fa_digits(sprintf('%02d:00', ((int) substr($clock, 0, 2)) + 1))) ?></option>
-                <?php endforeach; ?>
-              </select>
-            </label>
-            <p class="muted" style="margin:0;font-size:.8rem">هر رزرو فقط یک ساعت است و از ساعت کناری جدا می‌ماند.</p>
-            <label class="label">برای چیست؟
-              <select class="input" name="purpose" data-purpose required>
-                <option value="">انتخاب کنید</option>
-                <option value="therapy">تراپی</option>
-                <option value="workshop">کارگاه</option>
-                <option value="block">سایر</option>
-              </select>
-            </label>
-            <div data-for="therapy" hidden>
-              <label class="label">مراجعه‌کننده
-                <select class="input" name="patient_id" data-search data-options="patient_id">
-                  <option value="">انتخاب مراجعه‌کننده</option>
-                </select>
-              </label>
-              <label class="label">درمانگر
-                <select class="input" name="doctor_id" data-search data-options="doctor_id">
-                  <option value="">انتخاب درمانگر</option>
-                </select>
-              </label>
-            </div>
-            <div data-for="workshop" hidden>
-              <label class="label">کارگاه
-                <select class="input" name="workshop_session_id" data-search data-options="workshop_session_id">
-                  <option value="">انتخاب کارگاه</option>
-                </select>
-              </label>
-            </div>
-            <div data-for="block" hidden>
-              <label class="label">عنوان<input class="input" name="block_title" maxlength="255" placeholder="مثلاً جلسه تیم"></label>
-            </div>
-            <label class="label">یادداشت<input class="input" name="note" maxlength="255"></label>
-            <label style="display:flex;gap:8px;align-items:center">
-              <input type="checkbox" name="repeat_weekly" value="1" data-repeat>
-              <span>تکرار هر هفته</span>
-            </label>
-            <div data-repeat-fields hidden>
-              <label class="label">چند هفته<input class="input" name="repeat_weeks" inputmode="numeric" placeholder="مثلاً ۸" disabled></label>
-            </div>
-            <button class="btn btn-primary" type="submit">رزرو اتاق</button>
-          </form>
-        <?php endif; ?>
       <?php endforeach; ?>
     <?php endif; ?>
+    </section>
     <?php
     staff_app_render('rooms', 'شرایط اتاق‌ها', $descriptions['rooms'], ob_get_clean());
     exit;
