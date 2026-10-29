@@ -389,7 +389,7 @@ if ($method === 'POST' && $path === '/app/rooms') {
         if (post('hour_only') === '1') {
             $hourEnd = clinic_rooms_hour_end((string) post('start_time'));
             if ($hourEnd === null) {
-                throw new RuntimeException('ساعت را از فهرست انتخاب کنید.');
+                throw new RuntimeException('ساعت معتبر وارد کنید؛ مثلاً ۱۴:۳۰ یا ۸.');
             }
             $_POST['end_time'] = $hourEnd;
         }
@@ -1041,15 +1041,9 @@ if ($section === 'rooms') {
             <input type="hidden" name="room_no" value="<?= (int) $number ?>">
             <strong>رزرو <?= e(function_exists('clinic_room_label') ? clinic_room_label((int) $number) : '') ?></strong>
             <label class="label">ساعت
-              <select class="input" name="start_time" required>
-                <option value="">یک ساعت را انتخاب کنید</option>
-                <?php foreach ($clockChoices as $clock): ?>
-                  <?php if (!str_ends_with($clock, ':00')) { continue; } ?>
-                  <option value="<?= e($clock) ?>"><?= e(to_fa_digits($clock)) ?> تا <?= e(to_fa_digits(sprintf('%02d:00', ((int) substr($clock, 0, 2)) + 1))) ?></option>
-                <?php endforeach; ?>
-              </select>
+              <input class="input" type="text" name="start_time" dir="ltr" autocomplete="off" maxlength="5" list="room-clock-options" placeholder="14:30" required>
             </label>
-            <p class="muted" style="margin:0;font-size:.8rem">هر رزرو فقط یک ساعت است و از ساعت کناری جدا می‌ماند.</p>
+            <p class="muted" style="margin:0;font-size:.8rem">ساعت شروع را دستی بنویسید؛ مثلاً ۱۴:۳۰ یا ۸. هر رزرو یک ساعت است.</p>
             <label class="label">برای چیست؟
               <select class="input" name="purpose" data-purpose required>
                 <option value="">انتخاب کنید</option>
@@ -1149,12 +1143,7 @@ if ($section === 'rooms') {
                           <input class="input" type="text" name="booking_day" data-jdp data-jdp-only-date readonly autocomplete="off" required style="cursor:pointer" value="<?= e(function_exists('clinic_rooms_jalali_input') ? clinic_rooms_jalali_input(substr((string) ($row['starts_at'] ?? ''), 0, 10)) : '') ?>">
                         </label>
                         <label class="label">ساعت
-                          <select class="input" name="start_time" required>
-                            <?php foreach ($clockChoices as $clock): ?>
-                              <?php if (!str_ends_with($clock, ':00')) { continue; } ?>
-                              <option value="<?= e($clock) ?>"<?= $editStart === $clock ? ' selected' : '' ?>><?= e(to_fa_digits($clock)) ?></option>
-                            <?php endforeach; ?>
-                          </select>
+                          <input class="input" type="text" name="start_time" dir="ltr" autocomplete="off" maxlength="5" list="room-clock-options" placeholder="14:30" required value="<?= e($editStart) ?>">
                         </label>
                         <label class="label">برای چیست؟
                           <select class="input" name="purpose" data-purpose>
