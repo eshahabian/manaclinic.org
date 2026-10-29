@@ -636,13 +636,6 @@ if ($section === 'home') {
         <em>SMS Controls</em>
       </a>
       <?php endif; ?>
-      <?php if (staff_app_home_tile_allowed($user, '/app/therapist-guide')): ?>
-      <a class="sapp-tile" href="<?= e(url('/app/therapist-guide')) ?>">
-        <span class="sapp-ico sapp-ico-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M8 4h8v3H8zM8 12h8M8 16h5"/><path d="M8 5H5v16h14V5h-3"/></svg></span>
-        <strong>راهنمای انتخاب درمانگر</strong>
-        <em>پاسخ‌ها و نتیجه‌ها</em>
-      </a>
-      <?php endif; ?>
       <?php if (staff_app_home_tile_allowed($user, '/app/complaints')): ?>
       <a class="sapp-tile" href="<?= e(url('/app/complaints')) ?>">
         <span class="sapp-ico sapp-ico-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5 20 19H4L12 4.5z"/><path d="M12 10v4.2"/><path d="M12 16.8h.01"/></svg></span>
