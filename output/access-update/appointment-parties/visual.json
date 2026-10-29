@@ -1,0 +1,50 @@
+{
+  "passed": true,
+  "cases": [
+    {
+      "width": 360,
+      "type": "debt_html",
+      "overflow": false
+    },
+    {
+      "width": 360,
+      "type": "credit_html",
+      "overflow": false
+    },
+    {
+      "width": 360,
+      "type": "empty_html",
+      "overflow": false
+    },
+    {
+      "width": 390,
+      "type": "debt_html",
+      "overflow": false
+    },
+    {
+      "width": 390,
+      "type": "credit_html",
+      "overflow": false
+    },
+    {
+      "width": 390,
+      "type": "empty_html",
+      "overflow": false
+    },
+    {
+      "width": 768,
+      "type": "debt_html",
+      "overflow": false
+    },
+    {
+      "width": 768,
+      "type": "credit_html",
+      "overflow": false
+    },
+    {
+      "width": 768,
+      "type": "empty_html",
+      "overflow": false
+    }
+  ]
+}

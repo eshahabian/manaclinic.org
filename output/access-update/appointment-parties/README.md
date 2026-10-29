@@ -1,0 +1,5 @@
+# App appointment debtor/creditor cards — 2026-10-29
+
+Deployed includes/staff_app_appointment_parties.php and pages/staff_app.php. The booking form appears first, followed by two financial tabs and then the existing daily appointments. Each financial tab preserves its own selected day and uses existing app day navigation and card styles. Debtors retain the existing PENDING/LATER, non-cancelled appointment criteria and are filtered by appointment date. Creditors retain current positive wallet balances and are filtered by the date of the wallet's last update; this basis is explicitly shown to users. No financial writes, recalculation, schema changes or new access grants.
+
+Validation: 20 isolated PHP checks, 9 responsive cases at 360/390/768 px, inspected mobile screenshots, escaped patient data, permission checks for secretary/Emad versus ordinary doctor/other admin, empty/error states and independent navigation. Live file hashes and both read-only production queries verified. Temporary server test files removed. Screenshots contain fabricated test records only.

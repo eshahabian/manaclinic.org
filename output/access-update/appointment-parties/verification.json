@@ -1,0 +1,11 @@
+{
+  "hashes": {
+    "includes/staff_app_appointment_parties.php": "329e1b8ad0910a155bf4a7f9d629a121ba308bf43f49a590478eb797327883d9",
+    "pages/staff_app.php": "6abc38374cc6520692e7b11a5a014d8bd3c9ca6fa2dfc5535e94f018762d650a"
+  },
+  "live_read_queries": true,
+  "row_counts": {
+    "debtors": 13,
+    "creditors": 0
+  }
+}
