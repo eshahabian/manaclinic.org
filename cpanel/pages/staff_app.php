@@ -386,7 +386,7 @@ if ($method === 'POST' && $path === '/app/rooms') {
     require_once __DIR__ . '/../includes/clinic_rooms.php';
     $day = clinic_rooms_parse_day(post('day'));
     try {
-        if (post('hour_only') === '1') {
+        if (post('hour_only') === '1' && trim((string) post('end_time')) === '') {
             $hourEnd = clinic_rooms_hour_end((string) post('start_time'));
             if ($hourEnd === null) {
                 throw new RuntimeException('ساعت معتبر وارد کنید؛ مثلاً ۱۴:۳۰ یا ۸.');
@@ -1035,15 +1035,19 @@ if ($section === 'rooms') {
           <form class="form-stack" style="margin-top:.5rem" method="post" action="<?= e(url('/app/rooms')) ?>" data-room-book>
             <?= csrf_field() ?>
             <input type="hidden" name="action" value="assign">
-            <input type="hidden" name="hour_only" value="1">
             <input type="hidden" name="day" value="<?= e($roomDay) ?>">
             <input type="hidden" name="room_tab" value="<?= (int) $activeRoom ?>">
             <input type="hidden" name="room_no" value="<?= (int) $number ?>">
             <strong>رزرو <?= e(function_exists('clinic_room_label') ? clinic_room_label((int) $number) : '') ?></strong>
-            <label class="label">ساعت
-              <input class="input" type="text" name="start_time" dir="ltr" autocomplete="off" maxlength="5" list="room-clock-options" placeholder="14:30" required>
-            </label>
-            <p class="muted" style="margin:0;font-size:.8rem">ساعت شروع را دستی بنویسید؛ مثلاً ۱۴:۳۰ یا ۸. هر رزرو یک ساعت است.</p>
+            <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem" data-room-time-range>
+              <label class="label">ساعت شروع
+                <input class="input" type="text" name="start_time" dir="ltr" autocomplete="off" maxlength="5" list="room-clock-options" placeholder="14:30" required>
+              </label>
+              <label class="label">ساعت اتمام
+                <input class="input" type="text" name="end_time" dir="ltr" autocomplete="off" maxlength="5" list="room-clock-options" placeholder="16:00" required>
+              </label>
+            </div>
+            <p class="muted" style="margin:0;font-size:.8rem">ساعت شروع و اتمام را دستی بنویسید؛ مثلاً ۱۴:۳۰ تا ۱۶:۰۰.</p>
             <label class="label">برای چیست؟
               <select class="input" name="purpose" data-purpose required>
                 <option value="">انتخاب کنید</option>
@@ -1097,7 +1101,6 @@ if ($section === 'rooms') {
                 $end = strtotime((string) ($row['slice_end'] ?? $row['ends_at'] ?? '')) ?: 0;
                 $wholeStart = strtotime((string) ($row['starts_at'] ?? '')) ?: $start;
                 $wholeEnd = strtotime((string) ($row['ends_at'] ?? '')) ?: $end;
-                $oneHour = ($wholeEnd - $wholeStart) <= 3700;
                 $state = ($now >= $start && $now < $end) ? 'الان' : ($start > $now ? 'رزرو شده' : 'تمام شده');
                 $purposeText = function_exists('clinic_room_purpose') ? clinic_room_purpose($row) : trim((string) ($row['title'] ?? ''));
               ?>
@@ -1108,8 +1111,8 @@ if ($section === 'rooms') {
                   <?php
                     $editKind = (string) ($row['kind'] ?? '');
                     $editPurpose = $editKind === 'WORKSHOP' ? 'workshop' : ($editKind === 'APPOINTMENT' ? 'therapy' : 'block');
-                    $editStart = date('H:i', $start ?: time());
-                    $editEnd = date('H:i', $end ?: time());
+                    $editStart = date('H:i', $wholeStart ?: time());
+                    $editEnd = date('H:i', $wholeEnd ?: time());
                     $editId = 'room-edit-' . preg_replace('/[^a-zA-Z0-9_-]/', '', (string) ($row['id'] ?? ''));
                     $editPatientId = trim((string) ($row['patient_id'] ?? ''));
                     if ($editPatientId === '') {
@@ -1122,14 +1125,12 @@ if ($section === 'rooms') {
                     $editSessionId = trim((string) ($row['workshop_session_id'] ?? ''));
                   ?>
                   <div style="display:flex;gap:.45rem;flex-wrap:wrap;align-items:flex-start;margin-top:.55rem">
-                    <?php if ($oneHour): ?>
                     <details class="room-edit">
                       <summary class="btn btn-outline btn-sm">ویرایش</summary>
                       <form class="panel" method="post" action="<?= e(url('/app/rooms')) ?>" data-room-book style="margin-top:.7rem;display:flex;flex-direction:column;gap:.55rem">
                         <?= csrf_field() ?>
                         <input type="hidden" name="action" value="update">
-                        <input type="hidden" name="hour_only" value="1">
-                        <input type="hidden" name="booking_id" value="<?= e((string) ($row['id'] ?? '')) ?>">
+                                    <input type="hidden" name="booking_id" value="<?= e((string) ($row['id'] ?? '')) ?>">
                         <input type="hidden" name="day" value="<?= e($roomDay) ?>">
             <input type="hidden" name="room_tab" value="<?= (int) $activeRoom ?>">
                         <label class="label">اتاق
@@ -1142,9 +1143,14 @@ if ($section === 'rooms') {
                         <label class="label">تاریخ
                           <input class="input" type="text" name="booking_day" data-jdp data-jdp-only-date readonly autocomplete="off" required style="cursor:pointer" value="<?= e(function_exists('clinic_rooms_jalali_input') ? clinic_rooms_jalali_input(substr((string) ($row['starts_at'] ?? ''), 0, 10)) : '') ?>">
                         </label>
-                        <label class="label">ساعت
-                          <input class="input" type="text" name="start_time" dir="ltr" autocomplete="off" maxlength="5" list="room-clock-options" placeholder="14:30" required value="<?= e($editStart) ?>">
-                        </label>
+                        <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:.65rem" data-room-time-range>
+                          <label class="label">ساعت شروع
+                            <input class="input" type="text" name="start_time" dir="ltr" autocomplete="off" maxlength="5" list="room-clock-options" placeholder="14:30" required value="<?= e($editStart) ?>">
+                          </label>
+                          <label class="label">ساعت اتمام
+                            <input class="input" type="text" name="end_time" dir="ltr" autocomplete="off" maxlength="5" list="room-clock-options" placeholder="16:00" required value="<?= e($editEnd) ?>">
+                          </label>
+                        </div>
                         <label class="label">برای چیست؟
                           <select class="input" name="purpose" data-purpose>
                             <option value="therapy" <?= $editPurpose === 'therapy' ? 'selected' : '' ?>>تراپی</option>
@@ -1193,7 +1199,6 @@ if ($section === 'rooms') {
                         <button class="btn btn-primary btn-sm" type="submit">ذخیره ویرایش</button>
                       </form>
                     </details>
-                    <?php endif; ?>
                     <form method="post" action="<?= e(url('/app/rooms')) ?>" style="margin:0">
                       <?= csrf_field() ?>
                       <input type="hidden" name="action" value="release_hour">
