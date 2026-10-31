@@ -54,6 +54,10 @@ RewriteRule ^video-call-embed/?$ livekit-embed.php [END]
 RewriteRule ^livekit-token/?$ livekit-token-v2.php [END]
 
 # فایل‌های PHP به‌جز index.php مستقیم اجرا نشوند
+# Serve public raster media through the CMS so shared replacements also work in CSS.
+# Receipts, journals and staff attachments are deliberately outside this allowlist.
+RewriteRule ^(?:assets/|uploads/(?:doctors|workshops)/).+\.(?:png|jpe?g|webp)$ psy-admin/index.php [END,NC]
+
 RewriteCond %{REQUEST_FILENAME} -f
 RewriteCond %{REQUEST_URI} !/index\.php$ [NC]
 RewriteRule \.php$ - [F]

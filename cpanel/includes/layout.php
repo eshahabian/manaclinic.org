@@ -1,6 +1,10 @@
 <?php
 declare(strict_types=1);
 
+require_once dirname(__DIR__) . '/psy-admin/entry.php';
+// Capture this layout only. Private clinic pages are excluded by the CMS allowlist.
+ob_start('ManaCms\\layout_output');
+
 require_once __DIR__ . '/seo.php';
 
 foreach (['pageTitle', 'pageDescription', 'pageCanonical', 'pageKeywords', 'pageRobots', 'pageImage', 'pageOgType', 'pageJsonLd'] as $seoKey) {
@@ -643,3 +647,4 @@ if ($adminStaffMsgBlock && $user && ($user['role'] ?? '') === 'SECRETARY'):
 <?php endif; ?>
 </body>
 </html>
+<?php ob_end_flush(); ?>

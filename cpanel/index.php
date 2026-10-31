@@ -1,7 +1,11 @@
 <?php
 declare(strict_types=1);
 
-$configFile = __DIR__ . '/config.php';
+// Independent public-content CMS; dispatch before clinic sessions, schema boot or payment code.
+require_once __DIR__ . '/psy-admin/entry.php';
+\ManaCms\dispatch();
+
+$configFile = \ManaCms\clinic_config_file();
 if (!is_file($configFile)) {
     http_response_code(500);
     echo 'فایل config.php یافت نشد. از config.sample.php کپی کنید.';
