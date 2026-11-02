@@ -1,0 +1,14 @@
+{
+  "template_updated": true,
+  "body": "کاربر آزمایشی گرامی\nنوبت های رزرو شده ۱۱ آبان ۱۴۰۵ :\n09:00\n10:30\n12:00\n13:00\n14:30\n15:30\n17:00\n18:00\n19:00",
+  "chars": 106,
+  "long_render_chars": 628,
+  "all_96_times_preserved": true,
+  "http": 200,
+  "curl_error": "",
+  "raw": "{\"resultCode\":0,\"succeeded\":true,\"refId\":905000966946816000}",
+  "parsed": {
+    "status": "SENT",
+    "id": "905000966946816000"
+  }
+}

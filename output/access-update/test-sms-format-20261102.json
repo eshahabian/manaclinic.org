@@ -1,0 +1,94 @@
+{
+  "now": "2026-11-02 11:16:45",
+  "destination_tail": "3986",
+  "results": {
+    "date_prefix": {
+      "body": "در تاریخ",
+      "chars": 8,
+      "http": 200,
+      "curl_error": "",
+      "raw": "{\"resultCode\":7,\"succeeded\":false,\"refId\":0}",
+      "site_parsed": {
+        "status": "FAILED",
+        "error": "متن پیامک شامل کلمات فیلترشده است."
+      }
+    },
+    "date_words": {
+      "body": "۱۱ آبان ۱۴۰۵",
+      "chars": 12,
+      "http": 200,
+      "curl_error": "",
+      "raw": "{\"resultCode\":0,\"succeeded\":true,\"refId\":905000032338444288}",
+      "site_parsed": {
+        "status": "SENT",
+        "id": "905000032338444288"
+      }
+    },
+    "date_numeric": {
+      "body": "۱۴۰۵/۰۸/۱۱",
+      "chars": 10,
+      "http": 200,
+      "curl_error": "",
+      "raw": "{\"resultCode\":0,\"succeeded\":true,\"refId\":905000100525244416}",
+      "site_parsed": {
+        "status": "SENT",
+        "id": "905000100525244416"
+      }
+    },
+    "newline": {
+      "body": "کاربر آزمایشی\nگرامی",
+      "chars": 19,
+      "http": 200,
+      "curl_error": "",
+      "raw": "{\"resultCode\":0,\"succeeded\":true,\"refId\":905000168355528704}",
+      "site_parsed": {
+        "status": "SENT",
+        "id": "905000168355528704"
+      }
+    },
+    "long_plain": {
+      "body": "کاربر آزمایشی گرامی کاربر آزمایشی گرامی کاربر آزمایشی گرامی کاربر آزمایشی گرامی کاربر آزمایشی گرامی کاربر آزمایشی گرامی کاربر آزمایشی گرامی کاربر آزمایشی گرامی ",
+      "chars": 160,
+      "http": 200,
+      "curl_error": "",
+      "raw": "{\"resultCode\":0,\"succeeded\":true,\"refId\":905000236244533248}",
+      "site_parsed": {
+        "status": "SENT",
+        "id": "905000236244533248"
+      }
+    },
+    "time_ascii": {
+      "body": "ساعت 09:00",
+      "chars": 10,
+      "http": 200,
+      "curl_error": "",
+      "raw": "{\"resultCode\":7,\"succeeded\":false,\"refId\":0}",
+      "site_parsed": {
+        "status": "FAILED",
+        "error": "متن پیامک شامل کلمات فیلترشده است."
+      }
+    },
+    "time_persian": {
+      "body": "ساعت ۰۹:۰۰",
+      "chars": 10,
+      "http": 200,
+      "curl_error": "",
+      "raw": "{\"resultCode\":7,\"succeeded\":false,\"refId\":0}",
+      "site_parsed": {
+        "status": "FAILED",
+        "error": "متن پیامک شامل کلمات فیلترشده است."
+      }
+    },
+    "digest_fixed": {
+      "body": "کاربر آزمایشی گرامی\nنوبت های رزرو شده ۱۱ آبان ۱۴۰۵ :\nساعت ۰۹:۰۰\nساعت ۱۰:۳۰\nساعت ۱۲:۰۰\nساعت ۱۳:۰۰\nساعت ۱۴:۳۰\nساعت ۱۵:۳۰\nساعت ۱۷:۰۰\nساعت ۱۸:۰۰\nساعت ۱۹:۰۰",
+      "chars": 151,
+      "http": 200,
+      "curl_error": "",
+      "raw": "{\"resultCode\":7,\"succeeded\":false,\"refId\":0}",
+      "site_parsed": {
+        "status": "FAILED",
+        "error": "متن پیامک شامل کلمات فیلترشده است."
+      }
+    }
+  }
+}

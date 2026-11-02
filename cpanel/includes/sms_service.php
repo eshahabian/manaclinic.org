@@ -19,7 +19,7 @@ function sms_template_catalog(): array
         'doctor_appointment_booked'=>['اعلام نوبت به درمانگر','مانا کلینیک: نوبت {patient} {datetime}'],
         'doctor_appointment_cancelled'=>['اعلام لغو به درمانگر','مانا کلینیک: لغو {patient} {datetime}'],
         // برنامه فردا، هر شب ساعت ۲۰ به وقت تهران
-        'doctor_daily_digest'=>['برنامه فردای درمانگر',"{doctor} گرامی\nنوبت های رزرو شده در تاریخ {date} :\n{slots}"],
+        'doctor_daily_digest'=>['برنامه فردای درمانگر',"{doctor} گرامی\nنوبت های رزرو شده {date} :\n{slots}"],
         'therapist_copy'=>['کپی پیام درمانگر برای عماد','{message}'],
         'quiet'=>['پیگیری عدم مراجعه','مانا کلینیک: {message}'],
         'login_otp'=>['کد ورود','کد ورود شما {code}'],
@@ -738,13 +738,14 @@ function sms_doctor_daily_digest_body(string $doctorName, string $dayLabel, arra
 {
     $times = array_values(array_unique(array_filter(array_map('trim', $times))));
     sort($times, SORT_STRING);
-    $slots = array_map(static fn(string $time): string => 'ساعت ' . $time, $times);
+    // Provider rejects the old date/time labels; keep every time on its own line.
+    $slots = $times;
     $vars = ['doctor' => trim($doctorName), 'date' => $dayLabel, 'slots' => implode("\n", $slots)];
     global $pdo;
     if ($pdo instanceof PDO) {
         return sms_template_render($pdo, 'doctor_daily_digest', $vars);
     }
-    return $vars['doctor'] . " گرامی\nنوبت های رزرو شده در تاریخ " . $dayLabel . " :\n" . $vars['slots'];
+    return $vars['doctor'] . " گرامی\nنوبت های رزرو شده " . $dayLabel . " :\n" . $vars['slots'];
 }
 
 /** کپی فقط برای دو پروفایل تأییدشده شیوا و عطیه؛ پیام اصلی به خود درمانگر می‌رود. */

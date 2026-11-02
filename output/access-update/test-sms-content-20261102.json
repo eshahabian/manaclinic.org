@@ -1,0 +1,72 @@
+{
+  "now": "2026-11-02 11:14:14",
+  "destination_tail": "3986",
+  "results": {
+    "baseline": {
+      "body": "مانا کلینیک: بررسی فنی ارسال پیامک ۱",
+      "chars": 36,
+      "http": 200,
+      "curl_error": "",
+      "raw": "{\"resultCode\":0,\"succeeded\":true,\"refId\":904999329872216064}",
+      "site_parsed": {
+        "status": "SENT",
+        "id": "904999329872216064"
+      }
+    },
+    "greeting": {
+      "body": "کاربر آزمایشی گرامی",
+      "chars": 19,
+      "http": 200,
+      "curl_error": "",
+      "raw": "{\"resultCode\":0,\"succeeded\":true,\"refId\":904999397677334528}",
+      "site_parsed": {
+        "status": "SENT",
+        "id": "904999397677334528"
+      }
+    },
+    "reservation": {
+      "body": "نوبت های رزرو شده",
+      "chars": 17,
+      "http": 200,
+      "curl_error": "",
+      "raw": "{\"resultCode\":0,\"succeeded\":true,\"refId\":904999465419538432}",
+      "site_parsed": {
+        "status": "SENT",
+        "id": "904999465419538432"
+      }
+    },
+    "date": {
+      "body": "در تاریخ ۱۱ آبان ۱۴۰۵",
+      "chars": 21,
+      "http": 200,
+      "curl_error": "",
+      "raw": "{\"resultCode\":7,\"succeeded\":false,\"refId\":0}",
+      "site_parsed": {
+        "status": "FAILED",
+        "error": "متن پیامک شامل کلمات فیلترشده است."
+      }
+    },
+    "replacement_long": {
+      "body": "مانا کلینیک: برنامه نوبت‌ها ۱۴۰۵/۰۸/۱۱\nساعت 09:00\nساعت 10:30\nساعت 12:00\nساعت 13:00\nساعت 14:30\nساعت 15:30\nساعت 17:00\nساعت 18:00\nساعت 19:00",
+      "chars": 137,
+      "http": 200,
+      "curl_error": "",
+      "raw": "{\"resultCode\":7,\"succeeded\":false,\"refId\":0}",
+      "site_parsed": {
+        "status": "FAILED",
+        "error": "متن پیامک شامل کلمات فیلترشده است."
+      }
+    },
+    "confirmation": {
+      "body": "آبان",
+      "chars": 4,
+      "http": 200,
+      "curl_error": "",
+      "raw": "{\"resultCode\":0,\"succeeded\":true,\"refId\":904999669250129920}",
+      "site_parsed": {
+        "status": "SENT",
+        "id": "904999669250129920"
+      }
+    }
+  }
+}
