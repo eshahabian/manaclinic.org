@@ -332,6 +332,12 @@ function sms_service_ensure_schema(PDO $pdo): void
 {
     static $ready = false;
     if ($ready) return;
+    // Older installs used VARCHAR(500), below the 1200-character digest limit.
+    $bodyColumn = $pdo->query("SHOW FULL COLUMNS FROM sms_outbox LIKE 'body'")->fetch();
+    if (is_array($bodyColumn) && preg_match('/^varchar\((\d+)\)$/i', (string) $bodyColumn['Type'], $bodyMatch)
+        && (int) $bodyMatch[1] < 1200) {
+        $pdo->exec('ALTER TABLE sms_outbox MODIFY COLUMN body TEXT CHARACTER SET utf8mb4 NOT NULL');
+    }
     foreach ([
         'due_at'=>'DATETIME NULL', 'expires_at'=>'DATETIME NULL',
         'dedup_key'=>'CHAR(64) NULL', 'context_json'=>'TEXT NULL',

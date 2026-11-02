@@ -1,0 +1,330 @@
+{
+  "now": "2026-11-02 10:49:12",
+  "settings": [
+    {
+      "setting_key": "sms_cron_installed",
+      "setting_value": "1"
+    },
+    {
+      "setting_key": "sms_enabled",
+      "setting_value": "1"
+    },
+    {
+      "setting_key": "sms_kind_enabled_doctor_appointment_cancelled",
+      "setting_value": "0"
+    },
+    {
+      "setting_key": "sms_kind_enabled_doctor_daily_digest",
+      "setting_value": "1"
+    },
+    {
+      "setting_key": "sms_kind_enabled_therapist_copy",
+      "setting_value": "1"
+    },
+    {
+      "setting_key": "sms_worker_last_run",
+      "setting_value": "2026-11-02 10:49:05"
+    }
+  ],
+  "daily": [
+    {
+      "day": "2026-11-01",
+      "kind": "appointment_booked",
+      "status": "FAILED",
+      "n": 4
+    },
+    {
+      "day": "2026-11-01",
+      "kind": "appointment_booked",
+      "status": "SENT",
+      "n": 7
+    },
+    {
+      "day": "2026-11-01",
+      "kind": "doctor_daily_digest",
+      "status": "FAILED",
+      "n": 1
+    },
+    {
+      "day": "2026-11-01",
+      "kind": "therapist_copy",
+      "status": "FAILED",
+      "n": 1
+    },
+    {
+      "day": "2026-10-31",
+      "kind": "appointment_booked",
+      "status": "FAILED",
+      "n": 1
+    },
+    {
+      "day": "2026-10-31",
+      "kind": "appointment_booked",
+      "status": "SENT",
+      "n": 9
+    },
+    {
+      "day": "2026-10-31",
+      "kind": "appointment_reminder",
+      "status": "SENT",
+      "n": 1
+    },
+    {
+      "day": "2026-10-31",
+      "kind": "doctor_daily_digest",
+      "status": "FAILED",
+      "n": 3
+    },
+    {
+      "day": "2026-10-31",
+      "kind": "therapist_copy",
+      "status": "FAILED",
+      "n": 1
+    },
+    {
+      "day": "2026-10-30",
+      "kind": "doctor_daily_digest",
+      "status": "FAILED",
+      "n": 3
+    },
+    {
+      "day": "2026-10-30",
+      "kind": "therapist_copy",
+      "status": "FAILED",
+      "n": 2
+    },
+    {
+      "day": "2026-10-29",
+      "kind": "appointment_booked",
+      "status": "FAILED",
+      "n": 1
+    },
+    {
+      "day": "2026-10-29",
+      "kind": "appointment_booked",
+      "status": "SENT",
+      "n": 5
+    },
+    {
+      "day": "2026-10-29",
+      "kind": "appointment_reminder",
+      "status": "SENT",
+      "n": 3
+    },
+    {
+      "day": "2026-10-29",
+      "kind": "workshop_session_reflect_copy",
+      "status": "FAILED",
+      "n": 1
+    },
+    {
+      "day": "2026-10-28",
+      "kind": "appointment_booked",
+      "status": "SENT",
+      "n": 13
+    },
+    {
+      "day": "2026-10-28",
+      "kind": "appointment_booked",
+      "status": "SKIPPED",
+      "n": 13
+    },
+    {
+      "day": "2026-10-28",
+      "kind": "doctor_appointment_booked",
+      "status": "FAILED",
+      "n": 1
+    },
+    {
+      "day": "2026-10-28",
+      "kind": "doctor_appointment_booked",
+      "status": "SENT",
+      "n": 12
+    },
+    {
+      "day": "2026-10-28",
+      "kind": "therapist_copy",
+      "status": "SKIPPED",
+      "n": 13
+    },
+    {
+      "day": "2026-10-26",
+      "kind": "appointment_reminder",
+      "status": "SKIPPED",
+      "n": 1
+    }
+  ],
+  "doctor_recent": [
+    {
+      "kind": "doctor_daily_digest",
+      "status": "FAILED",
+      "body": "دکتر شیوا گرانمایه پور گرامی\nنوبت های رزرو شده در تاریخ ۱۱ آبان ۱۴۰۵ :\nساعت 00:00\nساعت 09:30\nساعت 10:30\nساعت 13:00\nساعت 14:30\nساعت 15:30",
+      "created_at": "2026-11-01 20:00:12",
+      "due_at": "2026-11-01 20:00:00",
+      "sent_at": null,
+      "last_error": "متن پیامک شامل کلمات فیلترشده است.",
+      "has_provider_id": 0,
+      "context_json": "{\"entity\":\"doctor_digest\",\"doctor_id\":\"dprofile001mana\",\"digest_date\":\"2026-11-02\",\"slot\":\"night20\"}"
+    },
+    {
+      "kind": "therapist_copy",
+      "status": "FAILED",
+      "body": "دکتر شیوا گرانمایه پور گرامی\nنوبت های رزرو شده در تاریخ ۱۱ آبان ۱۴۰۵ :\nساعت 00:00\nساعت 09:30\nساعت 10:30\nساعت 13:00\nساعت 14:30\nساعت 15:30",
+      "created_at": "2026-11-01 20:00:12",
+      "due_at": "2026-11-01 20:00:00",
+      "sent_at": null,
+      "last_error": "متن پیامک شامل کلمات فیلترشده است.",
+      "has_provider_id": 0,
+      "context_json": "{\"entity\":\"therapist_copy\",\"source_id\":\"3e4489ef1b3ba674449ffb9a\",\"copy_for\":\"e0212a39970b7a211d766548\"}"
+    },
+    {
+      "kind": "therapist_copy",
+      "status": "FAILED",
+      "body": "دکتر شیوا گرانمایه پور گرامی\nنوبت های رزرو شده در تاریخ ۱۰ آبان ۱۴۰۵ :\nساعت 12:00\nساعت 13:00\nساعت 14:00\nساعت 15:00\nساعت 17:00\nساعت 18:00\nساعت 19:00",
+      "created_at": "2026-10-31 20:00:06",
+      "due_at": "2026-10-31 20:00:00",
+      "sent_at": null,
+      "last_error": "متن پیامک شامل کلمات فیلترشده است.",
+      "has_provider_id": 0,
+      "context_json": "{\"entity\":\"therapist_copy\",\"source_id\":\"82cd4d7f6de2ed7ca0bc2e9a\",\"copy_for\":\"e0212a39970b7a211d766548\"}"
+    },
+    {
+      "kind": "doctor_daily_digest",
+      "status": "FAILED",
+      "body": "دکتر شیوا گرانمایه پور گرامی\nنوبت های رزرو شده در تاریخ ۱۰ آبان ۱۴۰۵ :\nساعت 12:00\nساعت 13:00\nساعت 14:00\nساعت 15:00\nساعت 17:00\nساعت 18:00\nساعت 19:00",
+      "created_at": "2026-10-31 20:00:06",
+      "due_at": "2026-10-31 20:00:00",
+      "sent_at": null,
+      "last_error": "متن پیامک شامل کلمات فیلترشده است.",
+      "has_provider_id": 0,
+      "context_json": "{\"entity\":\"doctor_digest\",\"doctor_id\":\"dprofile001mana\",\"digest_date\":\"2026-11-01\",\"slot\":\"night20\"}"
+    },
+    {
+      "kind": "doctor_daily_digest",
+      "status": "FAILED",
+      "body": "خانم زینب عادل گرامی\nنوبت های رزرو شده در تاریخ ۱۰ آبان ۱۴۰۵ :\nساعت 17:00",
+      "created_at": "2026-10-31 20:00:06",
+      "due_at": "2026-10-31 20:00:00",
+      "sent_at": null,
+      "last_error": "متن پیامک شامل کلمات فیلترشده است.",
+      "has_provider_id": 0,
+      "context_json": "{\"entity\":\"doctor_digest\",\"doctor_id\":\"917aa235b41a87114af27c89\",\"digest_date\":\"2026-11-01\",\"slot\":\"night20\"}"
+    },
+    {
+      "kind": "doctor_daily_digest",
+      "status": "FAILED",
+      "body": "آقای مهدی عسگری گرامی\nنوبت های رزرو شده در تاریخ ۱۰ آبان ۱۴۰۵ :\nساعت 14:00\nساعت 15:30\nساعت 17:00",
+      "created_at": "2026-10-31 20:00:06",
+      "due_at": "2026-10-31 20:00:00",
+      "sent_at": null,
+      "last_error": "متن پیامک شامل کلمات فیلترشده است.",
+      "has_provider_id": 0,
+      "context_json": "{\"entity\":\"doctor_digest\",\"doctor_id\":\"68450cc62eebcf6bc50bfd25\",\"digest_date\":\"2026-11-01\",\"slot\":\"night20\"}"
+    },
+    {
+      "kind": "doctor_daily_digest",
+      "status": "FAILED",
+      "body": "دکتر شیوا گرانمایه پور گرامی\nنوبت های رزرو شده در تاریخ ۹ آبان ۱۴۰۵ :\nساعت 09:00\nساعت 10:30\nساعت 12:00\nساعت 13:00\nساعت 18:15\nساعت 19:30",
+      "created_at": "2026-10-30 20:00:05",
+      "due_at": "2026-10-30 20:00:00",
+      "sent_at": null,
+      "last_error": "متن پیامک شامل کلمات فیلترشده است.",
+      "has_provider_id": 0,
+      "context_json": "{\"entity\":\"doctor_digest\",\"doctor_id\":\"dprofile001mana\",\"digest_date\":\"2026-10-31\",\"slot\":\"night20\"}"
+    },
+    {
+      "kind": "therapist_copy",
+      "status": "FAILED",
+      "body": "عطیه گارسچی گرامی\nنوبت های رزرو شده در تاریخ ۹ آبان ۱۴۰۵ :\nساعت 11:00",
+      "created_at": "2026-10-30 20:00:05",
+      "due_at": "2026-10-30 20:00:00",
+      "sent_at": null,
+      "last_error": "متن پیامک شامل کلمات فیلترشده است.",
+      "has_provider_id": 0,
+      "context_json": "{\"entity\":\"therapist_copy\",\"source_id\":\"fa32bb19a247a9fb8c5bb1a0\",\"copy_for\":\"e0212a39970b7a211d766548\"}"
+    },
+    {
+      "kind": "doctor_daily_digest",
+      "status": "FAILED",
+      "body": "دکتر حمید بهرامی زاده گرامی\nنوبت های رزرو شده در تاریخ ۹ آبان ۱۴۰۵ :\nساعت 16:00",
+      "created_at": "2026-10-30 20:00:05",
+      "due_at": "2026-10-30 20:00:00",
+      "sent_at": null,
+      "last_error": "متن پیامک شامل کلمات فیلترشده است.",
+      "has_provider_id": 0,
+      "context_json": "{\"entity\":\"doctor_digest\",\"doctor_id\":\"0f49ac336257aba57330003e\",\"digest_date\":\"2026-10-31\",\"slot\":\"night20\"}"
+    },
+    {
+      "kind": "therapist_copy",
+      "status": "FAILED",
+      "body": "دکتر شیوا گرانمایه پور گرامی\nنوبت های رزرو شده در تاریخ ۹ آبان ۱۴۰۵ :\nساعت 09:00\nساعت 10:30\nساعت 12:00\nساعت 13:00\nساعت 18:15\nساعت 19:30",
+      "created_at": "2026-10-30 20:00:05",
+      "due_at": "2026-10-30 20:00:00",
+      "sent_at": null,
+      "last_error": "متن پیامک شامل کلمات فیلترشده است.",
+      "has_provider_id": 0,
+      "context_json": "{\"entity\":\"therapist_copy\",\"source_id\":\"18464e1333bb37d0bd42dc77\",\"copy_for\":\"e0212a39970b7a211d766548\"}"
+    },
+    {
+      "kind": "doctor_daily_digest",
+      "status": "FAILED",
+      "body": "عطیه گارسچی گرامی\nنوبت های رزرو شده در تاریخ ۹ آبان ۱۴۰۵ :\nساعت 11:00",
+      "created_at": "2026-10-30 20:00:05",
+      "due_at": "2026-10-30 20:00:00",
+      "sent_at": null,
+      "last_error": "متن پیامک شامل کلمات فیلترشده است.",
+      "has_provider_id": 0,
+      "context_json": "{\"entity\":\"doctor_digest\",\"doctor_id\":\"8e8e603d798ddbd2e8177cf0\",\"digest_date\":\"2026-10-31\",\"slot\":\"night20\"}"
+    }
+  ],
+  "errors": [
+    {
+      "kind": "workshop_session_reflect_copy",
+      "status": "FAILED",
+      "last_error": "اعتبار پنل کافی نیست.",
+      "n": 1,
+      "latest": "2026-10-29 18:33:04"
+    },
+    {
+      "kind": "appointment_booked",
+      "status": "FAILED",
+      "last_error": "ارسال تکراری؛ کمی بعد دوباره تلاش کنید.",
+      "n": 6,
+      "latest": "2026-11-01 17:34:05"
+    },
+    {
+      "kind": "doctor_daily_digest",
+      "status": "FAILED",
+      "last_error": "متن پیامک شامل کلمات فیلترشده است.",
+      "n": 7,
+      "latest": "2026-11-01 20:00:12"
+    },
+    {
+      "kind": "therapist_copy",
+      "status": "FAILED",
+      "last_error": "متن پیامک شامل کلمات فیلترشده است.",
+      "n": 4,
+      "latest": "2026-11-01 20:00:12"
+    }
+  ],
+  "eligible": [
+    {
+      "day": "2026-10-31",
+      "appointments": 8,
+      "doctors": 3
+    },
+    {
+      "day": "2026-11-01",
+      "appointments": 11,
+      "doctors": 3
+    },
+    {
+      "day": "2026-11-02",
+      "appointments": 6,
+      "doctors": 1
+    }
+  ],
+  "source_hash": "b148ca283c98cf8c1abddb4e4198d69a0b04b7606ee834108afd474fbcd52167",
+  "cron_rc": 1,
+  "cron_sms_count": 0
+}

@@ -117,7 +117,7 @@ function ensure_outreach_schema(PDO $pdo): void
       CREATE TABLE IF NOT EXISTS sms_outbox (
         id VARCHAR(32) PRIMARY KEY,
         phone VARCHAR(32) NOT NULL,
-        body VARCHAR(500) NOT NULL,
+        body TEXT CHARACTER SET utf8mb4 NOT NULL,
         kind VARCHAR(32) NOT NULL DEFAULT 'manual',
         status VARCHAR(16) NOT NULL DEFAULT 'PENDING',
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,

@@ -1,0 +1,29 @@
+{
+  "before": {
+    "Field": "body",
+    "Type": "varchar(500)",
+    "Collation": "utf8mb4_0900_ai_ci",
+    "Null": "NO",
+    "Key": "",
+    "Default": null,
+    "Extra": "",
+    "Privileges": "select,insert,update,references",
+    "Comment": ""
+  },
+  "after": {
+    "Field": "body",
+    "Type": "text",
+    "Collation": "utf8mb4_0900_ai_ci",
+    "Null": "NO",
+    "Key": "",
+    "Default": null,
+    "Extra": "",
+    "Privileges": "select,insert,update,references",
+    "Comment": ""
+  },
+  "changed": true,
+  "preserved_rows": 341,
+  "roundtrip_chars": 1200,
+  "roundtrip_ok": true,
+  "sms_sent": false
+}
