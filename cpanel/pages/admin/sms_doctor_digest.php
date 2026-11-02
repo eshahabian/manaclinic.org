@@ -150,7 +150,7 @@ ob_start();
             <br>
             <?php if ($slots > 0): ?>
               <span class="muted"><?= e(to_fa_digits((string) $slots)) ?> نوبت:
-                <?= e(implode('، ', array_map(static fn(string $t): string => to_fa_digits($t), $pack['times'] ?? []))) ?>
+                <?= e(implode('، ', array_map(static fn(string $t): string => to_fa_digits($t), $pack['slots'] ?? $pack['times'] ?? []))) ?>
               </span>
             <?php else: ?>
               <span class="muted">این روز نوبت تأییدشده ندارد</span>

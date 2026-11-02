@@ -734,12 +734,13 @@ function sms_dispatch_pending(PDO $pdo, int $limit=20): int
 }
 
 /** برنامه هر درمانگر، یک ساعت در هر خط؛ بدون حذف ساعت‌های انتهای فهرست. */
-function sms_doctor_daily_digest_body(string $doctorName, string $dayLabel, array $times): string
+function sms_doctor_daily_digest_body(string $doctorName, string $dayLabel, array $times, ?array $appointmentLabels = null): string
 {
     $times = array_values(array_unique(array_filter(array_map('trim', $times))));
     sort($times, SORT_STRING);
     // Provider rejects the old date/time labels; keep every time on its own line.
-    $slots = $times;
+    $slots = $appointmentLabels === null ? $times : array_values(array_filter(array_map('trim', $appointmentLabels)));
+    sort($slots, SORT_STRING);
     $vars = ['doctor' => trim($doctorName), 'date' => $dayLabel, 'slots' => implode("\n", $slots)];
     global $pdo;
     if ($pdo instanceof PDO) {
@@ -761,7 +762,7 @@ function sms_doctor_digest_copy_allowed(PDO $pdo, string $doctorId): bool
  * خلاصه نوبت‌های تأییدشدهٔ یک روز برای درمانگرها.
  *
  * @param list<string>|null $doctorIds اگر null باشد همه؛ وگرنه فقط همین پروفایل‌ها
- * @return list<array{doctor_id:string,name:string,phone:?string,times:list<string>,body:string,slot_count:int}>
+ * @return list<array{doctor_id:string,name:string,phone:?string,times:list<string>,slots:list<string>,body:string,slot_count:int}>
  */
 function sms_doctor_digests_for_date(PDO $pdo, string $ymd, ?array $doctorIds = null): array
 {
@@ -774,10 +775,12 @@ function sms_doctor_digests_for_date(PDO $pdo, string $ymd, ?array $doctorIds = 
     }
 
     $sql = "
-      SELECT dp.id AS doctor_id, u.name AS doctor_name, u.phone AS doctor_phone, a.starts_at
+      SELECT dp.id AS doctor_id, u.name AS doctor_name, u.phone AS doctor_phone, a.starts_at,
+        patient.name AS patient_name
       FROM appointments a
       JOIN doctor_profiles dp ON dp.id = a.doctor_id
       JOIN users u ON u.id = dp.user_id
+      LEFT JOIN users patient ON patient.id = a.patient_id
       WHERE DATE(a.starts_at) = ?
         AND a.status = 'CONFIRMED'
         AND dp.is_active = 1
@@ -801,7 +804,7 @@ function sms_doctor_digests_for_date(PDO $pdo, string $ymd, ?array $doctorIds = 
         ? format_fa_day_long($ymd . ' 12:00:00')
         : to_fa_digits($ymd);
 
-    /** @var array<string,array{name:string,phone:string,times:list<string>}> $byDoctor */
+    /** @var array<string,array{name:string,phone:string,times:list<string>,slots:list<string>}> $byDoctor */
     $byDoctor = [];
     foreach ($rows as $row) {
         $doctorId = (string) ($row['doctor_id'] ?? '');
@@ -813,6 +816,7 @@ function sms_doctor_digests_for_date(PDO $pdo, string $ymd, ?array $doctorIds = 
                 'name' => (string) ($row['doctor_name'] ?? ''),
                 'phone' => (string) ($row['doctor_phone'] ?? ''),
                 'times' => [],
+                'slots' => [],
             ];
         }
         $ts = strtotime((string) ($row['starts_at'] ?? ''));
@@ -820,6 +824,8 @@ function sms_doctor_digests_for_date(PDO $pdo, string $ymd, ?array $doctorIds = 
             continue;
         }
         $byDoctor[$doctorId]['times'][] = date('H:i', $ts);
+        $patientName = trim(preg_replace('/\s+/u', ' ', (string) ($row['patient_name'] ?? '')) ?? '');
+        $byDoctor[$doctorId]['slots'][] = date('H:i', $ts) . ' — ' . ($patientName !== '' ? $patientName : 'نام ثبت نشده');
     }
 
     $out = [];
@@ -833,8 +839,9 @@ function sms_doctor_digests_for_date(PDO $pdo, string $ymd, ?array $doctorIds = 
             'name' => $pack['name'],
             'phone' => sms_iran_mobile($pack['phone']),
             'times' => $times,
-            'body' => sms_doctor_daily_digest_body($pack['name'], $dayLabel, $times),
-            'slot_count' => count($times),
+            'slots' => $pack['slots'],
+            'body' => sms_doctor_daily_digest_body($pack['name'], $dayLabel, $times, $pack['slots']),
+            'slot_count' => count($pack['slots']),
         ];
     }
 
