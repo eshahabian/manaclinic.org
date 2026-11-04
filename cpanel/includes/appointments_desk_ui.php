@@ -156,7 +156,7 @@ ob_start();
       <?= $secretaryBookFormHtml ?? '' ?>
     </section>
     <section class="binder-panel<?= $binderInitial === 'reservations' ? ' is-active' : '' ?>" data-binder-panel="reservations" role="tabpanel"<?= $binderInitial === 'reservations' ? '' : ' hidden' ?>>
-      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">درخواست وقت مراجعه‌کننده اینجاست، جدا از نوبت‌های قطعی. تا وقتی «پرداخت شده» را با فیش بانکی نزده‌اید، حق ویزیت از کیف پول کم شده و موجودی می‌تواند منفی باشد. با تأیید فیش، همان بدهی برمی‌گردد. اگر تا یک ساعت هیچ‌کدام زده نشود، وقت آزاد می‌شود و بدهی هم برمی‌گردد.</p>
+      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem"><?php if (function_exists('patient_wallet_paused') && patient_wallet_paused()): ?>درخواست وقت مراجعه‌کننده اینجاست، جدا از نوبت‌های قطعی. با «پرداخت شد» یا «پرداخت نشد» وقت رزرو می‌شود. اگر تا یک ساعت هیچ‌کدام زده نشود، وقت آزاد می‌شود.<?php else: ?>درخواست وقت مراجعه‌کننده اینجاست، جدا از نوبت‌های قطعی. تا وقتی «پرداخت شده» را با فیش بانکی نزده‌اید، حق ویزیت از کیف پول کم شده و موجودی می‌تواند منفی باشد. با تأیید فیش، همان بدهی برمی‌گردد. اگر تا یک ساعت هیچ‌کدام زده نشود، وقت آزاد می‌شود و بدهی هم برمی‌گردد.<?php endif; ?></p>
       <?= appointment_search_form_html($deskAction, 'reservations', $searchQ, $searchDay, $searchJalali, $filterActive, 'rs', 'نام مراجعه‌کننده یا درمانگر…', appointment_search_name_choices($reservations)) ?>
       <?php
         $appointmentList = $filterActive ? $reservationsFiltered : $reservations;

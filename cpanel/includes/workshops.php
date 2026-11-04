@@ -1366,11 +1366,16 @@ function workshop_mark_paid_by_staff(PDO $pdo, string $enrollmentId, string $sta
         throw new RuntimeException('این ثبت‌نام لغو شده است.');
     }
 
-    $relative = staff_save_receipt($file, (string) ($row['payment_id'] ?: $enrollmentId));
-    if (!empty($row['receipt_path'])) {
-        $old = staff_receipt_abs((string) $row['receipt_path']);
-        if (is_file($old)) {
-            @unlink($old);
+    $hasFile = (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE);
+    $receiptPaused = function_exists('receipt_upload_paused') && receipt_upload_paused();
+    $relative = (string) ($row['receipt_path'] ?? '');
+    if ($hasFile || !$receiptPaused) {
+        $relative = staff_save_receipt($file, (string) ($row['payment_id'] ?: $enrollmentId));
+        if (!empty($row['receipt_path'])) {
+            $old = staff_receipt_abs((string) $row['receipt_path']);
+            if (is_file($old)) {
+                @unlink($old);
+            }
         }
     }
 
@@ -1380,7 +1385,7 @@ function workshop_mark_paid_by_staff(PDO $pdo, string $enrollmentId, string $sta
     if ($paymentId === '') {
         $paymentId = cuid();
         $pdo->prepare('INSERT INTO workshop_payments (id, enrollment_id, amount, status, ref_id, receipt_path, recorded_by_user_id) VALUES (?,?,?,?,?,?,?)')
-            ->execute([$paymentId, $enrollmentId, (int) ($row['amount'] ?? 0), 'PAID', 'SECRETARY', $relative, $staffUserId]);
+            ->execute([$paymentId, $enrollmentId, (int) ($row['amount'] ?? 0), 'PAID', 'SECRETARY', $relative !== '' ? $relative : null, $staffUserId]);
     } else {
         $pdo->prepare('UPDATE workshop_payments SET receipt_path=?, recorded_by_user_id=? WHERE id=?')
             ->execute([$relative, $staffUserId, $paymentId]);
@@ -1404,7 +1409,9 @@ function workshop_mark_paid_by_staff(PDO $pdo, string $enrollmentId, string $sta
             $pdo,
             'SECRETARY',
             'پرداخت کارگاه توسط کارکنان',
-            "پرداخت «{$row['patient_name']}» برای کارگاه «{$row['title']}» ({$when}) توسط {$staffLabel} با فیش ثبت شد. عضویت هنوز نیاز به تأیید دارد.",
+            $receiptPaused
+                ? "پرداخت «{$row['patient_name']}» برای کارگاه «{$row['title']}» ({$when}) توسط {$staffLabel} ثبت شد. عضویت هنوز نیاز به تأیید دارد."
+                : "پرداخت «{$row['patient_name']}» برای کارگاه «{$row['title']}» ({$when}) توسط {$staffLabel} با فیش ثبت شد. عضویت هنوز نیاز به تأیید دارد.",
             '/secretary/workshops',
             'workshop'
         );

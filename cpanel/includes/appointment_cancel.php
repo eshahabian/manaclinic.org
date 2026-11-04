@@ -78,6 +78,9 @@ function appointment_visit_fee_amount(PDO $pdo, array $row, string $appointmentI
 function appointment_refund_hint(string $startsAt): string
 {
     if (appointment_refund_rate($startsAt) >= 1.0) {
+        if (function_exists('patient_wallet_paused') && patient_wallet_paused()) {
+            return 'حداقل ۲۴ ساعت مانده است و کل مبلغ قابل بازگشت است.';
+        }
         return 'حداقل ۲۴ ساعت مانده است و کل مبلغ به کیف پول برمی‌گردد.';
     }
 
@@ -151,7 +154,9 @@ function cancel_patient_appointment(PDO $pdo, string $appointmentId, string $pat
 
     $message = 'نوبت لغو شد.';
     if ($refundAmount > 0) {
-        $message .= ' ' . format_price($refundAmount) . ' به کیف پول شما واریز شد.';
+        $message .= (function_exists('patient_wallet_paused') && patient_wallet_paused())
+            ? (' ' . format_price($refundAmount) . ' قابل بازگشت ثبت شد.')
+            : (' ' . format_price($refundAmount) . ' به کیف پول شما واریز شد.');
     } elseif ($row['status'] === 'CONFIRMED' && ($row['pay_status'] ?? '') === 'PAID') {
         $message .= ' ' . appointment_refund_hint((string) $row['starts_at']);
     }
@@ -299,7 +304,9 @@ function secretary_mark_patient_cancelled(PDO $pdo, string $appointmentId, array
         ? "نوبت {$when} از سمت کلینیک لغو شد."
         : "نوبت {$when} از سمت شما لغو شد.";
     if ($refundAmount > 0) {
-        $patientNote .= ' ' . format_price($refundAmount) . ' به کیف پول شما برگشت.';
+        $patientNote .= (function_exists('patient_wallet_paused') && patient_wallet_paused())
+            ? (' ' . format_price($refundAmount) . ' قابل بازگشت ثبت شد.')
+            : (' ' . format_price($refundAmount) . ' به کیف پول شما برگشت.');
     }
     if (!function_exists('therapy_self_appointments_path_for_id')) {
         require_once __DIR__ . '/booking_terms.php';
@@ -375,7 +382,7 @@ function secretary_patient_cancel_form(string $appointmentId, string $status, st
       <label class="label" for="cancel-side-<?= e($appointmentId) ?>">کنسلی از کدام سمت است؟</label>
       <select class="input" id="cancel-side-<?= e($appointmentId) ?>" name="cancel_side" required>
         <option value="patient">از سمت مراجع — حداقل ۲۴ ساعت کل مبلغ، کمتر از ۲۴ ساعت بدون استرداد</option>
-        <option value="clinic">از سمت منشی — حتی یک دقیقه مانده باشد کل مبلغ به کیف پول برمی‌گردد</option>
+        <option value="clinic"><?= (function_exists('patient_wallet_paused') && patient_wallet_paused()) ? 'از سمت منشی — حتی یک دقیقه مانده باشد کل مبلغ برمی‌گردد' : 'از سمت منشی — حتی یک دقیقه مانده باشد کل مبلغ به کیف پول برمی‌گردد' ?></option>
       </select>
       <label class="label" for="cancel-note-<?= e($appointmentId) ?>">یادداشت کنسلی</label>
       <textarea class="input" id="cancel-note-<?= e($appointmentId) ?>" name="note" rows="2" placeholder="یادداشت کنسلی را بنویسید"></textarea>

@@ -4,6 +4,9 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../includes/wallet.php';
 
 $embedded = !empty($balanceEmbedded);
+if (function_exists('patient_wallet_paused') && patient_wallet_paused()) {
+    redirect($embedded ? '/app' : '/secretary/appointments');
+}
 if (!$embedded) {
     require_once __DIR__ . '/../../includes/secretary_panel.php';
     require_login(['SECRETARY']);

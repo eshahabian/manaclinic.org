@@ -123,7 +123,13 @@ if (appointment_has_overlap($pdo, $doctorId, $startsAt, $endsAt)) {
 }
 
 $payMethod = (string) post('pay_method');
-if (!in_array($payMethod, ['wallet', 'card', 'later'], true)) {
+$walletPaused = function_exists('patient_wallet_paused') && patient_wallet_paused();
+$receiptPaused = function_exists('receipt_upload_paused') && receipt_upload_paused();
+if ($walletPaused) {
+    if (!in_array($payMethod, ['paid', 'unpaid'], true)) {
+        $payMethod = 'unpaid';
+    }
+} elseif (!in_array($payMethod, ['wallet', 'card', 'later'], true)) {
     $payMethod = !empty($_FILES['receipt']['name']) ? 'card' : 'later';
 }
 $amount = (int) $doctor['session_price'];
@@ -138,11 +144,11 @@ if ($amount <= 0) {
     flash_set('error', 'هزینه جلسه این درمانگر مشخص نیست.');
     $bookRedirect('/secretary/appointments?tab=new');
 }
-if ($payMethod === 'card' && empty($_FILES['receipt']['name'])) {
+if (!$receiptPaused && $payMethod === 'card' && empty($_FILES['receipt']['name'])) {
     flash_set('error', 'برای کارت به کارت، فیش را بارگذاری کنید.');
     $bookRedirect('/secretary/appointments?tab=new');
 }
-if ($payMethod === 'wallet' || $payMethod === 'later') {
+if (!$walletPaused && ($payMethod === 'wallet' || $payMethod === 'later')) {
     require_once __DIR__ . '/../includes/wallet.php';
     ensure_wallet_schema($pdo);
     $wallet = ensure_wallet($pdo, $patientId);
@@ -243,7 +249,7 @@ appointment_ensure_room_schema($pdo);
 $pdo->beginTransaction();
 try {
     $receiptPath = null;
-    if ($payMethod === 'card' && !empty($_FILES['receipt']['name'])) {
+    if (!$receiptPaused && $payMethod === 'card' && !empty($_FILES['receipt']['name'])) {
         $receiptPath = staff_save_receipt($_FILES['receipt'], $paymentId);
     }
     $firstId = '';
@@ -256,16 +262,24 @@ try {
         }
         $bookedIds[] = $rowId;
         $isFirst = $index === 0;
-        $payStatus = (!$isFirst || $payMethod === 'later') ? 'PENDING' : 'PAID';
-        $payRef = !$isFirst ? 'LATER' : ($payMethod === 'wallet' ? 'WALLET' : ($payMethod === 'card' ? 'CARD' : 'LATER'));
-        $payNote = (!$isFirst || $payMethod === 'later')
-            ? ($isFirst ? 'پرداخت بعدی؛ بدهی نوبت منشی' : 'پرداخت بعدی؛ تکرار نوبت')
-            : null;
+        if ($walletPaused) {
+            $payStatus = (!$isFirst || $payMethod === 'unpaid') ? 'PENDING' : 'PAID';
+            $payRef = !$isFirst ? 'LATER' : ($payMethod === 'paid' ? 'SECRETARY' : 'UNPAID');
+            $payNote = (!$isFirst || $payMethod === 'unpaid')
+                ? ($isFirst ? 'پرداخت نشده' : 'پرداخت بعدی؛ تکرار نوبت')
+                : null;
+        } else {
+            $payStatus = (!$isFirst || $payMethod === 'later') ? 'PENDING' : 'PAID';
+            $payRef = !$isFirst ? 'LATER' : ($payMethod === 'wallet' ? 'WALLET' : ($payMethod === 'card' ? 'CARD' : 'LATER'));
+            $payNote = (!$isFirst || $payMethod === 'later')
+                ? ($isFirst ? 'پرداخت بعدی؛ بدهی نوبت منشی' : 'پرداخت بعدی؛ تکرار نوبت')
+                : null;
+        }
         $pdo->prepare('INSERT INTO appointments (id,doctor_id,patient_id,starts_at,ends_at,status,notes,session_mode,room_no,created_by_user_id,staff_payment_note) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
             ->execute([$rowId, $doctorId, $patientId, $occur['starts'], $occur['ends'], 'CONFIRMED', $notes, $sessionMode, $roomNo > 0 ? $roomNo : null, $actorId, $payNote]);
         $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,status,ref_id,recorded_by_user_id,receipt_path) VALUES (?,?,?,?,?,?,?)')
             ->execute([$rowPayId, $rowId, $amount, $payStatus, $payRef, $actorId, $isFirst ? $receiptPath : null]);
-        if ($isFirst && $payMethod === 'wallet') {
+        if (!$walletPaused && $isFirst && $payMethod === 'wallet') {
             wallet_debit_balance(
                 $pdo,
                 $patientId,
@@ -274,7 +288,7 @@ try {
                 $rowId,
                 'پرداخت نوبت از کیف پول، ثبت منشی'
             );
-        } elseif (!$isFirst || $payMethod === 'later') {
+        } elseif (!$walletPaused && (!$isFirst || $payMethod === 'later')) {
             if (!function_exists('wallet_charge_visit')) {
                 require_once __DIR__ . '/../includes/wallet.php';
             }
@@ -352,11 +366,13 @@ try {
         }
     }
 
-    $payBit = match ($payMethod) {
-        'wallet' => ' مبلغ نوبت اول از کیف پول کم شد.',
-        'card' => ' پرداخت کارت به کارت نوبت اول با فیش ثبت شد.',
-        default => ' حق ویزیت از کیف پول کم شد و تا تأیید فیش می‌تواند منفی بماند.',
-    };
+    $payBit = $walletPaused
+        ? ($payMethod === 'paid' ? ' نوبت اول پرداخت‌شده ثبت شد.' : ' نوبت اول پرداخت‌نشده ثبت شد.')
+        : match ($payMethod) {
+            'wallet' => ' مبلغ نوبت اول از کیف پول کم شد.',
+            'card' => ' پرداخت کارت به کارت نوبت اول با فیش ثبت شد.',
+            default => ' حق ویزیت از کیف پول کم شد و تا تأیید فیش می‌تواند منفی بماند.',
+        };
     $seriesMsg = $bookedCount > 1
         ? ' ' . to_fa_digits((string) $bookedCount) . ' نوبت ' . $repeatLabel . ' ثبت شد. نوبت‌های بعدی پرداخت‌بعدی ماندند.'
         : '';

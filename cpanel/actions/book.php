@@ -146,7 +146,9 @@ try {
     echo json_encode([
         'appointmentId' => $appointmentId,
         'awaitingApproval' => true,
-        'message' => 'درخواست شما ارسال شد. تا تأیید فیش توسط منشی، حق ویزیت از کیف پول کم می‌شود و موجودی می‌تواند منفی باشد. تا یک ساعت این وقت برای شما می‌ماند.',
+        'message' => (function_exists('patient_wallet_paused') && patient_wallet_paused())
+            ? 'درخواست شما ارسال شد. تا یک ساعت این وقت برای شما می‌ماند و پس از ثبت منشی، نوبت رزرو می‌شود.'
+            : 'درخواست شما ارسال شد. تا تأیید فیش توسط منشی، حق ویزیت از کیف پول کم می‌شود و موجودی می‌تواند منفی باشد. تا یک ساعت این وقت برای شما می‌ماند.',
     ], JSON_UNESCAPED_UNICODE);
 } catch (Throwable $e) {
     $pdo->rollBack();

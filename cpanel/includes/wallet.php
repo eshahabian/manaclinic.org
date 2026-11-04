@@ -310,6 +310,9 @@ function wallet_charge_visit(PDO $pdo, string $userId, string $appointmentId, in
     if ($userId === '' || $appointmentId === '' || $amount <= 0) {
         return 0;
     }
+    if (function_exists('patient_wallet_paused') && patient_wallet_paused()) {
+        return 0;
+    }
     if (wallet_appointment_has_tx($pdo, $appointmentId, 'PAYMENT')) {
         $wallet = ensure_wallet($pdo, $userId);
 

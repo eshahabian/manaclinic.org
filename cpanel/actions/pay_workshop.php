@@ -15,6 +15,9 @@ if (!$user || $user['role'] !== 'PATIENT') {
 ensure_workshop_schema($pdo);
 $enrollmentId = post('enrollmentId');
 $useWallet = isset($_POST['use_wallet']) || post('use_wallet') === '1';
+if (function_exists('patient_wallet_paused') && patient_wallet_paused()) {
+    $useWallet = false;
+}
 
 $stmt = $pdo->prepare("
   SELECT e.*, w.title, w.price, wp.id AS payment_id, wp.amount, wp.status AS pay_status

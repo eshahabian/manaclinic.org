@@ -250,22 +250,31 @@ ob_start();
   <div>
     <label class="label" for="sec-pay-method">نوع پرداخت</label>
     <select class="input" name="pay_method" id="sec-pay-method" required>
+      <?php if (function_exists('patient_wallet_paused') && patient_wallet_paused()): ?>
+      <option value="paid">پرداخت شد</option>
+      <option value="unpaid">پرداخت نشد</option>
+      <?php else: ?>
       <option value="wallet">از کیف پول مراجع</option>
       <option value="card">کارت به کارت، با آپلود فیش</option>
       <option value="later">بعداً پرداخت می‌کند</option>
+      <?php endif; ?>
     </select>
-    <p class="muted" id="sec-pay-hint" style="margin:.35rem 0 0;font-size:.8rem">مبلغ حق جلسه از کیف پول مراجع کم می‌شود.</p>
+    <p class="muted" id="sec-pay-hint" style="margin:.35rem 0 0;font-size:.8rem"><?= (function_exists('patient_wallet_paused') && patient_wallet_paused()) ? 'نوبت ثبت می‌شود و پرداخت‌شده به حساب می‌آید.' : 'مبلغ حق جلسه از کیف پول مراجع کم می‌شود.' ?></p>
   </div>
 
+  <?php if (!function_exists('receipt_upload_paused') || !receipt_upload_paused()): ?>
   <div id="sec-receipt-box">
     <label class="label" for="receipt">فیش کارت به کارت</label>
     <input class="input" type="file" name="receipt" id="receipt" accept="image/jpeg,image/png,image/webp,application/pdf">
     <p class="muted" style="margin:.4rem 0 0;font-size:.8rem">برای کارت به کارت، تصویر یا PDF فیش لازم است.</p>
   </div>
+  <?php endif; ?>
 
   <p id="sec-error" style="color:var(--danger);display:none;font-size:.9rem"></p>
   <p id="sec-fee-line" style="display:none;margin:0 0 .35rem;font-weight:800;line-height:1.7;color:#1a7a45"></p>
+  <?php if (!function_exists('patient_wallet_paused') || !patient_wallet_paused()): ?>
   <p id="sec-wallet-line" style="display:none;margin:0 0 .75rem;font-weight:800;line-height:1.7"></p>
+  <?php endif; ?>
   <button class="btn btn-primary" type="submit">ثبت نوبت (تأیید شده)</button>
 </form>
 <div class="patient-more-modal" id="inactive-patient-modal" hidden>
@@ -975,7 +984,9 @@ $secretaryBookScripts = '
       receiptEl.disabled = !card;
     }
     if (!payHint) return;
-    if (method === "card") payHint.textContent = "فیش کارت به کارت را همین‌جا بارگذاری کنید.";
+    if (method === "paid") payHint.textContent = "نوبت ثبت می‌شود و پرداخت‌شده به حساب می‌آید.";
+    else if (method === "unpaid") payHint.textContent = "نوبت ثبت می‌شود و پرداخت‌نشده می‌ماند.";
+    else if (method === "card") payHint.textContent = "فیش کارت به کارت را همین‌جا بارگذاری کنید.";
     else if (method === "later") payHint.textContent = "نوبت ثبت می‌شود و به اندازه حق ویزیت همین درمانگر از کیف پول کم می‌شود. موجودی می‌تواند منفی شود تا فیش تأیید گردد.";
     else payHint.textContent = "مبلغ حق جلسه از کیف پول مراجع کم می‌شود. اگر موجودی کافی نباشد، نوبت ثبت نمی‌شود.";
   }

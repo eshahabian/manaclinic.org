@@ -24,13 +24,17 @@ function secretary_nav(): array
         ['href' => '/secretary/petty-cash', 'label' => 'تنخواه'],
         ['href' => '/admin/rooms', 'label' => 'اتاق‌ها'],
         ['href' => '/secretary/patients', 'label' => 'مراجعه‌کنندگان'],
-        ['href' => '/secretary/balances', 'label' => 'بدهکاران و بستانکاران'],
+    ];
+    if (!function_exists('patient_wallet_paused') || !patient_wallet_paused()) {
+        $nav[] = ['href' => '/secretary/balances', 'label' => 'بدهکاران و بستانکاران'];
+    }
+    $nav = array_merge($nav, [
         ['href' => '/secretary/board', 'label' => 'یادداشت مشترک'],
         ['href' => '/secretary/secretary-tasks', 'label' => 'لیست کارهای روزانه'],
         ['href' => '/secretary/articles', 'label' => 'مقالات'],
         ['href' => '/secretary/workshops', 'label' => 'کارگاه‌ها'],
         ['href' => '/change-password', 'label' => 'تغییر رمز عبور'],
-    ];
+    ]);
     $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link() : null;
     if ($videoLink) {
         array_splice($nav, 1, 0, [$videoLink]);

@@ -77,6 +77,9 @@ function staff_app_home_tile_allowed(array $user, string $path): bool
         return false;
     }
     if (in_array($path, ['/app/balances', '/app/therapists'], true)) {
+        if ($path === '/app/balances' && function_exists('patient_wallet_paused') && patient_wallet_paused()) {
+            return false;
+        }
         return ($user['role'] ?? '') === 'SECRETARY' || staff_app_is_eshahabian($user);
     }
     if ($path === '/app/petty-cash') {

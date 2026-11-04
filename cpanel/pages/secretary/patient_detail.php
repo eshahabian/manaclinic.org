@@ -197,15 +197,19 @@ ob_start();
                 <?php if ($paid && !empty($enr['payment_id']) && !empty($enr['receipt_path'])): ?>
                   <a class="btn btn-outline btn-sm" href="<?= e(url('/staff/receipt?id=' . $enr['payment_id'] . '&kind=workshop')) ?>" target="_blank" rel="noopener">مشاهده فیش</a>
                 <?php endif; ?>
-                <?php if (!$paid || empty($enr['receipt_path'])): ?>
+                <?php if ((!$paid || empty($enr['receipt_path'])) && (!function_exists('receipt_upload_paused') || !receipt_upload_paused() || !$paid)): ?>
                   <form class="staff-receipt-form" method="post" action="<?= e(url('/secretary/workshops')) ?>" enctype="multipart/form-data">
                     <input type="hidden" name="action" value="mark_paid">
                     <input type="hidden" name="enrollment_id" value="<?= e((string) $enr['id']) ?>">
                     <input type="hidden" name="next" value="<?= e($selfPath . '?tab=workshops') ?>">
+                    <?php if (function_exists('receipt_upload_paused') && receipt_upload_paused()): ?>
+                    <button class="btn btn-primary btn-sm" type="submit">پرداخت شد</button>
+                    <?php else: ?>
                     <label class="btn <?= $paid ? 'btn-outline' : 'btn-primary' ?> btn-sm staff-receipt-pick">
                       <?= $paid ? 'بارگذاری فیش' : 'پرداخت شده — بارگذاری فیش' ?>
                       <input type="file" name="receipt" accept="image/jpeg,image/png,image/webp,application/pdf" required onchange="this.form.submit()">
                     </label>
+                    <?php endif; ?>
                   </form>
                 <?php endif; ?>
               </div>

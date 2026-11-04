@@ -38,7 +38,8 @@ $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/
           $canPayOnline = $appointmentOnlinePayEnabled
               && ($a['status'] ?? '') === 'PENDING_PAYMENT'
               && ($a['pay_status'] ?? '') === 'PENDING';
-          $canUploadReceipt = function_exists('appointment_payment_can_upload_receipt')
+          $canUploadReceipt = (!function_exists('receipt_upload_paused') || !receipt_upload_paused())
+              && function_exists('appointment_payment_can_upload_receipt')
               && appointment_payment_can_upload_receipt($a);
           $awaitingReview = function_exists('appointment_payment_awaiting_receipt_review')
               && appointment_payment_awaiting_receipt_review($a);

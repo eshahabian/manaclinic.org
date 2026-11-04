@@ -2,6 +2,17 @@
 declare(strict_types=1);
 
 $user = require_login();
+if (function_exists('patient_wallet_paused') && patient_wallet_paused()) {
+    $pausedRole = (string) ($user['role'] ?? '');
+    $pausedHome = match ($pausedRole) {
+        'ADMIN' => '/admin',
+        'SECRETARY' => '/secretary',
+        'DOCTOR' => '/doctor',
+        'ACCOUNTANT' => '/accountant',
+        default => '/dashboard',
+    };
+    redirect($pausedHome);
+}
 require_once __DIR__ . '/../../includes/wallet.php';
 
 ensure_wallet_schema($pdo);

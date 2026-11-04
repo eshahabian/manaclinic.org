@@ -142,7 +142,9 @@ if ($action === 'confirm_payment') {
             : (int) post('room_no');
         if (post('pay_choice') === 'unpaid') {
             $result = staff_confirm_appointment_unpaid($pdo, $appointmentId, $user, (string) post('note'), $roomNo);
-            $flash = 'وقت «' . (string) $result['patient_name'] . '» رزرو شد و ' . format_price((int) $result['amount']) . ' از کیف پولش کسر شد.';
+            $flash = (function_exists('patient_wallet_paused') && patient_wallet_paused())
+                ? ('وقت «' . (string) $result['patient_name'] . '» رزرو شد و پرداخت‌نشده ماند.')
+                : ('وقت «' . (string) $result['patient_name'] . '» رزرو شد و ' . format_price((int) $result['amount']) . ' از کیف پولش کسر شد.');
         } else {
             $result = staff_confirm_appointment_payment($pdo, $appointmentId, $user, $_FILES['receipt'] ?? [], (string) post('note'), $roomNo);
             $flash = 'پرداخت «' . (string) $result['patient_name'] . '» ثبت شد و وقت رزرو گردید.';
@@ -170,7 +172,9 @@ if ($action === 'cancel_patient') {
         }
         $sideText = ((string) ($result['side'] ?? '')) === 'clinic' ? 'کلینیک' : 'مراجع';
         $refundText = (int) ($result['refundAmount'] ?? 0) > 0
-            ? ' ' . format_price((int) $result['refundAmount']) . ' به کیف پول برگشت.'
+            ? ((function_exists('patient_wallet_paused') && patient_wallet_paused())
+                ? (' ' . format_price((int) $result['refundAmount']) . ' قابل بازگشت ثبت شد.')
+                : (' ' . format_price((int) $result['refundAmount']) . ' به کیف پول برگشت.'))
             : '';
         flash_set('success', 'کنسلی از سمت ' . $sideText . ' برای «' . (string) $result['patient_name'] . '» ثبت شد.' . $refundText);
     } catch (Throwable $e) {

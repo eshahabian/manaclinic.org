@@ -37,9 +37,11 @@ function patient_nav(): array
             ],
         ],
         ['href' => '/dashboard/journal', 'label' => 'دفتر یادداشت'],
-        ['href' => '/dashboard/wallet', 'label' => 'کیف پول'],
-        ['href' => '/dashboard/profile', 'label' => 'پروفایل'],
     ]);
+    if (!function_exists('patient_wallet_paused') || !patient_wallet_paused()) {
+        $nav[] = ['href' => '/dashboard/wallet', 'label' => 'کیف پول'];
+    }
+    $nav[] = ['href' => '/dashboard/profile', 'label' => 'پروفایل'];
     // تماس مانا از منوی مراجعه‌کننده حذف شده؛ فقط روی نوبت آنلاین (۱۵ دقیقه قبل) دیده می‌شود.
 
     return $nav;

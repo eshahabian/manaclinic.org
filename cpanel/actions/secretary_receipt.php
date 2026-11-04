@@ -3,6 +3,10 @@ declare(strict_types=1);
 
 $user = require_login(['SECRETARY', 'ADMIN']);
 csrf_verify();
+if (function_exists('receipt_upload_paused') && receipt_upload_paused()) {
+    flash_set('error', 'آپلود فیش فعلاً غیرفعال است.');
+    redirect('/secretary/appointments');
+}
 
 $paymentId = trim(post('payment_id'));
 if ($paymentId === '') {

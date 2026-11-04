@@ -1,0 +1,59 @@
+{
+  "now": "2026-11-02 12:05:48",
+  "tomorrow": "2026-11-03",
+  "ready": true,
+  "worker_last": "2026-11-02 12:05:08",
+  "cron_installed": "1",
+  "digest_enabled": true,
+  "reminder_enabled": true,
+  "digest_window_20": {
+    "date": "2026-11-03",
+    "due_at": "2026-11-02 20:00:00",
+    "expires_at": "2026-11-03 00:00:00",
+    "slot": "night20"
+  },
+  "reminder_template": "",
+  "digest_template": "{doctor} گرامی\nنوبت های رزرو شده {date} :\n{slots}",
+  "tomorrow_doctors": [],
+  "tomorrow_patients": [],
+  "recent_reminders": [
+    {
+      "status": "SENT",
+      "n": 4,
+      "last_sent": "2026-10-31 18:00:06",
+      "last_created": "2026-10-31 17:48:08"
+    }
+  ],
+  "queue_due": [
+    {
+      "kind": "quiet",
+      "status": "PENDING",
+      "n": 37
+    },
+    {
+      "kind": "workshop_reminder",
+      "status": "PENDING",
+      "n": 40
+    },
+    {
+      "kind": "appointment_reminder",
+      "status": "UNKNOWN",
+      "n": 1
+    },
+    {
+      "kind": "test",
+      "status": "UNKNOWN",
+      "n": 2
+    },
+    {
+      "kind": "appointment_booked",
+      "status": "UNKNOWN",
+      "n": 7
+    }
+  ],
+  "credit": {
+    "http": 200,
+    "raw": "9468996"
+  },
+  "live_matches_local": true
+}

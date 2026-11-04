@@ -85,10 +85,12 @@ $emptyEnrollments = $emptyEnrollments ?? 'هنوز در کارگاهی از ای
             </p>
           <?php endif; ?>
           <?php if ($needsPay): ?>
+            <?php if (!function_exists('patient_wallet_paused') || !patient_wallet_paused()): ?>
             <label class="enrollment-wallet-label">
               <input type="checkbox" class="use-wallet" data-id="<?= e((string) $e['id']) ?>" <?= (int) $wallet['balance'] > 0 ? '' : 'disabled' ?>>
               استفاده از کیف پول (<?= e(format_price((int) $wallet['balance'])) ?>)
             </label>
+            <?php endif; ?>
             <button type="button" class="btn btn-primary btn-sm pay-btn" data-id="<?= e((string) $e['id']) ?>">پرداخت آنلاین</button>
           <?php endif; ?>
           <?php if ($canManage): ?>

@@ -15,6 +15,12 @@ if (!$user || !user_can_self_book_therapy($user)) {
     exit;
 }
 
+if (function_exists('receipt_upload_paused') && receipt_upload_paused()) {
+    http_response_code(403);
+    echo json_encode(['error' => 'آپلود فیش فعلاً غیرفعال است.'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 $appointmentId = trim((string) (post('appointmentId') ?: post('appointment_id') ?: ''));
 if ($appointmentId === '') {
     http_response_code(400);

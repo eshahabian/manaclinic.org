@@ -1379,6 +1379,10 @@ function staff_receipt_view_html(?string $paymentId, ?string $receiptPath, bool 
     if (!$paymentId) {
         return '';
     }
+    if (function_exists('receipt_upload_paused') && receipt_upload_paused()) {
+        $canUpload = false;
+        $canConfirm = false;
+    }
     ob_start();
     if ($receiptPath) {
         ?>

@@ -71,7 +71,7 @@ $enrollmentDeskPeopleOnly = !empty($enrollmentDeskPeopleOnly);
           <?php if ($paid && $paymentId !== '' && !empty($enr['receipt_path'])): ?>
             <a class="btn btn-outline btn-sm" href="<?= e(url('/staff/receipt?id=' . $paymentId . '&kind=' . $enrollmentReceiptKind)) ?>" target="_blank" rel="noopener">مشاهده فیش</a>
           <?php endif; ?>
-          <?php if ($paid && $paymentId !== '' && empty($enr['receipt_path'])): ?>
+          <?php if ($paid && $paymentId !== '' && empty($enr['receipt_path']) && (!function_exists('receipt_upload_paused') || !receipt_upload_paused())): ?>
             <form class="staff-receipt-form" method="post" action="<?= e($enrollmentDeskAction) ?>" enctype="multipart/form-data">
               <input type="hidden" name="action" value="mark_paid">
               <input type="hidden" name="enrollment_id" value="<?= e((string) $enr['id']) ?>">
@@ -92,10 +92,14 @@ $enrollmentDeskPeopleOnly = !empty($enrollmentDeskPeopleOnly);
             <form class="staff-receipt-form workshop-pay-form" method="post" action="<?= e($enrollmentDeskAction) ?>" enctype="multipart/form-data">
               <input type="hidden" name="action" value="mark_paid">
               <input type="hidden" name="enrollment_id" value="<?= e((string) $enr['id']) ?>">
+              <?php if (function_exists('receipt_upload_paused') && receipt_upload_paused()): ?>
+              <button class="btn btn-primary btn-sm" type="submit">پرداخت شد</button>
+              <?php else: ?>
               <label class="btn btn-outline btn-sm staff-receipt-pick">
                 پرداخت شده — بارگذاری فیش
                 <input type="file" name="receipt" accept="image/jpeg,image/png,image/webp,application/pdf" required onchange="this.form.submit()">
               </label>
+              <?php endif; ?>
             </form>
           <?php endif; ?>
         </div>
