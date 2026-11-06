@@ -26,7 +26,7 @@
  $('login').onsubmit=e=>{e.preventDefault();run(async()=>{await api('login',Object.fromEntries(new FormData(e.target)));e.target.reset();await session();});};
  $('password').onsubmit=e=>{e.preventDefault();run(async()=>{await api('password',Object.fromEntries(new FormData(e.target)));e.target.reset();await session();status('رمز جدید ثبت شد.');});};
  $('logout').onclick=()=>run(async()=>{await api('logout',{});$('preview').src='about:blank';await session();});
- $('change-password').onclick=()=>{$('workspace').hidden=true;$('password-panel').hidden=false;};
+ $('change-password').onclick=()=>{window.PsyStudio.clearSession();$('workspace').hidden=true;$('password-panel').hidden=false;};
  $('pages').onchange=()=>run(()=>openPage($('pages').value));$('refresh').onclick=()=>run(()=>openPage(page));$('search').oninput=drawFields;$('scope').onchange=drawFields;
  document.querySelectorAll('[data-tab]').forEach(button=>button.onclick=()=>run(()=>tab(button.dataset.tab)));
  $('save-text').onclick=()=>run(async()=>{if(!pending.size){status('متنی تغییر نکرده است.');return;}await api('save',{page,version:textVersion,changes:[...pending].map(([id,value])=>({id,value}))});$('undo').disabled=false;await openPage(page);status('متن‌ها ذخیره شدند.');});

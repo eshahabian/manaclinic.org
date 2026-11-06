@@ -149,6 +149,7 @@ if ($user) {
 <body<?= $bodyAttrs ?>>
 <canvas id="particle-canvas" aria-hidden="true"></canvas>
 <div class="site-layer">
+  <?php if (!\ManaCms\studio_part_replaces('header')): ?>
   <header class="site-header">
     <div class="container-page header-inner">
       <div class="header-brand">
@@ -254,6 +255,8 @@ if ($user) {
       </div>
     </div>
   </header>
+  <?php endif; ?>
+  <?= \ManaCms\studio_part_html('header') ?>
   <div class="mobile-nav-overlay" data-nav-overlay aria-hidden="true"></div>
 
   <main>
@@ -297,6 +300,8 @@ if ($user) {
     <?= $content ?? '' ?>
   </main>
 
+  <?= \ManaCms\studio_part_html('footer') ?>
+  <?php if (!\ManaCms\studio_part_replaces('footer')): ?>
   <footer class="site-footer">
     <?php $footerHideConsult = (string) ($GLOBALS['path'] ?? '/') === '/contact'; ?>
     <div class="container-page footer-grid<?= $footerHideConsult ? ' is-compact' : '' ?>">
@@ -390,6 +395,7 @@ if ($user) {
       <p class="footer-tagline">فضای امن برای یادگیری، رشد و دریافت خدمات روانشناسی آنلاین.</p>
     </div>
   </footer>
+  <?php endif; ?>
 </div>
 <div id="mana-look-screen" class="mana-look" hidden aria-hidden="true" role="dialog" aria-modal="true" aria-labelledby="mana-look-title">
   <div class="mana-look-panel">

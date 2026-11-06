@@ -37,7 +37,7 @@ test('Mana CMS isolated integration: real PHP templates and server security',{ti
   let logs='';server=spawn(php,args,{env:{...process.env,MANA_CMS_DATA_DIR:data,CMS_TEST_PREFIX:prefix,CMS_TEST_RUN:runId},stdio:['ignore','pipe','pipe'],windowsHide:true});server.stdout.on('data',x=>logs+=x);server.stderr.on('data',x=>logs+=x);
   let ready=false;
   for(let i=0;i<80;i++){try{const response=await fetch(url+'/psy-admin/');if(response.headers.get('x-cms-fixture')!==runId)throw new Error('Port already serves a different process');ready=true;break;}catch(e){if(e.message.includes('different process'))throw e;await new Promise(r=>setTimeout(r,50));}}
-  if(!ready)throw new Error('Isolated PHP server could not start');
+  if(!ready)throw new Error('Isolated PHP server could not start: '+logs.slice(-2500));
   const owner=new Client(),stranger=new Client();
   let s=await owner.session();ok(s.needsActivation,'activation required');
   const cookieResponse=await new Client().request('/psy-admin/?api=session');

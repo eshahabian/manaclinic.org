@@ -76,7 +76,7 @@ function clean_blocks(mixed $input,array $s,int $depth=0,?array &$ids=null): arr
     foreach($input as $b) {
         if(!is_array($b)||!is_string($b['id']??null)||!preg_match('~^[a-zA-Z][a-zA-Z0-9_-]{0,63}$~D',$b['id'])||isset($ids[$b['id']])||count($ids)>=300) fail(400,'شناسهٔ بلوک تکراری یا معتبر نیست.');
         $ids[$b['id']]=true; $type=$b['type']??'';
-        if(!in_array($type,['section','columns','heading','text','image','button','hero','gallery','faq','spacer','list'],true)) fail(400,'نوع بلوک پشتیبانی نمی‌شود.');
+        if(!in_array($type,['section','columns','heading','text','image','button','hero','gallery','faq','spacer','list','navigation'],true)) fail(400,'نوع بلوک پشتیبانی نمی‌شود.');
         $n=['id'=>$b['id'],'type'=>$type,'style'=>design_style($b['style']??[]),'mobile'=>design_style($b['mobile']??[])];
         if(isset($b['anchor'])&&$b['anchor']!=='') { if(!is_string($b['anchor'])||!preg_match('~^[A-Za-z][A-Za-z0-9_-]{0,63}$~D',$b['anchor'])) fail(400,'شناسهٔ بخش معتبر نیست.'); $n['anchor']=$b['anchor']; }
         if(in_array($type,['heading','text','button','hero','list'],true)) $n['text']=design_text($b['text']??'');
@@ -133,6 +133,10 @@ function studio_api(string $action,string $method,array $d): array {
     $u=require_user();
     if($method==='GET') {
         $s=state(); $st=studio($s);
+        if($action==='studio-part') {
+            design_require('theme',$u); $kind=(string)($_GET['kind']??'');
+            return ['document'=>part_payload(part_document($st,$kind,$u)),'version'=>$s['version']];
+        }
         if($action==='studio-list') {
             $docs=[]; foreach($st['documents'] as $doc) if(design_allowed($u,$doc['path'],$doc)) $docs[]=array_intersect_key($doc,array_flip(['path','native','creator','revision','trashed']))+['title'=>$doc['draft']['title'],'published'=>$doc['live']!==null];
             $native=[]; foreach(pages()['pages'] as $page) if(design_allowed($u,$page['id'],$st['documents'][$page['id']]??null)) $native[]=$page;
@@ -155,7 +159,25 @@ function studio_api(string $action,string $method,array $d): array {
         $u=require_user(); $s=state(); $before=$s; $st=studio($s);
         if(in_array($action,['studio-media-upload','studio-media-update','studio-media-place','studio-pattern-save','studio-pattern-delete','studio-taxonomy-save','studio-menu-save','studio-menu-publish','studio-menu-revision'],true) && ($d['version']??null)!==$s['version']) fail(409,'داده تغییر کرده؛ دوباره بارگذاری کنید.');
         $result=[];
-        if($action==='studio-create'||$action==='studio-copy') {
+        if(in_array($action,['studio-part-save','studio-part-publish','studio-part-revision'],true)) {
+            design_require('theme',$u); $kind=(string)($d['kind']??''); $part=part_document($st,$kind,$u);
+            if(($d['revision']??null)!==$part['revision']) fail(409,'بخش مشترک تغییر کرده؛ دوباره بارگذاری کنید.');
+            if($action==='studio-part-save') {
+                $input=$d['document']??null; if(!is_array($input)) fail(400,'طرح معتبر نیست.');
+                $clean=clean_document($input,$s,false,'/'); $clean['edits']=[];
+                snapshot($part,$action,$u); $part['draft']=$clean;
+            } elseif($action==='studio-part-publish') {
+                design_require('publishPages',$u);
+                // Global blocks cannot resolve page-local anchors across every public route.
+                $check=function(array $blocks) use(&$check) { foreach($blocks as $b) { if(str_starts_with($b['href']??'','#')) fail(400,'در بخش مشترک، آدرس کامل صفحه و بخش مقصد را وارد کنید.'); $check($b['children']??[]); } }; $check($part['draft']['blocks']);
+                validate_design_links($part['draft'],'/__shared_part__',$s);
+                snapshot($part,$action,$u); $part['live']=$part['draft'];
+            } else {
+                $found=null; foreach($part['history'] as $r) if($r['id']===($d['id']??'')) $found=$r;
+                if(!$found) fail(404,'نسخه پیدا نشد.'); snapshot($part,$action,$u); $part['draft']=$found['draft'];
+            }
+            $st['parts'][$kind]=$part; $result=['document'=>part_payload($part)];
+        } elseif($action==='studio-create'||$action==='studio-copy') {
             design_require('createPages',$u); $path=design_path($d['path']??''); if(isset($st['documents'][$path])) fail(409,'این آدرس قبلاً ساخته شده است؛ سطل زباله را هم بررسی کنید.');
             $doc=new_document($path,$u,false); $doc['draft']['title']=design_text($d['title']??'صفحهٔ جدید',500); $doc['draft']['mode']='replace';
             if($action==='studio-copy') { $source=$st['documents'][$d['source']??'']??null; if(!$source||!full_design($u,$source['path'],$source)) fail(403,'کپی صفحه نیازمند دسترسی کامل چیدمان آن است.'); $doc['draft']=$source['draft']; $doc['draft']['title']=design_text($d['title']??($source['draft']['title'].' — کپی'),500); $doc['draft']['edits']=[]; }
@@ -279,16 +301,17 @@ function asset_url(string $id,array $s): string {
     if(!isset(studio($s)['media'][$id])) return base().$id;
     return base().'/psy-media/'.$id.(!empty($GLOBALS['mana_cms_preview'])?'?mana_preview='.rawurlencode($_SESSION['csrf']??''):'');
 }
-function block_html(array $blocks,array $s,bool $preview=false): string {
+function block_html(array $blocks,array $s,bool $preview=false,string $prefix=''): string {
     $html=''; foreach($blocks as $b) {
-        $id='psy-'.$b['id']; $style=design_css($b['style']); $mobile=design_css($b['mobile']);
+        $id='psy-'.$prefix.$b['id']; $style=design_css($b['style']); $mobile=design_css($b['mobile']);
         $html.='<style>#'.$id.'{'.$style.'}@media(max-width:768px){#'.$id.'{'.$mobile.'}}</style>';
         $html.='<div id="'.$id.'" class="psy-block psy-'.$b['type'].'"'.($preview?' data-psy-block="'.esc($b['id']).'"':'').'>';
         if(isset($b['anchor'])) $html.='<span id="'.esc($b['anchor']).'"></span>';
         $text=esc($b['text']??''); $type=$b['type'];
         if($type==='heading') $html.='<h'.$b['level'].'>'.$text.'</h'.$b['level'].'>';
+        elseif($type==='navigation') { $html.='<nav aria-label="منوی سایت" class="psy-navigation-links">'; foreach($s['menus']??default_menu() as $item) { $href=$item['href']; $html.='<a href="'.esc(str_starts_with($href,'/')?base().$href:$href).'">'.esc($item['label']).'</a>'; } $html.='</nav>'; }
         elseif($type==='text') $html.='<p>'.$text.'</p>';
-        elseif($type==='section'||$type==='columns') $html.=block_html($b['children'],$s,$preview);
+        elseif($type==='section'||$type==='columns') $html.=block_html($b['children'],$s,$preview,$prefix);
         elseif($type==='image'&&$b['image']!=='') $html.='<img src="'.esc(asset_url($b['image'],$s)).'" alt="'.esc($b['alt']).'" loading="lazy">';
         elseif($type==='button') { $href=$b['href']; $html.='<a class="btn btn-primary" href="'.esc(str_starts_with($href,'/')?base().$href:$href).'">'.($text?:esc($b['label'])).'</a>'; }
         elseif($type==='hero') {
@@ -356,8 +379,31 @@ function validate_design_links(array $design,string $path,array $s): void {
 }
 function published_media_used(string $id,array $s): bool {
     $st=studio($s); if(in_array($id,$st['placements']['footerCalligraphy'],true)) return true;
+    foreach($st['parts']??[] as $part) if($part['live']!==null&&in_array($id,document_assets($part['live']),true)) return true;
     foreach($s['images'] as $image) if(($image['file']??'')===($st['media'][$id]['file']??null)) return true;
     foreach(studio($s)['documents'] as $doc) if(!$doc['trashed']&&$doc['live']!==null && in_array($id,document_assets($doc['live']),true)) return true; return false;
+}
+function part_document(array $st,string $kind,array $u): array {
+    if(!in_array($kind,['header','footer'],true)) fail(400,'بخش مشترک معتبر نیست.');
+    return $st['parts'][$kind]??new_document('/__part-'.$kind,$u,false);
+}
+function part_payload(array $part): array {
+    $part['draft']=design_payload($part['draft']);
+    if($part['live']!==null) $part['live']=design_payload($part['live']);
+    return $part+['part'=>str_replace('/__part-','',$part['path']),'access'=>['full'=>true,'blocks'=>[],'publish'=>require_user()['role']==='admin'||permissions(require_user())['publishPages'],'create'=>false]];
+}
+function studio_part_html(string $kind): string {
+    if(!public_path((string)($GLOBALS['path']??'/'))) return '';
+    $s=state(); $part=studio($s)['parts'][$kind]??null; if(!$part) return '';
+    $design=!empty($GLOBALS['mana_cms_draft'])?$part['draft']:$part['live']; if(!$design) return '';
+    $selector='.psy-shared-'.$kind;
+    return '<link rel="stylesheet" href="'.esc(base()).'/psy-admin/blocks.css"><style>'.$selector.'{'.design_css($design['style']).'}@media(max-width:768px){'.$selector.'{'.design_css($design['mobile']).'}}</style><div class="psy-shared-part psy-shared-'.esc($kind).'">'.block_html($design['blocks'],$s,!empty($GLOBALS['mana_cms_preview']),$kind.'-').'</div>';
+}
+function studio_part_replaces(string $kind): bool {
+    if(!public_path((string)($GLOBALS['path']??'/'))) return false;
+    $part=studio(state())['parts'][$kind]??null; if(!$part) return false;
+    $design=!empty($GLOBALS['mana_cms_draft'])?$part['draft']:$part['live'];
+    return $design!==null&&$design['mode']==='replace';
 }
 function document_assets(array $design): array {
     $ids=[$design['seo']['image']??''];
