@@ -10,7 +10,7 @@ $_SERVER['SCRIPT_NAME']=$prefix.'/index.php';
 if(($_SERVER['HTTP_X_FIXTURE_HTTPS']??'')==='1') $_SERVER['HTTPS']='on';
 require_once $root.'/psy-admin/entry.php';
 \ManaCms\dispatch();
-if(preg_match('~^/psy-admin/(?:app\.js|permissions\.js|admin\.css|preview\.js)$~D',$path)||str_starts_with($path,'/assets/')) {
+if(preg_match('~^/psy-admin/(?:app\.js|studio\.js|permissions\.js|admin\.css|studio\.css|blocks\.css|preview\.js)$~D',$path)||str_starts_with($path,'/assets/')) {
     $file=realpath($root.$path);
     if($file && \ManaCms\inside($file,$root) && is_file($file)) {
         $mime=['js'=>'text/javascript','css'=>'text/css','woff2'=>'font/woff2','ttf'=>'font/ttf'][pathinfo($file,PATHINFO_EXTENSION)]??'application/octet-stream';
@@ -19,9 +19,12 @@ if(preg_match('~^/psy-admin/(?:app\.js|permissions\.js|admin\.css|preview\.js)$~
     http_response_code(404); return true;
 }
 if(str_starts_with($path,'/psy-admin/') || str_contains($path,'..') || str_ends_with($path,'.json') || str_ends_with($path,'.php')) {http_response_code(403);return true;}
+if(isset(\ManaCms\studio(\ManaCms\state())['documents'][$path]) && !\ManaCms\studio(\ManaCms\state())['documents'][$path]['native']) {
+ $base=$prefix; $config=['app_url'=>'http://'.($_SERVER['HTTP_HOST']??'127.0.0.1').$prefix,'app_name'=>'مانا کلینیک'];session_name('mana_fixture');session_start();$GLOBALS['path']=$path;require_once $root.'/includes/helpers.php';require_once $root.'/includes/auth.php';require_once $root.'/includes/seo.php';\ManaCms\studio_custom_serve($path);
+}
 if(!in_array($path,['/about','/faq','/','/services/individual'],true)) {http_response_code(404);return true;}
 // Real clinic templates/layout; all clinic account, database and action code is disconnected.
-$base=$prefix; $config=['app_url'=>'http://127.0.0.1:8792'.$prefix,'app_name'=>'مانا کلینیک'];
+$base=$prefix; $config=['app_url'=>'http://'.($_SERVER['HTTP_HOST']??'127.0.0.1').$prefix,'app_name'=>'مانا کلینیک'];
 session_name('mana_fixture'); session_start();
 $GLOBALS['path']=$path;
 require_once $root.'/includes/helpers.php';

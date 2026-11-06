@@ -89,7 +89,7 @@ function require_user(bool $admin=false): array {
     if($admin && $u['role']!=='admin') fail(403,'این کار فقط برای مدیر مجاز است.');
     return $u;
 }
-function empty_permissions(): array { return ['pages'=>[],'fields'=>[],'header'=>false,'footer'=>false,'menu'=>false,'images'=>[]]; }
+function empty_permissions(): array { return ['pages'=>[],'fields'=>[],'header'=>false,'footer'=>false,'menu'=>false,'images'=>[],'layouts'=>[],'blocks'=>[],'createPages'=>false,'publishPages'=>false,'mediaLibrary'=>false,'footerMedia'=>false,'theme'=>false,'patterns'=>false,'taxonomy'=>false]; }
 function permissions(array $u): array { return array_replace(empty_permissions(),$u['permissions']??[]); }
 function can_field(array $u,string $page,array $field): bool {
     if($u['role']==='admin') return true;
@@ -101,6 +101,8 @@ function can_field(array $u,string $page,array $field): bool {
 function can_page(array $u,string $page,?array $catalog=null): bool {
     if($u['role']==='admin') return true;
     $p=permissions($u);
+    if($p['theme']||($p['taxonomy']&&$page==='/doctors')) return true;
+    if(design_allowed($u,$page,studio(state())['documents'][$page]??null)) return true;
     if(in_array($page,$p['pages'],true)||$p['header']||$p['footer']) return true;
     foreach($p['fields'] as $id) if(str_starts_with($id,$page.':')||str_starts_with($id,'shared:')) return true;
     $catalog??=read('catalog');
@@ -129,11 +131,18 @@ function validate_permissions(mixed $input): array {
         foreach($c['fields'] as $f) if(!isset($f['derivedFrom'])) $knownFields[$f['id']]=true;
         foreach($c['images'] as $i) $knownImages[$i['id']]=true;
     }
-    foreach(['header','footer','menu'] as $key) { if(isset($input[$key])&&!is_bool($input[$key])) fail(400,'نوع دسترسی معتبر نیست.'); $p[$key]=$input[$key]??false; }
-    foreach(['pages'=>$knownPages,'fields'=>$knownFields,'images'=>$knownImages] as $key=>$known) {
+    foreach(['header','footer','menu','createPages','publishPages','mediaLibrary','footerMedia','theme','patterns','taxonomy'] as $key) { if(isset($input[$key])&&!is_bool($input[$key])) fail(400,'نوع دسترسی معتبر نیست.'); $p[$key]=$input[$key]??false; }
+    foreach(['pages'=>$knownPages,'fields'=>$knownFields,'images'=>$knownImages,'layouts'=>$knownPages] as $key=>$known) {
         $values=$input[$key]??[]; if(!is_array($values)||!array_is_list($values)||count($values)>5000) fail(400,'فهرست دسترسی معتبر نیست.');
         foreach($values as $value) if(!is_string($value)||!isset($known[$value])) fail(400,'صفحه یا بخش انتخاب‌شده معتبر نیست؛ پیش‌نمایش را تازه کنید.');
         $p[$key]=array_values(array_unique($values));
+    }
+    $blocks=$input['blocks']??[]; if(!is_array($blocks)||count($blocks)>500) fail(400,'محدودهٔ بلوک‌ها معتبر نیست.');
+    foreach($blocks as $path=>$ids) {
+        if(!isset($knownPages[$path])||!is_array($ids)||!array_is_list($ids)) fail(400,'صفحهٔ بلوک معتبر نیست.');
+        $known=block_ids(studio(state())['documents'][$path]['draft']['blocks']??[]);
+        foreach($ids as $id) if(!is_string($id)||!in_array($id,$known,true)) fail(400,'بلوک انتخابی وجود ندارد.');
+        $p['blocks'][$path]=array_values(array_unique($ids));
     }
     return $p;
 }

@@ -83,6 +83,11 @@ foreach (psych_tests_catalog() as $test) {
     ];
 }
 
+foreach (\ManaCms\studio(\ManaCms\state())['documents'] as $studioPath => $studioDocument) {
+    if (!$studioDocument['native'] && !$studioDocument['trashed'] && $studioDocument['live'] !== null && $studioDocument['live']['seo']['indexing'] !== 'noindex') {
+        $urls[] = ['loc' => seo_absolute_url($studioPath), 'priority' => '0.6', 'changefreq' => 'monthly'];
+    }
+}
 echo '<?xml version="1.0" encoding="UTF-8"?>' . "\n";
 ?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">

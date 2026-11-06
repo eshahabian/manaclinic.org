@@ -75,6 +75,11 @@ function clinic_doctors_href(array $filters = []): string
     return url($path);
 }
 
+function clinic_taxonomy_match(string $kind, string $selected, array $assigned): bool
+{
+    return function_exists('ManaCms\\taxonomy_matches') ? \ManaCms\taxonomy_matches($kind, $selected, $assigned) : in_array($selected, $assigned, true);
+}
+
 function clinic_doctor_matches(array $doc, array $filters): bool
 {
     $q = trim((string) ($filters['q'] ?? ''));
@@ -82,13 +87,13 @@ function clinic_doctor_matches(array $doc, array $filters): bool
     $focus = (string) ($filters['focus'] ?? '');
     $approach = (string) ($filters['approach'] ?? '');
 
-    if ($domain !== '' && !in_array($domain, clinic_doctor_keys($doc, 'domain'), true)) {
+    if ($domain !== '' && !clinic_taxonomy_match('domain', $domain, clinic_doctor_keys($doc, 'domain'))) {
         return false;
     }
-    if ($focus !== '' && !in_array($focus, clinic_doctor_keys($doc, 'focus'), true)) {
+    if ($focus !== '' && !clinic_taxonomy_match('focus', $focus, clinic_doctor_keys($doc, 'focus'))) {
         return false;
     }
-    if ($approach !== '' && !in_array($approach, clinic_doctor_keys($doc, 'approach'), true)) {
+    if ($approach !== '' && !clinic_taxonomy_match('approach', $approach, clinic_doctor_keys($doc, 'approach'))) {
         return false;
     }
     if ($q === '') {
@@ -463,6 +468,7 @@ function clinic_ymd_fa(string $ymd): string
 
 function clinic_filter_chip_row(string $param, array $options, string $current, array $baseFilters, string $legend): string
 {
+    $options = function_exists('ManaCms\\taxonomy_display_options') ? \ManaCms\taxonomy_display_options($param, $options) : $options;
     $all = $baseFilters;
     $all[$param] = '';
     ob_start();

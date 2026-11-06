@@ -106,7 +106,7 @@ test('Mana CMS isolated integration: real PHP templates and server security',{ti
   await editor.api('permission-catalog',undefined,403);
   await owner.api('users',{action:'permissions',id:editorUser.id,permissions:{pages:['/admin']},adminPassword:'Permanent-Fixture-2026'},400);
   const originalPage=await owner.api('page&id=%2Fabout');const allowedField=originalPage.fields.find(f=>f.scope==='page'),deniedField=originalPage.fields.find(f=>f.scope==='footer');
-  await owner.api('users',{action:'permissions',id:editorUser.id,permissions:{fields:[allowedField.id]},adminPassword:'Permanent-Fixture-2026'});
+  await owner.api('users',{action:'permissions',id:editorUser.id,permissions:{fields:[allowedField.id],publishPages:true},adminPassword:'Permanent-Fixture-2026'});
   await editor.api('pages',undefined,401);await editor.login('editorfixture','Editor-Permanent-2026');
   equal((await editor.api('pages')).pages.map(p=>p.id).join(','),'/about','only specifically assigned page listed');
   const scopedPreview=await editor.preview('/about');equal((scopedPreview.text.match(/data-mana-field=/g)||[]).length,1,'preview only marks the granted text');
@@ -121,7 +121,7 @@ test('Mana CMS isolated integration: real PHP templates and server security',{ti
   equal((await editor.api('images')).images.length,0,'unassigned images hidden');
   await editor.api('users',{action:'permissions',id:editorUser.id,permissions:{pages:['/faq']}},403);
   await editor.api('save',{page:'/about',version:ep.version,changes:[{id:field.id,value:'ویرایش کاربر آزمایشی'}]});
-  await owner.api('users',{action:'permissions',id:editorUser.id,permissions:{pages:['/about'],menu:true,images:['/assets/img/logo.png']},adminPassword:'Permanent-Fixture-2026'});
+  await owner.api('users',{action:'permissions',id:editorUser.id,permissions:{pages:['/about'],menu:true,images:['/assets/img/logo.png'],publishPages:true},adminPassword:'Permanent-Fixture-2026'});
   await editor.api('pages',undefined,401);await editor.login('editorfixture','Editor-Permanent-2026');
   await editor.preview('/about');ep=await editor.api('page&id=%2Fabout');ok(ep.fields.length>1&&ep.fields.every(f=>f.scope==='page'),'whole page grant excludes shared header and footer');
   await editor.api('menu');let assignedImages=await editor.api('images');equal(assignedImages.images.length,1,'only explicit image granted');
@@ -129,7 +129,7 @@ test('Mana CMS isolated integration: real PHP templates and server security',{ti
   await editor.api('image',{id:'/assets/img/logo.png',version:assignedImages.version,base64:png});let v=await owner.api('pages');await owner.api('undo',{version:v.version});
   await owner.api('users',{action:'permissions',id:editorUser.id,permissions:{footer:true},adminPassword:'Permanent-Fixture-2026'});
   await editor.login('editorfixture','Editor-Permanent-2026');await editor.preview('/faq');const footerPage=await editor.api('page&id=%2Ffaq');ok(footerPage.fields.length>0&&footerPage.fields.every(f=>f.scope==='footer'),'shared footer grant does not grant page text');
-  await owner.api('users',{action:'permissions',id:editorUser.id,permissions:{fields:[allowedField.id]},adminPassword:'Permanent-Fixture-2026'});
+  await owner.api('users',{action:'permissions',id:editorUser.id,permissions:{fields:[allowedField.id],publishPages:true},adminPassword:'Permanent-Fixture-2026'});
   await editor.api('pages',undefined,401);
   await owner.api('users',{action:'update',id:ownerUser.id,role:'editor',active:false,adminPassword:'Permanent-Fixture-2026'},400);
   await owner.api('users',{action:'reset',id:ownerUser.id,password:'Reset-Fixture-2026',adminPassword:'Permanent-Fixture-2026'},400);
@@ -161,6 +161,7 @@ test('Mana CMS isolated integration: real PHP templates and server security',{ti
   await owner.api('save',{page:'/about',version:currentPage.version,changes:[]},409);
   html=await stranger.request('/about');ok(!html.text.includes('ویرایش کاربر آزمایشی'),'template fingerprint invalidates obsolete edits');await fs.writeFile(path.join(site,'pages/about.php'),aboutSource);
   equal((await stranger.request('/psy-admin/installation.php')).status,403,'config direct access denied');equal((await stranger.request('/private/content.json')).status,403,'private data inaccessible');equal((await stranger.request('/about?mana_preview=wrong')).status,401,'anonymous preview denied');
+  await require('./studio-tests.cjs')({owner,stranger,Client,ok,equal,php,png,site,data,prefix,url});
   const attacker=new Client();await attacker.session();let throttled=false;for(let i=0;i<10;i++){const r=await attacker.request('/psy-admin/?api=login',{username:'doesnotexist',password:'bad'});if(r.status===429){throttled=true;break;}}ok(throttled,'login rate limit');
   ok(!/PHP (?:Fatal error|Warning|Deprecated)/.test(logs),'no PHP runtime warnings');
   console.log(`PASS: ${checks} checks. Real about/FAQ/layout + synthetic public records. No production account or database touched.`);

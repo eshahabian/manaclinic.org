@@ -21,13 +21,14 @@ function api(string $action): never {
     if($method==='POST' && $action==='logout') { $_SESSION=[]; session_regenerate_id(true); json_response(['ok'=>true]); }
     if($method==='POST' && $action==='password') { change_password($d); json_response(['ok'=>true]); }
     $viewer=require_user();
+    if(str_starts_with($action,'studio-')) json_response(studio_api($action,$method,$d));
     if($method==='GET') {
         if($action==='users') { require_user(true); $users=read('users'); $result=[]; foreach($users as $id=>$u) $result[]=public_user($u+['id'=>$id]); json_response(['users'=>$result]); }
         if($action==='permission-catalog') {
             require_user(true); $catalog=[];
             foreach(read('catalog') as $path=>$c) if($c['stamp']===template_stamp($path,'page') && $c['sharedStamp']===template_stamp($path,'header'))
                 $catalog[$path]=['fields'=>public_fields($c['fields'],state()),'images'=>$c['images']];
-            json_response(pages()+['catalog'=>$catalog]);
+            json_response(pages()+['catalog'=>$catalog,'documents'=>studio(state())['documents']]);
         }
         $s=state();
         if($action==='pages') {
@@ -68,14 +69,20 @@ function dispatch(): void {
     $admin=$path==='/psy-admin'||$path==='/psy-admin/index.php';
     $preview=isset($_GET['mana_preview']);
     $image=preg_match('~^/(?:assets/|uploads/(?:doctors|workshops)/).+\.(?:png|jpe?g|webp)$~iD',$path)===1;
-    if(!$admin && !$preview && !$image) return;
+    $libraryImage=preg_match('~^/psy-media/([a-f0-9]{24})$~D',$path,$mediaMatch)===1;
+    if(!$admin && !$preview && !$image && !$libraryImage) return;
     @ini_set('display_errors','0'); header_remove('X-Powered-By');
     try {
         if($image) { media($path); }
+        if($libraryImage) {
+            if($preview) { boot(); require_user(); if(!hash_equals($_SESSION['csrf'],(string)$_GET['mana_preview'])) fail(403,'پیش‌نمایش معتبر نیست.'); $GLOBALS['mana_cms_preview_media']=true; }
+            studio_media($mediaMatch[1],$preview);
+        }
         header('Cache-Control: private, no-store'); header('X-Content-Type-Options: nosniff'); header('X-Robots-Tag: noindex, nofollow');
         if($admin) {
             if(str_ends_with($request,'/psy-admin')) { header('Location: '.$request.'/'); http_response_code(302); exit; }
             header('X-Frame-Options: DENY'); header("Content-Security-Policy: default-src 'self'; img-src 'self' blob: data:; style-src 'self'; script-src 'self'; frame-src 'self'; object-src 'none'; base-uri 'none'; form-action 'self'; frame-ancestors 'none'");
+            if(isset($_GET['media'])) { boot(); require_user(); studio_media((string)$_GET['media'],true); }
             if(isset($_GET['api'])) api((string)$_GET['api']);
             readfile(__DIR__.'/app.html'); exit;
         }
@@ -85,6 +92,7 @@ function dispatch(): void {
         boot(); require_page($path);
         if(!hash_equals($_SESSION['csrf'],(string)$_GET['mana_preview'])) fail(403,'پیش‌نمایش معتبر نیست.');
         $GLOBALS['mana_cms_preview']=true;
+        if(isset($_GET['psy_draft'])) $GLOBALS['mana_cms_draft']=true;
         header("Content-Security-Policy: connect-src 'none'; form-action 'none'; frame-ancestors 'self'");
         session_write_close(); $_SESSION=[]; session_id(''); session_name($oldName); session_save_path($oldPath); session_set_cookie_params($oldCookie);
         // Preview must always render as an anonymous clinic visitor, even if the browser has a clinic login.

@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 function doctor_approach_options(): array
 {
-    return [
+    $defaults = [
         'cbt' => 'درمان شناختی-رفتاری (CBT)',
         'act' => 'درمان مبتنی بر پذیرش و تعهد (ACT)',
         'schema' => 'طرحواره‌درمانی',
@@ -14,11 +14,12 @@ function doctor_approach_options(): array
         'systemic' => 'خانواده‌درمانی / درمان سیستمی',
         'sfbt' => 'درمان راه‌حل‌محور (SFBT)',
     ];
+    return function_exists('ManaCms\\taxonomy_options') ? \ManaCms\taxonomy_options('approach', $defaults) : $defaults;
 }
 
 function doctor_domain_options(): array
 {
-    return [
+    $defaults = [
         'individual' => 'مشاوره فردی',
         'couples' => 'زوج درمانی',
         'premarital' => 'پیش از ازدواج',
@@ -26,11 +27,12 @@ function doctor_domain_options(): array
         'child' => 'کودک و نوجوان',
         'organizational' => 'مشاوره سازمانی',
     ];
+    return function_exists('ManaCms\\taxonomy_options') ? \ManaCms\taxonomy_options('domain', $defaults) : $defaults;
 }
 
 function doctor_focus_options(): array
 {
-    return [
+    $defaults = [
         'anxiety' => 'اضطراب',
         'depression' => 'افسردگی',
         'ocd' => 'وسواس',
@@ -43,6 +45,7 @@ function doctor_focus_options(): array
         'relationships' => 'مشکلات روابط عاطفی',
         'growth' => 'رشد فردی',
     ];
+    return function_exists('ManaCms\\taxonomy_options') ? \ManaCms\taxonomy_options('focus', $defaults) : $defaults;
 }
 
 function doctor_degree_options(): array

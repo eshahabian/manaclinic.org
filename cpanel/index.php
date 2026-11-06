@@ -567,6 +567,9 @@ if ($path === '/app' || str_starts_with($path, '/app/')) {
     exit;
 }
 
+if ($method === 'GET' && !isset($routes[$key]) && isset(\ManaCms\studio(\ManaCms\state())['documents'][$path]) && empty(\ManaCms\studio(\ManaCms\state())['documents'][$path]['native'])) {
+    \ManaCms\studio_custom_serve($path);
+}
 if (isset($routes[$key])) {
     require __DIR__ . '/' . $routes[$key];
     exit;

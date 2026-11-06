@@ -15,10 +15,12 @@ foreach (['pageTitle', 'pageDescription', 'pageCanonical', 'pageKeywords', 'page
     }
 }
 
+\ManaCms\studio_meta((string)($GLOBALS['path']??'/'));
 $pageTitle = $GLOBALS['pageTitle'] ?? ($pageTitle ?? null);
 $pageHead = $GLOBALS['pageHead'] ?? ($pageHead ?? '');
 $pageScripts = $GLOBALS['pageScripts'] ?? ($pageScripts ?? '');
 $content = $GLOBALS['content'] ?? ($content ?? '');
+if(\ManaCms\public_path((string)($GLOBALS['path']??'/'))) $content=\ManaCms\studio_body((string)($GLOBALS['path']??'/'),$content);
 
 $user = current_user();
 $pdoRef = $GLOBALS['pdo'] ?? ($pdo ?? null);
@@ -142,6 +144,7 @@ if ($user) {
 <?php if($protectPublicContent): ?>
   <link rel="stylesheet" href="<?= e(url('/assets/css/content-protection.css')) ?>?v=20261020">
 <?php endif; ?>
+<?= \ManaCms\public_path((string)($GLOBALS['path']??'/')) ? \ManaCms\studio_theme_css() : '' ?>
 </head>
 <body<?= $bodyAttrs ?>>
 <canvas id="particle-canvas" aria-hidden="true"></canvas>
@@ -340,11 +343,14 @@ if ($user) {
               glob(__DIR__ . '/../assets/img/hafez/verse-*.png') ?: [],
               static fn(string $file): bool => !in_array(basename($file), $footerVerseDuplicates, true)
           ));
+          $footerCmsMedia = \ManaCms\footer_media();
+          $footerVerses = array_merge($footerVerses, array_keys($footerCmsMedia));
         ?>
         <?php if ($footerVerses): ?>
           <?php
             $footerVerseFile = $footerVerses[array_rand($footerVerses)];
             $footerVerseName = basename($footerVerseFile);
+            $footerVerseUrl = $footerCmsMedia[$footerVerseFile] ?? url('/assets/img/hafez/' . $footerVerseName);
             $footerVerseBounds = require __DIR__ . '/footer_verse_bounds.php';
             $footerVerseSize = getimagesize($footerVerseFile);
             [$verseWidth, $verseHeight, $verseX, $verseY, $verseVisibleWidth, $verseVisibleHeight]
@@ -352,7 +358,7 @@ if ($user) {
           ?>
           <div class="footer-verse-frame" aria-hidden="true">
             <svg class="footer-verse-art" viewBox="<?= (int)$verseX ?> <?= (int)$verseY ?> <?= (int)$verseVisibleWidth ?> <?= (int)$verseVisibleHeight ?>" width="400" height="240" preserveAspectRatio="xMidYMid meet" focusable="false">
-              <image href="<?= e(url('/assets/img/hafez/' . $footerVerseName)) ?>?v=<?= (int)filemtime($footerVerseFile) ?>" width="<?= (int)$verseWidth ?>" height="<?= (int)$verseHeight ?>" />
+              <image href="<?= e($footerVerseUrl . (str_contains($footerVerseUrl, '?') ? '&' : '?') . 'v=' . (int)filemtime($footerVerseFile)) ?>" width="<?= (int)$verseWidth ?>" height="<?= (int)$verseHeight ?>" />
             </svg>
           </div>
         <?php endif; ?>

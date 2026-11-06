@@ -197,7 +197,7 @@ ob_start();
           <h2>زمینه تخصصی</h2>
           <div class="doctor-chip-row">
             <?php foreach ($focus as $fk): ?>
-              <a class="doctor-chip" href="<?= e(url('/issues/' . $fk)) ?>"><?= e(doctor_focus_options()[$fk] ?? $fk) ?></a>
+              <a class="doctor-chip" href="<?= e(clinic_issue_topic($fk) ? url('/issues/' . $fk) : clinic_doctors_href(['focus' => $fk])) ?>"><?= e(doctor_focus_options()[$fk] ?? $fk) ?></a>
             <?php endforeach; ?>
           </div>
         </div>

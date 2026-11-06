@@ -5,10 +5,12 @@
   XMLHttpRequest.prototype.open=function(){throw new Error('Preview is read only')};
   document.addEventListener('submit',event=>event.preventDefault(),true);
   document.addEventListener('click',event=>{
+    const block=event.target.closest('[data-psy-block]');
     const field=event.target.closest('[data-mana-field]');
     const link=event.target.closest('a');
     if(field||link||event.target.closest('button,input,select,textarea')){event.preventDefault();event.stopImmediatePropagation();}
-    if(field) parent.postMessage({type:'mana-select',id:field.dataset.manaField},origin);
+    if(block) parent.postMessage({type:'psy-select-block',id:block.dataset.psyBlock},origin);
+    else if(field) parent.postMessage({type:'mana-select',id:field.dataset.manaField},origin);
     else if(link) { const url=new URL(link.href,location.href); if(url.origin===origin) parent.postMessage({type:'mana-navigate',path:url.pathname},origin); }
   },true);
   document.addEventListener('DOMContentLoaded',()=>parent.postMessage({type:'mana-ready',path:location.pathname},origin),{once:true});

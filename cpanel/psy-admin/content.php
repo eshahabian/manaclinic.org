@@ -2,6 +2,7 @@
 declare(strict_types=1);
 namespace ManaCms;
 require_once __DIR__.'/core.php';
+require_once __DIR__.'/studio.php';
 
 function static_pages(): array {
     $pages=[];
@@ -10,7 +11,9 @@ function static_pages(): array {
     return $pages;
 }
 function public_path(string $path): bool {
-    return isset(static_pages()[$path]) || preg_match('~^/(doctors|articles|issues|tests)/[A-Za-z0-9_-]+$~D',$path)===1;
+    if(isset(static_pages()[$path]) || preg_match('~^/(doctors|articles|issues|tests)/[A-Za-z0-9_-]+$~D',$path)===1) return true;
+    if(preg_match('~^/(?:admin|doctor|secretary|dashboard|app|staff|accountant|api|auth|login|register|logout|password|change-password|reset-password|forgot-password|session|payments|cron|install|psy-admin|psy-media|uploads|assets)(?:/|$)~',$path)) return false;
+    return isset(studio(state())['documents'][$path]);
 }
 function pages(): array {
     $labels=['/'=>'خانه','/doctors'=>'متخصصان','/articles'=>'مقالات','/services'=>'خدمات','/about'=>'درباره ما','/contact'=>'تماس','/faq'=>'پرسش‌ها','/rules'=>'قوانین','/tests'=>'آزمون‌ها','/issues'=>'موضوعات','/workshops'=>'کارگاه‌ها','/collaborate'=>'همکاری','/assistant'=>'دستیار'];
@@ -29,6 +32,7 @@ function pages(): array {
     foreach(\clinic_issue_topics() as $slug=>$topic) $out['/issues/'.$slug]=['id'=>'/issues/'.$slug,'title'=>$topic['title']??$slug,'kind'=>'issue'];
     require_once root().'/includes/psych_tests.php';
     foreach(\psych_tests_catalog() as $test) if(!empty($test['ready'])) $out['/tests/'.$test['slug']]=['id'=>'/tests/'.$test['slug'],'title'=>$test['title'],'kind'=>'test'];
+    foreach(studio(state())['documents'] as $path=>$doc) if(!$doc['trashed']&&!$doc['native']) $out[$path]=['id'=>$path,'title'=>$doc['draft']['title'],'kind'=>'designed'];
     return ['pages'=>array_values($out),'warning'=>$warning];
 }
 function template_stamp(string $page,string $scope): string {
@@ -144,6 +148,7 @@ function record_catalog(string $page,array $scan,array $images,string $html): vo
 function render(string $html,string $page,bool $preview=false): string {
     if(!public_path($page)) return $html;
     $s=state();
+    if($preview&&!empty($GLOBALS['mana_cms_draft'])) foreach(studio($s)['documents'][$page]['draft']['edits']??[] as $id=>$edit) $s['edits'][$id]=$edit;
     if(!$preview && !$s['edits'] && $s['menus']===null) return $html;
     $scan=scan($html,$page); $replacements=[];
     $viewer=$preview?require_page($page):null;
@@ -180,7 +185,7 @@ function render(string $html,string $page,bool $preview=false): string {
     }
     return $html;
 }
-function validate_menu(array $items,array $catalog): array {
+function validate_menu(array $items,array $catalog,bool $allowDraft=false): array {
     if(count($items)<1||count($items)>30) fail(400,'منو باید بین ۱ و ۳۰ گزینه داشته باشد.');
     $known=array_fill_keys(array_column(pages()['pages'],'id'),true); $clean=[];
     foreach($items as $item) {
@@ -197,6 +202,8 @@ function validate_menu(array $items,array $catalog): array {
         else {
             $parts=explode('#',$href);
             if(count($parts)>2||!isset($known[$parts[0]])||str_contains($href,'..')||str_contains($href,'%')||str_starts_with($href,'//')) fail(400,'مقصد داخلی وجود ندارد.');
+            $targetDoc=studio(state())['documents'][$parts[0]]??null;
+            if(!$allowDraft&&$targetDoc&&!$targetDoc['native']&&($targetDoc['trashed']||$targetDoc['live']===null)) fail(400,'صفحهٔ مقصد منو هنوز منتشر نشده است.');
             if(isset($parts[1]) && (!isset($catalog[$parts[0]]) || !in_array($parts[1],$catalog[$parts[0]]['anchors'],true))) fail(400,'بخش مقصد وجود ندارد؛ ابتدا پیش‌نمایش آن صفحه را باز کنید.');
         }
         check_policy($label); $clean[]=['label'=>trim($label),'href'=>$href];
@@ -209,6 +216,7 @@ function check_policy(string $value): void {
 function save_content(string $action,array $d): void {
     locked(function() use($action,$d) {
         $u=require_user(); $s=state();
+        if(in_array($action,['save','menu','image'],true)) design_require('publishPages',$u);
         if($action==='undo') require_user(true);
         elseif($action==='menu') require_capability('menu');
         elseif($action==='image') require_capability('image',is_string($d['id']??null)?$d['id']:null);
@@ -238,13 +246,20 @@ function save_content(string $action,array $d): void {
         commit($next,$s);
     });
 }
-function store_image(string $encoded): array {
+function store_image(string $encoded,mixed $crop=null): array {
     if(!function_exists('imagecreatefromstring')) fail(503,'افزونهٔ GD برای پردازش امن تصویر لازم است.');
     $bytes=base64_decode($encoded,true);
     if($bytes===false||strlen($bytes)>8*1024*1024) fail(400,'حداکثر حجم عکس ۸ مگابایت است.');
     $info=@getimagesizefromstring($bytes);
     if(!$info||!in_array($info['mime'],['image/jpeg','image/png','image/webp'],true)||$info[0]<1||$info[1]<1||$info[0]>8192||$info[1]>8192||$info[0]*$info[1]>16000000) fail(400,'نوع یا ابعاد عکس مجاز نیست (حداکثر ۱۶ میلیون پیکسل).');
     $image=@imagecreatefromstring($bytes); if(!$image) fail(400,'تصویر قابل پردازش نیست.');
+    if($crop!==null) {
+        if(!is_array($crop)) fail(400,'کادر برش معتبر نیست.');
+        foreach(['x','y','width','height'] as $key) if(!is_int($crop[$key]??null)||$crop[$key]<($key==='x'||$key==='y'?0:1)) fail(400,'مختصات برش معتبر نیست.');
+        if($crop['x']+$crop['width']>$info[0]||$crop['y']+$crop['height']>$info[1]) fail(400,'کادر برش بیرون تصویر است.');
+        $cropped=imagecrop($image,$crop); if(!$cropped) fail(400,'برش تصویر انجام نشد.');
+        imagedestroy($image); $image=$cropped; $info[0]=$crop['width']; $info[1]=$crop['height'];
+    }
     ob_start();
     try {
         if($info['mime']==='image/jpeg') { $ok=imagejpeg($image,null,90); $ext='jpg'; }
