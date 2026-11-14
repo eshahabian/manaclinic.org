@@ -8268,3 +8268,10 @@ html.is-native-app body:has([data-livekit-v2]:not([hidden])) .site-chrome-call {
 [data-recipient-row][hidden] { display:none!important; }
 @media(max-width:1000px){.wcard-tabbar{grid-template-columns:repeat(4,minmax(0,1fr));}}
 @media(max-width:540px){.wcard-tabbar{grid-template-columns:repeat(2,minmax(0,1fr));}.workshop-summary-grid{grid-template-columns:1fr;}}
+
+/* Service illustrations: keep each scene visible and copy on its own surface. */
+.services-page .service-card { padding: 0 0 1.35rem; gap: .7rem; background: var(--card); }
+.services-page .service-card-scene { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; object-fit: cover; object-position: center; flex: none; }
+.services-page .service-card > :not(.service-card-scene) { margin-inline: 1.45rem; }
+.services-page .service-card-icon { margin-top: .5rem; }
+.services-image-note { color: var(--muted); font-size: .8rem; line-height: 1.9; margin: 0 0 1.25rem; }

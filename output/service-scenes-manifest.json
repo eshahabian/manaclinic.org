@@ -1,0 +1,53 @@
+{
+  "mode": "built-in image_gen",
+  "reference": "D:/Snipping Tools/photo_2026-11-15_01-22-47.jpg",
+  "images": [
+    {
+      "name": "person",
+      "prompt": "photorealistic-natural; landscape 3:2; preserve reference therapist facial identities; natural skin and anatomy; no text, logos or watermark; fictional illustrative scene. Individual therapy: reference male therapist listens to a new natural-looking Iranian woman aged 30 with straight dark hair, olive blouse; side-on medium shot, bright window and warm neutral room.",
+      "file": "C:\\Users\\Emad\\.codex\\generated_images\\01a1dc53-e046-7823-81f0-71540a14d0ff\\exec-f65246e6-5d43-4b96-979a-32635823d930.png"
+    },
+    {
+      "name": "couple",
+      "prompt": "photorealistic-natural; landscape 3:2; preserve reference therapist facial identities; natural skin and anatomy; no text, logos or watermark; fictional illustrative scene. Couples therapy: reference female therapist sits opposite two new natural Iranian adult clients, a woman with straight dark hair and olive blouse and man with short black hair and navy shirt, both clients equally visible; wide triangular composition, warm consultation room.",
+      "file": "C:\\Users\\Emad\\.codex\\generated_images\\01a1dc53-e046-7823-81f0-71540a14d0ff\\exec-1e5b42dd-a40e-4622-8d11-89b8b1f8a38d.png"
+    },
+    {
+      "name": "child",
+      "prompt": "photorealistic-natural; landscape 3:2; preserve reference therapist facial identities; natural skin and anatomy; no text, logos or watermark; fictional illustrative scene. Child therapy: reference female therapist gently talks at eye level to an 8 year old child drawing with crayons at a low table; airy play therapy room, candid medium framing.",
+      "file": "C:\\Users\\Emad\\.codex\\generated_images\\01a1dc53-e046-7823-81f0-71540a14d0ff\\exec-d9a2f18f-1841-49e3-8767-3c6c815366e1.png"
+    },
+    {
+      "name": "rings",
+      "prompt": "photorealistic-natural; landscape 3:2; preserve reference therapist facial identities; natural skin and anatomy; no text, logos or watermark; fictional illustrative scene. Premarital counseling: reference male therapist talking to a young adult couple sitting on separate chairs, reflective friendly mood, diagonal wide composition, sunlit contemporary room.",
+      "file": "C:\\Users\\Emad\\.codex\\generated_images\\01a1dc53-e046-7823-81f0-71540a14d0ff\\exec-54db9aa1-0ebc-4406-b9e1-205659cae46a.png"
+    },
+    {
+      "name": "family",
+      "prompt": "photorealistic-natural; landscape 3:2; preserve reference therapist facial identities; natural skin and anatomy; no text, logos or watermark; fictional illustrative scene. Family therapy: reference female therapist facilitating discussion with parents and a teenager, welcoming living-room style setting, wider group composition.",
+      "file": "C:\\Users\\Emad\\.codex\\generated_images\\01a1dc53-e046-7823-81f0-71540a14d0ff\\exec-c3b598d3-cd0d-4f88-bbbf-3a55f7356fa6.png"
+    },
+    {
+      "name": "workshop",
+      "prompt": "photorealistic-natural; landscape 3:2; preserve reference therapist facial identities; natural skin and anatomy; no text, logos or watermark; fictional illustrative scene. Psychology workshop: reference male therapist leading a small adult group in a semicircle, gesturing beside a blank flipchart, spacious bright workshop room, candid wide framing.",
+      "file": "C:\\Users\\Emad\\.codex\\generated_images\\01a1dc53-e046-7823-81f0-71540a14d0ff\\exec-cf021a17-e267-4074-a18e-ec3a74d64ee2.png"
+    },
+    {
+      "name": "test",
+      "prompt": "photorealistic-natural; landscape 3:2; preserve reference therapist facial identities; natural skin and anatomy; no text, logos or watermark; fictional illustrative scene. Psychological assessment: reference female therapist explaining a paper questionnaire to a new natural-looking adult woman, desk scene, three-quarter view, no legible writing.",
+      "file": "C:\\Users\\Emad\\.codex\\generated_images\\01a1dc53-e046-7823-81f0-71540a14d0ff\\exec-e1f442fe-eb1d-4fed-8555-32515ab7929c.png"
+    },
+    {
+      "name": "assistant",
+      "prompt": "photorealistic-natural; landscape 3:2; preserve reference therapist facial identities; natural skin and anatomy; no text, logos or watermark; fictional illustrative scene. Online initial guidance: new natural-looking Iranian adult man seated at home using a laptop for a generic chat interface, reference female therapist only as a small clearly virtual guide portrait on screen, calm evening scene, over-shoulder view, no readable text.",
+      "editPrompt": "Replace ONLY the foreground man with a clearly DIFFERENT fictional Iranian man aged 28, straight short black hair with faded sides, clean shaven, navy cotton shirt. No curly hair, no beard, no beige shirt. Preserve everything else including laptop and female therapist portrait on screen, composition, lighting and realistic photographic texture.",
+      "file": "C:\\Users\\Emad\\.codex\\generated_images\\01a1dc53-e046-7823-81f0-71540a14d0ff\\exec-844ec8aa-5f7d-4c9d-8cc5-6e5a1274c1fd.png"
+    },
+    {
+      "name": "calendar",
+      "prompt": "photorealistic-natural; landscape 3:2; preserve reference therapist facial identities; natural skin and anatomy; no text, logos or watermark; fictional illustrative scene. Online appointment booking: new natural Iranian adult woman at a home desk choosing an appointment on laptop, generic calendar and small reference male therapist portrait on screen, daylight, angled medium view, no readable text.",
+      "editPrompt": "Replace ONLY the foreground woman's facial identity, hair and clothing with a clearly DIFFERENT fictional Iranian woman aged 28 with straight long dark hair, round face, natural freckles, olive cotton blouse and light gray scarf. Do not resemble the curly-haired therapist. Preserve the laptop screen and its male therapist portrait exactly, room, composition and daylight. Photorealistic natural texture.",
+      "file": "C:\\Users\\Emad\\.codex\\generated_images\\01a1dc53-e046-7823-81f0-71540a14d0ff\\exec-36ede841-fb87-43c1-90d8-2bd831148d42.png"
+    }
+  ]
+}
