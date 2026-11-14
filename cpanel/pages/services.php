@@ -120,7 +120,6 @@ ob_start();
     </p>
   </header>
 
-  <p class="services-image-note">تصاویر این بخش با هوش مصنوعی و برای نمایش موقعیت خدمات ساخته شده‌اند و عکس واقعی کارکنان یا مراجعان نیستند.</p>
   <div class="services-grid">
     <?php foreach ($services as $item): ?>
       <a class="service-card" href="<?= e(url((string) $item['href'])) ?>">

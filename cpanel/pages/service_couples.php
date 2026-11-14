@@ -7,7 +7,7 @@ $pageCanonical = url('/services/couples');
 $pageKeywords = 'زوج درمانی, مشاوره زوج, روابط عاطفی, مانا کلینیک سعادت آباد';
 
 $doctorsHref = service_doctors_search_href('زوج درمانی');
-$heroImage = url('/assets/img/services/couples-therapy.png');
+$heroImage = url('/assets/img/services/couples-hero-v3.webp');
 $domainDoctors = service_doctors_by_domain($pdo, 'couples');
 
 $workshopBanners = [];
@@ -29,7 +29,7 @@ $pageJsonLd = service_detail_json_ld(
     '/services/couples',
     $pageDescription,
     'زوج‌درمانی و روابط عاطفی',
-    '/assets/img/services/couples-therapy.png'
+    '/assets/img/services/couples-hero-v3.webp'
 );
 
 ob_start();
@@ -47,10 +47,11 @@ ob_start();
     <figure class="service-detail-hero-media">
       <img
         src="<?= e($heroImage) ?>"
-        alt="فضای آرام اتاق زوج‌درمانی در کلینیک روانشناسی"
+        alt="گفت‌وگوی زوج با درمانگر"
         width="1600"
         height="900"
         loading="eager"
+        fetchpriority="high"
         decoding="async"
       >
     </figure>

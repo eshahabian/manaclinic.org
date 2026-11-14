@@ -14,6 +14,8 @@ $pageJsonLd = service_detail_json_ld(
     'کارگاه‌ها و دوره‌های آموزشی روان‌شناختی'
 );
 
+$heroImage = url('/assets/img/services/workshops-hero-v3.webp');
+
 ob_start();
 ?>
 <div class="container-page services-page service-detail-page">
@@ -26,6 +28,9 @@ ob_start();
   </nav>
 
   <header class="services-hero">
+    <figure class="service-detail-hero-media">
+      <img src="<?= e($heroImage) ?>" alt="تمرین گروهی در کارگاه روانشناسی" width="1600" height="900" loading="eager" fetchpriority="high" decoding="async">
+    </figure>
     <p class="services-kicker"><span>خدمات ما</span></p>
     <h1>کارگاه‌ها و دوره‌های آموزشی</h1>
     <p class="services-lead">فرصتی برای یادگیری، تجربه و رشد در کنار دیگران</p>

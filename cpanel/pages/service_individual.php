@@ -7,14 +7,14 @@ $pageCanonical = url('/services/individual');
 $pageKeywords = 'مشاوره فردی, روان‌درمانی فردی, روانشناس سعادت آباد, مشاوره اضطراب, مانا کلینیک';
 
 $doctorsHref = service_doctors_search_href('مشاوره فردی');
-$heroImage = url('/assets/img/services/individual-counseling.png');
+$heroImage = url('/assets/img/services/individual-hero-v3.webp');
 $individualDoctors = service_doctors_by_domain($pdo, 'individual');
 $pageJsonLd = service_detail_json_ld(
     'مشاوره فردی',
     '/services/individual',
     $pageDescription,
     'مشاوره و روان‌درمانی فردی',
-    '/assets/img/services/individual-counseling.png'
+    '/assets/img/services/individual-hero-v3.webp'
 );
 
 ob_start();
@@ -32,10 +32,11 @@ ob_start();
     <figure class="service-detail-hero-media">
       <img
         src="<?= e($heroImage) ?>"
-        alt="فضای آرام اتاق مشاوره فردی در کلینیک روانشناسی"
+        alt="گفت‌وگوی درمانگر و مراجعه‌کننده در مشاوره فردی"
         width="1600"
         height="900"
         loading="eager"
+        fetchpriority="high"
         decoding="async"
       >
     </figure>

@@ -15,6 +15,8 @@ $pageJsonLd = service_detail_json_ld(
     'مشاوره پیش از ازدواج'
 );
 
+$heroImage = url('/assets/img/services/premarital-hero-v3.webp');
+
 ob_start();
 ?>
 <div class="container-page services-page service-detail-page">
@@ -27,6 +29,9 @@ ob_start();
   </nav>
 
   <header class="services-hero">
+    <figure class="service-detail-hero-media">
+      <img src="<?= e($heroImage) ?>" alt="جلسه مشاوره پیش از ازدواج" width="1600" height="900" loading="eager" fetchpriority="high" decoding="async">
+    </figure>
     <p class="services-kicker"><span>خدمات ما</span></p>
     <h1>مشاوره پیش از ازدواج</h1>
   </header>
