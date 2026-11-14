@@ -7681,15 +7681,13 @@ html[data-theme="dark"] .emoji-picker-panel {
   pointer-events: none;
 }
 .services-grid > .service-card:nth-child(-n + 3) {
-  background: color-mix(in srgb, var(--primary) 10%, var(--card));
+  background: color-mix(in srgb, var(--primary) 4%, var(--card));
 }
 .services-grid > .service-card:nth-child(-n + 6) .service-card-background {
   display: none;
 }
 .services-grid > .service-card:nth-child(n + 4):nth-child(-n + 6) {
-  background: color-mix(in srgb, var(--card) 18%, transparent);
-  -webkit-backdrop-filter: blur(8px);
-  backdrop-filter: blur(8px);
+  background: transparent;
 }
 .services-grid > .service-card:nth-child(n + 7) .service-card-background {
   opacity: .5;
