@@ -32,25 +32,9 @@ $workshopBanners = function_exists('workshop_home_banners') ? workshop_home_bann
 $heroImage = url('/assets/img/hero.webp');
 $heroMobileImage = url('/assets/img/hero-mobile.webp');
 ob_start();
+<link rel="stylesheet" href="<?= e(url('/assets/css/home-slideshow-v1.css')) ?>?v=20261115a">
 ?>
-<section class="hero-surface" aria-label="مانا کلینیک">
-  <picture class="hero-bg" aria-hidden="true">
-    <source media="(max-width: 640px)" srcset="<?= e($heroMobileImage) ?>">
-    <img src="<?= e($heroImage) ?>" alt="" width="1536" height="1024" fetchpriority="high" loading="eager" decoding="async" style="width:100%;height:100%;object-fit:cover;object-position:center">
-  </picture>
-  <div class="hero-overlay" aria-hidden="true"></div>
-  <div class="container-page hero-inner">
-    <p class="eyebrow">مانا کلینیک</p>
-    <h1>آرامش ذهن، مسیر روشن‌تر زندگی</h1>
-    <p style="max-width:36rem;opacity:.92;margin-top:1rem;line-height:1.9">
-      از مسئله‌ات شروع کن، درمانگر مناسب را ببین و نوبت حضوری یا آنلاین بگیر.
-    </p>
-    <div class="hero-actions">
-      <a class="btn btn-accent" href="<?= e(url('/doctors')) ?>">رزرو نوبت</a>
-      <a class="btn btn-ghost" href="<?= e(url('/articles')) ?>">خواندن مقالات</a>
-    </div>
-  </div>
-</section>
+<?php require __DIR__ . '/../includes/home_slideshow.php'; ?>
 
 <?php if ($dailyQuote !== ''): ?>
 <aside class="home-daily-quote" aria-labelledby="home-daily-quote-label">
@@ -138,5 +122,5 @@ ob_start();
 </section>
 <?php
 $content = ob_get_clean();
-$pageScripts = '<script src="' . e(url('/assets/js/home-workshop-banners.js')) . '?v=20260908k"></script>';
+$pageScripts = '<script src="' . e(url('/assets/js/home-slideshow-v1.js')) . '?v=20261115a" defer></script>' . '<script src="' . e(url('/assets/js/home-workshop-banners.js')) . '?v=20260908k"></script>';
 require __DIR__ . '/../includes/layout.php';

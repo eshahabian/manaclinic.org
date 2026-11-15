@@ -1,0 +1,14 @@
+.mana-home-slider{position:relative;background:#f2ead8;color:#193e31;isolation:isolate}
+.mana-home-slide{position:relative;min-height:620px;min-height:clamp(520px,76vh,760px);display:grid;align-items:center;overflow:hidden}
+.mana-home-slide[hidden]{display:none}
+.mana-home-slide>img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;object-position:center}
+.mana-home-slide-inner{position:relative;z-index:1;padding-top:6rem;padding-bottom:6rem}
+.mana-home-slide-copy{width:40%;margin-left:auto;padding:1.6rem;border-radius:24px;background:rgba(250,246,235,.92);box-shadow:0 10px 40px #24453412}
+.mana-home-slide-copy h1,.mana-home-slide-copy h2{font-size:clamp(1.8rem,3vw,2.8rem);line-height:1.6;margin:0;color:#193e31}
+.mana-home-slide-copy .eyebrow{color:#476446;margin-bottom:.6rem}
+.mana-home-slide-description{line-height:2;margin-top:1rem}
+.mana-home-slider-controls{position:absolute;bottom:1rem;inset-inline:0;display:flex;justify-content:center;gap:.5rem;z-index:2}
+.mana-home-slider-controls button{border:1px solid #335947;background:#faf6eb;color:#193e31;min-width:40px;min-height:40px;border-radius:24px;padding:.4rem .8rem;cursor:pointer;font:inherit}
+.mana-home-slider-controls button[aria-pressed=true]{background:#193e31;color:#fff}
+.mana-home-slider button:focus-visible,.mana-home-slider a:focus-visible{outline:3px solid #b77b20;outline-offset:4px}
+@media(max-width:700px){.mana-home-slide{min-height:740px;align-items:end}.mana-home-slide>img{height:57%;object-position:25% center}.mana-home-slide-inner{padding-top:340px;padding-bottom:5rem}.mana-home-slide-copy{width:100%;box-sizing:border-box;padding:1.2rem;background:#faf6eb}.mana-home-slide-copy h1,.mana-home-slide-copy h2{font-size:1.65rem}.mana-home-slide-description{margin-top:.5rem}.mana-home-slide-copy .hero-actions{margin-top:1rem}}
