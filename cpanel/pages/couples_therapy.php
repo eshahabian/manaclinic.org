@@ -11,7 +11,7 @@ $learningCatalog = mana_learning_catalog();
 $learningItems = mana_learning_lessons($learningSeries, $learningCatalog[$learningSeries]);
 $currentLessonIndex = array_search(mana_learning_lesson_path($learningSeries, $learningSeason, $learningEpisode), array_column($learningItems, 'path'), true);
 $pageCanonical = url(mana_learning_lesson_path($learningSeries, $learningSeason, $learningEpisode));
-$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/home-redesign-v2.css')) . '?v=20261115j"><link rel="stylesheet" href="' . e(url('/assets/css/learning.css')) . '?v=20261115b">';
+$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/home-redesign-v2.css')) . '?v=20261115j"><link rel="stylesheet" href="' . e(url('/assets/css/learning.css')) . '?v=20261115c">';
 ob_start();
 ?>
 <article class="container-page section mana-couples-lesson">
