@@ -32,8 +32,8 @@ $workshopBanners = function_exists('workshop_home_banners') ? workshop_home_bann
 $heroImage = url('/assets/img/hero.webp');
 $heroMobileImage = url('/assets/img/hero-mobile.webp');
 ob_start();
-<link rel="stylesheet" href="<?= e(url('/assets/css/home-slideshow-v1.css')) ?>?v=20261115a">
 ?>
+<link rel="stylesheet" href="<?= e(url('/assets/css/home-slideshow-v1.css')) ?>?v=20261115a">
 <?php require __DIR__ . '/../includes/home_slideshow.php'; ?>
 
 <?php if ($dailyQuote !== ''): ?>
