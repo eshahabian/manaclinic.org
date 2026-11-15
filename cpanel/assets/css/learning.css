@@ -1,0 +1,34 @@
+.mana-learning{max-width:72rem;padding-block:2rem 4rem;line-height:2}
+.learning-breadcrumb{display:flex;gap:.6rem;flex-wrap:wrap;font-size:.8rem;color:var(--muted);margin-bottom:2rem}
+.learning-breadcrumb a,.learning-link{color:var(--primary);text-decoration:none;font-weight:600}
+.learning-header{max-width:48rem;margin-bottom:2.5rem}
+.learning-header h1{font-size:clamp(2rem,4vw,3rem);line-height:1.7;margin:.4rem 0 1rem}
+.learning-header p{color:var(--muted)}
+.learning-eyebrow{font-size:.8rem;font-weight:600;color:var(--primary)!important;margin:0}
+.learning-note{font-size:.85rem;color:var(--muted)}
+.learning-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1.5rem}
+.learning-series-card{display:flex;flex-direction:column;overflow:hidden;border:1px solid var(--line);border-radius:24px;background:var(--card);text-decoration:none;color:var(--fg)}
+.learning-series-card img,.learning-series-placeholder{display:block;width:100%;aspect-ratio:3/2;object-fit:cover}
+.learning-series-placeholder{display:grid;place-items:center;background:var(--bg-soft);color:var(--primary);font-size:clamp(1.3rem,3vw,2rem)}
+.learning-card-copy{padding:1.6rem;display:flex;flex:1;flex-direction:column;align-items:start}
+.learning-card-copy h2{font-size:1.4rem;line-height:1.8;margin:.5rem 0}
+.learning-card-copy p:not(.learning-eyebrow){color:var(--muted);font-size:.9rem;margin:0 0 1rem}
+.learning-card-copy .learning-link{margin-top:auto;padding-top:1rem}
+.learning-status{font-size:.75rem;color:var(--muted)}
+.learning-empty{padding:2rem;border:1px dashed var(--line);border-radius:20px;margin-top:2rem;background:var(--bg-soft)}
+.learning-empty h2{font-size:1.2rem;margin:0}.learning-empty p{color:var(--muted);font-size:.9rem}
+.learning-series-intro{display:flex;align-items:center;justify-content:space-between;gap:2rem;padding:1.5rem;border-radius:20px;background:var(--bg-soft)}
+.learning-series-intro p{max-width:40rem;margin:0}.learning-series-intro .btn{white-space:nowrap}
+.learning-seasons{display:flex;flex-wrap:wrap;gap:.75rem;margin:2rem 0}
+.learning-seasons a{border:1px solid var(--line);border-radius:12px;padding:.5rem 1.2rem;color:var(--primary);text-decoration:none}
+.learning-season{scroll-margin-top:8rem}.learning-season h2{font-size:1.5rem}
+.learning-episodes{padding:0;list-style:none;display:grid;gap:1rem}
+.learning-episode{display:flex;align-items:center;gap:1.5rem;padding:1.5rem;border:1px solid var(--line);border-radius:20px;background:var(--card);text-decoration:none;color:var(--fg)}
+.learning-episode-number{font-size:.85rem;white-space:nowrap;color:var(--primary);background:var(--bg-soft);padding:.7rem 1rem;border-radius:12px}
+.learning-episode h3{font-size:1.1rem;margin:0;line-height:1.9}.learning-episode p{color:var(--muted);margin:.4rem 0;font-size:.85rem}
+.learning-episode .learning-link{margin-inline-start:auto;white-space:nowrap;font-size:.85rem}
+.mana-learning a:focus-visible,.learning-lesson-nav a:focus-visible{outline:3px solid var(--primary);outline-offset:5px}
+.learning-series-card:hover,.learning-episode:hover{border-color:var(--primary)}
+.learning-lesson-nav{display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;padding:1.2rem 0;border-block:1px solid var(--line);margin-block:2rem;font-size:.85rem}
+.learning-lesson-nav a{color:var(--primary);text-decoration:none}
+@media(max-width:700px){.learning-grid{grid-template-columns:1fr}.learning-series-intro{flex-direction:column;align-items:start;gap:1rem}.learning-episode{flex-wrap:wrap;gap:.8rem;padding:1.2rem}.learning-episode>div{flex:1;min-width:12rem}.learning-episode .learning-link{margin-inline-start:0;width:100%}.learning-card-copy{padding:1.25rem}}

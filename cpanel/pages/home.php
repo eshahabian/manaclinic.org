@@ -60,13 +60,13 @@ ob_start();
 
 <section class="container-page section home-content">
 
-      <a class="mana-couples-feature" href="<?= e(url('/couples-therapy')) ?>" aria-labelledby="mana-couples-title">
+      <a class="mana-couples-feature" href="<?= e(url('/learn/couples-therapy')) ?>" aria-labelledby="mana-couples-title">
         <div class="mana-couples-copy">
           <p class="mana-couples-eyebrow">رابطه از زاویه‌ای دیگر <span lang="en" dir="ltr">Couples Therapy</span></p>
           <h2 id="mana-couples-title">سرِ اتفاق دعوا می‌کنیم،<br>یا سرِ معنای آن؟</h2>
           <p class="mana-couples-description">یک اتفاق، دو برداشت متفاوت؛ فرصتی برای دیدن رابطه از نگاه یکدیگر.</p>
           <p class="mana-couples-context">درس‌هایی با نقطهٔ شروع مستند زوج‌درمانی با اورنا گورالنیک</p>
-          <span class="mana-couples-cta">خواندن درس اول <span aria-hidden="true">←</span></span>
+          <span class="mana-couples-cta">مشاهدهٔ فصل‌ها و درس‌ها <span aria-hidden="true">←</span></span>
           <span class="mana-couples-episode">فصل اول · قسمت اول</span>
         </div>
         <figure class="mana-couples-visual">

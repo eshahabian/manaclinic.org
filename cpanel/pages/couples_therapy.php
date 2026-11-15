@@ -3,12 +3,19 @@ declare(strict_types=1);
 
 $pageTitle = 'سرِ اتفاق دعوا می‌کنیم، یا سرِ معنای آن؟';
 $pageDescription = 'درس اول مجموعهٔ آموزشی رابطه از زاویه‌ای دیگر؛ یک اتفاق، دو برداشت و تمرینی برای گفت‌وگو دربارهٔ معنای اتفاق‌ها.';
-$pageCanonical = url('/couples-therapy');
-$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/home-redesign-v2.css')) . '?v=20261115i">';
+require_once __DIR__ . '/../includes/learning.php';
+$learningSeries = $learningSeries ?? 'couples-therapy';
+$learningSeason = $learningSeason ?? 1;
+$learningEpisode = $learningEpisode ?? 1;
+$learningCatalog = mana_learning_catalog();
+$learningItems = mana_learning_lessons($learningSeries, $learningCatalog[$learningSeries]);
+$currentLessonIndex = array_search(mana_learning_lesson_path($learningSeries, $learningSeason, $learningEpisode), array_column($learningItems, 'path'), true);
+$pageCanonical = url(mana_learning_lesson_path($learningSeries, $learningSeason, $learningEpisode));
+$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/home-redesign-v2.css')) . '?v=20261115j"><link rel="stylesheet" href="' . e(url('/assets/css/learning.css')) . '?v=20261115a">';
 ob_start();
 ?>
 <article class="container-page section mana-couples-lesson">
-  <a class="mana-text-link" href="<?= e(url('/')) ?>">بازگشت به خانهٔ مانا</a>
+  <nav class="learning-breadcrumb" aria-label="مسیر یادگیری"><a href="<?= e(url('/learn')) ?>">یادگیری با مانا</a><span aria-hidden="true">/</span><a href="<?= e(url('/learn/couples-therapy')) ?>">Couples Therapy</a><span aria-hidden="true">/</span><a href="<?= e(url('/learn/couples-therapy#season-1')) ?>">فصل اول</a><span aria-hidden="true">/</span><span aria-current="page">قسمت اول</span></nav>
   <header>
     <p class="mana-kicker">رابطه از زاویه‌ای دیگر · درس اول</p>
     <h1>سرِ اتفاق دعوا می‌کنیم، یا سرِ معنای آن؟</h1>
@@ -43,6 +50,11 @@ ob_start();
   <footer class="panel">
     <p>این مجموعه برای آموزش و تأمل دربارهٔ رابطه است و جایگزین ارزیابی یا درمان فردی نیست. هنوز اسلاید یا ویدئویی برای این درس منتشر نشده است.</p>
   </footer>
+  <nav class="learning-lesson-nav" aria-label="درس‌های مجموعه">
+    <?php if ($currentLessonIndex !== false && $currentLessonIndex > 0): $previousLesson = $learningItems[$currentLessonIndex - 1]; ?><a rel="prev" href="<?= e(url($previousLesson['path'])) ?>">درس قبلی: <?= e($previousLesson['title']) ?></a><?php endif; ?>
+    <a href="<?= e(url('/learn/couples-therapy#season-1')) ?>">فهرست فصل‌ها و قسمت‌ها</a>
+    <?php if ($currentLessonIndex !== false && isset($learningItems[$currentLessonIndex + 1])): $nextLesson = $learningItems[$currentLessonIndex + 1]; ?><a rel="next" href="<?= e(url($nextLesson['path'])) ?>">درس بعدی: <?= e($nextLesson['title']) ?></a><?php else: ?><span class="muted">قسمت بعدی پس از آماده‌شدن اضافه می‌شود.</span><?php endif; ?>
+  </nav>
 </article>
 <?php
 $content = ob_get_clean();

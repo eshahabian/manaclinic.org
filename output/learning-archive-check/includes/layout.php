@@ -1,0 +1,1 @@
+<?php echo '<!doctype html><html lang="fa" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><link rel="canonical" href="'.htmlspecialchars($pageCanonical??'').'">'.($pageHead??'').'</head><body>'.($content??'').'</body></html>'; echo '<!-- status:'.http_response_code().' -->';

@@ -200,6 +200,7 @@ $routes = [
     'GET /workshops/apply' => 'pages/workshop_apply.php',
     'GET /articles' => 'pages/articles.php',
     'GET /couples-therapy' => 'pages/couples_therapy.php',
+    'GET /learn' => 'pages/learning.php',
     'GET /guides/first-therapy-session' => 'pages/guide_first_session.php',
     'GET /issues' => 'pages/issues.php',
     'GET /sitemap.xml' => 'pages/sitemap.php',
@@ -477,6 +478,17 @@ if ($path === '/install' && empty($config['allow_install'])) {
 $key = $method . ' ' . $path;
 
 // مسیرهای پویا
+if ($method === 'GET' && preg_match('#^/learn/([a-z0-9-]+)(?:/season-([1-9][0-9]*)/episode-([1-9][0-9]*))?$#', $path, $m)) {
+    $learningSeries = $m[1];
+    if (isset($m[2], $m[3])) {
+        $learningSeason = (int) $m[2];
+        $learningEpisode = (int) $m[3];
+        require __DIR__ . '/pages/learning_lesson.php';
+    } else {
+        require __DIR__ . '/pages/learning.php';
+    }
+    exit;
+}
 if (preg_match('#^/reset-password/([a-fA-F0-9]{32,64})$#', $path, $m) && $method === 'GET') {
     $_GET['token'] = strtolower($m[1]);
     if (empty($_GET['c']) && !empty($_GET['token'])) {

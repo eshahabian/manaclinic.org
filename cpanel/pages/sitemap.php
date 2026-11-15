@@ -3,6 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/seo.php';
 require_once __DIR__ . '/../includes/psych_tests.php';
+require_once __DIR__ . '/../includes/learning.php';
 
 header('Content-Type: application/xml; charset=utf-8');
 
@@ -28,6 +29,14 @@ $urls = [
     ['loc' => seo_absolute_url('/collaborate'), 'priority' => '0.6', 'changefreq' => 'monthly'],
     ['loc' => seo_absolute_url('/issues'), 'priority' => '0.85', 'changefreq' => 'weekly'],
 ];
+
+$urls[] = ['loc' => seo_absolute_url('/learn'), 'priority' => '0.8', 'changefreq' => 'weekly'];
+foreach (mana_learning_catalog() as $learningSlug => $learningSeries) {
+    $urls[] = ['loc' => seo_absolute_url('/learn/' . $learningSlug), 'priority' => '0.7', 'changefreq' => 'weekly'];
+    foreach (mana_learning_lessons($learningSlug, $learningSeries) as $learningLesson) {
+        $urls[] = ['loc' => seo_absolute_url($learningLesson['path']), 'priority' => '0.7', 'changefreq' => 'monthly'];
+    }
+}
 
 if (function_exists('clinic_issue_topics')) {
     foreach (array_keys(clinic_issue_topics()) as $issueKey) {
