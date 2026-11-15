@@ -12,7 +12,7 @@ if ($seriesSlug !== null && $series === null) {
 $pageTitle = $series['title'] ?? 'یادگیری با مانا';
 $pageDescription = $series['description'] ?? 'آرشیو مجموعه‌های آموزشی مانا؛ درس‌های هفتگی Couples Therapy، شناخت طرح‌واره‌ها و آموزش‌های دیگر، به تفکیک مجموعه، فصل و قسمت.';
 $pageCanonical = url('/learn' . ($seriesSlug !== null ? '/' . $seriesSlug : ''));
-$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/learning.css')) . '?v=20261115a">';
+$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/learning.css')) . '?v=20261115b">';
 ob_start();
 ?>
 <div class="container-page section mana-learning">
