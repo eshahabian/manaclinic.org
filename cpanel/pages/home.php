@@ -29,12 +29,26 @@ $pageKeywords = 'مانا کلینیک, روانشناس سعادت آباد, ر
 require_once dirname(__DIR__) . '/includes/daily_quotes.php';
 $dailyQuote = daily_quote_for_date();
 $workshopBanners = function_exists('workshop_home_banners') ? workshop_home_banners($pdo, 3) : [];
-$heroImage = url('/assets/img/hero.webp');
-$heroMobileImage = url('/assets/img/hero-mobile.webp');
+$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/home-redesign-v2.css')) . '?v=20261115b">';
 ob_start();
 ?>
-<link rel="stylesheet" href="<?= e(url('/assets/css/home-slideshow-v1.css')) ?>?v=20261115a">
-<?php require __DIR__ . '/../includes/home_slideshow.php'; ?>
+<div class="mana-home-v2">
+<section class="container-page mana-welcome" aria-labelledby="mana-welcome-title">
+  <div class="mana-welcome-copy">
+    <p class="mana-kicker">مانا کلینیک · سعادت‌آباد</p>
+    <h1 id="mana-welcome-title">آرامش ذهن،<br><span>مسیر روشن‌تر زندگی</span></h1>
+    <p class="mana-welcome-description">گاهی یک گفت‌وگو، شروع یک مسیر تازه است. از دغدغه‌ات شروع کن؛ درمانگر مناسب را بشناس و برای خودت، رابطه‌ات و حال بهترت قدم بردار.</p>
+    <div class="mana-welcome-actions">
+      <a class="btn btn-accent" href="<?= e(url('/doctors')) ?>">انتخاب درمانگر و رزرو نوبت</a>
+      <a class="mana-text-link" href="<?= e(url('/services')) ?>">آشنایی با خدمات مانا <span aria-hidden="true">←</span></a>
+    </div>
+    <div class="mana-welcome-paths"><a href="<?= e(url('/doctors')) ?>">جلسه حضوری و آنلاین</a><span aria-hidden="true">·</span><a href="<?= e(url('/workshops')) ?>">کارگاه‌ها و دوره‌ها</a></div>
+  </div>
+  <div class="mana-welcome-art">
+    <img src="<?= e(url('/assets/img/mana-home-calm-v2.webp')) ?>" alt="تصویر مفهومی درخت زیتون و دری روشن در فضایی آرام" width="1536" height="1024" fetchpriority="high" loading="eager" decoding="async">
+    <p class="mana-art-caption">برای خودت، فرصتی برای مکث بساز.</p>
+  </div>
+</section>
 
 <?php if ($dailyQuote !== ''): ?>
 <aside class="home-daily-quote" aria-labelledby="home-daily-quote-label">
@@ -48,6 +62,20 @@ ob_start();
 <?php endif; ?>
 
 <section class="container-page section home-content">
+
+      <section class="mana-services" aria-labelledby="mana-services-title">
+        <div class="mana-section-heading"><div><p class="mana-kicker">از کجا شروع کنیم؟</p><h2 id="mana-services-title">همراهی متناسب با دغدغهٔ شما</h2></div><a class="mana-text-link" href="<?= e(url('/services')) ?>">همه خدمات ←</a></div>
+        <div class="mana-service-grid">
+        <?php foreach ([
+          ['فردی', 'مشاوره فردی', 'شناخت خود، احساسات و چالش‌های روزمره', '/services/individual'],
+          ['رابطه', 'زوج‌درمانی', 'فرصتی برای شنیدن و بهتر فهمیدن یکدیگر', '/services/couples'],
+          ['رشد', 'کودک و نوجوان', 'همراهی در مسیر رشد و ارتباط با فرزند', '/services/child'],
+          ['یادگیری', 'کارگاه‌ها و دوره‌ها', 'تمرین مهارت‌های تازه برای زندگی', '/workshops'],
+        ] as $service): ?>
+          <a class="mana-service-card" href="<?= e(url($service[3])) ?>"><span class="mana-service-label"><?= e($service[0]) ?></span><h3><?= e($service[1]) ?></h3><p><?= e($service[2]) ?></p><span class="mana-service-arrow" aria-hidden="true">↖</span></a>
+        <?php endforeach; ?>
+        </div>
+      </section>
 
       <?php if (function_exists('assistant_enabled') ? assistant_enabled() : true): ?>
       <a class="home-assistant-tile" href="<?= e(url('/assistant')) ?>">
@@ -101,6 +129,10 @@ ob_start();
         </div>
       </div>
       <div class="home-articles-block" style="margin-top:3rem">
+        <a class="mana-reading-banner" href="<?= e(url('/articles')) ?>">
+          <div><p class="mana-kicker">مجلهٔ مانا</p><h2>کمی بخوان،<br>خودت را بهتر بشناس.</h2><p>نوشته‌هایی برای شناخت ذهن، احساسات و رابطه‌ها؛ با زبان زندگی روزمره.</p><span class="mana-text-link">ورق زدن مقالات <span aria-hidden="true">←</span></span></div>
+          <img src="<?= e(url('/assets/img/mana-articles-v2.webp')) ?>" alt="تصویر مفهومی کتاب باز و برگ زیتون" width="1536" height="1024" loading="lazy" decoding="async">
+        </a>
         <div class="section-head">
           <div>
             <h2>آخرین مقالات</h2>
@@ -114,13 +146,15 @@ ob_start();
         <?php endif; ?>
         <div class="articles-showcase">
           <?php foreach ($articles as $article): ?>
+            <?php if (empty($article['cover_url'])) { $article['cover_url'] = '/assets/img/mana-articles-v2.webp'; } ?>
             <?= clinic_article_card_html($article) ?>
           <?php endforeach; ?>
         </div>
       </div>
 
 </section>
+</div>
 <?php
 $content = ob_get_clean();
-$pageScripts = '<script src="' . e(url('/assets/js/home-slideshow-v1.js')) . '?v=20261115a" defer></script>' . '<script src="' . e(url('/assets/js/home-workshop-banners.js')) . '?v=20260908k"></script>';
+$pageScripts = '<script src="' . e(url('/assets/js/home-workshop-banners.js')) . '?v=20260908k"></script>';
 require __DIR__ . '/../includes/layout.php';
