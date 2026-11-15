@@ -199,6 +199,7 @@ $routes = [
     'GET /workshops' => 'pages/workshops.php',
     'GET /workshops/apply' => 'pages/workshop_apply.php',
     'GET /articles' => 'pages/articles.php',
+    'GET /couples-therapy' => 'pages/couples_therapy.php',
     'GET /guides/first-therapy-session' => 'pages/guide_first_session.php',
     'GET /issues' => 'pages/issues.php',
     'GET /sitemap.xml' => 'pages/sitemap.php',

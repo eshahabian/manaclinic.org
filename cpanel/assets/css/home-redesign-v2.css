@@ -1,4 +1,17 @@
 .mana-home-v2{--mana-green:#1b5e4b;--mana-sage:#e8efe9;--mana-ink:var(--fg);color:var(--mana-ink)}
+.mana-meaning-art{padding:2rem 1rem;text-align:center;min-width:0;color:var(--primary)}
+.mana-meaning-event{display:inline-block;border:1px solid var(--primary);border-radius:50%;padding:1.5rem 2rem;background:var(--card);font-weight:700}
+.mana-meaning-art>div{display:flex;justify-content:center;gap:1rem;margin-top:2rem}
+.mana-meaning-art>div span{padding:1.4rem 1rem;border-radius:24px 24px 4px 24px;border:1px solid var(--line);background:var(--card);flex:1}
+.mana-meaning-art>div span+span{border-radius:24px 24px 24px 4px;background:var(--bg-soft)}
+.mana-reading-banner .mana-meaning-art p{margin:1.5rem auto 0;font-size:.85rem}
+.mana-couples-lesson{max-width:52rem;line-height:2.1}
+.mana-couples-lesson header{margin:2rem 0}
+.mana-couples-lesson h1{font-size:clamp(1.8rem,4vw,3rem);line-height:1.7}
+.mana-couples-lesson h2{font-size:1.4rem;line-height:1.8}
+.mana-couples-lesson section,.mana-couples-lesson aside,.mana-couples-lesson footer{margin-block:2rem}
+.mana-couples-lesson .panel{padding:clamp(1rem,3vw,2rem)}
+.mana-couples-lesson li{padding-inline-start:.5rem;margin-block:.75rem}
 .mana-welcome{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:clamp(2rem,5vw,5rem);padding-top:clamp(3rem,6vw,6rem);padding-bottom:4rem}
 .mana-kicker{color:var(--primary);font-size:.84rem;font-weight:600;margin:0 0 1rem;letter-spacing:0}
 .mana-welcome h1{font-size:clamp(2.2rem,4.1vw,4rem);line-height:1.65;margin:0;font-weight:800;letter-spacing:-.045em}

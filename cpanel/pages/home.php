@@ -29,7 +29,7 @@ $pageKeywords = 'مانا کلینیک, روانشناس سعادت آباد, ر
 require_once dirname(__DIR__) . '/includes/daily_quotes.php';
 $dailyQuote = daily_quote_for_date();
 $workshopBanners = function_exists('workshop_home_banners') ? workshop_home_banners($pdo, 3) : [];
-$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/home-redesign-v2.css')) . '?v=20261115h">';
+$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/home-redesign-v2.css')) . '?v=20261115i">';
 ob_start();
 ?>
 <div class="mana-home-v2">
@@ -126,9 +126,9 @@ ob_start();
         </div>
       </div>
       <div class="home-articles-block" style="margin-top:3rem">
-        <a class="mana-reading-banner" href="<?= e(url('/articles')) ?>">
-          <div><p class="mana-kicker">مجلهٔ مانا</p><h2>کمی بخوان،<br>خودت را بهتر بشناس.</h2><p>نوشته‌هایی برای شناخت ذهن، احساسات و رابطه‌ها؛ با زبان زندگی روزمره.</p><span class="mana-text-link">ورق زدن مقالات <span aria-hidden="true">←</span></span></div>
-          <img src="<?= e(url('/assets/img/mana-articles-v2.webp')) ?>" alt="تصویر مفهومی کتاب باز و برگ زیتون" width="1536" height="1024" loading="lazy" decoding="async">
+        <a class="mana-reading-banner mana-couples-banner" href="<?= e(url('/couples-therapy')) ?>">
+          <div><p class="mana-kicker">رابطه از زاویه‌ای دیگر · Couples Therapy</p><h2>سرِ اتفاق دعوا می‌کنیم،<br>یا سرِ معنای آن؟</h2><p>درس‌هایی برای فکرکردن به رابطه، با نقطهٔ شروع مستند زوج‌درمانی با اورنا گورالنیک.</p><span class="mana-text-link">شروع درس اول · فصل اول، قسمت اول <span aria-hidden="true">←</span></span></div>
+          <div class="mana-meaning-art" aria-hidden="true"><span class="mana-meaning-event">یک اتفاق</span><div><span>برداشت من</span><span>برداشت تو</span></div><p>دو معنا، یک فرصت برای گفت‌وگو</p></div>
         </a>
         <div class="section-head">
           <div>
