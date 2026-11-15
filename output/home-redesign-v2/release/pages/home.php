@@ -29,10 +29,18 @@ $pageKeywords = 'مانا کلینیک, روانشناس سعادت آباد, ر
 require_once dirname(__DIR__) . '/includes/daily_quotes.php';
 $dailyQuote = daily_quote_for_date();
 $workshopBanners = function_exists('workshop_home_banners') ? workshop_home_banners($pdo, 3) : [];
-$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/home-redesign-v2.css')) . '?v=20261115b">';
+$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/home-redesign-v2.css')) . '?v=20261115d">';
 ob_start();
 ?>
 <div class="mana-home-v2">
+<?php if ($dailyQuote !== ''): ?>
+<aside class="home-daily-quote" aria-labelledby="home-daily-quote-label">
+  <div class="home-daily-quote-panel">
+    <p class="home-daily-quote-label" id="home-daily-quote-label">جملهٔ امروز</p>
+    <blockquote class="home-daily-quote-text"><p><?= e($dailyQuote) ?></p></blockquote>
+  </div>
+</aside>
+<?php endif; ?>
 <section class="container-page mana-welcome" aria-labelledby="mana-welcome-title">
   <div class="mana-welcome-copy">
     <p class="mana-kicker">مانا کلینیک · سعادت‌آباد</p>
@@ -50,29 +58,18 @@ ob_start();
   </div>
 </section>
 
-<?php if ($dailyQuote !== ''): ?>
-<aside class="home-daily-quote" aria-labelledby="home-daily-quote-label">
-  <div class="home-daily-quote-panel">
-    <p class="home-daily-quote-label" id="home-daily-quote-label">جملهٔ امروز</p>
-    <blockquote class="home-daily-quote-text">
-      <p><?= e($dailyQuote) ?></p>
-    </blockquote>
-  </div>
-</aside>
-<?php endif; ?>
-
 <section class="container-page section home-content">
 
       <section class="mana-services" aria-labelledby="mana-services-title">
         <div class="mana-section-heading"><div><p class="mana-kicker">از کجا شروع کنیم؟</p><h2 id="mana-services-title">همراهی متناسب با دغدغهٔ شما</h2></div><a class="mana-text-link" href="<?= e(url('/services')) ?>">همه خدمات ←</a></div>
         <div class="mana-service-grid">
         <?php foreach ([
-          ['فردی', 'مشاوره فردی', 'شناخت خود، احساسات و چالش‌های روزمره', '/services/individual'],
-          ['رابطه', 'زوج‌درمانی', 'فرصتی برای شنیدن و بهتر فهمیدن یکدیگر', '/services/couples'],
-          ['رشد', 'کودک و نوجوان', 'همراهی در مسیر رشد و ارتباط با فرزند', '/services/child'],
-          ['یادگیری', 'کارگاه‌ها و دوره‌ها', 'تمرین مهارت‌های تازه برای زندگی', '/workshops'],
+          ['فردی', 'مشاوره فردی', 'شناخت خود، احساسات و چالش‌های روزمره', '/services/individual', 'person'],
+          ['رابطه', 'زوج‌درمانی', 'فرصتی برای شنیدن و بهتر فهمیدن یکدیگر', '/services/couples', 'couple'],
+          ['رشد', 'کودک و نوجوان', 'همراهی در مسیر رشد و ارتباط با فرزند', '/services/child', 'child'],
+          ['یادگیری', 'کارگاه‌ها و دوره‌ها', 'تمرین مهارت‌های تازه برای زندگی', '/workshops', 'workshop'],
         ] as $service): ?>
-          <a class="mana-service-card" href="<?= e(url($service[3])) ?>"><span class="mana-service-label"><?= e($service[0]) ?></span><h3><?= e($service[1]) ?></h3><p><?= e($service[2]) ?></p><span class="mana-service-arrow" aria-hidden="true">↖</span></a>
+          <a class="mana-service-card" href="<?= e(url($service[3])) ?>"><img class="mana-service-image" src="<?= e(url('/assets/img/services/' . $service[4] . '-scene-v2.webp')) ?>" alt="" width="768" height="512" loading="lazy" decoding="async"><span class="mana-service-label"><?= e($service[0]) ?></span><h3><?= e($service[1]) ?></h3><p><?= e($service[2]) ?></p><span class="mana-service-arrow" aria-hidden="true">↖</span></a>
         <?php endforeach; ?>
         </div>
       </section>
@@ -146,7 +143,17 @@ ob_start();
         <?php endif; ?>
         <div class="articles-showcase">
           <?php foreach ($articles as $article): ?>
-            <?php if (empty($article['cover_url'])) { $article['cover_url'] = '/assets/img/mana-articles-v2.webp'; } ?>
+            <?php
+            $homeArticleCovers = [
+                'zog-darmani-zehn-agahi-duraes-2026' => 'couples-mindfulness',
+                'tanzim-hayajan-va-ezterab' => 'emotion-regulation',
+                'mehrbani-ba-khod-va-ezterab' => 'self-compassion',
+            ];
+            $homeArticleCover = $homeArticleCovers[(string) ($article['slug'] ?? '')] ?? null;
+            if ($homeArticleCover !== null) {
+                $article['cover_url'] = '/assets/img/articles/' . $homeArticleCover . '-v1.webp';
+            }
+            ?>
             <?= clinic_article_card_html($article) ?>
           <?php endforeach; ?>
         </div>
