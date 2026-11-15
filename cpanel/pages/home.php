@@ -29,7 +29,7 @@ $pageKeywords = 'مانا کلینیک, روانشناس سعادت آباد, ر
 require_once dirname(__DIR__) . '/includes/daily_quotes.php';
 $dailyQuote = daily_quote_for_date();
 $workshopBanners = function_exists('workshop_home_banners') ? workshop_home_banners($pdo, 3) : [];
-$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/home-redesign-v2.css')) . '?v=20261115i">';
+$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/home-redesign-v2.css')) . '?v=20261115j">';
 ob_start();
 ?>
 <div class="mana-home-v2">
@@ -59,6 +59,21 @@ ob_start();
 </section>
 
 <section class="container-page section home-content">
+
+      <a class="mana-couples-feature" href="<?= e(url('/couples-therapy')) ?>" aria-labelledby="mana-couples-title">
+        <div class="mana-couples-copy">
+          <p class="mana-couples-eyebrow">رابطه از زاویه‌ای دیگر <span lang="en" dir="ltr">Couples Therapy</span></p>
+          <h2 id="mana-couples-title">سرِ اتفاق دعوا می‌کنیم،<br>یا سرِ معنای آن؟</h2>
+          <p class="mana-couples-description">یک اتفاق، دو برداشت متفاوت؛ فرصتی برای دیدن رابطه از نگاه یکدیگر.</p>
+          <p class="mana-couples-context">درس‌هایی با نقطهٔ شروع مستند زوج‌درمانی با اورنا گورالنیک</p>
+          <span class="mana-couples-cta">خواندن درس اول <span aria-hidden="true">←</span></span>
+          <span class="mana-couples-episode">فصل اول · قسمت اول</span>
+        </div>
+        <figure class="mana-couples-visual">
+          <img src="<?= e(url('/assets/img/couples-two-meanings-v2.webp')) ?>" alt="تصویرسازی مفهومی دو نفر روبه‌روی هم با دو مسیر رنگی متفاوت پیرامون یک موضوع مشترک" width="1536" height="1024" loading="lazy" decoding="async">
+          <figcaption>گاهی پشت یک اختلاف، دو تجربهٔ متفاوت است.</figcaption>
+        </figure>
+      </a>
 
       <section class="mana-services" aria-labelledby="mana-services-title">
         <div class="mana-section-heading"><div><p class="mana-kicker">از کجا شروع کنیم؟</p><h2 id="mana-services-title">همراهی متناسب با دغدغهٔ شما</h2></div><a class="mana-text-link" href="<?= e(url('/services')) ?>">همه خدمات ←</a></div>
@@ -126,10 +141,6 @@ ob_start();
         </div>
       </div>
       <div class="home-articles-block" style="margin-top:3rem">
-        <a class="mana-reading-banner mana-couples-banner" href="<?= e(url('/couples-therapy')) ?>">
-          <div><p class="mana-kicker">رابطه از زاویه‌ای دیگر · Couples Therapy</p><h2>سرِ اتفاق دعوا می‌کنیم،<br>یا سرِ معنای آن؟</h2><p>درس‌هایی برای فکرکردن به رابطه، با نقطهٔ شروع مستند زوج‌درمانی با اورنا گورالنیک.</p><span class="mana-text-link">شروع درس اول · فصل اول، قسمت اول <span aria-hidden="true">←</span></span></div>
-          <div class="mana-meaning-art" aria-hidden="true"><span class="mana-meaning-event">یک اتفاق</span><div><span>برداشت من</span><span>برداشت تو</span></div><p>دو معنا، یک فرصت برای گفت‌وگو</p></div>
-        </a>
         <div class="section-head">
           <div>
             <h2>آخرین مقالات</h2>

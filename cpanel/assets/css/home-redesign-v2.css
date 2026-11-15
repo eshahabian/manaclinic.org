@@ -1,10 +1,21 @@
 .mana-home-v2{--mana-green:#1b5e4b;--mana-sage:#e8efe9;--mana-ink:var(--fg);color:var(--mana-ink)}
-.mana-meaning-art{padding:2rem 1rem;text-align:center;min-width:0;color:var(--primary)}
-.mana-meaning-event{display:inline-block;border:1px solid var(--primary);border-radius:50%;padding:1.5rem 2rem;background:var(--card);font-weight:700}
-.mana-meaning-art>div{display:flex;justify-content:center;gap:1rem;margin-top:2rem}
-.mana-meaning-art>div span{padding:1.4rem 1rem;border-radius:24px 24px 4px 24px;border:1px solid var(--line);background:var(--card);flex:1}
-.mana-meaning-art>div span+span{border-radius:24px 24px 24px 4px;background:var(--bg-soft)}
-.mana-reading-banner .mana-meaning-art p{margin:1.5rem auto 0;font-size:.85rem}
+.mana-couples-feature{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:clamp(1.5rem,4vw,4rem);margin:0 0 3.5rem;padding:clamp(1.25rem,3vw,2.5rem);background:#f8f5ef;color:#263f36;border:1px solid #e4e5d9;border-radius:28px;text-decoration:none;overflow:hidden;box-shadow:0 14px 40px #263f3607}
+.mana-couples-copy{padding:.5rem;min-width:0}
+.mana-couples-eyebrow{display:flex;align-items:center;gap:.5rem 1rem;flex-wrap:wrap;margin:0 0 1.2rem;color:#546b60;font-size:.82rem;font-weight:600}
+.mana-couples-eyebrow span{font-size:.75rem;letter-spacing:.04em;border-inline-start:1px solid #c9d2c7;padding-inline-start:1rem}
+.mana-couples-feature h2{font-size:clamp(1.65rem,2.7vw,2.65rem);line-height:1.75;margin:0;letter-spacing:-.035em;color:inherit}
+.mana-couples-description{font-size:1rem;line-height:2;margin:1.2rem 0 .6rem;max-width:28rem}
+.mana-couples-context{font-size:.8rem;line-height:1.9;color:#66786d;margin:0 0 1.6rem}
+.mana-couples-cta{display:inline-flex;align-items:center;gap:1.6rem;background:#244f40;color:#fff;border-radius:12px;padding:.75rem 1.2rem;font-size:.9rem;font-weight:600;transition:background .2s}
+.mana-couples-feature:hover .mana-couples-cta{background:#183d30}
+.mana-couples-episode{display:inline-block;margin:.6rem 1rem .6rem 0;font-size:.75rem;color:#66786d}
+.mana-couples-visual{margin:0;min-width:0;position:relative}
+.mana-couples-visual img{display:block;width:100%;height:auto;aspect-ratio:3/2;object-fit:cover;border-radius:20px}
+.mana-couples-visual figcaption{font-size:.78rem;line-height:1.9;text-align:center;color:#66786d;margin:.9rem .5rem 0}
+html[data-theme=dark] .mana-couples-feature{background:#202f29;border-color:#3a4c40;color:#edf2e9}
+html[data-theme=dark] .mana-couples-eyebrow,html[data-theme=dark] .mana-couples-context,html[data-theme=dark] .mana-couples-episode,html[data-theme=dark] .mana-couples-visual figcaption{color:#b8c9bc}
+@media(max-width:700px){.mana-couples-feature{grid-template-columns:1fr;gap:1.25rem;margin-bottom:2.5rem;border-radius:22px}.mana-couples-visual{grid-row:1}.mana-couples-feature h2{font-size:clamp(1.55rem,5.6vw,2.1rem)}.mana-couples-eyebrow{margin-bottom:.8rem}.mana-couples-context{margin-bottom:1.2rem}.mana-couples-visual figcaption{font-size:.72rem}.mana-couples-copy{padding:0 .25rem .5rem}}
+@media(prefers-reduced-motion:reduce){.mana-couples-cta{transition:none}}
 .mana-couples-lesson{max-width:52rem;line-height:2.1}
 .mana-couples-lesson header{margin:2rem 0}
 .mana-couples-lesson h1{font-size:clamp(1.8rem,4vw,3rem);line-height:1.7}
