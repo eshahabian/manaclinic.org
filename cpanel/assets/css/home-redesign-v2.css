@@ -28,11 +28,9 @@ html[data-theme=dark] .mana-couples-eyebrow,html[data-theme=dark] .mana-couples-
 .mana-welcome h1{font-size:clamp(2.2rem,4.1vw,4rem);line-height:1.65;margin:0;font-weight:800;letter-spacing:-.045em}
 .mana-welcome h1 span{color:var(--primary)}
 .mana-welcome-description{font-size:1.04rem;color:var(--muted);line-height:2.2;max-width:32rem;margin:1.3rem 0 1.8rem}
-.mana-welcome-actions{display:flex;flex-direction:column;align-items:flex-start;gap:1rem}
+.mana-welcome-actions{display:flex;align-items:center;flex-wrap:wrap;gap:1rem}
 .mana-home-v2 .btn-accent{background:var(--mana-green);border-color:var(--mana-green);color:#fff;border-radius:16px;padding:.9rem 1.3rem;box-shadow:0 8px 22px #1b5e4b18}
 .mana-text-link{color:var(--primary);font-weight:600;text-decoration:none;line-height:1.9}
-.mana-welcome-paths{display:flex;gap:.8rem;flex-wrap:wrap;margin-top:1.5rem;font-size:.85rem;color:var(--muted)}
-.mana-welcome-paths a{color:inherit;text-decoration:none}
 .mana-welcome-art{position:relative;padding-bottom:1.2rem}
 .mana-welcome-art img{display:block;width:100%;height:auto;aspect-ratio:1/1.05;object-fit:cover;border-radius:110px 28px 110px 28px;background:var(--bg-soft)}
 .mana-art-caption{position:absolute;bottom:0;right:1.5rem;left:1.5rem;margin:0;padding:1rem 1.3rem;border:1px solid var(--line);border-radius:18px;background:var(--card);color:var(--primary);text-align:center;box-shadow:0 10px 28px #1b5e4b0c;font-size:.9rem}

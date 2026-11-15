@@ -29,7 +29,7 @@ $pageKeywords = 'مانا کلینیک, روانشناس سعادت آباد, ر
 require_once dirname(__DIR__) . '/includes/daily_quotes.php';
 $dailyQuote = daily_quote_for_date();
 $workshopBanners = function_exists('workshop_home_banners') ? workshop_home_banners($pdo, 3) : [];
-$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/home-redesign-v2.css')) . '?v=20261115l">';
+$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/home-redesign-v2.css')) . '?v=20261115m">';
 ob_start();
 ?>
 <div class="mana-home-v2">
@@ -48,9 +48,8 @@ ob_start();
     <p class="mana-welcome-description">گاهی یک گفت‌وگو، شروع یک مسیر تازه است. از دغدغه‌ات شروع کن؛ درمانگر مناسب را بشناس و برای خودت، رابطه‌ات و حال بهترت قدم بردار.</p>
     <div class="mana-welcome-actions">
       <a class="btn btn-accent" href="<?= e(url('/doctors')) ?>">انتخاب درمانگر و رزرو نوبت</a>
-      <a class="mana-text-link" href="<?= e(url('/services')) ?>">آشنایی با خدمات مانا <span aria-hidden="true">←</span></a>
+      <a class="mana-text-link" href="<?= e(url('/workshops')) ?>">کارگاه‌ها و دوره‌ها <span aria-hidden="true">←</span></a>
     </div>
-    <div class="mana-welcome-paths"><a href="<?= e(url('/doctors')) ?>">جلسه حضوری و آنلاین</a><span aria-hidden="true">·</span><a href="<?= e(url('/workshops')) ?>">کارگاه‌ها و دوره‌ها</a></div>
   </div>
   <div class="mana-welcome-art">
     <img src="<?= e(url('/assets/img/mana-home-calm-v2.webp')) ?>" alt="تصویر مفهومی درخت زیتون و دری روشن در فضایی آرام" width="1536" height="1024" fetchpriority="high" loading="eager" decoding="async">
