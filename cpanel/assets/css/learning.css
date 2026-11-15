@@ -29,6 +29,7 @@
 .learning-episode .learning-link{margin-inline-start:auto;white-space:nowrap;font-size:.85rem}
 .mana-learning a:focus-visible,.learning-lesson-nav a:focus-visible{outline:3px solid var(--primary);outline-offset:5px}
 .learning-series-card:hover,.learning-episode:hover{border-color:var(--primary)}
+@media(min-width:701px){.learning-series-card-image-left{grid-template-columns:minmax(0,2fr) minmax(0,1fr)}.learning-series-card-image-left>img{grid-column:2;grid-row:1}.learning-series-card-image-left>.learning-card-copy{grid-column:1;grid-row:1}}
 .learning-lesson-nav{display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;padding:1.2rem 0;border-block:1px solid var(--line);margin-block:2rem;font-size:.85rem}
 .learning-lesson-nav a{color:var(--primary);text-decoration:none}
 .schema-lesson{max-width:54rem;line-height:2.15}
