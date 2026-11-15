@@ -21,18 +21,27 @@ ob_start();
     <p class="learning-eyebrow"><?= $series ? 'آرشیو مجموعه' : 'هر بار، فرصتی برای یادگرفتن' ?></p>
     <h1><?= e($pageTitle) ?></h1>
     <p><?= e($pageDescription) ?></p>
-    <?php if (!$series): ?><p class="learning-note">از یک مجموعه شروع کنید؛ فصل و قسمت دلخواهتان را انتخاب کنید و هر زمان خواستید به درس‌های قبلی برگردید.</p><?php endif; ?>
+    <?php if (!$series): ?><p class="learning-note">از یک مجموعه شروع کنید و موضوع دلخواهتان را انتخاب کنید؛ درس‌های قبلی همیشه در آرشیو در دسترس‌اند.</p><?php endif; ?>
   </header>
   <?php if (!$series): ?>
     <section class="learning-grid" aria-label="مجموعه‌های آموزشی">
       <?php foreach ($catalog as $slug => $item): $lessons = mana_learning_lessons($slug, $item); ?>
       <a class="learning-series-card<?= $slug === 'schemas' ? ' learning-series-card-image-left' : '' ?>" href="<?= e(url('/learn/' . $slug)) ?>">
         <?php if ($item['image']): ?><img src="<?= e(url($item['image'])) ?>" alt="<?= e($item['image_alt'] ?? $item['title']) ?>" width="1536" height="1024" loading="lazy" decoding="async"><?php else: ?><div class="learning-series-placeholder" aria-hidden="true">الگوها را بشناسیم.</div><?php endif; ?>
-        <div class="learning-card-copy"><p class="learning-eyebrow"><?= e($item['cadence']) ?></p><h2><?= e($item['title']) ?></h2><p><?= e($item['description']) ?></p><span class="learning-status"><?= $lessons ? 'شروع از فصل اول، قسمت اول' : 'در انتظار اولین درس' ?></span><span class="learning-link">مشاهدهٔ مجموعه ←</span></div>
+        <div class="learning-card-copy"><p class="learning-eyebrow"><?= e($item['cadence']) ?></p><h2><?= e($item['title']) ?></h2><p><?= e($item['description']) ?></p><span class="learning-status"><?= $slug === 'schemas' ? '۱۸ طرح‌واره · شروع از شمارهٔ ۱: رهاشدگی / بی‌ثباتی' : ($lessons ? 'شروع از فصل اول، قسمت اول' : 'در انتظار اولین درس') ?></span><span class="learning-link">مشاهدهٔ مجموعه ←</span></div>
       </a>
       <?php endforeach; ?>
     </section>
-    <aside class="learning-empty"><h2>مسیرهای تازهٔ یادگیری</h2><p>مجموعه‌های آموزشی بعدی هم به همین آرشیو اضافه می‌شوند؛ هر موضوع با فصل‌ها و درس‌های خودش.</p></aside>
+    <aside class="learning-empty"><h2>مسیرهای تازهٔ یادگیری</h2><p>مجموعه‌های آموزشی بعدی هم با دسته‌بندی متناسب با موضوع، به همین آرشیو اضافه می‌شوند.</p></aside>
+  <?php elseif ($seriesSlug === 'schemas'): ?>
+    <p>در مدل کلاسیک یانگ، ۱۸ طرح‌وارهٔ ناسازگار اولیه معرفی شده است. شماره‌ها برای نظم فهرست‌اند و ترتیب اهمیت یا درمان را تعیین نمی‌کنند. <a class="learning-link" href="https://schematherapysociety.org/Schema-Therapy">منبع: انجمن بین‌المللی طرح‌واره‌درمانی</a></p>
+    <section aria-labelledby="schema-list-title"><h2 id="schema-list-title">فهرست ۱۸ طرح‌واره</h2><ol class="learning-episodes">
+      <?php foreach (mana_schema_names() as $schemaNumber => $schemaName): $schemaLesson = $series['seasons'][1]['lessons'][$schemaNumber] ?? null; ?>
+      <li><?php if ($schemaLesson): ?><a class="learning-episode" href="<?= e(url(mana_learning_lesson_path('schemas', 1, $schemaNumber))) ?>"><?php else: ?><div class="learning-episode"><?php endif; ?>
+        <span class="learning-episode-number">طرح‌وارهٔ <?= e(mana_learning_fa_number($schemaNumber)) ?></span><div><h3><?= e($schemaName) ?></h3><?php if ($schemaLesson): ?><p><?= e($schemaLesson['summary']) ?></p><?php endif; ?></div><span class="<?= $schemaLesson ? 'learning-link' : 'learning-status' ?>"><?= $schemaLesson ? 'خواندن راهنما ←' : 'محتوا هنوز اضافه نشده' ?></span>
+      <?php if ($schemaLesson): ?></a><?php else: ?></div><?php endif; ?></li>
+      <?php endforeach; ?>
+    </ol></section>
   <?php elseif (!$series['seasons']): ?>
     <section class="learning-empty"><h2>این مجموعه هنوز درسی ندارد</h2><p>پس از آماده‌شدن اولین درس، فهرست فصل‌ها و قسمت‌ها در همین صفحه در دسترس خواهد بود.</p><a class="learning-link" href="<?= e(url('/learn')) ?>">بازگشت به مجموعه‌ها ←</a></section>
   <?php else: $allLessons = mana_learning_lessons($seriesSlug, $series); ?>

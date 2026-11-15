@@ -478,6 +478,13 @@ if ($path === '/install' && empty($config['allow_install'])) {
 $key = $method . ' ' . $path;
 
 // مسیرهای پویا
+if ($method === 'GET' && preg_match('#^/learn/schemas/([1-9][0-9]*)$#', $path, $m)) {
+    $learningSeries = 'schemas';
+    $learningSeason = 1;
+    $learningEpisode = (int) $m[1];
+    require __DIR__ . '/pages/learning_lesson.php';
+    exit;
+}
 if ($method === 'GET' && preg_match('#^/learn/([a-z0-9-]+)(?:/season-([1-9][0-9]*)/episode-([1-9][0-9]*))?$#', $path, $m)) {
     $learningSeries = $m[1];
     if (isset($m[2], $m[3])) {
