@@ -29,7 +29,6 @@
 .mana-service-label{display:inline-block;color:var(--primary);font-size:.78rem;line-height:1.5}
 .mana-service-card h3{font-size:1.1rem;line-height:1.6;margin:.35rem 0 .3rem}
 .mana-service-card p{font-size:.88rem;line-height:1.75;color:var(--muted);padding-bottom:0;margin:0}
-.mana-service-arrow{display:block;text-align:left;color:var(--primary);font-size:1.2rem;line-height:1.3;margin-top:.5rem}
 .mana-home-v2 .home-assistant-tile{margin-top:2rem}
 .mana-home-v2 .home-specialists-block{padding-top:1rem}
 .mana-home-v2 .home-specialists-block .section-head,.mana-home-v2 .home-articles-block .section-head{justify-content:flex-start;text-align:right}

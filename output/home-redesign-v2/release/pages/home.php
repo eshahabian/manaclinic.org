@@ -29,7 +29,7 @@ $pageKeywords = 'مانا کلینیک, روانشناس سعادت آباد, ر
 require_once dirname(__DIR__) . '/includes/daily_quotes.php';
 $dailyQuote = daily_quote_for_date();
 $workshopBanners = function_exists('workshop_home_banners') ? workshop_home_banners($pdo, 3) : [];
-$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/home-redesign-v2.css')) . '?v=20261115g">';
+$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/home-redesign-v2.css')) . '?v=20261115h">';
 ob_start();
 ?>
 <div class="mana-home-v2">
@@ -69,7 +69,7 @@ ob_start();
           ['رشد', 'کودک و نوجوان', 'همراهی در مسیر رشد و ارتباط با فرزند', '/services/child', 'child'],
           ['یادگیری', 'کارگاه‌ها و دوره‌ها', 'تمرین مهارت‌های تازه برای زندگی', '/workshops', 'workshop'],
         ] as $service): ?>
-          <a class="mana-service-card" href="<?= e(url($service[3])) ?>"><img class="mana-service-image" src="<?= e(url('/assets/img/services/' . $service[4] . '-scene-v2.webp')) ?>" alt="" width="768" height="512" loading="lazy" decoding="async"><span class="mana-service-label"><?= e($service[0]) ?></span><h3><?= e($service[1]) ?></h3><p><?= e($service[2]) ?></p><span class="mana-service-arrow" aria-hidden="true">↖</span></a>
+          <a class="mana-service-card" href="<?= e(url($service[3])) ?>"><img class="mana-service-image" src="<?= e(url('/assets/img/services/' . $service[4] . '-scene-v2.webp')) ?>" alt="" width="768" height="512" loading="lazy" decoding="async"><span class="mana-service-label"><?= e($service[0]) ?></span><h3><?= e($service[1]) ?></h3><p><?= e($service[2]) ?></p></a>
         <?php endforeach; ?>
         </div>
       </section>
