@@ -12,7 +12,7 @@ if ($seriesSlug !== null && $series === null) {
 $pageTitle = $series['title'] ?? 'یادگیری با مانا';
 $pageDescription = $series['description'] ?? 'آرشیو مجموعه‌های آموزشی مانا؛ درس‌های هفتگی Couples Therapy، شناخت طرح‌واره‌ها و آموزش‌های دیگر، به تفکیک مجموعه، فصل و قسمت.';
 $pageCanonical = url('/learn' . ($seriesSlug !== null ? '/' . $seriesSlug : ''));
-$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/learning.css')) . '?v=20261115a">';
+$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/learning.css')) . '?v=20261115e">';
 ob_start();
 ?>
 <div class="container-page section mana-learning">
@@ -27,7 +27,7 @@ ob_start();
     <section class="learning-grid" aria-label="مجموعه‌های آموزشی">
       <?php foreach ($catalog as $slug => $item): $lessons = mana_learning_lessons($slug, $item); ?>
       <a class="learning-series-card" href="<?= e(url('/learn/' . $slug)) ?>">
-        <?php if ($item['image']): ?><img src="<?= e(url($item['image'])) ?>" alt="تصویرسازی مفهومی دو برداشت متفاوت در رابطه" width="1536" height="1024" loading="lazy" decoding="async"><?php else: ?><div class="learning-series-placeholder" aria-hidden="true">الگوها را بشناسیم.</div><?php endif; ?>
+        <?php if ($item['image']): ?><img src="<?= e(url($item['image'])) ?>" alt="<?= e($item['image_alt'] ?? $item['title']) ?>" width="1536" height="1024" loading="lazy" decoding="async"><?php else: ?><div class="learning-series-placeholder" aria-hidden="true">الگوها را بشناسیم.</div><?php endif; ?>
         <div class="learning-card-copy"><p class="learning-eyebrow"><?= e($item['cadence']) ?></p><h2><?= e($item['title']) ?></h2><p><?= e($item['description']) ?></p><span class="learning-status"><?= $lessons ? 'شروع از فصل اول، قسمت اول' : 'در انتظار اولین درس' ?></span><span class="learning-link">مشاهدهٔ مجموعه ←</span></div>
       </a>
       <?php endforeach; ?>

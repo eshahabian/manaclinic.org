@@ -31,4 +31,9 @@
 .learning-series-card:hover,.learning-episode:hover{border-color:var(--primary)}
 .learning-lesson-nav{display:flex;justify-content:space-between;flex-wrap:wrap;gap:1rem;padding:1.2rem 0;border-block:1px solid var(--line);margin-block:2rem;font-size:.85rem}
 .learning-lesson-nav a{color:var(--primary);text-decoration:none}
+.schema-lesson{max-width:54rem;line-height:2.15}
+.schema-cover{margin:1.5rem 0}.schema-cover img{display:block;width:100%;height:auto;border-radius:20px}.schema-cover figcaption{font-size:.75rem;color:var(--muted);margin-top:.5rem}
+.schema-contents{display:flex;flex-wrap:wrap;gap:.6rem;margin:2rem 0}.schema-contents a{padding:.35rem .85rem;border:1px solid var(--line);border-radius:10px;color:var(--primary);text-decoration:none;font-size:.85rem}
+.schema-lesson section{margin-block:2.5rem;scroll-margin-top:8rem}.schema-lesson h2{font-size:1.35rem;line-height:1.8}.schema-lesson li{margin-block:.6rem}.schema-lesson section a{color:var(--primary)}
+.schema-lesson details{padding:1rem;border-bottom:1px solid var(--line)}.schema-lesson summary{cursor:pointer;font-weight:600}.schema-lesson details p{color:var(--muted)}.schema-sources{font-size:.85rem;overflow-wrap:anywhere}
 @media(max-width:700px){.learning-series-card{grid-template-columns:minmax(0,1fr)}.learning-series-intro{flex-direction:column;align-items:start;gap:1rem}.learning-episode{flex-wrap:wrap;gap:.8rem;padding:1.2rem}.learning-episode>div{flex:1;min-width:12rem}.learning-episode .learning-link{margin-inline-start:0;width:100%}.learning-card-copy{padding:1rem 1.2rem}}
