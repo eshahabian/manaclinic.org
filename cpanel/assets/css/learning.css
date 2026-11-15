@@ -1,9 +1,9 @@
-.mana-learning{max-width:72rem;padding-block:2rem 4rem;line-height:2}
-.learning-breadcrumb{display:flex;gap:.6rem;flex-wrap:wrap;font-size:.8rem;color:var(--muted);margin-bottom:2rem}
+.mana-learning{max-width:72rem;margin-top:0;padding-block:1rem 4rem;line-height:2}
+.learning-breadcrumb{display:flex;gap:.6rem;flex-wrap:wrap;font-size:.8rem;color:var(--muted);margin-bottom:.75rem}
 .learning-breadcrumb a,.learning-link{color:var(--primary);text-decoration:none;font-weight:600}
-.learning-header{max-width:48rem;margin-bottom:2.5rem}
-.learning-header h1{font-size:clamp(2rem,4vw,3rem);line-height:1.7;margin:.4rem 0 1rem}
-.learning-header p{color:var(--muted)}
+.learning-header{max-width:48rem;margin-bottom:1.25rem}
+.learning-header h1{font-size:clamp(2rem,4vw,3rem);line-height:1.7;margin:.25rem 0 .5rem}
+.learning-header p{color:var(--muted);margin-block:.5rem}
 .learning-eyebrow{font-size:.8rem;font-weight:600;color:var(--primary)!important;margin:0}
 .learning-note{font-size:.85rem;color:var(--muted)}
 .learning-grid{display:grid;grid-template-columns:minmax(0,1fr);gap:1.25rem;align-items:start}

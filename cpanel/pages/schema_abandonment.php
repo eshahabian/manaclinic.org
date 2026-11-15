@@ -5,7 +5,7 @@ $pageTitle = 'طرح‌وارهٔ رهاشدگی / بی‌ثباتی؛ نشان�
 $pageDescription = 'شناخت طرح‌وارهٔ رهاشدگی، نشانه‌های احتمالی، زمینه‌های شکل‌گیری، اثر بر رابطه، تمرین‌های مقدماتی و مسیر درمان با منابع معتبر.';
 $pageCanonical = url(mana_learning_lesson_path('schemas', 1, 1));
 $pageImage = url('/assets/img/schema-abandonment-v1.webp');
-$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/learning.css')) . '?v=20261115e">';
+$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/learning.css')) . '?v=20261115g">';
 ob_start();
 ?>
 <article class="container-page section mana-learning schema-lesson">
