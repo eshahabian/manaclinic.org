@@ -33,7 +33,7 @@ if ($appointmentId === '') {
 }
 
 $stmt = $pdo->prepare("
-  SELECT a.*, p.id AS payment_id, p.amount, p.status AS pay_status, p.authority
+  SELECT a.*, p.id AS payment_id, p.amount, p.amount_usd, p.status AS pay_status, p.authority
   FROM appointments a
   JOIN payments p ON p.appointment_id = a.id
   WHERE a.id = ? AND a.patient_id = ?
@@ -55,6 +55,12 @@ if ((string) ($row['status'] ?? '') === 'PENDING_APPROVAL') {
 if ($row['status'] !== 'PENDING_PAYMENT' || $row['pay_status'] !== 'PENDING') {
     http_response_code(400);
     echo json_encode(['error' => 'این نوبت قابل پرداخت نیست.'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+if (isset($row['amount_usd'])) {
+    http_response_code(400);
+    echo json_encode(['error' => 'پرداخت دلاری این نوبت با هماهنگی کلینیک ثبت می‌شود.'], JSON_UNESCAPED_UNICODE);
     exit;
 }
 

@@ -451,7 +451,7 @@ function outreach_scan_quiet_patients(PDO $pdo): void
             $docId = $row['doctor_user_id'];
             if ($docId !== '' && !isset($byRecipient[$docId])) {
                 try {
-                    $stmt = $pdo->prepare('SELECT id, name, phone, role FROM users WHERE id=? LIMIT 1');
+                    $stmt = $pdo->prepare('SELECT id, name, phone, role FROM users WHERE id=? AND is_disabled=0 LIMIT 1');
                     $stmt->execute([$docId]);
                     $doc = $stmt->fetch();
                     if ($doc) {
@@ -481,7 +481,7 @@ function outreach_scan_quiet_patients(PDO $pdo): void
             if (function_exists('notify_user')) {
                 notify_user($pdo, (string) $person['id'], 'مراجعه‌کننده بی‌خبر', $text, $link, 'other', null, 'personal');
             }
-            if (sms_notify_kind_enabled($pdo, 'quiet')) {
+            if ($role !== 'SECRETARY' && sms_notify_kind_enabled($pdo, 'quiet')) {
                 sms_queue($pdo, (string) ($person['phone'] ?? ''), sms_template_render($pdo,'quiet',['message'=>$text]), 'quiet');
             }
         }

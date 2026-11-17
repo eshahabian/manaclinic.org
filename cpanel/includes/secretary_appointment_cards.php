@@ -47,7 +47,7 @@ $appointmentDoneView = !empty($appointmentDoneView);
                   <div>وضعیت: <?= e($displayStatus) ?></div>
                 <?php endif; ?>
                 <?php if ($a['amount'] !== null): ?>
-                  <div>مبلغ: <?= e(format_price((int) $a['amount'])) ?> · <?= e(appointment_pay_status_display($a)) ?></div>
+                  <div>مبلغ: <?= e(appointment_payment_amount_label($a)) ?> · <?= e(appointment_pay_status_display($a)) ?></div>
                 <?php endif; ?>
                 <?php if ((string) ($a['ref_id'] ?? '') === 'LATER'): ?>
                   <div>بدهی: پرداخت بعدی، از نوبت منشی</div>
@@ -68,7 +68,7 @@ $appointmentDoneView = !empty($appointmentDoneView);
               <span class="badge"><?= e($displayStatus) ?></span>
             <?php endif; ?>
             <?php if ($a['amount'] !== null): ?>
-              <div class="appt-pay-status muted"><?= e(appointment_pay_status_display($a)) ?></div>
+              <div class="appt-pay-status muted"><?= isset($a['amount_usd']) ? e(appointment_payment_amount_label($a)) . ' · ' : '' ?><?= e(appointment_pay_status_display($a)) ?></div>
             <?php endif; ?>
           </div>
         </div>
@@ -120,6 +120,15 @@ $appointmentDoneView = !empty($appointmentDoneView);
             <?= appointment_hold_reject_form_html($a, $deskNext) ?>
           <?php endif; ?>
           <?= staff_receipt_view_html($a['payment_id'] ?? null, $a['receipt_path'] ?? null, true, $receiptNext, !$appointmentDoneView && (string) ($a['pay_status'] ?? '') !== 'PAID') ?>
+          <?php if (appointment_staff_can_record_settled_usd($a)): ?>
+            <form method="post" action="<?= e(url('/secretary/appointments')) ?>">
+              <?= csrf_field() ?>
+              <input type="hidden" name="action" value="confirm_receipt">
+              <input type="hidden" name="payment_id" value="<?= e((string) $a['payment_id']) ?>">
+              <input type="hidden" name="next" value="<?= e($receiptNext) ?>">
+              <button type="submit" class="btn btn-primary btn-sm" onclick="return confirm('دریافت مبلغ دلاری تأیید شود؟')">ثبت دریافت مبلغ دلاری</button>
+            </form>
+          <?php endif; ?>
           <?php if (!$appointmentDoneView && $canConfirmPay && function_exists('appointment_staff_mark_paid_form_html')): ?>
             <?= appointment_staff_mark_paid_form_html($a, $deskNext) ?>
           <?php endif; ?>

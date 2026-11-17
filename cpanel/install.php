@@ -111,6 +111,7 @@ try {
         id VARCHAR(32) PRIMARY KEY,
         appointment_id VARCHAR(32) NOT NULL UNIQUE,
         amount INT NOT NULL,
+        amount_usd DECIMAL(12,2) NULL,
         authority VARCHAR(100) NULL,
         ref_id VARCHAR(100) NULL,
         status ENUM('PENDING','PAID','FAILED') NOT NULL DEFAULT 'PENDING',

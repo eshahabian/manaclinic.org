@@ -30,7 +30,7 @@ $apps = $pdo->prepare("
          a.cancel_reason, a.cancellation_note,
          du.name AS doctor_name,
          cu.name AS actor_name, cu.username AS actor_username, cu.role AS actor_role,
-         p.id AS payment_id, p.amount, p.status AS pay_status, p.receipt_path,
+         p.id AS payment_id, p.amount, p.amount_usd, p.status AS pay_status, p.receipt_path,
          ru.name AS recorder_name, ru.username AS recorder_username
   FROM appointments a
   JOIN doctor_profiles dp ON dp.id = a.doctor_id
@@ -147,7 +147,7 @@ ob_start();
                 echo '</div><div style="text-align:left">';
                 echo '<span class="badge">' . e(appointment_row_status_label($a)) . '</span>';
                 if ($a['amount'] !== null) {
-                    echo '<div class="muted" style="font-size:.8rem;margin-top:.35rem">' . e(format_price((int) $a['amount'])) . ' — ' . e(payment_status_label((string) ($a['pay_status'] ?? ''))) . '</div>';
+                    echo '<div class="muted" style="font-size:.8rem;margin-top:.35rem">' . e(appointment_payment_amount_label($a)) . ' — ' . e(payment_status_label((string) ($a['pay_status'] ?? ''))) . '</div>';
                 }
                 echo '</div></div>';
                 echo appointment_notes_html($a);

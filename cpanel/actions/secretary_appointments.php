@@ -127,7 +127,9 @@ if ($action === 'confirm_receipt') {
             require_once __DIR__ . '/../includes/appointment_payment.php';
         }
         $result = staff_confirm_receipt_payment($pdo, $paymentId, $user);
-        flash_set('success', 'فیش «' . (string) $result['patient_name'] . '» تأیید شد و وقت به‌عنوان پرداخت‌شده ثبت گردید.');
+        flash_set('success', isset($result['amount_usd'])
+            ? ('پرداخت دلاری «' . (string) $result['patient_name'] . '» ثبت شد.')
+            : ('فیش «' . (string) $result['patient_name'] . '» تأیید شد و وقت به‌عنوان پرداخت‌شده ثبت گردید.'));
     } catch (Throwable $e) {
         flash_set('error', $e->getMessage());
     }
@@ -142,7 +144,7 @@ if ($action === 'confirm_payment') {
             : (int) post('room_no');
         if (post('pay_choice') === 'unpaid') {
             $result = staff_confirm_appointment_unpaid($pdo, $appointmentId, $user, (string) post('note'), $roomNo);
-            $flash = (function_exists('patient_wallet_paused') && patient_wallet_paused())
+            $flash = (isset($result['amount_usd']) || (function_exists('patient_wallet_paused') && patient_wallet_paused()))
                 ? ('وقت «' . (string) $result['patient_name'] . '» رزرو شد و پرداخت‌نشده ماند.')
                 : ('وقت «' . (string) $result['patient_name'] . '» رزرو شد و ' . format_price((int) $result['amount']) . ' از کیف پولش کسر شد.');
         } else {

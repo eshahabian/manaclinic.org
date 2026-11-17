@@ -79,7 +79,7 @@ function sms_kind_recipient(string $kind): string
         'workshop_media_added'=>'اعضای تأییدشده همان کارگاه پس از افزودن فایل',
         'workshop_presenter'=>'درمانگرانی که به‌عنوان اجراکننده همان کارگاه انتخاب شده‌اند',
         'workshop_presenter_copy'=>'شخص مشخص: عماد شهابیان (حساب eshahabian)؛ نمونه پیام اجراکننده',
-        'quiet'=>'درمانگر مربوط، منشی‌ها و مدیر برای پیگیری مراجع بدون مراجعه',
+        'quiet'=>'درمانگر مربوط و مدیر برای پیگیری مراجع بدون مراجعه',
         'login_otp'=>'صاحب حساب متناظر با شماره درخواست‌کننده ورود پیامکی',
     ][$kind] ?? '';
 }
@@ -471,6 +471,13 @@ function sms_job_still_valid(PDO $pdo, array $job): bool
 {
     if (sms_iran_mobile((string) ($job['phone'] ?? '')) === null) return false;
     if (!sms_kind_enabled($pdo, (string) $job['kind'])) return false;
+    if ($job['kind'] === 'quiet') {
+        // Also validate jobs queued before the recipient rules changed.
+        $allowed = $pdo->query("SELECT phone FROM users WHERE role IN ('ADMIN','DOCTOR') AND is_disabled=0")->fetchAll(PDO::FETCH_COLUMN);
+        if (!in_array($job['phone'], array_map(static fn ($phone) => sms_iran_mobile((string) $phone), $allowed), true)) {
+            return false;
+        }
+    }
     if (!empty($job['expires_at']) && strtotime($job['expires_at'])<=time())return false;
     $context=json_decode((string)($job['context_json']??''),true);
     if(!is_array($context)||!isset($context['entity']))return true;

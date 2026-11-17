@@ -36,6 +36,7 @@ $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/
         <?php
           $awaitingApproval = (string) ($a['status'] ?? '') === 'PENDING_APPROVAL';
           $canPayOnline = $appointmentOnlinePayEnabled
+              && !isset($a['amount_usd'])
               && ($a['status'] ?? '') === 'PENDING_PAYMENT'
               && ($a['pay_status'] ?? '') === 'PENDING';
           $canUploadReceipt = (!function_exists('receipt_upload_paused') || !receipt_upload_paused())
@@ -44,7 +45,7 @@ $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/
           $awaitingReview = function_exists('appointment_payment_awaiting_receipt_review')
               && appointment_payment_awaiting_receipt_review($a);
           $canCancel = function_exists('patient_can_cancel_appointment') && patient_can_cancel_appointment((string) $a['status']);
-          $refundHint = ($a['status'] ?? '') === 'CONFIRMED' && ($a['pay_status'] ?? '') === 'PAID' && function_exists('appointment_refund_hint')
+          $refundHint = !isset($a['amount_usd']) && ($a['status'] ?? '') === 'CONFIRMED' && ($a['pay_status'] ?? '') === 'PAID' && function_exists('appointment_refund_hint')
               ? appointment_refund_hint((string) $a['starts_at'])
               : '';
           $payLabel = function_exists('appointment_pay_status_display')
@@ -66,9 +67,9 @@ $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/
             </div>
             <div class="patient-appt-row-meta">
               <span class="badge"><?= e(appointment_row_status_label($a)) ?></span>
-              <?php if (!empty($a['amount'])): ?>
+              <?php if (!empty($a['amount']) || isset($a['amount_usd'])): ?>
                 <div class="muted" style="margin-top:.45rem">
-                  <?= e(format_price((int) $a['amount'])) ?> — <?= e($payLabel) ?>
+                  <?= e(appointment_payment_amount_label($a)) ?> — <?= e($payLabel) ?>
                   <?= !empty($a['ref_id']) ? ' (پیگیری: ' . e((string) $a['ref_id']) . ')' : '' ?>
                 </div>
               <?php endif; ?>
@@ -77,6 +78,9 @@ $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/
           <div class="patient-appt-row-footer">
             <?php if (function_exists('appointment_patient_phase_html')): ?>
               <?= appointment_patient_phase_html($a) ?>
+            <?php endif; ?>
+            <?php if (isset($a['amount_usd']) && ($a['pay_status'] ?? '') === 'PENDING'): ?>
+              <p class="muted patient-appt-mana-hint">پرداخت دلاری با هماهنگی کلینیک ثبت می‌شود.</p>
             <?php endif; ?>
             <?php if ($showMana): ?>
               <p class="muted patient-appt-mana-hint">تماس مانا از ۱۵ دقیقه قبل از شروع جلسه فعال می‌شود.</p>

@@ -8,7 +8,6 @@ function patient_fee_ensure_schema(PDO $pdo): void
     if ($done) {
         return;
     }
-    $done = true;
     $cols = [
         'custom_fee_on' => "ALTER TABLE users ADD COLUMN custom_fee_on TINYINT(1) NOT NULL DEFAULT 0 AFTER preferred_doctor_id",
         'custom_fee_toman' => "ALTER TABLE users ADD COLUMN custom_fee_toman INT UNSIGNED NULL AFTER custom_fee_on",
@@ -24,6 +23,36 @@ function patient_fee_ensure_schema(PDO $pdo): void
         } catch (Throwable $ignored) {
         }
     }
+    $hasUsd = $pdo->query("SHOW COLUMNS FROM payments LIKE 'amount_usd'")->fetch();
+    if (!$hasUsd) {
+        try {
+            $pdo->exec('ALTER TABLE payments ADD COLUMN amount_usd DECIMAL(12,2) NULL AFTER amount');
+        } catch (Throwable $e) {
+            if (!$pdo->query("SHOW COLUMNS FROM payments LIKE 'amount_usd'")->fetch()) {
+                throw $e;
+            }
+        }
+    }
+    $done = true;
+}
+
+function patient_fee_resolve_usd(array $patient): ?string
+{
+    if ((int) ($patient['foreign_fee_on'] ?? 0) !== 1) {
+        return null;
+    }
+
+    $amount = (string) ($patient['foreign_fee_usd'] ?? '');
+    return (float) $amount > 0 ? $amount : null;
+}
+
+function appointment_payment_amount_label(array $row): string
+{
+    if (isset($row['amount_usd'])) {
+        return to_fa_digits(rtrim(rtrim(number_format((float) $row['amount_usd'], 2, '.', ''), '0'), '.')) . ' دلار';
+    }
+
+    return isset($row['amount']) ? format_price((int) $row['amount']) : '';
 }
 
 /** منشی‌ها، شیوا گرانمایه‌پور، عطیه گارسچی و ادمین */

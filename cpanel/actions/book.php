@@ -98,7 +98,9 @@ $amount = (int) $doctor['session_price'];
 if (!function_exists('patient_fee_resolve_toman')) {
     require_once __DIR__ . '/../includes/patient_fee.php';
 }
-$amount = patient_fee_resolve_toman(patient_fee_load($pdo, (string) $user['id']), $amount);
+$fee = patient_fee_load($pdo, (string) $user['id']);
+$amountUsd = patient_fee_resolve_usd($fee);
+$amount = $amountUsd === null ? patient_fee_resolve_toman($fee, $amount) : 0;
 
 ensure_appointment_session_schema($pdo);
 require_once __DIR__ . '/../includes/wallet.php';
@@ -107,8 +109,8 @@ $pdo->beginTransaction();
 try {
     $pdo->prepare('INSERT INTO appointments (id,doctor_id,patient_id,starts_at,ends_at,status,notes,session_mode,created_by_user_id,requested_at) VALUES (?,?,?,?,?,?,?,?,?,NOW())')
         ->execute([$appointmentId, $doctorId, $user['id'], $startsAt, $endsAt, 'PENDING_PAYMENT', null, $sessionMode, (string) $user['id']]);
-    $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,status,ref_id) VALUES (?,?,?,?,?)')
-        ->execute([$paymentId, $appointmentId, $amount, 'PENDING', 'LATER']);
+    $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,amount_usd,status,ref_id) VALUES (?,?,?,?,?,?)')
+        ->execute([$paymentId, $appointmentId, $amount, $amountUsd, 'PENDING', 'LATER']);
     if ($amount > 0) {
         wallet_charge_visit(
             $pdo,
@@ -146,7 +148,7 @@ try {
     echo json_encode([
         'appointmentId' => $appointmentId,
         'awaitingApproval' => true,
-        'message' => (function_exists('patient_wallet_paused') && patient_wallet_paused())
+        'message' => ($amountUsd !== null || (function_exists('patient_wallet_paused') && patient_wallet_paused()))
             ? 'درخواست شما ارسال شد. تا یک ساعت این وقت برای شما می‌ماند و پس از ثبت منشی، نوبت رزرو می‌شود.'
             : 'درخواست شما ارسال شد. تا تأیید فیش توسط منشی، حق ویزیت از کیف پول کم می‌شود و موجودی می‌تواند منفی باشد. تا یک ساعت این وقت برای شما می‌ماند.',
     ], JSON_UNESCAPED_UNICODE);

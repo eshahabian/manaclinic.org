@@ -130,6 +130,7 @@ ob_start();
           $walletAttr = array_key_exists($bookKey, $walletMap) ? (string) (int) $walletMap[$bookKey] : '';
           $customFeeOn = (int) ($p['custom_fee_on'] ?? 0) === 1;
           $customFeeToman = (int) ($p['custom_fee_toman'] ?? 0);
+          $feeUsd = patient_fee_resolve_usd($p);
           $feeAttr = ($customFeeOn && $customFeeToman > 0) ? (string) $customFeeToman : '';
           $inactive = function_exists('secretary_patient_is_inactive') && secretary_patient_is_inactive($p);
           $needsSetup = !$inactive && function_exists('secretary_patient_needs_setup') && secretary_patient_needs_setup($p);
@@ -139,7 +140,7 @@ ob_start();
               $label .= ' — تکمیل پروفایل لازم است';
           }
         ?>
-        <option value="<?= e((string) ($p['book_id'] ?? $p['id'])) ?>" data-search="<?= e($searchBits) ?>" data-referral="<?= e($savedReferral) ?>" data-needs-setup="<?= $needsSetup ? '1' : '0' ?>" data-inactive="<?= $inactive ? '1' : '0' ?>" data-muted="<?= $inactive ? '1' : '0' ?>" data-phone="<?= e($phone) ?>" data-doctor="<?= e((string) ($p['preferred_doctor_id'] ?? '')) ?>" data-wallet="<?= e($walletAttr) ?>" data-fee="<?= e($feeAttr) ?>"><?= e($label) ?></option>
+        <option value="<?= e((string) ($p['book_id'] ?? $p['id'])) ?>" data-search="<?= e($searchBits) ?>" data-referral="<?= e($savedReferral) ?>" data-needs-setup="<?= $needsSetup ? '1' : '0' ?>" data-inactive="<?= $inactive ? '1' : '0' ?>" data-muted="<?= $inactive ? '1' : '0' ?>" data-phone="<?= e($phone) ?>" data-doctor="<?= e((string) ($p['preferred_doctor_id'] ?? '')) ?>" data-wallet="<?= e($walletAttr) ?>" data-fee="<?= e($feeAttr) ?>" data-fee-usd="<?= e($feeUsd ?? '') ?>"><?= e($label) ?></option>
       <?php endforeach; ?>
     </select>
     <p class="muted" style="margin:.35rem 0 0;font-size:.8rem">در باکس بالا نام یا شماره موبایل را تایپ کنید.</p>
@@ -254,6 +255,8 @@ ob_start();
       <option value="paid">پرداخت شد</option>
       <option value="unpaid">پرداخت نشد</option>
       <?php else: ?>
+      <option value="paid" data-usd-only hidden disabled>پرداخت شد</option>
+      <option value="unpaid" data-usd-only hidden disabled>پرداخت نشد</option>
       <option value="wallet">از کیف پول مراجع</option>
       <option value="card">کارت به کارت، با آپلود فیش</option>
       <option value="later">بعداً پرداخت می‌کند</option>
@@ -422,6 +425,13 @@ $secretaryBookScripts = '
       feeLine.textContent = "";
       return;
     }
+    var usd = patientOpt.getAttribute("data-fee-usd");
+    if (usd) {
+      var amount = Number(usd).toLocaleString("fa-IR", {maximumFractionDigits: 2});
+      feeLine.textContent = "حق جلسه این نوبت: " + amount + " دلار";
+      feeLine.style.setProperty("display", "block", "important");
+      return;
+    }
     var customRaw = patientOpt.getAttribute("data-fee") || "";
     var customFee = parseInt(customRaw, 10);
     var doctorPrice = 0;
@@ -445,7 +455,7 @@ $secretaryBookScripts = '
   function syncWalletLine() {
     if (!walletLine || !patientEl) return;
     var opt = patientEl.options[patientEl.selectedIndex];
-    var raw = opt ? opt.getAttribute("data-wallet") : "";
+    var raw = opt && !opt.getAttribute("data-fee-usd") ? opt.getAttribute("data-wallet") : "";
     if (!opt || !opt.value || raw === null || raw === "") {
       walletLine.style.setProperty("display", "none", "important");
       walletLine.textContent = "";
@@ -976,6 +986,17 @@ $secretaryBookScripts = '
   var receiptBox = document.getElementById("sec-receipt-box");
   var receiptEl = document.getElementById("receipt");
   function syncPayRule() {
+    var patient = patientEl && patientEl.options[patientEl.selectedIndex];
+    var usd = Boolean(patient && patient.getAttribute("data-fee-usd"));
+    if (payEl && payEl.querySelector("[data-usd-only]")) {
+      Array.prototype.forEach.call(payEl.options, function (option) {
+        var usdOnly = option.hasAttribute("data-usd-only");
+        option.disabled = option.hidden = usdOnly !== usd;
+      });
+      if (payEl.selectedIndex < 0 || payEl.options[payEl.selectedIndex].disabled) {
+        payEl.value = usd ? "unpaid" : "wallet";
+      }
+    }
     var method = payEl ? payEl.value : "wallet";
     var card = method === "card";
     if (receiptBox) receiptBox.hidden = !card;
@@ -991,6 +1012,7 @@ $secretaryBookScripts = '
     else payHint.textContent = "مبلغ حق جلسه از کیف پول مراجع کم می‌شود. اگر موجودی کافی نباشد، نوبت ثبت نمی‌شود.";
   }
   if (payEl) payEl.addEventListener("change", syncPayRule);
+  if (patientEl) patientEl.addEventListener("change", syncPayRule);
   syncPayRule();
   form.querySelectorAll("input[name=session_mode]").forEach(function (el) {
     el.addEventListener("change", syncRoomRule);

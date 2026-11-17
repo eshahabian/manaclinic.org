@@ -20,7 +20,7 @@ if (function_exists('appointment_ensure_room_schema')) {
 
 $roomSql = function_exists('appointment_room_no_sql') ? appointment_room_no_sql('a') : 'NULL AS room_no';
 $stmt = $pdo->prepare("
-  SELECT a.*, u.name AS doctor_name, dp.specialty, p.id AS payment_id, p.amount, p.status AS pay_status, p.ref_id, p.receipt_path,
+  SELECT a.*, u.name AS doctor_name, dp.specialty, p.id AS payment_id, p.amount, p.amount_usd, p.status AS pay_status, p.ref_id, p.receipt_path,
          {$roomSql}
   FROM appointments a
   JOIN doctor_profiles dp ON dp.id = a.doctor_id

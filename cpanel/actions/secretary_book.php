@@ -136,11 +136,14 @@ $amount = (int) $doctor['session_price'];
 if (!function_exists('patient_fee_resolve_toman')) {
     require_once __DIR__ . '/../includes/patient_fee.php';
 }
-if ($patientId !== '') {
-    $feeRow = patient_fee_load($pdo, $patientId);
-    $amount = patient_fee_resolve_toman($feeRow, $amount);
+$feeRow = patient_fee_load($pdo, $patientId);
+$amountUsd = patient_fee_resolve_usd($feeRow);
+$amount = $amountUsd === null ? patient_fee_resolve_toman($feeRow, $amount) : 0;
+if ($amountUsd !== null) {
+    $walletPaused = true;
+    $payMethod = post('pay_method') === 'paid' ? 'paid' : 'unpaid';
 }
-if ($amount <= 0) {
+if ($amount <= 0 && $amountUsd === null) {
     flash_set('error', 'هزینه جلسه این درمانگر مشخص نیست.');
     $bookRedirect('/secretary/appointments?tab=new');
 }
@@ -277,8 +280,8 @@ try {
         }
         $pdo->prepare('INSERT INTO appointments (id,doctor_id,patient_id,starts_at,ends_at,status,notes,session_mode,room_no,created_by_user_id,staff_payment_note) VALUES (?,?,?,?,?,?,?,?,?,?,?)')
             ->execute([$rowId, $doctorId, $patientId, $occur['starts'], $occur['ends'], 'CONFIRMED', $notes, $sessionMode, $roomNo > 0 ? $roomNo : null, $actorId, $payNote]);
-        $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,status,ref_id,recorded_by_user_id,receipt_path) VALUES (?,?,?,?,?,?,?)')
-            ->execute([$rowPayId, $rowId, $amount, $payStatus, $payRef, $actorId, $isFirst ? $receiptPath : null]);
+        $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,amount_usd,status,ref_id,recorded_by_user_id,receipt_path) VALUES (?,?,?,?,?,?,?,?)')
+            ->execute([$rowPayId, $rowId, $amount, $amountUsd, $payStatus, $payRef, $actorId, $isFirst ? $receiptPath : null]);
         if (!$walletPaused && $isFirst && $payMethod === 'wallet') {
             wallet_debit_balance(
                 $pdo,
@@ -312,7 +315,7 @@ try {
     if ($referralToSave !== null && !user_referral_save($pdo, $patientId, $referralToSave)) {
         throw new RuntimeException('معرف ذخیره نشد.');
     }
-    user_referral_stamp_payment($pdo, $paymentId, $patientId, (int) $doctor['session_price']);
+    user_referral_stamp_payment($pdo, $paymentId, $patientId, $amount);
     $pdo->commit();
 
     $patientNameStmt = $pdo->prepare('SELECT name FROM users WHERE id = ?');
