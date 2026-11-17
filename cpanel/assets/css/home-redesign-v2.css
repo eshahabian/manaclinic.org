@@ -11,7 +11,6 @@
 .mana-couples-episode{display:inline-block;margin:.6rem 1rem .6rem 0;font-size:.75rem;color:#66786d}
 .mana-couples-visual{margin:0;min-width:0;position:relative}
 .mana-couples-visual img{display:block;width:100%;height:auto;aspect-ratio:3/2;object-fit:cover;border-radius:20px}
-@supports (mask-image:url("")){.mana-home-v2 .mana-couples-visual img{border-radius:0;mask:url("../img/couples-brush-mask.svg?v=2") center/100% 100% no-repeat}}
 .mana-couples-visual figcaption{font-size:.78rem;line-height:1.9;text-align:center;color:#66786d;margin:.9rem .5rem 0}
 html[data-theme=dark] .mana-couples-feature{background:#202f29;border-color:#3a4c40;color:#edf2e9}
 html[data-theme=dark] .mana-couples-eyebrow,html[data-theme=dark] .mana-couples-context,html[data-theme=dark] .mana-couples-episode,html[data-theme=dark] .mana-couples-visual figcaption{color:#b8c9bc}
