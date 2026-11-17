@@ -29,7 +29,7 @@ $pageKeywords = 'مانا کلینیک, روانشناس سعادت آباد, ر
 require_once dirname(__DIR__) . '/includes/daily_quotes.php';
 $dailyQuote = daily_quote_for_date();
 $workshopBanners = function_exists('workshop_home_banners') ? workshop_home_banners($pdo, 3) : [];
-$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/home-redesign-v2.css')) . '?v=20261118a">';
+$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/home-redesign-v2.css')) . '?v=20261118b">';
 ob_start();
 ?>
 <div class="mana-home-v2">
