@@ -471,8 +471,11 @@ if ($method === 'POST' && $path === '/app/complaints') {
         }
         redirect('/app/complaints');
     }
+    if (session_feedback_can_submit_as_doctor($user)) {
+        session_feedback_submit_as_doctor($pdo, $user, '/app/complaints');
+    }
     if (!$canManageApp) {
-        flash_set('error', 'ثبت انتقاد و پیشنهاد در برنامه، با منشی است.');
+        flash_set('error', 'ثبت بازخورد با این حساب مجاز نیست.');
         redirect('/app/complaints');
     }
     try {
@@ -2145,6 +2148,7 @@ if ($section === 'balances') {
 }
 
 require_once __DIR__ . '/../includes/session_complaints.php';
+$canSubmitAsDoctor = session_feedback_can_submit_as_doctor($user);
 $complaints = [];
 $patients = [];
 try {
@@ -2152,7 +2156,7 @@ try {
 } catch (Throwable $e) {
     $complaints = [];
 }
-if ($canManageApp) {
+if ($canManageApp && !$canSubmitAsDoctor) {
     require_once __DIR__ . '/../includes/secretary_patient.php';
     try {
         $patients = secretary_bookable_patients($pdo);
@@ -2163,13 +2167,15 @@ if ($canManageApp) {
 ob_start();
 ?>
 <h1>انتقادات و پیشنهادات</h1>
-<p class="muted"><?= $canManageApp ? 'اسم شخص را از فهرست انتخاب کنید تا نام، شماره تماس و درمانگرش مشخص شود. مورد برای دکتر شیوا گرانمایه‌پور و دکتر عطیه گارسچی می‌رود.' : 'انتقادها و پیشنهادهایی که مراجع یا منشی ثبت کرده اینجاست.' ?></p>
-<?php if ($canManageApp): ?>
+<p class="muted"><?= $canManageApp && !$canSubmitAsDoctor ? 'اسم شخص را از فهرست انتخاب کنید تا نام، شماره تماس و درمانگرش مشخص شود. مورد برای دکتر شیوا گرانمایه‌پور و دکتر عطیه گارسچی می‌رود.' : 'بازخوردهای ثبت‌شده و نتیجهٔ پیگیری آن‌ها را در فهرست زیر ببینید.' ?></p>
+<?php if ($canSubmitAsDoctor): ?>
+  <?= session_feedback_form_html('/app/complaints', false, [], $name, '', '') ?>
+<?php elseif ($canManageApp): ?>
   <?= session_feedback_form_html('/app/complaints', true, $patients, '', '', '') ?>
 <?php endif; ?>
 <?= session_feedback_list_html($complaints, 'هنوز انتقاد یا پیشنهادی ثبت نشده است.', '/app/complaints', session_feedback_can_manage($user)) ?>
 <?php
-if ($canManageApp) {
-    $GLOBALS['pageScripts'] = session_feedback_assets(true);
+if ($canSubmitAsDoctor || $canManageApp) {
+    $GLOBALS['pageScripts'] = session_feedback_assets(!$canSubmitAsDoctor);
 }
 staff_app_render('complaints', 'انتقادات و پیشنهادات', $descriptions['complaints'], ob_get_clean());

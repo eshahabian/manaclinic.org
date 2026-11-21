@@ -1,5 +1,9 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/../includes/learning.php';
+$homeLearningCatalog = mana_learning_catalog();
+$homeCouplesLessons = mana_learning_lessons('couples-therapy', $homeLearningCatalog['couples-therapy']);
+$homeLatestCouples = $homeCouplesLessons[array_key_last($homeCouplesLessons)];
 
 $doctors = $pdo->query("
   SELECT dp.*, u.name
@@ -59,14 +63,14 @@ ob_start();
 
 <section class="container-page section home-content">
 
-      <a class="mana-couples-feature" href="<?= e(url('/learn/couples-therapy')) ?>" aria-labelledby="mana-couples-title">
+      <a class="mana-couples-feature" href="<?= e(url($homeLatestCouples['path'])) ?>" aria-labelledby="mana-couples-title">
         <div class="mana-couples-copy">
           <p class="mana-couples-eyebrow">رابطه از زاویه‌ای دیگر <span lang="en" dir="ltr">Couples Therapy</span></p>
-          <h2 id="mana-couples-title">سرِ اتفاق دعوا می‌کنیم،<br>یا سرِ معنای آن؟</h2>
-          <p class="mana-couples-description">یک اتفاق، دو برداشت متفاوت؛ فرصتی برای دیدن رابطه از نگاه یکدیگر.</p>
+          <h2 id="mana-couples-title"><?= e($homeLatestCouples['title']) ?></h2>
+          <p class="mana-couples-description"><?= e($homeLatestCouples['summary']) ?></p>
           <p class="mana-couples-context">درس‌هایی با نقطهٔ شروع مستند زوج‌درمانی با اورنا گورالنیک</p>
-          <span class="mana-couples-cta">مشاهدهٔ فصل‌ها و درس‌ها <span aria-hidden="true">←</span></span>
-          <span class="mana-couples-episode">فصل اول · قسمت اول</span>
+          <span class="mana-couples-cta">خواندن جدیدترین درس <span aria-hidden="true">←</span></span>
+          <span class="mana-couples-episode"><?= e($homeLatestCouples['season_title'] . ' · ' . $homeLatestCouples['label']) ?></span>
         </div>
         <figure class="mana-couples-visual">
           <img src="<?= e(url('/assets/img/couples-two-meanings-v2.webp')) ?>" alt="تصویرسازی مفهومی دو نفر روبه‌روی هم با دو مسیر رنگی متفاوت پیرامون یک موضوع مشترک" width="1536" height="1024" loading="lazy" decoding="async">

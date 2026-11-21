@@ -25,10 +25,10 @@ ob_start();
   </header>
   <?php if (!$series): ?>
     <section class="learning-grid" aria-label="مجموعه‌های آموزشی">
-      <?php foreach ($catalog as $slug => $item): $lessons = mana_learning_lessons($slug, $item); ?>
+      <?php foreach ($catalog as $slug => $item): $lessons = mana_learning_lessons($slug, $item); $latestLesson = $lessons ? $lessons[array_key_last($lessons)] : null; ?>
       <a class="learning-series-card<?= $slug === 'schemas' ? ' learning-series-card-image-left' : '' ?>" href="<?= e(url('/learn/' . $slug)) ?>">
         <?php if ($item['image']): ?><img src="<?= e(url($item['image'])) ?>" alt="<?= e($item['image_alt'] ?? $item['title']) ?>" width="1536" height="1024" loading="lazy" decoding="async"><?php else: ?><div class="learning-series-placeholder" aria-hidden="true">الگوها را بشناسیم.</div><?php endif; ?>
-        <div class="learning-card-copy"><p class="learning-eyebrow"><?= e($item['cadence']) ?></p><h2><?= e($item['title']) ?></h2><p><?= e($item['description']) ?></p><span class="learning-status"><?= $slug === 'schemas' ? '۱۸ طرح‌واره · شروع از شمارهٔ ۱: رهاشدگی / بی‌ثباتی' : ($lessons ? 'شروع از فصل اول، قسمت اول' : 'در انتظار اولین درس') ?></span><span class="learning-link">مشاهدهٔ مجموعه ←</span></div>
+        <div class="learning-card-copy"><p class="learning-eyebrow"><?= e($item['cadence']) ?></p><h2><?= e($item['title']) ?></h2><p><?= e($latestLesson['summary'] ?? $item['description']) ?></p><span class="learning-status"><?= $latestLesson ? e('جدیدترین مطلب: ' . ($slug === 'schemas' ? $latestLesson['label'] : $latestLesson['season_title'] . ' · ' . $latestLesson['label']) . ' — ' . $latestLesson['title']) : 'در انتظار اولین درس' ?></span><span class="learning-link">مشاهدهٔ مجموعه ←</span></div>
       </a>
       <?php endforeach; ?>
     </section>

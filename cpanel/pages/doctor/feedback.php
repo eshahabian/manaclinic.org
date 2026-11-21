@@ -10,6 +10,7 @@ if (!session_feedback_can_review($user)) {
     redirect('/doctor/appointments');
 }
 
+$canSubmit = session_feedback_can_submit_as_doctor($user);
 $rows = [];
 try {
     $rows = session_complaint_list($pdo, null, $user);
@@ -20,7 +21,13 @@ try {
 ob_start();
 ?>
 <h1>انتقادات و پیشنهادات</h1>
-<p class="muted">مواردی که مراجعه‌کننده یا منشی ثبت کرده اینجاست. زمان جلسه اگر خالی باشد یعنی اعلام نشده است.</p>
+<?php if ($canSubmit): ?>
+  <?= session_feedback_form_html('/doctor/feedback', false, [], (string) ($user['name'] ?? ''), '', '') ?>
+<?php endif; ?>
+<p class="muted">بازخوردهای ثبت‌شده و نتیجهٔ پیگیری آن‌ها را در فهرست زیر ببینید.</p>
 <?= session_feedback_list_html($rows, 'هنوز انتقاد یا پیشنهادی ثبت نشده است.', '/doctor/feedback', true) ?>
 <?php
+if ($canSubmit) {
+    $GLOBALS['pageScripts'] = session_feedback_assets(false);
+}
 render_doctor_page('انتقادات و پیشنهادات', ob_get_clean());

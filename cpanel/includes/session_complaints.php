@@ -85,6 +85,36 @@ function session_suggestion_reasons(): array
     ];
 }
 
+function session_feedback_can_submit_as_doctor(array $user): bool
+{
+    require_once __DIR__ . '/doctor_profile_fields.php';
+    return ($user['role'] ?? '') === 'DOCTOR' && doctor_is_garsichi($user);
+}
+
+function session_feedback_submit_as_doctor(PDO $pdo, array $user, string $returnPath): void
+{
+    $userId = (string) ($user['id'] ?? '');
+    $kind = trim((string) post('kind'));
+    try {
+        session_complaint_create(
+            $pdo,
+            $userId,
+            $userId,
+            $kind,
+            trim(trim((string) post('session_date')) . ' ' . trim((string) post('session_time'))),
+            (string) post('reason'),
+            (string) post('body'),
+            $user
+        );
+        flash_set('success', (session_feedback_kinds()[$kind] ?? 'بازخورد') . ' ثبت شد.');
+    } catch (RuntimeException $e) {
+        flash_set('error', $e->getMessage());
+    } catch (Throwable $e) {
+        flash_set('error', 'ثبت انجام نشد.');
+    }
+    redirect($returnPath);
+}
+
 function session_complaint_create(
     PDO $pdo,
     string $actorId,
@@ -92,7 +122,8 @@ function session_complaint_create(
     string $kind,
     string $sessionAt,
     string $reason,
-    string $body
+    string $body,
+    ?array $doctorActor = null
 ): void {
     ensure_session_complaints_schema($pdo);
     $kind = session_feedback_kind($kind);
@@ -112,18 +143,21 @@ function session_complaint_create(
         throw new RuntimeException('توضیحات طولانی است.');
     }
     $sessionStored = session_complaint_parse_when($sessionAt);
+    $doctorSelfId = $doctorActor && session_feedback_can_submit_as_doctor($doctorActor)
+        && ($doctorActor['id'] ?? '') === $actorId && $actorId === $patientId ? $actorId : '';
     $patient = $pdo->prepare("
       SELECT u.id, u.preferred_doctor_id, u.name
       FROM users u
       WHERE u.id = ? AND u.is_disabled = 0
         AND (
           u.role = 'PATIENT'
+          OR (u.role = 'DOCTOR' AND u.id = ?)
           OR LOWER(u.username) = 'eshahabian'
           OR (u.name LIKE '%عماد%' AND u.name LIKE '%شهابیان%')
         )
       LIMIT 1
     ");
-    $patient->execute([$patientId]);
+    $patient->execute([$patientId, $doctorSelfId]);
     $person = $patient->fetch();
     if (!$person) {
         throw new RuntimeException('مراجعه‌کننده را انتخاب کنید.');
