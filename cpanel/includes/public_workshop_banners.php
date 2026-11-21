@@ -6,7 +6,6 @@ require_once __DIR__.'/workshop_presenters.php';
         <div class="section-head">
           <div>
             <h2 id="home-workshop-heading">دوره‌ها و کارگاه‌ها</h2>
-            <p class="muted">روی کارت بزنید تا توضیح و ثبت‌نام را ببینید</p>
           </div>
         </div>
         <?php if (empty($workshopArchive)): ?>
@@ -14,6 +13,16 @@ require_once __DIR__.'/workshop_presenters.php';
             <a class="articles-all-link" href="<?= e(url('/workshops')) ?>">مشاهده همه کارگاه‌ها ←</a>
           </div>
         <?php endif; ?>
+        <article class="mbsr-course-banner" dir="rtl" aria-labelledby="mbsr-course-title">
+          <div class="mbsr-course-copy">
+            <p class="mbsr-course-status">در حال ثبت‌نام</p>
+            <p>پنجاه‌ویکمین دورهٔ مانا کلینیک</p>
+            <h3 id="mbsr-course-title">کاهش استرس بر اساس بهوشیاری <span lang="en" dir="ltr">(MBSR)</span></h3>
+            <p>با تسهیلگری دکتر شیوا گرانمایه‌پور</p>
+            <p>۸ جلسه · پنجشنبه‌ها، ساعت ۹:۳۰ تا ۱۲</p>
+            <a class="mbsr-course-cta" href="tel:09101387838">تماس برای ثبت‌نام <bdi dir="ltr">۰۹۱۰ ۱۳۸ ۷۸۳۸</bdi></a>
+          </div>
+        </article>
         <?php if ($workshopBanners): ?>
         <div class="home-workshop-track">
           <?php foreach ($workshopBanners as $promo): ?>
@@ -58,8 +67,6 @@ require_once __DIR__.'/workshop_presenters.php';
             </button>
           <?php endforeach; ?>
         </div>
-        <?php else: ?>
-          <p class="muted home-workshop-empty">به‌زودی دوره‌های جدید اینجا اعلام می‌شود.</p>
         <?php endif; ?>
       </section>
 

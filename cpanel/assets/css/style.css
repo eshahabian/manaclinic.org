@@ -804,6 +804,50 @@ html[data-theme="dark"] .home-daily-quote-text p {
 .section-head h2 { margin: 0; font-size: 1.6rem; }
 
 .home-workshop-banners { margin-top: 3rem; }
+.mbsr-course-banner {
+  margin-block: 1rem 1.5rem;
+  padding: clamp(1.25rem, 4vw, 3rem);
+  border-radius: 1.5rem;
+  background: #093236 url("../img/workshops/mbsr-51-bg.webp") center 65% / cover no-repeat;
+  color: #fff4df;
+}
+.mbsr-course-copy {
+  box-sizing: border-box;
+  width: min(100%, 36rem);
+  padding: clamp(1rem, 3vw, 2rem);
+  border: 1px solid #e5c89970;
+  border-radius: 1.25rem;
+  background: #072b2eed;
+}
+.mbsr-course-copy p { margin: 0 0 .65rem; }
+.mbsr-course-copy .mbsr-course-status {
+  display: inline-block;
+  padding: .2rem .75rem;
+  border-radius: 2rem;
+  background: #d7ebc5;
+  color: #12392f;
+  font-weight: 700;
+}
+.mbsr-course-copy h3 {
+  margin: 0 0 .75rem;
+  color: #ffdfac;
+  font-size: clamp(1.45rem, 3vw, 2.4rem);
+  line-height: 1.45;
+}
+.mbsr-course-copy h3 span { white-space: nowrap; }
+.mbsr-course-cta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: .25rem .75rem;
+  margin-top: .5rem;
+  padding: .65rem 1rem;
+  border-radius: .75rem;
+  background: #ffdfac;
+  color: #103738;
+  font-weight: 700;
+}
+.mbsr-course-cta:hover { background: #fff1d9; color: #103738; }
+.mbsr-course-cta:focus-visible { outline: 2px solid #fff4df; outline-offset: 3px; }
 .home-workshop-track {
   direction: rtl;
   display: grid;
