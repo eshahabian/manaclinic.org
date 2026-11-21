@@ -2397,6 +2397,7 @@ function staff_app_render(string $active, string $title, string $description, st
         'appointments' => 'appointments',
         'hours' => 'hours',
         'petty' => 'petty',
+        'complaints' => 'complaints',
         default => 'home',
     };
     $vapidKey = '';
@@ -2461,6 +2462,7 @@ function staff_app_render(string $active, string $title, string $description, st
     .sapp-nav{position:fixed;right:0;left:0;bottom:0;z-index:30;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));padding:.35rem 1.5vw calc(.45rem + env(safe-area-inset-bottom));background:#fff;border-top:1px solid #e6eeea}
     .sapp-nav a{display:flex;flex-direction:column;align-items:center;gap:1px;text-decoration:none;color:#8aa099;font-size:clamp(.68rem,2.8vw,.78rem);font-weight:700;min-width:0;text-align:center}
     .sapp-nav a.is-active{color:#159688}
+    .sapp-nav.has-feedback{grid-template-columns:repeat(5,minmax(0,1fr))}
     .sapp-nav-ico{width:46px;height:32px;display:flex;align-items:center;justify-content:center;border-radius:14px}
     .sapp-nav a.is-active .sapp-nav-ico{background:#e7f6f3}
     .sapp-nav svg{width:22px;height:22px}
@@ -2697,7 +2699,8 @@ function staff_app_render(string $active, string $title, string $description, st
     <?= $html ?>
   </main>
   <?php if (!$locked): ?>
-    <nav class="sapp-nav" aria-label="بخش‌های برنامه">
+    <?php $showFeedback = $user && staff_app_home_tile_allowed($user, '/app/complaints'); ?>
+    <nav class="sapp-nav<?= $showFeedback ? ' has-feedback' : '' ?>" aria-label="بخش‌های برنامه">
       <a class="<?= $navKey === 'home' ? 'is-active' : '' ?>" href="<?= e(url('/app')) ?>">
         <span class="sapp-nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-5v-6H10v6H5a1 1 0 0 1-1-1v-9.5z"/></svg></span>
         خانه
@@ -2721,6 +2724,12 @@ function staff_app_render(string $active, string $title, string $description, st
       <a class="<?= $navKey === 'hours' ? 'is-active' : '' ?>" href="<?= e(url('/app/hours')) ?>">
         <span class="sapp-nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8"/><path d="M12 8v4.2l2.6 1.6"/></svg></span>
         ساعت کاری
+      </a>
+      <?php endif; ?>
+      <?php if ($showFeedback): ?>
+      <a class="<?= $navKey === 'complaints' ? 'is-active' : '' ?>" href="<?= e(url('/app/complaints')) ?>">
+        <span class="sapp-nav-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="4" width="14" height="16" rx="2"/><path d="M9 9h6m-6 4h6m-6 4h3"/></svg></span>
+        بازخورد
       </a>
       <?php endif; ?>
       <a class="<?= $navKey === 'profile' ? 'is-active' : '' ?>" href="<?= e(url('/app/profile')) ?>">

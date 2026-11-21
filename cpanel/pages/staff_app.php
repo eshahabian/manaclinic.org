@@ -639,8 +639,8 @@ if ($section === 'home') {
       <?php if (staff_app_home_tile_allowed($user, '/app/complaints')): ?>
       <a class="sapp-tile" href="<?= e(url('/app/complaints')) ?>">
         <span class="sapp-ico sapp-ico-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="M12 4.5 20 19H4L12 4.5z"/><path d="M12 10v4.2"/><path d="M12 16.8h.01"/></svg></span>
-        <strong>انتقادات و پیشنهادات</strong>
-        <em>Feedback</em>
+        <strong>بازخورد مراجعان</strong>
+        <em>انتقادات و پیشنهادات</em>
       </a>
       <?php endif; ?>
     </div>
