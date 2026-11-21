@@ -73,8 +73,8 @@ ob_start();
           <span class="mana-couples-episode"><?= e($homeLatestCouples['season_title'] . ' · ' . $homeLatestCouples['label']) ?></span>
         </div>
         <figure class="mana-couples-visual">
-          <img src="<?= e(url('/assets/img/couples-two-meanings-v2.webp')) ?>" alt="تصویرسازی مفهومی دو نفر روبه‌روی هم با دو مسیر رنگی متفاوت پیرامون یک موضوع مشترک" width="1536" height="1024" loading="lazy" decoding="async">
-          <figcaption>گاهی پشت یک اختلاف، دو تجربهٔ متفاوت است.</figcaption>
+          <img src="<?= e(url($homeLatestCouples['image'] ?? $homeLearningCatalog['couples-therapy']['image'])) ?>" alt="<?= e($homeLatestCouples['image_alt'] ?? $homeLearningCatalog['couples-therapy']['image_alt']) ?>" width="1536" height="1024" loading="lazy" decoding="async">
+          <figcaption>اعتماد، با رفتارهای قابل‌اتکا ساخته می‌شود.</figcaption>
         </figure>
       </a>
 
