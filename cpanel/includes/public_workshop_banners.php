@@ -13,15 +13,13 @@ require_once __DIR__.'/workshop_presenters.php';
             <a class="articles-all-link" href="<?= e(url('/workshops')) ?>">مشاهده همه کارگاه‌ها ←</a>
           </div>
         <?php endif; ?>
-        <article class="mbsr-course-banner" dir="rtl" aria-labelledby="mbsr-course-title">
-          <div class="mbsr-course-copy">
-            <p class="mbsr-course-status">در حال ثبت‌نام</p>
-            <p>پنجاه‌ویکمین دورهٔ مانا کلینیک</p>
-            <h3 id="mbsr-course-title">کاهش استرس بر اساس بهوشیاری <span lang="en" dir="ltr">(MBSR)</span></h3>
-            <p>با تسهیلگری دکتر شیوا گرانمایه‌پور</p>
-            <p>۸ جلسه · پنجشنبه‌ها، ساعت ۹:۳۰ تا ۱۲</p>
-            <a class="mbsr-course-cta" href="tel:09101387838">تماس برای ثبت‌نام <bdi dir="ltr">۰۹۱۰ ۱۳۸ ۷۸۳۸</bdi></a>
-          </div>
+        <article class="mbsr-course-banner" dir="rtl">
+          <a class="mbsr-course-link" href="tel:09101387838">
+            <img src="<?= e(url('/assets/img/workshops/mbsr-51-banner.webp')) ?>"
+                 alt="پنجاه‌ویکمین دورهٔ کاهش استرس بر اساس بهوشیاری (MBSR) با دکتر شیوا گرانمایه‌پور. ۸ جلسه، پنجشنبه‌ها ساعت ۹:۳۰ تا ۱۲. در حال ثبت‌نام."
+                 width="1200" height="800" loading="lazy" decoding="async">
+            <span class="mbsr-course-contact">تماس برای ثبت‌نام <bdi dir="ltr">۰۹۱۰ ۱۳۸ ۷۸۳۸</bdi></span>
+          </a>
         </article>
         <?php if ($workshopBanners): ?>
         <div class="home-workshop-track">
