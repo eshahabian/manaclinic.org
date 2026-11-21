@@ -805,7 +805,8 @@ html[data-theme="dark"] .home-daily-quote-text p {
 
 .home-workshop-banners { margin-top: 3rem; }
 .mbsr-course-banner {
-  margin-block: 1rem 1.5rem;
+  width: min(100%, 42rem);
+  margin: 1rem auto 1.5rem;
 }
 .mbsr-course-link {
   display: block;
