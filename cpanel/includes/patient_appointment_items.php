@@ -4,6 +4,8 @@ declare(strict_types=1);
 /** @var array $appointmentList */
 /** @var string $appointmentItemMode */
 
+require_once __DIR__ . '/patient_fee.php';
+
 $appointmentList = $appointmentList ?? [];
 $appointmentItemMode = $appointmentItemMode ?? 'simple';
 $appointmentOnlinePayEnabled = $appointmentOnlinePayEnabled ?? false;
