@@ -15,7 +15,7 @@ require_once __DIR__.'/workshop_presenters.php';
         <?php endif; ?>
         <article class="mbsr-course-banner" dir="rtl">
           <a class="mbsr-course-link" href="tel:09101387838">
-            <img src="<?= e(url('/assets/img/workshops/mbsr-51-banner-v3.webp')) ?>"
+            <img src="<?= e(url('/assets/img/workshops/mbsr-51-banner-v4.webp')) ?>"
                  alt="پنجاه و یکمین دورهٔ کاهش استرس بر اساس بهوشیاری (MBSR) با دکتر شیوا گرانمایه‌پور. ۸ جلسه، پنجشنبه‌ها ساعت ۹:۳۰ تا ۱۲. در حال ثبت‌نام."
                  width="1536" height="1024" loading="lazy" decoding="async">
             <span class="mbsr-course-contact">تماس برای ثبت‌نام <bdi dir="ltr">۰۹۱۰ ۱۳۸ ۷۸۳۸</bdi></span>
