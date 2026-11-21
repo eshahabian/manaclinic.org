@@ -37,14 +37,6 @@ $pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/home-redesign-v
 ob_start();
 ?>
 <div class="mana-home-v2">
-<?php if ($dailyQuote !== ''): ?>
-<aside class="home-daily-quote" aria-labelledby="home-daily-quote-label">
-  <div class="home-daily-quote-panel">
-    <p class="home-daily-quote-label" id="home-daily-quote-label">جملهٔ امروز</p>
-    <blockquote class="home-daily-quote-text"><p><?= e($dailyQuote) ?></p></blockquote>
-  </div>
-</aside>
-<?php endif; ?>
 <section class="container-page mana-welcome" aria-labelledby="mana-welcome-title">
   <div class="mana-welcome-copy">
     <p class="mana-kicker">مانا کلینیک · سعادت‌آباد</p>
@@ -57,7 +49,9 @@ ob_start();
   </div>
   <div class="mana-welcome-art">
     <img src="<?= e(url('/assets/img/mana-home-calm-v2.webp')) ?>" alt="تصویر مفهومی درخت زیتون و دری روشن در فضایی آرام" width="1536" height="1024" fetchpriority="high" loading="eager" decoding="async">
-    <p class="mana-art-caption">برای خودت، فرصتی برای مکث بساز.</p>
+    <?php if ($dailyQuote !== ''): ?>
+      <blockquote class="mana-art-caption"><?= e($dailyQuote) ?></blockquote>
+    <?php endif; ?>
   </div>
 </section>
 
@@ -77,20 +71,6 @@ ob_start();
           <figcaption>اعتماد، با رفتارهای قابل‌اتکا ساخته می‌شود.</figcaption>
         </figure>
       </a>
-
-      <section class="mana-services" aria-labelledby="mana-services-title">
-        <div class="mana-section-heading"><div><p class="mana-kicker">از کجا شروع کنیم؟</p><h2 id="mana-services-title">همراهی متناسب با دغدغهٔ شما</h2></div><a class="mana-text-link" href="<?= e(url('/services')) ?>">همه خدمات ←</a></div>
-        <div class="mana-service-grid">
-        <?php foreach ([
-          ['فردی', 'مشاوره فردی', 'شناخت خود، احساسات و چالش‌های روزمره', '/services/individual', 'person'],
-          ['رابطه', 'زوج‌درمانی', 'فرصتی برای شنیدن و بهتر فهمیدن یکدیگر', '/services/couples', 'couple'],
-          ['رشد', 'کودک و نوجوان', 'همراهی در مسیر رشد و ارتباط با فرزند', '/services/child', 'child'],
-          ['یادگیری', 'کارگاه‌ها و دوره‌ها', 'تمرین مهارت‌های تازه برای زندگی', '/workshops', 'workshop'],
-        ] as $service): ?>
-          <a class="mana-service-card" href="<?= e(url($service[3])) ?>"><img class="mana-service-image" src="<?= e(url('/assets/img/services/' . $service[4] . '-scene-v2.webp')) ?>" alt="" width="768" height="512" loading="lazy" decoding="async"><span class="mana-service-label"><?= e($service[0]) ?></span><h3><?= e($service[1]) ?></h3><p><?= e($service[2]) ?></p></a>
-        <?php endforeach; ?>
-        </div>
-      </section>
 
       <?php if (function_exists('assistant_enabled') ? assistant_enabled() : true): ?>
       <a class="home-assistant-tile" href="<?= e(url('/assistant')) ?>">
@@ -143,6 +123,20 @@ ob_start();
           <?php if (!$doctors): ?><p class="muted">هنوز متخصصی ثبت نشده است.</p><?php endif; ?>
         </div>
       </div>
+      <section class="mana-services" aria-labelledby="mana-services-title">
+        <div class="mana-section-heading"><div><p class="mana-kicker">از کجا شروع کنیم؟</p><h2 id="mana-services-title">همراهی متناسب با دغدغهٔ شما</h2></div><a class="mana-text-link" href="<?= e(url('/services')) ?>">همه خدمات ←</a></div>
+        <div class="mana-service-grid">
+        <?php foreach ([
+          ['فردی', 'مشاوره فردی', 'شناخت خود، احساسات و چالش‌های روزمره', '/services/individual', 'person'],
+          ['رابطه', 'زوج‌درمانی', 'فرصتی برای شنیدن و بهتر فهمیدن یکدیگر', '/services/couples', 'couple'],
+          ['رشد', 'کودک و نوجوان', 'همراهی در مسیر رشد و ارتباط با فرزند', '/services/child', 'child'],
+          ['یادگیری', 'کارگاه‌ها و دوره‌ها', 'تمرین مهارت‌های تازه برای زندگی', '/workshops', 'workshop'],
+        ] as $service): ?>
+          <a class="mana-service-card" href="<?= e(url($service[3])) ?>"><img class="mana-service-image" src="<?= e(url('/assets/img/services/' . $service[4] . '-scene-v2.webp')) ?>" alt="" width="768" height="512" loading="lazy" decoding="async"><span class="mana-service-label"><?= e($service[0]) ?></span><h3><?= e($service[1]) ?></h3><p><?= e($service[2]) ?></p></a>
+        <?php endforeach; ?>
+        </div>
+      </section>
+
       <div class="home-articles-block" style="margin-top:3rem">
         <div class="section-head">
           <div>
