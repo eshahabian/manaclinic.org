@@ -7,6 +7,7 @@ function sms_template_catalog(): array
         // قالب‌های قابل مدیریت در پنل مدیر.
         'appointment_booked'=>['ثبت و تأیید نوبت','مانا کلینیک: نوبت شما در {datetime} ثبت شد.'],
         'appointment_cancelled'=>['لغو نوبت','مانا کلینیک: نوبت شما در {datetime} لغو شد.'],
+        'appointment_payment_reminder'=>['یادآوری پرداخت رزرو موقت','مانا کلینیک: برای {datetime} رزرو موقت دارید. لطفاً برای قطعی شدن نوبت، پرداخت را انجام دهید و با پذیرش هماهنگ کنید.'],
         'appointment_reminder'=>['یادآوری نوبت','مانا کلینیک: یادآوری نوبت {datetime}'],
         'workshop_registered'=>['تأیید ثبت‌نام کارگاه','مانا کلینیک: ثبت‌نام کارگاه از {datetime}'],
         'workshop_reminder'=>['یادآوری کارگاه','مانا کلینیک: یادآوری کارگاه {datetime}'],
@@ -418,12 +419,25 @@ function sms_plan_appointment(PDO $pdo, array $a, string $activated): void
     $fingerprint=hash('sha256',json_encode([$a['status'],$a['starts_at'],$a['doctor_id'],$a['session_mode']??'IN_PERSON']));
     $when=format_fa_datetime((string)$a['starts_at']);
     $context=['entity'=>'appointment','id'=>$a['id'],'starts_at'=>$a['starts_at'],'status'=>$a['status'],'doctor_id'=>$a['doctor_id']];
+    $starts = strtotime($a['starts_at']);
+    $scheduled = !empty($a['scheduled_hold']);
     $vars=['patient'=>$a['patient_name'],'doctor'=>$a['doctor_name'],'datetime'=>$when,'status'=>$a['status']==='CONFIRMED'?'ثبت شد.':'برای بررسی ثبت شد.'];
     $pdo->beginTransaction();
     try {
-        if (($old===null || $old['fingerprint']!==$fingerprint) && in_array($a['status'],['CONFIRMED','PENDING_APPROVAL'],true)
-            && ($old!==null || $a['created_at']>=$activated) && strtotime($a['starts_at'])>time()) {
-            sms_queue_extended($pdo,$a['phone'],sms_template_render($pdo,'appointment_booked',$vars),'appointment_booked',$key.':booked:'.$fingerprint,null,$a['starts_at'],$context);
+        $changed = $old === null || $old['fingerprint'] !== $fingerprint;
+        $recent = $old !== null || $a['created_at'] >= $activated
+            || ($scheduled && ($a['payment_confirmed_at'] ?? '') >= $activated);
+        if ($changed && $recent && $starts > time()
+            && ($a['status'] === 'CONFIRMED' || (!$scheduled && $a['status'] === 'PENDING_APPROVAL'))) {
+            $bookedKey = $key . ':booked:' . ($scheduled ? $a['starts_at'] : $fingerprint);
+            sms_queue_extended($pdo,$a['phone'],sms_template_render($pdo,'appointment_booked',$vars),'appointment_booked',$bookedKey,null,$a['starts_at'],$context);
+        }
+        if ($scheduled && in_array($a['status'], ['PENDING_APPROVAL', 'PENDING_PAYMENT'], true) && $starts > time()) {
+            $due = date('Y-m-d H:i:s', max(time(), $starts - 48 * 3600));
+            $kind = 'appointment_payment_reminder';
+            $paymentContext = $context + ['awaiting_payment' => true];
+            sms_queue_extended($pdo, $a['phone'], sms_template_render($pdo, $kind, $vars), $kind,
+                $key . ':payment-reminder:' . $a['starts_at'] . ':' . $a['doctor_id'] . ':' . $a['status'], $due, $a['starts_at'], $paymentContext);
         }
         if ($a['status']==='CANCELLED' && (($old!==null && $old['last_status']!=='CANCELLED') || ($old===null && $a['updated_at']>=$activated))) {
             sms_queue_extended($pdo,$a['phone'],sms_template_render($pdo,'appointment_cancelled',$vars),'appointment_cancelled',$key.':cancelled:'.$a['updated_at'],null,date('Y-m-d H:i:s',time()+86400),$context);
@@ -484,6 +498,11 @@ function sms_job_still_valid(PDO $pdo, array $job): bool
     if($context['entity']==='appointment' || $context['entity']==='appointment_doctor'){
         $stmt=$pdo->prepare('SELECT starts_at,status,doctor_id FROM appointments WHERE id=?');$stmt->execute([$context['id']]);$a=$stmt->fetch();
         if(!$a || $a['starts_at']!==$context['starts_at'] || $a['status']!==$context['status'])return false;
+        if (!empty($context['awaiting_payment'])) {
+            $payment = $pdo->prepare("SELECT 1 FROM payments WHERE appointment_id=? AND status='PAID' LIMIT 1");
+            $payment->execute([$context['id']]);
+            if ($payment->fetchColumn()) return false;
+        }
         if(isset($context['doctor_id']) && $context['doctor_id']!==null && $context['doctor_id']!=='' && (string)$a['doctor_id']!==(string)$context['doctor_id'])return false;
         return true;
     }

@@ -89,13 +89,13 @@ function appointment_expire_stale_pending_payments(PDO $pdo, ?string $doctorId =
     if ($doctorId !== null && $doctorId !== '') {
         $pdo->prepare("
           UPDATE appointments SET status='CANCELLED'
-          WHERE doctor_id=? AND status='PENDING_PAYMENT' AND created_at < (NOW() - INTERVAL 20 MINUTE)
+          WHERE doctor_id=? AND status='PENDING_PAYMENT' AND scheduled_hold=0 AND created_at < (NOW() - INTERVAL 20 MINUTE)
         ")->execute([$doctorId]);
         return;
     }
     $pdo->exec("
       UPDATE appointments SET status='CANCELLED'
-      WHERE status='PENDING_PAYMENT' AND created_at < (NOW() - INTERVAL 20 MINUTE)
+      WHERE status='PENDING_PAYMENT' AND scheduled_hold=0 AND created_at < (NOW() - INTERVAL 20 MINUTE)
     ");
 }
 
@@ -764,6 +764,27 @@ function appointment_booking_horizon_end(?string $fromYmd = null): string
     $from = ($fromYmd !== null && preg_match('/^\d{4}-\d{2}-\d{2}$/', $fromYmd)) ? $fromYmd : date('Y-m-d');
 
     return date('Y-m-d', strtotime($from . ' +14 days') ?: time());
+}
+
+function appointment_repeat_dates(string $date, string $interval, int $count): array
+{
+    $start = new DateTimeImmutable($date);
+    $dates = [$date];
+    if ($interval === 'month') {
+        [$year, $month, $day] = gregorian_to_jalali((int) $start->format('Y'), (int) $start->format('n'), (int) $start->format('j'));
+    }
+    for ($step = 1; $step < $count; $step++) {
+        if ($interval === 'month') {
+            [$nextYear, $nextMonth] = jalali_shift_month($year, $month, $step);
+            $nextDay = min($day, jalali_month_length($nextYear, $nextMonth));
+            $dates[] = jalali_ymd($nextYear, $nextMonth, $nextDay);
+            continue;
+        }
+        $weeks = $interval === 'biweek' ? 2 * $step : $step;
+        $next = $start->modify('+' . $weeks . ' weeks');
+        $dates[] = $next->format('Y-m-d');
+    }
+    return $dates;
 }
 
 function appointment_date_within_horizon(string $ymd): bool

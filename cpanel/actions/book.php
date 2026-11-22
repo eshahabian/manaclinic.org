@@ -17,6 +17,14 @@ if (!$user || !user_can_self_book_therapy($user)) {
 $doctorId = post('doctorId');
 $date = post('date');
 $time = post('time');
+$repeatEvery = post('repeat_every');
+$repeatCount = filter_var($repeatEvery === '' ? '1' : post('repeat_count'), FILTER_VALIDATE_INT, ['options' => ['min_range' => $repeatEvery === '' ? 1 : 2, 'max_range' => 12]]);
+if ($repeatCount === false || !in_array($repeatEvery, ['', 'week', 'biweek', 'month'], true)) {
+    http_response_code(400);
+    echo json_encode(['error' => 'برای تکرار، فاصله و تعداد جلسات بین ۲ و ۱۲ را انتخاب کنید.'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+$scheduledHold = $repeatCount > 1;
 $sessionMode = appointment_normalize_session_mode(post('session_mode') ?: post('sessionMode'));
 if (!booking_terms_accepted()) {
     booking_terms_not_accepted_error();
@@ -105,29 +113,65 @@ $amount = $amountUsd === null ? patient_fee_resolve_toman($fee, $amount) : 0;
 ensure_appointment_session_schema($pdo);
 require_once __DIR__ . '/../includes/wallet.php';
 ensure_wallet($pdo, (string) $user['id']);
+require_once __DIR__ . '/../includes/user_referral.php';
+ensure_user_referral_schema($pdo);
+$weeklyHours = [];
+if ($scheduledHold) {
+    $weeklyHours = doctor_weekly_hours_map($pdo, $doctorId);
+}
 $pdo->beginTransaction();
 try {
-    $pdo->prepare('INSERT INTO appointments (id,doctor_id,patient_id,starts_at,ends_at,status,notes,session_mode,created_by_user_id,requested_at) VALUES (?,?,?,?,?,?,?,?,?,NOW())')
-        ->execute([$appointmentId, $doctorId, $user['id'], $startsAt, $endsAt, 'PENDING_PAYMENT', null, $sessionMode, (string) $user['id']]);
-    $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,amount_usd,status,ref_id) VALUES (?,?,?,?,?,?)')
-        ->execute([$paymentId, $appointmentId, $amount, $amountUsd, 'PENDING', 'LATER']);
-    if ($amount > 0) {
-        wallet_charge_visit(
-            $pdo,
-            (string) $user['id'],
-            $appointmentId,
-            $amount,
-            'بدهی حق ویزیت تا تأیید پرداخت منشی'
-        );
+    $lock = $pdo->prepare('SELECT id FROM doctor_profiles WHERE id=? FOR UPDATE');
+    $lock->execute([$doctorId]);
+    $lock->closeCursor();
+    $lastAvailableDate = '';
+    if ($weeklyHours !== []) {
+        $lastAvailability = $pdo->prepare('SELECT MAX(date) FROM availabilities WHERE doctor_id=?');
+        $lastAvailability->execute([$doctorId]);
+        $lastAvailableDate = (string) $lastAvailability->fetchColumn();
     }
-    if (!function_exists('user_referral_stamp_payment')) {
-        require_once __DIR__ . '/../includes/user_referral.php';
+    foreach (appointment_repeat_dates($date, $repeatEvery, $repeatCount) as $index => $sessionDate) {
+        $sessionStart = appointment_slot_starts_at($sessionDate, $time);
+        $sessionEnd = date('Y-m-d H:i:s', strtotime($sessionStart) + appointment_slot_minutes() * 60);
+        $av->execute([$doctorId, $sessionDate]);
+        $sessionAvailability = $av->fetch();
+        $hours = $sessionAvailability ? appointment_availability_hours($sessionAvailability) : [];
+        if (!$sessionAvailability && $index > 0 && $sessionDate > $lastAvailableDate) {
+            $weekday = ((int) date('w', strtotime($sessionDate)) + 1) % 7;
+            $hours = $weeklyHours[$weekday] ?? [];
+        }
+        if ($hours === [] || therapist_date_is_closed($pdo, $doctorId, $sessionDate)
+            || !appointment_time_matches_open_chip($sessionDate, $hours, appointment_fetch_day_bookings($pdo, $doctorId, $sessionDate), $time)
+            || appointment_has_overlap($pdo, $doctorId, $sessionStart, $sessionEnd)) {
+            $pdo->rollBack();
+            http_response_code(409);
+            echo json_encode(['error' => 'ساعت انتخابی در ' . format_fa_datetime($sessionStart) . ' در دسترس نیست. تعداد جلسات یا زمان شروع را تغییر دهید.'], JSON_UNESCAPED_UNICODE);
+            exit;
+        }
+        $rowId = $index === 0 ? $appointmentId : cuid();
+        $rowPayId = $index === 0 ? $paymentId : cuid();
+        $pdo->prepare('INSERT INTO appointments (id,doctor_id,patient_id,starts_at,ends_at,status,notes,session_mode,created_by_user_id,requested_at,scheduled_hold) VALUES (?,?,?,?,?,?,?,?,?,NOW(),?)')
+            ->execute([$rowId, $doctorId, $user['id'], $sessionStart, $sessionEnd, 'PENDING_PAYMENT', null, $sessionMode, (string) $user['id'], (int) $scheduledHold]);
+        $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,amount_usd,status,ref_id) VALUES (?,?,?,?,?,?)')
+            ->execute([$rowPayId, $rowId, $amount, $amountUsd, 'PENDING', 'LATER']);
+        if ($amount > 0) {
+            wallet_charge_visit(
+                $pdo,
+                (string) $user['id'],
+                $rowId,
+                $amount,
+                'بدهی حق ویزیت تا تأیید پرداخت منشی'
+            );
+        }
+        user_referral_stamp_payment($pdo, $rowPayId, (string) $user['id'], $amount);
     }
-    user_referral_stamp_payment($pdo, $paymentId, (string) $user['id'], $amount);
     $pdo->commit();
 
     $patientName = (string) ($user['name'] ?? 'مراجعه‌کننده');
     $when = format_fa_datetime($startsAt);
+    if ($scheduledHold) {
+        $when .= ' (شروع ' . to_fa_digits((string) $repeatCount) . ' جلسهٔ تکرارشونده)';
+    }
     notify_role(
         $pdo,
         'SECRETARY',
@@ -148,12 +192,14 @@ try {
     echo json_encode([
         'appointmentId' => $appointmentId,
         'awaitingApproval' => true,
-        'message' => ($amountUsd !== null || (function_exists('patient_wallet_paused') && patient_wallet_paused()))
+        'message' => $scheduledHold ? 'رزروهای موقت ثبت شدند. هر جلسه پس از تأیید پرداخت همان جلسه قطعی می‌شود.' : (($amountUsd !== null || (function_exists('patient_wallet_paused') && patient_wallet_paused()))
             ? 'درخواست شما ارسال شد. تا یک ساعت این وقت برای شما می‌ماند و پس از ثبت منشی، نوبت رزرو می‌شود.'
-            : 'درخواست شما ارسال شد. تا تأیید فیش توسط منشی، حق ویزیت از کیف پول کم می‌شود و موجودی می‌تواند منفی باشد. تا یک ساعت این وقت برای شما می‌ماند.',
+            : 'درخواست شما ارسال شد. تا تأیید فیش توسط منشی، حق ویزیت از کیف پول کم می‌شود و موجودی می‌تواند منفی باشد. تا یک ساعت این وقت برای شما می‌ماند.'),
     ], JSON_UNESCAPED_UNICODE);
 } catch (Throwable $e) {
-    $pdo->rollBack();
+    if ($pdo->inTransaction()) {
+        $pdo->rollBack();
+    }
     http_response_code(502);
     echo json_encode(['error' => 'ثبت نوبت الان ممکن نشد. دوباره تلاش کنید.'], JSON_UNESCAPED_UNICODE);
 }

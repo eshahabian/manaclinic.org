@@ -351,7 +351,7 @@ function appointment_notes_html(array $row): string
     } elseif ($status === 'CANCELLED' && $reason === 'rejected') {
         $html .= '<div class="appt-note appt-note-cancel">درخواست توسط منشی رد شد.</div>';
     } elseif ($status === 'CANCELLED' && $reason === 'unpaid_timeout') {
-        $html .= '<div class="appt-note appt-note-cancel">مهلت یک‌ساعته تمام شد و پرداخت تأیید نشد.</div>';
+        $html .= '<div class="appt-note appt-note-cancel">مهلت پرداخت به پایان رسید.</div>';
     }
     if ($booking !== '') {
         $html .= '<div class="appt-note"><strong>یادداشت نوبت:</strong> ' . e($booking) . '</div>';

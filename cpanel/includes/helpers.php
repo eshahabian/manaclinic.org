@@ -149,7 +149,7 @@ function appointment_status_label(string $status, ?string $cancelReason = null):
         return 'رد شده توسط منشی';
     }
     if ($status === 'CANCELLED' && $cancelReason === 'unpaid_timeout') {
-        return 'لغو — مهلت یک‌ساعته پرداخت';
+        return 'لغو — پایان مهلت پرداخت';
     }
 
     return match ($status) {
@@ -164,6 +164,9 @@ function appointment_status_label(string $status, ?string $cancelReason = null):
 
 function appointment_row_status_label(array $row): string
 {
+    if (!empty($row['scheduled_hold']) && ($row['status'] ?? '') === 'PENDING_PAYMENT') {
+        return 'رزرو موقت';
+    }
     return appointment_status_label((string) ($row['status'] ?? ''), isset($row['cancel_reason']) ? (string) $row['cancel_reason'] : null);
 }
 

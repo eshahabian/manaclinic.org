@@ -229,15 +229,17 @@ ob_start();
   </section>
 
   <div>
-    <label class="label" for="sec-repeat">تکرار این نوبت</label>
-    <select class="input" name="repeat_every" id="sec-repeat">
-      <option value="">بدون تکرار</option>
-      <option value="week">هر هفته</option>
-      <option value="biweek">هر دو هفته</option>
-      <option value="month">هر ماه</option>
-    </select>
+    <label><input type="checkbox" id="sec-repeat-toggle"> تکرار نوبت</label>
+    <div id="sec-repeat-interval" hidden>
+      <label class="label" for="sec-repeat">فاصلهٔ تکرار</label>
+      <select class="input" name="repeat_every" id="sec-repeat" disabled>
+        <option value="week">هر هفته</option>
+        <option value="biweek">هر دو هفته</option>
+        <option value="month">هر ماه شمسی</option>
+      </select>
+    </div>
     <div id="sec-repeat-count" style="display:none;margin-top:.65rem">
-      <label class="label" for="sec-repeat-n">چند نوبت پشت‌سرهم، همین ساعت</label>
+      <label class="label" for="sec-repeat-n">تعداد کل جلسات در همین ساعت (۲ تا ۱۲)</label>
       <input class="input" id="sec-repeat-n" name="repeat_count" type="text" inputmode="numeric" autocomplete="off" value="4" style="max-width:8rem">
       <p class="muted" style="margin:.35rem 0 0;font-size:.82rem;line-height:1.7">نوبت اول با همین پرداخت ثبت می‌شود. نوبت‌های بعدی پرداخت‌بعدی می‌مانند. اگر در یکی از روزها درمانگر نباشد یا اتاق پر باشد، همان نوبت رد می‌شود و بقیه ثبت می‌شوند.</p>
     </div>
@@ -899,12 +901,16 @@ $secretaryBookScripts = '
   });
 
   var repeatEl = document.getElementById("sec-repeat");
+  var repeatToggle = document.getElementById("sec-repeat-toggle");
+  var repeatInterval = document.getElementById("sec-repeat-interval");
   var repeatBox = document.getElementById("sec-repeat-count");
-  function syncRepeat() {
-    if (!repeatEl || !repeatBox) return;
-    repeatBox.style.setProperty("display", repeatEl.value === "" ? "none" : "block", "important");
+  function syncRepeat(){
+    if (!repeatToggle || !repeatEl || !repeatInterval || !repeatBox) return;
+    repeatEl.disabled = !repeatToggle.checked;
+    repeatInterval.hidden = !repeatToggle.checked;
+    repeatBox.style.setProperty("display", repeatToggle.checked ? "block" : "none", "important");
   }
-  if (repeatEl) repeatEl.addEventListener("change", syncRepeat);
+  if (repeatToggle) repeatToggle.addEventListener("change", syncRepeat);
   syncRepeat();
 
   if (doctorEl.value) {

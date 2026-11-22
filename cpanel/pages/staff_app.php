@@ -373,6 +373,10 @@ if ($method === 'POST' && $path === '/app/appointments') {
         flash_set('error', 'ثبت وقت با منشی است.');
         redirect('/app/appointments');
     }
+    if (post('action') === 'confirm_payment') {
+        require __DIR__ . '/../actions/secretary_appointments.php';
+        exit;
+    }
     require __DIR__ . '/../actions/secretary_book.php';
     exit;
 }
@@ -725,6 +729,9 @@ if ($section === 'appointments') {
     $weekday = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه', 'شنبه'][(int) $selectedDate->format('w')];
     $bookForm = '';
     if ($canManageApp) {
+        require_once __DIR__ . '/../includes/appointment_session.php';
+        require_once __DIR__ . '/../includes/appointment_payment.php';
+        appointment_expire_unpaid_holds($pdo);
         $secretaryBookEmbedded = true;
         $secretaryBookNext = '/app/appointments?day=' . $selectedDay;
         require __DIR__ . '/secretary/book.php';
@@ -813,6 +820,12 @@ if ($section === 'appointments') {
                 <?php endif; ?>
               </div>
               <small><?= e($detail) ?><?php if (!$roomOnly && $roomNo < 1 && (string) ($row['session_mode'] ?? '') !== 'ONLINE'): ?> · اتاق هنوز انتخاب نشده<?php endif; ?></small>
+              <?php if ($canManageApp && !$roomOnly && !empty($row['scheduled_hold']) && appointment_staff_can_mark_paid($row)): ?>
+                <details class="appt-one-edit">
+                  <summary class="btn btn-outline btn-sm">ثبت پرداخت رزرو موقت</summary>
+                  <?= appointment_staff_mark_paid_form_html($row, '/app/appointments?day=' . $selectedDay, '/app/appointments') ?>
+                </details>
+              <?php endif; ?>
               <?php if ($canManageApp && !$roomOnly && trim((string) ($row['id'] ?? '')) !== '' && function_exists('appointment_time_edit_form_html')): ?>
                 <details class="appt-one-edit">
                   <summary class="btn btn-outline btn-sm">ویرایش</summary>

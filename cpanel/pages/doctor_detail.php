@@ -271,6 +271,18 @@ ob_start();
             ? appointment_session_mode_pick_html('session_mode', 'IN_PERSON', 'pub-sm')
             : '';
       ?>
+      <label><input type="checkbox" id="book-repeat"> تکرار نوبت</label>
+      <div id="book-repeat-fields" hidden>
+        <label class="label" for="book-repeat-every">فاصلهٔ تکرار</label>
+        <select class="input" id="book-repeat-every">
+        <option value="week">هر هفته</option>
+        <option value="biweek">هر دو هفته</option>
+        <option value="month">هر ماه شمسی</option>
+        </select>
+        <label class="label" for="book-repeat-count">تعداد کل جلسات (۲ تا ۱۲)</label>
+        <input class="input" type="number" id="book-repeat-count" min="2" max="12" value="4">
+        <p class="muted">جلسات در همان ساعت، موقت ثبت می‌شوند. هر جلسه پس از تأیید پرداخت قطعی می‌شود.</p>
+      </div>
       <p id="book-error" style="color:var(--danger);font-size:.9rem;display:none"></p>
       <?= booking_terms_acceptance_html('terms-accept') ?>
       <button type="button" class="btn btn-primary" id="book-submit" disabled>رزرو نوبت</button>
@@ -306,6 +318,12 @@ $pageScripts = '
   var loginUrl = ' . json_encode(url('/login') . '?next=' . urlencode(url('/doctors/' . $doctor['id']))) . ';
   var afterBookUrl = ' . json_encode(url($afterBookPath)) . ';
   var slotsUrl = ' . json_encode(url('/api/slots')) . ';
+  var repeatToggle = document.getElementById("book-repeat");
+  var repeatFields = document.getElementById("book-repeat-fields");
+  if (repeatToggle && repeatFields) {
+    repeatFields.hidden = !repeatToggle.checked;
+    repeatToggle.addEventListener("change", function(){ repeatFields.hidden = !repeatToggle.checked; });
+  }
   var bookUrl = ' . json_encode(url('/book')) . ';
 
   function faToEn(str){
@@ -436,6 +454,10 @@ $pageScripts = '
     fd.append("time", timeEl.value);
     var modeEl = document.querySelector("input[name=\"session_mode\"]:checked");
     fd.append("session_mode", modeEl ? modeEl.value : "IN_PERSON");
+    if (repeatToggle && repeatToggle.checked) {
+      fd.append("repeat_every", document.getElementById("book-repeat-every").value);
+      fd.append("repeat_count", document.getElementById("book-repeat-count").value);
+    }
     fd.append("accept_terms", "1");
     fetch(bookUrl, { method: "POST", body: fd })
       .then(function(r){ return r.json().then(function(j){ return {ok:r.ok, j:j}; }); })

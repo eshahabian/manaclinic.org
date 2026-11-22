@@ -122,7 +122,7 @@ ob_start();
 <link rel="stylesheet" href="/assets/vendor/jalali/jalalidatepicker.min.css">
 <div class="appt-desk">
 <h1 class="appt-desk-title">نوبت‌ها</h1>
-<p class="muted appt-desk-lead" style="margin-top:.35rem;font-size:.9rem">نوبت جدید را از تب صورتی ثبت کنید. درخواست‌های مراجعه‌کننده در «لیست رزرو» جدا هستند و تا یک ساعت نگه داشته می‌شوند. پیش‌رو فقط نوبت‌های رزروشده است.</p>
+<p class="muted appt-desk-lead" style="margin-top:.35rem;font-size:.9rem">نوبت جدید را از تب صورتی ثبت کنید. رزروهای موقت در «لیست رزرو» هستند. پیش‌رو فقط نوبت‌های رزروشده است.</p>
 <?php if (!empty($appointmentsDeskAdminTools)): ?>
   <div class="appt-toolbar">
     <form method="post" action="<?= e(url('/admin/appointments')) ?>" onsubmit="return confirm('همه نوبت‌ها برای همیشه حذف شوند؟');">
@@ -156,7 +156,7 @@ ob_start();
       <?= $secretaryBookFormHtml ?? '' ?>
     </section>
     <section class="binder-panel<?= $binderInitial === 'reservations' ? ' is-active' : '' ?>" data-binder-panel="reservations" role="tabpanel"<?= $binderInitial === 'reservations' ? '' : ' hidden' ?>>
-      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem"><?php if (function_exists('patient_wallet_paused') && patient_wallet_paused()): ?>درخواست وقت مراجعه‌کننده اینجاست، جدا از نوبت‌های قطعی. با «پرداخت شد» یا «پرداخت نشد» وقت رزرو می‌شود. اگر تا یک ساعت هیچ‌کدام زده نشود، وقت آزاد می‌شود.<?php else: ?>درخواست وقت مراجعه‌کننده اینجاست، جدا از نوبت‌های قطعی. تا وقتی «پرداخت شده» را با فیش بانکی نزده‌اید، حق ویزیت از کیف پول کم شده و موجودی می‌تواند منفی باشد. با تأیید فیش، همان بدهی برمی‌گردد. اگر تا یک ساعت هیچ‌کدام زده نشود، وقت آزاد می‌شود و بدهی هم برمی‌گردد.<?php endif; ?></p>
+      <p class="muted" style="margin:0 0 .85rem;font-size:.9rem">رزروهای زمان‌بندی‌شده تا زمان شروع جلسه موقت می‌مانند. با «پرداخت شد»، همان جلسه قطعی و پیامک تأیید برای مراجعه‌کننده ارسال می‌شود.</p>
       <?= appointment_search_form_html($deskAction, 'reservations', $searchQ, $searchDay, $searchJalali, $filterActive, 'rs', 'نام مراجعه‌کننده یا درمانگر…', appointment_search_name_choices($reservations)) ?>
       <?php
         $appointmentList = $filterActive ? $reservationsFiltered : $reservations;

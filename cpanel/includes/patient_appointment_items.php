@@ -87,7 +87,7 @@ $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/
             <?php if ($showMana): ?>
               <p class="muted patient-appt-mana-hint">تماس مانا از ۱۵ دقیقه قبل از شروع جلسه فعال می‌شود.</p>
             <?php elseif ($awaitingApproval || ($a['status'] ?? '') === 'PENDING_PAYMENT'): ?>
-              <p class="muted patient-appt-mana-hint">درخواست ارسال شده و در حال بررسی است. تا یک ساعت این وقت برای شما می‌ماند. پس از «پرداخت شده» توسط منشی، نوبت رزرو می‌شود.</p>
+              <p class="muted patient-appt-mana-hint"><?= !empty($a['scheduled_hold']) ? 'این جلسه موقت است. پس از تأیید پرداخت قطعی می‌شود.' : 'تا یک ساعت این وقت برای شما می‌ماند. پس از تأیید پرداخت، نوبت رزرو می‌شود.' ?></p>
             <?php elseif ($canUploadReceipt): ?>
               <p class="muted patient-appt-mana-hint">فیش را اینجا آپلود کنید یا برای منشی بفرستید؛ بعد از تأیید منشی نوبت رزرو می‌شود.</p>
             <?php endif; ?>

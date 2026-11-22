@@ -64,7 +64,7 @@ ob_start();
   </div>
   <?php if ($booked): ?>
     <div class="panel" style="border-color:var(--success);color:var(--success);font-size:.9rem">
-      درخواست شما ارسال شد و در حال بررسی است. تا یک ساعت این وقت برای شما می‌ماند. وقتی منشی پرداخت را تأیید کند، نوبت رزرو می‌شود.
+      درخواست شما ثبت شد. هر جلسه پس از تأیید پرداخت قطعی می‌شود.
     </div>
   <?php endif; ?>
   <?php if ($flashSuccess): ?>

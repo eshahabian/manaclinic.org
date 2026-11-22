@@ -48,6 +48,7 @@ function ensure_appointment_hold_columns(PDO $pdo): void
         return;
     }
     $adds = [
+        'scheduled_hold' => 'ALTER TABLE appointments ADD COLUMN scheduled_hold TINYINT NOT NULL DEFAULT 0',
         'requested_at' => 'ALTER TABLE appointments ADD COLUMN requested_at DATETIME NULL',
         'reviewed_at' => 'ALTER TABLE appointments ADD COLUMN reviewed_at DATETIME NULL',
         'payment_confirmed_at' => 'ALTER TABLE appointments ADD COLUMN payment_confirmed_at DATETIME NULL',
@@ -76,21 +77,24 @@ function appointment_is_open_hold(array $row): bool
 }
 
 /**
- * رزرو موقت پرداخت‌نشده بعد از یک ساعت لغو می‌شود.
+ * رزروهای زمان‌بندی‌شده تا شروع جلسه و سایر درخواست‌ها تا یک ساعت نگه داشته می‌شوند.
  * لغوهای قدیمی بدون اعلان پاک می‌شوند تا صفحه اول سیل نوتیفیکیشن نسازد.
  */
 function appointment_expire_unpaid_holds(PDO $pdo): int
 {
     ensure_appointment_hold_columns($pdo);
+    require_once __DIR__ . '/wallet.php';
+    ensure_wallet_schema($pdo);
     $seconds = appointment_hold_seconds();
     try {
         $stmt = $pdo->query("
-          SELECT a.id, a.patient_id, a.starts_at, a.requested_at, a.created_at
+          SELECT a.id, a.patient_id, a.starts_at, a.requested_at, a.created_at, a.scheduled_hold
           FROM appointments a
           LEFT JOIN payments p ON p.appointment_id = a.id
           WHERE a.status IN ('PENDING_APPROVAL','PENDING_PAYMENT')
             AND (p.id IS NULL OR p.status <> 'PAID')
-            AND COALESCE(a.requested_at, a.created_at) < DATE_SUB(NOW(), INTERVAL {$seconds} SECOND)
+            AND ((a.scheduled_hold=0 AND COALESCE(a.requested_at, a.created_at) < DATE_SUB(NOW(), INTERVAL {$seconds} SECOND))
+              OR (a.scheduled_hold=1 AND a.starts_at <= NOW()))
         ");
         $rows = $stmt ? $stmt->fetchAll() : [];
     } catch (Throwable $ignored) {
@@ -109,12 +113,11 @@ function appointment_expire_unpaid_holds(PDO $pdo): int
             continue;
         }
         try {
-            if (!function_exists('wallet_release_open_visit')) {
-                require_once __DIR__ . '/wallet.php';
+            $scheduled = !empty($row['scheduled_hold']);
+            if ($scheduled) {
+                appointment_ensure_room_schema($pdo);
             }
-            wallet_release_open_visit($pdo, $id, 'برگشت بدهی؛ مهلت پرداخت تمام شد');
-            $pdo->prepare("UPDATE payments SET status='FAILED' WHERE appointment_id=? AND status='PENDING'")
-                ->execute([$id]);
+            $pdo->beginTransaction();
             $updated = $pdo->prepare("
               UPDATE appointments
               SET status='CANCELLED',
@@ -122,14 +125,25 @@ function appointment_expire_unpaid_holds(PDO $pdo): int
                   cancellation_note=?,
                   cancelled_at=NOW()
               WHERE id=? AND status IN ('PENDING_APPROVAL','PENDING_PAYMENT')
+                AND ((scheduled_hold=0 AND COALESCE(requested_at, created_at) < DATE_SUB(NOW(), INTERVAL {$seconds} SECOND))
+                  OR (scheduled_hold=1 AND starts_at <= NOW()))
+                AND NOT EXISTS (SELECT 1 FROM payments WHERE appointment_id=appointments.id AND status='PAID')
             ");
-            $updated->execute([$note, $id]);
+            $updated->execute([$scheduled ? 'وقت جلسه رسید و پرداخت تأیید نشده بود.' : $note, $id]);
             if ($updated->rowCount() < 1) {
+                $pdo->rollBack();
                 continue;
             }
+            wallet_release_open_visit($pdo, $id, 'برگشت بدهی؛ مهلت پرداخت تمام شد');
+            $pdo->prepare("UPDATE payments SET status='FAILED' WHERE appointment_id=? AND status='PENDING'")
+                ->execute([$id]);
+            if ($scheduled) {
+                $pdo->prepare('DELETE FROM clinic_room_bookings WHERE appointment_id=?')->execute([$id]);
+            }
+            $pdo->commit();
             $n++;
             $requested = strtotime((string) ($row['requested_at'] ?: $row['created_at'] ?? '')) ?: 0;
-            if ($requested > 0 && ($now - $requested) < 7200 && function_exists('notify_user')) {
+            if (!$scheduled && $requested > 0 && ($now - $requested) < 7200 && function_exists('notify_user')) {
                 $when = function_exists('format_fa_datetime')
                     ? format_fa_datetime((string) ($row['starts_at'] ?? ''))
                     : (string) ($row['starts_at'] ?? '');
@@ -147,6 +161,9 @@ function appointment_expire_unpaid_holds(PDO $pdo): int
                 );
             }
         } catch (Throwable $ignored) {
+            if ($pdo->inTransaction()) {
+                $pdo->rollBack();
+            }
         }
     }
 

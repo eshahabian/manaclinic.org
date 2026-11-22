@@ -1929,6 +1929,7 @@ function staff_app_appointment_rows(PDO $pdo, array $user, ?string $selectedDay 
              pu.phone AS patient_phone,
              (SELECT p.status FROM payments p WHERE p.appointment_id = a.id LIMIT 1) AS pay_status,
              (SELECT p.amount FROM payments p WHERE p.appointment_id = a.id LIMIT 1) AS amount,
+             (SELECT p.amount_usd FROM payments p WHERE p.appointment_id = a.id LIMIT 1) AS amount_usd,
              (SELECT p.ref_id FROM payments p WHERE p.appointment_id = a.id LIMIT 1) AS pay_ref
       FROM appointments a
       JOIN users pu ON pu.id = a.patient_id
