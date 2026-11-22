@@ -15,6 +15,7 @@
 .learning-card-copy p:not(.learning-eyebrow){color:var(--muted);font-size:.9rem;margin:0 0 .65rem}
 .learning-card-copy .learning-link{padding-top:.7rem;font-size:.85rem}
 .learning-status{font-size:.75rem;color:var(--muted)}
+.learning-view-count{display:inline-flex;align-items:center;gap:.35rem;margin-inline:.45rem;padding:.2rem .5rem;border-radius:.6rem;background:var(--bg-soft);color:var(--muted);font-size:.8rem;white-space:nowrap}
 .learning-empty{padding:2rem;border:1px dashed var(--line);border-radius:20px;margin-top:2rem;background:var(--bg-soft)}
 .learning-empty h2{font-size:1.2rem;margin:0}.learning-empty p{color:var(--muted);font-size:.9rem}
 .learning-series-intro{display:flex;align-items:center;justify-content:space-between;gap:2rem;padding:1.5rem;border-radius:20px;background:var(--bg-soft)}

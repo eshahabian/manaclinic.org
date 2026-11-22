@@ -5,12 +5,12 @@ $pageTitle = 'طرح‌وارهٔ رهاشدگی / بی‌ثباتی؛ نشان�
 $pageDescription = 'شناخت طرح‌وارهٔ رهاشدگی، نشانه‌های احتمالی، زمینه‌های شکل‌گیری، اثر بر رابطه، تمرین‌های مقدماتی و مسیر درمان با منابع معتبر.';
 $pageCanonical = url(mana_learning_lesson_path('schemas', 1, 1));
 $pageImage = url('/assets/img/schema-abandonment-v1.webp');
-$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/learning.css')) . '?v=20261115g">';
+$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/learning.css')) . '?v=20261123views">';
 ob_start();
 ?>
 <article class="container-page section mana-learning schema-lesson">
   <nav class="learning-breadcrumb" aria-label="مسیر یادگیری"><a href="<?= e(url('/learn')) ?>">یادگیری با مانا</a><span>/</span><a href="<?= e(url('/learn/schemas')) ?>">شناخت طرح‌واره‌ها</a><span>/</span><span aria-current="page">طرح‌وارهٔ ۱ از ۱۸</span></nav>
-  <header class="learning-header"><p class="learning-eyebrow">شناخت طرح‌واره‌ها · شمارهٔ ۱ از ۱۸</p><h1>رهاشدگی / بی‌ثباتی<br>وقتی از رفتن دیگری می‌ترسیم</h1><p>نام انگلیسی: <bdi lang="en">Abandonment / Instability</bdi></p></header>
+  <header class="learning-header"><p class="learning-eyebrow">شناخت طرح‌واره‌ها · شمارهٔ ۱ از ۱۸</p><h1>رهاشدگی / بی‌ثباتی<br>وقتی از رفتن دیگری می‌ترسیم</h1><p>نام انگلیسی: <bdi lang="en">Abandonment / Instability</bdi></p><?= $learningViewBadge ?? '' ?></header>
   <figure class="schema-cover"><img src="<?= e(url('/assets/img/schema-abandonment-v1.webp')) ?>" alt="تصویرسازی فردی کنار یک صندلی خالی، با نور گرم و درختی ریشه‌دار؛ نمادی از نگرانی و امید به امنیت" width="1536" height="1024" decoding="async"></figure>
   <aside class="learning-empty"><strong>برای شناخت، نه خودتشخیصی</strong><p>این مطلب آموزشی است. شباهت به چند نشانه، وجود طرح‌واره یا اختلال روانی را ثابت نمی‌کند؛ ارزیابی به سابقه، موقعیت فعلی و شدت و تکرار الگو نیاز دارد.</p></aside>
   <nav class="schema-contents" aria-label="در این درس"><a href="#meaning">تعریف</a><a href="#signs">نشانه‌ها</a><a href="#origins">ریشه‌ها</a><a href="#cycle">در رابطه</a><a href="#practice">تمرین</a><a href="#treatment">درمان</a><a href="#sources">منابع</a></nav>

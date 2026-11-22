@@ -353,6 +353,16 @@ function petty_cash_apply_post(PDO $pdo, array $user): string
     if (!petty_cash_user_allowed($user)) {
         throw new RuntimeException('دسترسی به تنخواه مجاز نیست.');
     }
+    $action = post('action');
+    if (in_array($action, ['supply_add', 'supply_edit', 'supply_done'], true)) {
+        require_once __DIR__ . '/petty_cash_supplies.php';
+        try {
+            return petty_cash_supply_apply_post($pdo, $user, $action);
+        } catch (PDOException $exception) {
+            error_log('Petty cash supplies could not be saved (error ' . $exception->getCode() . ').');
+            throw new RuntimeException('ثبت قلم مایحتاج انجام نشد. دوباره تلاش کنید.');
+        }
+    }
     if (post('action') === 'delete') {
         $id = trim((string) post('id'));
         if (!preg_match('/^[a-zA-Z0-9_-]{8,40}$/', $id)) {

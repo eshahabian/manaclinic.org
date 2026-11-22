@@ -2,6 +2,7 @@
 declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/petty_cash.php';
+require_once __DIR__ . '/../includes/petty_cash_supplies.php';
 require_once __DIR__ . '/../includes/doctor_profile_fields.php';
 
 $embedded = !empty($pettyCashEmbedded);
@@ -55,6 +56,11 @@ $jm = (int) ($_GET['jm'] ?? ($meta['month'] ?? $todayM));
 $range = petty_cash_month_range($jy, $jm);
 $report = petty_cash_month_report($pdo, $range['start'], $range['end']);
 $balances = petty_cash_account_balances($pdo, $range['start'], $range['end']);
+petty_cash_ensure_supplies_schema($pdo);
+$pettySupplies = $pdo->query('
+    SELECT id, item_name, due_date, is_urgent FROM petty_cash_supplies
+    WHERE completed_at IS NULL ORDER BY is_urgent DESC, due_date, created_at, id
+')->fetchAll(PDO::FETCH_ASSOC);
 $viewYears = [];
 for ($y = (int) $todayY - 1; $y <= (int) $todayY + 1; $y++) {
     $viewYears[] = $y;
@@ -68,6 +74,7 @@ ob_start();
   <a class="btn btn-outline" href="<?= e(url('/staff/excel-reports?type=cash&jy=' . $range['year'] . '&jm=' . $range['month'])) ?>" data-excel-report="context" aria-haspopup="dialog">خروجی اکسل تنخواه</a>
 <?php endif; ?>
 <p class="muted">مبلغ ورودی و هزینه‌ها اینجا می‌ماند. آخر ماه جمع هر قلم، مثل دستمال کاغذی، در همین صفحه است.</p>
+<?php require __DIR__ . '/../includes/petty_cash_supplies_panel.php'; ?>
 
 <div class="grid-2" style="margin-top:1rem">
   <div class="panel" style="margin:0">
@@ -321,8 +328,8 @@ ob_start();
   });
 })();
 </script>
-<?= petty_cash_datepicker_assets() ?>
 <?php endif; ?>
+<?= petty_cash_datepicker_assets() ?>
 <?php
 $html = ob_get_clean();
 if ($embedded) {

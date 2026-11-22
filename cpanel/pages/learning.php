@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/../includes/learning.php';
+require_once __DIR__ . '/../includes/learning_views.php';
 $catalog = mana_learning_catalog();
 $seriesSlug = $learningSeries ?? null;
 $series = $seriesSlug !== null ? ($catalog[$seriesSlug] ?? null) : null;
@@ -12,7 +13,8 @@ if ($seriesSlug !== null && $series === null) {
 $pageTitle = $series['title'] ?? 'یادگیری با مانا';
 $pageDescription = $series['description'] ?? 'آرشیو مجموعه‌های آموزشی مانا؛ درس‌های هفتگی Couples Therapy، شناخت طرح‌واره‌ها و آموزش‌های دیگر، به تفکیک مجموعه، فصل و قسمت.';
 $pageCanonical = url('/learn' . ($seriesSlug !== null ? '/' . $seriesSlug : ''));
-$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/learning.css')) . '?v=20261115g">';
+$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/learning.css')) . '?v=20261123views">';
+$learningViewCounts = $series !== null ? mana_learning_views($pdo, current_user()) : null;
 ob_start();
 ?>
 <div class="container-page section mana-learning">
@@ -38,7 +40,7 @@ ob_start();
     <section aria-labelledby="schema-list-title"><h2 id="schema-list-title">فهرست ۱۸ طرح‌واره</h2><ol class="learning-episodes">
       <?php foreach (mana_schema_names() as $schemaNumber => $schemaName): $schemaLesson = $series['seasons'][1]['lessons'][$schemaNumber] ?? null; ?>
       <li><?php if ($schemaLesson): ?><a class="learning-episode" href="<?= e(url(mana_learning_lesson_path('schemas', 1, $schemaNumber))) ?>"><?php else: ?><div class="learning-episode"><?php endif; ?>
-        <span class="learning-episode-number">طرح‌وارهٔ <?= e(mana_learning_fa_number($schemaNumber)) ?></span><div><h3><?= e($schemaName) ?></h3><?php if ($schemaLesson): ?><p><?= e($schemaLesson['summary']) ?></p><?php endif; ?></div><span class="<?= $schemaLesson ? 'learning-link' : 'learning-status' ?>"><?= $schemaLesson ? 'خواندن راهنما ←' : 'محتوا هنوز اضافه نشده' ?></span>
+        <span class="learning-episode-number">طرح‌وارهٔ <?= e(mana_learning_fa_number($schemaNumber)) ?></span><div><h3><?= e($schemaName) ?></h3><?php if ($schemaLesson): ?><p><?= e($schemaLesson['summary']) ?></p><?= mana_learning_view_badge($learningViewCounts, mana_learning_lesson_path('schemas', 1, $schemaNumber)) ?><?php endif; ?></div><span class="<?= $schemaLesson ? 'learning-link' : 'learning-status' ?>"><?= $schemaLesson ? 'خواندن راهنما ←' : 'محتوا هنوز اضافه نشده' ?></span>
       <?php if ($schemaLesson): ?></a><?php else: ?></div><?php endif; ?></li>
       <?php endforeach; ?>
     </ol></section>
@@ -55,7 +57,7 @@ ob_start();
       <h2 id="season-title-<?= (int) $number ?>"><?= e($season['title']) ?></h2>
       <ol class="learning-episodes">
       <?php foreach ($allLessons as $lesson): if ($lesson['season'] !== $number) continue; ?>
-        <li><a class="learning-episode" href="<?= e(url($lesson['path'])) ?>"><span class="learning-episode-number"><?= e($lesson['label']) ?></span><div><h3><?= e($lesson['title']) ?></h3><p><?= e($lesson['summary']) ?></p><span class="learning-status"><?= e($lesson['format']) ?></span></div><span class="learning-link">خواندن درس ←</span></a></li>
+        <li><a class="learning-episode" href="<?= e(url($lesson['path'])) ?>"><span class="learning-episode-number"><?= e($lesson['label']) ?></span><div><h3><?= e($lesson['title']) ?></h3><p><?= e($lesson['summary']) ?></p><span class="learning-status"><?= e($lesson['format']) ?></span><?= mana_learning_view_badge($learningViewCounts, $lesson['path']) ?></div><span class="learning-link">خواندن درس ←</span></a></li>
       <?php endforeach; ?>
       </ol>
     </section>

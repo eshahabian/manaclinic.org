@@ -391,31 +391,46 @@ function session_complaint_list(PDO $pdo, ?string $patientId = null, ?array $vie
       LEFT JOIN users d ON d.id = dp.user_id
       LEFT JOIN users s ON s.id = c.created_by
     ";
-    $params = [];
+    $sql .= ' WHERE c.kind = ?';
+    $patientParams = [];
     if ($patientId !== null && $patientId !== '') {
-        $sql .= ' WHERE c.patient_id = ?';
-        $params[] = $patientId;
+        $sql .= ' AND c.patient_id = ?';
+        $patientParams[] = $patientId;
     }
-    $sql .= ' ORDER BY c.created_at DESC LIMIT 80';
+    $sql .= ' ORDER BY c.created_at DESC, c.id DESC LIMIT 80';
     $stmt = $pdo->prepare($sql);
-    $stmt->execute($params);
-
-    return $stmt->fetchAll() ?: [];
+    $rows = [];
+    foreach (array_keys(session_feedback_kinds()) as $kind) {
+        $stmt->execute([$kind, ...$patientParams]);
+        array_push($rows, ...$stmt->fetchAll());
+    }
+    return $rows;
 }
 
-function session_feedback_list_html(array $rows, string $empty, string $followAction = '', bool $canFollow = false): string
+function session_feedback_list_html(array $rows, string $empty, string $followAction = '', bool $canFollow = false, bool $hasFormTabs = false): string
 {
+    $byKind = ['criticism' => [], 'suggestion' => []];
+    foreach ($rows as $row) {
+        $byKind[($row['kind'] ?? '') === 'suggestion' ? 'suggestion' : 'criticism'][] = $row;
+    }
     ob_start();
     ?>
     <div class="stack" style="margin-top:1.25rem">
       <h2 style="margin:0;font-size:1.05rem">ثبت‌شده‌ها</h2>
-      <?php if (!$rows): ?>
-        <p class="muted"><?= e($empty) ?></p>
-      <?php else: ?>
-        <?php foreach ($rows as $row): ?>
+      <?php if (!$hasFormTabs): ?>
+        <div class="binder-tabs" role="tablist" aria-label="نوع بازخورد ثبت‌شده">
+          <?php foreach (session_feedback_kinds() as $kind => $label): ?>
+            <button type="button" class="binder-tab<?= $kind === 'criticism' ? ' is-active' : '' ?>" data-feedback-tab="<?= e($kind) ?>" role="tab" aria-selected="<?= $kind === 'criticism' ? 'true' : 'false' ?>"><?= e($label) ?></button>
+          <?php endforeach; ?>
+        </div>
+      <?php endif; ?>
+      <?php foreach (session_feedback_kinds() as $kind => $kindLabel): ?>
+        <section data-feedback-list="<?= e($kind) ?>" aria-label="<?= e($kindLabel) ?>"<?= $kind === 'suggestion' ? ' hidden' : '' ?>>
+        <?php if ($byKind[$kind] === []): ?>
+          <p class="muted"><?= e($rows === [] ? $empty : ($kind === 'criticism' ? 'هنوز انتقادی ثبت نشده است.' : 'هنوز پیشنهادی ثبت نشده است.')) ?></p>
+        <?php endif; ?>
+        <?php foreach ($byKind[$kind] as $row): ?>
           <?php
-            $kind = (string) ($row['kind'] ?? 'criticism');
-            $kindLabel = session_feedback_kinds()[$kind] ?? 'انتقاد';
             $followResult = trim((string) ($row['follow_result'] ?? ''));
           ?>
           <article class="panel" style="margin-top:.75rem">
@@ -451,8 +466,26 @@ function session_feedback_list_html(array $rows, string $empty, string $followAc
             <?php endif; ?>
           </article>
         <?php endforeach; ?>
-      <?php endif; ?>
+        </section>
+      <?php endforeach; ?>
     </div>
+    <script>
+    (() => {
+      const list = document.currentScript.previousElementSibling;
+      const tabScope = document.getElementById('feedback-box') || list;
+      const tabs = tabScope.querySelectorAll('[data-feedback-tab]');
+      const panels = list.querySelectorAll('[data-feedback-list]');
+      tabs.forEach((tab) => tab.addEventListener('click', () => {
+        tabs.forEach((item) => {
+          item.classList.toggle('is-active', item === tab);
+          item.setAttribute('aria-selected', String(item === tab));
+        });
+        panels.forEach((panel) => {
+          panel.hidden = panel.dataset.feedbackList !== tab.dataset.feedbackTab;
+        });
+      }));
+    })();
+    </script>
     <?php
     return (string) ob_get_clean();
 }
@@ -554,14 +587,9 @@ function session_feedback_assets(bool $withPatientSearch): string
       container: "body"
     });
   }
-  document.querySelectorAll("[data-feedback-tab]").forEach(function (tab) {
+  document.querySelectorAll("#feedback-box [data-feedback-tab]").forEach(function (tab) {
     tab.addEventListener("click", function () {
       var kind = tab.getAttribute("data-feedback-tab") || "criticism";
-      document.querySelectorAll("[data-feedback-tab]").forEach(function (other) {
-        var on = other === tab;
-        other.classList.toggle("is-active", on);
-        other.setAttribute("aria-selected", on ? "true" : "false");
-      });
       var kindInput = document.getElementById("feedback-kind");
       if (kindInput) kindInput.value = kind;
       var reason = document.getElementById("feedback-reason");

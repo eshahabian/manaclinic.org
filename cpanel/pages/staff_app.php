@@ -2202,7 +2202,7 @@ ob_start();
 <?php elseif ($canManageApp): ?>
   <?= session_feedback_form_html('/app/complaints', true, $patients, '', '', '') ?>
 <?php endif; ?>
-<?= session_feedback_list_html($complaints, 'هنوز انتقاد یا پیشنهادی ثبت نشده است.', '/app/complaints', session_feedback_can_manage($user)) ?>
+<?= session_feedback_list_html($complaints, 'هنوز انتقاد یا پیشنهادی ثبت نشده است.', '/app/complaints', session_feedback_can_manage($user), $canManageApp || $canSubmitAsDoctor) ?>
 <?php
 if ($canSubmitAsDoctor || $canManageApp) {
     $GLOBALS['pageScripts'] = session_feedback_assets(!$canSubmitAsDoctor);

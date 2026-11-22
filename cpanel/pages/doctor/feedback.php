@@ -25,7 +25,7 @@ ob_start();
   <?= session_feedback_form_html('/doctor/feedback', false, [], (string) ($user['name'] ?? ''), '', '') ?>
 <?php endif; ?>
 <p class="muted">بازخوردهای ثبت‌شده و نتیجهٔ پیگیری آن‌ها را در فهرست زیر ببینید.</p>
-<?= session_feedback_list_html($rows, 'هنوز انتقاد یا پیشنهادی ثبت نشده است.', '/doctor/feedback', true) ?>
+<?= session_feedback_list_html($rows, 'هنوز انتقاد یا پیشنهادی ثبت نشده است.', '/doctor/feedback', true, $canSubmit) ?>
 <?php
 if ($canSubmit) {
     $GLOBALS['pageScripts'] = session_feedback_assets(false);

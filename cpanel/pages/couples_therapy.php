@@ -11,7 +11,7 @@ $learningCatalog = mana_learning_catalog();
 $learningItems = mana_learning_lessons($learningSeries, $learningCatalog[$learningSeries]);
 $currentLessonIndex = array_search(mana_learning_lesson_path($learningSeries, $learningSeason, $learningEpisode), array_column($learningItems, 'path'), true);
 $pageCanonical = url(mana_learning_lesson_path($learningSeries, $learningSeason, $learningEpisode));
-$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/home-redesign-v2.css')) . '?v=20261115j"><link rel="stylesheet" href="' . e(url('/assets/css/learning.css')) . '?v=20261115g">';
+$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/home-redesign-v2.css')) . '?v=20261115j"><link rel="stylesheet" href="' . e(url('/assets/css/learning.css')) . '?v=20261123views">';
 ob_start();
 ?>
 <article class="container-page section mana-couples-lesson">
@@ -19,6 +19,7 @@ ob_start();
   <header>
     <p class="mana-kicker">رابطه از زاویه‌ای دیگر · درس اول</p>
     <h1>سرِ اتفاق دعوا می‌کنیم، یا سرِ معنای آن؟</h1>
+    <?= $learningViewBadge ?? '' ?>
     <p class="muted">نقطهٔ شروع: <bdi lang="en">Couples Therapy</bdi> با درمانگری اورنا گورالنیک · فصل اول، قسمت اول</p>
     <p>گاهی چیزی که برای یکی از ما یک اتفاق ساده است، برای دیگری معنای نادیده‌گرفته‌شدن یا تنها ماندن دارد. پیش از پاسخ‌دادن به واکنش هم، می‌توانیم دربارهٔ معنایی که پشت آن است کنجکاو شویم.</p>
   </header>

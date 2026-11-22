@@ -3,11 +3,11 @@ declare(strict_types=1);
 $pageTitle = 'اعتماد با اصرار برنمی‌گردد';
 $pageDescription = 'درس فصل اول، اپیزود دوم Couples Therapy؛ اعتماد، نیاز و مرزهای رابطه.';
 $pageCanonical = url('/learn/couples-therapy/season-1/episode-2');
-$pageHead = '<link rel="stylesheet" href="'.e(url('/assets/css/learning.css')).'?v=20261121a">';
+$pageHead = '<link rel="stylesheet" href="'.e(url('/assets/css/learning.css')).'?v=20261123views">';
 ob_start(); ?>
 <article class="container-page section mana-learning schema-lesson">
 <nav class="learning-breadcrumb"><a href="<?= e(url('/learn/couples-therapy')) ?>">آرشیو Couples Therapy</a><span> / فصل اول / قسمت دوم</span></nav>
-<header class="learning-header"><p class="learning-eyebrow">فصل اول · اپیزود دوم</p><h1>اعتماد با اصرار برنمی‌گردد</h1></header>
+<header class="learning-header"><p class="learning-eyebrow">فصل اول · اپیزود دوم</p><h1>اعتماد با اصرار برنمی‌گردد</h1><?= $learningViewBadge ?? '' ?></header>
 <figure class="schema-cover"><img src="<?= e(url('/assets/img/couples-trust-episode2-v1.webp')) ?>" alt="ساختن تدریجی اعتماد در رابطه" width="1536" height="1024" decoding="async"></figure>
 <aside class="learning-empty">مبنای این درس خلاصهٔ رسمی قسمت است؛ ویدئو یا زیرنویس کامل بررسی نشده است. برداشت‌ها و تمرین‌های زیر آموزشی‌اند، نه نقل‌قول یا تحلیل جزئی صحنه‌ها.</aside>
 <section><h2>در خلاصهٔ این قسمت چه می‌خوانیم؟</h2><p>در خلاصهٔ رسمی، اولین از آلن احساس خیانت و بی‌اعتمادی دارد؛ ماو نیاز روزانه به رابطهٔ جنسی را مطرح می‌کند و الین میان تجربهٔ آسیب در کودکی و ازدواجش ارتباطی پیدا می‌کند. از این خلاصه نمی‌توان دربارهٔ تشخیص افراد یا جزئیات رفتارشان نتیجه گرفت.</p><a href="https://www.paramountplus.com/shows/video/KQB_U3vZj5AXONOtc_oC4Z7oH0H4awfX/">منبع: Paramount+، فصل اول، قسمت دوم</a></section>
