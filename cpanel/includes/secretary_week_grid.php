@@ -84,7 +84,7 @@ function secretary_week_booked_map(PDO $pdo, string $doctorId, string $fromYmd, 
     }
     $roomSql = function_exists('appointment_room_no_sql') ? appointment_room_no_sql('a') : 'NULL AS room_no';
     $stmt = $pdo->prepare("
-      SELECT a.id, a.starts_at, a.ends_at, a.status, a.session_mode,
+      SELECT a.id, a.starts_at, a.ends_at, a.status, a.session_mode, a.scheduled_hold,
              a.created_at, a.requested_at, a.reviewed_at, a.payment_confirmed_at, a.staff_payment_note,
              u.id AS patient_id, u.name AS patient_name, u.phone,
              p.id AS payment_id, p.status AS pay_status, p.amount, p.amount_usd, p.receipt_path, p.ref_id,
@@ -265,20 +265,15 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                   $continuation = !empty($slot['continuation']);
                   $time = (string) ($slot['time'] ?? '');
                   $date = (string) ($day['date'] ?? '');
-                  if ($isBooked && appointment_is_open_hold($booking)) {
-                      ?>
-                      <span class="sec-week-hour is-booked is-awaiting" aria-disabled="true" title="این زمان در لیست رزرو نگه داشته شده است"><?= e((string) ($slot['label'] ?? $time)) ?></span>
-                      <?php
-                      continue;
-                  }
                   if ($isBooked) {
+                      $openHold = appointment_is_open_hold($booking);
                       $pay = function_exists('appointment_pay_status_display')
                           ? appointment_pay_status_display($booking)
                           : payment_status_label((string) ($booking['pay_status'] ?? ''));
                       $mode = function_exists('appointment_session_mode_label')
                           ? appointment_session_mode_label((string) ($booking['session_mode'] ?? ''))
                           : '';
-                      $status = appointment_status_label((string) ($booking['status'] ?? ''));
+                      $status = appointment_row_status_label($booking);
                       $slotDone = secretary_appointment_is_done_slot($booking);
                       if ($slotDone && function_exists('appointment_status_label_is_reserved') && appointment_status_label_is_reserved($status)) {
                           $status = '';
@@ -304,7 +299,7 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                       <div class="sec-week-hour-wrap">
                         <button
                           type="button"
-                          class="sec-week-hour is-booked<?= ($booking['pay_status'] ?? '') === 'PAID' ? ' is-paid' : '' ?><?= $continuation ? ' is-continuation' : '' ?>"
+                          class="sec-week-hour is-booked<?= $openHold ? ' is-awaiting' : (($booking['pay_status'] ?? '') === 'PAID' ? ' is-paid' : '') ?><?= $continuation ? ' is-continuation' : '' ?>"
                           data-booked="1"
                           data-patient="<?= e((string) ($booking['patient_name'] ?? '')) ?>"
                           data-phone="<?= e((string) ($booking['phone'] ?? '')) ?>"
@@ -327,8 +322,12 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                           <div class="sec-week-shadow-tools">
                             <?php
                               $roomNext = $deskNext . (str_contains($deskNext, '?') ? '&' : '?') . 'tab=upcoming&doctor_id=' . rawurlencode($doctorId);
-                              $stayNext = secretary_appointment_stay_next($deskNext, null, $doctorId, (string) ($booking['id'] ?? ''));
+                              $stayNext = secretary_appointment_stay_next($deskNext, 'upcoming', $doctorId, (string) ($booking['id'] ?? ''));
+                              $usePaymentForm = !$slotDone && !empty($booking['payment_id']);
                             ?>
+                            <?php if ($usePaymentForm): ?>
+                              <?= appointment_staff_mark_paid_form_html($booking, $stayNext, '/secretary/appointments', true) ?>
+                            <?php endif; ?>
                             <?php
                               $canEditAppt = !$slotDone;
                               $modeId = 'week-mode-' . preg_replace('/[^a-zA-Z0-9_-]/', '', (string) ($booking['id'] ?? ''));
@@ -350,6 +349,7 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                                     <button type="submit" class="btn btn-outline btn-sm">ذخیره نوع</button>
                                   </form>
                                   <?= function_exists('appointment_time_edit_form_html') ? appointment_time_edit_form_html($booking, $roomNext) : '' ?>
+                                  <?php if (!$usePaymentForm): ?>
                                   <form method="post" action="<?= e(url('/secretary/appointments')) ?>" class="sec-room-form sec-week-edit-row">
                                     <?= csrf_field() ?>
                                     <input type="hidden" name="action" value="set_room">
@@ -359,6 +359,7 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                                     <?= secretary_room_picker_markup($roomNo > 0 ? (string) $roomNo : '') ?>
                                     <button type="submit" class="btn btn-outline btn-sm">ذخیره اتاق</button>
                                   </form>
+                                  <?php endif; ?>
                                 </div>
                               </details>
                             <?php endif; ?>
@@ -373,7 +374,7 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                                 </details>
                               <?php endif; ?>
                             <?php endif; ?>
-                            <?php if (!$slotDone && $roomNo < 1 && empty($onlineSession)): ?>
+                            <?php if (!$usePaymentForm && !$slotDone && $roomNo < 1 && empty($onlineSession)): ?>
                               <form method="post" action="<?= e(url('/secretary/appointments')) ?>" class="sec-week-room-form sec-room-form">
                                 <?= csrf_field() ?>
                                 <input type="hidden" name="action" value="set_room">
@@ -387,9 +388,9 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                             <?= staff_receipt_view_html(
                                 isset($booking['payment_id']) ? (string) $booking['payment_id'] : null,
                                 $hasReceipt ? (string) $booking['receipt_path'] : null,
-                                true,
+                                !$usePaymentForm,
                                 $stayNext,
-                                !$slotDone && (string) ($booking['pay_status'] ?? '') !== 'PAID'
+                                !$usePaymentForm && !$slotDone && (string) ($booking['pay_status'] ?? '') !== 'PAID'
                             ) ?>
                           </div>
                         </div>

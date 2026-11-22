@@ -142,6 +142,11 @@ if ($action === 'confirm_payment') {
         $roomNo = function_exists('appointment_parse_room_choice')
             ? appointment_parse_room_choice((string) post('room_no'))
             : (int) post('room_no');
+        if (post('pay_choice') === 'save_details') {
+            staff_confirm_appointment_payment($pdo, $appointmentId, $user, [], (string) post('note'), $roomNo, false);
+            flash_set('success', 'اتاق و یادداشت نوبت ذخیره شد.');
+            redirect($next);
+        }
         if (post('pay_choice') === 'unpaid') {
             $result = staff_confirm_appointment_unpaid($pdo, $appointmentId, $user, (string) post('note'), $roomNo);
             $flash = (isset($result['amount_usd']) || (function_exists('patient_wallet_paused') && patient_wallet_paused()))
