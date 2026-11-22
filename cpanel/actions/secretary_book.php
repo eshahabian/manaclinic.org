@@ -385,7 +385,7 @@ try {
     $skipMsg = $skipped !== [] ? ' ثبت نشد: ' . implode('، ', $skipped) . '.' : '';
     flash_set('success', 'نوبت با موفقیت ثبت شد.' . $seriesMsg . $payBit . ($roomNo > 0 && function_exists('clinic_room_label') ? ' ' . clinic_room_label($roomNo) . ' هم روی نوبت است.' : '') . $skipMsg);
     $desk = is_admin_user($user) ? '/admin/appointments' : '/secretary/appointments';
-    $bookRedirect($desk . '?tab=' . (count($confirmedIds) < $bookedCount ? 'reservations' : 'upcoming') . '&booked=1');
+    $bookRedirect($desk . '?tab=' . (count($confirmedIds) < $bookedCount ? 'reservations' : 'reserved') . '&booked=1');
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {
         $pdo->rollBack();

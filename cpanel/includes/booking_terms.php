@@ -1,12 +1,13 @@
 <?php
 declare(strict_types=1);
 
-/** مراجع یا درمانگر می‌تواند برای خودش (به‌عنوان مراجع) نوبت تراپی بگیرد. */
+/** دسترسی رزرو شخصی برای مراجع، درمانگر و حساب مدیریت عماد شهابیان. */
 function user_can_self_book_therapy(?array $user): bool
 {
     $role = strtoupper((string) ($user['role'] ?? ''));
 
-    return $role === 'PATIENT' || $role === 'DOCTOR';
+    return $role === 'PATIENT' || $role === 'DOCTOR'
+        || ($role === 'ADMIN' && strcasecmp(trim((string) ($user['username'] ?? '')), 'eshahabian') === 0);
 }
 
 /** مسیر فهرست نوبت‌های شخصی بعد از رزرو، بر اساس نقش. */

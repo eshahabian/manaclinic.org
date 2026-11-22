@@ -58,10 +58,12 @@ if ($searchDay !== '') {
 $filterHint = implode(' · ', $filterHintParts);
 
 $upcoming = [];
+$reserved = [];
 $reservations = [];
 $done = [];
 $cancelled = [];
 $now = time();
+$weekEnd = appointment_upcoming_week_end($now);
 foreach ($rows as $row) {
     $status = (string) ($row['status'] ?? '');
     $start = strtotime((string) ($row['starts_at'] ?? '')) ?: 0;
@@ -69,24 +71,32 @@ foreach ($rows as $row) {
         $cancelled[] = $row;
     } elseif (in_array($status, ['PENDING_APPROVAL', 'PENDING_PAYMENT'], true) && $start >= $now) {
         $reservations[] = $row;
+        if ($start < $weekEnd) {
+            $upcoming[] = $row;
+        }
     } elseif ($status === 'COMPLETED' || $start < $now) {
         $done[] = $row;
     } else {
-        $upcoming[] = $row;
+        $reserved[] = $row;
+        if ($start < $weekEnd) {
+            $upcoming[] = $row;
+        }
     }
 }
 usort($reservations, static fn(array $a, array $b): int => strcmp((string) ($a['requested_at'] ?? $a['created_at'] ?? ''), (string) ($b['requested_at'] ?? $b['created_at'] ?? '')));
 usort($upcoming, static fn(array $a, array $b): int => strcmp((string) $a['starts_at'], (string) $b['starts_at']));
+usort($reserved, static fn(array $a, array $b): int => strcmp((string) $a['starts_at'], (string) $b['starts_at']));
 usort($done, static fn(array $a, array $b): int => strcmp((string) $b['starts_at'], (string) $a['starts_at']));
 usort($cancelled, static fn(array $a, array $b): int => strcmp((string) $b['starts_at'], (string) $a['starts_at']));
 
 $reservationsFiltered = appointment_list_apply_search($reservations, $searchQ, $searchDay);
 $upcomingFiltered = appointment_list_apply_search($upcoming, $searchQ, $searchDay);
+$reservedFiltered = appointment_list_apply_search($reserved, $searchQ, $searchDay);
 $doneFiltered = appointment_list_apply_search($done, $searchQ, $searchDay);
 $cancelledFiltered = appointment_list_apply_search($cancelled, $searchQ, $searchDay);
 
 $tabParam = trim((string) ($_GET['tab'] ?? ''));
-$binderInitial = in_array($tabParam, ['new', 'reservations', 'upcoming', 'done', 'cancelled'], true) ? $tabParam : 'upcoming';
+$binderInitial = in_array($tabParam, ['new', 'reservations', 'upcoming', 'reserved', 'done', 'cancelled'], true) ? $tabParam : 'upcoming';
 
 $doctors = secretary_active_doctors($pdo);
 $weekDoctorId = trim((string) ($_GET['doctor_id'] ?? ''));
@@ -122,7 +132,7 @@ ob_start();
 <link rel="stylesheet" href="/assets/vendor/jalali/jalalidatepicker.min.css">
 <div class="appt-desk">
 <h1 class="appt-desk-title">نوبت‌ها</h1>
-<p class="muted appt-desk-lead" style="margin-top:.35rem;font-size:.9rem">نوبت جدید را از تب صورتی ثبت کنید. رزروهای موقت در «لیست رزرو» هستند. پیش‌رو فقط نوبت‌های رزروشده است.</p>
+<p class="muted appt-desk-lead" style="margin-top:.35rem;font-size:.9rem">نوبت جدید را از تب صورتی ثبت کنید. «پیش‌رو» برنامهٔ هفت‌روزه است. رزروهای موقت در «لیست رزرو» هستند.</p>
 <?php if (!empty($appointmentsDeskAdminTools)): ?>
   <div class="appt-toolbar">
     <form method="post" action="<?= e(url('/admin/appointments')) ?>" onsubmit="return confirm('همه نوبت‌ها برای همیشه حذف شوند؟');">
@@ -143,6 +153,9 @@ ob_start();
     </button>
     <button type="button" class="binder-tab binder-tab-appts<?= $binderInitial === 'upcoming' ? ' is-active' : '' ?>" role="tab" data-binder-tab="upcoming" data-binder-tone="appts" aria-selected="<?= $binderInitial === 'upcoming' ? 'true' : 'false' ?>">
       نوبت‌های پیش‌رو <span class="binder-tab-count"><?= count($filterActive ? $upcomingFiltered : $upcoming) ?></span>
+    </button>
+    <button type="button" class="binder-tab binder-tab-appts<?= $binderInitial === 'reserved' ? ' is-active' : '' ?>" role="tab" data-binder-tab="reserved" data-binder-tone="appts" aria-selected="<?= $binderInitial === 'reserved' ? 'true' : 'false' ?>">
+      نوبت‌های رزرو شده <span class="binder-tab-count"><?= count($reservedFiltered) ?></span>
     </button>
     <button type="button" class="binder-tab binder-tab-archive<?= $binderInitial === 'done' ? ' is-active' : '' ?>" role="tab" data-binder-tab="done" data-binder-tone="archive" aria-selected="<?= $binderInitial === 'done' ? 'true' : 'false' ?>">
       نوبت‌های انجام‌شده <span class="binder-tab-count"><?= count($doneFiltered) ?></span>
@@ -175,13 +188,6 @@ ob_start();
         <p class="muted" style="margin:0 0 .85rem;font-size:.85rem">
           نتیجه: <?= e($filterHint) ?> — <?= to_fa_digits((string) count($upcomingFiltered)) ?> نوبت
         </p>
-        <?php
-          $appointmentList = $upcomingFiltered;
-          $appointmentEmpty = 'با این جستجو نوبت پیش‌رویی پیدا نشد.';
-          $appointmentSingleEdit = true;
-          require __DIR__ . '/secretary_appointment_cards.php';
-          $appointmentSingleEdit = false;
-        ?>
       <?php else: ?>
         <form method="get" action="<?= e($deskAction) ?>" class="sec-week-doctor-pick" id="sec-week-doctor-form" style="display:flex;flex-wrap:wrap;gap:.55rem;align-items:end;margin:1.25rem 0 1rem">
           <input type="hidden" name="tab" value="upcoming">
@@ -202,6 +208,30 @@ ob_start();
         <?php else: ?>
           <?= secretary_week_grid_html($weekSchedule, $weekDoctorId, $deskAction, $appointmentsDeskNext) ?>
         <?php endif; ?>
+        <h2 class="binder-sub">نوبت‌های هفت روز پیش رو</h2>
+      <?php endif; ?>
+      <?php
+        $appointmentList = $upcomingFiltered;
+        $appointmentEmpty = $filterActive ? 'با این جستجو نوبت پیش‌رویی پیدا نشد.' : 'در هفت روز پیش رو نوبتی ثبت نشده است.';
+        $appointmentSingleEdit = true;
+        $appointmentCardScope = 'upcoming-';
+        require __DIR__ . '/secretary_appointment_cards.php';
+        $appointmentSingleEdit = false;
+        unset($appointmentCardScope);
+      ?>
+    </section>
+    <section class="binder-panel<?= $binderInitial === 'reserved' ? ' is-active' : '' ?>" data-binder-panel="reserved" role="tabpanel"<?= $binderInitial === 'reserved' ? '' : ' hidden' ?>>
+      <?= appointment_search_form_html($deskAction, 'reserved', $searchQ, $searchDay, $searchJalali, $filterActive, 'rv', 'نام مراجعه‌کننده یا درمانگر…', appointment_search_name_choices($reserved)) ?>
+      <?php if ($reservedFiltered === []): ?>
+        <p class="muted binder-empty">نوبت قطعی برای آینده پیدا نشد.</p>
+      <?php else: ?>
+        <?php $appointmentSingleEdit = true; $appointmentCardScope = 'reserved-'; ?>
+        <?php foreach (group_appointments_by_jalali_month($reservedFiltered, false)['months'] as $month): ?>
+          <?php if ($month['items'] === []) { continue; } ?>
+          <h2 class="binder-sub"><?= e($month['label']) ?></h2>
+          <?php $appointmentList = $month['items']; require __DIR__ . '/secretary_appointment_cards.php'; ?>
+        <?php endforeach; ?>
+        <?php $appointmentSingleEdit = false; unset($appointmentCardScope); ?>
       <?php endif; ?>
     </section>
     <section class="binder-panel<?= $binderInitial === 'done' ? ' is-active' : '' ?>" data-binder-panel="done" role="tabpanel"<?= $binderInitial === 'done' ? '' : ' hidden' ?>>
@@ -240,7 +270,7 @@ ob_start();
 <?php
 $appointmentsDeskHtml = ob_get_clean();
 $appointmentsDeskScripts = '<script src="' . e(url('/assets/js/binder-tabs.js')) . '?v=20260920a"></script>'
-    . appointment_search_datepicker_script(['up', 'dn', 'cn'])
+    . appointment_search_datepicker_script(['rs', 'up', 'rv', 'dn', 'cn'])
     . ($secretaryBookScripts ?? '')
     . '<script>
 (function(){

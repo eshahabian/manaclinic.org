@@ -213,6 +213,11 @@ function appointment_session_mode_badge_html(?string $mode): string
     return '<span class="' . e($cls) . '">' . e($label) . '</span>';
 }
 
+function appointment_upcoming_week_end(?int $now = null): int
+{
+    return strtotime(date('Y-m-d', $now ?? time()) . ' +7 days');
+}
+
 function appointment_is_upcoming(array $row, ?int $now = null): bool
 {
     $now = $now ?? time();

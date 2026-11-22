@@ -27,6 +27,7 @@ $appointmentDoneView = !empty($appointmentDoneView);
         $awaitingApproval = appointment_awaiting_secretary_approval($a);
         $openHold = function_exists('appointment_is_open_hold') && appointment_is_open_hold($a);
         $displayStatus = appointment_row_status_label($a);
+        $modeId = 'mode-' . ($appointmentCardScope ?? '') . (string) ($a['id'] ?? '');
         $hideReservedStatus = $appointmentDoneView
             && function_exists('appointment_status_label_is_reserved')
             && appointment_status_label_is_reserved($displayStatus);
@@ -84,8 +85,8 @@ $appointmentDoneView = !empty($appointmentDoneView);
           <input type="hidden" name="action" value="set_session_mode">
           <input type="hidden" name="appointment_id" value="<?= e((string) ($a['id'] ?? '')) ?>">
           <input type="hidden" name="next" value="<?= e($deskNext) ?>">
-          <label class="muted" style="font-size:.8rem" for="mode-<?= e((string) ($a['id'] ?? '')) ?>">تغییر نوع جلسه</label>
-          <select class="input" style="width:auto;min-width:7rem;padding:.35rem .55rem;font-size:.85rem" name="session_mode" id="mode-<?= e((string) ($a['id'] ?? '')) ?>">
+          <label class="muted" style="font-size:.8rem" for="<?= e($modeId) ?>">تغییر نوع جلسه</label>
+          <select class="input" style="width:auto;min-width:7rem;padding:.35rem .55rem;font-size:.85rem" name="session_mode" id="<?= e($modeId) ?>">
             <option value="IN_PERSON"<?= appointment_normalize_session_mode((string) ($a['session_mode'] ?? '')) === 'IN_PERSON' ? ' selected' : '' ?>>حضوری</option>
             <option value="ONLINE"<?= appointment_normalize_session_mode((string) ($a['session_mode'] ?? '')) === 'ONLINE' ? ' selected' : '' ?>>آنلاین</option>
           </select>

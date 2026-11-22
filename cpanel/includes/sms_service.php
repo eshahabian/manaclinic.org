@@ -420,6 +420,8 @@ function sms_plan_appointment(PDO $pdo, array $a, string $activated): void
     $when=format_fa_datetime((string)$a['starts_at']);
     $context=['entity'=>'appointment','id'=>$a['id'],'starts_at'=>$a['starts_at'],'status'=>$a['status'],'doctor_id'=>$a['doctor_id']];
     $starts = strtotime($a['starts_at']);
+    $now = time();
+    $reminderDue = date('Y-m-d H:i:s', max($now, $starts - 48 * 3600));
     $scheduled = !empty($a['scheduled_hold']);
     $vars=['patient'=>$a['patient_name'],'doctor'=>$a['doctor_name'],'datetime'=>$when,'status'=>$a['status']==='CONFIRMED'?'ثبت شد.':'برای بررسی ثبت شد.'];
     $pdo->beginTransaction();
@@ -432,19 +434,23 @@ function sms_plan_appointment(PDO $pdo, array $a, string $activated): void
             $bookedKey = $key . ':booked:' . ($scheduled ? $a['starts_at'] : $fingerprint);
             sms_queue_extended($pdo,$a['phone'],sms_template_render($pdo,'appointment_booked',$vars),'appointment_booked',$bookedKey,null,$a['starts_at'],$context);
         }
-        if ($scheduled && in_array($a['status'], ['PENDING_APPROVAL', 'PENDING_PAYMENT'], true) && $starts > time()) {
-            $due = date('Y-m-d H:i:s', max(time(), $starts - 48 * 3600));
+        if ($scheduled && in_array($a['status'], ['PENDING_APPROVAL', 'PENDING_PAYMENT'], true) && $starts > $now) {
             $kind = 'appointment_payment_reminder';
             $paymentContext = $context + ['awaiting_payment' => true];
             sms_queue_extended($pdo, $a['phone'], sms_template_render($pdo, $kind, $vars), $kind,
-                $key . ':payment-reminder:' . $a['starts_at'] . ':' . $a['doctor_id'] . ':' . $a['status'], $due, $a['starts_at'], $paymentContext);
+                $key . ':payment-reminder:' . $a['starts_at'] . ':' . $a['doctor_id'] . ':' . $a['status'], $reminderDue, $a['starts_at'], $paymentContext);
         }
         if ($a['status']==='CANCELLED' && (($old!==null && $old['last_status']!=='CANCELLED') || ($old===null && $a['updated_at']>=$activated))) {
             sms_queue_extended($pdo,$a['phone'],sms_template_render($pdo,'appointment_cancelled',$vars),'appointment_cancelled',$key.':cancelled:'.$a['updated_at'],null,date('Y-m-d H:i:s',time()+86400),$context);
         }
-        if ($a['status']==='CONFIRMED' && strtotime($a['starts_at'])>time() && strtotime($a['created_at'])<=strtotime($a['starts_at'])-86400) {
-            $due=date('Y-m-d H:i:s',max(time(),strtotime($a['starts_at'])-86400));
-            sms_queue_extended($pdo,$a['phone'],sms_template_render($pdo,'appointment_reminder',$vars),'appointment_reminder',$key.':reminder:'.$a['starts_at'].':'.$a['doctor_id'], $due,$a['starts_at'],$context);
+        if ($a['status'] === 'CONFIRMED' && $starts > $now && strtotime($a['created_at']) <= $starts - 86400) {
+            $reminderKey = $key . ':reminder:' . $a['starts_at'] . ':' . $a['doctor_id'];
+            $queued = sms_queue_extended($pdo, $a['phone'], sms_template_render($pdo, 'appointment_reminder', $vars),
+                'appointment_reminder', $reminderKey, $reminderDue, $a['starts_at'], $context);
+            if (!$queued) {
+                $pdo->prepare("UPDATE sms_outbox SET due_at=? WHERE dedup_key=? AND status='PENDING' AND due_at>?")
+                    ->execute([$reminderDue, hash('sha256', $reminderKey), $reminderDue]);
+            }
         }
         sms_entity_save($pdo,$key,$fingerprint,$a['status']);$pdo->commit();
     } catch(Throwable $e){if($pdo->inTransaction())$pdo->rollBack();throw $e;}
