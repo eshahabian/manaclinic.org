@@ -1,6 +1,36 @@
 <?php
 declare(strict_types=1);
 
+/** Arrange existing links in sidebar sections while preserving their metadata. */
+function group_panel_nav(array $nav, array $sections): array
+{
+    $links = [];
+    foreach ($nav as $item) {
+        if (isset($item['href'])) {
+            $links[$item['href']] = $item;
+        }
+    }
+    $grouped = [];
+    foreach ($sections as $label => $paths) {
+        $items = [];
+        foreach ($paths as $path) {
+            if (isset($links[$path])) {
+                $items[] = $links[$path];
+                unset($links[$path]);
+            }
+        }
+        if ($items) {
+            $grouped[] = ['type' => 'group', 'label' => $label];
+            array_push($grouped, ...$items);
+        }
+    }
+    if ($links) {
+        $grouped[] = ['type' => 'group', 'label' => 'سایر امکانات'];
+        array_push($grouped, ...array_values($links));
+    }
+    return $grouped;
+}
+
 function render(string $viewFile, array $vars = []): void
 {
     extract($vars, EXTR_SKIP);

@@ -42,11 +42,14 @@ function ensure_accountant_account(PDO $pdo): void
 function accountant_nav(): array
 {
     return [
+        ['type' => 'group', 'label' => 'اصلی'],
         ['href' => '/accountant', 'label' => 'خلاصه مالی'],
         ['href' => '/accountant/payments', 'label' => 'پرداخت‌ها'],
         ['href' => '/accountant/outside', 'label' => 'خارج از روال'],
         ['href' => '/accountant/payouts', 'label' => 'پرداخت درمانگرها'],
+        ['type' => 'group', 'label' => 'مدیریت'],
         ['href' => '/accountant/petty-cash', 'label' => 'تنخواه'],
+        ['type' => 'group', 'label' => 'تنظیمات'],
         ['href' => '/change-password', 'label' => 'تغییر رمز عبور'],
     ];
 }
@@ -66,6 +69,10 @@ function render_accountant_page(string $title, string $innerHtml): void
         <p class="side-nav-title">پنل حسابدار</p>
         <nav>
           <?php foreach ($nav as $item): ?>
+            <?php if (($item['type'] ?? '') === 'group'): ?>
+              <p class="side-nav-group"><?= e($item['label']) ?></p>
+              <?php continue; ?>
+            <?php endif; ?>
             <?php
               $href = (string) ($item['href'] ?? '');
               $active = $href === '/accountant'

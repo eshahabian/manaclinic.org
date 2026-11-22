@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/view.php';
+
 function admin_disabled_user_count(): int
 {
     global $pdo;
@@ -38,7 +40,6 @@ function admin_nav(): array {
         $unread = count_unread_notifications($pdo, (string) ($user['id'] ?? ''));
     }
     $nav = [
-        ['type' => 'group', 'label' => 'اصلی'],
         ['href' => '/admin', 'label' => 'خلاصه'],
     ];
     if ($user && strcasecmp(trim((string) ($user['username'] ?? '')), 'eshahabian') === 0) {
@@ -86,39 +87,31 @@ function admin_nav(): array {
         ],
     ]);
     $nav = array_merge($nav, [
-        ['type' => 'group', 'label' => 'منشی‌ها'],
         ['href' => '/secretary/messages', 'label' => 'پنل منشی'],
         ['href' => '/admin/secretary-messages', 'label' => 'پیام منشی‌ها', 'badge' => function_exists('secretary_to_admin_unread_count') && $pdo instanceof PDO ? secretary_to_admin_unread_count($pdo) : 0],
         ['href' => '/admin/staff-board', 'label' => 'یادداشت مشترک منشی‌ها'],
         ['href' => '/admin/staff-hours', 'label' => 'ساعت کاری منشی‌ها'],
         ['href' => '/admin/workshop-file-log', 'label' => 'حذف و دانلود فایل کارگاه'],
-        ['type' => 'group', 'label' => 'درمانگرها'],
         ['href' => '/doctor/notifications', 'label' => 'اعلان‌ها', 'badge' => $unread, 'badge_tone' => 'new'],
         ['href' => '/doctor/appointments', 'label' => 'نوبت‌های درمانگر'],
         ['href' => '/doctor/availability', 'label' => 'روزهای خالی'],
         ['href' => '/doctor/patients', 'label' => 'پرونده مراجعه‌کنندگان'],
         ['href' => '/doctor/staff-messages', 'label' => 'پیام‌های درمانگر'],
         ['href' => '/doctor/profile', 'label' => 'پروفایل حرفه‌ای'],
-        ['type' => 'group', 'label' => 'محتوا'],
         ['href' => '/admin/articles', 'label' => 'مقالات'],
         ['href' => '/doctor/articles', 'label' => 'مقالات درمانگر'],
         ['href' => '/doctor/workshops', 'label' => 'کارگاه‌ها'],
     ]);
     $siteAdmin = $user && in_array(strtolower(trim((string) ($user['username'] ?? ''))), ['admin','eshahabian'], true);
     if ($siteAdmin) {
-        $nav[] = ['type' => 'group', 'label' => 'مدیریت'];
         $nav[] = ['href' => '/admin/messengers', 'label' => 'دسترسی پیام رسان'];
         $nav[] = ['href' => '/admin/users', 'label' => 'مدیریت کاربران'];
         $nav[] = ['href' => '/admin/users-disabled', 'label' => 'کاربران غیر فعال شده', 'badge' => admin_disabled_user_count()];
         $nav[] = ['href' => '/admin/mail', 'label' => 'ایمیل و SMTP'];
         $nav[] = ['href' => '/admin/gateway', 'label' => 'درگاه پرداخت'];
-        $nav[] = ['href' => '/change-password', 'label' => 'تغییر رمز عبور'];
-    } else {
-        $nav[] = ['type' => 'group', 'label' => 'تنظیمات'];
-        $nav[] = ['href' => '/change-password', 'label' => 'تغییر رمز عبور'];
     }
+    $nav[] = ['href' => '/change-password', 'label' => 'تغییر رمز عبور'];
     if (sms_operator_allowed($user)) {
-        $nav[]=['type'=>'group','label'=>'پیامک'];
         $nav[]=['href'=>'/admin/sms-test','label'=>'تست پیامک'];
         $nav[]=['href'=>'/admin/sms-broadcast','label'=>'پیامک همگانی'];
         if (sms_settings_allowed($user)) {
@@ -131,67 +124,23 @@ function admin_nav(): array {
         require_once __DIR__ . '/secretary_daily_tasks.php';
     }
     if ($user && function_exists('secretary_daily_tasks_can_review') && secretary_daily_tasks_can_review($user)) {
-        $taskLink = ['href' => '/admin/secretary-tasks', 'label' => 'وظایف منشی‌ها'];
-        $inserted = false;
-        foreach ($nav as $i => $item) {
-            if (($item['href'] ?? '') === '/admin/staff-hours') {
-                array_splice($nav, $i + 1, 0, [$taskLink]);
-                $inserted = true;
-                break;
-            }
-        }
-        if (!$inserted) {
-            $nav[] = $taskLink;
-        }
+        $nav[] = ['href' => '/admin/secretary-tasks', 'label' => 'وظایف منشی‌ها'];
     }
     $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link() : null;
     if ($videoLink) {
-        // بعد از «خلاصه» داخل گروه اصلی
-        array_splice($nav, 2, 0, [$videoLink]);
+        $nav[] = $videoLink;
     }
 
-    if ($user && strcasecmp(trim((string) ($user['username'] ?? '')), 'eshahabian') === 0) {
-        $nav = admin_emad_grouped_nav($nav);
-    }
-
-    return $nav;
-}
-
-/** Group already-authorized links without changing their badges or permissions. */
-function admin_emad_grouped_nav(array $nav): array
-{
-    $sections = [
-        'اصلی' => ['/admin', '/dashboard/appointments', '/dashboard/path', '/dashboard/wallet', '/doctor/profile', '/change-password'],
-        'نوبت‌ها و مراجعه‌کنندگان' => ['/admin/appointments', '/staff/excel-reports', '/admin/consult-requests', '/admin/outreach', '/admin/rooms'],
-        'درمانگرها' => ['/admin/doctors', '/secretary/therapists', '/doctor/appointments', '/doctor/availability', '/doctor/patients'],
-        'منشی‌ها' => ['/secretary/messages', '/admin/staff-board', '/admin/staff-hours', '/admin/secretary-tasks'],
-        'ارتباطات و پیام‌ها' => ['/video-call', '/admin/staff-messages', '/doctor/staff-messages', '/admin/secretary-messages', '/doctor/notifications', '/admin/feedback'],
-        'محتوا و کارگاه‌ها' => ['/admin/articles', '/doctor/articles', '/doctor/workshops', '/admin/workshop-file-log'],
-        'مدیریت' => ['/admin/users', '/admin/users-disabled', '/admin/messengers', '/admin/mail', '/admin/sms-settings', '/admin/sms-notify', '/admin/sms-doctor-digest', '/admin/sms-test', '/admin/sms-broadcast', '/admin/gateway'],
-    ];
-    $links = [];
-    foreach ($nav as $item) {
-        if (isset($item['href'])) $links[$item['href']] = $item;
-    }
-    $grouped = [];
-    foreach ($sections as $label => $paths) {
-        $items = [];
-        foreach ($paths as $path) {
-            if (!isset($links[$path])) continue;
-            $items[] = $links[$path];
-            unset($links[$path]);
-        }
-        if ($items) {
-            $grouped[] = ['type' => 'group', 'label' => $label];
-            array_push($grouped, ...$items);
-        }
-    }
-    // Keep future authorized links visible until they receive a specific category.
-    if ($links) {
-        $grouped[] = ['type' => 'group', 'label' => 'سایر امکانات'];
-        array_push($grouped, ...array_values($links));
-    }
-    return $grouped;
+    return group_panel_nav($nav, [
+        'اصلی' => ['/admin', '/admin/consult-requests', '/admin/feedback', '/dashboard/appointments', '/dashboard/path', '/dashboard/wallet'],
+        'نوبت‌ها و مراجعه‌کنندگان' => ['/admin/appointments', '/doctor/appointments', '/doctor/availability', '/doctor/patients', '/admin/outreach'],
+        'پیام‌ها و اعلان‌ها' => ['/admin/staff-messages', '/doctor/staff-messages', '/doctor/notifications', '/video-call'],
+        'منشی‌ها' => ['/secretary/messages', '/admin/secretary-messages', '/admin/staff-board', '/admin/staff-hours', '/admin/secretary-tasks'],
+        'محتوا' => ['/admin/articles', '/doctor/articles', '/doctor/workshops', '/admin/workshop-file-log', '/staff/excel-reports'],
+        'مدیریت' => ['/admin/doctors', '/secretary/therapists', '/admin/rooms', '/admin/users', '/admin/users-disabled', '/admin/messengers', '/admin/mail', '/admin/gateway'],
+        'پیامک' => ['/admin/sms-test', '/admin/sms-broadcast', '/admin/sms-notify', '/admin/sms-doctor-digest', '/admin/sms-settings'],
+        'تنظیمات' => ['/doctor/profile', '/change-password'],
+    ]);
 }
 
 function render_admin_page(string $title, string $innerHtml): void {

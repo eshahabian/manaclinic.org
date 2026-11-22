@@ -1,6 +1,8 @@
 <?php
 declare(strict_types=1);
 
+require_once __DIR__ . '/view.php';
+
 function secretary_nav(): array
 {
     $nav = [
@@ -38,9 +40,16 @@ function secretary_nav(): array
     ]);
     $videoLink = function_exists('video_call_nav_link') ? video_call_nav_link() : null;
     if ($videoLink) {
-        array_splice($nav, 1, 0, [$videoLink]);
+        $nav[] = $videoLink;
     }
-    return $nav;
+    return group_panel_nav($nav, [
+        'اصلی' => ['/secretary/consult-requests', '/secretary/complaints'],
+        'نوبت‌ها و مراجعه‌کنندگان' => ['/secretary/appointments', '/secretary/patients'],
+        'پیام‌ها و یادداشت‌ها' => ['/secretary/messages', '/secretary/board', '/video-call'],
+        'محتوا' => ['/secretary/articles', '/secretary/workshops', '/staff/excel-reports'],
+        'مدیریت' => ['/secretary/therapists', '/admin/rooms', '/secretary/secretary-tasks', '/secretary/balances', '/secretary/petty-cash'],
+        'تنظیمات' => ['/change-password'],
+    ]);
 }
 
 function secretary_panel_daytasks_box($pdo, ?array $user): string
@@ -274,6 +283,12 @@ function render_secretary_page(string $title, string $innerHtml): void
           <?php
             $currentPath = parse_url($_SERVER['REQUEST_URI'] ?? '/', PHP_URL_PATH) ?: '/';
             foreach ($nav as $item):
+              if (($item['type'] ?? '') === 'group'):
+          ?>
+                <p class="side-nav-group"><?= e($item['label']) ?></p>
+          <?php
+                continue;
+              endif;
               $href = (string) ($item['href'] ?? '');
               $active = $href !== '' && str_contains($currentPath, $href);
           ?>
