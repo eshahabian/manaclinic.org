@@ -103,12 +103,16 @@ if ($defaultDayId === '' || str_ends_with($defaultDayId, '-all') || (!isset($def
                   $dayOn = $monthOn && $defaultDayId === $did;
                   $dayItems = $day['items'] ?? [];
                   $daySlots = $day['open_slots'] ?? [];
+                  $dayHasUnread = in_array(true, array_column($dayItems, '_shared_note_unread'), true);
                 ?>
                 <section class="ymd-day-panel<?= $dayOn ? ' is-active' : '' ?>"
                          data-ymd-day="<?= e($did) ?>"
-                         data-ymd-label="<?= e((string) ($day['tab_label'] ?? $day['label'] ?? '')) ?>"
+                         data-ymd-label="<?= e((string) ($day['tab_label'] ?? $day['label'] ?? '') . ($dayHasUnread ? ' 🔴' : '')) ?>"
                          <?= $dayOn ? '' : ' hidden' ?>>
-                  <h2 class="binder-sub" style="margin-top:0"><?= e((string) ($day['label'] ?? '')) ?></h2>
+                  <h2 class="binder-sub" style="margin-top:0">
+                    <?= e((string) ($day['label'] ?? '')) ?>
+                    <?= $dayHasUnread ? appointment_shared_note_dot() : '' ?>
+                  </h2>
                   <p class="appt-ymd-summary muted">
                     <?= e(to_fa_digits((string) count($dayItems))) ?> <?= e($ymdNoun) ?>
                     <?php if ($ymdShowPeople && (int) ($day['people'] ?? 0) > 0): ?>

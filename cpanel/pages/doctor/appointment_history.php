@@ -4,6 +4,7 @@ declare(strict_types=1);
 require_once __DIR__ . '/../../includes/doctor_panel.php';
 require_once __DIR__ . '/../../includes/user_cleanup.php';
 require_once __DIR__ . '/../../includes/appointment_cancel.php';
+require_once __DIR__ . '/../../includes/appointment_session.php';
 
 $ctx = require_doctor_profile($pdo);
 $stmt = $pdo->prepare("
@@ -18,7 +19,7 @@ $stmt = $pdo->prepare("
   ORDER BY a.starts_at DESC
 ");
 $stmt->execute([$ctx['profile']['id']]);
-$rows = $stmt->fetchAll();
+$rows = appointment_shared_notes_annotate($pdo, $stmt->fetchAll(), (string) $ctx['user']['id']);
 
 $history = [];
 $now = time();

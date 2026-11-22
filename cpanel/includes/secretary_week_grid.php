@@ -241,7 +241,7 @@ function secretary_room_picker_script(): string
     return '';
 }
 
-function secretary_week_grid_html(array $week, string $doctorId, string $bookBaseUrl, ?string $deskNext = null): string
+function secretary_week_grid_html(array $week, string $doctorId, string $bookBaseUrl, ?string $deskNext = null, array $unreadNotes = []): string
 {
     $deskNext = $deskNext ?: '/secretary/appointments';
     $nextUpcoming = $deskNext . (str_contains($deskNext, '?') ? '&' : '?') . 'tab=upcoming&doctor_id=' . rawurlencode($doctorId);
@@ -249,9 +249,19 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
     ?>
     <div class="sec-week-grid" data-sec-week data-doctor-id="<?= e($doctorId) ?>">
       <?php foreach ($week as $day): ?>
+        <?php
+          $dayHasUnread = false;
+          foreach ($day['slots'] as $daySlot) {
+              if (!empty($unreadNotes[$daySlot['booking']['id'] ?? ''])) {
+                  $dayHasUnread = true;
+                  break;
+              }
+          }
+        ?>
         <div class="sec-week-day">
           <div class="sec-week-day-head">
             <strong><?= e((string) ($day['weekday'] !== '' ? $day['weekday'] . ' · ' : '') . ($day['label'] ?? '')) ?></strong>
+            <?= $dayHasUnread ? appointment_shared_note_dot() : '' ?>
             <span class="muted" style="font-size:.8rem"><?= e(to_fa_digits((string) ($day['date'] ?? ''))) ?></span>
           </div>
           <?php if (empty($day['slots'])): ?>
@@ -317,6 +327,9 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                               $chip .= ' · ' . $roomLabel;
                           }
                           echo e($chip);
+                          if (!$continuation && !empty($unreadNotes[$booking['id']])) {
+                              echo appointment_shared_note_dot();
+                          }
                         ?></button>
                         <div class="sec-week-slot-live" hidden>
                           <div class="sec-week-shadow-tools">

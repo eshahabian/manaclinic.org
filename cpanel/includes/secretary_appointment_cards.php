@@ -58,6 +58,11 @@ $appointmentDoneView = !empty($appointmentDoneView);
             </details>
             <div class="muted" style="font-size:.85rem;margin-top:.35rem;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center">
               <?= e(format_fa_datetime($a['starts_at'])) ?>
+              <?php if (!empty($a['_shared_note_unread'])): ?>
+                <a class="btn btn-outline btn-sm" href="<?= e(url('/doctor/session-note?appointment=' . rawurlencode((string) $a['id']))) ?>">
+                  <?= appointment_shared_note_dot() ?> یادداشت مشترک
+                </a>
+              <?php endif; ?>
               <?= function_exists('appointment_session_mode_badge_html') ? appointment_session_mode_badge_html((string) ($a['session_mode'] ?? 'IN_PERSON')) : '' ?>
               <?= function_exists('appointment_room_badge_html') ? appointment_room_badge_html($a) : '' ?>
             </div>

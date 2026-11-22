@@ -643,7 +643,7 @@ if ($section === 'home') {
       <?php endif; ?>
       <?php require_once __DIR__ . '/../includes/clinic_excel_reports.php'; ?>
       <?php if (clinic_excel_reports_allowed($user)): ?>
-      <a class="sapp-tile" href="<?= e(url('/app/excel-reports')) ?>">
+      <a class="sapp-tile" href="<?= e(url('/staff/excel-reports')) ?>" data-excel-report="menu" aria-haspopup="dialog">
         <span class="sapp-ico sapp-ico-amber" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9h16M4 14h16M11 9v11"/></svg></span>
         <strong>خروجی اکسل</strong>
       </a>
@@ -779,7 +779,7 @@ if ($section === 'appointments') {
     <?php endif; ?>
     <?php require_once __DIR__ . '/../includes/clinic_excel_reports.php'; ?>
     <?php if (clinic_excel_reports_allowed($user)): ?>
-      <a class="btn btn-outline" href="<?= e(url('/app/excel-reports?type=doctor')) ?>">خروجی اکسل نوبت‌ها</a>
+      <a class="btn btn-outline" href="<?= e(url('/staff/excel-reports?type=doctor')) ?>" data-excel-report="context" aria-haspopup="dialog">خروجی اکسل نوبت‌ها</a>
     <?php endif; ?>
     <nav class="sapp-daynav" aria-label="انتخاب روز وقت‌ها" style="margin-top:1rem">
       <a class="sapp-daynav-btn" href="<?= e(url('/app/appointments?day=' . $prevDay)) ?>" aria-label="روز قبل"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></a>

@@ -656,6 +656,9 @@ if ($adminStaffMsgBlock && $user && ($user['role'] ?? '') === 'SECRETARY'):
 <?php if (!empty($pageScripts)): ?>
   <?= $pageScripts ?>
 <?php endif; ?>
+<?php if (!empty($user)): ?>
+  <?php require __DIR__ . '/clinic_excel_dialog.php'; ?>
+<?php endif; ?>
 <?php if($protectPublicContent): ?>
 <script src="<?= e(url('/assets/js/content-protection.js')) ?>?v=20261020" defer></script>
 <?php endif; ?>

@@ -14,7 +14,7 @@ if (empty($ctx['ok'])) {
 }
 
 $row = $ctx['row'];
-$notes = appointment_shared_notes_list($pdo, $appointmentId);
+$notes = appointment_shared_notes_open($pdo, $appointmentId, (string) $user['id']);
 $html = appointment_shared_notes_panel_html(
     $row,
     $notes,

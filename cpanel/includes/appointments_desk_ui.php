@@ -33,6 +33,12 @@ $rows = $pdo->query("
   LEFT JOIN users cu ON cu.id = a.created_by_user_id
   ORDER BY a.starts_at DESC
 ")->fetchAll();
+$deskUser = current_user();
+$unreadSharedAppointments = [];
+if (($deskUser['role'] ?? '') === 'ADMIN' && strtolower((string) ($deskUser['username'] ?? '')) === 'eshahabian') {
+    $rows = appointment_shared_notes_annotate($pdo, $rows, (string) $deskUser['id']);
+    $unreadSharedAppointments = array_column($rows, '_shared_note_unread', 'id');
+}
 
 $searchQ = trim((string) ($_GET['q'] ?? ''));
 $searchDay = trim((string) ($_GET['day'] ?? ''));
@@ -127,7 +133,7 @@ ob_start();
 <h1 class="appt-desk-title">نوبت‌ها</h1>
 <?php require_once __DIR__ . '/clinic_excel_reports.php'; ?>
 <?php if (clinic_excel_reports_allowed(current_user())): ?>
-  <a class="btn btn-outline" href="<?= e(url('/app/excel-reports?type=doctor')) ?>">خروجی اکسل نوبت‌ها</a>
+  <a class="btn btn-outline" href="<?= e(url('/staff/excel-reports?type=doctor')) ?>" data-excel-report="context" aria-haspopup="dialog">خروجی اکسل نوبت‌ها</a>
 <?php endif; ?>
 <p class="muted appt-desk-lead" style="margin-top:.35rem;font-size:.9rem">نوبت جدید را از تب صورتی ثبت کنید. رزروهای موقت در «لیست رزرو» و نوبت‌های قطعی در «نوبت‌های پیش‌رو» هستند.</p>
 <?php if (!empty($appointmentsDeskAdminTools)): ?>
@@ -147,15 +153,19 @@ ob_start();
     </button>
     <button type="button" class="binder-tab binder-tab-reservations<?= $binderInitial === 'reservations' ? ' is-active' : '' ?>" role="tab" data-binder-tab="reservations" data-binder-tone="reservations" aria-selected="<?= $binderInitial === 'reservations' ? 'true' : 'false' ?>">
       لیست رزرو <span class="binder-tab-count"><?= count($filterActive ? $reservationsFiltered : $reservations) ?></span>
+      <?= in_array(true, array_column($reservationsFiltered, '_shared_note_unread'), true) ? appointment_shared_note_dot() : '' ?>
     </button>
     <button type="button" class="binder-tab binder-tab-appts<?= $binderInitial === 'upcoming' ? ' is-active' : '' ?>" role="tab" data-binder-tab="upcoming" data-binder-tone="appts" aria-selected="<?= $binderInitial === 'upcoming' ? 'true' : 'false' ?>">
       نوبت‌های پیش‌رو <span class="binder-tab-count"><?= count($filterActive ? $upcomingFiltered : $upcoming) ?></span>
+      <?= in_array(true, array_column($upcomingFiltered, '_shared_note_unread'), true) ? appointment_shared_note_dot() : '' ?>
     </button>
     <button type="button" class="binder-tab binder-tab-archive<?= $binderInitial === 'done' ? ' is-active' : '' ?>" role="tab" data-binder-tab="done" data-binder-tone="archive" aria-selected="<?= $binderInitial === 'done' ? 'true' : 'false' ?>">
       نوبت‌های انجام‌شده <span class="binder-tab-count"><?= count($doneFiltered) ?></span>
+      <?= in_array(true, array_column($doneFiltered, '_shared_note_unread'), true) ? appointment_shared_note_dot() : '' ?>
     </button>
     <button type="button" class="binder-tab binder-tab-cancelled<?= $binderInitial === 'cancelled' ? ' is-active' : '' ?>" role="tab" data-binder-tab="cancelled" data-binder-tone="cancelled" aria-selected="<?= $binderInitial === 'cancelled' ? 'true' : 'false' ?>">
       نوبت‌های لغو شده <span class="binder-tab-count"><?= count($cancelledFiltered) ?></span>
+      <?= in_array(true, array_column($cancelledFiltered, '_shared_note_unread'), true) ? appointment_shared_note_dot() : '' ?>
     </button>
   </div>
   <div class="binder-body">
@@ -200,7 +210,7 @@ ob_start();
         <?php if ($weekDoctorId === ''): ?>
           <p class="muted">درمانگری برای نمایش یافت نشد.</p>
         <?php else: ?>
-          <?= secretary_week_grid_html($weekSchedule, $weekDoctorId, $deskAction, $appointmentsDeskNext) ?>
+          <?= secretary_week_grid_html($weekSchedule, $weekDoctorId, $deskAction, $appointmentsDeskNext, $unreadSharedAppointments) ?>
         <?php endif; ?>
         <h2 class="binder-sub">نوبت‌های قطعی آینده</h2>
       <?php endif; ?>

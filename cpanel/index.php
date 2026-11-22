@@ -194,6 +194,8 @@ if ($method === 'GET' && !$isAssistantApi && !$isLightRequest && !$isStaffApp) {
 
 // مسیرهای اکشن
 $routes = [
+    'GET /staff/excel-reports' => 'pages/clinic_excel_reports.php',
+    'POST /staff/excel-reports' => 'pages/clinic_excel_reports.php',
     'GET /' => 'pages/home.php',
     'GET /doctors' => 'pages/doctors.php',
     'GET /workshops' => 'pages/workshops.php',

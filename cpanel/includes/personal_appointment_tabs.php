@@ -9,7 +9,7 @@ $tabs = [
     'cancelled' => ['label' => 'لغوشده‌ها', 'tone' => 'cancelled', 'empty' => 'نوبت لغوشده‌ای ندارید.', 'items' => []],
 ];
 
-foreach ($appointments as $row) {
+foreach (appointment_shared_notes_annotate($pdo, $appointments, (string) $user['id']) as $row) {
     $status = (string) $row['status'];
     $starts = strtotime((string) $row['starts_at']);
     if ($status === 'CANCELLED') {
@@ -34,6 +34,9 @@ $appointmentOnlinePayEnabled = $onlinePayEnabled;
     <?php foreach ($tabs as $key => $tab): ?>
       <button type="button" id="personal-tab-<?= e($key) ?>" class="binder-tab<?= $initialTab === $key ? ' is-active' : '' ?>" role="tab" data-binder-tab="<?= e($key) ?>" data-binder-tone="<?= e($tab['tone']) ?>" aria-controls="personal-panel-<?= e($key) ?>" aria-selected="<?= $initialTab === $key ? 'true' : 'false' ?>">
         <?= e($tab['label']) ?> <span class="binder-tab-count"><?= e(to_fa_digits((string) count($tab['items']))) ?></span>
+        <?php if (in_array(true, array_column($tab['items'], '_shared_note_unread'), true)): ?>
+          <?= appointment_shared_note_dot() ?>
+        <?php endif; ?>
       </button>
     <?php endforeach; ?>
   </div>

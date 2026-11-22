@@ -872,6 +872,154 @@ function appointment_shared_notes_list(PDO $pdo, string $appointmentId): array
     return $stmt->fetchAll() ?: [];
 }
 
+function ensure_appointment_shared_unread_schema(PDO $pdo): void
+{
+    static $ready = false;
+    if ($ready) {
+        return;
+    }
+    $pdo->exec("
+      CREATE TABLE IF NOT EXISTS appointment_shared_note_unread (
+        note_id VARCHAR(32) NOT NULL,
+        user_id VARCHAR(32) NOT NULL,
+        PRIMARY KEY (note_id, user_id),
+        INDEX idx_shared_unread_user (user_id, note_id),
+        CONSTRAINT fk_shared_unread_note FOREIGN KEY (note_id)
+          REFERENCES appointment_shared_notes(id) ON DELETE CASCADE
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
+    $ready = true;
+}
+
+function appointment_shared_note_recipients(PDO $pdo, array $row, string $authorRole): array
+{
+    if (!in_array($authorRole, ['PATIENT', 'DOCTOR'], true)) {
+        return [];
+    }
+    $fromPatient = $authorRole === 'PATIENT';
+    $recipientId = $fromPatient ? $row['doctor_user_id'] : $row['patient_id'];
+    $copyEmad = $fromPatient ? " OR LOWER(username) = 'eshahabian'" : '';
+    $stmt = $pdo->prepare("SELECT id, phone FROM users WHERE (id = ?{$copyEmad}) AND COALESCE(is_disabled, 0) = 0");
+    $stmt->execute([$recipientId]);
+    return $stmt->fetchAll(PDO::FETCH_ASSOC);
+}
+
+function appointment_shared_note_queue_sms(PDO $pdo, array $row, string $noteId, string $authorRole, array $recipients): void
+{
+    if ($recipients === []) {
+        return;
+    }
+    require_once __DIR__ . '/outreach.php';
+    $fromPatient = $authorRole === 'PATIENT';
+    $kind = $fromPatient ? 'shared_note_from_patient' : 'shared_note_from_doctor';
+    $body = sms_template_render($pdo, $kind, [
+        'patient' => (string) $row['patient_name'],
+        'doctor' => (string) $row['doctor_name'],
+        'datetime' => format_fa_datetime((string) $row['starts_at']),
+    ]);
+    $phones = [];
+    foreach ($recipients as $recipient) {
+        $phone = sms_iran_mobile((string) $recipient['phone']);
+        if ($phone !== null) {
+            $phones[$phone][] = (string) $recipient['id'];
+        }
+    }
+    foreach ($phones as $phone => $recipientIds) {
+        sms_queue_extended($pdo, $phone, $body, $kind, "shared-note:{$noteId}:{$phone}",
+            null, date('Y-m-d H:i:s', time() + 86400), [
+                'entity' => 'appointment_shared_note',
+                'id' => $noteId,
+                'recipients' => $recipientIds,
+            ]);
+    }
+}
+
+/** Process at most ten historical notes per run of the existing SMS worker. */
+function appointment_shared_notes_backfill_sms(PDO $pdo): void
+{
+    $checkpoint = 'sms_shared_note_backfill_cursor';
+    $cursor = (string) mail_setting_get($pdo, $checkpoint, '');
+    if ($cursor === 'complete' || !sms_connection_ready($pdo)) {
+        return;
+    }
+
+    ensure_appointment_session_schema($pdo);
+    $stmt = $pdo->prepare("
+      SELECT n.id AS note_id, n.author_role, a.starts_at, a.patient_id, dp.user_id AS doctor_user_id,
+             pu.name AS patient_name, du.name AS doctor_name
+      FROM appointment_shared_notes n
+      JOIN appointments a ON a.id = n.appointment_id
+      JOIN doctor_profiles dp ON dp.id = a.doctor_id
+      JOIN users pu ON pu.id = a.patient_id
+      JOIN users du ON du.id = dp.user_id
+      WHERE n.id > ?
+        AND ((n.author_role = 'PATIENT' AND n.author_user_id = a.patient_id)
+          OR (n.author_role = 'DOCTOR' AND n.author_user_id = dp.user_id))
+      ORDER BY n.id
+      LIMIT 10
+    ");
+    $stmt->execute([$cursor]);
+    $notes = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    $pdo->beginTransaction();
+    try {
+        foreach ($notes as $note) {
+            $role = (string) $note['author_role'];
+            $id = (string) $note['note_id'];
+            appointment_shared_note_queue_sms($pdo, $note, $id, $role, appointment_shared_note_recipients($pdo, $note, $role));
+            $cursor = $id;
+        }
+        mail_setting_set($pdo, $checkpoint, count($notes) < 10 ? 'complete' : $cursor);
+        $pdo->commit();
+    } catch (Throwable $exception) {
+        $pdo->rollBack();
+        throw $exception;
+    }
+}
+
+function appointment_shared_notes_open(PDO $pdo, string $appointmentId, string $viewerId): array
+{
+    $notes = appointment_shared_notes_list($pdo, $appointmentId);
+    if ($notes === [] || $viewerId === '') {
+        return $notes;
+    }
+    ensure_appointment_shared_unread_schema($pdo);
+    // Clear only the messages in the rendered snapshot. A concurrent arrival stays unread.
+    foreach (array_chunk(array_column($notes, 'id'), 500) as $ids) {
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $pdo->prepare("DELETE FROM appointment_shared_note_unread WHERE user_id = ? AND note_id IN ({$placeholders})");
+        $stmt->execute([$viewerId, ...$ids]);
+    }
+    return $notes;
+}
+
+function appointment_shared_notes_annotate(PDO $pdo, array $appointments, string $viewerId): array
+{
+    if ($appointments === [] || $viewerId === '') {
+        return $appointments;
+    }
+    ensure_appointment_session_schema($pdo);
+    ensure_appointment_shared_unread_schema($pdo);
+    $stmt = $pdo->prepare("
+      SELECT DISTINCT n.appointment_id
+      FROM appointment_shared_note_unread u
+      JOIN appointment_shared_notes n ON n.id = u.note_id
+      WHERE u.user_id = ?
+    ");
+    $stmt->execute([$viewerId]);
+    $unread = array_fill_keys($stmt->fetchAll(PDO::FETCH_COLUMN), true);
+    foreach ($appointments as &$appointment) {
+        $appointment['_shared_note_unread'] = isset($unread[$appointment['id']]);
+    }
+    unset($appointment);
+    return $appointments;
+}
+
+function appointment_shared_note_dot(): string
+{
+    return '<span role="img" aria-label="یادداشت مشترک خوانده‌نشده" title="یادداشت مشترک خوانده‌نشده" style="display:inline-block;width:.58rem;height:.58rem;border-radius:50%;background:#d31e38;vertical-align:middle;margin-inline:.25rem"></span>';
+}
+
 function appointment_shared_note_add(PDO $pdo, array $user, string $appointmentId, string $body): bool
 {
     $body = trim($body);
@@ -896,8 +1044,31 @@ function appointment_shared_note_add(PDO $pdo, array $user, string $appointmentI
         $authorRole = 'PATIENT';
     }
     $id = function_exists('cuid') ? cuid() : bin2hex(random_bytes(12));
-    $pdo->prepare('INSERT INTO appointment_shared_notes (id, appointment_id, author_user_id, author_role, body) VALUES (?,?,?,?,?)')
-        ->execute([$id, $appointmentId, (string) $user['id'], $authorRole, $body]);
+    $authorId = (string) $user['id'];
+    $recipients = appointment_shared_note_recipients($pdo, $row, $authorRole);
+    ensure_appointment_shared_unread_schema($pdo);
+    if ($recipients !== []) {
+        require_once __DIR__ . '/outreach.php';
+        require_once __DIR__ . '/mail.php';
+        ensure_outreach_schema($pdo);
+        ensure_mail_schema($pdo);
+    }
+    $pdo->beginTransaction();
+    try {
+        $pdo->prepare('INSERT INTO appointment_shared_notes (id, appointment_id, author_user_id, author_role, body) VALUES (?,?,?,?,?)')
+            ->execute([$id, $appointmentId, $authorId, $authorRole, $body]);
+        $unread = $pdo->prepare('INSERT INTO appointment_shared_note_unread (note_id, user_id) VALUES (?,?)');
+        foreach ($recipients as $recipient) {
+            if ($recipient['id'] !== $authorId) {
+                $unread->execute([$id, $recipient['id']]);
+            }
+        }
+        appointment_shared_note_queue_sms($pdo, $row, $id, $authorRole, $recipients);
+        $pdo->commit();
+    } catch (Throwable $exception) {
+        $pdo->rollBack();
+        throw $exception;
+    }
 
     return true;
 }

@@ -3,8 +3,12 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/clinic_excel_reports.php';
 
-$reportPath = '/app/excel-reports';
+$user = require_login();
+$reportPath = '/staff/excel-reports';
+$embeddedReport = ($_GET['embed'] ?? null) === '1';
+$reportQuery = $embeddedReport ? 'embed=1&' : '';
 header('Cache-Control: private, no-store');
+header('X-Robots-Tag: noindex, nofollow');
 if (!clinic_excel_reports_allowed($user)) {
     http_response_code(403);
     header('Content-Type: text/plain; charset=utf-8');
@@ -26,7 +30,7 @@ if (!is_string($type) || !isset($titles[$type])) {
     http_response_code(400);
     exit('نوع گزارش نامعتبر است.');
 }
-$formPath = $reportPath . '?type=' . $type;
+$formPath = $reportPath . '?' . $reportQuery . 'type=' . $type;
 $search = $type === 'patient' && is_string($_GET['q'] ?? null) ? trim($_GET['q']) : '';
 $options = [];
 if ($type === 'doctor') {
@@ -53,8 +57,8 @@ if ($morePatients) {
 $month = jalali_current_month_meta();
 $year = (int) $month['year'];
 $monthNumber = (int) $month['month'];
-$requestedYear = filter_input(INPUT_GET, 'jy', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1300, 'max_range' => 1600]]);
-$requestedMonth = filter_input(INPUT_GET, 'jm', FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 12]]);
+$requestedYear = filter_var($_GET['jy'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1300, 'max_range' => 1600]]);
+$requestedMonth = filter_var($_GET['jm'] ?? null, FILTER_VALIDATE_INT, ['options' => ['min_range' => 1, 'max_range' => 12]]);
 if ($type === 'cash' && $requestedYear && $requestedMonth) {
     $year = $requestedYear;
     $monthNumber = $requestedMonth;
@@ -94,17 +98,33 @@ if ($method === 'POST') {
     }
 }
 
-ob_start();
 ?>
-<h1>خروجی اکسل</h1>
+<!doctype html>
+<html lang="fa" dir="rtl">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>خروجی اکسل</title>
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20261122paid-slot">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/local-font.css')) ?>">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/clinic-excel-dialog.css')) ?>?v=1">
+</head>
+<body class="clinic-excel-form-page">
+<main>
+<?php if (!$embeddedReport): ?>
+  <h1>خروجی اکسل</h1>
+<?php endif; ?>
 <nav class="panel" aria-label="نوع گزارش" style="display:flex;flex-wrap:wrap;gap:.5rem">
   <?php foreach ($titles as $key => $title): ?>
-    <a class="btn <?= $key === $type ? 'btn-primary' : 'btn-outline' ?>" href="<?= e(url($reportPath . '?type=' . $key)) ?>" <?= $key === $type ? 'aria-current="page"' : '' ?>><?= e($title) ?></a>
+    <a class="btn <?= $key === $type ? 'btn-primary' : 'btn-outline' ?>" href="<?= e(url($reportPath . '?' . $reportQuery . 'type=' . $key)) ?>" <?= $key === $type ? 'aria-current="page"' : '' ?>><?= e($title) ?></a>
   <?php endforeach; ?>
 </nav>
 <?php if ($type === 'patient'): ?>
   <form class="panel form-stack" method="get" action="<?= e(url($reportPath)) ?>">
     <input type="hidden" name="type" value="patient">
+    <?php if ($embeddedReport): ?>
+      <input type="hidden" name="embed" value="1">
+    <?php endif; ?>
     <label class="label" for="excel-search">نام مراجعه‌کننده</label>
     <input class="input" id="excel-search" name="q" value="<?= e($search) ?>" required>
     <div><button class="btn btn-outline" type="submit">جست‌وجو</button></div>
@@ -148,5 +168,6 @@ ob_start();
   </form>
   <?= petty_cash_datepicker_assets() ?>
 <?php endif; ?>
-<?php
-staff_app_render('home', 'خروجی اکسل', 'گزارش تنخواه، نوبت‌ها و پرداخت‌ها', (string) ob_get_clean());
+</main>
+</body>
+</html>

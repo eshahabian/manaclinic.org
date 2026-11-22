@@ -15,12 +15,15 @@ if (empty($ctx['ok'])) {
 }
 
 $row = $ctx['row'];
-$notes = appointment_shared_notes_list($pdo, $appointmentId);
+$notes = appointment_shared_notes_open($pdo, $appointmentId, (string) $user['id']);
+$back = ($user['role'] ?? '') === 'ADMIN' && strtolower((string) ($user['username'] ?? '')) === 'eshahabian'
+    ? '/admin/appointments'
+    : '/doctor/appointments';
 $html = appointment_shared_notes_panel_html(
     $row,
     $notes,
     '/doctor/session-note',
-    '/doctor/appointments',
+    $back,
     'DOCTOR'
 );
 render_doctor_page('یادداشت مشترک جلسه', $html);

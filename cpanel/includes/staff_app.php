@@ -2755,6 +2755,9 @@ function staff_app_render(string $active, string $title, string $description, st
   <?php if (!empty($GLOBALS['pageScripts'])): ?>
     <?= $GLOBALS['pageScripts'] ?>
   <?php endif; ?>
+  <?php if (!$locked && $user): ?>
+    <?php require __DIR__ . '/clinic_excel_dialog.php'; ?>
+  <?php endif; ?>
 </body>
 </html>
     <?php

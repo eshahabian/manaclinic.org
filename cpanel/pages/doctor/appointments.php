@@ -57,7 +57,7 @@ if (!$seeAllAppointments) {
 $sql .= ' ORDER BY a.starts_at ASC';
 $stmt = $pdo->prepare($sql);
 $stmt->execute($params);
-$rows = $stmt->fetchAll();
+$rows = appointment_shared_notes_annotate($pdo, $stmt->fetchAll(), (string) $ctx['user']['id']);
 
 $upcoming = [];
 $done = [];
@@ -122,6 +122,7 @@ ob_start();
       aria-selected="<?= $binderInitial === 'upcoming' ? 'true' : 'false' ?>">
       نوبت‌های پیش‌رو
       <span class="binder-tab-count"><?= count($upcomingFiltered) ?></span>
+      <?= in_array(true, array_column($upcomingFiltered, '_shared_note_unread'), true) ? appointment_shared_note_dot() : '' ?>
     </button>
     <button type="button"
       class="binder-tab binder-tab-archive<?= $binderInitial === 'done' ? ' is-active' : '' ?>"
@@ -131,6 +132,7 @@ ob_start();
       aria-selected="<?= $binderInitial === 'done' ? 'true' : 'false' ?>">
       نوبت‌های انجام‌شده
       <span class="binder-tab-count"><?= count($doneFiltered) ?></span>
+      <?= in_array(true, array_column($doneFiltered, '_shared_note_unread'), true) ? appointment_shared_note_dot() : '' ?>
     </button>
     <button type="button"
       class="binder-tab binder-tab-cancelled<?= $binderInitial === 'cancelled' ? ' is-active' : '' ?>"
@@ -140,6 +142,7 @@ ob_start();
       aria-selected="<?= $binderInitial === 'cancelled' ? 'true' : 'false' ?>">
       نوبت‌های لغو شده
       <span class="binder-tab-count"><?= count($cancelledFiltered) ?></span>
+      <?= in_array(true, array_column($cancelledFiltered, '_shared_note_unread'), true) ? appointment_shared_note_dot() : '' ?>
     </button>
   </div>
   <div class="binder-body">

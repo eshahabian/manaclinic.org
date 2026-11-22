@@ -9,6 +9,8 @@ function sms_template_catalog(): array
         'appointment_cancelled'=>['لغو نوبت','مانا کلینیک: نوبت شما در {datetime} لغو شد.'],
         'appointment_payment_reminder'=>['یادآوری پرداخت رزرو موقت','مانا کلینیک: برای {datetime} رزرو موقت دارید. لطفاً برای قطعی شدن نوبت، پرداخت را انجام دهید و با پذیرش هماهنگ کنید.'],
         'appointment_reminder'=>['یادآوری نوبت','مانا کلینیک: یادآوری نوبت {datetime}'],
+        'shared_note_from_patient'=>['یادداشت مشترک از مراجع','مانا کلینیک: {patient} برای نوبت {datetime} یادداشت مشترک گذاشت. برای مشاهده به پنل وارد شوید.'],
+        'shared_note_from_doctor'=>['یادداشت مشترک از درمانگر','مانا کلینیک: {doctor} برای نوبت {datetime} یادداشت مشترک گذاشت. برای مشاهده به پنل وارد شوید.'],
         'workshop_registered'=>['تأیید ثبت‌نام کارگاه','مانا کلینیک: ثبت‌نام کارگاه از {datetime}'],
         'workshop_reminder'=>['یادآوری کارگاه','مانا کلینیک: یادآوری کارگاه {datetime}'],
         'workshop_announcement'=>['معرفی کارگاه','مانا کلینیک: کارگاه جدید از {datetime}'],
@@ -75,6 +77,8 @@ function sms_kind_recipient(string $kind): string
         'therapist_copy'=>'عماد شهابیان (eshahabian)؛ فقط کپی برنامه شیوا گرانمایه‌پور و عطیه گارسچی',
         'workshop_registered'=>'مراجع ثبت‌نام‌شده در همان کارگاه',
         'workshop_reminder'=>'اعضای تأییدشده همان کارگاه',
+        'shared_note_from_patient'=>'درمانگر همان نوبت و عماد شهابیان',
+        'shared_note_from_doctor'=>'مراجعه‌کننده همان نوبت',
         'workshop_announcement'=>'مراجعان قدیمی با انتخاب اطلاع‌رسانی هنگام ساخت کارگاه',
         'workshop_session_reflect'=>'اعضای تأییدشده کارگاه پس از پایان جلسه',
         'workshop_media_added'=>'اعضای تأییدشده همان کارگاه پس از افزودن فایل',
@@ -501,6 +505,28 @@ function sms_job_still_valid(PDO $pdo, array $job): bool
     if (!empty($job['expires_at']) && strtotime($job['expires_at'])<=time())return false;
     $context=json_decode((string)($job['context_json']??''),true);
     if(!is_array($context)||!isset($context['entity']))return true;
+    if ($context['entity'] === 'appointment_shared_note') {
+        require_once __DIR__ . '/appointment_session.php';
+        $stmt = $pdo->prepare("
+          SELECT n.author_role, a.patient_id, dp.user_id AS doctor_user_id
+          FROM appointment_shared_notes n
+          JOIN appointments a ON a.id = n.appointment_id
+          JOIN doctor_profiles dp ON dp.id = a.doctor_id
+          WHERE n.id = ?
+        ");
+        $stmt->execute([(string) ($context['id'] ?? '')]);
+        $note = $stmt->fetch(PDO::FETCH_ASSOC);
+        if (!$note) {
+            return false;
+        }
+        foreach (appointment_shared_note_recipients($pdo, $note, $note['author_role']) as $recipient) {
+            if (in_array((string) $recipient['id'], $context['recipients'] ?? [], true)
+                && sms_iran_mobile((string) $recipient['phone']) === $job['phone']) {
+                return true;
+            }
+        }
+        return false;
+    }
     if($context['entity']==='appointment' || $context['entity']==='appointment_doctor'){
         $stmt=$pdo->prepare('SELECT starts_at,status,doctor_id FROM appointments WHERE id=?');$stmt->execute([$context['id']]);$a=$stmt->fetch();
         if(!$a || $a['starts_at']!==$context['starts_at'] || $a['status']!==$context['status'])return false;
@@ -1018,6 +1044,12 @@ function sms_run_worker(PDO $pdo): void
         sms_queue_doctor_daily_digests($pdo);
         require_once __DIR__ . '/workshop_sms.php';
         workshop_sms_queue_session_reflections($pdo);
+        require_once __DIR__ . '/appointment_session.php';
+        try {
+            appointment_shared_notes_backfill_sms($pdo);
+        } catch (Throwable $exception) {
+            error_log('Shared appointment note SMS backfill failed (error ' . $exception->getCode() . ').');
+        }
     }finally{$pdo->query("SELECT RELEASE_LOCK('mana_sms_collect')");}
     sms_dispatch_pending($pdo);
 }

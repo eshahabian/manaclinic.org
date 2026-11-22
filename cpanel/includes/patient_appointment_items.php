@@ -63,6 +63,7 @@ $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/
               <?php endif; ?>
               <div style="margin-top:.45rem;font-size:.9rem;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center">
                 <?= e(format_workshop_datetime_fa((string) $a['starts_at'])) ?>
+                <?= !empty($a['_shared_note_unread']) ? appointment_shared_note_dot() : '' ?>
                 <?= $modeBadge ?>
                 <?= function_exists('appointment_room_badge_html') ? appointment_room_badge_html($a) : '' ?>
               </div>

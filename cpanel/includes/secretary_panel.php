@@ -22,7 +22,7 @@ function secretary_nav(): array
         ['href' => '/secretary/therapists', 'label' => 'درمانگرها'],
         ['href' => '/secretary/complaints', 'label' => 'انتقادات و پیشنهادات'],
         ['href' => '/secretary/petty-cash', 'label' => 'تنخواه'],
-        ['href' => '/app/excel-reports', 'label' => 'خروجی اکسل'],
+        ['href' => '/staff/excel-reports', 'label' => 'خروجی اکسل'],
         ['href' => '/admin/rooms', 'label' => 'اتاق‌ها'],
         ['href' => '/secretary/patients', 'label' => 'مراجعه‌کنندگان'],
     ];
@@ -277,7 +277,7 @@ function render_secretary_page(string $title, string $innerHtml): void
               $href = (string) ($item['href'] ?? '');
               $active = $href !== '' && str_contains($currentPath, $href);
           ?>
-            <a class="<?= $active ? 'is-active' : '' ?>" href="<?= e(url($href)) ?>">
+            <a class="<?= $active ? 'is-active' : '' ?>" href="<?= e(url($href)) ?>" <?= $href === '/staff/excel-reports' ? 'data-excel-report="menu" aria-haspopup="dialog"' : '' ?>>
               <span class="side-nav-link-main">
                 <?php if (!empty($item['icon'])): ?>
                   <img class="side-nav-call-logo" src="<?= e((string) $item['icon']) ?>" alt="" width="22" height="22">

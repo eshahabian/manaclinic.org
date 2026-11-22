@@ -30,7 +30,7 @@ $apptStmt = $pdo->prepare("
   ORDER BY a.starts_at ASC
 ");
 $apptStmt->execute([$doctorId]);
-$allAppointments = $apptStmt->fetchAll();
+$allAppointments = appointment_shared_notes_annotate($pdo, $apptStmt->fetchAll(), (string) $ctx['user']['id']);
 
 $now = time();
 $upcomingAppointments = [];
@@ -83,6 +83,10 @@ $ymdRenderDash = static function (array $list): void {
         }
         echo '</div><div class="doctor-dash-row-actions">';
         echo '<span class="badge">' . e(appointment_row_status_label($a)) . '</span>';
+        if (!empty($a['_shared_note_unread'])) {
+            echo '<a class="btn btn-outline btn-sm" href="' . e(url('/doctor/session-note?appointment=' . rawurlencode((string) $a['id']))) . '">'
+                . appointment_shared_note_dot() . 'یادداشت مشترک</a>';
+        }
         if (!empty($a['patient_id'])) {
             echo '<a class="btn btn-outline btn-sm" href="' . e(url('/doctor/patients/' . $a['patient_id'])) . '">پرونده</a>';
         }

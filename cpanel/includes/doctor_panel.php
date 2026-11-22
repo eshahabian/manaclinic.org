@@ -148,7 +148,7 @@ function doctor_nav(): array
     }
     require_once __DIR__ . '/clinic_excel_reports.php';
     if (clinic_excel_reports_allowed($deskUser)) {
-        $tail[] = ['type' => 'link', 'href' => '/app/excel-reports', 'label' => 'خروجی اکسل'];
+        $tail[] = ['type' => 'link', 'href' => '/staff/excel-reports', 'label' => 'خروجی اکسل'];
     }
     if (function_exists('patient_fee_can_edit') && patient_fee_can_edit($deskUser) && (string) ($deskUser['role'] ?? '') === 'DOCTOR') {
         $tail[] = ['type' => 'link', 'href' => '/secretary/patients', 'label' => 'مراجعه‌کنندگان'];
@@ -439,7 +439,7 @@ function render_doctor_page(string $title, string $innerHtml): void
                 $href = (string) $item['href'];
                 $active = str_contains($currentPath, $href);
               ?>
-              <a class="<?= $active ? 'is-active' : '' ?>" href="<?= e(url($href)) ?>">
+              <a class="<?= $active ? 'is-active' : '' ?>" href="<?= e(url($href)) ?>" <?= $href === '/staff/excel-reports' ? 'data-excel-report="menu" aria-haspopup="dialog"' : '' ?>>
                 <span class="side-nav-link-main">
                   <?php if (!empty($item['icon'])): ?>
                     <img class="side-nav-call-logo" src="<?= e((string) $item['icon']) ?>" alt="" width="22" height="22">

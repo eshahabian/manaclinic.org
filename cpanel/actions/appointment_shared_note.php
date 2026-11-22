@@ -3,7 +3,7 @@ declare(strict_types=1);
 
 require_once __DIR__ . '/../includes/appointment_session.php';
 
-$user = current_user();
+$user = require_login();
 if (!$user || !in_array(($user['role'] ?? ''), ['PATIENT', 'DOCTOR', 'ADMIN'], true)) {
     flash_set('error', 'برای ثبت یادداشت وارد شوید.');
     redirect('/login');
@@ -40,7 +40,13 @@ if (empty($ctx['ok'])) {
     redirect($fallbackList);
 }
 
-if (!appointment_shared_note_add($pdo, $user, $appointmentId, $body)) {
+try {
+    $saved = appointment_shared_note_add($pdo, $user, $appointmentId, $body);
+} catch (Throwable $exception) {
+    error_log('Shared appointment note could not be saved (error ' . $exception->getCode() . ').');
+    $saved = false;
+}
+if (!$saved) {
     flash_set('error', 'متن یادداشت خالی است یا ذخیره نشد.');
     redirect($defaultBack);
 }

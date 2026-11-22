@@ -63,6 +63,7 @@ if (!$appointmentList) {
           <?php endif; ?>
           <div style="margin-top:.35rem;font-size:.9rem;display:flex;flex-wrap:wrap;gap:.4rem;align-items:center">
             <?= e(format_fa_datetime((string) ($a['starts_at'] ?? ''))) ?>
+            <?= !empty($a['_shared_note_unread']) ? appointment_shared_note_dot() : '' ?>
             <?php if (!empty($time['time_fa'])): ?>
               · ساعت <?= e((string) $time['time_fa']) ?>
             <?php endif; ?>
