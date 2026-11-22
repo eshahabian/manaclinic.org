@@ -24,7 +24,6 @@ $appointmentDoneView = !empty($appointmentDoneView);
         $canConfirmPay = function_exists('appointment_staff_can_mark_paid')
             ? appointment_staff_can_mark_paid($a)
             : appointment_payment_can_upload_receipt($a);
-        $awaitingApproval = appointment_awaiting_secretary_approval($a);
         $openHold = function_exists('appointment_is_open_hold') && appointment_is_open_hold($a);
         $displayStatus = appointment_row_status_label($a);
         $modeId = 'mode-' . ($appointmentCardScope ?? '') . (string) ($a['id'] ?? '');
@@ -115,12 +114,10 @@ $appointmentDoneView = !empty($appointmentDoneView);
         <?php if ($oneEdit): ?></div></details><?php endif; ?>
         <?php endif; ?>
         <div class="appt-card-actions">
-          <?php if (!$appointmentDoneView && $awaitingApproval): ?>
-            <?= appointment_approval_actions_html($a, $deskNext) ?>
-          <?php elseif (!$appointmentDoneView && $openHold && function_exists('appointment_hold_reject_form_html')): ?>
+          <?php if (!$appointmentDoneView && $openHold && function_exists('appointment_hold_reject_form_html')): ?>
             <?= appointment_hold_reject_form_html($a, $deskNext) ?>
           <?php endif; ?>
-          <?= staff_receipt_view_html($a['payment_id'] ?? null, $a['receipt_path'] ?? null, true, $receiptNext, !$appointmentDoneView && !$canConfirmPay && (string) ($a['pay_status'] ?? '') !== 'PAID') ?>
+          <?= staff_receipt_view_html($a['payment_id'] ?? null, $a['receipt_path'] ?? null, !$canConfirmPay, $receiptNext, !$appointmentDoneView && !$canConfirmPay && (string) ($a['pay_status'] ?? '') !== 'PAID') ?>
           <?php if (appointment_staff_can_record_settled_usd($a)): ?>
             <form method="post" action="<?= e(url('/secretary/appointments')) ?>">
               <?= csrf_field() ?>

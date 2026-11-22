@@ -2,10 +2,9 @@
 declare(strict_types=1);
 
 $now = time();
-$weekEnd = appointment_upcoming_week_end($now);
 $tabs = [
-    'appts' => ['label' => 'نوبت‌های پیش‌رو', 'tone' => 'appts', 'empty' => 'در هفت روز پیش رو نوبتی ندارید.', 'items' => []],
-    'reserved' => ['label' => 'نوبت‌های رزرو شده', 'tone' => 'reservations', 'empty' => 'برای آینده نوبت رزروی ندارید.', 'items' => []],
+    'appts' => ['label' => 'نوبت‌های پیش‌رو', 'tone' => 'appts', 'empty' => 'نوبت قطعی برای آینده ندارید.', 'items' => []],
+    'reserved' => ['label' => 'لیست رزرو', 'tone' => 'reservations', 'empty' => 'رزرو موقت برای آینده ندارید.', 'items' => []],
     'done' => ['label' => 'نوبت‌های گذشته', 'tone' => 'archive', 'empty' => 'نوبت گذشته‌ای ندارید.', 'items' => []],
     'cancelled' => ['label' => 'لغوشده‌ها', 'tone' => 'cancelled', 'empty' => 'نوبت لغوشده‌ای ندارید.', 'items' => []],
 ];
@@ -17,11 +16,10 @@ foreach ($appointments as $row) {
         $tabs['cancelled']['items'][] = $row;
     } elseif ($status === 'COMPLETED' || $starts < $now) {
         $tabs['done']['items'][] = $row;
+    } elseif ($status === 'CONFIRMED') {
+        $tabs['appts']['items'][] = $row;
     } else {
         $tabs['reserved']['items'][] = $row;
-        if ($starts < $weekEnd) {
-            $tabs['appts']['items'][] = $row;
-        }
     }
 }
 $tabs['appts']['items'] = array_reverse($tabs['appts']['items']);
@@ -44,7 +42,7 @@ $appointmentOnlinePayEnabled = $onlinePayEnabled;
       <section id="personal-panel-<?= e($key) ?>" class="binder-panel<?= $initialTab === $key ? ' is-active' : '' ?>" data-binder-panel="<?= e($key) ?>" role="tabpanel" aria-labelledby="personal-tab-<?= e($key) ?>"<?= $initialTab === $key ? '' : ' hidden' ?>>
         <?php if ($tab['items'] === []): ?>
           <p class="muted binder-empty"><?= e($tab['empty']) ?></p>
-        <?php elseif ($key === 'reserved'): ?>
+        <?php elseif (in_array($key, ['appts', 'reserved'], true)): ?>
           <?php foreach (group_appointments_by_jalali_month($tab['items'], false)['months'] as $month): ?>
             <?php if ($month['items'] === []) { continue; } ?>
             <h2 class="binder-sub"><?= e($month['label']) ?></h2>

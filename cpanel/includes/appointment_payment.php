@@ -931,7 +931,7 @@ function appointment_staff_mark_paid_form_html(array $row, string $next, string 
         <input type="file" name="receipt" accept="image/jpeg,image/png,image/webp,application/pdf">
       </label>
       <?php endif; ?>
-      <button type="submit" class="btn btn-primary btn-sm" name="pay_choice" value="paid" onclick="<?= !$receiptRequired ? 'return confirm(\'پرداخت شده ثبت شود و این وقت رزرو گردد؟\');' : 'var f=this.form.querySelector(&quot;input[name=receipt]&quot;); if(!f||!f.value){ alert(&quot;برای پرداخت شده، فیش بانکی را بارگذاری کنید.&quot;); return false; } return confirm(&quot;پرداخت شده ثبت شود و این وقت رزرو گردد؟&quot;);' ?>">پرداخت شد</button>
+      <button type="submit" class="btn btn-primary btn-sm" name="pay_choice" value="paid"<?= $receiptRequired ? ' onclick="var f=this.form.querySelector(&quot;input[name=receipt]&quot;); if(!f||!f.value){ alert(&quot;فیش بانکی را در همین فرم انتخاب کنید.&quot;); return false; }"' : '' ?>>پرداخت شد</button>
       <?php if (empty($row['scheduled_hold'])): ?>
       <button type="submit" class="btn btn-outline btn-sm" name="pay_choice" value="unpaid" onclick="return confirm(<?= json_encode(($isUsd || (function_exists('patient_wallet_paused') && patient_wallet_paused())) ? 'پرداخت نشده ثبت شود و این وقت رزرو گردد؟' : ('پرداخت نشده: ' . format_price($fee) . ' حق مشاوره از کیف پول مراجع کم شود؟ موجودی می‌تواند منفی شود و وقت رزرو می‌گردد.'), JSON_UNESCAPED_UNICODE) ?>);">پرداخت نشد</button>
       <?php endif; ?>

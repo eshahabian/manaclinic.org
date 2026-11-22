@@ -3719,6 +3719,15 @@ html[data-theme="dark"] .appt-search-bar {
   color: #9f1239;
   border-color: #fecdd3;
 }
+.sec-week-hour.is-booked.is-paid {
+  background: #166534;
+  border-color: #14532d;
+}
+.sec-week-hour.is-booked.is-paid.is-continuation {
+  background: #dcfce7;
+  color: #14532d;
+  border-color: #86efac;
+}
 .sec-week-room-form {
   margin: 0 0 .75rem;
   padding-bottom: .75rem;
@@ -3836,6 +3845,14 @@ html[data-theme="dark"] .sec-room-select > select.input option {
   }
   .sec-week-hour.is-booked.is-continuation:hover {
     background: #ffe4e6;
+    box-shadow: none;
+  }
+  .sec-week-hour.is-booked.is-paid:hover {
+    background: #14532d;
+    box-shadow: 0 6px 18px rgba(20, 83, 45, .28);
+  }
+  .sec-week-hour.is-booked.is-paid.is-continuation:hover {
+    background: #bbf7d0;
     box-shadow: none;
   }
   .sec-week-hour.is-awaiting:hover {
@@ -4006,6 +4023,11 @@ html[data-theme="dark"] .sec-week-hour.is-booked.is-continuation {
   background: rgba(225, 29, 72, .18);
   color: #fecdd3;
   border-color: rgba(225, 29, 72, .45);
+}
+html[data-theme="dark"] .sec-week-hour.is-booked.is-paid.is-continuation {
+  background: #153e26;
+  color: #bbf7d0;
+  border-color: #37804f;
 }
 html[data-theme="dark"] .sec-week-day {
   background: rgba(255, 255, 255, .03);

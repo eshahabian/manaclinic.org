@@ -265,6 +265,12 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                   $continuation = !empty($slot['continuation']);
                   $time = (string) ($slot['time'] ?? '');
                   $date = (string) ($day['date'] ?? '');
+                  if ($isBooked && appointment_is_open_hold($booking)) {
+                      ?>
+                      <span class="sec-week-hour is-booked is-awaiting" aria-disabled="true" title="این زمان در لیست رزرو نگه داشته شده است"><?= e((string) ($slot['label'] ?? $time)) ?></span>
+                      <?php
+                      continue;
+                  }
                   if ($isBooked) {
                       $pay = function_exists('appointment_pay_status_display')
                           ? appointment_pay_status_display($booking)
@@ -278,12 +284,6 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                           $status = '';
                       }
                       $amount = appointment_payment_amount_label($booking);
-                      $canConfirmPay = function_exists('appointment_staff_can_mark_paid')
-                          ? appointment_staff_can_mark_paid($booking)
-                          : (function_exists('appointment_payment_can_upload_receipt') && appointment_payment_can_upload_receipt($booking));
-                      $awaitingApproval = function_exists('appointment_awaiting_secretary_approval')
-                          && appointment_awaiting_secretary_approval($booking);
-                      $openHold = function_exists('appointment_is_open_hold') && appointment_is_open_hold($booking);
                       $hasReceipt = trim((string) ($booking['receipt_path'] ?? '')) !== '';
                       $roomNo = (int) ($booking['room_no'] ?? 0);
                       $onlineSession = function_exists('appointment_is_online_mode') && appointment_is_online_mode($booking);
@@ -304,7 +304,7 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                       <div class="sec-week-hour-wrap">
                         <button
                           type="button"
-                          class="sec-week-hour is-booked<?= $continuation ? ' is-continuation' : '' ?><?= ($openHold || $awaitingApproval) ? ' is-awaiting' : '' ?>"
+                          class="sec-week-hour is-booked<?= ($booking['pay_status'] ?? '') === 'PAID' ? ' is-paid' : '' ?><?= $continuation ? ' is-continuation' : '' ?>"
                           data-booked="1"
                           data-patient="<?= e((string) ($booking['patient_name'] ?? '')) ?>"
                           data-phone="<?= e((string) ($booking['phone'] ?? '')) ?>"
@@ -326,7 +326,6 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                         <div class="sec-week-slot-live" hidden>
                           <div class="sec-week-shadow-tools">
                             <?php
-                              $nextHold = $deskNext . (str_contains($deskNext, '?') ? '&' : '?') . 'tab=reservations&doctor_id=' . rawurlencode($doctorId);
                               $roomNext = $deskNext . (str_contains($deskNext, '?') ? '&' : '?') . 'tab=upcoming&doctor_id=' . rawurlencode($doctorId);
                               $stayNext = secretary_appointment_stay_next($deskNext, null, $doctorId, (string) ($booking['id'] ?? ''));
                             ?>
@@ -385,11 +384,6 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                                 <button type="submit" class="btn btn-primary btn-sm">ثبت اتاق</button>
                               </form>
                             <?php endif; ?>
-                            <?php if (!$slotDone && $awaitingApproval && function_exists('appointment_approval_actions_html')): ?>
-                              <?= appointment_approval_actions_html($booking, $nextHold) ?>
-                            <?php elseif (!$slotDone && $openHold && function_exists('appointment_hold_reject_form_html')): ?>
-                              <?= appointment_hold_reject_form_html($booking, $nextHold) ?>
-                            <?php endif; ?>
                             <?= staff_receipt_view_html(
                                 isset($booking['payment_id']) ? (string) $booking['payment_id'] : null,
                                 $hasReceipt ? (string) $booking['receipt_path'] : null,
@@ -397,9 +391,6 @@ function secretary_week_grid_html(array $week, string $doctorId, string $bookBas
                                 $stayNext,
                                 !$slotDone && (string) ($booking['pay_status'] ?? '') !== 'PAID'
                             ) ?>
-                            <?php if (!$slotDone && $canConfirmPay && function_exists('appointment_staff_mark_paid_form_html')): ?>
-                              <?= appointment_staff_mark_paid_form_html($booking, $nextHold) ?>
-                            <?php endif; ?>
                           </div>
                         </div>
                       </div>

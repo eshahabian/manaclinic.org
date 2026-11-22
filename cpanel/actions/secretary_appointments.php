@@ -151,6 +151,7 @@ if ($action === 'confirm_payment') {
             $result = staff_confirm_appointment_payment($pdo, $appointmentId, $user, $_FILES['receipt'] ?? [], (string) post('note'), $roomNo);
             $flash = 'پرداخت «' . (string) $result['patient_name'] . '» ثبت شد و وقت رزرو گردید.';
         }
+        $next = preg_replace('/([?&]tab=)(?:reservations|reserved)(?=&|#|$)/', '${1}upcoming', $next) ?? $next;
         if (!str_contains($next, 'tab=')) {
             $next .= (str_contains($next, '?') ? '&' : '?') . 'tab=upcoming';
         }
