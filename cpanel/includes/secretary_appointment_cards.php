@@ -120,7 +120,7 @@ $appointmentDoneView = !empty($appointmentDoneView);
           <?php elseif (!$appointmentDoneView && $openHold && function_exists('appointment_hold_reject_form_html')): ?>
             <?= appointment_hold_reject_form_html($a, $deskNext) ?>
           <?php endif; ?>
-          <?= staff_receipt_view_html($a['payment_id'] ?? null, $a['receipt_path'] ?? null, true, $receiptNext, !$appointmentDoneView && (string) ($a['pay_status'] ?? '') !== 'PAID') ?>
+          <?= staff_receipt_view_html($a['payment_id'] ?? null, $a['receipt_path'] ?? null, true, $receiptNext, !$appointmentDoneView && !$canConfirmPay && (string) ($a['pay_status'] ?? '') !== 'PAID') ?>
           <?php if (appointment_staff_can_record_settled_usd($a)): ?>
             <form method="post" action="<?= e(url('/secretary/appointments')) ?>">
               <?= csrf_field() ?>

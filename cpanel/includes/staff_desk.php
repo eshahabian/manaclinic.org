@@ -1422,7 +1422,7 @@ function staff_receipt_view_html(?string $paymentId, ?string $receiptPath, bool 
         <?php
     } elseif ($canUpload && !$receiptPath) {
         ?>
-        <span class="muted" style="font-size:.8rem">بعد از بارگذاری فیش، دکمه تأیید فیش را بزنید تا وقت ثبت شود.</span>
+        <span class="muted" style="font-size:.8rem"><?= $canConfirm ? 'بعد از بارگذاری فیش، دکمه تأیید فیش را بزنید.' : 'بعد از بارگذاری فیش، پرداخت را از فرم «پرداخت شد» تأیید کنید.' ?></span>
         <?php
     }
     return trim((string) ob_get_clean());

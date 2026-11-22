@@ -162,10 +162,10 @@ ob_start();
 })();
 </script>
 <?php
-$content = ob_get_clean();
+$appointmentsHtml = ob_get_clean();
 if (is_admin_user($user)) {
     require_once __DIR__ . '/../../includes/admin_panel.php';
-    render_admin_page('نوبت‌های من', $content);
+    render_admin_page('نوبت‌های من', $appointmentsHtml);
 } else {
-    render_patient_page('نوبت‌های من', $content);
+    render_patient_page('نوبت‌های من', $appointmentsHtml);
 }

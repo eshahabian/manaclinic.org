@@ -149,7 +149,7 @@ function staff_confirm_appointment_payment(
                     ->execute([$relative, 'PAID', 'SECRETARY', $staffUserId, $paymentId]);
             }
         } else {
-            $pdo->prepare('UPDATE payments SET status=?, ref_id=COALESCE(NULLIF(ref_id,\'\'),\'SECRETARY\'), recorded_by_user_id=? WHERE id=?')
+            $pdo->prepare("UPDATE payments SET status=?, ref_id='SECRETARY', recorded_by_user_id=? WHERE id=?")
                 ->execute(['PAID', $staffUserId, $paymentId]);
         }
         user_referral_stamp_payment($pdo, $paymentId, (string) ($row['patient_user_id'] ?? ''), (int) ($row['amount'] ?? 0));
@@ -732,6 +732,9 @@ function staff_confirm_receipt_payment(PDO $pdo, string $paymentId, array $actor
     }
 
     $appointmentId = (string) $row['id'];
+    if (appointment_staff_can_mark_paid($row)) {
+        return staff_confirm_appointment_payment($pdo, $appointmentId, $actor);
+    }
     $staffUserId = (string) ($actor['id'] ?? '');
     $amount = (int) ($row['amount'] ?? 0);
     $pdo->prepare("UPDATE payments SET status='PAID', ref_id='SECRETARY', recorded_by_user_id=? WHERE id=? AND status<>'PAID'")
@@ -894,9 +897,12 @@ function appointment_staff_mark_paid_form_html(array $row, string $next, string 
         $fee = (int) ($row['session_price'] ?? 0);
     }
     $isUsd = isset($row['amount_usd']);
-    $receiptRequired = !$isUsd && (!function_exists('receipt_upload_paused') || !receipt_upload_paused());
+    $receiptRequired = !$isUsd
+        && ($row['pay_status'] ?? '') !== 'PAID'
+        && trim((string) ($row['receipt_path'] ?? '')) === ''
+        && (!function_exists('receipt_upload_paused') || !receipt_upload_paused());
     $online = function_exists('appointment_is_online_mode') && appointment_is_online_mode($row);
-    if (!function_exists('secretary_room_picker_markup') && is_file(__DIR__ . '/secretary_week_grid.php')) {
+    if (!function_exists('secretary_room_choice_list')) {
         require_once __DIR__ . '/secretary_week_grid.php';
     }
     ob_start();
@@ -906,10 +912,15 @@ function appointment_staff_mark_paid_form_html(array $row, string $next, string 
       <input type="hidden" name="action" value="confirm_payment">
       <input type="hidden" name="appointment_id" value="<?= e($id) ?>">
       <input type="hidden" name="next" value="<?= e($next) ?>">
-      <div style="min-width:12rem;margin:0;flex:1 1 12rem">
-        <span class="label" style="font-size:.75rem">اتاق جلسه<?= $online ? ' (اختیاری)' : '' ?></span>
-        <?= function_exists('secretary_room_picker_markup') ? secretary_room_picker_markup((string) ($row['room_no'] ?? '')) : '' ?>
-      </div>
+      <label style="min-width:12rem;margin:0;flex:1 1 12rem">
+        <span class="label" style="font-size:.75rem">اتاق جلسه<?= $online ? ' (اختیاری)' : ' (الزامی)' ?></span>
+        <select class="input" name="room_no"<?= $online ? '' : ' required' ?>>
+          <option value="">انتخاب اتاق</option>
+          <?php foreach (secretary_room_choice_list() as $choice): ?>
+            <option value="<?= e($choice['value']) ?>"<?= (string) ($row['room_no'] ?? '') === $choice['value'] ? ' selected' : '' ?>><?= e($choice['label']) ?></option>
+          <?php endforeach; ?>
+        </select>
+      </label>
       <label style="flex:1;min-width:12rem;margin:0">
         <span class="label" style="font-size:.75rem">یادداشت منشی</span>
         <textarea class="input" name="note" rows="2" placeholder="مثلاً کارت‌به‌کارت شد، یا پرداخت نقدی در کلینیک"><?= e(trim((string) ($row['staff_payment_note'] ?? ''))) ?></textarea>
