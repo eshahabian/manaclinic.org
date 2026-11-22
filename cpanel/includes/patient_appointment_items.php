@@ -102,7 +102,7 @@ $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/
                   title="<?= $manaActive ? 'درخواست تماس برای درمانگر' : 'از ۱۵ دقیقه قبل از شروع جلسه فعال می‌شود' ?>"
                 >تماس مانا</button>
               <?php endif; ?>
-              <a class="btn btn-outline btn-sm" href="<?= e($noteUrl) ?>">یادداشت جلسه</a>
+              <a class="btn btn-outline btn-sm" href="<?= e($noteUrl) ?>"><?= !empty($a['_shared_note_unread']) ? appointment_shared_note_dot() : '' ?> یادداشت جلسه</a>
               <?php if ($canUploadReceipt): ?>
                 <label class="btn btn-primary btn-sm staff-receipt-pick">
                   <?= $awaitingReview ? 'تعویض فیش' : 'آپلود فیش پرداخت' ?>
@@ -146,7 +146,7 @@ $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/
                   title="<?= $manaActive ? 'درخواست تماس برای درمانگر' : 'از ۱۵ دقیقه قبل از شروع جلسه فعال می‌شود' ?>"
                 >تماس مانا</button>
               <?php endif; ?>
-              <a class="btn btn-outline btn-sm" href="<?= e($noteUrl) ?>">یادداشت جلسه</a>
+              <a class="btn btn-outline btn-sm" href="<?= e($noteUrl) ?>"><?= !empty($a['_shared_note_unread']) ? appointment_shared_note_dot() : '' ?> یادداشت جلسه</a>
             </div>
           </div>
           <span class="badge"><?= e(function_exists('appointment_row_status_label') ? appointment_row_status_label($a) : appointment_status_label((string) $a['status'])) ?></span>

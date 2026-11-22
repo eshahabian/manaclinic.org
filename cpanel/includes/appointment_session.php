@@ -977,8 +977,9 @@ function appointment_shared_notes_backfill_sms(PDO $pdo): void
     }
 }
 
-function appointment_shared_notes_open(PDO $pdo, string $appointmentId, string $viewerId): array
+function appointment_shared_notes_open(PDO $pdo, string $appointmentId, string $viewerId, ?bool &$hadUnread = null): array
 {
+    $hadUnread = false;
     $notes = appointment_shared_notes_list($pdo, $appointmentId);
     if ($notes === [] || $viewerId === '') {
         return $notes;
@@ -989,6 +990,7 @@ function appointment_shared_notes_open(PDO $pdo, string $appointmentId, string $
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
         $stmt = $pdo->prepare("DELETE FROM appointment_shared_note_unread WHERE user_id = ? AND note_id IN ({$placeholders})");
         $stmt->execute([$viewerId, ...$ids]);
+        $hadUnread = $hadUnread || $stmt->rowCount() > 0;
     }
     return $notes;
 }
@@ -1110,7 +1112,8 @@ function appointment_shared_notes_panel_html(
     array $notes,
     string $postUrl,
     string $backUrl,
-    string $viewerRole
+    string $viewerRole,
+    bool $hadUnread = false
 ): string {
     $when = function_exists('format_fa_datetime')
         ? format_fa_datetime((string) ($appointment['starts_at'] ?? ''))
@@ -1123,6 +1126,7 @@ function appointment_shared_notes_panel_html(
     <div class="stack shared-note-page">
       <div class="row-between" style="gap:.75rem;flex-wrap:wrap;align-items:flex-start">
         <div>
+          <?= $hadUnread ? appointment_shared_note_dot() : '' ?>
           <h1 style="margin:0">یادداشت مشترک جلسه</h1>
           <p class="muted" style="margin:.35rem 0 0;font-size:.9rem;line-height:1.7">
             خصوصی بین شما و <?= e($peer) ?> · <?= e($when) ?>
@@ -1130,6 +1134,13 @@ function appointment_shared_notes_panel_html(
           </p>
         </div>
         <a class="btn btn-outline btn-sm" href="<?= e(url($backUrl)) ?>">بازگشت</a>
+        <?php if ($notes): ?>
+          <form method="post" action="<?= e(url($postUrl)) ?>">
+            <?= csrf_field() ?>
+            <input type="hidden" name="appointment_id" value="<?= e((string) $appointment['id']) ?>">
+            <button class="btn btn-outline btn-sm" type="submit" name="action" value="mark_unread">علامت‌گذاری به‌عنوان خوانده‌نشده</button>
+          </form>
+        <?php endif; ?>
       </div>
 
       <div class="panel stack shared-note-thread">

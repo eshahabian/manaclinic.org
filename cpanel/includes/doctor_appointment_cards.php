@@ -89,7 +89,7 @@ if (!$appointmentList) {
           <a class="btn btn-outline btn-sm" href="<?= e($chartSessionsUrl) ?>">یادداشت بالینی جلسه</a>
         <?php endif; ?>
         <?php if ($sharedNoteUrl !== ''): ?>
-          <a class="btn btn-outline btn-sm" href="<?= e($sharedNoteUrl) ?>">یادداشت مشترک</a>
+          <a class="btn btn-outline btn-sm" href="<?= e($sharedNoteUrl) ?>"><?= !empty($a['_shared_note_unread']) ? appointment_shared_note_dot() : '' ?> یادداشت مشترک</a>
         <?php endif; ?>
         <?php if ($showManaStart && $patientId !== '' && function_exists('video_call_direct_url')): ?>
           <a class="btn btn-primary btn-sm" href="<?= e(video_call_direct_url($patientId, 'video')) ?>">شروع تماس مانا</a>

@@ -14,12 +14,13 @@ if (empty($ctx['ok']) || empty($ctx['row']['_viewer_is_client'])) {
 }
 
 $row = $ctx['row'];
-$notes = appointment_shared_notes_open($pdo, $appointmentId, (string) $user['id']);
+$notes = appointment_shared_notes_open($pdo, $appointmentId, (string) $user['id'], $hadUnread);
 $html = appointment_shared_notes_panel_html(
     $row,
     $notes,
     '/doctor/therapy-note',
     '/doctor/therapy',
-    'PATIENT'
+    'PATIENT',
+    $hadUnread
 );
 render_doctor_page('یادداشت مشترک جلسه', $html);

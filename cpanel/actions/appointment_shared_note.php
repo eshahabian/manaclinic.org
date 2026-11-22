@@ -40,6 +40,22 @@ if (empty($ctx['ok'])) {
     redirect($fallbackList);
 }
 
+if (post('action') === 'mark_unread') {
+    ensure_appointment_shared_unread_schema($pdo);
+    $viewerId = (string) $user['id'];
+    $stmt = $pdo->prepare("
+      INSERT IGNORE INTO appointment_shared_note_unread (note_id, user_id)
+      SELECT id, ? FROM appointment_shared_notes
+      WHERE appointment_id = ? AND author_user_id <> ?
+      ORDER BY created_at DESC, id DESC LIMIT 1
+    ");
+    $stmt->execute([$viewerId, $appointmentId, $viewerId]);
+    if (!$isClientViewer && $role === 'ADMIN' && strcasecmp((string) ($user['username'] ?? ''), 'eshahabian') === 0) {
+        redirect('/admin/appointments');
+    }
+    redirect($fallbackList);
+}
+
 try {
     $saved = appointment_shared_note_add($pdo, $user, $appointmentId, $body);
 } catch (Throwable $exception) {
