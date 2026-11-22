@@ -42,6 +42,7 @@ function admin_nav(): array {
         ['href' => '/admin', 'label' => 'خلاصه'],
     ];
     if ($user && strcasecmp(trim((string) ($user['username'] ?? '')), 'eshahabian') === 0) {
+        $nav[] = ['href' => '/app/excel-reports', 'label' => 'خروجی اکسل'];
         $nav[] = ['href' => '/dashboard/appointments', 'label' => 'نوبت‌های من'];
         $nav[] = ['href' => '/dashboard/path', 'label' => 'اتاق ذهن'];
         if (!function_exists('patient_wallet_paused') || !patient_wallet_paused()) {
@@ -161,7 +162,7 @@ function admin_emad_grouped_nav(array $nav): array
 {
     $sections = [
         'اصلی' => ['/admin', '/dashboard/appointments', '/dashboard/path', '/dashboard/wallet', '/doctor/profile', '/change-password'],
-        'نوبت‌ها و مراجعه‌کنندگان' => ['/admin/appointments', '/admin/consult-requests', '/admin/outreach', '/admin/rooms'],
+        'نوبت‌ها و مراجعه‌کنندگان' => ['/admin/appointments', '/app/excel-reports', '/admin/consult-requests', '/admin/outreach', '/admin/rooms'],
         'درمانگرها' => ['/admin/doctors', '/secretary/therapists', '/doctor/appointments', '/doctor/availability', '/doctor/patients'],
         'منشی‌ها' => ['/secretary/messages', '/admin/staff-board', '/admin/staff-hours', '/admin/secretary-tasks'],
         'ارتباطات و پیام‌ها' => ['/video-call', '/admin/staff-messages', '/doctor/staff-messages', '/admin/secretary-messages', '/doctor/notifications', '/admin/feedback'],

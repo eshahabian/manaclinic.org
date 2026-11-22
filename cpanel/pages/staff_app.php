@@ -12,6 +12,11 @@ $role = (string) ($user['role'] ?? '');
 $canManageApp = $role === 'SECRETARY' || staff_app_is_eshahabian($user);
 $name = trim((string) ($user['name'] ?? ''));
 
+if ($path === '/app/excel-reports') {
+    require __DIR__ . '/clinic_excel_reports.php';
+    exit;
+}
+
 // Check every app route before any data is read or any POST action runs.
 if (!staff_app_path_allowed($user, $path, $method)) {
     http_response_code(403);
@@ -636,6 +641,13 @@ if ($section === 'home') {
         <em>Petty Cash</em>
       </a>
       <?php endif; ?>
+      <?php require_once __DIR__ . '/../includes/clinic_excel_reports.php'; ?>
+      <?php if (clinic_excel_reports_allowed($user)): ?>
+      <a class="sapp-tile" href="<?= e(url('/app/excel-reports')) ?>">
+        <span class="sapp-ico sapp-ico-amber" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="4" width="16" height="16" rx="2"/><path d="M4 9h16M4 14h16M11 9v11"/></svg></span>
+        <strong>خروجی اکسل</strong>
+      </a>
+      <?php endif; ?>
       <?php if (strtolower(trim((string) ($user['username'] ?? ''))) === 'eshahabian'): ?>
       <a class="sapp-tile" href="<?= e(url('/app/sms')) ?>">
         <span class="sapp-ico sapp-ico-pink"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="5" width="18" height="14" rx="3"/><path d="m4 7 8 6 8-6"/></svg></span>
@@ -764,6 +776,10 @@ if ($section === 'appointments') {
     <?php else: ?>
       <h1>وقت‌ها</h1>
       <p class="muted"><?= staff_app_sees_clinic_schedule($user) ? 'وقت‌های کلینیک در روز انتخاب‌شده.' : 'وقت‌های خودتان در روز انتخاب‌شده.' ?></p>
+    <?php endif; ?>
+    <?php require_once __DIR__ . '/../includes/clinic_excel_reports.php'; ?>
+    <?php if (clinic_excel_reports_allowed($user)): ?>
+      <a class="btn btn-outline" href="<?= e(url('/app/excel-reports?type=doctor')) ?>">خروجی اکسل نوبت‌ها</a>
     <?php endif; ?>
     <nav class="sapp-daynav" aria-label="انتخاب روز وقت‌ها" style="margin-top:1rem">
       <a class="sapp-daynav-btn" href="<?= e(url('/app/appointments?day=' . $prevDay)) ?>" aria-label="روز قبل"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></a>

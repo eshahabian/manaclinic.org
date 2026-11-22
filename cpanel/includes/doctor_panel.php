@@ -146,6 +146,10 @@ function doctor_nav(): array
     if (petty_cash_user_allowed()) {
         $tail[] = ['type' => 'link', 'href' => '/doctor/petty-cash', 'label' => 'تنخواه'];
     }
+    require_once __DIR__ . '/clinic_excel_reports.php';
+    if (clinic_excel_reports_allowed($deskUser)) {
+        $tail[] = ['type' => 'link', 'href' => '/app/excel-reports', 'label' => 'خروجی اکسل'];
+    }
     if (function_exists('patient_fee_can_edit') && patient_fee_can_edit($deskUser) && (string) ($deskUser['role'] ?? '') === 'DOCTOR') {
         $tail[] = ['type' => 'link', 'href' => '/secretary/patients', 'label' => 'مراجعه‌کنندگان'];
     }

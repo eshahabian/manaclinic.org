@@ -63,6 +63,10 @@ for ($y = (int) $todayY - 1; $y <= (int) $todayY + 1; $y++) {
 ob_start();
 ?>
 <h1>تنخواه</h1>
+<?php require_once __DIR__ . '/../includes/clinic_excel_reports.php'; ?>
+<?php if (clinic_excel_reports_allowed($user)): ?>
+  <a class="btn btn-outline" href="<?= e(url('/app/excel-reports?type=cash&jy=' . $range['year'] . '&jm=' . $range['month'])) ?>">خروجی اکسل تنخواه</a>
+<?php endif; ?>
 <p class="muted">مبلغ ورودی و هزینه‌ها اینجا می‌ماند. آخر ماه جمع هر قلم، مثل دستمال کاغذی، در همین صفحه است.</p>
 
 <div class="grid-2" style="margin-top:1rem">

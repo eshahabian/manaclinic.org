@@ -125,6 +125,10 @@ ob_start();
 <link rel="stylesheet" href="/assets/vendor/jalali/jalalidatepicker.min.css">
 <div class="appt-desk">
 <h1 class="appt-desk-title">نوبت‌ها</h1>
+<?php require_once __DIR__ . '/clinic_excel_reports.php'; ?>
+<?php if (clinic_excel_reports_allowed(current_user())): ?>
+  <a class="btn btn-outline" href="<?= e(url('/app/excel-reports?type=doctor')) ?>">خروجی اکسل نوبت‌ها</a>
+<?php endif; ?>
 <p class="muted appt-desk-lead" style="margin-top:.35rem;font-size:.9rem">نوبت جدید را از تب صورتی ثبت کنید. رزروهای موقت در «لیست رزرو» و نوبت‌های قطعی در «نوبت‌های پیش‌رو» هستند.</p>
 <?php if (!empty($appointmentsDeskAdminTools)): ?>
   <div class="appt-toolbar">

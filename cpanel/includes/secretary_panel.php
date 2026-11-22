@@ -22,6 +22,7 @@ function secretary_nav(): array
         ['href' => '/secretary/therapists', 'label' => 'درمانگرها'],
         ['href' => '/secretary/complaints', 'label' => 'انتقادات و پیشنهادات'],
         ['href' => '/secretary/petty-cash', 'label' => 'تنخواه'],
+        ['href' => '/app/excel-reports', 'label' => 'خروجی اکسل'],
         ['href' => '/admin/rooms', 'label' => 'اتاق‌ها'],
         ['href' => '/secretary/patients', 'label' => 'مراجعه‌کنندگان'],
     ];
