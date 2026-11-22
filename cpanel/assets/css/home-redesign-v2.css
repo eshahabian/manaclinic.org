@@ -45,12 +45,58 @@ html[data-theme=dark] .mana-couples-eyebrow,html[data-theme=dark] .mana-couples-
 .mana-section-heading{display:flex;align-items:end;justify-content:space-between;gap:1rem;margin-bottom:1.6rem}
 .mana-section-heading h2{margin:0;font-size:clamp(1.45rem,2.4vw,2rem);line-height:1.8}
 .mana-section-heading .mana-kicker{margin-bottom:.5rem}
-.mana-service-grid{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:1rem}
 .mana-service-card{position:relative;display:block;border:1px solid var(--line);background:var(--bg-soft);color:var(--fg);padding:1.6rem;border-radius:26px;text-decoration:none;transition:transform .2s,border-color .2s}
 .mana-service-card:hover{transform:translateY(-4px);border-color:var(--primary)}
 .mana-service-label{display:inline-block;color:var(--primary);font-size:.78rem;line-height:1.5}
 .mana-service-card h3{font-size:1.1rem;line-height:1.6;margin:.35rem 0 .3rem}
 .mana-service-card p{font-size:.88rem;line-height:1.75;color:var(--muted);padding-bottom:0;margin:0}
+
+.mana-carousel {
+  --mana-carousel-gap: 1rem;
+  --mana-carousel-card-width: clamp(14rem, 29cqi, 28rem);
+  container-type: inline-size;
+}
+
+.mana-carousel-toggle {
+  display: block;
+  margin: 0 0 .5rem auto;
+  padding: .35rem .75rem;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: var(--bg-soft);
+  color: var(--fg);
+  font: inherit;
+  cursor: pointer;
+}
+
+.mana-carousel-viewport {
+  overflow-x: auto;
+  direction: rtl;
+  padding: .5rem .25rem .75rem;
+}
+
+.mana-carousel.is-moving .mana-carousel-viewport {
+  scrollbar-width: none;
+}
+
+.mana-carousel-track {
+  display: flex;
+  gap: var(--mana-carousel-gap);
+  width: max-content;
+}
+
+.mana-carousel-track > :is(.doctor-card, .mana-service-card) {
+  box-sizing: border-box;
+  flex: 0 0 var(--mana-carousel-card-width);
+  width: var(--mana-carousel-card-width);
+  max-width: none;
+  min-width: 0;
+  margin: 0;
+}
+
+.mana-carousel [hidden] {
+  display: none;
+}
 .mana-home-v2 .home-assistant-tile{margin-top:2rem}
 .mana-home-v2 .home-specialists-block{padding-top:1rem}
 .mana-home-v2 .home-specialists-block .section-head,.mana-home-v2 .home-articles-block .section-head{justify-content:flex-start;text-align:right}
@@ -65,7 +111,7 @@ html[data-theme=dark] .mana-couples-eyebrow,html[data-theme=dark] .mana-couples-
 .mana-home-v2 .article-card:hover .doctor-card-cta{background:#134437;border-color:#134437;color:#fff}
 .mana-home-v2 a:focus-visible{outline:3px solid var(--accent);outline-offset:5px}
 html[data-theme=dark] .mana-reading-banner img{mix-blend-mode:normal}
-@media(max-width:960px){.mana-service-grid{grid-template-columns:repeat(2,minmax(0,1fr))}.mana-welcome{gap:2rem}.mana-welcome h1{font-size:2.5rem}}
-@media(max-width:640px){.mana-welcome{grid-template-columns:1fr;padding-top:2.5rem;padding-bottom:2.5rem;gap:2.4rem}.mana-welcome h1{font-size:2.25rem}.mana-welcome-art img{aspect-ratio:1.25;border-radius:70px 22px 70px 22px}.mana-welcome-description{font-size:.96rem}.mana-welcome-actions{gap:1rem}.mana-service-grid{gap:.75rem}.mana-service-card{padding:1.1rem;border-radius:20px}.mana-section-heading{align-items:start;flex-direction:column}.mana-reading-banner{grid-template-columns:1fr;gap:1rem;border-radius:24px}.mana-reading-banner img{aspect-ratio:1.65}.mana-home-v2 .article-card-cover{height:210px}}
+@media(max-width:960px){.mana-welcome{gap:2rem}.mana-welcome h1{font-size:2.5rem}}
+@media(max-width:640px){.mana-welcome{grid-template-columns:1fr;padding-top:2.5rem;padding-bottom:2.5rem;gap:2.4rem}.mana-welcome h1{font-size:2.25rem}.mana-welcome-art img{aspect-ratio:1.25;border-radius:70px 22px 70px 22px}.mana-welcome-description{font-size:.96rem}.mana-welcome-actions{gap:1rem}.mana-service-card{padding:1.1rem;border-radius:20px}.mana-section-heading{align-items:start;flex-direction:column}.mana-reading-banner{grid-template-columns:1fr;gap:1rem;border-radius:24px}.mana-reading-banner img{aspect-ratio:1.65}.mana-home-v2 .article-card-cover{height:210px}}
 @media(prefers-reduced-motion:reduce){.mana-service-card{transition:none}.mana-service-card:hover{transform:none}}
 @media(max-width:640px){.mana-service-image{width:calc(100% + 2.2rem);margin:-1.1rem -1.1rem .6rem}.mana-home-v2 .home-daily-quote + .mana-welcome{padding-top:1rem}.mana-home-v2 .home-workshop-banners{padding-top:2rem}}

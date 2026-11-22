@@ -5,15 +5,7 @@ $homeLearningCatalog = mana_learning_catalog();
 $homeCouplesLessons = mana_learning_lessons('couples-therapy', $homeLearningCatalog['couples-therapy']);
 $homeLatestCouples = $homeCouplesLessons[array_key_last($homeCouplesLessons)];
 
-$doctors = $pdo->query("
-  SELECT dp.*, u.name
-  FROM doctor_profiles dp
-  JOIN users u ON u.id = dp.user_id
-  WHERE dp.is_active = 1 AND dp.is_approved = 1 AND u.is_disabled = 0
-    AND TRIM(COALESCE(dp.avatar_url, '')) <> ''
-  ORDER BY RAND()
-  LIMIT 4
-")->fetchAll();
+$doctors = clinic_public_doctors($pdo);
 
 $articles = $pdo->query("
   SELECT a.*, u.name AS author_name
@@ -33,7 +25,7 @@ $pageKeywords = 'مانا کلینیک, روانشناس سعادت آباد, ر
 require_once dirname(__DIR__) . '/includes/daily_quotes.php';
 $dailyQuote = daily_quote_for_date();
 $workshopBanners = function_exists('workshop_home_banners') ? workshop_home_banners($pdo, 3) : [];
-$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/home-redesign-v2.css')) . '?v=20261118c">';
+$pageHead = '<link rel="stylesheet" href="' . e(url('/assets/css/home-redesign-v2.css')) . '?v=20261122">';
 ob_start();
 ?>
 <div class="mana-home-v2">
@@ -104,28 +96,37 @@ ob_start();
       }
       ?>
 
-      <div class="home-specialists-block" style="margin-top:3rem">
+      <section class="home-specialists-block" style="margin-top:3rem" aria-labelledby="mana-therapists-title">
         <div class="section-head">
           <div>
             <p class="eyebrow">تیم درمانگران</p>
-            <h2>متخصصانی که به آن‌ها اعتماد می‌کنید</h2>
+            <h2 id="mana-therapists-title">متخصصانی که به آن‌ها اعتماد می‌کنید</h2>
           </div>
         </div>
         <?php if ($doctors): ?>
           <div class="therapists-all-link">
             <a class="articles-all-link" href="<?= e(url('/doctors')) ?>">مشاهده همه درمانگرها ←</a>
           </div>
+          <div class="mana-carousel" data-carousel="left">
+            <button type="button" class="mana-carousel-toggle" aria-controls="mana-therapist-carousel" hidden>توقف حرکت</button>
+            <div class="mana-carousel-viewport" id="mana-therapist-carousel">
+              <div class="mana-carousel-track">
+                <?php foreach ($doctors as $doc): ?>
+                  <?= doctor_card_html($doc) ?>
+                <?php endforeach; ?>
+              </div>
+            </div>
+          </div>
+        <?php else: ?>
+          <p class="muted">هنوز متخصصی ثبت نشده است.</p>
         <?php endif; ?>
-        <div class="doctors-showcase">
-          <?php foreach ($doctors as $doc): ?>
-            <?= doctor_card_html($doc) ?>
-          <?php endforeach; ?>
-          <?php if (!$doctors): ?><p class="muted">هنوز متخصصی ثبت نشده است.</p><?php endif; ?>
-        </div>
-      </div>
+      </section>
       <section class="mana-services" aria-labelledby="mana-services-title">
         <div class="mana-section-heading"><div><p class="mana-kicker">از کجا شروع کنیم؟</p><h2 id="mana-services-title">همراهی متناسب با دغدغهٔ شما</h2></div><a class="mana-text-link" href="<?= e(url('/services')) ?>">همه خدمات ←</a></div>
-        <div class="mana-service-grid">
+        <div class="mana-carousel" data-carousel="right">
+          <button type="button" class="mana-carousel-toggle" aria-controls="mana-service-carousel" hidden>توقف حرکت</button>
+          <div class="mana-carousel-viewport" id="mana-service-carousel">
+            <div class="mana-carousel-track">
         <?php foreach ([
           ['فردی', 'مشاوره فردی', 'شناخت خود، احساسات و چالش‌های روزمره', '/services/individual', 'person'],
           ['رابطه', 'زوج‌درمانی', 'فرصتی برای شنیدن و بهتر فهمیدن یکدیگر', '/services/couples', 'couple'],
@@ -134,6 +135,8 @@ ob_start();
         ] as $service): ?>
           <a class="mana-service-card" href="<?= e(url($service[3])) ?>"><img class="mana-service-image" src="<?= e(url('/assets/img/services/' . $service[4] . '-scene-v2.webp')) ?>" alt="" width="768" height="512" loading="lazy" decoding="async"><span class="mana-service-label"><?= e($service[0]) ?></span><h3><?= e($service[1]) ?></h3><p><?= e($service[2]) ?></p></a>
         <?php endforeach; ?>
+            </div>
+          </div>
         </div>
       </section>
 
@@ -171,5 +174,6 @@ ob_start();
 </div>
 <?php
 $content = ob_get_clean();
-$pageScripts = '<script src="' . e(url('/assets/js/home-workshop-banners.js')) . '?v=20260908k"></script>';
+$pageScripts = '<script src="' . e(url('/assets/js/home-workshop-banners.js')) . '?v=20260908k"></script>'
+    . '<script src="' . e(url('/assets/js/home-carousel.js')) . '?v=20261122" defer></script>';
 require __DIR__ . '/../includes/layout.php';
