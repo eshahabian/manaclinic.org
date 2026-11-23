@@ -6,7 +6,7 @@ require_once __DIR__ . '/../includes/doctor_profile_fields.php';
 require_once __DIR__ . '/../includes/staff_desk.php';
 
 $user = require_login();
-if (!petty_cash_user_allowed($user)) {
+if (!petty_cash_user_allowed($user) || ($user['role'] ?? '') === 'SECRETARY') {
     http_response_code(403);
     echo 'دسترسی مجاز نیست.';
     exit;

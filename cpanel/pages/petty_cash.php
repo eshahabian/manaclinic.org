@@ -54,8 +54,16 @@ $meta = jalali_current_month_meta();
 $jy = (int) ($_GET['jy'] ?? ($meta['year'] ?? $todayY));
 $jm = (int) ($_GET['jm'] ?? ($meta['month'] ?? $todayM));
 $range = petty_cash_month_range($jy, $jm);
-$report = petty_cash_month_report($pdo, $range['start'], $range['end']);
-$balances = petty_cash_account_balances($pdo, $range['start'], $range['end']);
+if ($asSecretary) {
+    $completedPurchases = $pdo->query("
+        SELECT item_name, entry_date FROM petty_cash_entries
+        WHERE kind = 'OUT' AND item_name <> ''
+        ORDER BY entry_date DESC, created_at DESC, id DESC
+    ")->fetchAll(PDO::FETCH_ASSOC);
+} else {
+    $report = petty_cash_month_report($pdo, $range['start'], $range['end']);
+    $balances = petty_cash_account_balances($pdo, $range['start'], $range['end']);
+}
 $asBuyer = petty_cash_supply_is_buyer($user);
 $requestsActive = $asBuyer && ($_GET['tab'] ?? '') === 'requests';
 if ($asBuyer) {
@@ -75,6 +83,21 @@ for ($y = (int) $todayY - 1; $y <= (int) $todayY + 1; $y++) {
 ob_start();
 ?>
 <h1>تنخواه</h1>
+<?php if ($asSecretary): ?>
+  <?php require __DIR__ . '/../includes/petty_cash_supplies_panel.php'; ?>
+  <section class="panel" style="margin-top:1rem">
+    <h2 style="margin:0 0 .75rem;font-size:1rem">خریدهای انجام‌شده</h2>
+    <?php if (!$completedPurchases): ?>
+      <p class="muted">هنوز خریدی ثبت نشده است.</p>
+    <?php else: ?>
+      <ul>
+        <?php foreach ($completedPurchases as $purchase): ?>
+          <li><?= e($purchase['item_name']) ?> <span class="muted">· <?= e(to_jalali_label($purchase['entry_date'])) ?></span></li>
+        <?php endforeach; ?>
+      </ul>
+    <?php endif; ?>
+  </section>
+<?php else: ?>
 <?php require_once __DIR__ . '/../includes/clinic_excel_reports.php'; ?>
 <?php if (clinic_excel_reports_allowed($user)): ?>
   <a class="btn btn-outline" href="<?= e(url('/staff/excel-reports?type=cash&jy=' . $range['year'] . '&jm=' . $range['month'])) ?>" data-excel-report="context" aria-haspopup="dialog">خروجی اکسل تنخواه</a>
@@ -179,7 +202,6 @@ ob_start();
   <?php if ($asBuyer) require __DIR__ . '/../includes/petty_cash_supplies_panel.php'; ?>
 </div>
 <?php endif; ?>
-<?php if ($asSecretary) require __DIR__ . '/../includes/petty_cash_supplies_panel.php'; ?>
 
 <form class="panel" method="get" action="<?= e(url($cashPath)) ?>" style="margin-top:1rem">
   <p style="margin:0 0 .75rem;font-weight:600">گزارش ماه</p>
@@ -362,6 +384,7 @@ ob_start();
   });
 })();
 </script>
+<?php endif; ?>
 <?php endif; ?>
 <?= petty_cash_datepicker_assets() ?>
 <?php

@@ -364,6 +364,9 @@ function petty_cash_apply_post(PDO $pdo, array $user): string
         }
     }
     if (post('action') === 'delete') {
+        if (($user['role'] ?? '') === 'SECRETARY') {
+            throw new RuntimeException('دسترسی به حذف ریز هزینه‌های تنخواه مجاز نیست.');
+        }
         $id = trim((string) post('id'));
         if (!preg_match('/^[a-zA-Z0-9_-]{8,40}$/', $id)) {
             throw new RuntimeException('این مورد برای حذف پیدا نشد.');

@@ -25,7 +25,14 @@ $titles = [
     'doctor' => 'نوبت‌ها و پرداخت‌های درمانگر',
     'patient' => 'تاریخچه نوبت‌های مراجعه‌کننده',
 ];
-$type = $_GET['type'] ?? 'cash';
+if (($user['role'] ?? '') === 'SECRETARY') {
+    unset($titles['cash']);
+    if (($_GET['type'] ?? '') === 'cash') {
+        http_response_code(403);
+        exit('دسترسی به گزارش تنخواه مجاز نیست.');
+    }
+}
+$type = $_GET['type'] ?? array_key_first($titles);
 if (!is_string($type) || !isset($titles[$type])) {
     http_response_code(400);
     exit('نوع گزارش نامعتبر است.');

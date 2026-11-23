@@ -196,24 +196,44 @@ function petty_cash_supply_request(PDO $pdo, string $userId, string $batchId): s
         $immediate = [];
         foreach ($groups as $group => $ids) {
             $urgent = $group === 'urgent';
-            $body = $urgent
-                ? 'مانا کلینیک: درخواست خرید ضروری ثبت شد. تب درخواست‌های تنخواه را بررسی کنید.'
-                : 'مانا کلینیک: یادآوری درخواست خرید تا ' . to_jalali_label($group) . '. تب درخواست‌های تنخواه را بررسی کنید.';
+            if ($urgent) {
+                $heading = 'مانا کلینیک : خرید های ضروری';
+                $messages = [];
+                $body = $heading;
+                $messageIds = [];
+                foreach ($ids as $id) {
+                    $name = preg_replace('/\s+/u', ' ', $items[$id][0]) ?? $items[$id][0];
+                    $line = "\n- " . $name;
+                    if (mb_strlen($body . $line) > 500) {
+                        $messages[] = [$body, $messageIds];
+                        $body = $heading;
+                        $messageIds = [];
+                    }
+                    $body .= $line;
+                    $messageIds[] = $id;
+                }
+                $messages[] = [$body, $messageIds];
+            } else {
+                $body = 'مانا کلینیک: یادآوری درخواست خرید تا ' . to_jalali_label($group) . '. تب درخواست‌های تنخواه را بررسی کنید.';
+                $messages = [[$body, $ids]];
+            }
             $kind = 'petty_cash_purchase_reminder';
             $key = "petty-purchase:$userId:$batchId:$group";
             $deadline = $urgent ? $earliestDeadline : new DateTimeImmutable($group . ' 23:59:59');
             $remindAt = $urgent ? null : $deadline->sub(new DateInterval('PT24H'))->format('Y-m-d H:i:s');
             $expiresAt = $deadline->format('Y-m-d H:i:s');
-            $context = ['entity' => 'petty_cash_purchase_request', 'ids' => $ids, 'urgent' => $urgent];
             $phones = petty_cash_supply_notification_phones($pdo, $urgent);
             $allQueued = $allQueued && count($phones) === ($urgent ? 2 : 1);
-            foreach (array_unique($phones) as $phone) {
-                $recipientKey = "$key:$phone";
-                $queued = sms_queue_extended($pdo, $phone, $body, $kind, $recipientKey, $remindAt, $expiresAt, $context);
-                if ($urgent && $queued) {
-                    $immediate[] = [$phone, $body, $kind, $recipientKey, $expiresAt, $context];
+            foreach ($messages as $part => [$body, $messageIds]) {
+                $context = ['entity' => 'petty_cash_purchase_request', 'ids' => $messageIds, 'urgent' => $urgent];
+                foreach (array_unique($phones) as $phone) {
+                    $recipientKey = "$key:$phone:$part";
+                    $queued = sms_queue_extended($pdo, $phone, $body, $kind, $recipientKey, $remindAt, $expiresAt, $context);
+                    if ($urgent && $queued) {
+                        $immediate[] = [$phone, $body, $kind, $recipientKey, $expiresAt, $context];
+                    }
+                    $allQueued = $allQueued && $queued;
                 }
-                $allQueued = $allQueued && $queued;
             }
         }
         $pdo->commit();
