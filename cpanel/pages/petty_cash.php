@@ -152,10 +152,12 @@ ob_start();
         <label class="label" for="petty-out-amount">مبلغ</label>
         <input class="input" id="petty-out-amount" name="amount[0]" inputmode="numeric" required placeholder="تومان" data-money>
       </div>
+      <?php if (!$asBuyer): ?>
       <div style="grid-column:1/-1">
         <label><input type="checkbox" name="item_urgent[0]" value="1" data-petty-urgent> ضروری</label>
         <input class="input" name="item_due_date[0]" aria-label="مهلت تهیه" placeholder="مهلت تهیه به تاریخ شمسی" data-petty-due data-jdp data-jdp-only-date autocomplete="off" hidden disabled>
       </div>
+      <?php endif; ?>
     </div>
   </div>
   <button class="btn btn-outline" type="button" id="petty-add-line" aria-label="قلم بعدی" style="justify-self:start;min-width:2.75rem;font-size:1.35rem;line-height:1;padding:.45rem .8rem">+</button>
@@ -346,8 +348,11 @@ ob_start();
     row.innerHTML = '<input class="input" name="item_name[' + index + ']" maxlength="120" placeholder="قلم بعدی" aria-label="قلم هزینه">'
       + '<span><input class="input" name="amount[' + index + ']" inputmode="numeric" placeholder="تومان" aria-label="مبلغ" data-money></span>'
       + '<button type="button" class="btn btn-outline" aria-label="حذف این قلم" style="min-width:2.75rem;font-size:1.2rem;line-height:1;padding:.45rem .7rem">×</button>'
+      <?php if (!$asBuyer): ?>
       + '<div style="grid-column:1/-1"><label><input type="checkbox" name="item_urgent[' + index + ']" value="1" data-petty-urgent> ضروری</label>'
-      + '<input class="input" name="item_due_date[' + index + ']" aria-label="مهلت تهیه" placeholder="مهلت تهیه به تاریخ شمسی" data-petty-due data-jdp data-jdp-only-date autocomplete="off" hidden disabled></div>';
+      + '<input class="input" name="item_due_date[' + index + ']" aria-label="مهلت تهیه" placeholder="مهلت تهیه به تاریخ شمسی" data-petty-due data-jdp data-jdp-only-date autocomplete="off" hidden disabled></div>'
+      <?php endif; ?>
+      ;
     var remove = row.querySelector('button');
     if (remove) remove.addEventListener('click', function () { row.remove(); });
     box.appendChild(row);

@@ -508,7 +508,7 @@ function sms_job_still_valid(PDO $pdo, array $job): bool
     if ($context['entity'] === 'petty_cash_purchase_request') {
         require_once __DIR__ . '/petty_cash_supplies.php';
         $ids = $context['ids'] ?? [];
-        if (!is_array($ids) || !$ids || count($ids) > 30 || petty_cash_supply_buyer_phone($pdo) !== $job['phone']) {
+        if (!is_array($ids) || !$ids || count($ids) > 30 || !in_array($job['phone'], petty_cash_supply_notification_phones($pdo, ($context['urgent'] ?? false) === true), true)) {
             return false;
         }
         $placeholders = implode(',', array_fill(0, count($ids), '?'));

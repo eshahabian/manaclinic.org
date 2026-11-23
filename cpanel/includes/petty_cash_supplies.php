@@ -41,7 +41,7 @@ function petty_cash_supply_recipients(PDO $pdo): array
       SELECT id, phone FROM users
       WHERE COALESCE(is_disabled, 0) = 0
         AND ((role = 'DOCTOR' AND id = '36dfdb042124cb0a89814c30')
-          OR (role = 'ADMIN' AND LOWER(username) = 'eshahabian'))
+          OR LOWER(username) = 'eshahabian')
     ")->fetchAll(PDO::FETCH_ASSOC);
 }
 
@@ -73,14 +73,18 @@ function petty_cash_supply_is_buyer(array $user): bool
     return ($user['role'] ?? '') === 'DOCTOR' && ($user['id'] ?? '') === '36dfdb042124cb0a89814c30';
 }
 
-function petty_cash_supply_buyer_phone(PDO $pdo): ?string
+function petty_cash_supply_notification_phones(PDO $pdo, bool $urgent): array
 {
+    $phones = [];
     foreach (petty_cash_supply_recipients($pdo) as $recipient) {
-        if ($recipient['id'] === '36dfdb042124cb0a89814c30') {
-            return sms_iran_mobile((string) $recipient['phone']);
+        if ($urgent || $recipient['id'] === '36dfdb042124cb0a89814c30') {
+            $phone = sms_iran_mobile((string) $recipient['phone']);
+            if ($phone !== null) {
+                $phones[$recipient['id']] = $phone;
+            }
         }
     }
-    return null;
+    return $phones;
 }
 
 function petty_cash_supply_apply_post(PDO $pdo, array $user, string $action): string
@@ -188,9 +192,8 @@ function petty_cash_supply_request(PDO $pdo, string $userId, string $batchId): s
             return 'این فهرست خرید قبلاً ثبت شده است.';
         }
 
-        $phone = petty_cash_supply_buyer_phone($pdo);
         $allQueued = true;
-        $immediate = null;
+        $immediate = [];
         foreach ($groups as $group => $ids) {
             $urgent = $group === 'urgent';
             $body = $urgent
@@ -201,14 +204,17 @@ function petty_cash_supply_request(PDO $pdo, string $userId, string $batchId): s
             $deadline = $urgent ? $earliestDeadline : new DateTimeImmutable($group . ' 23:59:59');
             $remindAt = $urgent ? null : $deadline->sub(new DateInterval('PT24H'))->format('Y-m-d H:i:s');
             $expiresAt = $deadline->format('Y-m-d H:i:s');
-            $context = ['entity' => 'petty_cash_purchase_request', 'ids' => $ids];
-            $queued = $phone !== null && sms_queue_extended(
-                $pdo, $phone, $body, $kind, $key, $remindAt, $expiresAt, $context
-            );
-            if ($urgent && $queued) {
-                $immediate = [$phone, $body, $kind, $key, $expiresAt, $context];
+            $context = ['entity' => 'petty_cash_purchase_request', 'ids' => $ids, 'urgent' => $urgent];
+            $phones = petty_cash_supply_notification_phones($pdo, $urgent);
+            $allQueued = $allQueued && count($phones) === ($urgent ? 2 : 1);
+            foreach (array_unique($phones) as $phone) {
+                $recipientKey = "$key:$phone";
+                $queued = sms_queue_extended($pdo, $phone, $body, $kind, $recipientKey, $remindAt, $expiresAt, $context);
+                if ($urgent && $queued) {
+                    $immediate[] = [$phone, $body, $kind, $recipientKey, $expiresAt, $context];
+                }
+                $allQueued = $allQueued && $queued;
             }
-            $allQueued = $allQueued && $queued;
         }
         $pdo->commit();
     } catch (Throwable $exception) {
@@ -216,16 +222,18 @@ function petty_cash_supply_request(PDO $pdo, string $userId, string $batchId): s
         throw $exception;
     }
 
-    if ($immediate !== null) {
+    $allUrgentSent = true;
+    foreach ($immediate as $message) {
         try {
-            $result = sms_send_immediate($pdo, ...$immediate);
-            if ($allQueued && !$result['ok']) {
-                return 'فهرست خرید ثبت شد. ارسال پیامک فوری تأیید نشد.';
-            }
+            $result = sms_send_immediate($pdo, ...$message);
+            $allUrgentSent = $allUrgentSent && $result['ok'];
         } catch (Throwable $exception) {
             error_log('Petty cash urgent SMS dispatch failed: ' . $exception->getCode());
-            return 'فهرست خرید ثبت شد. ارسال پیامک فوری تأیید نشد.';
+            $allUrgentSent = false;
         }
+    }
+    if ($allQueued && !$allUrgentSent) {
+        return 'فهرست خرید ثبت شد. ارسال فوری به همه گیرندگان تأیید نشد.';
     }
     return $allQueued ? 'فهرست خرید و پیامک ثبت شد.' : 'فهرست خرید ثبت شد. ثبت پیامک کامل نشد.';
 }

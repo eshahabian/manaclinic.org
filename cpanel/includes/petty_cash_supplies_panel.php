@@ -108,9 +108,7 @@ $requestRow = static function (int $index, bool $removable): void {
   <?php foreach ($pettySupplies as $item): ?>
     <div style="border-top:1px solid var(--line);padding:.75rem 0">
       <strong><?= e($item['item_name']) ?></strong>
-      <?php if ($item['is_urgent']): ?>
-        <strong style="color:var(--danger)">ضروری</strong>
-      <?php else: ?>
+      <?php if (!$item['is_urgent']): ?>
         <span class="muted">مهلت تهیه <?= e(to_jalali_label($item['due_date'])) ?></span>
       <?php endif; ?>
       <?php if (!empty($item['requester_name'])): ?>
