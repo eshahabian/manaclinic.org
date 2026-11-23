@@ -20,7 +20,9 @@ function petty_cash_ensure_supplies_schema(PDO $pdo): void
 
 function petty_cash_supply_due_date(string $value): ?string
 {
-    if (!preg_match('~^(\d{4})/(\d{1,2})/(\d{1,2})$~D', normalize_input($value), $parts)) {
+    $value = preg_replace('/\p{Cf}/u', '', $value) ?? '';
+    $value = str_replace(['-', '.', '⁄', '∕'], '/', normalize_input($value));
+    if (!preg_match('~^(\d{4})\h*/\h*(\d{1,2})\h*/\h*(\d{1,2})$~D', $value, $parts)) {
         return null;
     }
     return petty_cash_parse_parts((int) $parts[1], (int) $parts[2], (int) $parts[3]);
@@ -94,7 +96,17 @@ function petty_cash_supply_apply_post(PDO $pdo, array $user, string $action): st
         return petty_cash_supply_request($pdo, (string) $user['id'], $id);
     }
     if (!petty_cash_supply_is_buyer($user)) {
-        throw new RuntimeException('ثبت خرید درخواست‌ها مخصوص عطیه گارسچی است.');
+        throw new RuntimeException('ثبت خرید یا رد درخواست مخصوص عطیه گارسچی است.');
+    }
+
+    if ($action === 'supply_reject') {
+        petty_cash_ensure_supplies_schema($pdo);
+        $reject = $pdo->prepare('UPDATE petty_cash_supplies SET completed_at = NOW() WHERE id = ? AND completed_at IS NULL');
+        $reject->execute([$id]);
+        if ($reject->rowCount() !== 1) {
+            throw new RuntimeException('این درخواست بسته شده یا پیدا نشد.');
+        }
+        return 'درخواست خرید رد شد.';
     }
 
     $amount = parse_user_money(post('amount'));
@@ -132,6 +144,8 @@ function petty_cash_supply_request(PDO $pdo, string $userId, string $batchId): s
     if (!is_array($names) || !$names || count($names) > 30 || !is_array($urgencies) || !is_array($dates)) {
         throw new RuntimeException('در هر درخواست بین ۱ تا ۳۰ قلم وارد کنید.');
     }
+    // Forms already open before the per-item dates update may still post one shared date.
+    $sharedDate = isset($_POST['supply_dates']) ? '' : ($_POST['supply_due_date'] ?? '');
     $items = [];
     $now = new DateTimeImmutable();
     $earliestDeadline = $now->add(new DateInterval('PT24H'));
@@ -144,10 +158,10 @@ function petty_cash_supply_request(PDO $pdo, string $userId, string $batchId): s
         $urgent = ($urgencies[$index] ?? '') === '1';
         $dueDate = null;
         if (!$urgent) {
-            $rawDate = $dates[$index] ?? '';
+            $rawDate = $dates[$index] ?? $sharedDate;
             $dueDate = is_string($rawDate) ? petty_cash_supply_due_date($rawDate) : null;
             if ($dueDate === null) {
-                throw new RuntimeException('مهلت تهیه هر قلم عادی را به تاریخ شمسی وارد کنید.');
+                throw new RuntimeException('تاریخ تهیه «' . $name . '» را به شمسی وارد کنید، مثلاً ۱۴۰۵/۰۹/۱۰.');
             }
             if (new DateTimeImmutable($dueDate . ' 23:59:59') < $earliestDeadline) {
                 throw new RuntimeException('برای اقلام عادی، مهلت تهیه باید دست‌کم ۲۴ ساعت دیگر باشد.');

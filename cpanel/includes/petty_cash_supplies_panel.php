@@ -22,7 +22,7 @@ $requestRow = static function (int $index, bool $removable): void {
       </label>
       <label>
         <span class="label">مهلت تهیه</span>
-        <input class="input" name="supply_dates[<?= $index ?>]" data-request-date placeholder="تاریخ شمسی" data-jdp data-jdp-only-date autocomplete="off" required>
+        <input class="input" name="supply_dates[<?= $index ?>]" data-request-date placeholder="مثلاً ۱۴۰۵/۰۹/۱۰" data-jdp data-jdp-only-date autocomplete="off" required>
       </label>
       <?php if ($removable): ?>
         <button class="btn btn-outline btn-sm petty-request-remove" type="button" data-request-remove>حذف قلم</button>
@@ -124,6 +124,10 @@ $requestRow = static function (int $index, bool $removable): void {
           <button class="btn btn-primary" type="submit" style="justify-self:start">ثبت خرید و کسر از مانده</button>
         </form>
       </details>
+      <form method="post" action="<?= e(url($cashPath)) ?>" style="margin-top:.5rem" onsubmit="return confirm('این درخواست خرید رد شود؟')">
+        <?php $supplyFields('supply_reject', $item['id']); ?>
+        <button class="btn btn-outline btn-sm" type="submit">رد درخواست</button>
+      </form>
     </div>
   <?php endforeach; ?>
 </section>

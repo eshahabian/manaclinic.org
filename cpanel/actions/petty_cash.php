@@ -27,7 +27,7 @@ try {
 } catch (RuntimeException $e) {
     flash_set('error', $e->getMessage());
 }
-if (post('action') === 'supply_purchase') {
+if (in_array(post('action'), ['supply_purchase', 'supply_reject'], true)) {
     $back .= '&tab=requests';
 }
 redirect($back);
