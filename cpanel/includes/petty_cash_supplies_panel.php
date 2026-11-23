@@ -127,12 +127,14 @@ $requestRow = static function (int $index, bool $removable): void {
             <span class="label">رسید (اختیاری)</span>
             <input class="input" type="file" name="receipt" accept="image/jpeg,image/png,image/webp,application/pdf">
           </label>
-          <button class="btn btn-primary" type="submit" style="justify-self:start">ثبت خرید و کسر از مانده</button>
+          <div style="display:flex;flex-wrap:wrap;justify-content:space-between;gap:.5rem">
+            <button class="btn btn-primary" type="submit">ثبت</button>
+            <button class="btn btn-outline" type="submit" form="petty-reject-<?= e($item['id']) ?>">رد درخواست</button>
+          </div>
         </form>
       </details>
-      <form method="post" action="<?= e(url($cashPath)) ?>" style="margin-top:.5rem" onsubmit="return confirm('این درخواست خرید رد شود؟')">
+      <form id="petty-reject-<?= e($item['id']) ?>" method="post" action="<?= e(url($cashPath)) ?>" onsubmit="return confirm('این درخواست خرید رد شود؟')">
         <?php $supplyFields('supply_reject', $item['id']); ?>
-        <button class="btn btn-outline btn-sm" type="submit">رد درخواست</button>
       </form>
     </div>
   <?php endforeach; ?>
