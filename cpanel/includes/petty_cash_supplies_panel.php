@@ -10,69 +10,90 @@ $supplyFields = static function (string $action, string $id) use ($range): void 
     <input type="hidden" name="jm" value="<?= (int) $range['month'] ?>">
     <?php
 };
+$requestRow = static function (int $index, bool $removable): void {
+    ?>
+    <div class="petty-request-row" data-request-item>
+      <label>
+        <span class="label">قلم مورد نیاز</span>
+        <input class="input" name="supply_names[<?= $index ?>]" data-request-name maxlength="120" placeholder="مثلاً دستمال کاغذی" required>
+      </label>
+      <label class="petty-request-urgent">
+        <input type="checkbox" name="supply_urgencies[<?= $index ?>]" value="1" data-request-urgent> ضروری
+      </label>
+      <label>
+        <span class="label">مهلت تهیه</span>
+        <input class="input" name="supply_dates[<?= $index ?>]" data-request-date placeholder="تاریخ شمسی" data-jdp data-jdp-only-date autocomplete="off" required>
+      </label>
+      <?php if ($removable): ?>
+        <button class="btn btn-outline btn-sm petty-request-remove" type="button" data-request-remove>حذف قلم</button>
+      <?php endif; ?>
+    </div>
+    <?php
+};
 ?>
 <?php if ($asSecretary): ?>
+<style>
+  .petty-request-row { display:grid; grid-template-columns:minmax(0,1.6fr) auto minmax(0,1fr); gap:.5rem; align-items:end; }
+  .petty-request-urgent { display:flex; gap:.35rem; align-items:center; align-self:end; min-height:2.75rem; white-space:nowrap; }
+  .petty-request-row [data-request-date]:disabled { background:#eee; color:#666; opacity:1; cursor:not-allowed; }
+  .petty-request-remove { grid-column:1/-1; justify-self:start; }
+  @media (max-width:480px) {
+    .petty-request-row { grid-template-columns:minmax(0,1fr) auto; }
+    .petty-request-row label:nth-child(3) { grid-column:1/-1; }
+  }
+</style>
 <section class="panel" style="margin-top:1rem">
   <h2 style="margin:0;font-size:1.1rem">لیست خرید</h2>
   <form class="form-stack" id="petty-request-form" method="post" action="<?= e(url($cashPath)) ?>" style="margin-top:.75rem">
     <?php $supplyFields('supply_request', cuid()); ?>
     <div id="petty-request-items" class="form-stack">
-      <div class="stack" data-request-item>
-        <input class="input" name="supply_names[0]" aria-label="نام قلم" maxlength="120" placeholder="نام قلم مورد نیاز" required>
-        <label><input type="checkbox" name="supply_urgencies[0]" value="1" data-request-urgent> ضروری</label>
-      </div>
+      <?php $requestRow(0, false); ?>
     </div>
-    <div id="petty-request-deadline">
-      <label class="label" for="petty-request-date">مهلت تهیه اقلام عادی (پایان روز)</label>
-      <input class="input" id="petty-request-date" name="supply_due_date" placeholder="تاریخ شمسی" data-jdp data-jdp-only-date autocomplete="off" required>
-    </div>
-    <button class="btn btn-outline" type="button" id="petty-request-add" aria-label="افزودن قلم" style="justify-self:start">+</button>
+    <button class="btn btn-outline" type="button" id="petty-request-add" aria-label="افزودن قلم" style="justify-self:start;min-width:2.75rem;font-size:1.35rem;line-height:1;padding:.45rem .8rem">+</button>
     <button class="btn btn-primary" type="submit" style="justify-self:start">ارسال لیست خرید</button>
-    <template id="petty-request-item-template">
-      <div class="stack" data-request-item>
-        <input class="input" aria-label="نام قلم" maxlength="120" placeholder="نام قلم مورد نیاز" required>
-        <label><input type="checkbox" value="1" data-request-urgent> ضروری</label>
-        <button class="btn btn-outline btn-sm" type="button" data-request-remove>حذف قلم</button>
-      </div>
-    </template>
+    <template id="petty-request-item-template"><?php $requestRow(0, true); ?></template>
   </form>
 </section>
 <script>
 (function () {
-  const form = document.getElementById('petty-request-form');
   const items = document.getElementById('petty-request-items');
-  const deadline = document.getElementById('petty-request-deadline');
-  const date = document.getElementById('petty-request-date');
   const add = document.getElementById('petty-request-add');
   const template = document.getElementById('petty-request-item-template');
   let nextIndex = 1;
 
-  function refresh() {
-    const normal = items.querySelector('[data-request-urgent]:not(:checked)') !== null;
-    deadline.hidden = date.disabled = !normal;
-    date.required = normal;
-    add.disabled = items.children.length >= 30;
+  function syncDate(row) {
+    const urgent = row.querySelector('[data-request-urgent]').checked;
+    const date = row.querySelector('[data-request-date]');
+    date.disabled = urgent;
+    date.required = !urgent;
   }
 
   add.addEventListener('click', function () {
+    if (items.children.length >= 30) return;
     const row = template.content.firstElementChild.cloneNode(true);
-    const name = row.querySelector('input[type="text"], input:not([type])');
-    name.name = 'supply_names[' + nextIndex + ']';
-    row.querySelector('[data-request-urgent]').name = 'supply_urgencies[' + nextIndex + ']';
+    row.querySelectorAll('input[name]').forEach(function (input) {
+      input.name = input.name.replace('[0]', '[' + nextIndex + ']');
+    });
     nextIndex++;
     items.append(row);
-    refresh();
-    name.focus();
+    add.disabled = items.children.length >= 30;
+    row.querySelector('[data-request-name]').focus();
   });
-  items.addEventListener('change', refresh);
+  items.addEventListener('change', function (event) {
+    if (event.target.matches('[data-request-urgent]')) {
+      syncDate(event.target.closest('[data-request-item]'));
+    }
+  });
   items.addEventListener('click', function (event) {
     if (!event.target.matches('[data-request-remove]')) return;
     event.target.closest('[data-request-item]').remove();
-    refresh();
+    add.disabled = false;
   });
-  form.addEventListener('submit', refresh);
-  window.addEventListener('pageshow', refresh);
-  refresh();
+  function syncDates() {
+    items.querySelectorAll('[data-request-item]').forEach(syncDate);
+  }
+  window.addEventListener('pageshow', syncDates);
+  syncDates();
 })();
 </script>
 <?php else: ?>

@@ -128,11 +128,13 @@ function petty_cash_supply_request(PDO $pdo, string $userId, string $batchId): s
 {
     $names = $_POST['supply_names'] ?? null;
     $urgencies = $_POST['supply_urgencies'] ?? [];
-    if (!is_array($names) || !$names || count($names) > 30 || !is_array($urgencies)) {
+    $dates = $_POST['supply_dates'] ?? [];
+    if (!is_array($names) || !$names || count($names) > 30 || !is_array($urgencies) || !is_array($dates)) {
         throw new RuntimeException('در هر درخواست بین ۱ تا ۳۰ قلم وارد کنید.');
     }
     $items = [];
-    $needsDeadline = false;
+    $now = new DateTimeImmutable();
+    $earliestDeadline = $now->add(new DateInterval('PT24H'));
     foreach ($names as $index => $value) {
         $name = is_string($value) ? trim($value) : '';
         if ($name === '' || mb_strlen($name) > 120) {
@@ -140,18 +142,18 @@ function petty_cash_supply_request(PDO $pdo, string $userId, string $batchId): s
         }
         $id = substr(hash('sha256', "$userId:$batchId:$index"), 0, 24);
         $urgent = ($urgencies[$index] ?? '') === '1';
-        $items[$id] = [$name, (int) $urgent];
-        $needsDeadline = $needsDeadline || !$urgent;
-    }
-    $now = new DateTimeImmutable();
-    $dueDate = $needsDeadline ? petty_cash_supply_due_date(post('supply_due_date')) : $now->format('Y-m-d');
-    if ($dueDate === null) {
-        throw new RuntimeException('مهلت تهیه اقلام عادی را به تاریخ شمسی وارد کنید.');
-    }
-    $deadline = new DateTimeImmutable($dueDate . ' 23:59:59');
-    $remindAt = $deadline->sub(new DateInterval('PT24H'));
-    if ($needsDeadline && $remindAt < $now) {
-        throw new RuntimeException('برای اقلام عادی، مهلت تهیه باید دست‌کم ۲۴ ساعت دیگر باشد.');
+        $dueDate = null;
+        if (!$urgent) {
+            $rawDate = $dates[$index] ?? '';
+            $dueDate = is_string($rawDate) ? petty_cash_supply_due_date($rawDate) : null;
+            if ($dueDate === null) {
+                throw new RuntimeException('مهلت تهیه هر قلم عادی را به تاریخ شمسی وارد کنید.');
+            }
+            if (new DateTimeImmutable($dueDate . ' 23:59:59') < $earliestDeadline) {
+                throw new RuntimeException('برای اقلام عادی، مهلت تهیه باید دست‌کم ۲۴ ساعت دیگر باشد.');
+            }
+        }
+        $items[$id] = [$name, $dueDate];
     }
 
     require_once __DIR__ . '/outreach.php';
@@ -160,14 +162,14 @@ function petty_cash_supply_request(PDO $pdo, string $userId, string $batchId): s
     $pdo->beginTransaction();
     try {
         $insert = $pdo->prepare('INSERT IGNORE INTO petty_cash_supplies (id, item_name, due_date, is_urgent, created_by) VALUES (?,?,?,?,?)');
-        $groups = [[], []];
-        foreach ($items as $id => [$name, $urgent]) {
-            $insert->execute([$id, $name, ($urgent ? $now->format('Y-m-d') : $dueDate), $urgent, $userId]);
+        $groups = [];
+        foreach ($items as $id => [$name, $dueDate]) {
+            $insert->execute([$id, $name, $dueDate ?? $now->format('Y-m-d'), (int) ($dueDate === null), $userId]);
             if ($insert->rowCount() === 1) {
-                $groups[$urgent][] = $id;
+                $groups[$dueDate ?? 'urgent'][] = $id;
             }
         }
-        if (!$groups[0] && !$groups[1]) {
+        if (!$groups) {
             $pdo->commit();
             return 'این فهرست خرید قبلاً ثبت شده است.';
         }
@@ -175,19 +177,19 @@ function petty_cash_supply_request(PDO $pdo, string $userId, string $batchId): s
         $phone = petty_cash_supply_buyer_phone($pdo);
         $allQueued = true;
         $immediate = null;
-        foreach ($groups as $urgent => $ids) {
-            if (!$ids) {
-                continue;
-            }
+        foreach ($groups as $group => $ids) {
+            $urgent = $group === 'urgent';
             $body = $urgent
                 ? 'مانا کلینیک: درخواست خرید ضروری ثبت شد. تب درخواست‌های تنخواه را بررسی کنید.'
-                : 'مانا کلینیک: یادآوری درخواست خرید تا ' . to_jalali_label($dueDate) . '. تب درخواست‌های تنخواه را بررسی کنید.';
+                : 'مانا کلینیک: یادآوری درخواست خرید تا ' . to_jalali_label($group) . '. تب درخواست‌های تنخواه را بررسی کنید.';
             $kind = 'petty_cash_purchase_reminder';
-            $key = "petty-purchase:$userId:$batchId:$urgent";
-            $expiresAt = ($urgent ? $now->add(new DateInterval('PT24H')) : $deadline)->format('Y-m-d H:i:s');
+            $key = "petty-purchase:$userId:$batchId:$group";
+            $deadline = $urgent ? $earliestDeadline : new DateTimeImmutable($group . ' 23:59:59');
+            $remindAt = $urgent ? null : $deadline->sub(new DateInterval('PT24H'))->format('Y-m-d H:i:s');
+            $expiresAt = $deadline->format('Y-m-d H:i:s');
             $context = ['entity' => 'petty_cash_purchase_request', 'ids' => $ids];
             $queued = $phone !== null && sms_queue_extended(
-                $pdo, $phone, $body, $kind, $key, $urgent ? null : $remindAt->format('Y-m-d H:i:s'), $expiresAt, $context
+                $pdo, $phone, $body, $kind, $key, $remindAt, $expiresAt, $context
             );
             if ($urgent && $queued) {
                 $immediate = [$phone, $body, $kind, $key, $expiresAt, $context];
