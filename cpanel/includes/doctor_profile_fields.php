@@ -371,10 +371,28 @@ function doctor_avatar_src(?string $avatarUrl): string
     return $src;
 }
 
+function doctor_public_photo_src(array $doc): string
+{
+    $avatar = trim((string) ($doc['avatar_url'] ?? ''));
+    if ($avatar !== '') {
+        return doctor_avatar_src($avatar);
+    }
+
+    $file = match ((string) ($doc['id'] ?? '')) {
+        '67830e1ded3655928961f303' => 'bahareh-rahimi-20261123.jpg',
+        'a0b21a0319daa94aec53ae7a' => 'simin-asadi-20261123.jpg',
+        '4c2518d23f3f80d3292ebe68' => 'sara-taghizadeh-20261123.jpg',
+        '917aa235b41a87114af27c89' => 'zeynab-adel-20261123.jpg',
+        default => '',
+    };
+    $path = '/uploads/doctors/' . $file;
+    return $file !== '' && is_file(dirname(__DIR__) . $path) ? doctor_avatar_src($path) : '';
+}
+
 function doctor_photo_html(array $doc, string $class = 'doctor-photo'): string
 {
     $name = trim((string) ($doc['name'] ?? ''));
-    $src = doctor_avatar_src($doc['avatar_url'] ?? null);
+    $src = doctor_public_photo_src($doc);
     if ($src !== '') {
         $position = (string) ($doc['id'] ?? '') === 'dprofile001mana' ? ' style="object-position: center 20%"' : '';
         return '<img class="' . e($class) . '" src="' . e($src) . '" alt="' . e($name) . '"' . $position . '>';

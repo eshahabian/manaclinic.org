@@ -73,7 +73,7 @@ $pageDescription = $bioExcerpt !== ''
     : ($doctor['name'] . '، روانشناس مانا کلینیک سعادت‌آباد' . ($domainLine !== '' ? ' — ' . $domainLine : '') . '. رزرو نوبت آنلاین.');
 $pageCanonical = url('/doctors/' . $doctor['id']);
 $pageKeywords = $doctor['name'] . ', روانشناس سعادت آباد, مانا کلینیک' . ($domainLine !== '' ? ', ' . $domainLine : '');
-$pageImage = doctor_avatar_src($doctor['avatar_url'] ?? null) ?: null;
+$pageImage = doctor_public_photo_src($doctor) ?: null;
 if ($pageImage) {
     $pageImage = seo_absolute_url($pageImage);
 }
