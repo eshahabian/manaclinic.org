@@ -56,11 +56,17 @@ $jm = (int) ($_GET['jm'] ?? ($meta['month'] ?? $todayM));
 $range = petty_cash_month_range($jy, $jm);
 $report = petty_cash_month_report($pdo, $range['start'], $range['end']);
 $balances = petty_cash_account_balances($pdo, $range['start'], $range['end']);
-petty_cash_ensure_supplies_schema($pdo);
-$pettySupplies = $pdo->query('
-    SELECT id, item_name, due_date, is_urgent FROM petty_cash_supplies
-    WHERE completed_at IS NULL ORDER BY is_urgent DESC, due_date, created_at, id
-')->fetchAll(PDO::FETCH_ASSOC);
+$asBuyer = petty_cash_supply_is_buyer($user);
+$requestsActive = $asBuyer && ($_GET['tab'] ?? '') === 'requests';
+if ($asBuyer) {
+    petty_cash_ensure_supplies_schema($pdo);
+    $pettySupplies = $pdo->query('
+        SELECT s.id, s.item_name, s.due_date, s.is_urgent, u.name AS requester_name
+        FROM petty_cash_supplies s LEFT JOIN users u ON u.id = s.created_by
+        WHERE s.completed_at IS NULL
+        ORDER BY s.is_urgent DESC, s.due_date, s.created_at, s.id
+    ')->fetchAll(PDO::FETCH_ASSOC);
+}
 $viewYears = [];
 for ($y = (int) $todayY - 1; $y <= (int) $todayY + 1; $y++) {
     $viewYears[] = $y;
@@ -96,15 +102,23 @@ ob_start();
   </div>
 </div>
 
+<div class="panel" style="margin-top:.75rem">
+  <div class="muted">مانده کل تنخواه در <?= e($range['label']) ?></div>
+  <strong><?= e(format_price(array_sum($balances))) ?></strong>
+</div>
+
 <?php if ($canEnter): ?>
 <div class="panel" id="petty-entry-box" style="margin-top:1rem">
   <style>#petty-entry-box [hidden]{display:none !important}</style>
   <div class="binder-tabs" role="tablist" aria-label="ثبت تنخواه">
-    <button type="button" class="binder-tab is-active" data-petty-tab="in" role="tab" aria-selected="true" aria-controls="petty-pane-in">مبلغ ورودی</button>
+    <button type="button" class="binder-tab<?= $requestsActive ? '' : ' is-active' ?>" data-petty-tab="in" role="tab" aria-selected="<?= $requestsActive ? 'false' : 'true' ?>" aria-controls="petty-pane-in">مبلغ ورودی</button>
     <button type="button" class="binder-tab" data-petty-tab="out" role="tab" aria-selected="false" aria-controls="petty-pane-out">هزینه‌ها</button>
+    <?php if ($asBuyer): ?>
+      <button type="button" class="binder-tab<?= $requestsActive ? ' is-active' : '' ?>" data-petty-tab="requests" role="tab" aria-selected="<?= $requestsActive ? 'true' : 'false' ?>" aria-controls="petty-pane-requests">درخواست‌ها</button>
+    <?php endif; ?>
   </div>
 
-  <form class="form-stack" id="petty-pane-in" data-petty-pane="in" method="post" action="<?= e(url($cashPath)) ?>" style="margin-top:1rem">
+  <form class="form-stack" id="petty-pane-in" data-petty-pane="in"<?= $requestsActive ? ' hidden' : '' ?> method="post" action="<?= e(url($cashPath)) ?>" style="margin-top:1rem">
     <?= csrf_field() ?>
     <input type="hidden" name="action" value="in">
     <input type="hidden" name="jy" value="<?= (int) $range['year'] ?>">
@@ -160,11 +174,10 @@ ob_start();
   </div>
     <button class="btn btn-primary" type="submit" style="justify-self:start">ثبت هزینه</button>
   </form>
+  <?php if ($asBuyer) require __DIR__ . '/../includes/petty_cash_supplies_panel.php'; ?>
 </div>
 <?php endif; ?>
-<?php if ($pettySupplies !== []): ?>
-  <?php require __DIR__ . '/../includes/petty_cash_supplies_panel.php'; ?>
-<?php endif; ?>
+<?php if ($asSecretary) require __DIR__ . '/../includes/petty_cash_supplies_panel.php'; ?>
 
 <form class="panel" method="get" action="<?= e(url($cashPath)) ?>" style="margin-top:1rem">
   <p style="margin:0 0 .75rem;font-weight:600">گزارش ماه</p>

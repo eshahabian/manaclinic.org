@@ -66,59 +66,150 @@ function petty_cash_supply_queue_sms(PDO $pdo, string $id, int $revision, string
     };
 }
 
+function petty_cash_supply_is_buyer(array $user): bool
+{
+    return ($user['role'] ?? '') === 'DOCTOR' && ($user['id'] ?? '') === '36dfdb042124cb0a89814c30';
+}
+
+function petty_cash_supply_buyer_phone(PDO $pdo): ?string
+{
+    foreach (petty_cash_supply_recipients($pdo) as $recipient) {
+        if ($recipient['id'] === '36dfdb042124cb0a89814c30') {
+            return sms_iran_mobile((string) $recipient['phone']);
+        }
+    }
+    return null;
+}
+
 function petty_cash_supply_apply_post(PDO $pdo, array $user, string $action): string
 {
     $id = post('supply_id');
     if (!preg_match('/^[a-f0-9]{24}$/D', $id)) {
-        throw new RuntimeException('قلم مورد نظر پیدا نشد.');
+        throw new RuntimeException('شناسه درخواست معتبر نیست.');
     }
-    $name = post('supply_name');
-    $dueDate = petty_cash_supply_due_date(post('supply_due_date'));
-    $urgent = post('supply_urgent') === '1';
-    if ($action !== 'supply_done' && ($name === '' || mb_strlen($name) > 120 || $dueDate === null)) {
-        throw new RuntimeException('نام قلم و مهلت تهیهٔ شمسی را درست وارد کنید.');
+    if ($action === 'supply_request') {
+        if (($user['role'] ?? '') !== 'SECRETARY') {
+            throw new RuntimeException('ثبت درخواست خرید مخصوص منشی‌هاست.');
+        }
+        return petty_cash_supply_request($pdo, (string) $user['id'], $id);
+    }
+    if (!petty_cash_supply_is_buyer($user)) {
+        throw new RuntimeException('ثبت خرید درخواست‌ها مخصوص عطیه گارسچی است.');
     }
 
-    petty_cash_ensure_supplies_schema($pdo);
-    if ($action !== 'supply_done' && $urgent) {
-        require_once __DIR__ . '/outreach.php';
-        ensure_outreach_schema($pdo);
+    $amount = parse_user_money(post('amount'));
+    $account = post('pay_account');
+    if ($amount <= 0 || $amount > 2147483647 || !isset(petty_cash_in_accounts()[$account])) {
+        throw new RuntimeException('مبلغ خرید و حساب تنخواه را درست وارد کنید.');
     }
+
+    ensure_petty_cash_schema($pdo);
+    petty_cash_ensure_supplies_schema($pdo);
     $pdo->beginTransaction();
     try {
-        $revision = 1;
-        $changed = true;
-        if ($action === 'supply_add') {
-            $stmt = $pdo->prepare('INSERT IGNORE INTO petty_cash_supplies (id, item_name, due_date, is_urgent, created_by) VALUES (?,?,?,?,?)');
-            $stmt->execute([$id, $name, $dueDate, (int) $urgent, $user['id']]);
-            $changed = $stmt->rowCount() > 0;
-        } else {
-            $stmt = $pdo->prepare('SELECT item_name, due_date, is_urgent, revision FROM petty_cash_supplies WHERE id = ? AND completed_at IS NULL FOR UPDATE');
-            $stmt->execute([$id]);
-            $item = $stmt->fetch(PDO::FETCH_ASSOC);
-            if (!$item) {
-                throw new RuntimeException('این قلم در فهرست خریدهای باز نیست.');
-            }
-            if ($action === 'supply_done') {
-                $pdo->prepare('UPDATE petty_cash_supplies SET completed_at = NOW() WHERE id = ?')->execute([$id]);
-                $pdo->commit();
-                return 'قلم به‌عنوان تهیه‌شده ثبت شد.';
-            }
-            $changed = $item['item_name'] !== $name || $item['due_date'] !== $dueDate || (bool) $item['is_urgent'] !== $urgent;
-            if ($changed) {
-                $revision = (int) $item['revision'] + 1;
-                $pdo->prepare('UPDATE petty_cash_supplies SET item_name = ?, due_date = ?, is_urgent = ?, revision = ? WHERE id = ?')
-                    ->execute([$name, $dueDate, (int) $urgent, $revision, $id]);
-            }
+        $complete = $pdo->prepare('UPDATE petty_cash_supplies SET completed_at = NOW() WHERE id = ? AND completed_at IS NULL');
+        $complete->execute([$id]);
+        if ($complete->rowCount() !== 1) {
+            throw new RuntimeException('این درخواست بسته شده یا پیدا نشد.');
         }
-        $message = $changed ? 'لیست مایحتاج به‌روز شد.' : 'این قلم قبلاً با همین اطلاعات ثبت شده است.';
-        if ($changed && $urgent) {
-            $message .= ' ' . petty_cash_supply_queue_sms($pdo, $id, $revision, $name, $dueDate);
-        }
+        $pdo->prepare("
+            INSERT INTO petty_cash_entries (id, kind, item_name, amount, entry_date, created_by, pay_account, approver)
+            SELECT ?, 'OUT', item_name, ?, ?, ?, ?, 'garsichi' FROM petty_cash_supplies WHERE id = ?
+        ")->execute([cuid(), $amount, date('Y-m-d'), $user['id'], $account, $id]);
         $pdo->commit();
-        return $message;
+        return 'خرید در ریز هزینه‌ها ثبت و از مانده تنخواه کم شد.';
     } catch (Throwable $exception) {
         $pdo->rollBack();
         throw $exception;
     }
+}
+
+function petty_cash_supply_request(PDO $pdo, string $userId, string $batchId): string
+{
+    $names = $_POST['supply_names'] ?? null;
+    $urgencies = $_POST['supply_urgencies'] ?? [];
+    if (!is_array($names) || !$names || count($names) > 30 || !is_array($urgencies)) {
+        throw new RuntimeException('در هر درخواست بین ۱ تا ۳۰ قلم وارد کنید.');
+    }
+    $items = [];
+    $needsDeadline = false;
+    foreach ($names as $index => $value) {
+        $name = is_string($value) ? trim($value) : '';
+        if ($name === '' || mb_strlen($name) > 120) {
+            throw new RuntimeException('نام هر قلم باید بین ۱ تا ۱۲۰ نویسه باشد.');
+        }
+        $id = substr(hash('sha256', "$userId:$batchId:$index"), 0, 24);
+        $urgent = ($urgencies[$index] ?? '') === '1';
+        $items[$id] = [$name, (int) $urgent];
+        $needsDeadline = $needsDeadline || !$urgent;
+    }
+    $now = new DateTimeImmutable();
+    $dueDate = $needsDeadline ? petty_cash_supply_due_date(post('supply_due_date')) : $now->format('Y-m-d');
+    if ($dueDate === null) {
+        throw new RuntimeException('مهلت تهیه اقلام عادی را به تاریخ شمسی وارد کنید.');
+    }
+    $deadline = new DateTimeImmutable($dueDate . ' 23:59:59');
+    $remindAt = $deadline->sub(new DateInterval('PT24H'));
+    if ($needsDeadline && $remindAt < $now) {
+        throw new RuntimeException('برای اقلام عادی، مهلت تهیه باید دست‌کم ۲۴ ساعت دیگر باشد.');
+    }
+
+    require_once __DIR__ . '/outreach.php';
+    petty_cash_ensure_supplies_schema($pdo);
+    ensure_outreach_schema($pdo);
+    $pdo->beginTransaction();
+    try {
+        $insert = $pdo->prepare('INSERT IGNORE INTO petty_cash_supplies (id, item_name, due_date, is_urgent, created_by) VALUES (?,?,?,?,?)');
+        $groups = [[], []];
+        foreach ($items as $id => [$name, $urgent]) {
+            $insert->execute([$id, $name, ($urgent ? $now->format('Y-m-d') : $dueDate), $urgent, $userId]);
+            if ($insert->rowCount() === 1) {
+                $groups[$urgent][] = $id;
+            }
+        }
+        if (!$groups[0] && !$groups[1]) {
+            $pdo->commit();
+            return 'این فهرست خرید قبلاً ثبت شده است.';
+        }
+
+        $phone = petty_cash_supply_buyer_phone($pdo);
+        $allQueued = true;
+        $immediate = null;
+        foreach ($groups as $urgent => $ids) {
+            if (!$ids) {
+                continue;
+            }
+            $body = $urgent
+                ? 'مانا کلینیک: درخواست خرید ضروری ثبت شد. تب درخواست‌های تنخواه را بررسی کنید.'
+                : 'مانا کلینیک: یادآوری درخواست خرید تا ' . to_jalali_label($dueDate) . '. تب درخواست‌های تنخواه را بررسی کنید.';
+            $kind = 'petty_cash_purchase_reminder';
+            $key = "petty-purchase:$userId:$batchId:$urgent";
+            $expiresAt = ($urgent ? $now->add(new DateInterval('PT24H')) : $deadline)->format('Y-m-d H:i:s');
+            $context = ['entity' => 'petty_cash_purchase_request', 'ids' => $ids];
+            $queued = $phone !== null && sms_queue_extended(
+                $pdo, $phone, $body, $kind, $key, $urgent ? null : $remindAt->format('Y-m-d H:i:s'), $expiresAt, $context
+            );
+            if ($urgent && $queued) {
+                $immediate = [$phone, $body, $kind, $key, $expiresAt, $context];
+            }
+            $allQueued = $allQueued && $queued;
+        }
+        $pdo->commit();
+    } catch (Throwable $exception) {
+        $pdo->rollBack();
+        throw $exception;
+    }
+
+    if ($immediate !== null) {
+        try {
+            $result = sms_send_immediate($pdo, ...$immediate);
+            if ($allQueued && !$result['ok']) {
+                return 'فهرست خرید ثبت شد. ارسال پیامک فوری تأیید نشد.';
+            }
+        } catch (Throwable $exception) {
+            error_log('Petty cash urgent SMS dispatch failed: ' . $exception->getCode());
+            return 'فهرست خرید ثبت شد. ارسال پیامک فوری تأیید نشد.';
+        }
+    }
+    return $allQueued ? 'فهرست خرید و پیامک ثبت شد.' : 'فهرست خرید ثبت شد. ثبت پیامک کامل نشد.';
 }

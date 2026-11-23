@@ -505,6 +505,17 @@ function sms_job_still_valid(PDO $pdo, array $job): bool
     if (!empty($job['expires_at']) && strtotime($job['expires_at'])<=time())return false;
     $context=json_decode((string)($job['context_json']??''),true);
     if(!is_array($context)||!isset($context['entity']))return true;
+    if ($context['entity'] === 'petty_cash_purchase_request') {
+        require_once __DIR__ . '/petty_cash_supplies.php';
+        $ids = $context['ids'] ?? [];
+        if (!is_array($ids) || !$ids || count($ids) > 30 || petty_cash_supply_buyer_phone($pdo) !== $job['phone']) {
+            return false;
+        }
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $stmt = $pdo->prepare("SELECT 1 FROM petty_cash_supplies WHERE completed_at IS NULL AND id IN ($placeholders) LIMIT 1");
+        $stmt->execute($ids);
+        return (bool) $stmt->fetchColumn();
+    }
     if (in_array($context['entity'], ['petty_cash_supply', 'petty_cash_urgent_expense'], true)) {
         require_once __DIR__ . '/petty_cash_supplies.php';
         $id = (string) ($context['id'] ?? '');

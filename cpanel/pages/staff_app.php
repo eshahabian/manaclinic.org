@@ -360,6 +360,9 @@ if ($method === 'POST' && $path === '/app/petty-cash') {
     } catch (RuntimeException $e) {
         flash_set('error', $e->getMessage());
     }
+    if (post('action') === 'supply_purchase') {
+        $back .= '&tab=requests';
+    }
     redirect($back);
 }
 

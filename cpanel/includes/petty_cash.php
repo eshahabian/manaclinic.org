@@ -354,7 +354,7 @@ function petty_cash_apply_post(PDO $pdo, array $user): string
         throw new RuntimeException('دسترسی به تنخواه مجاز نیست.');
     }
     $action = post('action');
-    if (in_array($action, ['supply_add', 'supply_edit', 'supply_done'], true)) {
+    if (in_array($action, ['supply_request', 'supply_purchase'], true)) {
         require_once __DIR__ . '/petty_cash_supplies.php';
         try {
             return petty_cash_supply_apply_post($pdo, $user, $action);

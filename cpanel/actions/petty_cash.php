@@ -27,4 +27,7 @@ try {
 } catch (RuntimeException $e) {
     flash_set('error', $e->getMessage());
 }
+if (post('action') === 'supply_purchase') {
+    $back .= '&tab=requests';
+}
 redirect($back);
