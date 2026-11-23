@@ -393,6 +393,11 @@ function doctor_public_photo_src(array $doc): string
         return doctor_avatar_src($avatar);
     }
 
+    $defaultPhoto = doctor_panel_default_photo_path($doc);
+    if ($defaultPhoto !== '') {
+        return doctor_avatar_src($defaultPhoto);
+    }
+
     $file = match ((string) ($doc['id'] ?? '')) {
         '67830e1ded3655928961f303' => 'bahareh-rahimi-20261123.jpg',
         'a0b21a0319daa94aec53ae7a' => 'simin-asadi-20261123.jpg',
