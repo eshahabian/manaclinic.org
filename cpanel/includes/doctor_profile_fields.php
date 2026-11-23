@@ -414,7 +414,13 @@ function doctor_photo_html(array $doc, string $class = 'doctor-photo'): string
     $name = trim((string) ($doc['name'] ?? ''));
     $src = doctor_public_photo_src($doc);
     if ($src !== '') {
-        $position = (string) ($doc['id'] ?? '') === 'dprofile001mana' ? ' style="object-position: center 20%"' : '';
+        $verticalPosition = match (basename((string) parse_url($src, PHP_URL_PATH))) {
+            'mirzania-20261123.png' => 24,
+            'motaghi-20261123.png' => 27,
+            'shir-khodaei-20261123.png' => 9,
+            default => (string) ($doc['id'] ?? '') === 'dprofile001mana' ? 20 : null,
+        };
+        $position = $verticalPosition === null ? '' : ' style="object-position: center ' . $verticalPosition . '%"';
         return '<img class="' . e($class) . '" src="' . e($src) . '" alt="' . e($name) . '"' . $position . '>';
     }
     $initial = $name !== '' ? mb_substr($name, 0, 1) : '؟';
