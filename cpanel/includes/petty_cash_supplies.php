@@ -121,6 +121,7 @@ function petty_cash_supply_apply_post(PDO $pdo, array $user, string $action): st
 
     ensure_petty_cash_schema($pdo);
     petty_cash_ensure_supplies_schema($pdo);
+    $receipt = null;
     $pdo->beginTransaction();
     try {
         $complete = $pdo->prepare('UPDATE petty_cash_supplies SET completed_at = NOW() WHERE id = ? AND completed_at IS NULL');
@@ -128,14 +129,22 @@ function petty_cash_supply_apply_post(PDO $pdo, array $user, string $action): st
         if ($complete->rowCount() !== 1) {
             throw new RuntimeException('این درخواست بسته شده یا پیدا نشد.');
         }
+        $entryId = cuid();
+        $file = $_FILES['receipt'] ?? null;
+        if (is_array($file) && ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
+            $receipt = staff_save_receipt($file, $entryId);
+        }
         $pdo->prepare("
-            INSERT INTO petty_cash_entries (id, kind, item_name, amount, entry_date, created_by, pay_account, approver)
-            SELECT ?, 'OUT', item_name, ?, ?, ?, ?, 'garsichi' FROM petty_cash_supplies WHERE id = ?
-        ")->execute([cuid(), $amount, date('Y-m-d'), $user['id'], $account, $id]);
+            INSERT INTO petty_cash_entries (id, kind, item_name, amount, entry_date, receipt_path, created_by, pay_account, approver)
+            SELECT ?, 'OUT', item_name, ?, ?, ?, ?, ?, 'garsichi' FROM petty_cash_supplies WHERE id = ?
+        ")->execute([$entryId, $amount, date('Y-m-d'), $receipt, $user['id'], $account, $id]);
         $pdo->commit();
         return 'خرید در ریز هزینه‌ها ثبت و از مانده تنخواه کم شد.';
     } catch (Throwable $exception) {
         $pdo->rollBack();
+        if ($receipt !== null) {
+            unlink(staff_receipt_abs($receipt));
+        }
         throw $exception;
     }
 }

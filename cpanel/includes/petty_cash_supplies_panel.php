@@ -116,13 +116,17 @@ $requestRow = static function (int $index, bool $removable): void {
       <?php endif; ?>
       <details style="margin-top:.45rem">
         <summary>ثبت خرید</summary>
-        <form class="form-stack" method="post" action="<?= e(url($cashPath)) ?>" style="margin-top:.75rem">
+        <form class="form-stack" method="post" action="<?= e(url($cashPath)) ?>" enctype="multipart/form-data" style="margin-top:.75rem">
           <?php $supplyFields('supply_purchase', $item['id']); ?>
           <div>
             <label class="label" for="petty-buy-<?= e($item['id']) ?>">مبلغ خرج‌شده</label>
             <input class="input" id="petty-buy-<?= e($item['id']) ?>" name="amount" inputmode="numeric" placeholder="تومان" data-money required>
           </div>
           <?= petty_cash_select_html('pay_account', 'petty-buy-account-' . $item['id'], 'حساب تنخواه', petty_cash_in_accounts()) ?>
+          <label>
+            <span class="label">رسید (اختیاری)</span>
+            <input class="input" type="file" name="receipt" accept="image/jpeg,image/png,image/webp,application/pdf">
+          </label>
           <button class="btn btn-primary" type="submit" style="justify-self:start">ثبت خرید و کسر از مانده</button>
         </form>
       </details>
