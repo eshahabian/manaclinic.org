@@ -74,7 +74,6 @@ ob_start();
   <a class="btn btn-outline" href="<?= e(url('/staff/excel-reports?type=cash&jy=' . $range['year'] . '&jm=' . $range['month'])) ?>" data-excel-report="context" aria-haspopup="dialog">خروجی اکسل تنخواه</a>
 <?php endif; ?>
 <p class="muted">مبلغ ورودی و هزینه‌ها اینجا می‌ماند. آخر ماه جمع هر قلم، مثل دستمال کاغذی، در همین صفحه است.</p>
-<?php require __DIR__ . '/../includes/petty_cash_supplies_panel.php'; ?>
 
 <div class="grid-2" style="margin-top:1rem">
   <div class="panel" style="margin:0">
@@ -133,11 +132,15 @@ ob_start();
     <div class="petty-line" style="display:grid;grid-template-columns:minmax(0,1.6fr) minmax(7.5rem,.9fr);gap:.5rem;align-items:end">
       <div>
         <label class="label" for="petty-item">قلم هزینه</label>
-        <input class="input" id="petty-item" name="item_name[]" required maxlength="120" placeholder="مثلاً دستمال کاغذی">
+        <input class="input" id="petty-item" name="item_name[0]" required maxlength="120" placeholder="مثلاً دستمال کاغذی">
       </div>
       <div>
         <label class="label" for="petty-out-amount">مبلغ</label>
-        <input class="input" id="petty-out-amount" name="amount[]" inputmode="numeric" required placeholder="تومان" data-money>
+        <input class="input" id="petty-out-amount" name="amount[0]" inputmode="numeric" required placeholder="تومان" data-money>
+      </div>
+      <div style="grid-column:1/-1">
+        <label><input type="checkbox" name="item_urgent[0]" value="1" data-petty-urgent> ضروری</label>
+        <input class="input" name="item_due_date[0]" aria-label="مهلت تهیه" placeholder="مهلت تهیه به تاریخ شمسی" data-petty-due data-jdp data-jdp-only-date autocomplete="off" hidden disabled>
       </div>
     </div>
   </div>
@@ -158,6 +161,9 @@ ob_start();
     <button class="btn btn-primary" type="submit" style="justify-self:start">ثبت هزینه</button>
   </form>
 </div>
+<?php endif; ?>
+<?php if ($pettySupplies !== []): ?>
+  <?php require __DIR__ . '/../includes/petty_cash_supplies_panel.php'; ?>
 <?php endif; ?>
 
 <form class="panel" method="get" action="<?= e(url($cashPath)) ?>" style="margin-top:1rem">
@@ -311,14 +317,24 @@ ob_start();
   var box = document.getElementById('petty-lines');
   var add = document.getElementById('petty-add-line');
   if (!box || !add) return;
+  var nextLine = 1;
+  box.addEventListener('change', function (event) {
+    if (!event.target.matches('[data-petty-urgent]')) return;
+    var due = event.target.closest('.petty-line').querySelector('[data-petty-due]');
+    due.hidden = due.disabled = !event.target.checked;
+    due.required = event.target.checked;
+  });
   add.addEventListener('click', function () {
     if (box.querySelectorAll('.petty-line').length >= 30) return;
     var row = document.createElement('div');
+    var index = nextLine++;
     row.className = 'petty-line';
     row.style.cssText = 'display:grid;grid-template-columns:minmax(0,1.6fr) minmax(7.5rem,.9fr) auto;gap:.5rem;align-items:center';
-    row.innerHTML = '<input class="input" name="item_name[]" maxlength="120" placeholder="قلم بعدی" aria-label="قلم هزینه">'
-      + '<span><input class="input" name="amount[]" inputmode="numeric" placeholder="تومان" aria-label="مبلغ" data-money></span>'
-      + '<button type="button" class="btn btn-outline" aria-label="حذف این قلم" style="min-width:2.75rem;font-size:1.2rem;line-height:1;padding:.45rem .7rem">×</button>';
+    row.innerHTML = '<input class="input" name="item_name[' + index + ']" maxlength="120" placeholder="قلم بعدی" aria-label="قلم هزینه">'
+      + '<span><input class="input" name="amount[' + index + ']" inputmode="numeric" placeholder="تومان" aria-label="مبلغ" data-money></span>'
+      + '<button type="button" class="btn btn-outline" aria-label="حذف این قلم" style="min-width:2.75rem;font-size:1.2rem;line-height:1;padding:.45rem .7rem">×</button>'
+      + '<div style="grid-column:1/-1"><label><input type="checkbox" name="item_urgent[' + index + ']" value="1" data-petty-urgent> ضروری</label>'
+      + '<input class="input" name="item_due_date[' + index + ']" aria-label="مهلت تهیه" placeholder="مهلت تهیه به تاریخ شمسی" data-petty-due data-jdp data-jdp-only-date autocomplete="off" hidden disabled></div>';
     var remove = row.querySelector('button');
     if (remove) remove.addEventListener('click', function () { row.remove(); });
     box.appendChild(row);

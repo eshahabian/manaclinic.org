@@ -505,10 +505,16 @@ function sms_job_still_valid(PDO $pdo, array $job): bool
     if (!empty($job['expires_at']) && strtotime($job['expires_at'])<=time())return false;
     $context=json_decode((string)($job['context_json']??''),true);
     if(!is_array($context)||!isset($context['entity']))return true;
-    if ($context['entity'] === 'petty_cash_supply') {
+    if (in_array($context['entity'], ['petty_cash_supply', 'petty_cash_urgent_expense'], true)) {
         require_once __DIR__ . '/petty_cash_supplies.php';
-        $stmt = $pdo->prepare('SELECT 1 FROM petty_cash_supplies WHERE id = ? AND revision = ? AND is_urgent = 1 AND completed_at IS NULL');
-        $stmt->execute([(string) ($context['id'] ?? ''), (int) ($context['revision'] ?? 0)]);
+        $id = (string) ($context['id'] ?? '');
+        if ($context['entity'] === 'petty_cash_urgent_expense') {
+            $stmt = $pdo->prepare("SELECT 1 FROM petty_cash_entries WHERE id = ? AND kind = 'OUT'");
+            $stmt->execute([$id]);
+        } else {
+            $stmt = $pdo->prepare('SELECT 1 FROM petty_cash_supplies WHERE id = ? AND revision = ? AND is_urgent = 1 AND completed_at IS NULL');
+            $stmt->execute([$id, (int) ($context['revision'] ?? 0)]);
+        }
         if (!$stmt->fetchColumn()) {
             return false;
         }

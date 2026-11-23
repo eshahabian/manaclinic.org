@@ -36,8 +36,6 @@ $supplyForm = static function (?array $item = null) use ($cashPath, $supplyField
 ?>
 <section class="panel" id="petty-supplies" style="margin-top:1rem">
   <h2 style="margin:0;font-size:1.1rem">لیست مایحتاج</h2>
-  <p class="muted" style="margin:.4rem 0">برای خرید ضروری، نام قلم و مهلت تهیه به عطیه گارسچی و عماد شهابیان پیامک می‌شود.</p>
-  <?php $supplyForm(); ?>
 
   <?php if ($pettySupplies === []): ?>
     <p class="muted" style="margin:.8rem 0 0">قلمی در انتظار خرید نیست.</p>

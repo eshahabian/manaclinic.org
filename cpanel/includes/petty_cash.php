@@ -425,8 +425,9 @@ function petty_cash_apply_post(PDO $pdo, array $user): string
         }
     }
 
-    /** @var list<array{name:string,amount:int}> $lines */
+    /** @var list<array{name:string,amount:int,due_date?:string}> $lines */
     $lines = [];
+    $hasUrgent = false;
     if ($kind === 'OUT') {
         $names = $_POST['item_name'] ?? [];
         $amounts = $_POST['amount'] ?? [];
@@ -436,11 +437,11 @@ function petty_cash_apply_post(PDO $pdo, array $user): string
         if (!is_array($amounts)) {
             $amounts = [(string) $amounts];
         }
-        $count = max(count($names), count($amounts));
-        if ($count > 30) {
+        $keys = array_unique(array_merge(array_keys($names), array_keys($amounts)));
+        if (count($keys) > 30) {
             throw new RuntimeException('در هر ثبت حداکثر ۳۰ قلم می‌شود.');
         }
-        for ($i = 0; $i < $count; $i++) {
+        foreach ($keys as $i) {
             $name = trim((string) ($names[$i] ?? ''));
             $rawAmount = trim((string) ($amounts[$i] ?? ''));
             if ($name === '' && $rawAmount === '') {
@@ -456,7 +457,17 @@ function petty_cash_apply_post(PDO $pdo, array $user): string
             if ($money <= 0) {
                 throw new RuntimeException('مبلغ هر قلم را درست وارد کنید.');
             }
-            $lines[] = ['name' => $name, 'amount' => $money];
+            $line = ['name' => $name, 'amount' => $money];
+            if (($_POST['item_urgent'][$i] ?? null) === '1') {
+                require_once __DIR__ . '/petty_cash_supplies.php';
+                $due = petty_cash_supply_due_date((string) ($_POST['item_due_date'][$i] ?? ''));
+                if ($due === null) {
+                    throw new RuntimeException('مهلت شمسی قلم ضروری را وارد کنید.');
+                }
+                $line['due_date'] = $due;
+                $hasUrgent = true;
+            }
+            $lines[] = $line;
         }
         if (!$lines) {
             throw new RuntimeException('قلم هزینه و مبلغ را بنویسید.');
@@ -470,6 +481,10 @@ function petty_cash_apply_post(PDO $pdo, array $user): string
     }
 
     ensure_petty_cash_schema($pdo);
+    if ($hasUrgent) {
+        require_once __DIR__ . '/outreach.php';
+        ensure_outreach_schema($pdo);
+    }
     $receipt = null;
     $file = $_FILES['receipt'] ?? null;
     if ($kind === 'OUT' && is_array($file) && (int) ($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE) {
@@ -487,11 +502,13 @@ function petty_cash_apply_post(PDO $pdo, array $user): string
     $noteValue = $note !== '' ? $note : null;
     $accountValue = $payAccount !== '' ? $payAccount : null;
     $approverValue = $approver !== '' ? $approver : null;
+    $smsMessage = '';
     try {
         $pdo->beginTransaction();
         foreach ($lines as $line) {
+            $entryId = cuid();
             $insert->execute([
-                cuid(),
+                $entryId,
                 $kind,
                 $line['name'],
                 $line['amount'],
@@ -502,6 +519,9 @@ function petty_cash_apply_post(PDO $pdo, array $user): string
                 $accountValue,
                 $approverValue,
             ]);
+            if (isset($line['due_date'])) {
+                $smsMessage = petty_cash_supply_queue_sms($pdo, $entryId, 1, $line['name'], $line['due_date'], true);
+            }
         }
         $pdo->commit();
     } catch (Throwable $e) {
@@ -516,6 +536,9 @@ function petty_cash_apply_post(PDO $pdo, array $user): string
 
     if ($kind === 'IN') {
         return 'مبلغ ورودی ثبت شد.';
+    }
+    if ($smsMessage !== '') {
+        return $smsMessage;
     }
     if (count($lines) === 1) {
         return 'هزینه ثبت شد.';

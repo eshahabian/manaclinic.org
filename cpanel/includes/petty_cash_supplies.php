@@ -43,7 +43,7 @@ function petty_cash_supply_recipients(PDO $pdo): array
     ")->fetchAll(PDO::FETCH_ASSOC);
 }
 
-function petty_cash_supply_queue_sms(PDO $pdo, string $id, int $revision, string $name, string $dueDate): string
+function petty_cash_supply_queue_sms(PDO $pdo, string $id, int $revision, string $name, string $dueDate, bool $expense = false): string
 {
     $phones = [];
     $reachable = 0;
@@ -57,12 +57,12 @@ function petty_cash_supply_queue_sms(PDO $pdo, string $id, int $revision, string
     $body = 'مانا کلینیک: خرید ضروری «' . $name . '». مهلت تهیه ' . to_jalali_label($dueDate) . '.';
     foreach ($phones as $phone => $recipientIds) {
         sms_queue_extended($pdo, $phone, $body, 'petty_cash_urgent_supply', "petty-supply:{$id}:{$revision}:{$phone}",
-            null, null, ['entity' => 'petty_cash_supply', 'id' => $id, 'revision' => $revision, 'recipients' => $recipientIds]);
+            null, null, ['entity' => $expense ? 'petty_cash_urgent_expense' : 'petty_cash_supply', 'id' => $id, 'revision' => $revision, 'recipients' => $recipientIds]);
     }
     return match ($reachable) {
-        2 => 'پیامک برای عطیه گارسچی و عماد شهابیان در صف ارسال قرار گرفت.',
-        1 => 'پیامک برای حساب دارای شماره معتبر در صف قرار گرفت. شماره یا وضعیت حساب گیرنده دیگر را بررسی کنید.',
-        default => 'برای هیچ‌یک از دو گیرنده حساب فعال با شماره معتبر پیدا نشد.',
+        2 => 'یادآوری پیامکی ثبت شد.',
+        1 => 'یادآوری پیامکی برای یک گیرنده ثبت شد.',
+        default => 'یادآوری پیامکی ثبت نشد.',
     };
 }
 
