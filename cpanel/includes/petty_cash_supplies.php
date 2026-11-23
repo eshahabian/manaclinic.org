@@ -155,10 +155,10 @@ function petty_cash_supply_request(PDO $pdo, string $userId, string $batchId): s
             throw new RuntimeException('نام هر قلم باید بین ۱ تا ۱۲۰ نویسه باشد.');
         }
         $id = substr(hash('sha256', "$userId:$batchId:$index"), 0, 24);
-        $urgent = ($urgencies[$index] ?? '') === '1';
+        $rawDate = $dates[$index] ?? $sharedDate;
+        $urgent = in_array($urgencies[$index] ?? null, ['1', 'on', 1, true], true) || $rawDate === 'urgent';
         $dueDate = null;
         if (!$urgent) {
-            $rawDate = $dates[$index] ?? $sharedDate;
             $dueDate = is_string($rawDate) ? petty_cash_supply_due_date($rawDate) : null;
             if ($dueDate === null) {
                 throw new RuntimeException('تاریخ تهیه «' . $name . '» را به شمسی وارد کنید، مثلاً ۱۴۰۵/۰۹/۱۰.');

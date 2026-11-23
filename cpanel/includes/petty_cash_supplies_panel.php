@@ -24,6 +24,7 @@ $requestRow = static function (int $index, bool $removable): void {
         <span class="label">مهلت تهیه</span>
         <input class="input" name="supply_dates[<?= $index ?>]" data-request-date placeholder="مثلاً ۱۴۰۵/۰۹/۱۰" data-jdp data-jdp-only-date autocomplete="off" required>
       </label>
+      <input type="hidden" name="supply_dates[<?= $index ?>]" value="urgent" data-request-urgent-date disabled>
       <?php if ($removable): ?>
         <button class="btn btn-outline btn-sm petty-request-remove" type="button" data-request-remove>حذف قلم</button>
       <?php endif; ?>
@@ -66,6 +67,7 @@ $requestRow = static function (int $index, bool $removable): void {
     const date = row.querySelector('[data-request-date]');
     date.disabled = urgent;
     date.required = !urgent;
+    row.querySelector('[data-request-urgent-date]').disabled = !urgent;
   }
 
   add.addEventListener('click', function () {
@@ -77,6 +79,7 @@ $requestRow = static function (int $index, bool $removable): void {
     nextIndex++;
     items.append(row);
     add.disabled = items.children.length >= 30;
+    syncDate(row);
     row.querySelector('[data-request-name]').focus();
   });
   items.addEventListener('change', function (event) {
@@ -92,6 +95,7 @@ $requestRow = static function (int $index, bool $removable): void {
   function syncDates() {
     items.querySelectorAll('[data-request-item]').forEach(syncDate);
   }
+  items.closest('form').addEventListener('submit', syncDates);
   window.addEventListener('pageshow', syncDates);
   syncDates();
 })();
