@@ -734,6 +734,7 @@ if ($section === 'therapists') {
 }
 
 if ($section === 'appointments') {
+    require_once __DIR__ . '/../includes/appointment_session.php';
     $selectedDate = staff_app_schedule_selected_day((string) ($_GET['day'] ?? ''));
     $selectedDay = $selectedDate->format('Y-m-d');
     $prevDay = $selectedDate->modify('-1 day')->format('Y-m-d');
@@ -757,7 +758,11 @@ if ($section === 'appointments') {
     $rows = [];
     $error = '';
     try {
-        $rows = staff_app_appointment_rows($pdo, $user, $selectedDay);
+        $rows = appointment_shared_notes_annotate(
+            $pdo,
+            staff_app_appointment_rows($pdo, $user, $selectedDay),
+            $userId
+        );
     } catch (Throwable $e) {
         error_log('staff app appointments: ' . $e->getMessage());
         $error = 'بارگذاری وقت‌ها الان ممکن نیست.';
@@ -783,7 +788,7 @@ if ($section === 'appointments') {
     <?php endif; ?>
     <nav class="sapp-daynav" aria-label="انتخاب روز وقت‌ها" style="margin-top:1rem">
       <a class="sapp-daynav-btn" href="<?= e(url('/app/appointments?day=' . $prevDay)) ?>" aria-label="روز قبل"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m14 6-6 6 6 6"/></svg></a>
-      <strong class="sapp-daynav-date sapp-schedule-date"><span><?= e($weekday . ' · ' . to_jalali_label($selectedDay)) ?></span><bdi dir="ltr"><?= e($selectedDate->format('j F Y')) ?></bdi></strong>
+      <strong class="sapp-daynav-date sapp-schedule-date"><span><?= e($weekday . ' · ' . to_jalali_label($selectedDay)) ?><?= in_array(true, array_column($rows, '_shared_note_unread'), true) ? appointment_shared_note_dot() : '' ?></span><bdi dir="ltr"><?= e($selectedDate->format('j F Y')) ?></bdi></strong>
       <a class="sapp-daynav-btn" href="<?= e(url('/app/appointments?day=' . $nextDay)) ?>" aria-label="روز بعد"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m10 6 6 6-6 6"/></svg></a>
     </nav>
     <?php if ($error !== ''): ?>
@@ -816,7 +821,7 @@ if ($section === 'appointments') {
             <article class="sapp-row">
               <strong><?= e(format_fa_time((string) $row['starts_at'])) ?> تا <?= e(format_fa_time((string) $row['ends_at'])) ?></strong>
               <div style="display:flex;align-items:flex-start;justify-content:space-between;gap:.5rem">
-                <span><?= e($whoLine) ?></span>
+                <span><?= e($whoLine) ?><?= !$roomOnly && !empty($row['_shared_note_unread']) ? appointment_shared_note_dot() : '' ?></span>
                 <?php if (!$roomOnly): ?>
                   <details class="name-more">
                     <summary aria-label="توضیحات بیشتر">⋯</summary>

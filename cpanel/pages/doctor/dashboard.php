@@ -46,7 +46,8 @@ $allAppointments = array_values(array_filter(
     static function (array $row): bool {
         $status = (string) ($row['status'] ?? '');
 
-        return $status === 'CANCELLED' || (function_exists('appointment_is_panel_fixed') && appointment_is_panel_fixed($row));
+        return !empty($row['_shared_note_unread']) || $status === 'CANCELLED'
+            || (function_exists('appointment_is_panel_fixed') && appointment_is_panel_fixed($row));
     }
 ));
 $apptTotal = count($upcomingAppointments);

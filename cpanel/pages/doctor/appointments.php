@@ -68,7 +68,7 @@ foreach ($rows as $row) {
     $start = strtotime((string) ($row['starts_at'] ?? '')) ?: 0;
     if ($status === 'CANCELLED') {
         $cancelled[] = $row;
-    } elseif (function_exists('appointment_is_panel_fixed') && !appointment_is_panel_fixed($row)) {
+    } elseif (empty($row['_shared_note_unread']) && function_exists('appointment_is_panel_fixed') && !appointment_is_panel_fixed($row)) {
         continue;
     } elseif ($status === 'COMPLETED' || $start < $now) {
         $done[] = $row;
