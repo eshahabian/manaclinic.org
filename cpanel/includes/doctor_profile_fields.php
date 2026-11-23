@@ -180,7 +180,7 @@ function doctor_profile_is_complete(array $row): bool
     $degree = trim((string) ($row['degree'] ?? ''));
     $maxYear = doctor_current_jalali_year();
 
-    return $avatar !== ''
+    return ($avatar !== '' || doctor_panel_default_photo_path($row) !== '')
         && $approaches !== []
         && $domains !== []
         && $focus !== []
@@ -343,7 +343,7 @@ function doctor_must_complete_profile(PDO $pdo, array $user): bool
         return $cache[$id];
     }
     ensure_doctor_profile_schema($pdo);
-    $stmt = $pdo->prepare('SELECT * FROM doctor_profiles WHERE user_id=? LIMIT 1');
+    $stmt = $pdo->prepare('SELECT dp.*, u.name FROM doctor_profiles dp JOIN users u ON u.id=dp.user_id WHERE dp.user_id=? LIMIT 1');
     $stmt->execute([$id]);
     $row = $stmt->fetch();
     $cache[$id] = is_array($row) && !doctor_profile_is_complete($row);
@@ -369,6 +369,21 @@ function doctor_avatar_src(?string $avatarUrl): string
         }
     }
     return $src;
+}
+
+function doctor_panel_default_photo_path(array $doc): string
+{
+    $file = match ((string) ($doc['id'] ?? '')) {
+        '77a27cf516fb275a6188d1a7' => 'shir-khodaei-20261123.png',
+        '34db4bb666ea85d4c42b97b0' => 'motaghi-20261123.png',
+        default => '',
+    };
+    if ($file === '' && preg_match('/(?:^|\s)م[یي]رزا[\s\x{200C}]*ن[یي]ا\s*$/u', (string) ($doc['name'] ?? ''))) {
+        $file = 'mirzania-20261123.png';
+    }
+    $path = '/uploads/doctors/' . $file;
+
+    return $file !== '' && is_file(dirname(__DIR__) . $path) ? $path : '';
 }
 
 function doctor_public_photo_src(array $doc): string

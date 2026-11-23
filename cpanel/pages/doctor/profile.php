@@ -11,7 +11,8 @@ $incomplete = !doctor_profile_is_complete($p);
 $approaches = doctor_profile_filter_keys(doctor_profile_json_list($p['approaches_json'] ?? ''), doctor_approach_options());
 $domains = doctor_profile_filter_keys(doctor_profile_json_list($p['domains_json'] ?? ''), doctor_domain_options());
 $focus = doctor_profile_filter_keys(doctor_profile_json_list($p['focus_json'] ?? ''), doctor_focus_options());
-$photoSrc = doctor_avatar_src($p['avatar_url'] ?? null);
+$avatar = trim((string) ($p['avatar_url'] ?? ''));
+$photoSrc = doctor_avatar_src($avatar !== '' ? $avatar : doctor_panel_default_photo_path($p));
 $maxYear = doctor_current_jalali_year();
 ob_start();
 ?>

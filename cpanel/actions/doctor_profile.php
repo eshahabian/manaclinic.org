@@ -41,7 +41,7 @@ try {
     redirect(!empty($doctorProfileEmbedded) ? '/app/profile' : '/doctor/profile');
 }
 
-if ($avatarUrl === '') {
+if ($avatarUrl === '' && doctor_panel_default_photo_path($p) === '') {
     flash_set('error', 'عکس پروفایل الزامی است.');
     redirect(!empty($doctorProfileEmbedded) ? '/app/profile' : '/doctor/profile');
 }
