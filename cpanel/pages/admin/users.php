@@ -26,6 +26,8 @@ $users = $pdo->query("
   ORDER BY u.created_at DESC
 ")->fetchAll();
 $usersDisabledPage = str_ends_with((string) ($GLOBALS['path'] ?? ''), '/admin/users-disabled');
+$me = current_user();
+$showMobileColumn = !$usersDisabledPage && strcasecmp((string) ($me['username'] ?? ''), 'eshahabian') === 0;
 if ($usersDisabledPage) {
     $users = array_values(array_filter($users, static fn($u) => (int) ($u['is_disabled'] ?? 0) === 1));
 }
@@ -79,7 +81,9 @@ ob_start();
       <col class="admin-users-col-by">
       <col class="admin-users-col-pass">
       <col class="admin-users-col-date">
-      <col class="admin-users-col-date">
+      <?php if (!$showMobileColumn): ?>
+        <col class="admin-users-col-date">
+      <?php endif; ?>
       <col class="admin-users-col-date">
       <col class="admin-users-col-ops">
     </colgroup>
@@ -91,8 +95,12 @@ ob_start();
         <th>ثبت توسط</th>
         <th>معرف</th>
         <th>رمز فعلی</th>
-        <th>عضویت</th>
-        <th>آخرین ورود</th>
+        <?php if ($showMobileColumn): ?>
+          <th>شماره موبایل</th>
+        <?php else: ?>
+          <th>عضویت</th>
+          <th>آخرین ورود</th>
+        <?php endif; ?>
         <th>آخرین تراپی</th>
         <th>عملیات</th>
       </tr>
@@ -139,8 +147,13 @@ ob_start();
               <span class="muted" style="font-size:.85rem">ثبت نشده</span>
             <?php endif; ?>
           </td>
-          <td><?= e(format_fa_datetime($u['created_at'])) ?></td>
-          <td><?= !empty($u['last_login_at']) ? e(format_fa_datetime((string) $u['last_login_at'])) : '—' ?></td>
+          <?php if ($showMobileColumn): ?>
+            <?php $phone = trim((string) ($u['phone'] ?? '')); ?>
+            <td dir="ltr"><?= $phone !== '' ? e($phone) : '—' ?></td>
+          <?php else: ?>
+            <td><?= e(format_fa_datetime($u['created_at'])) ?></td>
+            <td><?= !empty($u['last_login_at']) ? e(format_fa_datetime((string) $u['last_login_at'])) : '—' ?></td>
+          <?php endif; ?>
           <td>
             <?php if (($u['role'] ?? '') === 'PATIENT' && !empty($lastTherapy[$uid])): ?>
               <?= e(format_fa_datetime((string) $lastTherapy[$uid])) ?>
@@ -158,7 +171,6 @@ ob_start();
                   رمز
                 </button>
                 <?php
-                  $me = current_user();
                   $canDisable = user_disable_actor_allowed($me)
                     && strcasecmp((string) ($u['username'] ?? ''), 'eshahabian') !== 0
                     && (string) ($me['id'] ?? '') !== $uid;
@@ -218,7 +230,7 @@ ob_start();
         </tr>
       <?php endforeach; ?>
       <?php if (!$users): ?>
-        <tr><td colspan="10" class="muted" style="text-align:center;padding:1.2rem"><?= $searchQuery !== '' ? 'کاربری با این مشخصات پیدا نشد.' : ($usersDisabledPage ? 'کاربر غیرفعالی نیست.' : 'کاربری ثبت نشده است.') ?></td></tr>
+        <tr><td colspan="<?= $showMobileColumn ? 9 : 10 ?>" class="muted" style="text-align:center;padding:1.2rem"><?= $searchQuery !== '' ? 'کاربری با این مشخصات پیدا نشد.' : ($usersDisabledPage ? 'کاربر غیرفعالی نیست.' : 'کاربری ثبت نشده است.') ?></td></tr>
       <?php endif; ?>
     </tbody>
   </table>
