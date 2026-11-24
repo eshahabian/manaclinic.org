@@ -23,7 +23,7 @@ html[data-theme=dark] .mana-couples-eyebrow,html[data-theme=dark] .mana-couples-
 .mana-couples-lesson section,.mana-couples-lesson aside,.mana-couples-lesson footer{margin-block:2rem}
 .mana-couples-lesson .panel{padding:clamp(1rem,3vw,2rem)}
 .mana-couples-lesson li{padding-inline-start:.5rem;margin-block:.75rem}
-.mana-welcome{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:clamp(2rem,5vw,5rem);padding-top:clamp(3rem,6vw,6rem);padding-bottom:4rem}
+.mana-welcome{display:grid;grid-template-columns:1fr 1fr;align-items:center;gap:clamp(2rem,5vw,5rem);padding-top:clamp(1rem,2vw,2rem);padding-bottom:4rem}
 .mana-kicker{color:var(--primary);font-size:.84rem;font-weight:600;margin:0 0 1rem;letter-spacing:0}
 .mana-welcome h1{font-size:clamp(2.2rem,4.1vw,4rem);line-height:1.65;margin:0;font-weight:800;letter-spacing:-.045em}
 .mana-welcome h1 span{color:var(--primary)}
@@ -112,6 +112,6 @@ html[data-theme=dark] .mana-couples-eyebrow,html[data-theme=dark] .mana-couples-
 .mana-home-v2 a:focus-visible{outline:3px solid var(--accent);outline-offset:5px}
 html[data-theme=dark] .mana-reading-banner img{mix-blend-mode:normal}
 @media(max-width:960px){.mana-welcome{gap:2rem}.mana-welcome h1{font-size:2.5rem}}
-@media(max-width:640px){.mana-welcome{grid-template-columns:1fr;padding-top:2.5rem;padding-bottom:2.5rem;gap:2.4rem}.mana-welcome h1{font-size:2.25rem}.mana-welcome-art img{aspect-ratio:1.25;border-radius:70px 22px 70px 22px}.mana-welcome-description{font-size:.96rem}.mana-welcome-actions{gap:1rem}.mana-service-card{padding:1.1rem;border-radius:20px}.mana-section-heading{align-items:start;flex-direction:column}.mana-reading-banner{grid-template-columns:1fr;gap:1rem;border-radius:24px}.mana-reading-banner img{aspect-ratio:1.65}.mana-home-v2 .article-card-cover{height:210px}}
+@media(max-width:640px){.mana-welcome{grid-template-columns:1fr;padding-top:.8333rem;padding-bottom:2.5rem;gap:2.4rem}.mana-welcome h1{font-size:2.25rem}.mana-welcome-art img{aspect-ratio:1.25;border-radius:70px 22px 70px 22px}.mana-welcome-description{font-size:.96rem}.mana-welcome-actions{gap:1rem}.mana-service-card{padding:1.1rem;border-radius:20px}.mana-section-heading{align-items:start;flex-direction:column}.mana-reading-banner{grid-template-columns:1fr;gap:1rem;border-radius:24px}.mana-reading-banner img{aspect-ratio:1.65}.mana-home-v2 .article-card-cover{height:210px}}
 @media(prefers-reduced-motion:reduce){.mana-service-card{transition:none}.mana-service-card:hover{transform:none}}
 @media(max-width:640px){.mana-service-image{width:calc(100% + 2.2rem);margin:-1.1rem -1.1rem .6rem}.mana-home-v2 .home-daily-quote + .mana-welcome{padding-top:1rem}.mana-home-v2 .home-workshop-banners{padding-top:2rem}}
