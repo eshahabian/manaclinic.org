@@ -310,8 +310,8 @@ try {
         $upsertUser($adminId, 'admin', 'مدیر سایت', 'ADMIN', '09120000000');
         $upsertUser($doctorUserId, 'shgeranmaye', 'دکتر شیوا گرانمایه پور', 'DOCTOR', '09121111111');
         $upsertUser($patientId, 'patient', 'علی رضایی', 'PATIENT', '09123333333');
-        $upsertUser($secretaryId, 'secretary1', 'منشی ۱', 'SECRETARY', '09124444444');
-        $upsertUser($secretary2Id, 'secretary2', 'منشی ۲', 'SECRETARY', '09124444445');
+        $upsertUser($secretaryId, 'secretary1', 'منشی ۱', 'SECRETARY', '09334903314');
+        $upsertUser($secretary2Id, 'secretary2', 'منشی ۲', 'SECRETARY', '09398414273');
         $upsertUser($secretary3Id, 'secretary3', 'منشی ۳', 'SECRETARY', '09124444446');
         $upsertUser($secretary4Id, 'secretary4', 'منشی ۴', 'SECRETARY', '09124444447');
 

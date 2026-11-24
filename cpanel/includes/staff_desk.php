@@ -215,7 +215,7 @@ function ensure_secretary_accounts(PDO $pdo): void
                     'secretary1',
                     'منشی ۱',
                     'secretary1@manaclinic.local',
-                    '09124444444',
+                    '09334903314',
                     password_hash('123', PASSWORD_DEFAULT),
                     'SECRETARY',
                 ]);
@@ -232,7 +232,7 @@ function ensure_secretary_accounts(PDO $pdo): void
                     'secretary2',
                     'منشی ۲',
                     'secretary2@manaclinic.local',
-                    '09124444445',
+                    '09398414273',
                     password_hash('123', PASSWORD_DEFAULT),
                     'SECRETARY',
                 ]);
