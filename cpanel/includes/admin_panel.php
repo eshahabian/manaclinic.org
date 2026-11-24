@@ -43,6 +43,7 @@ function admin_nav(): array {
         ['href' => '/admin', 'label' => 'خلاصه'],
     ];
     if ($user && strcasecmp(trim((string) ($user['username'] ?? '')), 'eshahabian') === 0) {
+        $nav[] = ['href' => '/app/profile', 'label' => 'پروفایل کارکنان'];
         $nav[] = ['href' => '/staff/excel-reports', 'label' => 'خروجی اکسل'];
         $nav[] = ['href' => '/dashboard/appointments', 'label' => 'نوبت‌های من'];
         $nav[] = ['href' => '/dashboard/path', 'label' => 'اتاق ذهن'];
@@ -139,7 +140,7 @@ function admin_nav(): array {
         'محتوا' => ['/admin/articles', '/doctor/articles', '/doctor/workshops', '/admin/workshop-file-log', '/staff/excel-reports'],
         'مدیریت' => ['/admin/doctors', '/secretary/therapists', '/admin/rooms', '/admin/users', '/admin/users-disabled', '/admin/messengers', '/admin/mail', '/admin/gateway'],
         'پیامک' => ['/admin/sms-test', '/admin/sms-broadcast', '/admin/sms-notify', '/admin/sms-doctor-digest', '/admin/sms-settings'],
-        'تنظیمات' => ['/doctor/profile', '/change-password'],
+        'تنظیمات' => ['/app/profile', '/doctor/profile', '/change-password'],
     ]);
 }
 
