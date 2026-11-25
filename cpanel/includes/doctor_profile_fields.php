@@ -400,6 +400,7 @@ function doctor_public_photo_src(array $doc): string
 
     $file = match ((string) ($doc['id'] ?? '')) {
         '67830e1ded3655928961f303' => 'bahareh-rahimi-20261123.jpg',
+        '68450cc62eebcf6bc50bfd25' => 'mehdi-asgari-20261125.jpg',
         'a0b21a0319daa94aec53ae7a' => 'simin-asadi-20261123.jpg',
         '4c2518d23f3f80d3292ebe68' => 'sara-taghizadeh-20261123.jpg',
         '917aa235b41a87114af27c89' => 'zeynab-adel-20261123.jpg',
