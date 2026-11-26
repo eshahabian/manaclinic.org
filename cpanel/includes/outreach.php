@@ -378,10 +378,9 @@ function outreach_scan_quiet_patients(PDO $pdo): void
     $patients = [];
     try {
         $patients = $pdo->query("
-          SELECT u.id, u.name, u.created_at, u.last_login_at, u.preferred_doctor_id,
+          SELECT u.id, u.name, u.created_at, u.last_login_at,
             (SELECT MAX(a.starts_at) FROM appointments a
-              WHERE a.patient_id = u.id AND a.status IN ('CONFIRMED','COMPLETED')) AS last_therapy,
-            (SELECT dp.user_id FROM doctor_profiles dp WHERE dp.id = u.preferred_doctor_id LIMIT 1) AS doctor_user_id
+              WHERE a.patient_id = u.id AND a.status IN ('CONFIRMED','COMPLETED')) AS last_therapy
           FROM users u
           WHERE u.role = 'PATIENT' AND u.is_disabled = 0
         ")->fetchAll();
@@ -410,64 +409,23 @@ function outreach_scan_quiet_patients(PDO $pdo): void
         if ($told && $told >= $last) {
             continue;
         }
-        $doctorUserId = (string) ($row['doctor_user_id'] ?? '');
-        if ($doctorUserId === '') {
-            try {
-                $stmt = $pdo->prepare("
-                  SELECT dp.user_id
-                  FROM appointments a
-                  JOIN doctor_profiles dp ON dp.id = a.doctor_id
-                  WHERE a.patient_id = ? AND a.status IN ('CONFIRMED','COMPLETED')
-                  ORDER BY a.starts_at DESC
-                  LIMIT 1
-                ");
-                $stmt->execute([$id]);
-                $doctorUserId = (string) ($stmt->fetchColumn() ?: '');
-            } catch (Throwable $ignored) {
-            }
-        }
         $quiet[] = [
             'id' => $id,
             'name' => (string) ($row['name'] ?? ''),
-            'doctor_user_id' => $doctorUserId,
         ];
     }
 
     if ($quiet) {
-        $staff = [];
         try {
-            $staff = $pdo->query("SELECT id, name, phone, role FROM users WHERE role IN ('ADMIN','SECRETARY') AND is_disabled = 0")->fetchAll();
+            $recipients = $pdo->query("
+              SELECT id, phone, role FROM users
+              WHERE is_disabled = 0 AND username IN ('eshahabian', 'atieh')
+            ")->fetchAll();
         } catch (Throwable $ignored) {
+            return;
         }
-        $byRecipient = [];
-        foreach ($staff as $person) {
-            $byRecipient[(string) $person['id']] = $person;
-            $byRecipient[(string) $person['id']]['names'] = [];
-        }
-        foreach ($quiet as $row) {
-            foreach ($staff as $person) {
-                $byRecipient[(string) $person['id']]['names'][] = $row['name'];
-            }
-            $docId = $row['doctor_user_id'];
-            if ($docId !== '' && !isset($byRecipient[$docId])) {
-                try {
-                    $stmt = $pdo->prepare('SELECT id, name, phone, role FROM users WHERE id=? AND is_disabled=0 LIMIT 1');
-                    $stmt->execute([$docId]);
-                    $doc = $stmt->fetch();
-                    if ($doc) {
-                        $byRecipient[$docId] = $doc;
-                        $byRecipient[$docId]['names'] = [];
-                    }
-                } catch (Throwable $ignored) {
-                }
-            }
-            if ($docId !== '' && isset($byRecipient[$docId]) && (string) ($byRecipient[$docId]['role'] ?? '') === 'DOCTOR') {
-                $byRecipient[$docId]['names'][] = $row['name'];
-            }
-        }
-
-        foreach ($byRecipient as $person) {
-            $names = array_values(array_filter(array_unique($person['names'] ?? [])));
+        $names = array_values(array_filter(array_unique(array_column($quiet, 'name'))));
+        foreach ($recipients as $person) {
             if (!$names) {
                 continue;
             }
@@ -477,11 +435,11 @@ function outreach_scan_quiet_patients(PDO $pdo): void
                 $text .= ' و ' . (count($names) - count($shown)) . ' نفر دیگر';
             }
             $role = (string) ($person['role'] ?? '');
-            $link = $role === 'DOCTOR' ? '/doctor/patients' : ($role === 'SECRETARY' ? '/secretary/appointments' : '/admin/users');
+            $link = $role === 'DOCTOR' ? '/doctor/patients' : '/admin/users';
             if (function_exists('notify_user')) {
                 notify_user($pdo, (string) $person['id'], 'مراجعه‌کننده بی‌خبر', $text, $link, 'other', null, 'personal');
             }
-            if ($role !== 'SECRETARY' && sms_notify_kind_enabled($pdo, 'quiet')) {
+            if (sms_notify_kind_enabled($pdo, 'quiet')) {
                 sms_queue($pdo, (string) ($person['phone'] ?? ''), sms_template_render($pdo,'quiet',['message'=>$text]), 'quiet');
             }
         }
