@@ -182,50 +182,25 @@ function secretary_checklist_can_manage(?array $user): bool
         && $user['id'] === '36dfdb042124cb0a89814c30';
 }
 
-function secretary_checklist_editor_html(PDO $pdo, array $user, string $returnTo): string
+function secretary_checklist_form_html(string $returnTo, int $groupIndex, ?array $task = null): string
 {
-    if (!secretary_checklist_can_manage($user)) {
-        return '';
-    }
-    $action = url('/secretary/checklist-catalog');
+    [$key, $label, $note] = $task ?? ['', '', ''];
     ob_start();
     ?>
-    <details style="margin:1rem 0">
-      <summary>مدیریت چک‌لیست منشی‌ها</summary>
-      <p class="muted">تغییرات برای همه منشی‌ها اعمال می‌شود. توضیح اختیاری، گزینه «امروز نیاز نیست» را فعال می‌کند.</p>
-      <form method="post" action="<?= e($action) ?>">
+    <details class="rx-catalog-editor">
+      <summary class="btn btn-outline btn-sm"><?= $task ? 'ویرایش' : '+ افزودن وظیفه' ?></summary>
+      <form method="post" action="<?= e(url('/secretary/checklist-catalog')) ?>">
         <?= csrf_field() ?>
         <input type="hidden" name="return_to" value="<?= e($returnTo) ?>">
-        <label>بخش
-          <select name="group_index">
-            <?php foreach (secretary_daily_task_defaults() as $index => [$title]): ?>
-              <option value="<?= $index ?>"><?= e($title) ?></option>
-            <?php endforeach; ?>
-          </select>
-        </label>
-        <label>متن وظیفه <textarea name="label" required maxlength="1000" rows="2"></textarea></label>
-        <label>توضیح اختیاری <input name="note" maxlength="500"></label>
-        <button class="btn btn-sm" name="operation" value="add">افزودن وظیفه</button>
+        <?php if ($task): ?>
+          <input type="hidden" name="task_key" value="<?= e($key) ?>">
+        <?php else: ?>
+          <input type="hidden" name="group_index" value="<?= $groupIndex ?>">
+        <?php endif; ?>
+        <label>متن وظیفه <textarea name="label" required maxlength="1000" rows="2"><?= e($label) ?></textarea></label>
+        <label>توضیح اختیاری <input name="note" maxlength="500" value="<?= e($note) ?>"></label>
+        <button class="btn btn-sm" name="operation" value="<?= $task ? 'edit' : 'add' ?>"><?= $task ? 'ذخیره تغییرات' : 'ثبت وظیفه' ?></button>
       </form>
-      <?php foreach (secretary_daily_task_groups($pdo) as [$title, $tasks]): ?>
-        <?php if (!$tasks) continue; ?>
-        <h3><?= e($title) ?></h3>
-        <?php foreach ($tasks as [$key, $label, $note]): ?>
-          <details style="margin:.5rem 0">
-            <summary><?= e($label) ?></summary>
-            <form method="post" action="<?= e($action) ?>">
-              <?= csrf_field() ?>
-              <input type="hidden" name="return_to" value="<?= e($returnTo) ?>">
-              <input type="hidden" name="task_key" value="<?= e($key) ?>">
-              <label>متن وظیفه <textarea name="label" required maxlength="1000" rows="2"><?= e($label) ?></textarea></label>
-              <label>توضیح اختیاری <input name="note" maxlength="500" value="<?= e($note) ?>"></label>
-              <button class="btn btn-sm" name="operation" value="edit">ذخیره تغییرات</button>
-              <button class="btn btn-outline btn-sm" name="operation" value="remove" formnovalidate
-                onclick="return confirm('این وظیفه از چک‌لیست همه منشی‌ها حذف شود؟')">حذف وظیفه</button>
-            </form>
-          </details>
-        <?php endforeach; ?>
-      <?php endforeach; ?>
     </details>
     <?php
     return (string) ob_get_clean();
@@ -878,7 +853,8 @@ function secretary_daily_tasks_table_html(
     string $ymd,
     bool $editable,
     string $postUrl,
-    bool $showDate = true
+    bool $showDate = true,
+    string $catalogReturnTo = ''
 ): string {
     $userId = (string) ($secretary['id'] ?? '');
     try {
@@ -908,6 +884,7 @@ function secretary_daily_tasks_table_html(
     }
     $dateLabel = secretary_daily_task_date_label($ymd);
     $live = $editable && $postUrl !== '' && $userId !== '';
+    $canManageCatalog = $catalogReturnTo !== '' && secretary_checklist_can_manage(current_user());
     static $booted = false;
     ob_start();
     if (!$booted) {
@@ -931,6 +908,15 @@ function secretary_daily_tasks_table_html(
       .rx-sheet.is-locked .rx-task,.rx-sheet.is-locked .rx-skip{cursor:default}
       .rx-error{margin:0 0 .7rem;color:#b42318;font-size:.9rem}
       .rx-error[hidden]{display:none}
+      .rx-item-heading{display:flex;align-items:flex-start;gap:.5rem;flex-wrap:wrap}
+      .rx-item-heading .rx-task{flex:1 1 13rem}
+      .rx-catalog-actions{display:flex;gap:.35rem;align-items:flex-start}
+      .rx-catalog-actions form{margin:0}
+      .rx-catalog-editor summary{display:inline-flex;cursor:pointer}
+      .rx-catalog-editor form{display:grid;gap:.5rem;margin:.5rem 0;max-width:26rem}
+      .rx-catalog-editor textarea,.rx-catalog-editor input:not([type=hidden]){display:block;width:100%}
+      .rx-catalog-add{margin-top:.6rem}
+      @media print{.rx-catalog-actions,.rx-catalog-add{display:none}}
     </style>
         <?php
     }
@@ -947,8 +933,8 @@ function secretary_daily_tasks_table_html(
       <progress class="rx-progress" data-rx-progress max="<?= $required > 0 ? $required : 1 ?>" value="<?= (int) $progress['done'] ?>"></progress>
       <p class="rx-summary" data-rx-summary><?= e($summary) ?></p>
       <p class="rx-error" data-rx-error role="alert" hidden></p>
-      <?php foreach (secretary_daily_task_groups() as $group): ?>
-        <?php if (!$group[1]) continue; ?>
+      <?php foreach (secretary_daily_task_groups($pdo) as $groupIndex => $group): ?>
+        <?php if (!$group[1] && !$canManageCatalog) continue; ?>
         <section class="rx-group">
           <h2><?= e($group[0]) ?></h2>
           <?php foreach ($group[1] as $task): ?>
@@ -962,10 +948,24 @@ function secretary_daily_tasks_table_html(
               $timeLabel = ($checked && $doneAt !== '') ? format_fa_time($doneAt) : '';
             ?>
             <article class="rx-item<?= $checked ? ' is-done' : '' ?><?= $isSkip ? ' is-skip' : '' ?>" data-rx-item data-rx-key="<?= e($key) ?>" data-rx-date="<?= e($ymd) ?>">
+              <div class="rx-item-heading">
               <label class="rx-task">
                 <input type="checkbox" data-rx-done data-rx-was="<?= $checked ? '1' : '0' ?>"<?= $checked ? ' checked' : '' ?><?= (!$live || $isSkip) ? ' disabled' : '' ?>>
                 <span class="rx-title"><?= e($label) ?></span>
               </label>
+              <?php if ($canManageCatalog): ?>
+                <div class="rx-catalog-actions">
+                  <?= secretary_checklist_form_html($catalogReturnTo, $groupIndex, [$key, $label, $note]) ?>
+                  <form method="post" action="<?= e(url('/secretary/checklist-catalog')) ?>"
+                        onsubmit="return confirm('این وظیفه از چک‌لیست همه منشی‌ها حذف شود؟')">
+                    <?= csrf_field() ?>
+                    <input type="hidden" name="return_to" value="<?= e($catalogReturnTo) ?>">
+                    <input type="hidden" name="task_key" value="<?= e($key) ?>">
+                    <button class="btn btn-outline btn-sm" name="operation" value="remove">حذف</button>
+                  </form>
+                </div>
+              <?php endif; ?>
+              </div>
               <?php if ($note !== ''): ?><small class="rx-note"><?= e($note) ?></small><?php endif; ?>
               <small class="rx-time" data-rx-time><?= e($timeLabel) ?></small>
               <?php if ($note !== ''): ?>
@@ -976,6 +976,9 @@ function secretary_daily_tasks_table_html(
               <?php endif; ?>
             </article>
           <?php endforeach; ?>
+          <?php if ($canManageCatalog): ?>
+            <div class="rx-catalog-add"><?= secretary_checklist_form_html($catalogReturnTo, $groupIndex) ?></div>
+          <?php endif; ?>
         </section>
       <?php endforeach; ?>
       <?php if ($extraRows !== []): ?>

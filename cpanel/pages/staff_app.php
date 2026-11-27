@@ -1922,6 +1922,7 @@ if ($section === 'checklist') {
     $secretaries = secretary_daily_task_secretaries($pdo);
     $ownChecklist = $role === 'SECRETARY'
         && strtolower(trim((string) ($user['username'] ?? ''))) !== 'eshahabian';
+    $canManageCatalog = secretary_checklist_can_manage($user);
     if ($ownChecklist) {
         $selfRow = null;
         foreach ($secretaries as $sec) {
@@ -2006,7 +2007,6 @@ if ($section === 'checklist') {
     ?>
     <div class="sapp-checklist">
     <h1>لیست کارهای روزانه</h1>
-    <?= secretary_checklist_editor_html($pdo, $user, '/app/checklist') ?>
     <?php if ($onPeer && $peerCanTick && $peerCanAssign): ?>
       <p class="muted">برای خودتان هم می‌توانید کار بنویسید. تیک را خودتان می‌زنید. اگر کس دیگری کار را فرستاده باشد، با انجام آن برای او پیام می‌آید.</p>
     <?php elseif ($onPeer && $peerCanTick): ?>
@@ -2063,6 +2063,9 @@ if ($section === 'checklist') {
         </div>
       <?php elseif ($selected === null): ?>
         <p class="muted">منشی فعالی ثبت نشده است.</p>
+        <?php if ($canManageCatalog): ?>
+          <?= secretary_daily_tasks_table_html($pdo, [], $ymd, false, '', false, '/app/checklist') ?>
+        <?php endif; ?>
       <?php else: ?>
       <div class="sapp-check-panel"<?php if (!$ownChecklist): ?> role="tabpanel" aria-labelledby="sapp-check-tab-<?= e($selectedId) ?>"<?php endif; ?>>
         <div class="sapp-daynav">
@@ -2101,9 +2104,10 @@ if ($section === 'checklist') {
           }
           if (!$showList) {
               echo '<p class="sapp-check-absent">این روز حضور نداشته است.</p>';
-          } else {
+          }
+          if ($showList || $canManageCatalog) {
               $canTick = $role === 'SECRETARY' && $secId === $userId && secretary_daily_task_can_edit($pdo, $userId, $ymd, true);
-              echo secretary_daily_tasks_table_html($pdo, $selected, $ymd, $canTick, $canTick ? $tickUrl : '', false);
+              echo secretary_daily_tasks_table_html($pdo, $selected, $ymd, $canTick, $canTick ? $tickUrl : '', false, '/app/checklist');
           }
         ?>
       </div>

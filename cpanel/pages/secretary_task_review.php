@@ -64,7 +64,6 @@ if (!empty($reviewOnlySelf) && (string) ($user['role'] ?? '') === 'SECRETARY') {
 ob_start();
 ?>
 <h1><?= e((string) ($reviewTitle ?? 'وظایف منشی‌ها')) ?></h1>
-<?= secretary_checklist_editor_html($pdo, $user, (string) $reviewBase) ?>
 <p class="muted" style="margin-top:.35rem;line-height:1.8">پس از انجام هر کار، آن را علامت بزنید. اگر کاری امروز لازم نیست، «امروز نیاز نیست» را بزنید. ساعت، لحظه ثبت انجام کار است.</p>
 <div style="display:flex;gap:.5rem;align-items:center;flex-wrap:wrap;margin-top:1rem">
   <a class="btn btn-outline btn-sm" href="<?= e(url((string) $reviewBase . '?date=' . rawurlencode($prev))) ?>">روز قبل</a>
@@ -79,7 +78,7 @@ ob_start();
 <?php endif; ?>
 <?php if (!$present): ?>
   <p class="muted" style="margin-top:1rem">در این روز هیچ منشی‌ای حضور ثبت‌شده ندارد. فهرست وظایف:</p>
-  <?= secretary_daily_tasks_table_html($pdo, ['id' => '', 'name' => '', 'username' => ''], $ymd, false, '', true) ?>
+  <?= secretary_daily_tasks_table_html($pdo, ['id' => '', 'name' => '', 'username' => ''], $ymd, false, '', true, (string) $reviewBase) ?>
 <?php else: ?>
   <?php
     $selfId = (string) ($user['id'] ?? '');
@@ -90,7 +89,7 @@ ob_start();
           && $selfId !== ''
           && (string) ($sec['id'] ?? '') === $selfId
           && secretary_daily_task_can_edit($pdo, $selfId, $ymd, true);
-      echo secretary_daily_tasks_table_html($pdo, $sec, $ymd, $canTick, $canTick ? $tickUrl : '', false);
+      echo secretary_daily_tasks_table_html($pdo, $sec, $ymd, $canTick, $canTick ? $tickUrl : '', false, (string) $reviewBase);
     endforeach;
   ?>
 <?php endif; ?>
