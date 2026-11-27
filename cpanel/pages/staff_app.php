@@ -2006,6 +2006,7 @@ if ($section === 'checklist') {
     ?>
     <div class="sapp-checklist">
     <h1>لیست کارهای روزانه</h1>
+    <?= secretary_checklist_editor_html($pdo, $user, '/app/checklist') ?>
     <?php if ($onPeer && $peerCanTick && $peerCanAssign): ?>
       <p class="muted">برای خودتان هم می‌توانید کار بنویسید. تیک را خودتان می‌زنید. اگر کس دیگری کار را فرستاده باشد، با انجام آن برای او پیام می‌آید.</p>
     <?php elseif ($onPeer && $peerCanTick): ?>

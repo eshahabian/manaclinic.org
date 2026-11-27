@@ -2,42 +2,90 @@
 declare(strict_types=1);
 
 /** گروه‌ها و متن چک‌لیست پذیرش. مورد سوم، توضیح مشروط است. */
-function secretary_daily_task_groups(): array
+function secretary_daily_task_defaults(): array
 {
     return [
         ['آماده‌سازی و نظم مطب', [
-            ['clean', 'اطمینان از تمیزی میز پذیرش، میزهای آشپزخانه، اتاق‌های درمان و سرویس بهداشتی.', ''],
+            ['clean', 'اطمینان از تمیزی میز پذیرش، میزهای آشپزخانه، اتاق‌های درمان، سرویس بهداشتی و کف کلینیک.', ''],
             ['previous-files', 'اطمینان از جمع شدن پرونده‌های روز قبل.', ''],
             ['next-files', 'اطمینان از وجود پرونده‌های روز بعدی بر روی میز.', ''],
-            ['water', 'گذاشتن آب خنک و لیوان یکبارمصرف بر روی میز پذیرایی.', ''],
+            ['water', 'گذاشتن لیوان یک‌بارمصرف و شکلات روی میز پذیرایی.', ''],
             ['file-order', 'اطمینان از به ترتیب قرار دادن پرونده‌ها که توالی شماره به‌هم نخورد.', ''],
-            ['supplies', 'تهیه لیست مایحتاج مطب و در صورت نبود کالا، سفارش و پیگیری سریع آن.', ''],
+            ['supplies', 'تهیه فهرست مایحتاج مطب و ثبت آن در سایت. در صورت ضروری بودن خرید، ضرورت آن را هنگام ثبت مشخص کنید.', ''],
             ['tissues', 'اطمینان از وجود دستمال در سرویس و اتاق‌ها و همچنین مواد شوینده و الکل.', ''],
         ]],
         ['پیام‌ها، برنامه‌ها و مراجعان', [
-            ['messages', 'پاسخ به تمامی پیام‌ها در واتس‌اپ، تلگرام، آی‌مسیج و بقیه پیام‌رسان‌ها.', ''],
+            ['messages', 'پاسخ‌گویی در اسرع وقت به پیام‌ها در همه پیام‌رسان‌ها و به پیام‌های رزرو نوبت و درخواست مشاوره در سایت.', ''],
             ['triage', 'چک کردن هفتگی برنامه‌های تریاژ، اطلاع به مراجعان، تعیین زمان و هماهنگی با دکتر گرانمایه برای ارجاع نوبت یک هفته بعد از تریاژ.', 'هفتگی؛ در روز بررسی برنامه انجام شود.'],
-            ['daily-rooms', 'ارسال برنامه روزانه اتاق‌ها به خانم دکتر گرانمایه.', ''],
-            ['payments', 'سبز کردن پرداختی‌ها و قرمز کردن در صورت عدم پرداخت (اطمینان از پرداخت مراجعان روز قبل).', ''],
-            ['mana-tomorrow', 'فرستادن برنامه فردا در گروه مانا.', ''],
-            ['media', 'فرستادن روزانه عکس یا فیلم برای نشرین پالین‌پرست.', ''],
+            ['new-triage-contact', 'اگر مراجع جدید تماس گرفت یا پیام داد، درباره جلسه رایگان ۲۰ دقیقه‌ای برای بررسی نیاز و ارجاع به درمانگر مناسب اطلاع دهید و در اسرع وقت به مسئول کلینیک خبر دهید تا با مراجع تماس بگیرد.', 'در صورت تماس یا پیام مراجع جدید.'],
+            ['former-therapist-contact', 'اگر مراجع قبلی تماس گرفت یا پیام داد و درمانگرش دیگر با مانا همکاری نمی‌کند، در اسرع وقت مسئول کلینیک را مطلع کنید.', 'در صورت تماس یا پیام مراجع قبلی با این شرایط.'],
+            ['payments', 'بررسی پرداخت مراجعان روز قبل و به‌روزرسانی پرونده نوبت در سامانه پس از پرداخت. وضعیت پرداخت‌شده را سبز و وضعیت پرداخت‌نشده را قرمز کنید.', ''],
             ['holiday', 'در روزهای تعطیل، هماهنگی و اطلاع به خانم دکتر گرانمایه.', 'فقط در روزهای تعطیل.'],
-            ['full-schedule', 'برنامه ارسالی به خانم دکتر گرانمایه همه زمان‌ها را پر داشته باشد. در صورت کنسلی سریع جایگزین تعیین شود.', ''],
-            ['therapists', 'ارسال برنامه بقیه درمانگران به چت شخصی و گروه مانا.', ''],
+            ['full-schedule', 'در صورت لغو نوبت، در اسرع وقت نوبت جایگزین تعیین کنید.', 'در صورت لغو نوبت.'],
             ['room-conflicts', 'اطمینان از تداخل نداشتن اتاق‌ها.', ''],
-            ['new-forms', 'دادن فرم مراجعان جدید قبل از جلسه', 'در صورت وجود مراجع جدید.'],
+            ['new-forms', 'دادن فرم به مراجعان جدید پیش از جلسه، حتی برای جلسات آنلاین.', 'در صورت وجود مراجع جدید.'],
+            ['update-therapist-patient-lists', 'به‌روز نگه‌داشتن فهرست درمانگران و مراجعان، ثبت مبالغ در پنل داخلی و مشخص کردن مراجعان خارج از کشور.', ''],
+            ['weekly-new-patient-report', 'تهیه گزارش هفتگی شروع و ادامه جلسات مراجعان جدید و پیگیری آن‌ها تا یک ماه پس از شروع.', 'هفتگی؛ در روز تهیه گزارش انجام شود.'],
+            ['workshop-suggestions', 'ثبت پیشنهاد یا درخواست مراجعان برای گروه یا کارگاه در بخش پیشنهادات سایت.', 'در صورت دریافت پیشنهاد یا درخواست.'],
+            ['record-complaints', 'ثبت شکایت یا نارضایتی مراجع یا درمانگر در بخش انتقادات سایت.', 'در صورت دریافت شکایت یا اعلام نارضایتی.'],
         ]],
         ['در طول فعالیت کلینیک', [
             ['music', 'پخش موسیقی بی‌کلام در زمان مشغول بودن اتاق‌ها.', 'هنگام مشغول بودن اتاق‌ها.'],
             ['fragrance', 'استفاده از خوشبوکننده یا عود و شمع در روزهای شلوغ.', 'در روزهای شلوغ.'],
         ]],
         ['پایان ساعت کار', [
-            ['performance', 'ارسال عملکرد هر روز دکتر گرانمایه‌پور برای راحله در پایان ساعت کار.', ''],
-            ['bins', 'نظافت همه سطل‌های زباله و انتقال آن‌ها به سطل زباله شهری.', ''],
+            ['bins', 'هر شب همه سطل‌های زباله را تمیز کنید و زباله‌ها را به سطل زباله شهری منتقل کنید.', ''],
             ['lights', 'اطمینان از خاموش بودن کولر و چراغ اتاق‌ها و سرویس بعد از اتمام کار درمانگران.', ''],
-            ['closing', 'در پایان شب سطل‌ها تمیز باشد، کف کلینیک بدون آشغال و پلاستیک باشد و ظرف‌ها شسته شده باشد.', ''],
+            ['closing', 'پایان شب مطمئن شوید کف کلینیک عاری از زباله است و ظرف‌ها شسته شده‌اند.', ''],
         ]],
     ];
+}
+
+/** Apply saved edits without changing the keys used by daily completion records. */
+function secretary_daily_task_groups(?PDO $db = null): array
+{
+    $groups = secretary_daily_task_defaults();
+    $db = $db ?? ($GLOBALS['pdo'] ?? null);
+    if (!$db instanceof PDO) {
+        return $groups;
+    }
+
+    static $catalogs;
+    $catalogs ??= new WeakMap();
+    if (isset($catalogs[$db])) {
+        return $catalogs[$db];
+    }
+    $db->exec("
+      CREATE TABLE IF NOT EXISTS secretary_checklist_overrides (
+        task_key VARCHAR(40) PRIMARY KEY,
+        group_index TINYINT UNSIGNED NOT NULL,
+        label VARCHAR(1000) NOT NULL,
+        note VARCHAR(500) NOT NULL,
+        is_removed TINYINT(1) NOT NULL DEFAULT 0
+      ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
+    $overrides = $db->query('SELECT * FROM secretary_checklist_overrides ORDER BY task_key')->fetchAll(PDO::FETCH_UNIQUE | PDO::FETCH_ASSOC);
+    foreach ($groups as $index => [$title, $tasks]) {
+        $groups[$index][1] = [];
+        foreach ($tasks as $task) {
+            $key = $task[0];
+            $edit = $overrides[$key] ?? null;
+            if ($edit === null) {
+                $groups[$index][1][] = $task;
+            } elseif (!(int) $edit['is_removed']) {
+                $groups[$index][1][] = [$key, $edit['label'], $edit['note']];
+            }
+            unset($overrides[$key]);
+        }
+    }
+    foreach ($overrides as $key => $edit) {
+        $index = (int) $edit['group_index'];
+        if (isset($groups[$index]) && !(int) $edit['is_removed']) {
+            $groups[$index][1][] = [$key, $edit['label'], $edit['note']];
+        }
+    }
+
+    return $catalogs[$db] = $groups;
 }
 
 /** فهرست تخت وظایف برای ذخیره و شمارش. */
@@ -115,6 +163,111 @@ function secretary_daily_tasks_can_review(?array $user = null): bool
     }
 
     return function_exists('doctor_has_shiva_access') && doctor_has_shiva_access($user);
+}
+
+function secretary_checklist_can_manage(?array $user): bool
+{
+    if (!$user) {
+        return false;
+    }
+    $user = secretary_daily_tasks_identity($user);
+    if (empty($user['id'])) {
+        return false;
+    }
+    if (strtolower(trim((string) ($user['username'] ?? ''))) === 'eshahabian') {
+        return true;
+    }
+    // Verified account ID also used by the clinic Excel reports.
+    return ($user['role'] ?? '') === 'DOCTOR'
+        && $user['id'] === '36dfdb042124cb0a89814c30';
+}
+
+function secretary_checklist_editor_html(PDO $pdo, array $user, string $returnTo): string
+{
+    if (!secretary_checklist_can_manage($user)) {
+        return '';
+    }
+    $action = url('/secretary/checklist-catalog');
+    ob_start();
+    ?>
+    <details style="margin:1rem 0">
+      <summary>مدیریت چک‌لیست منشی‌ها</summary>
+      <p class="muted">تغییرات برای همه منشی‌ها اعمال می‌شود. توضیح اختیاری، گزینه «امروز نیاز نیست» را فعال می‌کند.</p>
+      <form method="post" action="<?= e($action) ?>">
+        <?= csrf_field() ?>
+        <input type="hidden" name="return_to" value="<?= e($returnTo) ?>">
+        <label>بخش
+          <select name="group_index">
+            <?php foreach (secretary_daily_task_defaults() as $index => [$title]): ?>
+              <option value="<?= $index ?>"><?= e($title) ?></option>
+            <?php endforeach; ?>
+          </select>
+        </label>
+        <label>متن وظیفه <textarea name="label" required maxlength="1000" rows="2"></textarea></label>
+        <label>توضیح اختیاری <input name="note" maxlength="500"></label>
+        <button class="btn btn-sm" name="operation" value="add">افزودن وظیفه</button>
+      </form>
+      <?php foreach (secretary_daily_task_groups($pdo) as [$title, $tasks]): ?>
+        <?php if (!$tasks) continue; ?>
+        <h3><?= e($title) ?></h3>
+        <?php foreach ($tasks as [$key, $label, $note]): ?>
+          <details style="margin:.5rem 0">
+            <summary><?= e($label) ?></summary>
+            <form method="post" action="<?= e($action) ?>">
+              <?= csrf_field() ?>
+              <input type="hidden" name="return_to" value="<?= e($returnTo) ?>">
+              <input type="hidden" name="task_key" value="<?= e($key) ?>">
+              <label>متن وظیفه <textarea name="label" required maxlength="1000" rows="2"><?= e($label) ?></textarea></label>
+              <label>توضیح اختیاری <input name="note" maxlength="500" value="<?= e($note) ?>"></label>
+              <button class="btn btn-sm" name="operation" value="edit">ذخیره تغییرات</button>
+              <button class="btn btn-outline btn-sm" name="operation" value="remove" formnovalidate
+                onclick="return confirm('این وظیفه از چک‌لیست همه منشی‌ها حذف شود؟')">حذف وظیفه</button>
+            </form>
+          </details>
+        <?php endforeach; ?>
+      <?php endforeach; ?>
+    </details>
+    <?php
+    return (string) ob_get_clean();
+}
+
+function secretary_checklist_save(PDO $pdo, string $operation, string $key, string $label, string $note, string $group): void
+{
+    if (!in_array($operation, ['add', 'edit', 'remove'], true)) {
+        throw new InvalidArgumentException('عملیات نامعتبر است.');
+    }
+    if ($operation !== 'remove' && ($label === '' || mb_strlen($label) > 1000 || mb_strlen($note) > 500)) {
+        throw new InvalidArgumentException('متن وظیفه الزامی است و طول متن یا توضیح باید در محدوده مجاز باشد.');
+    }
+
+    $groups = secretary_daily_task_groups($pdo);
+    if ($operation === 'add') {
+        if (!array_key_exists($group, $groups)) {
+            throw new InvalidArgumentException('بخش انتخاب‌شده معتبر نیست.');
+        }
+        $pdo->prepare('INSERT INTO secretary_checklist_overrides (task_key, group_index, label, note) VALUES (?,?,?,?)')
+            ->execute(['custom-' . bin2hex(random_bytes(12)), (int) $group, $label, $note]);
+        return;
+    }
+
+    foreach ($groups as $index => [, $tasks]) {
+        foreach ($tasks as [$taskKey, $oldLabel, $oldNote]) {
+            if ($taskKey !== $key) {
+                continue;
+            }
+            if ($operation === 'remove') {
+                $pdo->prepare('INSERT INTO secretary_checklist_overrides (task_key, group_index, label, note, is_removed)
+                    VALUES (?,?,?,?,1) ON DUPLICATE KEY UPDATE is_removed=1')
+                    ->execute([$key, $index, $oldLabel, $oldNote]);
+            } else {
+                $pdo->prepare('INSERT INTO secretary_checklist_overrides (task_key, group_index, label, note)
+                    VALUES (?,?,?,?) ON DUPLICATE KEY UPDATE label=VALUES(label), note=VALUES(note)')
+                    ->execute([$key, $index, $label, $note]);
+            }
+            return;
+        }
+    }
+    throw new InvalidArgumentException('این وظیفه دیگر در چک‌لیست وجود ندارد.');
 }
 
 function ensure_secretary_daily_tasks_schema(PDO $pdo): void
@@ -795,6 +948,7 @@ function secretary_daily_tasks_table_html(
       <p class="rx-summary" data-rx-summary><?= e($summary) ?></p>
       <p class="rx-error" data-rx-error role="alert" hidden></p>
       <?php foreach (secretary_daily_task_groups() as $group): ?>
+        <?php if (!$group[1]) continue; ?>
         <section class="rx-group">
           <h2><?= e($group[0]) ?></h2>
           <?php foreach ($group[1] as $task): ?>
