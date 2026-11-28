@@ -930,19 +930,19 @@ function appointment_card_pilot_schedule_phrase(string $startsAt): string
     $weekdays = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه', 'شنبه'];
     $weekday = $weekdays[(int) date('w', $ts)] ?? '';
     $minute = (int) date('i', $ts);
-    $time = $minute === 0
-        ? to_fa_digits((string) (int) date('G', $ts))
-        : to_fa_digits(date('H:i', $ts));
+    $time = 'ساعت ' . ($minute === 0
+        ? (string) (int) date('G', $ts)
+        : date('H:i', $ts));
     $parts = explode('-', date('Y-m-d', $ts));
     if (count($parts) !== 3 || !function_exists('gregorian_to_jalali')) {
-        return trim('روز ' . $weekday . ' ساعت ' . $time);
+        return trim('روز ' . $weekday . ' ' . $time);
     }
     [$gy, $gm, $gd] = array_map('intval', $parts);
     [, $jm, $jd] = gregorian_to_jalali($gy, $gm, $gd);
     $months = function_exists('jalali_month_names') ? jalali_month_names() : [];
     $month = (string) ($months[$jm] ?? $jm);
 
-    return trim('روز ' . $weekday . ' ' . to_fa_digits((string) $jd) . ' ' . $month . ' ماه ساعت ' . $time);
+    return trim('روز ' . $weekday . ' ' . to_fa_digits((string) $jd) . ' ' . $month . ' ماه ' . $time);
 }
 
 function appointment_card_pilot_amount_label(array $row): string
@@ -969,18 +969,18 @@ function appointment_card_pilot_sms_body(array $row): string
     $when = appointment_card_pilot_schedule_phrase((string) ($row['starts_at'] ?? ''));
     $amount = appointment_card_pilot_amount_label($row);
     $lines = [
-        'مرکز روانشناسی و‌مشاوره مانا',
+        'مرکز روانشناسی و مشاوره مانا',
         'با سلام و احترام',
         '',
         'زمان مشاوره شما با دکتر ' . $doctor . ($when !== '' ? ' ' . $when : '') . ' خواهد بود.',
-        'لطفاجهت فیکس نهایی زمان جلسه هزینه',
+        'لطفا برای قطعی شدن زمان جلسه',
     ];
     if ($amount !== '') {
-        $lines[] = 'مبلغ ' . $amount;
+        $lines[] = $amount;
     }
     $lines[] = 'شماره کارت';
-    $lines[] = '5041-7210-5990-2990';
-    $lines[] = 'بنام الهه علائیان واریز نمایید و حتما فیش واریزی را برای ما ارسال فرمایید.';
+    $lines[] = '5041721059902990';
+    $lines[] = 'بنام الهه علائیان عکس را هم برای ما بفرستید.';
     $lines[] = 'باسپاس از حضور و همراهی شما';
 
     return implode("\n", $lines);
