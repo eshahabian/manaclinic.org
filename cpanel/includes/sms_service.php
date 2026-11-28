@@ -921,15 +921,69 @@ function sms_notify_card_pilot_request(PDO $pdo, string $appointmentId): array
     );
 }
 
-/** پیام واریز نوبت آزمایشی؛ بدون مبلغ، چون واحد پول در پنل پیامک فیلتر می‌شود. */
+function appointment_card_pilot_schedule_phrase(string $startsAt): string
+{
+    $ts = strtotime($startsAt);
+    if (!$ts) {
+        return '';
+    }
+    $weekdays = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه', 'شنبه'];
+    $weekday = $weekdays[(int) date('w', $ts)] ?? '';
+    $minute = (int) date('i', $ts);
+    $time = $minute === 0
+        ? to_fa_digits((string) (int) date('G', $ts))
+        : to_fa_digits(date('H:i', $ts));
+    $parts = explode('-', date('Y-m-d', $ts));
+    if (count($parts) !== 3 || !function_exists('gregorian_to_jalali')) {
+        return trim('روز ' . $weekday . ' ساعت ' . $time);
+    }
+    [$gy, $gm, $gd] = array_map('intval', $parts);
+    [, $jm, $jd] = gregorian_to_jalali($gy, $gm, $gd);
+    $months = function_exists('jalali_month_names') ? jalali_month_names() : [];
+    $month = (string) ($months[$jm] ?? $jm);
+
+    return trim('روز ' . $weekday . ' ' . to_fa_digits((string) $jd) . ' ' . $month . ' ماه ساعت ' . $time);
+}
+
+function appointment_card_pilot_amount_label(array $row): string
+{
+    $toman = (int) ($row['session_price'] ?? 0);
+    if ($toman <= 0) {
+        $toman = (int) ($row['amount'] ?? 0);
+    }
+    if ($toman <= 0) {
+        return '';
+    }
+
+    return to_fa_digits(number_format($toman, 0, '', '/'));
+}
+
+/** پیام واریز نوبت آزمایشی. نام، زمان و مبلغ از نوبت و پنل درمانگر است. */
 function appointment_card_pilot_sms_body(array $row): string
 {
-    return implode("\n", [
-        'مرکز مشاوره مانا',
-        'کارت 5041721059902990',
-        'به نام الهه علائیان',
-        'رسید در نوبت‌های من',
-    ]);
+    $doctor = trim((string) ($row['doctor_name'] ?? ''));
+    $doctor = preg_replace('/^دکتر\s+/u', '', $doctor) ?? $doctor;
+    if ($doctor === '') {
+        $doctor = 'درمانگر';
+    }
+    $when = appointment_card_pilot_schedule_phrase((string) ($row['starts_at'] ?? ''));
+    $amount = appointment_card_pilot_amount_label($row);
+    $lines = [
+        'مرکز روانشناسی و‌مشاوره مانا',
+        'با سلام و احترام',
+        '',
+        'زمان مشاوره شما با دکتر ' . $doctor . ($when !== '' ? ' ' . $when : '') . ' خواهد بود.',
+        'لطفاجهت فیکس نهایی زمان جلسه هزینه',
+    ];
+    if ($amount !== '') {
+        $lines[] = 'مبلغ ' . $amount;
+    }
+    $lines[] = 'شماره کارت';
+    $lines[] = '5041-7210-5990-2990';
+    $lines[] = 'بنام الهه علائیان واریز نمایید و حتما فیش واریزی را برای ما ارسال فرمایید.';
+    $lines[] = 'باسپاس از حضور و همراهی شما';
+
+    return implode("\n", $lines);
 }
 
 function sms_dispatch_pending(PDO $pdo, int $limit=20, ?string $dedup = null): int
