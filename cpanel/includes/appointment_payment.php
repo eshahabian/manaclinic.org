@@ -30,7 +30,10 @@ function patient_upload_appointment_receipt(PDO $pdo, string $appointmentId, str
     if (!$row) {
         throw new RuntimeException('نوبت یافت نشد.');
     }
-    if ((string) ($row['status'] ?? '') !== 'PENDING_PAYMENT' || (string) ($row['pay_status'] ?? '') !== 'PENDING') {
+    $cardPilotUpload = appointment_is_card_receipt_pilot($row);
+    $uploadStatus = (string) ($row['status'] ?? '');
+    $uploadOpen = $uploadStatus === 'PENDING_PAYMENT' || ($cardPilotUpload && $uploadStatus === 'CONFIRMED');
+    if (!$uploadOpen || (string) ($row['pay_status'] ?? '') !== 'PENDING') {
         throw new RuntimeException('برای این نوبت دیگر نمی‌توان فیش بارگذاری کرد.');
     }
     if (function_exists('receipt_upload_paused') && receipt_upload_paused() && !appointment_is_card_receipt_pilot($row)) {
@@ -46,7 +49,8 @@ function patient_upload_appointment_receipt(PDO $pdo, string $appointmentId, str
         $saved = $pdo->prepare("
           UPDATE payments p JOIN appointments a ON a.id=p.appointment_id
           SET p.receipt_path=?, p.ref_id=COALESCE(NULLIF(p.ref_id,''),'RECEIPT')
-          WHERE p.id=? AND a.status='PENDING_PAYMENT' AND p.status='PENDING' AND p.receipt_path <=> ?
+          WHERE p.id=? AND p.status='PENDING' AND p.receipt_path <=> ?
+            AND (a.status='PENDING_PAYMENT' OR (a.status='CONFIRMED' AND p.ref_id='CARD_PILOT'))
         ");
         $saved->execute([$relative, $paymentId, $row['receipt_path']]);
         if ($saved->rowCount() !== 1) {
@@ -465,9 +469,12 @@ function staff_approve_appointment_booking(PDO $pdo, string $appointmentId, arra
 
     $stmt = $pdo->prepare("
       SELECT a.*, pu.name AS patient_name, pu.id AS patient_user_id, pu.phone AS patient_phone,
-             pu.username, p.ref_id, p.amount, p.amount_usd, p.amount_gbp
+             pu.username, p.ref_id, p.amount, p.amount_usd, p.amount_gbp,
+             du.name AS doctor_name, dp.session_price
       FROM appointments a
       JOIN users pu ON pu.id = a.patient_id
+      JOIN doctor_profiles dp ON dp.id = a.doctor_id
+      JOIN users du ON du.id = dp.user_id
       LEFT JOIN payments p ON p.appointment_id = a.id
       WHERE a.id = ?
       LIMIT 1
@@ -477,18 +484,18 @@ function staff_approve_appointment_booking(PDO $pdo, string $appointmentId, arra
     if (!$row) {
         throw new RuntimeException('نوبت یافت نشد.');
     }
+    $cardPilot = appointment_is_card_receipt_pilot($row);
     if ((string) ($row['status'] ?? '') !== 'PENDING_APPROVAL') {
-        throw new RuntimeException('این درخواست دیگر در انتظار تأیید نیست.');
+        throw new RuntimeException('این درخواست دیگر در انتظار تأیید اولیه نیست.');
     }
 
     if (function_exists('ensure_appointment_hold_columns')) {
         ensure_appointment_hold_columns($pdo);
     }
-    $cardPilot = appointment_is_card_receipt_pilot($row);
     $smsStatus = null;
     $smsError = null;
     if ($cardPilot) {
-        $smsKey = 'appointment-card-pilot:' . $appointmentId;
+        $smsKey = 'appointment-card-pilot:pay:' . $appointmentId;
         require_once __DIR__ . '/booking_terms.php';
         require_once __DIR__ . '/outreach.php';
         if (($actor['role'] ?? '') !== 'SECRETARY' || !user_uses_card_receipt_pilot($row)) {
@@ -497,22 +504,33 @@ function staff_approve_appointment_booking(PDO $pdo, string $appointmentId, arra
         if (sms_iran_mobile((string) $row['patient_phone']) === null) {
             throw new RuntimeException('شماره موبایل ایرانی معتبر برای مراجع ثبت کنید.');
         }
-        if ((int) $row['amount'] <= 0 && (float) $row['amount_usd'] <= 0 && (float) $row['amount_gbp'] <= 0) {
-            throw new RuntimeException('مبلغ ویزیت این نوبت مشخص نیست.');
+        if ((int) ($row['session_price'] ?? 0) <= 0 && (int) ($row['amount'] ?? 0) <= 0) {
+            throw new RuntimeException('مبلغ جلسه در پنل این درمانگر ثبت نشده است.');
         }
         ensure_outreach_schema($pdo);
         $pdo->beginTransaction();
     }
     try {
-        $updated = $pdo->prepare("
-          UPDATE appointments
-          SET status='PENDING_PAYMENT',
-              reviewed_at=NOW(),
-              requested_at=COALESCE(requested_at, created_at),
-              scheduled_hold=IF(?, 1, scheduled_hold)
-          WHERE id=? AND status='PENDING_APPROVAL' AND (?=0 OR starts_at>NOW())
-        ");
-        $updated->execute([(int) $cardPilot, $appointmentId, (int) $cardPilot]);
+        if ($cardPilot) {
+            $updated = $pdo->prepare("
+              UPDATE appointments
+              SET status='PENDING_PAYMENT',
+                  reviewed_at=NOW(),
+                  requested_at=COALESCE(requested_at, created_at),
+                  scheduled_hold=0
+              WHERE id=? AND status='PENDING_APPROVAL' AND starts_at>NOW()
+            ");
+            $updated->execute([$appointmentId]);
+        } else {
+            $updated = $pdo->prepare("
+              UPDATE appointments
+              SET status='PENDING_PAYMENT',
+                  reviewed_at=NOW(),
+                  requested_at=COALESCE(requested_at, created_at)
+              WHERE id=? AND status='PENDING_APPROVAL'
+            ");
+            $updated->execute([$appointmentId]);
+        }
         if ($updated->rowCount() < 1) {
             throw new RuntimeException('تأیید درخواست انجام نشد.');
         }
@@ -520,7 +538,7 @@ function staff_approve_appointment_booking(PDO $pdo, string $appointmentId, arra
             $queued = sms_queue_extended(
                 $pdo,
                 (string) $row['patient_phone'],
-                appointment_card_pilot_sms_body(),
+                appointment_card_pilot_sms_body($row),
                 'appointment_card_pilot',
                 $smsKey,
                 null,
@@ -573,8 +591,8 @@ function staff_approve_appointment_booking(PDO $pdo, string $appointmentId, arra
     notify_user(
         $pdo,
         (string) ($row['patient_user_id'] ?? ''),
-        $cardPilot ? 'درخواست نوبت تأیید شد' : 'درخواست نوبت در حال بررسی است',
-        $cardPilot ? "درخواست نوبت {$when} تأیید شد. شماره کارت پیامک می‌شود؛ فیش را در «نوبت‌های من» بارگذاری کنید."
+        $cardPilot ? 'پیامک واریز ارسال شد' : 'درخواست نوبت در حال بررسی است',
+        $cardPilot ? "درخواست نوبت {$when} پذیرفته شد. پیامک واریز می‌آید؛ فیش را در «نوبت‌های من» بارگذاری کنید. نوبت بعد از تأیید نهایی منشی رزرو می‌شود."
             : "درخواست نوبت {$when} بدون پرداخت آنلاین پذیرفته شد و در حال بررسی است. تا تأیید پرداخت توسط منشی، رزرو نهایی نمی‌شود.",
         therapy_self_appointments_path_for_id($pdo, (string) ($row['patient_user_id'] ?? '')),
         'appointment',
@@ -584,7 +602,8 @@ function staff_approve_appointment_booking(PDO $pdo, string $appointmentId, arra
         $pdo,
         (string) $row['doctor_id'],
         'درخواست نوبت تأیید شد',
-        "درخواست نوبت «{$patientName}» ({$when}) توسط {$actorLabel} بدون پرداخت پذیرفته شد و در حال بررسی است.",
+        $cardPilot ? "درخواست نوبت «{$patientName}» ({$when}) توسط {$actorLabel} پذیرفته شد. تا تأیید فیش، رزرو نهایی نیست."
+            : "درخواست نوبت «{$patientName}» ({$when}) توسط {$actorLabel} بدون پرداخت پذیرفته شد و در حال بررسی است.",
         '/doctor/appointments?tab=upcoming',
         'appointment'
     );
@@ -736,8 +755,13 @@ function appointment_payment_awaiting_receipt_review(array $row): bool
 
 function appointment_payment_can_upload_receipt(array $row): bool
 {
-    return (string) ($row['status'] ?? '') === 'PENDING_PAYMENT'
-        && (string) ($row['pay_status'] ?? '') === 'PENDING';
+    if ((string) ($row['pay_status'] ?? '') !== 'PENDING') {
+        return false;
+    }
+    $status = (string) ($row['status'] ?? '');
+
+    return $status === 'PENDING_PAYMENT'
+        || ($status === 'CONFIRMED' && appointment_is_card_receipt_pilot($row));
 }
 
 function appointment_pay_status_display(array $row): string
@@ -1002,7 +1026,7 @@ function appointment_staff_mark_paid_form_html(array $row, string $next, string 
         if ((current_user()['role'] ?? '') !== 'SECRETARY') {
             return '';
         }
-        if (($row['status'] ?? '') === 'PENDING_APPROVAL') {
+        if ((string) ($row['status'] ?? '') === 'PENDING_APPROVAL') {
             ob_start();
             ?>
             <form method="post" action="<?= e(url('/secretary/appointments')) ?>">
@@ -1010,13 +1034,16 @@ function appointment_staff_mark_paid_form_html(array $row, string $next, string 
               <input type="hidden" name="action" value="approve_booking">
               <input type="hidden" name="appointment_id" value="<?= e($id) ?>">
               <input type="hidden" name="next" value="<?= e($next) ?>">
-              <button type="submit" class="btn btn-primary btn-sm">تأیید درخواست و پیامک شماره کارت</button>
+              <button type="submit" class="btn btn-primary btn-sm">تأیید اولیه</button>
             </form>
             <?php
             return (string) ob_get_clean();
         }
+        if ((string) ($row['status'] ?? '') === 'PENDING_PAYMENT' && !appointment_payment_awaiting_receipt_review($row)) {
+            return '<p class="muted">پیامک واریز رفته است. در انتظار فیش واریز.</p>';
+        }
         if (!appointment_payment_awaiting_receipt_review($row)) {
-            return '<p class="muted">در انتظار ارسال فیش توسط مراجع</p>';
+            return '';
         }
     }
     $fee = (int) ($row['amount'] ?? 0);
@@ -1068,7 +1095,7 @@ function appointment_staff_mark_paid_form_html(array $row, string $next, string 
       </label>
       <?php endif; ?>
       <?php if (!$calendar || ($row['status'] ?? '') !== 'CONFIRMED' || ($row['pay_status'] ?? '') !== 'PAID'): ?>
-        <button type="submit" class="btn btn-primary btn-sm" name="pay_choice" value="paid"<?= $receiptRequired ? ' onclick="var f=this.form.querySelector(&quot;input[name=receipt]&quot;); if(!f||!f.value){ alert(&quot;فیش بانکی را در همین فرم انتخاب کنید.&quot;); return false; }"' : '' ?>><?= $cardPilot ? 'تأیید فیش و قطعی‌کردن نوبت' : 'تایید اولیه برای پرداخت' ?></button>
+        <button type="submit" class="btn btn-primary btn-sm" name="pay_choice" value="paid"<?= $receiptRequired ? ' onclick="var f=this.form.querySelector(&quot;input[name=receipt]&quot;); if(!f||!f.value){ alert(&quot;فیش بانکی را در همین فرم انتخاب کنید.&quot;); return false; }"' : '' ?>><?= $cardPilot ? 'تأیید نهایی' : 'تایید اولیه برای پرداخت' ?></button>
       <?php endif; ?>
       <?php if (!$cardPilot && $calendar): ?>
         <button type="submit" class="btn btn-outline btn-sm" name="pay_choice" value="save_details"><?= ($row['pay_status'] ?? '') === 'PAID' ? 'ذخیره اتاق و یادداشت' : 'پرداخت نشد' ?></button>
@@ -1077,7 +1104,7 @@ function appointment_staff_mark_paid_form_html(array $row, string $next, string 
       <?php endif; ?>
     </form>
     <?php if (!$calendar): ?>
-    <p class="muted" style="font-size:.75rem;margin:0;flex-basis:100%"><?php if (!empty($row['scheduled_hold'])): ?>رزرو موقت پس از ثبت پرداخت قطعی می‌شود.<?php elseif ($isForeign || (function_exists('patient_wallet_paused') && patient_wallet_paused())): ?><?= $online ? 'جلسه آنلاین است و اتاق اجباری نیست. ' : 'برای جلسه حضوری قبل از تأیید، اتاق را انتخاب کنید. ' ?>«تایید اولیه برای پرداخت» وقت را رزرو و پرداخت‌شده می‌کند. «پرداخت نشد» وقت را رزرو می‌کند و پرداخت را باز می‌گذارد.<?php else: ?><?= $online ? 'جلسه آنلاین است و اتاق اجباری نیست. ' : 'برای جلسه حضوری قبل از تأیید، اتاق را انتخاب کنید. ' ?>«تایید اولیه برای پرداخت» فقط با بارگذاری فیش بانکی ثبت می‌شود و بدهی کیف پول را صفر می‌کند. «پرداخت نشده» وقت را رزرو می‌کند و حق ویزیت را از کیف پول کم می‌کند، حتی اگر موجودی منفی شود.<?php endif; ?></p>
+    <p class="muted" style="font-size:.75rem;margin:0;flex-basis:100%"><?php if ($cardPilot): ?>فیش را ببینید. «تأیید نهایی» این وقت را رزرو می‌کند.<?php elseif (!empty($row['scheduled_hold'])): ?>رزرو موقت پس از ثبت پرداخت قطعی می‌شود.<?php elseif ($isForeign || (function_exists('patient_wallet_paused') && patient_wallet_paused())): ?><?= $online ? 'جلسه آنلاین است و اتاق اجباری نیست. ' : 'برای جلسه حضوری قبل از تأیید، اتاق را انتخاب کنید. ' ?>«تایید اولیه برای پرداخت» وقت را رزرو و پرداخت‌شده می‌کند. «پرداخت نشد» وقت را رزرو می‌کند و پرداخت را باز می‌گذارد.<?php else: ?><?= $online ? 'جلسه آنلاین است و اتاق اجباری نیست. ' : 'برای جلسه حضوری قبل از تأیید، اتاق را انتخاب کنید. ' ?>«تایید اولیه برای پرداخت» فقط با بارگذاری فیش بانکی ثبت می‌شود و بدهی کیف پول را صفر می‌کند. «پرداخت نشده» وقت را رزرو می‌کند و حق ویزیت را از کیف پول کم می‌کند، حتی اگر موجودی منفی شود.<?php endif; ?></p>
     <?php endif;
     return (string) ob_get_clean();
 }

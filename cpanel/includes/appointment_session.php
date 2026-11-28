@@ -88,13 +88,14 @@ function appointment_expire_unpaid_holds(PDO $pdo): int
     $seconds = appointment_hold_seconds();
     try {
         $stmt = $pdo->query("
-          SELECT a.id, a.patient_id, a.starts_at, a.requested_at, a.created_at, a.scheduled_hold
+          SELECT a.id, a.patient_id, a.starts_at, a.requested_at, a.created_at, a.scheduled_hold, p.ref_id
           FROM appointments a
           LEFT JOIN payments p ON p.appointment_id = a.id
           WHERE a.status IN ('PENDING_APPROVAL','PENDING_PAYMENT')
             AND (p.id IS NULL OR p.status <> 'PAID')
-            AND ((a.scheduled_hold=0 AND COALESCE(a.requested_at, a.created_at) < DATE_SUB(NOW(), INTERVAL {$seconds} SECOND))
-              OR (a.scheduled_hold=1 AND a.starts_at <= NOW()))
+            AND ((COALESCE(p.ref_id,'') <> 'CARD_PILOT' AND a.scheduled_hold=0 AND COALESCE(a.requested_at, a.created_at) < DATE_SUB(NOW(), INTERVAL {$seconds} SECOND))
+              OR (COALESCE(p.ref_id,'') <> 'CARD_PILOT' AND a.scheduled_hold=1 AND a.starts_at <= NOW())
+              OR (p.ref_id='CARD_PILOT' AND a.starts_at <= NOW()))
         ");
         $rows = $stmt ? $stmt->fetchAll() : [];
     } catch (Throwable $ignored) {
@@ -114,6 +115,7 @@ function appointment_expire_unpaid_holds(PDO $pdo): int
         }
         try {
             $scheduled = !empty($row['scheduled_hold']);
+            $cardPilotHold = (string) ($row['ref_id'] ?? '') === 'CARD_PILOT';
             if ($scheduled) {
                 appointment_ensure_room_schema($pdo);
             }
@@ -125,11 +127,17 @@ function appointment_expire_unpaid_holds(PDO $pdo): int
                   cancellation_note=?,
                   cancelled_at=NOW()
               WHERE id=? AND status IN ('PENDING_APPROVAL','PENDING_PAYMENT')
-                AND ((scheduled_hold=0 AND COALESCE(requested_at, created_at) < DATE_SUB(NOW(), INTERVAL {$seconds} SECOND))
-                  OR (scheduled_hold=1 AND starts_at <= NOW()))
+                AND (
+                  (scheduled_hold=0 AND COALESCE(requested_at, created_at) < DATE_SUB(NOW(), INTERVAL {$seconds} SECOND)
+                    AND NOT EXISTS (SELECT 1 FROM payments px WHERE px.appointment_id=appointments.id AND px.ref_id='CARD_PILOT'))
+                  OR (scheduled_hold=1 AND starts_at <= NOW()
+                    AND NOT EXISTS (SELECT 1 FROM payments px WHERE px.appointment_id=appointments.id AND px.ref_id='CARD_PILOT'))
+                  OR (starts_at <= NOW()
+                    AND EXISTS (SELECT 1 FROM payments px WHERE px.appointment_id=appointments.id AND px.ref_id='CARD_PILOT'))
+                )
                 AND NOT EXISTS (SELECT 1 FROM payments WHERE appointment_id=appointments.id AND status='PAID')
             ");
-            $updated->execute([$scheduled ? 'وقت جلسه رسید و پرداخت تأیید نشده بود.' : $note, $id]);
+            $updated->execute([($scheduled || $cardPilotHold) ? 'وقت جلسه رسید و پرداخت تأیید نشده بود.' : $note, $id]);
             if ($updated->rowCount() < 1) {
                 $pdo->rollBack();
                 continue;

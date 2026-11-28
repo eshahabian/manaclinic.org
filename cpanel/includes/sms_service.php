@@ -207,6 +207,13 @@ function sms_notify_appointment_now(PDO $pdo, string $appointmentId, string $eve
     if (!is_array($row)) {
         return ['ok' => false, 'status' => 'FAILED', 'error' => 'نوبت یافت نشد.'];
     }
+    if ($event === 'booked') {
+        $pilot = $pdo->prepare("SELECT 1 FROM payments WHERE appointment_id=? AND ref_id='CARD_PILOT' LIMIT 1");
+        $pilot->execute([$appointmentId]);
+        if ($pilot->fetchColumn()) {
+            return ['ok' => false, 'status' => 'SKIPPED', 'error' => ''];
+        }
+    }
     $phone = sms_iran_mobile((string) ($row['phone'] ?? ''));
     $when = format_fa_datetime((string) ($row['starts_at'] ?? ''));
     $patientName = (string) ($row['patient_name'] ?? '');
@@ -433,12 +440,25 @@ function sms_plan_appointment(PDO $pdo, array $a, string $activated): void
         $changed = $old === null || $old['fingerprint'] !== $fingerprint;
         $recent = $old !== null || $a['created_at'] >= $activated
             || ($scheduled && ($a['payment_confirmed_at'] ?? '') >= $activated);
+        $cardPilot = false;
         if ($changed && $recent && $starts > time()
             && ($a['status'] === 'CONFIRMED' || (!$scheduled && $a['status'] === 'PENDING_APPROVAL'))) {
-            $bookedKey = $key . ':booked:' . ($scheduled ? $a['starts_at'] : $fingerprint);
-            sms_queue_extended($pdo,$a['phone'],sms_template_render($pdo,'appointment_booked',$vars),'appointment_booked',$bookedKey,null,$a['starts_at'],$context);
+            $pilotPay = $pdo->prepare("SELECT ref_id FROM payments WHERE appointment_id=? LIMIT 1");
+            $pilotPay->execute([(string) $a['id']]);
+            $cardPilot = (string) $pilotPay->fetchColumn() === 'CARD_PILOT';
+            if (!$cardPilot) {
+                $bookedKey = $key . ':booked:' . ($scheduled ? $a['starts_at'] : $fingerprint);
+                sms_queue_extended($pdo,$a['phone'],sms_template_render($pdo,'appointment_booked',$vars),'appointment_booked',$bookedKey,null,$a['starts_at'],$context);
+            }
         }
-        if ($scheduled && in_array($a['status'], ['PENDING_APPROVAL', 'PENDING_PAYMENT'], true) && $starts > $now) {
+        if ($scheduled && in_array($a['status'], ['PENDING_APPROVAL', 'PENDING_PAYMENT'], true) && $starts > $now && !$cardPilot) {
+            if (!isset($pilotPay)) {
+                $pilotPay = $pdo->prepare("SELECT ref_id FROM payments WHERE appointment_id=? LIMIT 1");
+                $pilotPay->execute([(string) $a['id']]);
+                $cardPilot = (string) $pilotPay->fetchColumn() === 'CARD_PILOT';
+            }
+        }
+        if ($scheduled && in_array($a['status'], ['PENDING_APPROVAL', 'PENDING_PAYMENT'], true) && $starts > $now && !$cardPilot) {
             $kind = 'appointment_payment_reminder';
             $paymentContext = $context + ['awaiting_payment' => true];
             sms_queue_extended($pdo, $a['phone'], sms_template_render($pdo, $kind, $vars), $kind,
@@ -816,10 +836,63 @@ function sms_provider_send_otp(array $config, string $phone, string $body): arra
     return $last;
 }
 
-/** یک بخش پیامک فارسی. وب‌وان متن چندخطی یا بلندتر از این را با کد ۸ («اعتبار کافی نیست») رد می‌کند و پیام به گوشی نمی‌رسد. */
-function appointment_card_pilot_sms_body(): string
+function appointment_card_pilot_when_label(string $startsAt): string
 {
-    return 'مانا کلینیک: شماره کارت 1234-5678-1234-5678';
+    $ts = strtotime($startsAt);
+    if (!$ts) {
+        return '';
+    }
+    $weekdays = ['یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه', 'شنبه'];
+    $weekday = $weekdays[(int) date('w', $ts)] ?? '';
+    $parts = explode('-', date('Y-m-d', $ts));
+    if (count($parts) !== 3 || !function_exists('gregorian_to_jalali')) {
+        return trim($weekday . ' ساعت ' . to_fa_digits(date('H:i', $ts)));
+    }
+    [$gy, $gm, $gd] = array_map('intval', $parts);
+    [$jy, $jm, $jd] = gregorian_to_jalali($gy, $gm, $gd);
+    $months = function_exists('jalali_month_names') ? jalali_month_names() : [];
+    $month = (string) ($months[$jm] ?? $jm);
+    $minute = (int) date('i', $ts);
+    $time = $minute === 0
+        ? to_fa_digits((string) (int) date('G', $ts))
+        : to_fa_digits(date('H:i', $ts));
+
+    return trim($weekday . ' ' . to_fa_digits((string) $jd) . ' ' . $month . ' ساعت ' . $time);
+}
+
+function appointment_card_pilot_rial_label(int $toman): string
+{
+    if ($toman <= 0) {
+        return '';
+    }
+
+    return to_fa_digits(number_format($toman * 10, 0, '', '/'));
+}
+
+/** پیام واریز نوبت آزمایشی؛ نام درمانگر، تاریخ و مبلغ از پنل همان درمانگر. */
+function appointment_card_pilot_sms_body(array $row): string
+{
+    $doctor = trim((string) ($row['doctor_name'] ?? ''));
+    $doctor = preg_replace('/^دکتر\s+/u', '', $doctor) ?? $doctor;
+    if ($doctor === '') {
+        $doctor = 'درمانگر';
+    }
+    $when = appointment_card_pilot_when_label((string) ($row['starts_at'] ?? ''));
+    $toman = (int) ($row['session_price'] ?? 0);
+    if ($toman <= 0) {
+        $toman = (int) ($row['amount'] ?? 0);
+    }
+    $rial = appointment_card_pilot_rial_label($toman);
+    $lines = ['مرکز مشاوره مانا', 'جلسه با دکتر ' . $doctor . ($when !== '' ? ' ' . $when : '')];
+    if ($rial !== '') {
+        $lines[] = 'واریز ' . $rial . ' ریال';
+    }
+    $lines[] = 'کارت 5041-7210-5990-2990';
+    $lines[] = 'بنام الهه علائیان';
+    $lines[] = 'فیش و کدرهگیری را بفرستید.';
+    $lines[] = 'لغو تا ۲۴ ساعت قبل قابل بازگشت است.';
+
+    return implode("\n", $lines);
 }
 
 function sms_dispatch_pending(PDO $pdo, int $limit=20, ?string $dedup = null): int
@@ -829,11 +902,6 @@ function sms_dispatch_pending(PDO $pdo, int $limit=20, ?string $dedup = null): i
     $sent=0;
     try{
         $pdo->exec("UPDATE sms_outbox SET status='UNKNOWN',last_error='اجرای قبلی قطع شده؛ گزارش سرویس قبل از ارسال مجدد بررسی شود.' WHERE status='PROCESSING' AND claimed_at<DATE_SUB(NOW(),INTERVAL 5 MINUTE)");
-        $cardBody = appointment_card_pilot_sms_body();
-        $pdo->prepare("UPDATE sms_outbox SET body=? WHERE kind='appointment_card_pilot' AND status='PENDING' AND body<>?")
-            ->execute([$cardBody, $cardBody]);
-        $pdo->prepare("UPDATE sms_outbox SET status='PENDING', body=?, last_error=NULL, due_at=NOW() WHERE kind='appointment_card_pilot' AND status IN ('FAILED','SKIPPED') AND body<>?")
-            ->execute([$cardBody, $cardBody]);
         $pending = "SELECT * FROM sms_outbox WHERE status='PENDING' AND due_at IS NOT NULL AND due_at<=NOW()";
         if ($dedup === null) {
             $jobs = $pdo->query($pending . " ORDER BY due_at,id LIMIT " . max(1, min(100, $limit)))->fetchAll() ?: [];

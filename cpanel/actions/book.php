@@ -195,7 +195,7 @@ try {
     echo json_encode([
         'appointmentId' => $appointmentId,
         'awaitingApproval' => true,
-        'message' => $cardPilot ? 'درخواست ثبت شد. پس از تأیید منشی، شماره کارت پیامک می‌شود.' : ($scheduledHold ? 'رزروهای موقت ثبت شدند. هر جلسه پس از تأیید پرداخت همان جلسه قطعی می‌شود.' : (($amountUsd !== null || (function_exists('patient_wallet_paused') && patient_wallet_paused()))
+        'message' => $cardPilot ? 'درخواست ثبت شد. بعد از تأیید اولیه منشی، پیامک واریز می‌آید. نوبت با تأیید نهایی فیش رزرو می‌شود.' : ($scheduledHold ? 'رزروهای موقت ثبت شدند. هر جلسه پس از تأیید پرداخت همان جلسه قطعی می‌شود.' : (($amountUsd !== null || (function_exists('patient_wallet_paused') && patient_wallet_paused()))
             ? 'درخواست شما ارسال شد. تا یک ساعت این وقت برای شما می‌ماند و پس از ثبت منشی، نوبت رزرو می‌شود.'
             : 'درخواست شما ارسال شد. تا تأیید فیش توسط منشی، حق ویزیت از کیف پول کم می‌شود و موجودی می‌تواند منفی باشد. تا یک ساعت این وقت برای شما می‌ماند.')),
     ], JSON_UNESCAPED_UNICODE);

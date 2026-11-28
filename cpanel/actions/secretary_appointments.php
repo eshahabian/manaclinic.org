@@ -46,13 +46,13 @@ if ($action === 'approve_booking') {
         } else {
             $status = $result['sms_status'];
             $detail = match ($status) {
-                'SENT' => 'وب‌وان پیامک شماره کارت را پذیرفت.',
+                'SENT' => 'وب‌وان پیامک واریز را پذیرفت.',
                 'PENDING', 'PROCESSING' => 'پیامک هنوز در صف داخلی سایت است.',
                 'FAILED', 'SKIPPED' => 'پیامک ارسال نشد.',
                 default => 'نتیجهٔ ارسال پیامک نامشخص است.',
             };
             $reason = trim((string) $result['sms_error']);
-            flash_set($status === 'SENT' ? 'success' : 'error', 'درخواست تأیید شد. ' . $detail . ($reason !== '' ? ' ' . $reason : ''));
+            flash_set($status === 'SENT' ? 'success' : 'error', 'پیامک واریز ارسال شد. نوبت هنوز رزرو نشده؛ بعد از فیش، تأیید نهایی را بزنید. ' . $detail . ($reason !== '' ? ' ' . $reason : ''));
         }
     } catch (Throwable $e) {
         flash_set('error', $e->getMessage());
