@@ -169,6 +169,14 @@ try {
     }
     $pdo->commit();
 
+    if ($cardPilot) {
+        require_once __DIR__ . '/../includes/sms_service.php';
+        try {
+            sms_notify_card_pilot_request($pdo, $appointmentId);
+        } catch (Throwable $ignored) {
+        }
+    }
+
     $patientName = (string) ($user['name'] ?? 'مراجعه‌کننده');
     $when = format_fa_datetime($startsAt);
     if ($scheduledHold) {

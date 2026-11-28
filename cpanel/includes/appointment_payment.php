@@ -470,7 +470,7 @@ function staff_approve_appointment_booking(PDO $pdo, string $appointmentId, arra
     $stmt = $pdo->prepare("
       SELECT a.*, pu.name AS patient_name, pu.id AS patient_user_id, pu.phone AS patient_phone,
              pu.username, p.ref_id, p.amount, p.amount_usd, p.amount_gbp,
-             du.name AS doctor_name, dp.session_price
+             du.name AS doctor_name, dp.session_price, p.receipt_path
       FROM appointments a
       JOIN users pu ON pu.id = a.patient_id
       JOIN doctor_profiles dp ON dp.id = a.doctor_id
@@ -485,7 +485,11 @@ function staff_approve_appointment_booking(PDO $pdo, string $appointmentId, arra
         throw new RuntimeException('نوبت یافت نشد.');
     }
     $cardPilot = appointment_is_card_receipt_pilot($row);
-    if ((string) ($row['status'] ?? '') !== 'PENDING_APPROVAL') {
+    $statusNow = (string) ($row['status'] ?? '');
+    $resendPaySms = $cardPilot
+        && $statusNow === 'PENDING_PAYMENT'
+        && trim((string) ($row['receipt_path'] ?? '')) === '';
+    if ($statusNow !== 'PENDING_APPROVAL' && !$resendPaySms) {
         throw new RuntimeException('این درخواست دیگر در انتظار تأیید اولیه نیست.');
     }
 
@@ -495,7 +499,7 @@ function staff_approve_appointment_booking(PDO $pdo, string $appointmentId, arra
     $smsStatus = null;
     $smsError = null;
     if ($cardPilot) {
-        $smsKey = 'appointment-card-pilot:pay:' . $appointmentId;
+        $smsKey = '';
         require_once __DIR__ . '/booking_terms.php';
         require_once __DIR__ . '/outreach.php';
         if (($actor['role'] ?? '') !== 'SECRETARY' || !user_uses_card_receipt_pilot($row)) {
@@ -511,7 +515,9 @@ function staff_approve_appointment_booking(PDO $pdo, string $appointmentId, arra
         $pdo->beginTransaction();
     }
     try {
-        if ($cardPilot) {
+        if ($cardPilot && $resendPaySms) {
+            $updated = null;
+        } elseif ($cardPilot) {
             $updated = $pdo->prepare("
               UPDATE appointments
               SET status='PENDING_PAYMENT',
@@ -531,10 +537,11 @@ function staff_approve_appointment_booking(PDO $pdo, string $appointmentId, arra
             ");
             $updated->execute([$appointmentId]);
         }
-        if ($updated->rowCount() < 1) {
+        if ($updated !== null && $updated->rowCount() < 1) {
             throw new RuntimeException('تأیید درخواست انجام نشد.');
         }
         if ($cardPilot) {
+            $smsKey = 'appointment-card-pilot:pay:' . $appointmentId . ':' . date('YmdHis');
             $queued = sms_queue_extended(
                 $pdo,
                 (string) $row['patient_phone'],
@@ -1026,7 +1033,8 @@ function appointment_staff_mark_paid_form_html(array $row, string $next, string 
         if ((current_user()['role'] ?? '') !== 'SECRETARY') {
             return '';
         }
-        if ((string) ($row['status'] ?? '') === 'PENDING_APPROVAL') {
+        $pilotStatus = (string) ($row['status'] ?? '');
+        if ($pilotStatus === 'PENDING_APPROVAL' || ($pilotStatus === 'PENDING_PAYMENT' && !appointment_payment_awaiting_receipt_review($row))) {
             ob_start();
             ?>
             <form method="post" action="<?= e(url('/secretary/appointments')) ?>">
@@ -1036,11 +1044,9 @@ function appointment_staff_mark_paid_form_html(array $row, string $next, string 
               <input type="hidden" name="next" value="<?= e($next) ?>">
               <button type="submit" class="btn btn-primary btn-sm">تأیید اولیه</button>
             </form>
+            <p class="muted">با تأیید اولیه پیامک واریز می‌رود. نوبت هنوز رزرو نمی‌شود.</p>
             <?php
             return (string) ob_get_clean();
-        }
-        if ((string) ($row['status'] ?? '') === 'PENDING_PAYMENT' && !appointment_payment_awaiting_receipt_review($row)) {
-            return '<p class="muted">پیامک واریز رفته است. در انتظار فیش واریز.</p>';
         }
         if (!appointment_payment_awaiting_receipt_review($row)) {
             return '';

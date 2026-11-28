@@ -52,7 +52,10 @@ if ($action === 'approve_booking') {
                 default => 'نتیجهٔ ارسال پیامک نامشخص است.',
             };
             $reason = trim((string) $result['sms_error']);
-            flash_set($status === 'SENT' ? 'success' : 'error', 'پیامک واریز ارسال شد. نوبت هنوز رزرو نشده؛ بعد از فیش، تأیید نهایی را بزنید. ' . $detail . ($reason !== '' ? ' ' . $reason : ''));
+            $lead = $status === 'SENT'
+                ? 'پیامک واریز ارسال شد. نوبت هنوز رزرو نشده؛ بعد از فیش، تأیید نهایی را بزنید.'
+                : 'پیامک واریز ارسال نشد. نوبت هنوز رزرو نشده و دکمه تأیید اولیه سر جایش می‌ماند.';
+            flash_set($status === 'SENT' ? 'success' : 'error', $lead . ' ' . $detail . ($reason !== '' ? ' ' . $reason : ''));
         }
     } catch (Throwable $e) {
         flash_set('error', $e->getMessage());

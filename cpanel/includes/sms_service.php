@@ -866,7 +866,7 @@ function appointment_card_pilot_when_label(string $startsAt): string
     $weekday = $weekdays[(int) date('w', $ts)] ?? '';
     $parts = explode('-', date('Y-m-d', $ts));
     if (count($parts) !== 3 || !function_exists('gregorian_to_jalali')) {
-        return trim($weekday . ' ساعت ' . to_fa_digits(date('H:i', $ts)));
+        return trim($weekday . ' ' . to_fa_digits(date('H:i', $ts)));
     }
     [$gy, $gm, $gd] = array_map('intval', $parts);
     [$jy, $jm, $jd] = gregorian_to_jalali($gy, $gm, $gd);
@@ -877,7 +877,7 @@ function appointment_card_pilot_when_label(string $startsAt): string
         ? to_fa_digits((string) (int) date('G', $ts))
         : to_fa_digits(date('H:i', $ts));
 
-    return trim($weekday . ' ' . to_fa_digits((string) $jd) . ' ' . $month . ' ساعت ' . $time);
+    return trim($weekday . ' ' . to_fa_digits((string) $jd) . ' ' . $month . ' ' . $time);
 }
 
 function appointment_card_pilot_rial_label(int $toman): string
@@ -887,6 +887,47 @@ function appointment_card_pilot_rial_label(int $toman): string
     }
 
     return to_fa_digits(number_format($toman * 10, 0, '', '/'));
+}
+
+function appointment_card_pilot_request_sms_body(): string
+{
+    return 'مانا کلینیک: درخواست نوبت شما ثبت شد. منتظر تأیید منشی بمانید.';
+}
+
+/** پیام ثبت درخواست، فقط برای آزمایش کارت‌به‌کارت عماد شهابیان. */
+function sms_notify_card_pilot_request(PDO $pdo, string $appointmentId): array
+{
+    if (!sms_connection_ready($pdo)) {
+        return ['ok' => false, 'status' => 'FAILED', 'error' => 'اتصال پیامک آماده نیست.'];
+    }
+    ensure_outreach_schema($pdo);
+    $stmt = $pdo->prepare("
+      SELECT a.id, a.starts_at, u.phone
+      FROM appointments a
+      JOIN users u ON u.id=a.patient_id
+      JOIN payments p ON p.appointment_id=a.id
+      WHERE a.id=? AND p.ref_id='CARD_PILOT' AND LOWER(u.username)='eshahabian'
+      LIMIT 1
+    ");
+    $stmt->execute([$appointmentId]);
+    $row = $stmt->fetch();
+    if (!is_array($row)) {
+        return ['ok' => false, 'status' => 'SKIPPED', 'error' => 'نوبت آزمایشی یافت نشد.'];
+    }
+    $phone = sms_iran_mobile((string) ($row['phone'] ?? ''));
+    if ($phone === null) {
+        return ['ok' => false, 'status' => 'SKIPPED', 'error' => 'پیامک فقط به شماره موبایل ایران ارسال می‌شود.'];
+    }
+
+    return sms_send_immediate(
+        $pdo,
+        $phone,
+        appointment_card_pilot_request_sms_body(),
+        'appointment_card_request',
+        'appointment:' . $appointmentId . ':requested',
+        (string) ($row['starts_at'] ?? date('Y-m-d H:i:s', time() + 86400)),
+        ['entity' => 'appointment_card_request', 'id' => $appointmentId, 'immediate' => 1]
+    );
 }
 
 /** پیام واریز نوبت آزمایشی؛ نام درمانگر، تاریخ و مبلغ از پنل همان درمانگر. */
@@ -910,7 +951,7 @@ function appointment_card_pilot_sms_body(array $row): string
     $lines[] = 'کارت 5041721059902990';
     $lines[] = 'بنام الهه علائیان';
     $lines[] = 'فیش و کدرهگیری را بفرستید.';
-    $lines[] = 'لغو تا ۲۴ ساعت قبل قابل بازگشت است.';
+    $lines[] = 'لغو تا یک روز قبل قابل بازگشت است.';
 
     return implode("\n", $lines);
 }
