@@ -500,8 +500,6 @@ function staff_approve_appointment_booking(PDO $pdo, string $appointmentId, arra
         if ((int) $row['amount'] <= 0 && (float) $row['amount_usd'] <= 0 && (float) $row['amount_gbp'] <= 0) {
             throw new RuntimeException('مبلغ ویزیت این نوبت مشخص نیست.');
         }
-        require_once __DIR__ . '/patient_fee.php';
-        $amountLabel = appointment_payment_amount_label($row);
         ensure_outreach_schema($pdo);
         $pdo->beginTransaction();
     }
@@ -522,7 +520,7 @@ function staff_approve_appointment_booking(PDO $pdo, string $appointmentId, arra
             $queued = sms_queue_extended(
                 $pdo,
                 (string) $row['patient_phone'],
-                "مانا کلینیک: درخواست نوبت شما تأیید شد.\nمبلغ قابل واریز: {$amountLabel}\nشماره کارت آزمایشی: 1234-5678-1234-5678\nفیش آزمایشی را در «نوبت‌های من» بارگذاری کنید.",
+                appointment_card_pilot_sms_body(),
                 'appointment_card_pilot',
                 $smsKey,
                 null,
@@ -576,7 +574,7 @@ function staff_approve_appointment_booking(PDO $pdo, string $appointmentId, arra
         $pdo,
         (string) ($row['patient_user_id'] ?? ''),
         $cardPilot ? 'درخواست نوبت تأیید شد' : 'درخواست نوبت در حال بررسی است',
-        $cardPilot ? "درخواست نوبت {$when} تأیید شد. پس از دریافت پیامک مبلغ و شماره کارت آزمایشی، فیش را در «نوبت‌های من» بارگذاری کنید."
+        $cardPilot ? "درخواست نوبت {$when} تأیید شد. شماره کارت پیامک می‌شود؛ فیش را در «نوبت‌های من» بارگذاری کنید."
             : "درخواست نوبت {$when} بدون پرداخت آنلاین پذیرفته شد و در حال بررسی است. تا تأیید پرداخت توسط منشی، رزرو نهایی نمی‌شود.",
         therapy_self_appointments_path_for_id($pdo, (string) ($row['patient_user_id'] ?? '')),
         'appointment',
@@ -1012,7 +1010,7 @@ function appointment_staff_mark_paid_form_html(array $row, string $next, string 
               <input type="hidden" name="action" value="approve_booking">
               <input type="hidden" name="appointment_id" value="<?= e($id) ?>">
               <input type="hidden" name="next" value="<?= e($next) ?>">
-              <button type="submit" class="btn btn-primary btn-sm">تأیید درخواست و پیامک مبلغ و شماره کارت</button>
+              <button type="submit" class="btn btn-primary btn-sm">تأیید درخواست و پیامک شماره کارت</button>
             </form>
             <?php
             return (string) ob_get_clean();

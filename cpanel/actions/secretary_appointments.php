@@ -46,7 +46,7 @@ if ($action === 'approve_booking') {
         } else {
             $status = $result['sms_status'];
             $detail = match ($status) {
-                'SENT' => 'وب‌وان پیامک مبلغ و شماره کارت را پذیرفت.',
+                'SENT' => 'وب‌وان پیامک شماره کارت را پذیرفت.',
                 'PENDING', 'PROCESSING' => 'پیامک هنوز در صف داخلی سایت است.',
                 'FAILED', 'SKIPPED' => 'پیامک ارسال نشد.',
                 default => 'نتیجهٔ ارسال پیامک نامشخص است.',
