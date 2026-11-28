@@ -816,14 +816,21 @@ function sms_provider_send_otp(array $config, string $phone, string $body): arra
     return $last;
 }
 
-function sms_dispatch_pending(PDO $pdo, int $limit=20): int
+function sms_dispatch_pending(PDO $pdo, int $limit=20, ?string $dedup = null): int
 {
     if(!sms_connection_ready($pdo))return 0;
     if(!(int)$pdo->query("SELECT GET_LOCK('mana_sms_dispatch',0)")->fetchColumn())return 0;
     $sent=0;
     try{
         $pdo->exec("UPDATE sms_outbox SET status='UNKNOWN',last_error='اجرای قبلی قطع شده؛ گزارش سرویس قبل از ارسال مجدد بررسی شود.' WHERE status='PROCESSING' AND claimed_at<DATE_SUB(NOW(),INTERVAL 5 MINUTE)");
-        $jobs=$pdo->query("SELECT * FROM sms_outbox WHERE status='PENDING' AND due_at IS NOT NULL AND due_at<=NOW() ORDER BY due_at,id LIMIT ".max(1,min(100,$limit)))->fetchAll()?:[];
+        $pending = "SELECT * FROM sms_outbox WHERE status='PENDING' AND due_at IS NOT NULL AND due_at<=NOW()";
+        if ($dedup === null) {
+            $jobs = $pdo->query($pending . " ORDER BY due_at,id LIMIT " . max(1, min(100, $limit)))->fetchAll() ?: [];
+        } else {
+            $stmt = $pdo->prepare($pending . " AND dedup_key=? LIMIT 1");
+            $stmt->execute([hash('sha256', $dedup)]);
+            $jobs = $stmt->fetchAll();
+        }
         foreach($jobs as $job){
             $claim=$pdo->prepare("UPDATE sms_outbox SET status='PROCESSING',claimed_at=NOW(),attempts=attempts+1 WHERE id=? AND status='PENDING'");$claim->execute([$job['id']]);if(!$claim->rowCount())continue;
             if(!sms_job_still_valid($pdo,$job)){$pdo->prepare("UPDATE sms_outbox SET status='SKIPPED',last_error='نوبت یا ثبت‌نام تغییر کرده، لغو شده یا مهلت پیام گذشته است.' WHERE id=?")->execute([$job['id']]);continue;}

@@ -41,9 +41,19 @@ if ($action === 'approve_booking') {
         if (!str_contains($next, 'tab=')) {
             $next .= (str_contains($next, '?') ? '&' : '?') . (!empty($result['card_pilot']) ? 'tab=reservations' : 'tab=upcoming');
         }
-        flash_set('success', !empty($result['card_pilot'])
-            ? 'درخواست تأیید شد. پیامک مبلغ و شماره کارت در صف ارسال است.'
-            : 'درخواست «' . (string) $result['patient_name'] . '» بدون پرداخت پذیرفته شد و در حال بررسی ماند. با «پرداخت شده» رزرو می‌شود.');
+        if (empty($result['card_pilot'])) {
+            flash_set('success', 'درخواست «' . (string) $result['patient_name'] . '» بدون پرداخت پذیرفته شد و در حال بررسی ماند. با «پرداخت شده» رزرو می‌شود.');
+        } else {
+            $status = $result['sms_status'];
+            $detail = match ($status) {
+                'SENT' => 'وب‌وان پیامک مبلغ و شماره کارت را پذیرفت.',
+                'PENDING', 'PROCESSING' => 'پیامک هنوز در صف داخلی سایت است.',
+                'FAILED', 'SKIPPED' => 'پیامک ارسال نشد.',
+                default => 'نتیجهٔ ارسال پیامک نامشخص است.',
+            };
+            $reason = trim((string) $result['sms_error']);
+            flash_set($status === 'SENT' ? 'success' : 'error', 'درخواست تأیید شد. ' . $detail . ($reason !== '' ? ' ' . $reason : ''));
+        }
     } catch (Throwable $e) {
         flash_set('error', $e->getMessage());
         if (!str_contains($next, 'tab=')) {

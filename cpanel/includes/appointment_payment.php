@@ -455,7 +455,7 @@ function appointment_awaiting_secretary_approval(array $row): bool
 
 /**
  * منشی درخواست رزرو سایت را تأیید می‌کند تا مراجع بتواند پرداخت کند.
- * @return array{appointment_id:string,patient_name:string,starts_at:string,card_pilot:bool}
+ * @return array{appointment_id:string,patient_name:string,starts_at:string,card_pilot:bool,sms_status:?string,sms_error:?string}
  */
 function staff_approve_appointment_booking(PDO $pdo, string $appointmentId, array $actor): array
 {
@@ -485,7 +485,10 @@ function staff_approve_appointment_booking(PDO $pdo, string $appointmentId, arra
         ensure_appointment_hold_columns($pdo);
     }
     $cardPilot = appointment_is_card_receipt_pilot($row);
+    $smsStatus = null;
+    $smsError = null;
     if ($cardPilot) {
+        $smsKey = 'appointment-card-pilot:' . $appointmentId;
         require_once __DIR__ . '/booking_terms.php';
         require_once __DIR__ . '/outreach.php';
         if (($actor['role'] ?? '') !== 'SECRETARY' || !user_uses_card_receipt_pilot($row)) {
@@ -521,7 +524,7 @@ function staff_approve_appointment_booking(PDO $pdo, string $appointmentId, arra
                 (string) $row['patient_phone'],
                 "مانا کلینیک: درخواست نوبت شما تأیید شد.\nمبلغ قابل واریز: {$amountLabel}\nشماره کارت آزمایشی: 1234-5678-1234-5678\nفیش آزمایشی را در «نوبت‌های من» بارگذاری کنید.",
                 'appointment_card_pilot',
-                'appointment-card-pilot:' . $appointmentId,
+                $smsKey,
                 null,
                 (string) $row['starts_at'],
                 ['entity' => 'appointment_card_pilot', 'appointment_id' => $appointmentId]
@@ -536,6 +539,25 @@ function staff_approve_appointment_booking(PDO $pdo, string $appointmentId, arra
             $pdo->rollBack();
         }
         throw $e;
+    }
+
+    if ($cardPilot) {
+        try {
+            $smsReady = sms_connection_ready($pdo);
+            if ($smsReady) {
+                sms_dispatch_pending($pdo, 1, $smsKey);
+            }
+            $sms = $pdo->prepare('SELECT status,last_error FROM sms_outbox WHERE dedup_key=? LIMIT 1');
+            $sms->execute([hash('sha256', $smsKey)]);
+            $delivery = $sms->fetch() ?: [];
+            $smsStatus = (string) ($delivery['status'] ?? 'UNKNOWN');
+            $smsError = !$smsReady && $smsStatus === 'PENDING'
+                ? 'اتصال سرویس پیامک فعال نیست.'
+                : ($delivery['last_error'] ?? null);
+        } catch (Throwable $e) {
+            error_log('Appointment card pilot SMS dispatch failed: ' . $appointmentId);
+            $smsStatus = 'UNKNOWN';
+        }
     }
 
     $patientName = (string) ($row['patient_name'] ?? 'مراجعه‌کننده');
@@ -554,7 +576,7 @@ function staff_approve_appointment_booking(PDO $pdo, string $appointmentId, arra
         $pdo,
         (string) ($row['patient_user_id'] ?? ''),
         $cardPilot ? 'درخواست نوبت تأیید شد' : 'درخواست نوبت در حال بررسی است',
-        $cardPilot ? "شماره کارت آزمایشی برای نوبت {$when} در صف پیامک است. فیش را در «نوبت‌های من» بارگذاری کنید."
+        $cardPilot ? "درخواست نوبت {$when} تأیید شد. پس از دریافت پیامک مبلغ و شماره کارت آزمایشی، فیش را در «نوبت‌های من» بارگذاری کنید."
             : "درخواست نوبت {$when} بدون پرداخت آنلاین پذیرفته شد و در حال بررسی است. تا تأیید پرداخت توسط منشی، رزرو نهایی نمی‌شود.",
         therapy_self_appointments_path_for_id($pdo, (string) ($row['patient_user_id'] ?? '')),
         'appointment',
@@ -583,6 +605,8 @@ function staff_approve_appointment_booking(PDO $pdo, string $appointmentId, arra
         'patient_name' => $patientName,
         'starts_at' => (string) ($row['starts_at'] ?? ''),
         'card_pilot' => $cardPilot,
+        'sms_status' => $smsStatus,
+        'sms_error' => $smsError,
     ];
 }
 
