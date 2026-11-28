@@ -3,8 +3,9 @@
     <span class="label">محل اقامت</span>
     <select class="input" name="fee_residence" required>
       <option value="">انتخاب محل اقامت</option>
-      <option value="iran">داخل ایران (تومان)</option>
-      <option value="abroad">خارج از ایران (دلار)</option>
+      <?php foreach (patient_fee_options() as $feeOption => $feeLabel): ?>
+        <option value="<?= e($feeOption) ?>"><?= e($feeLabel) ?></option>
+      <?php endforeach; ?>
     </select>
   </label>
   <label>

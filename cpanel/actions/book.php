@@ -108,7 +108,8 @@ if (!function_exists('patient_fee_resolve_toman')) {
 }
 $fee = patient_fee_load($pdo, (string) $user['id']);
 $amountUsd = patient_fee_resolve_usd($fee);
-$amount = $amountUsd === null ? patient_fee_resolve_toman($fee, $amount) : 0;
+$amountGbp = patient_fee_resolve_gbp($fee);
+$amount = $amountUsd === null && $amountGbp === null ? patient_fee_resolve_toman($fee, $amount) : 0;
 
 ensure_appointment_session_schema($pdo);
 require_once __DIR__ . '/../includes/wallet.php';
@@ -152,8 +153,8 @@ try {
         $rowPayId = $index === 0 ? $paymentId : cuid();
         $pdo->prepare('INSERT INTO appointments (id,doctor_id,patient_id,starts_at,ends_at,status,notes,session_mode,created_by_user_id,requested_at,scheduled_hold) VALUES (?,?,?,?,?,?,?,?,?,NOW(),?)')
             ->execute([$rowId, $doctorId, $user['id'], $sessionStart, $sessionEnd, 'PENDING_PAYMENT', null, $sessionMode, (string) $user['id'], (int) $scheduledHold]);
-        $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,amount_usd,status,ref_id) VALUES (?,?,?,?,?,?)')
-            ->execute([$rowPayId, $rowId, $amount, $amountUsd, 'PENDING', 'LATER']);
+        $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,amount_usd,amount_gbp,status,ref_id) VALUES (?,?,?,?,?,?,?)')
+            ->execute([$rowPayId, $rowId, $amount, $amountUsd, $amountGbp, 'PENDING', 'LATER']);
         if ($amount > 0) {
             wallet_charge_visit(
                 $pdo,

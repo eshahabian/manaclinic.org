@@ -73,7 +73,7 @@ $appointmentDoneView = !empty($appointmentDoneView);
               <span class="badge"><?= e($displayStatus) ?></span>
             <?php endif; ?>
             <?php if ($a['amount'] !== null): ?>
-              <div class="appt-pay-status muted"><?= isset($a['amount_usd']) ? e(appointment_payment_amount_label($a)) . ' · ' : '' ?><?= e(appointment_pay_status_display($a)) ?></div>
+              <div class="appt-pay-status muted"><?= (isset($a['amount_usd']) || isset($a['amount_gbp'])) ? e(appointment_payment_amount_label($a)) . ' · ' : '' ?><?= e(appointment_pay_status_display($a)) ?></div>
             <?php endif; ?>
           </div>
         </div>

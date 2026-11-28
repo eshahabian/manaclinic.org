@@ -373,7 +373,7 @@ function wallet_charge_held_visit(PDO $pdo, string $appointmentId): void
         return;
     }
     $stmt = $pdo->prepare("
-      SELECT a.patient_id, a.starts_at, p.amount, p.amount_usd, p.status AS pay_status, p.ref_id, dp.session_price
+      SELECT a.patient_id, a.starts_at, p.amount, p.amount_usd, p.amount_gbp, p.status AS pay_status, p.ref_id, dp.session_price
       FROM appointments a
       LEFT JOIN payments p ON p.appointment_id = a.id
       LEFT JOIN doctor_profiles dp ON dp.id = a.doctor_id
@@ -382,7 +382,7 @@ function wallet_charge_held_visit(PDO $pdo, string $appointmentId): void
     ");
     $stmt->execute([$appointmentId]);
     $row = $stmt->fetch();
-    if (!$row || isset($row['amount_usd'])) {
+    if (!$row || (isset($row['amount_usd']) || isset($row['amount_gbp']))) {
         return;
     }
     if (wallet_appointment_has_tx($pdo, $appointmentId, 'PAYMENT')) {

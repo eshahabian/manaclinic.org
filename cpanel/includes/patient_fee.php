@@ -1,7 +1,7 @@
 <?php
 declare(strict_types=1);
 
-/** مبلغ جلسهٔ سفارشی / دلاری برای هر مراجعه‌کننده */
+/** مبلغ جلسهٔ سفارشی یا ارزی برای هر مراجعه‌کننده */
 function patient_fee_ensure_schema(PDO $pdo): void
 {
     static $done = false;
@@ -13,23 +13,24 @@ function patient_fee_ensure_schema(PDO $pdo): void
         'custom_fee_toman' => "ALTER TABLE users ADD COLUMN custom_fee_toman INT UNSIGNED NULL AFTER custom_fee_on",
         'foreign_fee_on' => "ALTER TABLE users ADD COLUMN foreign_fee_on TINYINT(1) NOT NULL DEFAULT 0 AFTER custom_fee_toman",
         'foreign_fee_usd' => "ALTER TABLE users ADD COLUMN foreign_fee_usd DECIMAL(12,2) NULL AFTER foreign_fee_on",
+        'fee_abroad_toman' => 'ALTER TABLE users ADD COLUMN fee_abroad_toman TINYINT(1) NOT NULL DEFAULT 0',
+        'foreign_fee_gbp' => 'ALTER TABLE users ADD COLUMN foreign_fee_gbp DECIMAL(12,2) NULL',
     ];
-    foreach ($cols as $name => $sql) {
-        try {
-            $has = $pdo->query("SHOW COLUMNS FROM users LIKE " . $pdo->quote($name))->fetch();
-            if (!$has) {
-                $pdo->exec($sql);
-            }
-        } catch (Throwable $ignored) {
-        }
-    }
-    $hasUsd = $pdo->query("SHOW COLUMNS FROM payments LIKE 'amount_usd'")->fetch();
-    if (!$hasUsd) {
-        try {
-            $pdo->exec('ALTER TABLE payments ADD COLUMN amount_usd DECIMAL(12,2) NULL AFTER amount');
-        } catch (Throwable $e) {
-            if (!$pdo->query("SHOW COLUMNS FROM payments LIKE 'amount_usd'")->fetch()) {
-                throw $e;
+    $paymentColumns = [
+        'amount_usd' => 'ALTER TABLE payments ADD COLUMN amount_usd DECIMAL(12,2) NULL',
+        'amount_gbp' => 'ALTER TABLE payments ADD COLUMN amount_gbp DECIMAL(12,2) NULL',
+    ];
+    foreach (['users' => $cols, 'payments' => $paymentColumns] as $table => $columns) {
+        foreach ($columns as $name => $sql) {
+            $check = "SHOW COLUMNS FROM $table LIKE " . $pdo->quote($name);
+            if (!$pdo->query($check)->fetch()) {
+                try {
+                    $pdo->exec($sql);
+                } catch (Throwable $e) {
+                    if (!$pdo->query($check)->fetch()) {
+                        throw $e;
+                    }
+                }
             }
         }
     }
@@ -48,10 +49,12 @@ function patient_fee_resolve_usd(array $patient): ?string
 
 function appointment_payment_amount_label(array $row): string
 {
-    if (isset($row['amount_usd'])) {
-        return to_fa_digits(rtrim(rtrim(number_format((float) $row['amount_usd'], 2, '.', ''), '0'), '.')) . ' دلار';
+    foreach (['amount_gbp' => 'پوند', 'amount_usd' => 'دلار'] as $column => $unit) {
+        if (isset($row[$column])) {
+            $amount = rtrim(rtrim(number_format((float) $row[$column], 2, '.', ''), '0'), '.');
+            return to_fa_digits($amount) . ' ' . $unit;
+        }
     }
-
     return isset($row['amount']) ? format_price((int) $row['amount']) : '';
 }
 
@@ -128,32 +131,64 @@ function patient_fee_resolve_toman(array $patient, int $doctorSessionPrice): int
     return max(0, $doctorSessionPrice);
 }
 
-/** A fee explicitly assigned to exactly one residence. */
-function patient_fee_booking_confirmation(array $patient, string $patientId): string
+function patient_fee_resolve_gbp(array $patient): ?string
+{
+    $amount = (string) ($patient['foreign_fee_gbp'] ?? '');
+    return (int) ($patient['foreign_fee_on'] ?? 0) === 1 && (float) $amount > 0 ? $amount : null;
+}
+
+function patient_fee_options(): array
+{
+    return [
+        'iran' => 'داخل ایران (تومان)',
+        'abroad_toman' => 'خارج از ایران (تومان)',
+        'abroad' => 'خارج از ایران (دلار)',
+        'abroad_gbp' => 'خارج از ایران (پوند)',
+    ];
+}
+
+/** @return array{0:string,1:string} */
+function patient_fee_booking_details(array $patient): array
 {
     $domestic = (int) ($patient['custom_fee_on'] ?? 0) === 1;
     $foreign = (int) ($patient['foreign_fee_on'] ?? 0) === 1;
     if ($domestic === $foreign) {
-        return '';
+        return ['', ''];
     }
-    $amount = $foreign ? patient_fee_resolve_usd($patient) : patient_fee_resolve_toman($patient, 0);
-    if ($amount === null || $amount <= 0 || (!$foreign && $amount > 2147483647)) {
-        return '';
+    if ($domestic) {
+        $amount = patient_fee_resolve_toman($patient, 0);
+        if ($amount > 0 && $amount <= 2147483647) {
+            return [empty($patient['fee_abroad_toman']) ? 'iran' : 'abroad_toman', (string) $amount];
+        }
+        return ['', ''];
     }
-    return hash('sha256', $patientId . '|' . ($foreign ? 'USD' : 'IR') . '|' . $amount);
+    $usd = patient_fee_resolve_usd($patient);
+    $gbp = patient_fee_resolve_gbp($patient);
+    if (($usd === null) === ($gbp === null)) {
+        return ['', ''];
+    }
+    return $gbp !== null ? ['abroad_gbp', $gbp] : ['abroad', $usd];
+}
+
+function patient_fee_booking_confirmation(array $patient, string $patientId): string
+{
+    [$residence, $amount] = patient_fee_booking_details($patient);
+    return $residence !== '' ? hash('sha256', $patientId . '|' . $residence . '|' . $amount) : '';
 }
 
 function patient_fee_booking_values(string $residence, string $rawAmount): ?array
 {
     $amount = normalize_input($rawAmount);
-    if ($residence === 'iran' && preg_match('/^(?:[0-9]+|[0-9]{1,3}(?:[,٬][0-9]{3})+)$/uD', $amount)) {
+    if (in_array($residence, ['iran', 'abroad_toman'], true) && preg_match('/^(?:[0-9]+|[0-9]{1,3}(?:[,٬][0-9]{3})+)$/uD', $amount)) {
         $toman = patient_fee_parse_toman($amount);
-        // The amount must also fit the signed INT payment and wallet columns.
-        return $toman > 0 && $toman <= 2147483647 ? [1, $toman, 0, null] : null;
+        // Payments and wallet entries use signed INT columns.
+        return $toman > 0 && $toman <= 2147483647 ? [1, $toman, 0, null, (int) ($residence === 'abroad_toman'), null] : null;
     }
-    if ($residence === 'abroad' && preg_match('/^[0-9]+(?:[.,٫،][0-9]{1,2})?$/uD', $amount)) {
-        $usd = patient_fee_parse_usd($amount);
-        return $usd !== null ? [0, null, 1, $usd] : null;
+    if (in_array($residence, ['abroad', 'abroad_gbp'], true) && preg_match('/^[0-9]+(?:[.,٫،][0-9]{1,2})?$/uD', $amount)) {
+        $foreign = patient_fee_parse_usd($amount);
+        if ($foreign !== null) {
+            return [0, null, 1, $residence === 'abroad' ? $foreign : null, 0, $residence === 'abroad_gbp' ? $foreign : null];
+        }
     }
     return null;
 }
@@ -161,43 +196,7 @@ function patient_fee_booking_values(string $residence, string $rawAmount): ?arra
 function patient_fee_load(PDO $pdo, string $patientId, bool $forUpdate = false): array
 {
     patient_fee_ensure_schema($pdo);
-    if ($patientId === '') {
-        return [
-            'custom_fee_on' => 0,
-            'custom_fee_toman' => null,
-            'foreign_fee_on' => 0,
-            'foreign_fee_usd' => null,
-        ];
-    }
-    $stmt = $pdo->prepare('SELECT custom_fee_on, custom_fee_toman, foreign_fee_on, foreign_fee_usd FROM users WHERE id=? LIMIT 1' . ($forUpdate ? ' FOR UPDATE' : ''));
+    $stmt = $pdo->prepare('SELECT custom_fee_on, custom_fee_toman, foreign_fee_on, foreign_fee_usd, fee_abroad_toman, foreign_fee_gbp FROM users WHERE id=? LIMIT 1' . ($forUpdate ? ' FOR UPDATE' : ''));
     $stmt->execute([$patientId]);
-    $row = $stmt->fetch();
-    if (!$row) {
-        return [
-            'custom_fee_on' => 0,
-            'custom_fee_toman' => null,
-            'foreign_fee_on' => 0,
-            'foreign_fee_usd' => null,
-        ];
-    }
-
-    return [
-        'custom_fee_on' => (int) ($row['custom_fee_on'] ?? 0),
-        'custom_fee_toman' => $row['custom_fee_toman'] !== null ? (int) $row['custom_fee_toman'] : null,
-        'foreign_fee_on' => (int) ($row['foreign_fee_on'] ?? 0),
-        'foreign_fee_usd' => $row['foreign_fee_usd'] !== null ? (string) $row['foreign_fee_usd'] : null,
-    ];
-}
-
-/** فیلتر نمایش: default | custom | foreign */
-function patient_fee_filter_key(array $row): string
-{
-    if ((int) ($row['foreign_fee_on'] ?? 0) === 1) {
-        return 'foreign';
-    }
-    if ((int) ($row['custom_fee_on'] ?? 0) === 1) {
-        return 'custom';
-    }
-
-    return 'default';
+    return $stmt->fetch(PDO::FETCH_ASSOC) ?: [];
 }

@@ -61,7 +61,7 @@ function secretary_create_patient_from_post(PDO $pdo, array $actor, array $opts 
         return ['ok' => false, 'error' => 'رمز عبور و تکرار آن یکسان نیست.'];
     }
 
-    $feeValues = [0, null, 0, null];
+    $feeValues = [0, null, 0, null, 0, null];
     if (($actor['role'] ?? '') === 'SECRETARY') {
         $feeValues = patient_fee_booking_values(post('fee_residence'), post('fee_amount'));
         if ($feeValues === null) {
@@ -78,7 +78,7 @@ function secretary_create_patient_from_post(PDO $pdo, array $actor, array $opts 
     $patientId = cuid();
     try {
         user_phone_write($pdo, $newPhone, null, fn ($newPhone) =>
-            $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,preferred_doctor_id,created_by_user_id,referral_source,must_change_password,custom_fee_on,custom_fee_toman,foreign_fee_on,foreign_fee_usd) VALUES (?,?,?,?,?,?,?,?,?,?,0,?,?,?,?)')
+            $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,preferred_doctor_id,created_by_user_id,referral_source,must_change_password,custom_fee_on,custom_fee_toman,foreign_fee_on,foreign_fee_usd,fee_abroad_toman,foreign_fee_gbp) VALUES (?,?,?,?,?,?,?,?,?,?,0,?,?,?,?,?,?)')
         ->execute([
             $patientId,
             $newUsername,
@@ -256,15 +256,12 @@ function secretary_patient_directory(PDO $pdo): array
         require_once __DIR__ . '/outreach.php';
     }
     ensure_outreach_schema($pdo);
-    if (!function_exists('patient_fee_ensure_schema')) {
-        require_once __DIR__ . '/patient_fee.php';
-    }
     patient_fee_ensure_schema($pdo);
 
     $users = $pdo->query("
       SELECT u.id, u.username, u.name, u.role, u.phone, u.is_disabled, u.created_at, u.last_login_at,
              u.referral_source, u.preferred_doctor_id,
-             u.custom_fee_on, u.custom_fee_toman, u.foreign_fee_on, u.foreign_fee_usd,
+             u.custom_fee_on, u.custom_fee_toman, u.foreign_fee_on, u.foreign_fee_usd, u.fee_abroad_toman, u.foreign_fee_gbp,
              du.name AS doctor_name,
              cu.name AS created_by_name, cu.username AS created_by_username, cu.role AS created_by_role
       FROM users u

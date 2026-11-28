@@ -189,15 +189,16 @@ ob_start();
     <label class="label" for="patient-fee-filter">پرداخت</label>
     <select class="input" id="patient-fee-filter" aria-controls="secretary-account-edit">
       <option value="">همه</option>
-      <option value="default">قیمت درمانگر</option>
-      <option value="custom">مبلغ سفارشی</option>
-      <option value="foreign">پرداخت دلاری</option>
+      <option value="default">اطلاعات ویزیت ناقص</option>
+      <?php foreach (patient_fee_options() as $feeOption => $feeLabel): ?>
+        <option value="<?= e($feeOption) ?>"><?= e($feeLabel) ?></option>
+      <?php endforeach; ?>
     </select>
   </div>
 </div>
 
 <h2 style="margin:1rem 0 .35rem;font-size:1.05rem">فهرست مراجعه‌کنندگان</h2>
-<p class="muted" style="margin:0 0 .75rem;font-size:.9rem">درمانگر، معرف، موبایل و نوع پرداخت حساب‌های ساخته‌شده از اینجا عوض می‌شود. اگر مبلغ سفارشی روشن نباشد، همان قیمت پنل درمانگر برای نوبت گرفته می‌شود.</p>
+<p class="muted" style="margin:0 0 .75rem;font-size:.9rem">با انتخاب درمانگر، مبلغ تومانی از پروفایل او پیشنهاد می‌شود و قابل ویرایش است.</p>
 <div class="panel admin-users-board" style="padding:0;overflow:auto">
   <table class="table" id="secretary-account-edit">
     <thead>
@@ -236,14 +237,8 @@ ob_start();
           $canToggle = $isPatient || !$isUser;
         ?>
         <?php
-          $feeKey = patient_fee_filter_key($u);
-          $customOn = (int) ($u['custom_fee_on'] ?? 0) === 1;
-          $customToman = (int) ($u['custom_fee_toman'] ?? 0);
-          $foreignOn = (int) ($u['foreign_fee_on'] ?? 0) === 1;
-          $foreignUsd = trim((string) ($u['foreign_fee_usd'] ?? ''));
-          if ($foreignUsd !== '' && is_numeric($foreignUsd)) {
-              $foreignUsd = rtrim(rtrim(number_format((float) $foreignUsd, 2, '.', ''), '0'), '.');
-          }
+          [$feeResidence, $feeAmount] = patient_fee_booking_details($u);
+          $feeKey = $feeResidence !== '' ? $feeResidence : 'default';
         ?>
         <tr class="secretary-account-row<?= $inactive ? ' is-inactive-person' : '' ?>" data-search="<?= e($accountSearch) ?>" data-status="<?= $inactive ? 'inactive' : 'active' ?>" data-doctor="<?= e((string) ($u['preferred_doctor_id'] ?? '')) ?>" data-fee="<?= e($feeKey) ?>">
           <td>
@@ -260,7 +255,7 @@ ob_start();
             <select class="input" name="preferred_doctor_id" form="<?= e($formId) ?>" required aria-label="درمانگر" style="<?= e($compact) ?>">
               <option value="">انتخاب درمانگر</option>
               <?php foreach ($doctors as $doctor): ?>
-                <option value="<?= e((string) $doctor['id']) ?>"<?= ((string) ($u['preferred_doctor_id'] ?? '') === (string) $doctor['id']) ? ' selected' : '' ?>><?= e((string) $doctor['name']) ?></option>
+                <option value="<?= e((string) $doctor['id']) ?>" data-visit-price="<?= e((string) $doctor['session_price']) ?>"<?= ((string) ($u['preferred_doctor_id'] ?? '') === (string) $doctor['id']) ? ' selected' : '' ?>><?= e((string) $doctor['name']) ?></option>
               <?php endforeach; ?>
             </select>
           </td>
@@ -275,17 +270,14 @@ ob_start();
             <input class="input" name="phone" form="<?= e($formId) ?>" dir="ltr" inputmode="tel" value="<?= e((string) ($u['phone'] ?? '')) ?>" required aria-label="موبایل" style="min-width:8rem;padding:.35rem .5rem;font-size:.85rem">
           </td>
           <td class="patient-fee-cell">
-            <div class="patient-fee-stack" data-fee-stack>
-              <label class="patient-fee-line">
-                <input type="checkbox" value="1" form="<?= e($formId) ?>" data-fee-toggle="custom" data-fee-flag="custom_fee_on"<?= ($customOn || $customToman > 0) ? ' checked' : '' ?>>
-                <span>مبلغ سفارشی</span>
-              </label>
-              <input class="input patient-fee-amount" dir="ltr" inputmode="numeric" data-fee-input="custom" data-fee-field="custom_fee_toman" placeholder="تومان" value="<?= $customToman > 0 ? e(to_fa_digits(number_format($customToman))) : '' ?>"<?= ($customOn || $customToman > 0) ? '' : ' disabled' ?> aria-label="مبلغ سفارشی تومان" data-money>
-              <label class="patient-fee-line">
-                <input type="checkbox" value="1" form="<?= e($formId) ?>" data-fee-toggle="foreign" data-fee-flag="foreign_fee_on"<?= ($foreignOn || $foreignUsd !== '') ? ' checked' : '' ?>>
-                <span>خارج از ایران</span>
-              </label>
-              <input class="input patient-fee-amount" dir="ltr" inputmode="decimal" data-fee-input="foreign" data-fee-field="foreign_fee_usd" placeholder="دلار" value="<?= $foreignUsd !== '' ? e(to_fa_digits($foreignUsd)) : '' ?>"<?= ($foreignOn || $foreignUsd !== '') ? '' : ' disabled' ?> aria-label="مبلغ دلار">
+            <div class="patient-fee-stack">
+              <select class="input" name="fee_residence" form="<?= e($formId) ?>" aria-label="محل اقامت و واحد مبلغ ویزیت">
+                <option value="">انتخاب محل اقامت</option>
+                <?php foreach (patient_fee_options() as $feeOption => $feeLabel): ?>
+                  <option value="<?= e($feeOption) ?>"<?= $feeOption === $feeResidence ? ' selected' : '' ?>><?= e($feeLabel) ?></option>
+                <?php endforeach; ?>
+              </select>
+              <input class="input patient-fee-amount" name="fee_amount" form="<?= e($formId) ?>" dir="ltr" inputmode="decimal" maxlength="24" value="<?= e($feeAmount) ?>" aria-label="مبلغ ویزیت">
             </div>
           </td>
           <?php else: ?>
@@ -297,13 +289,9 @@ ob_start();
           <td class="patient-account-actions">
             <div class="patient-account-actions-inner">
               <?php if ($isUser): ?>
-              <form id="<?= e($formId) ?>" method="post" action="<?= e(url('/secretary/users')) ?>" class="patient-account-save-form" data-fee-form>
+              <form id="<?= e($formId) ?>" method="post" action="<?= e(url('/secretary/users')) ?>" class="patient-account-save-form">
                 <?= csrf_field() ?>
                 <input type="hidden" name="user_id" value="<?= e($uid) ?>">
-                <input type="hidden" name="custom_fee_on" value="<?= ($customOn || $customToman > 0) ? '1' : '0' ?>" data-fee-store="custom_fee_on">
-                <input type="hidden" name="custom_fee_toman" value="<?= $customToman > 0 ? e((string) $customToman) : '' ?>" data-fee-store="custom_fee_toman">
-                <input type="hidden" name="foreign_fee_on" value="<?= ($foreignOn || $foreignUsd !== '') ? '1' : '0' ?>" data-fee-store="foreign_fee_on">
-                <input type="hidden" name="foreign_fee_usd" value="<?= e($foreignUsd) ?>" data-fee-store="foreign_fee_usd">
                 <button class="btn btn-primary btn-sm sec-account-action" type="submit">ذخیره</button>
               </form>
               <?php endif; ?>
@@ -431,7 +419,7 @@ ob_start();
           <select class="input" name="new_preferred_doctor_id" id="act_doctor" required>
             <option value="">انتخاب درمانگر</option>
             <?php foreach ($doctors as $doctor): ?>
-              <option value="<?= e((string) $doctor['id']) ?>"><?= e((string) $doctor['name']) ?></option>
+              <option value="<?= e((string) $doctor['id']) ?>" data-visit-price="<?= e((string) $doctor['session_price']) ?>"><?= e((string) $doctor['name']) ?></option>
             <?php endforeach; ?>
           </select>
         </div>
@@ -499,7 +487,7 @@ $pageScripts = '
 <script src="' . e(url('/assets/js/money-words.js')) . '?v=20261014fee"></script>
 <script src="' . e(url('/assets/js/name-transliterate.js')) . '?v=20260906p"></script>
 <script src="' . e(url('/assets/js/form-draft.js')) . '?v=20260906p"></script>
-<script src="' . e(url('/assets/js/secretary-patient-form.js')) . '?v=20261128fee"></script>
+<script src="' . e(url('/assets/js/secretary-patient-form.js')) . '?v=20261128currency"></script>
 <script>
 (function(){
   var form = document.getElementById("secretary-patient-form");
@@ -510,6 +498,14 @@ $pageScripts = '
     nameDict: ' . json_encode($nameDict, JSON_UNESCAPED_UNICODE) . ',
     draftKey: "mana.secretary.patient.create",
     clearParams: ["added"]
+  });
+  [form, document.getElementById("patient-activate-register")].forEach(function (patientForm) {
+    if (!patientForm) return;
+    bindVisitFeeSuggestion(
+      patientForm.querySelector("[name=new_preferred_doctor_id]"),
+      patientForm.querySelector("[name=fee_residence]"),
+      patientForm.querySelector("[name=fee_amount]")
+    );
   });
   var activeBox = document.getElementById("patient-entry-active");
   var inactiveBox = document.getElementById("patient-entry-inactive");
@@ -564,46 +560,6 @@ $pageScripts = '
   function norm(str){
     return faToEn(str).trim().toLowerCase().replace(/ي/g, "ی").replace(/ك/g, "ک");
   }
-  function digitsOnly(value){
-    return faToEn(String(value || "")).replace(/\D+/g, "");
-  }
-  function syncFeeStores(row){
-    var form = row.querySelector("form[data-fee-form]");
-    var stack = row.querySelector("[data-fee-stack]");
-    if (!form || !stack) return;
-    var customBox = stack.querySelector("[data-fee-toggle=custom]");
-    var foreignBox = stack.querySelector("[data-fee-toggle=foreign]");
-    var customInput = stack.querySelector("[data-fee-input=custom]");
-    var foreignInput = stack.querySelector("[data-fee-input=foreign]");
-    var customOn = !!(customBox && customBox.checked);
-    var foreignOn = !!(foreignBox && foreignBox.checked);
-    var customStore = form.querySelector("[data-fee-store=custom_fee_on]");
-    var customAmount = form.querySelector("[data-fee-store=custom_fee_toman]");
-    var foreignStore = form.querySelector("[data-fee-store=foreign_fee_on]");
-    var foreignAmount = form.querySelector("[data-fee-store=foreign_fee_usd]");
-    if (customStore) customStore.value = customOn ? "1" : "0";
-    if (customAmount) customAmount.value = customOn ? digitsOnly(customInput ? customInput.value : "") : "";
-    if (foreignStore) foreignStore.value = foreignOn ? "1" : "0";
-    if (foreignAmount) {
-      var usd = foreignOn && foreignInput ? faToEn(String(foreignInput.value || "")).replace(/,/g, ".").replace(/[^\d.]/g, "") : "";
-      foreignAmount.value = usd;
-    }
-  }
-  function syncFeeRow(row){
-    var stack = row.querySelector("[data-fee-stack]");
-    if (!stack) return;
-    var customBox = stack.querySelector("[data-fee-toggle=custom]");
-    var foreignBox = stack.querySelector("[data-fee-toggle=foreign]");
-    var customOn = !!(customBox && customBox.checked);
-    var foreignOn = !!(foreignBox && foreignBox.checked);
-    var customInput = stack.querySelector("[data-fee-input=custom]");
-    var foreignInput = stack.querySelector("[data-fee-input=foreign]");
-    if (customInput) customInput.disabled = !customOn;
-    if (foreignInput) foreignInput.disabled = !foreignOn;
-    var fee = foreignOn ? "foreign" : (customOn ? "custom" : "default");
-    row.setAttribute("data-fee", fee);
-    syncFeeStores(row);
-  }
   function applyAccountFilter(){
     var q = norm(input ? input.value : "");
     var qDigits = q.replace(/\D+/g, "");
@@ -646,28 +602,19 @@ $pageScripts = '
     }
   }
   rows.forEach(function(row){
-    syncFeeRow(row);
     var doctorSelect = row.querySelector("select[name=preferred_doctor_id]");
-    if (doctorSelect) {
-      doctorSelect.addEventListener("change", function(){
-        row.setAttribute("data-doctor", doctorSelect.value || "");
-        applyAccountFilter();
-      });
-    }
-    row.querySelectorAll("[data-fee-toggle]").forEach(function(box){
-      box.addEventListener("change", function(){
-        syncFeeRow(row);
-        applyAccountFilter();
-      });
+    var residence = row.querySelector("select[name=fee_residence]");
+    var amount = row.querySelector("input[name=fee_amount]");
+    if (!doctorSelect || !residence || !amount) return;
+    bindVisitFeeSuggestion(doctorSelect, residence, amount);
+    doctorSelect.addEventListener("change", function(){
+      row.setAttribute("data-doctor", doctorSelect.value || "");
+      applyAccountFilter();
     });
-    row.querySelectorAll("[data-fee-input]").forEach(function(input){
-      input.addEventListener("input", function(){ syncFeeStores(row); });
-      input.addEventListener("change", function(){ syncFeeStores(row); });
+    residence.addEventListener("change", function(){
+      row.setAttribute("data-fee", residence.value || "default");
+      applyAccountFilter();
     });
-    var feeForm = row.querySelector("form[data-fee-form]");
-    if (feeForm) {
-      feeForm.addEventListener("submit", function(){ syncFeeStores(row); });
-    }
   });
 })();
 </script>
@@ -848,7 +795,11 @@ $pageScripts = '
       var first = document.getElementById("act_first_name");
       var last = document.getElementById("act_last_name");
       var phone = document.getElementById("act_phone");
-      if (outreachId) outreachId.value = row.id || "";
+      if (outreachId && outreachId.value !== String(row.id || "")) {
+        registerForm.querySelector("[name=fee_residence]").value = "";
+        registerForm.querySelector("[name=fee_amount]").value = "";
+        outreachId.value = row.id || "";
+      }
       if (first) first.value = row.first || "";
       if (last) last.value = row.last || "";
       if (phone) phone.value = row.phone || "";
@@ -943,10 +894,7 @@ $pageHead = ($pageHead ?? '') . '<style>
 #secretary-account-edit .sec-account-action{width:6.25rem;height:2.4rem;flex:0 0 6.25rem;box-sizing:border-box;display:inline-flex;align-items:center;justify-content:center;text-align:center;white-space:nowrap;line-height:1.2;padding:.35rem .5rem;margin:0 auto}
 #secretary-account-edit .patient-fee-cell{min-width:9.5rem;vertical-align:top}
 #secretary-account-edit .patient-fee-stack{display:flex;flex-direction:column;gap:.28rem;min-width:9rem}
-#secretary-account-edit .patient-fee-line{display:flex;align-items:center;gap:.35rem;font-size:.78rem;line-height:1.3;margin:0;cursor:pointer;white-space:nowrap}
-#secretary-account-edit .patient-fee-line input{margin:0;flex:none}
 #secretary-account-edit .patient-fee-amount{min-width:0;width:100%;padding:.28rem .45rem;font-size:.8rem}
-#secretary-account-edit .patient-fee-amount:disabled{opacity:.45;background:#f3f5f4}
 .sec-state-switch{display:inline-flex;border:1px solid rgba(26,46,40,.16);border-radius:999px;overflow:hidden;background:#f3f6f5}
 .sec-state-switch form{margin:0;display:flex}
 .sec-state-btn{border:0;background:transparent;color:#3d5560;padding:.4rem .75rem;font:inherit;font-size:.82rem;cursor:pointer;min-width:4.4rem}

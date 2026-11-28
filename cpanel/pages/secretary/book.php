@@ -128,11 +128,8 @@ ob_start();
               : '';
           $bookKey = (string) ($p['book_id'] ?? $p['id'] ?? '');
           $walletAttr = array_key_exists($bookKey, $walletMap) ? (string) (int) $walletMap[$bookKey] : '';
-          $customFeeOn = (int) ($p['custom_fee_on'] ?? 0) === 1;
-          $customFeeToman = (int) ($p['custom_fee_toman'] ?? 0);
+          [$feeResidence, $feeAmount] = patient_fee_booking_details($p);
           $feeConfirmation = patient_fee_booking_confirmation($p, (string) $p['id']);
-          $feeUsd = patient_fee_resolve_usd($p);
-          $feeAttr = ($customFeeOn && $customFeeToman > 0) ? (string) $customFeeToman : '';
           $inactive = function_exists('secretary_patient_is_inactive') && secretary_patient_is_inactive($p);
           $needsSetup = !$inactive && function_exists('secretary_patient_needs_setup') && secretary_patient_needs_setup($p);
           if ($inactive) {
@@ -141,7 +138,7 @@ ob_start();
               $label .= ' — تکمیل پروفایل لازم است';
           }
         ?>
-        <option value="<?= e((string) ($p['book_id'] ?? $p['id'])) ?>" data-search="<?= e($searchBits) ?>" data-referral="<?= e($savedReferral) ?>" data-needs-setup="<?= $needsSetup ? '1' : '0' ?>" data-inactive="<?= $inactive ? '1' : '0' ?>" data-muted="<?= $inactive ? '1' : '0' ?>" data-phone="<?= e($phone) ?>" data-doctor="<?= e((string) ($p['preferred_doctor_id'] ?? '')) ?>" data-wallet="<?= e($walletAttr) ?>" data-fee-confirmation="<?= e($feeConfirmation) ?>" data-fee="<?= e($feeAttr) ?>" data-fee-usd="<?= e($feeUsd ?? '') ?>"><?= e($label) ?></option>
+        <option value="<?= e((string) ($p['book_id'] ?? $p['id'])) ?>" data-search="<?= e($searchBits) ?>" data-referral="<?= e($savedReferral) ?>" data-needs-setup="<?= $needsSetup ? '1' : '0' ?>" data-inactive="<?= $inactive ? '1' : '0' ?>" data-muted="<?= $inactive ? '1' : '0' ?>" data-phone="<?= e($phone) ?>" data-doctor="<?= e((string) ($p['preferred_doctor_id'] ?? '')) ?>" data-wallet="<?= e($walletAttr) ?>" data-fee-confirmation="<?= e($feeConfirmation) ?>" data-fee-residence="<?= e($feeResidence) ?>" data-fee-amount="<?= e($feeAmount) ?>"><?= e($label) ?></option>
       <?php endforeach; ?>
     </select>
     <p class="muted" style="margin:.35rem 0 0;font-size:.8rem">در باکس بالا نام یا شماره موبایل را تایپ کنید.</p>
@@ -265,8 +262,8 @@ ob_start();
       <option value="paid">پرداخت شد</option>
       <option value="unpaid">پرداخت نشد</option>
       <?php else: ?>
-      <option value="paid" data-usd-only hidden disabled>پرداخت شد</option>
-      <option value="unpaid" data-usd-only hidden disabled>پرداخت نشد</option>
+      <option value="paid" data-foreign-currency hidden disabled>پرداخت شد</option>
+      <option value="unpaid" data-foreign-currency hidden disabled>پرداخت نشد</option>
       <option value="wallet">از کیف پول مراجع</option>
       <option value="card">کارت به کارت، با آپلود فیش</option>
       <option value="later">بعداً پرداخت می‌کند</option>
@@ -434,32 +431,22 @@ $secretaryBookScripts = '
     var opt = patientEl.options[patientEl.selectedIndex];
     var selected = opt && opt.value && !selectedPatientInactive();
     var confirmation = selected ? opt.getAttribute("data-fee-confirmation") : "";
-    var usd = confirmation && opt.getAttribute("data-fee-usd");
-    feeFields.hidden = feeFields.disabled = !selected || Boolean(confirmation);
-    feeResidence.value = "";
-    feeAmount.value = "";
+    feeFields.hidden = feeFields.disabled = !selected;
+    feeResidence.value = selected ? opt.getAttribute("data-fee-residence") : "";
+    feeResidence.disabled = Boolean(confirmation);
+    feeAmount.value = selected ? opt.getAttribute("data-fee-amount") : "";
     feeCheck.hidden = feeConfirmation.disabled = !confirmation;
     feeConfirmation.checked = false;
     feeConfirmation.value = confirmation || "";
-    if (confirmation) {
-      var residence = usd ? "خارج از ایران" : "داخل ایران";
-      var amount = usd
-        ? Number(usd).toLocaleString("fa-IR", {maximumFractionDigits: 2}) + " دلار"
-        : faMoney(Number(opt.getAttribute("data-fee"))) + " تومان";
-      feeCheck.querySelector("span").textContent = residence + "، مبلغ ویزیت " + amount + " را تأیید می‌کنم.";
-    }
+    feeCheck.querySelector("span").textContent = "محل اقامت و مبلغ ویزیت این نوبت را تأیید می‌کنم.";
   }
-  function visitFeeIsUsd() {
-    var opt = patientEl.options[patientEl.selectedIndex];
-    return feeFields.disabled
-      ? Boolean(opt && opt.getAttribute("data-fee-confirmation") && opt.getAttribute("data-fee-usd"))
-      : feeResidence.value === "abroad";
+  function visitFeeIsForeignCurrency() {
+    return feeResidence.value === "abroad" || feeResidence.value === "abroad_gbp";
   }
-
   function syncWalletLine() {
     if (!walletLine || !patientEl) return;
     var opt = patientEl.options[patientEl.selectedIndex];
-    var raw = opt && !visitFeeIsUsd() ? opt.getAttribute("data-wallet") : "";
+    var raw = opt && !visitFeeIsForeignCurrency() ? opt.getAttribute("data-wallet") : "";
     if (!opt || !opt.value || raw === null || raw === "") {
       walletLine.style.setProperty("display", "none", "important");
       walletLine.textContent = "";
@@ -485,6 +472,9 @@ $secretaryBookScripts = '
   feeResidence.addEventListener("change", function(){
     feeAmount.value = "";
     syncWalletLine();
+  });
+  feeAmount.addEventListener("input", function(){
+    feeConfirmation.checked = false;
   });
   syncVisitFee();
   syncWalletLine();
@@ -992,14 +982,14 @@ $secretaryBookScripts = '
   var receiptBox = document.getElementById("sec-receipt-box");
   var receiptEl = document.getElementById("receipt");
   function syncPayRule() {
-    var usd = visitFeeIsUsd();
-    if (payEl && payEl.querySelector("[data-usd-only]")) {
+    var foreignCurrency = visitFeeIsForeignCurrency();
+    if (payEl && payEl.querySelector("[data-foreign-currency]")) {
       Array.prototype.forEach.call(payEl.options, function (option) {
-        var usdOnly = option.hasAttribute("data-usd-only");
-        option.disabled = option.hidden = usdOnly !== usd;
+        var foreignOnly = option.hasAttribute("data-foreign-currency");
+        option.disabled = option.hidden = foreignOnly !== foreignCurrency;
       });
       if (payEl.selectedIndex < 0 || payEl.options[payEl.selectedIndex].disabled) {
-        payEl.value = usd ? "unpaid" : "wallet";
+        payEl.value = foreignCurrency ? "unpaid" : "wallet";
       }
     }
     var method = payEl ? payEl.value : "wallet";

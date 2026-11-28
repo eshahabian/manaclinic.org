@@ -61,7 +61,7 @@ function clinic_excel_appointment_rows(PDO $pdo, string $type, string $id, ?stri
     }
     $stmt = $pdo->prepare("
         SELECT a.*, pu.name AS patient_name, du.name AS doctor_name,
-               p.status AS pay_status, p.amount, p.amount_usd, p.ref_id, p.receipt_path
+               p.status AS pay_status, p.amount, p.amount_usd, p.amount_gbp, p.ref_id, p.receipt_path
         FROM appointments a
         JOIN users pu ON pu.id = a.patient_id
         JOIN doctor_profiles dp ON dp.id = a.doctor_id
@@ -73,7 +73,7 @@ function clinic_excel_appointment_rows(PDO $pdo, string $type, string $id, ?stri
     $stmt->execute($params);
     $head = ['تاریخ شمسی', 'ساعت', 'مراجعه‌کننده', 'درمانگر', 'وضعیت نوبت', 'پرداخت تأیید شده؟', 'وضعیت پرداخت'];
     if ($forDoctor) {
-        array_push($head, 'مبلغ ثبت‌شده (تومان)', 'مبلغ ثبت‌شده (دلار)');
+        array_push($head, 'مبلغ ثبت‌شده (تومان)', 'مبلغ ثبت‌شده (دلار)', 'مبلغ ثبت‌شده (پوند)');
     }
     yield $head;
 
@@ -90,8 +90,9 @@ function clinic_excel_appointment_rows(PDO $pdo, string $type, string $id, ?stri
         if ($forDoctor) {
             $usd = $row['amount_usd'];
             $toman = $row['amount'];
-            $values[] = $usd === null && $toman !== null ? (int) $toman : null;
+            $values[] = $usd === null && $row['amount_gbp'] === null && $toman !== null ? (int) $toman : null;
             $values[] = $usd !== null ? (float) $usd : null;
+            $values[] = $row['amount_gbp'] !== null ? (float) $row['amount_gbp'] : null;
         }
         yield $values;
     }

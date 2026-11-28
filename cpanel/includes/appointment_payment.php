@@ -99,7 +99,7 @@ function staff_confirm_appointment_payment(
     $pdo->beginTransaction();
     try {
         $stmt = $pdo->prepare("
-          SELECT a.*, p.id AS payment_id, p.status AS pay_status, p.receipt_path, p.amount, p.amount_usd,
+          SELECT a.*, p.id AS payment_id, p.status AS pay_status, p.receipt_path, p.amount, p.amount_usd, p.amount_gbp,
                  pu.name AS patient_name, pu.id AS patient_user_id
           FROM appointments a
           JOIN payments p ON p.appointment_id = a.id
@@ -135,7 +135,7 @@ function staff_confirm_appointment_payment(
         $hasFile = (($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_NO_FILE);
         $hasReceipt = $hasFile || trim((string) ($row['receipt_path'] ?? '')) !== '';
         $receiptPaused = function_exists('receipt_upload_paused') && receipt_upload_paused();
-        if (!$alreadyPaid && !$hasReceipt && !$receiptPaused && !isset($row['amount_usd'])) {
+        if (!$alreadyPaid && !$hasReceipt && !$receiptPaused && !(isset($row['amount_usd']) || isset($row['amount_gbp']))) {
             throw new RuntimeException('برای تأیید پرداخت شده، فیش بانکی را بارگذاری کنید.');
         }
 
@@ -267,7 +267,7 @@ function staff_confirm_appointment_unpaid(
     ensure_wallet_schema($pdo);
 
     $stmt = $pdo->prepare("
-      SELECT a.*, p.id AS payment_id, p.status AS pay_status, p.amount, p.amount_usd,
+      SELECT a.*, p.id AS payment_id, p.status AS pay_status, p.amount, p.amount_usd, p.amount_gbp,
              pu.name AS patient_name, pu.id AS patient_user_id,
              dp.session_price
       FROM appointments a
@@ -294,7 +294,7 @@ function staff_confirm_appointment_unpaid(
     }
 
     $amount = (int) ($row['amount'] ?? 0);
-    if ($amount <= 0 && !isset($row['amount_usd'])) {
+    if ($amount <= 0 && !(isset($row['amount_usd']) || isset($row['amount_gbp']))) {
         $amount = (int) ($row['session_price'] ?? 0);
         if (!function_exists('patient_fee_resolve_toman')) {
             require_once __DIR__ . '/patient_fee.php';
@@ -304,7 +304,7 @@ function staff_confirm_appointment_unpaid(
             $amount = patient_fee_resolve_toman(patient_fee_load($pdo, $patientUserIdForFee), $amount);
         }
     }
-    if ($amount <= 0 && !isset($row['amount_usd'])) {
+    if ($amount <= 0 && !(isset($row['amount_usd']) || isset($row['amount_gbp']))) {
         throw new RuntimeException('حق مشاوره این درمانگر مشخص نیست.');
     }
 
@@ -314,7 +314,7 @@ function staff_confirm_appointment_unpaid(
     $staffUserId = (string) ($actor['id'] ?? '');
     $note = trim($note);
     $paymentId = (string) $row['payment_id'];
-    $walletPaused = isset($row['amount_usd']) || (function_exists('patient_wallet_paused') && patient_wallet_paused());
+    $walletPaused = (isset($row['amount_usd']) || isset($row['amount_gbp'])) || (function_exists('patient_wallet_paused') && patient_wallet_paused());
     if (!$walletPaused) {
         ensure_wallet($pdo, $patientUserId);
     }
@@ -416,6 +416,7 @@ function staff_confirm_appointment_unpaid(
         'amount' => $amount,
         'balance_after' => $balanceAfter,
         'amount_usd' => $row['amount_usd'],
+        'amount_gbp' => $row['amount_gbp'],
     ];
 }
 
@@ -672,7 +673,7 @@ function appointment_staff_can_mark_paid(array $row): bool
 
 function appointment_staff_can_record_settled_usd(array $row): bool
 {
-    return isset($row['amount_usd'])
+    return (isset($row['amount_usd']) || isset($row['amount_gbp']))
         && ($row['pay_status'] ?? '') === 'PENDING'
         && in_array($row['status'] ?? '', ['CONFIRMED', 'COMPLETED'], true);
 }
@@ -700,7 +701,7 @@ function staff_confirm_receipt_payment(PDO $pdo, string $paymentId, array $actor
         require_once __DIR__ . '/wallet.php';
     }
     $stmt = $pdo->prepare("
-      SELECT a.*, p.id AS payment_id, p.status AS pay_status, p.receipt_path, p.amount, p.amount_usd,
+      SELECT a.*, p.id AS payment_id, p.status AS pay_status, p.receipt_path, p.amount, p.amount_usd, p.amount_gbp,
              pu.name AS patient_name, pu.id AS patient_user_id
       FROM payments p
       JOIN appointments a ON a.id = p.appointment_id
@@ -717,7 +718,7 @@ function staff_confirm_receipt_payment(PDO $pdo, string $paymentId, array $actor
         $stmt = $pdo->prepare("
           UPDATE payments p JOIN appointments a ON a.id=p.appointment_id
           SET p.status='PAID', p.ref_id='SECRETARY', p.recorded_by_user_id=?
-          WHERE p.id=? AND p.status='PENDING' AND p.amount_usd IS NOT NULL
+          WHERE p.id=? AND p.status='PENDING' AND (p.amount_usd IS NOT NULL OR p.amount_gbp IS NOT NULL)
             AND a.status IN ('CONFIRMED','COMPLETED')
         ");
         $stmt->execute([(string) ($actor['id'] ?? ''), $paymentId]);
@@ -728,7 +729,7 @@ function staff_confirm_receipt_payment(PDO $pdo, string $paymentId, array $actor
             staff_log_action($pdo, (string) ($actor['id'] ?? ''), 'appointment_confirm_payment', 'appointment', (string) $row['id'], (string) $row['patient_name']);
         }
 
-        return ['appointment_id' => (string) $row['id'], 'patient_name' => (string) $row['patient_name'], 'amount_usd' => $row['amount_usd']];
+        return ['appointment_id' => (string) $row['id'], 'patient_name' => (string) $row['patient_name'], 'amount_usd' => $row['amount_usd'], 'amount_gbp' => $row['amount_gbp']];
     }
     if (in_array((string) ($row['status'] ?? ''), ['CANCELLED', 'COMPLETED'], true)) {
         throw new RuntimeException('این نوبت دیگر قابل تأیید فیش نیست.');
@@ -905,8 +906,8 @@ function appointment_staff_mark_paid_form_html(array $row, string $next, string 
     if ($fee <= 0) {
         $fee = (int) ($row['session_price'] ?? 0);
     }
-    $isUsd = isset($row['amount_usd']);
-    $receiptRequired = !$isUsd
+    $isForeign = (isset($row['amount_usd']) || isset($row['amount_gbp']));
+    $receiptRequired = !$isForeign
         && ($row['pay_status'] ?? '') !== 'PAID'
         && trim((string) ($row['receipt_path'] ?? '')) === ''
         && (!function_exists('receipt_upload_paused') || !receipt_upload_paused());
@@ -946,11 +947,11 @@ function appointment_staff_mark_paid_form_html(array $row, string $next, string 
       <?php if ($calendar): ?>
         <button type="submit" class="btn btn-outline btn-sm" name="pay_choice" value="save_details"><?= ($row['pay_status'] ?? '') === 'PAID' ? 'ذخیره اتاق و یادداشت' : 'پرداخت نشد' ?></button>
       <?php elseif (empty($row['scheduled_hold'])): ?>
-      <button type="submit" class="btn btn-outline btn-sm" name="pay_choice" value="unpaid" onclick="return confirm(<?= json_encode(($isUsd || (function_exists('patient_wallet_paused') && patient_wallet_paused())) ? 'پرداخت نشده ثبت شود و این وقت رزرو گردد؟' : ('پرداخت نشده: ' . format_price($fee) . ' حق مشاوره از کیف پول مراجع کم شود؟ موجودی می‌تواند منفی شود و وقت رزرو می‌گردد.'), JSON_UNESCAPED_UNICODE) ?>);">پرداخت نشد</button>
+      <button type="submit" class="btn btn-outline btn-sm" name="pay_choice" value="unpaid" onclick="return confirm(<?= json_encode(($isForeign || (function_exists('patient_wallet_paused') && patient_wallet_paused())) ? 'پرداخت نشده ثبت شود و این وقت رزرو گردد؟' : ('پرداخت نشده: ' . format_price($fee) . ' حق مشاوره از کیف پول مراجع کم شود؟ موجودی می‌تواند منفی شود و وقت رزرو می‌گردد.'), JSON_UNESCAPED_UNICODE) ?>);">پرداخت نشد</button>
       <?php endif; ?>
     </form>
     <?php if (!$calendar): ?>
-    <p class="muted" style="font-size:.75rem;margin:0;flex-basis:100%"><?php if (!empty($row['scheduled_hold'])): ?>رزرو موقت پس از ثبت پرداخت قطعی می‌شود.<?php elseif ($isUsd || (function_exists('patient_wallet_paused') && patient_wallet_paused())): ?><?= $online ? 'جلسه آنلاین است و اتاق اجباری نیست. ' : 'برای جلسه حضوری قبل از تأیید، اتاق را انتخاب کنید. ' ?>«پرداخت شد» وقت را رزرو و پرداخت‌شده می‌کند. «پرداخت نشد» وقت را رزرو می‌کند و پرداخت را باز می‌گذارد.<?php else: ?><?= $online ? 'جلسه آنلاین است و اتاق اجباری نیست. ' : 'برای جلسه حضوری قبل از تأیید، اتاق را انتخاب کنید. ' ?>«پرداخت شده» فقط با بارگذاری فیش بانکی ثبت می‌شود و بدهی کیف پول را صفر می‌کند. «پرداخت نشده» وقت را رزرو می‌کند و حق ویزیت را از کیف پول کم می‌کند، حتی اگر موجودی منفی شود.<?php endif; ?></p>
+    <p class="muted" style="font-size:.75rem;margin:0;flex-basis:100%"><?php if (!empty($row['scheduled_hold'])): ?>رزرو موقت پس از ثبت پرداخت قطعی می‌شود.<?php elseif ($isForeign || (function_exists('patient_wallet_paused') && patient_wallet_paused())): ?><?= $online ? 'جلسه آنلاین است و اتاق اجباری نیست. ' : 'برای جلسه حضوری قبل از تأیید، اتاق را انتخاب کنید. ' ?>«پرداخت شد» وقت را رزرو و پرداخت‌شده می‌کند. «پرداخت نشد» وقت را رزرو می‌کند و پرداخت را باز می‌گذارد.<?php else: ?><?= $online ? 'جلسه آنلاین است و اتاق اجباری نیست. ' : 'برای جلسه حضوری قبل از تأیید، اتاق را انتخاب کنید. ' ?>«پرداخت شده» فقط با بارگذاری فیش بانکی ثبت می‌شود و بدهی کیف پول را صفر می‌کند. «پرداخت نشده» وقت را رزرو می‌کند و حق ویزیت را از کیف پول کم می‌کند، حتی اگر موجودی منفی شود.<?php endif; ?></p>
     <?php endif;
     return (string) ob_get_clean();
 }

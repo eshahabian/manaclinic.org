@@ -40,7 +40,7 @@ $secretaryPatientHint = $secretaryPatientHint ?? 'مراجعه‌کننده با
         <select class="input" name="new_preferred_doctor_id" id="new_preferred_doctor_id">
           <option value="">انتخاب درمانگر</option>
           <?php foreach ($doctors as $d): ?>
-            <option value="<?= e($d['id']) ?>"><?= e($d['name']) ?> — <?= e($d['specialty']) ?></option>
+            <option value="<?= e($d['id']) ?>" data-visit-price="<?= e((string) $d['session_price']) ?>"><?= e($d['name']) ?> — <?= e($d['specialty']) ?></option>
           <?php endforeach; ?>
         </select>
       </div>

@@ -134,24 +134,19 @@ if ($walletPaused) {
 }
 $feeRow = patient_fee_load($pdo, $patientId);
 $savedFeeConfirmation = patient_fee_booking_confirmation($feeRow, $patientId);
-$feeValues = null;
-if ($savedFeeConfirmation === '') {
-    $feeValues = patient_fee_booking_values(post('fee_residence'), post('fee_amount'));
-    if ($feeValues === null) {
-        flash_set('error', 'محل اقامت و مبلغ معتبر ویزیت را وارد کنید.');
-        $bookRedirect('/secretary/appointments?tab=new');
-    }
-    [, $amount, , $amountUsd] = $feeValues;
-    $amount = $amount ?? 0;
-} else {
-    if (!hash_equals($savedFeeConfirmation, post('fee_confirmation'))) {
-        flash_set('error', 'محل اقامت و مبلغ ویزیت فعلی را تأیید کنید.');
-        $bookRedirect('/secretary/appointments?tab=new');
-    }
-    $amountUsd = patient_fee_resolve_usd($feeRow);
-    $amount = $amountUsd === null ? patient_fee_resolve_toman($feeRow, 0) : 0;
+if ($savedFeeConfirmation !== '' && !hash_equals($savedFeeConfirmation, post('fee_confirmation'))) {
+    flash_set('error', 'محل اقامت و مبلغ ویزیت را تأیید کنید.');
+    $bookRedirect('/secretary/appointments?tab=new');
 }
-if ($amountUsd !== null) {
+[$savedResidence] = patient_fee_booking_details($feeRow);
+$feeValues = patient_fee_booking_values($savedResidence !== '' ? $savedResidence : post('fee_residence'), post('fee_amount'));
+if ($feeValues === null) {
+    flash_set('error', 'محل اقامت و مبلغ معتبر ویزیت را وارد کنید.');
+    $bookRedirect('/secretary/appointments?tab=new');
+}
+[, $amount, , $amountUsd, , $amountGbp] = $feeValues;
+$amount = $amount ?? 0;
+if ($amountUsd !== null || $amountGbp !== null) {
     $walletPaused = true;
     $payMethod = post('pay_method') === 'paid' ? 'paid' : 'unpaid';
 }
@@ -255,8 +250,8 @@ try {
     if (patient_fee_booking_confirmation($currentFee, $patientId) !== $savedFeeConfirmation) {
         throw new RuntimeException('اطلاعات ویزیت تغییر کرده است. اطلاعات فعلی را دوباره بررسی کنید.');
     }
-    if ($feeValues !== null) {
-        $pdo->prepare('UPDATE users SET custom_fee_on=?, custom_fee_toman=?, foreign_fee_on=?, foreign_fee_usd=? WHERE id=?')
+    if ($savedFeeConfirmation === '') {
+        $pdo->prepare('UPDATE users SET custom_fee_on=?, custom_fee_toman=?, foreign_fee_on=?, foreign_fee_usd=?, fee_abroad_toman=?, foreign_fee_gbp=? WHERE id=?')
             ->execute([...$feeValues, $patientId]);
     }
     $receiptPath = null;
@@ -296,8 +291,8 @@ try {
         }
         $pdo->prepare('INSERT INTO appointments (id,doctor_id,patient_id,starts_at,ends_at,status,notes,session_mode,room_no,created_by_user_id,staff_payment_note,scheduled_hold) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
             ->execute([$rowId, $doctorId, $patientId, $occur['starts'], $occur['ends'], $isPaid ? 'CONFIRMED' : 'PENDING_PAYMENT', $notes, $sessionMode, $roomNo > 0 ? $roomNo : null, $actorId, $payNote, (int) (!$isPaid || $repeatCount > 1)]);
-        $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,amount_usd,status,ref_id,recorded_by_user_id,receipt_path) VALUES (?,?,?,?,?,?,?,?)')
-            ->execute([$rowPayId, $rowId, $amount, $amountUsd, $payStatus, $payRef, $actorId, $isFirst ? $receiptPath : null]);
+        $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,amount_usd,amount_gbp,status,ref_id,recorded_by_user_id,receipt_path) VALUES (?,?,?,?,?,?,?,?,?)')
+            ->execute([$rowPayId, $rowId, $amount, $amountUsd, $amountGbp, $payStatus, $payRef, $actorId, $isFirst ? $receiptPath : null]);
         if (!$walletPaused && $isFirst && $payMethod === 'wallet') {
             wallet_debit_balance(
                 $pdo,

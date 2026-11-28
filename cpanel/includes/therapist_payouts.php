@@ -44,7 +44,7 @@ function therapist_payout_payments(PDO $pdo, string $doctorId, string $from, str
       JOIN users u ON u.id = a.patient_id
       WHERE a.doctor_id = ?
         AND p.status = 'PAID'
-        AND p.amount_usd IS NULL
+        AND p.amount_usd IS NULL AND p.amount_gbp IS NULL
         AND DATE(a.starts_at) BETWEEN ? AND ?
       ORDER BY a.starts_at ASC, u.name ASC
     ");

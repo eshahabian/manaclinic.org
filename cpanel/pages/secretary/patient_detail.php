@@ -30,7 +30,7 @@ $apps = $pdo->prepare("
          a.cancel_reason, a.cancellation_note,
          du.name AS doctor_name,
          cu.name AS actor_name, cu.username AS actor_username, cu.role AS actor_role,
-         p.id AS payment_id, p.amount, p.amount_usd, p.status AS pay_status, p.receipt_path,
+         p.id AS payment_id, p.amount, p.amount_usd, p.amount_gbp, p.status AS pay_status, p.receipt_path,
          ru.name AS recorder_name, ru.username AS recorder_username
   FROM appointments a
   JOIN doctor_profiles dp ON dp.id = a.doctor_id

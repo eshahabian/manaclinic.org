@@ -163,6 +163,13 @@ if (!is_valid_phone($phone)) {
     redirect('/secretary/patients');
 }
 
+$feeResidence = post('fee_residence');
+$feeAmount = post('fee_amount');
+$feeValues = patient_fee_booking_values($feeResidence, $feeAmount);
+if ($feeValues === null && ($feeResidence !== '' || $feeAmount !== '')) {
+    flash_set('error', 'محل اقامت و مبلغ معتبر ویزیت را وارد کنید.');
+    redirect('/secretary/patients');
+}
 $referral = user_referral_normalize((string) post('referral_source'));
 if ($referral !== null && !user_referral_save($pdo, $userId, $referral)) {
     flash_set('error', 'معرف ذخیره نشد.');
@@ -170,48 +177,12 @@ if ($referral !== null && !user_referral_save($pdo, $userId, $referral)) {
 }
 
 patient_fee_ensure_schema($pdo);
-$customOn = in_array(trim((string) post('custom_fee_on')), ['1', 'on', 'yes'], true) ? 1 : 0;
-$foreignOn = in_array(trim((string) post('foreign_fee_on')), ['1', 'on', 'yes'], true) ? 1 : 0;
-$customToman = patient_fee_parse_toman((string) post('custom_fee_toman'));
-$foreignUsd = patient_fee_parse_usd((string) post('foreign_fee_usd'));
-if (!$customOn && $customToman > 0) {
-    $customOn = 1;
-}
-if (!$customOn) {
-    $customToman = 0;
-}
-if (!$foreignOn && $foreignUsd !== null) {
-    $foreignOn = 1;
-}
-if (!$foreignOn) {
-    $foreignUsd = null;
-}
-if ($customOn && $customToman <= 0) {
-    flash_set('error', 'برای مبلغ سفارشی، مبلغ تومان را وارد کنید.');
-    redirect('/secretary/patients');
-}
-if ($foreignOn && $foreignUsd === null) {
-    flash_set('error', 'برای پرداخت دلاری، مبلغ دلار را وارد کنید.');
-    redirect('/secretary/patients');
-}
-
+$feeUpdate = $feeValues === null ? '' : ',
+      custom_fee_on=?, custom_fee_toman=?, foreign_fee_on=?, foreign_fee_usd=?, fee_abroad_toman=?, foreign_fee_gbp=?';
 try {
     user_phone_write($pdo, $phone, $userId, fn ($phone) =>
-        $pdo->prepare('
-  UPDATE users
-  SET preferred_doctor_id=?, phone=?,
-      custom_fee_on=?, custom_fee_toman=?,
-      foreign_fee_on=?, foreign_fee_usd=?
-  WHERE id=?
-')->execute([
-    $doctorId,
-    $phone,
-    $customOn,
-    $customOn ? $customToman : null,
-    $foreignOn,
-    $foreignOn ? $foreignUsd : null,
-    $userId,
-])
+        $pdo->prepare('UPDATE users SET preferred_doctor_id=?, phone=?' . $feeUpdate . ' WHERE id=?')
+            ->execute([$doctorId, $phone, ...($feeValues ?? []), $userId])
     );
 } catch (RuntimeException $e) {
     flash_set('error', $e->getMessage()); redirect('/secretary/patients');

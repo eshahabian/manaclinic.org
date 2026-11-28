@@ -97,6 +97,38 @@
     return true;
   }
 
+  function bindVisitFeeSuggestion(doctor, residence, amount) {
+    if (!doctor || !residence || !amount) return;
+
+    function currency() {
+      if (residence.value === "abroad") return "USD";
+      if (residence.value === "abroad_gbp") return "GBP";
+      return "toman";
+    }
+    function suggestToman() {
+      var option = doctor.options[doctor.selectedIndex];
+      var price = option ? Number(option.getAttribute("data-visit-price")) : 0;
+      amount.value = price > 0 ? String(price) : "";
+    }
+
+    var previous = currency();
+    doctor.addEventListener("change", function () {
+      previous = currency();
+      if (previous === "toman") suggestToman();
+    });
+    residence.addEventListener("change", function () {
+      var current = currency();
+      if (current === "toman") {
+        if (previous !== current || !amount.value.trim()) suggestToman();
+      } else if (previous !== current) {
+        amount.value = "";
+      }
+      previous = current;
+    });
+    if (residence.value && previous === "toman" && !amount.value.trim()) suggestToman();
+  }
+
+  global.bindVisitFeeSuggestion = bindVisitFeeSuggestion;
   global.bindSecretaryPatientFields = bindSecretaryPatientFields;
   global.validateSecretaryNewPatient = validateSecretaryNewPatient;
 })(window);

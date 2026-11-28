@@ -1930,6 +1930,7 @@ function staff_app_appointment_rows(PDO $pdo, array $user, ?string $selectedDay 
              (SELECT p.status FROM payments p WHERE p.appointment_id = a.id LIMIT 1) AS pay_status,
              (SELECT p.amount FROM payments p WHERE p.appointment_id = a.id LIMIT 1) AS amount,
              (SELECT p.amount_usd FROM payments p WHERE p.appointment_id = a.id LIMIT 1) AS amount_usd,
+             (SELECT p.amount_gbp FROM payments p WHERE p.appointment_id = a.id LIMIT 1) AS amount_gbp,
              (SELECT p.receipt_path FROM payments p WHERE p.appointment_id = a.id LIMIT 1) AS receipt_path,
              (SELECT p.ref_id FROM payments p WHERE p.appointment_id = a.id LIMIT 1) AS pay_ref
       FROM appointments a
