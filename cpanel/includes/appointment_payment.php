@@ -1041,18 +1041,18 @@ function appointment_staff_mark_paid_form_html(array $row, string $next, string 
       <input type="hidden" name="action" value="confirm_payment">
       <input type="hidden" name="appointment_id" value="<?= e($id) ?>">
       <input type="hidden" name="next" value="<?= e($next) ?>">
-      <label style="min-width:12rem;margin:0;flex:1 1 12rem">
+      <label class="sec-room-select" style="flex:1 1 12rem;min-width:0;margin:0">
         <span class="label" style="font-size:.75rem">اتاق جلسه<?= $online ? ' (اختیاری)' : ' (الزامی)' ?></span>
-        <select class="input" name="room_no"<?= $online ? '' : ' required' ?>>
+        <select class="input" name="room_no" style="height:2.75rem;box-sizing:border-box"<?= $online ? '' : ' required' ?>>
           <option value="">انتخاب اتاق</option>
           <?php foreach (secretary_room_choice_list() as $choice): ?>
             <option value="<?= e($choice['value']) ?>"<?= (string) ($row['room_no'] ?? '') === $choice['value'] ? ' selected' : '' ?>><?= e($choice['label']) ?></option>
           <?php endforeach; ?>
         </select>
       </label>
-      <label style="flex:1;min-width:12rem;margin:0">
+      <label style="flex:1 1 12rem;min-width:0;margin:0">
         <span class="label" style="font-size:.75rem">یادداشت منشی</span>
-        <textarea class="input" name="note" rows="2" placeholder="مثلاً کارت‌به‌کارت شد، یا پرداخت نقدی در کلینیک"><?= e(trim((string) ($row['staff_payment_note'] ?? ''))) ?></textarea>
+        <textarea class="input" name="note" rows="1" style="display:block;width:100%;height:2.75rem;min-height:2.75rem;box-sizing:border-box;resize:none" placeholder="مثلاً کارت‌به‌کارت شد، یا پرداخت نقدی در کلینیک"><?= e(trim((string) ($row['staff_payment_note'] ?? ''))) ?></textarea>
       </label>
       <?php if ($receiptRequired): ?>
       <label class="btn btn-outline btn-sm staff-receipt-pick" title="برای پرداخت شده لازم است">
@@ -1061,7 +1061,7 @@ function appointment_staff_mark_paid_form_html(array $row, string $next, string 
       </label>
       <?php endif; ?>
       <?php if (!$calendar || ($row['status'] ?? '') !== 'CONFIRMED' || ($row['pay_status'] ?? '') !== 'PAID'): ?>
-        <button type="submit" class="btn btn-primary btn-sm" name="pay_choice" value="paid"<?= $receiptRequired ? ' onclick="var f=this.form.querySelector(&quot;input[name=receipt]&quot;); if(!f||!f.value){ alert(&quot;فیش بانکی را در همین فرم انتخاب کنید.&quot;); return false; }"' : '' ?>><?= $cardPilot ? 'تأیید فیش و قطعی‌کردن نوبت' : 'پرداخت شد' ?></button>
+        <button type="submit" class="btn btn-primary btn-sm" name="pay_choice" value="paid"<?= $receiptRequired ? ' onclick="var f=this.form.querySelector(&quot;input[name=receipt]&quot;); if(!f||!f.value){ alert(&quot;فیش بانکی را در همین فرم انتخاب کنید.&quot;); return false; }"' : '' ?>><?= $cardPilot ? 'تأیید فیش و قطعی‌کردن نوبت' : 'تایید اولیه برای پرداخت' ?></button>
       <?php endif; ?>
       <?php if (!$cardPilot && $calendar): ?>
         <button type="submit" class="btn btn-outline btn-sm" name="pay_choice" value="save_details"><?= ($row['pay_status'] ?? '') === 'PAID' ? 'ذخیره اتاق و یادداشت' : 'پرداخت نشد' ?></button>
@@ -1070,7 +1070,7 @@ function appointment_staff_mark_paid_form_html(array $row, string $next, string 
       <?php endif; ?>
     </form>
     <?php if (!$calendar): ?>
-    <p class="muted" style="font-size:.75rem;margin:0;flex-basis:100%"><?php if (!empty($row['scheduled_hold'])): ?>رزرو موقت پس از ثبت پرداخت قطعی می‌شود.<?php elseif ($isForeign || (function_exists('patient_wallet_paused') && patient_wallet_paused())): ?><?= $online ? 'جلسه آنلاین است و اتاق اجباری نیست. ' : 'برای جلسه حضوری قبل از تأیید، اتاق را انتخاب کنید. ' ?>«پرداخت شد» وقت را رزرو و پرداخت‌شده می‌کند. «پرداخت نشد» وقت را رزرو می‌کند و پرداخت را باز می‌گذارد.<?php else: ?><?= $online ? 'جلسه آنلاین است و اتاق اجباری نیست. ' : 'برای جلسه حضوری قبل از تأیید، اتاق را انتخاب کنید. ' ?>«پرداخت شده» فقط با بارگذاری فیش بانکی ثبت می‌شود و بدهی کیف پول را صفر می‌کند. «پرداخت نشده» وقت را رزرو می‌کند و حق ویزیت را از کیف پول کم می‌کند، حتی اگر موجودی منفی شود.<?php endif; ?></p>
+    <p class="muted" style="font-size:.75rem;margin:0;flex-basis:100%"><?php if (!empty($row['scheduled_hold'])): ?>رزرو موقت پس از ثبت پرداخت قطعی می‌شود.<?php elseif ($isForeign || (function_exists('patient_wallet_paused') && patient_wallet_paused())): ?><?= $online ? 'جلسه آنلاین است و اتاق اجباری نیست. ' : 'برای جلسه حضوری قبل از تأیید، اتاق را انتخاب کنید. ' ?>«تایید اولیه برای پرداخت» وقت را رزرو و پرداخت‌شده می‌کند. «پرداخت نشد» وقت را رزرو می‌کند و پرداخت را باز می‌گذارد.<?php else: ?><?= $online ? 'جلسه آنلاین است و اتاق اجباری نیست. ' : 'برای جلسه حضوری قبل از تأیید، اتاق را انتخاب کنید. ' ?>«تایید اولیه برای پرداخت» فقط با بارگذاری فیش بانکی ثبت می‌شود و بدهی کیف پول را صفر می‌کند. «پرداخت نشده» وقت را رزرو می‌کند و حق ویزیت را از کیف پول کم می‌کند، حتی اگر موجودی منفی شود.<?php endif; ?></p>
     <?php endif;
     return (string) ob_get_clean();
 }
