@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/user_phone.php';
+require_once __DIR__ . '/patient_fee.php';
 
 /**
  * ساخت حساب مراجعه‌کننده توسط منشی/ادمین.
@@ -60,6 +61,15 @@ function secretary_create_patient_from_post(PDO $pdo, array $actor, array $opts 
         return ['ok' => false, 'error' => 'رمز عبور و تکرار آن یکسان نیست.'];
     }
 
+    $feeValues = [0, null, 0, null];
+    if (($actor['role'] ?? '') === 'SECRETARY') {
+        $feeValues = patient_fee_booking_values(post('fee_residence'), post('fee_amount'));
+        if ($feeValues === null) {
+            return ['ok' => false, 'error' => 'محل اقامت و مبلغ معتبر ویزیت را وارد کنید.'];
+        }
+    }
+    patient_fee_ensure_schema($pdo);
+
     $newUsername = unique_username($pdo, $newUsername);
     if ($newUsername === '') {
         return ['ok' => false, 'error' => 'ساخت نام کاربری ممکن نشد. نام انگلیسی را تغییر دهید.'];
@@ -68,7 +78,7 @@ function secretary_create_patient_from_post(PDO $pdo, array $actor, array $opts 
     $patientId = cuid();
     try {
         user_phone_write($pdo, $newPhone, null, fn ($newPhone) =>
-            $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,preferred_doctor_id,created_by_user_id,referral_source,must_change_password) VALUES (?,?,?,?,?,?,?,?,?,?,0)')
+            $pdo->prepare('INSERT INTO users (id,username,name,email,phone,password_hash,role,preferred_doctor_id,created_by_user_id,referral_source,must_change_password,custom_fee_on,custom_fee_toman,foreign_fee_on,foreign_fee_usd) VALUES (?,?,?,?,?,?,?,?,?,?,0,?,?,?,?)')
         ->execute([
             $patientId,
             $newUsername,
@@ -80,6 +90,7 @@ function secretary_create_patient_from_post(PDO $pdo, array $actor, array $opts 
             $preferredDoctorId,
             $actorId,
             $referralSource,
+            ...$feeValues,
         ])
         );
     } catch (RuntimeException $e) {

@@ -128,7 +128,37 @@ function patient_fee_resolve_toman(array $patient, int $doctorSessionPrice): int
     return max(0, $doctorSessionPrice);
 }
 
-function patient_fee_load(PDO $pdo, string $patientId): array
+/** A fee explicitly assigned to exactly one residence. */
+function patient_fee_booking_confirmation(array $patient, string $patientId): string
+{
+    $domestic = (int) ($patient['custom_fee_on'] ?? 0) === 1;
+    $foreign = (int) ($patient['foreign_fee_on'] ?? 0) === 1;
+    if ($domestic === $foreign) {
+        return '';
+    }
+    $amount = $foreign ? patient_fee_resolve_usd($patient) : patient_fee_resolve_toman($patient, 0);
+    if ($amount === null || $amount <= 0 || (!$foreign && $amount > 2147483647)) {
+        return '';
+    }
+    return hash('sha256', $patientId . '|' . ($foreign ? 'USD' : 'IR') . '|' . $amount);
+}
+
+function patient_fee_booking_values(string $residence, string $rawAmount): ?array
+{
+    $amount = normalize_input($rawAmount);
+    if ($residence === 'iran' && preg_match('/^(?:[0-9]+|[0-9]{1,3}(?:[,٬][0-9]{3})+)$/uD', $amount)) {
+        $toman = patient_fee_parse_toman($amount);
+        // The amount must also fit the signed INT payment and wallet columns.
+        return $toman > 0 && $toman <= 2147483647 ? [1, $toman, 0, null] : null;
+    }
+    if ($residence === 'abroad' && preg_match('/^[0-9]+(?:[.,٫،][0-9]{1,2})?$/uD', $amount)) {
+        $usd = patient_fee_parse_usd($amount);
+        return $usd !== null ? [0, null, 1, $usd] : null;
+    }
+    return null;
+}
+
+function patient_fee_load(PDO $pdo, string $patientId, bool $forUpdate = false): array
 {
     patient_fee_ensure_schema($pdo);
     if ($patientId === '') {
@@ -139,7 +169,7 @@ function patient_fee_load(PDO $pdo, string $patientId): array
             'foreign_fee_usd' => null,
         ];
     }
-    $stmt = $pdo->prepare('SELECT custom_fee_on, custom_fee_toman, foreign_fee_on, foreign_fee_usd FROM users WHERE id=? LIMIT 1');
+    $stmt = $pdo->prepare('SELECT custom_fee_on, custom_fee_toman, foreign_fee_on, foreign_fee_usd FROM users WHERE id=? LIMIT 1' . ($forUpdate ? ' FOR UPDATE' : ''));
     $stmt->execute([$patientId]);
     $row = $stmt->fetch();
     if (!$row) {

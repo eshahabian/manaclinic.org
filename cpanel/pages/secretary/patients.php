@@ -113,6 +113,9 @@ ob_start();
     $secretaryPatientHint = 'بدون گرفتن نوبت هم می‌توانید نفر جدید ثبت کنید. با تایپ نام فارسی، معادل انگلیسی پیشنهاد می‌شود. اگر صفحه بسته شود یا نت قطع شود، اطلاعات همین‌جا می‌ماند.';
     $secretaryPatientKindSwitch = true;
     require __DIR__ . '/../../includes/secretary_new_patient_fields.php';
+    if (($user['role'] ?? '') === 'SECRETARY') {
+        require __DIR__ . '/../../includes/secretary_visit_fee_fields.php';
+    }
   ?>
   <p id="sec-patient-error" style="color:var(--danger);display:none;font-size:.9rem"></p>
   <button class="btn btn-primary" type="submit" id="patient-entry-submit">ثبت مراجعه‌کننده</button>
@@ -460,6 +463,7 @@ ob_start();
           <input class="input" name="new_password_confirm" id="act_password_confirm" type="password" dir="ltr" minlength="6" required>
         </div>
       </div>
+      <?php require __DIR__ . '/../../includes/secretary_visit_fee_fields.php'; ?>
       <p id="act-register-error" style="color:var(--danger);display:none;font-size:.9rem"></p>
       <button class="btn btn-primary" type="submit">ساخت پروفایل و فعال‌سازی</button>
     </form>
@@ -495,7 +499,7 @@ $pageScripts = '
 <script src="' . e(url('/assets/js/money-words.js')) . '?v=20261014fee"></script>
 <script src="' . e(url('/assets/js/name-transliterate.js')) . '?v=20260906p"></script>
 <script src="' . e(url('/assets/js/form-draft.js')) . '?v=20260906p"></script>
-<script src="' . e(url('/assets/js/secretary-patient-form.js')) . '?v=20261007ref"></script>
+<script src="' . e(url('/assets/js/secretary-patient-form.js')) . '?v=20261128fee"></script>
 <script>
 (function(){
   var form = document.getElementById("secretary-patient-form");

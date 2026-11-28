@@ -63,6 +63,9 @@ require_once __DIR__ . '/user_referral.php';
       <?= password_field_html($memberProfilePrefix . '-password', 'new_password', ['label'=>'رمز عبور','autocomplete'=>'new-password','minlength'=>6,'rules'=>false,'suggest'=>true]) ?>
       <?= password_field_html($memberProfilePrefix . '-password-confirm', 'new_password_confirm', ['label'=>'تکرار رمز عبور','autocomplete'=>'new-password','minlength'=>6,'confirm'=>true,'pair'=>$memberProfilePrefix . '-password','rules'=>false]) ?>
     </div>
+    <?php if ((current_user()['role'] ?? '') === 'SECRETARY'): ?>
+      <?php require __DIR__ . '/secretary_visit_fee_fields.php'; ?>
+    <?php endif; ?>
     <p class="muted" data-workshop-create-status role="status" aria-live="polite">پس از ساخت پروفایل، فرد برای اضافه شدن به همین کارگاه انتخاب می‌شود.</p>
     <button class="btn btn-primary btn-sm" type="submit">ساخت پروفایل و انتخاب عضو</button>
   </form>

@@ -23,7 +23,7 @@
         fields: opts.draftFields || [
           "new_first_name", "new_last_name", "new_name_en", "new_surname",
           "new_preferred_doctor_id", "new_referral_source", "new_phone", "new_username",
-          "new_password", "new_password_confirm"
+          "new_password", "new_password_confirm", "fee_residence", "fee_amount"
         ],
         exclude: opts.draftExclude || ["receipt", "_csrf"],
         clearParams: opts.clearParams || ["added"],

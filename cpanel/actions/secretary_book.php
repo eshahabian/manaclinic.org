@@ -132,20 +132,28 @@ if ($walletPaused) {
 } elseif (!in_array($payMethod, ['wallet', 'card', 'later'], true)) {
     $payMethod = !empty($_FILES['receipt']['name']) ? 'card' : 'later';
 }
-$amount = (int) $doctor['session_price'];
-if (!function_exists('patient_fee_resolve_toman')) {
-    require_once __DIR__ . '/../includes/patient_fee.php';
-}
 $feeRow = patient_fee_load($pdo, $patientId);
-$amountUsd = patient_fee_resolve_usd($feeRow);
-$amount = $amountUsd === null ? patient_fee_resolve_toman($feeRow, $amount) : 0;
+$savedFeeConfirmation = patient_fee_booking_confirmation($feeRow, $patientId);
+$feeValues = null;
+if ($savedFeeConfirmation === '') {
+    $feeValues = patient_fee_booking_values(post('fee_residence'), post('fee_amount'));
+    if ($feeValues === null) {
+        flash_set('error', 'محل اقامت و مبلغ معتبر ویزیت را وارد کنید.');
+        $bookRedirect('/secretary/appointments?tab=new');
+    }
+    [, $amount, , $amountUsd] = $feeValues;
+    $amount = $amount ?? 0;
+} else {
+    if (!hash_equals($savedFeeConfirmation, post('fee_confirmation'))) {
+        flash_set('error', 'محل اقامت و مبلغ ویزیت فعلی را تأیید کنید.');
+        $bookRedirect('/secretary/appointments?tab=new');
+    }
+    $amountUsd = patient_fee_resolve_usd($feeRow);
+    $amount = $amountUsd === null ? patient_fee_resolve_toman($feeRow, 0) : 0;
+}
 if ($amountUsd !== null) {
     $walletPaused = true;
     $payMethod = post('pay_method') === 'paid' ? 'paid' : 'unpaid';
-}
-if ($amount <= 0 && $amountUsd === null) {
-    flash_set('error', 'هزینه جلسه این درمانگر مشخص نیست.');
-    $bookRedirect('/secretary/appointments?tab=new');
 }
 if (!$receiptPaused && $payMethod === 'card' && empty($_FILES['receipt']['name'])) {
     flash_set('error', 'برای کارت به کارت، فیش را بارگذاری کنید.');
@@ -243,6 +251,14 @@ try {
     $lock = $pdo->prepare('SELECT id FROM doctor_profiles WHERE id=? FOR UPDATE');
     $lock->execute([$doctorId]);
     $lock->closeCursor();
+    $currentFee = patient_fee_load($pdo, $patientId, true);
+    if (patient_fee_booking_confirmation($currentFee, $patientId) !== $savedFeeConfirmation) {
+        throw new RuntimeException('اطلاعات ویزیت تغییر کرده است. اطلاعات فعلی را دوباره بررسی کنید.');
+    }
+    if ($feeValues !== null) {
+        $pdo->prepare('UPDATE users SET custom_fee_on=?, custom_fee_toman=?, foreign_fee_on=?, foreign_fee_usd=? WHERE id=?')
+            ->execute([...$feeValues, $patientId]);
+    }
     $receiptPath = null;
     if (!$receiptPaused && $payMethod === 'card' && !empty($_FILES['receipt']['name'])) {
         $receiptPath = staff_save_receipt($_FILES['receipt'], $paymentId);

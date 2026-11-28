@@ -130,6 +130,7 @@ ob_start();
           $walletAttr = array_key_exists($bookKey, $walletMap) ? (string) (int) $walletMap[$bookKey] : '';
           $customFeeOn = (int) ($p['custom_fee_on'] ?? 0) === 1;
           $customFeeToman = (int) ($p['custom_fee_toman'] ?? 0);
+          $feeConfirmation = patient_fee_booking_confirmation($p, (string) $p['id']);
           $feeUsd = patient_fee_resolve_usd($p);
           $feeAttr = ($customFeeOn && $customFeeToman > 0) ? (string) $customFeeToman : '';
           $inactive = function_exists('secretary_patient_is_inactive') && secretary_patient_is_inactive($p);
@@ -140,10 +141,17 @@ ob_start();
               $label .= ' — تکمیل پروفایل لازم است';
           }
         ?>
-        <option value="<?= e((string) ($p['book_id'] ?? $p['id'])) ?>" data-search="<?= e($searchBits) ?>" data-referral="<?= e($savedReferral) ?>" data-needs-setup="<?= $needsSetup ? '1' : '0' ?>" data-inactive="<?= $inactive ? '1' : '0' ?>" data-muted="<?= $inactive ? '1' : '0' ?>" data-phone="<?= e($phone) ?>" data-doctor="<?= e((string) ($p['preferred_doctor_id'] ?? '')) ?>" data-wallet="<?= e($walletAttr) ?>" data-fee="<?= e($feeAttr) ?>" data-fee-usd="<?= e($feeUsd ?? '') ?>"><?= e($label) ?></option>
+        <option value="<?= e((string) ($p['book_id'] ?? $p['id'])) ?>" data-search="<?= e($searchBits) ?>" data-referral="<?= e($savedReferral) ?>" data-needs-setup="<?= $needsSetup ? '1' : '0' ?>" data-inactive="<?= $inactive ? '1' : '0' ?>" data-muted="<?= $inactive ? '1' : '0' ?>" data-phone="<?= e($phone) ?>" data-doctor="<?= e((string) ($p['preferred_doctor_id'] ?? '')) ?>" data-wallet="<?= e($walletAttr) ?>" data-fee-confirmation="<?= e($feeConfirmation) ?>" data-fee="<?= e($feeAttr) ?>" data-fee-usd="<?= e($feeUsd ?? '') ?>"><?= e($label) ?></option>
       <?php endforeach; ?>
     </select>
     <p class="muted" style="margin:.35rem 0 0;font-size:.8rem">در باکس بالا نام یا شماره موبایل را تایپ کنید.</p>
+    <fieldset id="sec-visit-fee-fields" hidden disabled style="margin:.75rem 0 0;padding:0;border:0">
+      <?php require __DIR__ . '/../../includes/secretary_visit_fee_fields.php'; ?>
+    </fieldset>
+    <label id="sec-visit-fee-check" hidden>
+      <input type="checkbox" name="fee_confirmation" disabled required autocomplete="off">
+      <span></span>
+    </label>
     <div id="legacy-patient-setup" class="panel" hidden style="margin-top:.75rem;background:#fff8e8;border-color:#e6c56a">
       <p style="margin:0 0 .7rem;font-weight:700">این کاربر قدیمی و غیرفعال است یا پروفایل کامل ندارد. تا فعال نشود و این موارد پر نشود، نوبت ثبت نمی‌شود.</p>
       <label>
@@ -184,7 +192,7 @@ ob_start();
     <select class="input" name="doctor_id" id="doctor_id" required>
       <option value="">انتخاب کنید</option>
       <?php foreach ($doctors as $d): ?>
-        <option value="<?= e($d['id']) ?>" data-price="<?= e((string) (int) ($d['session_price'] ?? 0)) ?>"<?= $preDoctorId === (string) $d['id'] ? ' selected' : '' ?>><?= e($d['name']) ?> — <?= e($d['specialty']) ?></option>
+        <option value="<?= e($d['id']) ?>"<?= $preDoctorId === (string) $d['id'] ? ' selected' : '' ?>><?= e($d['name']) ?> — <?= e($d['specialty']) ?></option>
       <?php endforeach; ?>
     </select>
     <button type="button" class="btn btn-outline" id="sec-doctor-clear" aria-label="پاک کردن درمانگر" title="پاک کردن درمانگر" style="padding:0;min-height:2.75rem;font-size:1.4rem">×</button>
@@ -276,7 +284,6 @@ ob_start();
   <?php endif; ?>
 
   <p id="sec-error" style="color:var(--danger);display:none;font-size:.9rem"></p>
-  <p id="sec-fee-line" style="display:none;margin:0 0 .35rem;font-weight:800;line-height:1.7;color:#1a7a45"></p>
   <?php if (!function_exists('patient_wallet_paused') || !patient_wallet_paused()): ?>
   <p id="sec-wallet-line" style="display:none;margin:0 0 .75rem;font-weight:800;line-height:1.7"></p>
   <?php endif; ?>
@@ -396,7 +403,11 @@ $secretaryBookScripts = '
     });
   }
   var walletLine = document.getElementById("sec-wallet-line");
-  var feeLine = document.getElementById("sec-fee-line");
+  var feeFields = document.getElementById("sec-visit-fee-fields");
+  var feeResidence = feeFields.querySelector("[name=fee_residence]");
+  var feeAmount = feeFields.querySelector("[name=fee_amount]");
+  var feeCheck = document.getElementById("sec-visit-fee-check");
+  var feeConfirmation = feeCheck.querySelector("input");
   var doctorEl = document.getElementById("doctor_id");
   function faMoney(n) {
     var s = String(Math.abs(n));
@@ -419,49 +430,39 @@ $secretaryBookScripts = '
     }
     return out;
   }
-  function syncFeeLine() {
-    if (!feeLine || !patientEl) return;
-    var patientOpt = patientEl.options[patientEl.selectedIndex];
-    if (!patientOpt || !patientOpt.value) {
-      feeLine.style.setProperty("display", "none", "important");
-      feeLine.textContent = "";
-      return;
+  function syncVisitFee() {
+    var opt = patientEl.options[patientEl.selectedIndex];
+    var selected = opt && opt.value && !selectedPatientInactive();
+    var confirmation = selected ? opt.getAttribute("data-fee-confirmation") : "";
+    var usd = confirmation && opt.getAttribute("data-fee-usd");
+    feeFields.hidden = feeFields.disabled = !selected || Boolean(confirmation);
+    feeResidence.value = "";
+    feeAmount.value = "";
+    feeCheck.hidden = feeConfirmation.disabled = !confirmation;
+    feeConfirmation.checked = false;
+    feeConfirmation.value = confirmation || "";
+    if (confirmation) {
+      var residence = usd ? "خارج از ایران" : "داخل ایران";
+      var amount = usd
+        ? Number(usd).toLocaleString("fa-IR", {maximumFractionDigits: 2}) + " دلار"
+        : faMoney(Number(opt.getAttribute("data-fee"))) + " تومان";
+      feeCheck.querySelector("span").textContent = residence + "، مبلغ ویزیت " + amount + " را تأیید می‌کنم.";
     }
-    var usd = patientOpt.getAttribute("data-fee-usd");
-    if (usd) {
-      var amount = Number(usd).toLocaleString("fa-IR", {maximumFractionDigits: 2});
-      feeLine.textContent = "حق جلسه این نوبت: " + amount + " دلار";
-      feeLine.style.setProperty("display", "block", "important");
-      return;
-    }
-    var customRaw = patientOpt.getAttribute("data-fee") || "";
-    var customFee = parseInt(customRaw, 10);
-    var doctorPrice = 0;
-    if (doctorEl) {
-      var doctorOpt = doctorEl.options[doctorEl.selectedIndex];
-      if (doctorOpt && doctorOpt.value) {
-        doctorPrice = parseInt(doctorOpt.getAttribute("data-price") || "0", 10);
-        if (isNaN(doctorPrice)) doctorPrice = 0;
-      }
-    }
-    var fee = (!isNaN(customFee) && customFee > 0) ? customFee : doctorPrice;
-    if (fee <= 0) {
-      feeLine.style.setProperty("display", "none", "important");
-      feeLine.textContent = "";
-      return;
-    }
-    var source = (!isNaN(customFee) && customFee > 0) ? "مبلغ سفارشی پروفایل" : "تعرفه درمانگر";
-    feeLine.textContent = "حق جلسه این نوبت: " + faMoney(fee) + " تومان (" + source + ")";
-    feeLine.style.setProperty("display", "block", "important");
   }
+  function visitFeeIsUsd() {
+    var opt = patientEl.options[patientEl.selectedIndex];
+    return feeFields.disabled
+      ? Boolean(opt && opt.getAttribute("data-fee-confirmation") && opt.getAttribute("data-fee-usd"))
+      : feeResidence.value === "abroad";
+  }
+
   function syncWalletLine() {
     if (!walletLine || !patientEl) return;
     var opt = patientEl.options[patientEl.selectedIndex];
-    var raw = opt && !opt.getAttribute("data-fee-usd") ? opt.getAttribute("data-wallet") : "";
+    var raw = opt && !visitFeeIsUsd() ? opt.getAttribute("data-wallet") : "";
     if (!opt || !opt.value || raw === null || raw === "") {
       walletLine.style.setProperty("display", "none", "important");
       walletLine.textContent = "";
-      syncFeeLine();
       return;
     }
     var amount = parseInt(raw, 10);
@@ -471,22 +472,21 @@ $secretaryBookScripts = '
     walletLine.textContent = "کیف پول: " + sign + faMoney(amount) + " تومان (" + state + ")";
     walletLine.style.color = amount < 0 ? "#a33b3b" : (amount > 0 ? "#1a7a45" : "");
     walletLine.style.setProperty("display", "block", "important");
-    syncFeeLine();
   }
   patientEl.addEventListener("change", function(){
     if (selectedPatientInactive()) {
       openInactiveModal();
       patientEl.value = "";
-      syncLegacySetup();
-      syncWalletLine();
-      return;
     }
     syncLegacySetup();
+    syncVisitFee();
     syncWalletLine();
   });
-  if (doctorEl) {
-    doctorEl.addEventListener("change", syncFeeLine);
-  }
+  feeResidence.addEventListener("change", function(){
+    feeAmount.value = "";
+    syncWalletLine();
+  });
+  syncVisitFee();
   syncWalletLine();
 
   var dateView = document.getElementById("sec-date-view");
@@ -992,8 +992,7 @@ $secretaryBookScripts = '
   var receiptBox = document.getElementById("sec-receipt-box");
   var receiptEl = document.getElementById("receipt");
   function syncPayRule() {
-    var patient = patientEl && patientEl.options[patientEl.selectedIndex];
-    var usd = Boolean(patient && patient.getAttribute("data-fee-usd"));
+    var usd = visitFeeIsUsd();
     if (payEl && payEl.querySelector("[data-usd-only]")) {
       Array.prototype.forEach.call(payEl.options, function (option) {
         var usdOnly = option.hasAttribute("data-usd-only");
@@ -1014,11 +1013,12 @@ $secretaryBookScripts = '
     if (method === "paid") payHint.textContent = "نوبت ثبت می‌شود و پرداخت‌شده به حساب می‌آید.";
     else if (method === "unpaid") payHint.textContent = "نوبت ثبت می‌شود و پرداخت‌نشده می‌ماند.";
     else if (method === "card") payHint.textContent = "فیش کارت به کارت را همین‌جا بارگذاری کنید.";
-    else if (method === "later") payHint.textContent = "نوبت ثبت می‌شود و به اندازه حق ویزیت همین درمانگر از کیف پول کم می‌شود. موجودی می‌تواند منفی شود تا فیش تأیید گردد.";
+    else if (method === "later") payHint.textContent = "نوبت ثبت می‌شود و به اندازه مبلغ ویزیت این نوبت از کیف پول کم می‌شود. موجودی می‌تواند منفی شود تا فیش تأیید گردد.";
     else payHint.textContent = "مبلغ حق جلسه از کیف پول مراجع کم می‌شود. اگر موجودی کافی نباشد، نوبت ثبت نمی‌شود.";
   }
   if (payEl) payEl.addEventListener("change", syncPayRule);
   if (patientEl) patientEl.addEventListener("change", syncPayRule);
+  feeResidence.addEventListener("change", syncPayRule);
   syncPayRule();
   form.querySelectorAll("input[name=session_mode]").forEach(function (el) {
     el.addEventListener("change", syncRoomRule);
