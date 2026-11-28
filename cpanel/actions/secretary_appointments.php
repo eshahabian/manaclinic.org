@@ -39,9 +39,11 @@ if ($action === 'approve_booking') {
     try {
         $result = staff_approve_appointment_booking($pdo, $appointmentId, $user);
         if (!str_contains($next, 'tab=')) {
-            $next .= (str_contains($next, '?') ? '&' : '?') . 'tab=upcoming';
+            $next .= (str_contains($next, '?') ? '&' : '?') . (!empty($result['card_pilot']) ? 'tab=reservations' : 'tab=upcoming');
         }
-        flash_set('success', 'درخواست «' . (string) $result['patient_name'] . '» بدون پرداخت پذیرفته شد و در حال بررسی ماند. با «پرداخت شده» رزرو می‌شود.');
+        flash_set('success', !empty($result['card_pilot'])
+            ? 'درخواست تأیید شد. پیامک مبلغ و شماره کارت در صف ارسال است.'
+            : 'درخواست «' . (string) $result['patient_name'] . '» بدون پرداخت پذیرفته شد و در حال بررسی ماند. با «پرداخت شده» رزرو می‌شود.');
     } catch (Throwable $e) {
         flash_set('error', $e->getMessage());
         if (!str_contains($next, 'tab=')) {

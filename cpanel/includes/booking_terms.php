@@ -1,6 +1,11 @@
 <?php
 declare(strict_types=1);
 
+function user_uses_card_receipt_pilot(array $user): bool
+{
+    return strcasecmp(trim((string) ($user['username'] ?? '')), 'eshahabian') === 0;
+}
+
 /** دسترسی رزرو شخصی برای مراجع، درمانگر و حساب مدیریت عماد شهابیان. */
 function user_can_self_book_therapy(?array $user): bool
 {

@@ -15,7 +15,7 @@ if ($paymentId === '') {
 }
 
 $stmt = $pdo->prepare('
-  SELECT p.id, p.receipt_path, a.starts_at, a.status
+  SELECT p.id, p.receipt_path, p.ref_id, a.starts_at, a.status
   FROM payments p
   JOIN appointments a ON a.id = p.appointment_id
   WHERE p.id=?
@@ -26,6 +26,10 @@ $payment = $stmt->fetch();
 if (!$payment) {
     flash_set('error', 'پرداخت یافت نشد.');
     redirect('/secretary/appointments');
+}
+if (($payment['ref_id'] ?? '') === 'CARD_PILOT') {
+    flash_set('error', 'فیش این نوبت آزمایشی باید توسط مراجع بارگذاری شود.');
+    redirect('/secretary/appointments?tab=reservations');
 }
 
 try {

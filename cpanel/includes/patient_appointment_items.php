@@ -37,11 +37,12 @@ $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/
       <?php if ($appointmentItemMode === 'manage'): ?>
         <?php
           $awaitingApproval = (string) ($a['status'] ?? '') === 'PENDING_APPROVAL';
-          $canPayOnline = $appointmentOnlinePayEnabled
+          $cardPilot = appointment_is_card_receipt_pilot($a);
+          $canPayOnline = !$cardPilot && $appointmentOnlinePayEnabled
               && !(isset($a['amount_usd']) || isset($a['amount_gbp']))
               && ($a['status'] ?? '') === 'PENDING_PAYMENT'
               && ($a['pay_status'] ?? '') === 'PENDING';
-          $canUploadReceipt = (!function_exists('receipt_upload_paused') || !receipt_upload_paused())
+          $canUploadReceipt = ($cardPilot || !function_exists('receipt_upload_paused') || !receipt_upload_paused())
               && function_exists('appointment_payment_can_upload_receipt')
               && appointment_payment_can_upload_receipt($a);
           $awaitingReview = function_exists('appointment_payment_awaiting_receipt_review')
@@ -70,10 +71,10 @@ $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/
             </div>
             <div class="patient-appt-row-meta">
               <span class="badge"><?= e(appointment_row_status_label($a)) ?></span>
-              <?php if (!empty($a['amount']) || (isset($a['amount_usd']) || isset($a['amount_gbp']))): ?>
+              <?php if ((!$cardPilot || !$awaitingApproval) && (!empty($a['amount']) || isset($a['amount_usd']) || isset($a['amount_gbp']))): ?>
                 <div class="muted" style="margin-top:.45rem">
                   <?= e(appointment_payment_amount_label($a)) ?> — <?= e($payLabel) ?>
-                  <?= !empty($a['ref_id']) ? ' (پیگیری: ' . e((string) $a['ref_id']) . ')' : '' ?>
+                  <?= !$cardPilot && !empty($a['ref_id']) ? ' (پیگیری: ' . e((string) $a['ref_id']) . ')' : '' ?>
                 </div>
               <?php endif; ?>
             </div>
@@ -82,11 +83,17 @@ $callRequestUrl = function_exists('url') ? url('/appointment-call-request') : '/
             <?php if (function_exists('appointment_patient_phase_html')): ?>
               <?= appointment_patient_phase_html($a) ?>
             <?php endif; ?>
-            <?php if ((isset($a['amount_usd']) || isset($a['amount_gbp'])) && ($a['pay_status'] ?? '') === 'PENDING'): ?>
+            <?php if (!$cardPilot && (isset($a['amount_usd']) || isset($a['amount_gbp'])) && ($a['pay_status'] ?? '') === 'PENDING'): ?>
               <p class="muted patient-appt-mana-hint">پرداخت ارزی با هماهنگی کلینیک ثبت می‌شود.</p>
             <?php endif; ?>
             <?php if ($showMana): ?>
               <p class="muted patient-appt-mana-hint">تماس مانا از ۱۵ دقیقه قبل از شروع جلسه فعال می‌شود.</p>
+            <?php elseif ($cardPilot && $awaitingApproval): ?>
+              <p class="muted patient-appt-mana-hint">بعد از تأیید منشی، مبلغ و شماره کارت آزمایشی پیامک می‌شود.</p>
+            <?php elseif ($cardPilot && $canUploadReceipt): ?>
+              <?php if (!$awaitingReview): ?>
+                <p class="muted patient-appt-mana-hint">فیش آزمایشی را در همین نوبت بارگذاری کنید. پس از تأیید منشی، نوبت قطعی می‌شود.</p>
+              <?php endif; ?>
             <?php elseif ($awaitingApproval || ($a['status'] ?? '') === 'PENDING_PAYMENT'): ?>
               <p class="muted patient-appt-mana-hint"><?= !empty($a['scheduled_hold']) ? 'این جلسه موقت است. پس از تأیید پرداخت قطعی می‌شود.' : 'تا یک ساعت این وقت برای شما می‌ماند. پس از تأیید پرداخت، نوبت رزرو می‌شود.' ?></p>
             <?php elseif ($canUploadReceipt): ?>

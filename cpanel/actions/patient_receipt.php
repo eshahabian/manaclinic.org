@@ -14,8 +14,7 @@ if (!$user || !user_can_self_book_therapy($user)) {
     echo json_encode(['error' => 'برای ارسال فیش وارد شوید.'], JSON_UNESCAPED_UNICODE);
     exit;
 }
-
-if (function_exists('receipt_upload_paused') && receipt_upload_paused()) {
+if (function_exists('receipt_upload_paused') && receipt_upload_paused() && !user_uses_card_receipt_pilot($user)) {
     http_response_code(403);
     echo json_encode(['error' => 'آپلود فیش فعلاً غیرفعال است.'], JSON_UNESCAPED_UNICODE);
     exit;

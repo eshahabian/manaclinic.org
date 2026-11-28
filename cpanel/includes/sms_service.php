@@ -505,6 +505,18 @@ function sms_job_still_valid(PDO $pdo, array $job): bool
     if (!empty($job['expires_at']) && strtotime($job['expires_at'])<=time())return false;
     $context=json_decode((string)($job['context_json']??''),true);
     if(!is_array($context)||!isset($context['entity']))return true;
+    if ($context['entity'] === 'appointment_card_pilot') {
+        $stmt = $pdo->prepare("
+          SELECT u.phone FROM appointments a
+          JOIN users u ON u.id=a.patient_id
+          JOIN payments p ON p.appointment_id=a.id
+          WHERE a.id=? AND a.status='PENDING_PAYMENT' AND a.starts_at>NOW()
+            AND p.status='PENDING' AND p.ref_id='CARD_PILOT'
+            AND LOWER(u.username)='eshahabian' AND u.is_disabled=0
+        ");
+        $stmt->execute([(string) ($context['appointment_id'] ?? '')]);
+        return sms_iran_mobile((string) $stmt->fetchColumn()) === $job['phone'];
+    }
     if ($context['entity'] === 'petty_cash_purchase_request') {
         require_once __DIR__ . '/petty_cash_supplies.php';
         $ids = $context['ids'] ?? [];

@@ -102,6 +102,7 @@ if (appointment_has_overlap($pdo, $doctorId, $startsAt, $endsAt)) {
 
 $appointmentId = cuid();
 $paymentId = cuid();
+$cardPilot = user_uses_card_receipt_pilot($user);
 $amount = (int) $doctor['session_price'];
 if (!function_exists('patient_fee_resolve_toman')) {
     require_once __DIR__ . '/../includes/patient_fee.php';
@@ -152,10 +153,10 @@ try {
         $rowId = $index === 0 ? $appointmentId : cuid();
         $rowPayId = $index === 0 ? $paymentId : cuid();
         $pdo->prepare('INSERT INTO appointments (id,doctor_id,patient_id,starts_at,ends_at,status,notes,session_mode,created_by_user_id,requested_at,scheduled_hold) VALUES (?,?,?,?,?,?,?,?,?,NOW(),?)')
-            ->execute([$rowId, $doctorId, $user['id'], $sessionStart, $sessionEnd, 'PENDING_PAYMENT', null, $sessionMode, (string) $user['id'], (int) $scheduledHold]);
+            ->execute([$rowId, $doctorId, $user['id'], $sessionStart, $sessionEnd, $cardPilot ? 'PENDING_APPROVAL' : 'PENDING_PAYMENT', null, $sessionMode, (string) $user['id'], (int) $scheduledHold]);
         $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,amount_usd,amount_gbp,status,ref_id) VALUES (?,?,?,?,?,?,?)')
-            ->execute([$rowPayId, $rowId, $amount, $amountUsd, $amountGbp, 'PENDING', 'LATER']);
-        if ($amount > 0) {
+            ->execute([$rowPayId, $rowId, $amount, $amountUsd, $amountGbp, 'PENDING', $cardPilot ? 'CARD_PILOT' : 'LATER']);
+        if ($amount > 0 && !$cardPilot) {
             wallet_charge_visit(
                 $pdo,
                 (string) $user['id'],
@@ -177,7 +178,8 @@ try {
         $pdo,
         'SECRETARY',
         'درخواست وقت جدید',
-        "مراجعه‌کننده «{$patientName}» برای {$when} درخواست وقت داد. در لیست رزرو است؛ حتی بدون پرداخت آنلاین می‌توانید بررسی کنید و با «پرداخت شده» رزرو کنید.",
+        $cardPilot ? "مراجعه‌کننده «{$patientName}» برای {$when} درخواست وقت داد. در لیست رزرو درخواست را بررسی و شماره کارت را پیامک کنید."
+            : "مراجعه‌کننده «{$patientName}» برای {$when} درخواست وقت داد. در لیست رزرو است؛ حتی بدون پرداخت آنلاین می‌توانید بررسی کنید و با «پرداخت شده» رزرو کنید.",
         '/secretary/appointments?tab=reservations',
         'appointment'
     );
@@ -193,9 +195,9 @@ try {
     echo json_encode([
         'appointmentId' => $appointmentId,
         'awaitingApproval' => true,
-        'message' => $scheduledHold ? 'رزروهای موقت ثبت شدند. هر جلسه پس از تأیید پرداخت همان جلسه قطعی می‌شود.' : (($amountUsd !== null || (function_exists('patient_wallet_paused') && patient_wallet_paused()))
+        'message' => $cardPilot ? 'درخواست ثبت شد. پس از تأیید منشی، شماره کارت پیامک می‌شود.' : ($scheduledHold ? 'رزروهای موقت ثبت شدند. هر جلسه پس از تأیید پرداخت همان جلسه قطعی می‌شود.' : (($amountUsd !== null || (function_exists('patient_wallet_paused') && patient_wallet_paused()))
             ? 'درخواست شما ارسال شد. تا یک ساعت این وقت برای شما می‌ماند و پس از ثبت منشی، نوبت رزرو می‌شود.'
-            : 'درخواست شما ارسال شد. تا تأیید فیش توسط منشی، حق ویزیت از کیف پول کم می‌شود و موجودی می‌تواند منفی باشد. تا یک ساعت این وقت برای شما می‌ماند.'),
+            : 'درخواست شما ارسال شد. تا تأیید فیش توسط منشی، حق ویزیت از کیف پول کم می‌شود و موجودی می‌تواند منفی باشد. تا یک ساعت این وقت برای شما می‌ماند.')),
     ], JSON_UNESCAPED_UNICODE);
 } catch (Throwable $e) {
     if ($pdo->inTransaction()) {

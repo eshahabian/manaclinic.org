@@ -33,7 +33,7 @@ if ($appointmentId === '') {
 }
 
 $stmt = $pdo->prepare("
-  SELECT a.*, p.id AS payment_id, p.amount, p.amount_usd, p.amount_gbp, p.status AS pay_status, p.authority
+  SELECT a.*, p.id AS payment_id, p.amount, p.amount_usd, p.amount_gbp, p.status AS pay_status, p.authority, p.ref_id
   FROM appointments a
   JOIN payments p ON p.appointment_id = a.id
   WHERE a.id = ? AND a.patient_id = ?
@@ -43,6 +43,12 @@ $row = $stmt->fetch();
 if (!$row) {
     http_response_code(404);
     echo json_encode(['error' => 'نوبت یافت نشد.'], JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
+if (($row['ref_id'] ?? '') === 'CARD_PILOT') {
+    http_response_code(403);
+    echo json_encode(['error' => 'پرداخت این نوبت آزمایشی از طریق ارسال فیش در همان نوبت ثبت می‌شود.'], JSON_UNESCAPED_UNICODE);
     exit;
 }
 
