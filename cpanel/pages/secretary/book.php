@@ -95,7 +95,7 @@ ob_start();
 ?>
 <p class="muted" style="margin:0 0 1rem">ابتدا درمانگر را انتخاب کنید؛ فقط روزهایی که درمانگر وقت خالی گذاشته قابل انتخاب هستند.</p>
 
-<form class="panel form-stack" method="post" action="<?= e(url((!empty($secretaryBookNext) && is_string($secretaryBookNext) && str_starts_with($secretaryBookNext, '/app')) ? $secretaryBookNext : '/secretary/book')) ?>" id="secretary-book-form" style="margin-top:0" enctype="multipart/form-data">
+<form class="panel form-stack" method="post" action="<?= e(url((!empty($secretaryBookNext) && is_string($secretaryBookNext) && str_starts_with($secretaryBookNext, '/app')) ? $secretaryBookNext : '/secretary/book')) ?>" id="secretary-book-form" style="margin-top:0" enctype="multipart/form-data" data-secretary-validation>
   <?= csrf_field() ?>
   <?php if (!empty($secretaryBookNext) && is_string($secretaryBookNext) && str_starts_with($secretaryBookNext, '/app')): ?>
     <input type="hidden" name="next" value="<?= e($secretaryBookNext) ?>">
@@ -108,7 +108,7 @@ ob_start();
   <?php endif; ?>
   <div>
     <label class="label" for="patient_id">مراجعه‌کننده</label>
-    <select class="input" name="patient_id" id="patient_id">
+    <select class="input" name="patient_id" id="patient_id" required>
       <option value="">— انتخاب مراجعه‌کننده —</option>
       <?php foreach ($patients as $p): ?>
         <?php
@@ -204,7 +204,7 @@ ob_start();
 
   <div>
     <label class="label">ساعت</label>
-    <div class="slots" id="sec-slots"><span class="muted">ابتدا تاریخ را انتخاب کنید</span></div>
+    <div class="slots" id="sec-slots" tabindex="-1"><span class="muted">ابتدا تاریخ را انتخاب کنید</span></div>
     <?php
       $preMinute = '00';
       if (preg_match('/^\d{2}:(\d{2})$/', $preTime, $minuteMatch) && ((int) $minuteMatch[1]) % 5 === 0) {
@@ -301,6 +301,7 @@ ob_start();
 $secretaryBookFormHtml = ob_get_clean();
 
 $secretaryBookScripts = '
+<script src="' . e(url('/assets/js/secretary-validation.js')) . '?v=20261128"></script>
 <script src="' . e(url('/assets/js/money-words.js')) . '?v=20261128words"></script>
 <script src="' . e(url('/assets/js/search-select.js')) . '?v=20261013pat"></script>
 <script src="/assets/vendor/jalali/jalaali.min.js"></script>
@@ -865,6 +866,10 @@ $secretaryBookScripts = '
   }, 20000);
 
   form.addEventListener("submit", function(e){
+    function fail(text, field) {
+      e.preventDefault();
+      window.manaSecretaryFieldError(text, field);
+    }
     var patientId = patientEl.value;
     if (selectedPatientInactive() || String(patientId || "").indexOf("outreach:") === 0) {
       e.preventDefault();
@@ -872,35 +877,13 @@ $secretaryBookScripts = '
       patientEl.value = "";
       return;
     }
-    if (!patientId) {
-      e.preventDefault();
-      errEl.textContent = "مراجعه‌کننده را انتخاب کنید.";
-      errEl.style.display = "block";
-      return;
-    }
-    if (!doctorEl.value) {
-      e.preventDefault();
-      errEl.textContent = "درمانگر را انتخاب کنید.";
-      errEl.style.display = "block";
-      var doctorInput = doctorEl.closest(".search-select") && doctorEl.closest(".search-select").querySelector(".search-select-input");
-      (doctorInput || doctorEl).focus();
-      return;
-    }
-    if (!dateEl.value || !timeEl.value) {
-      e.preventDefault();
-      errEl.textContent = "تاریخ و ساعت را انتخاب کنید.";
-      errEl.style.display = "block";
-      return;
-    }
+    if (!dateEl.value) return fail("تاریخ نوبت را انتخاب کنید.", dateView);
+    if (!timeEl.value) return fail("ساعت نوبت را انتخاب کنید.", slotsEl.querySelector(".slot-btn:not(:disabled)") || slotsEl);
     var roomPick = document.getElementById("sec-room");
     var modePick = form.querySelector("input[name=session_mode]:checked");
     var roomOnline = !!(modePick && modePick.value === "ONLINE");
     if (!roomOnline && roomPick && !roomPick.value) {
-      e.preventDefault();
-      errEl.textContent = "برای جلسه حضوری اتاق را انتخاب کنید.";
-      errEl.style.display = "block";
-      var roomBtn = document.getElementById("sec-room-btn");
-      if (roomBtn) roomBtn.focus();
+      fail("برای جلسه حضوری اتاق را انتخاب کنید.", document.getElementById("sec-room-btn"));
     }
   });
 

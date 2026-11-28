@@ -17,27 +17,27 @@ $secretaryPatientHint = $secretaryPatientHint ?? 'مراجعه‌کننده با
     <div class="grid-2">
       <div>
         <label class="label" for="new_first_name">نام</label>
-        <input class="input input-rtl" name="new_first_name" id="new_first_name" dir="rtl" autocomplete="given-name" placeholder="نام">
+        <input class="input input-rtl" name="new_first_name" id="new_first_name" required dir="rtl" autocomplete="given-name" placeholder="نام">
       </div>
       <div>
         <label class="label" for="new_last_name">نام خانوادگی</label>
-        <input class="input input-rtl" name="new_last_name" id="new_last_name" dir="rtl" autocomplete="family-name" placeholder="نام خانوادگی">
+        <input class="input input-rtl" name="new_last_name" id="new_last_name" required dir="rtl" autocomplete="family-name" placeholder="نام خانوادگی">
       </div>
     </div>
     <div class="grid-2" style="margin-top:.75rem">
       <div>
         <label class="label label-ltr" for="new_name_en">name</label>
-        <input class="input" name="new_name_en" id="new_name_en" dir="ltr" lang="en" autocomplete="off" placeholder="name">
+        <input class="input" name="new_name_en" id="new_name_en" required dir="ltr" lang="en" autocomplete="off" placeholder="name">
         <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">از دیتابیس نام‌ها و جستجوی آنلاین پیشنهاد می‌شود؛ در صورت نیاز ویرایش کنید.</p>
       </div>
       <div>
         <label class="label label-ltr" for="new_surname">surname</label>
-        <input class="input" name="new_surname" id="new_surname" dir="ltr" lang="en" autocomplete="off" placeholder="surname">
+        <input class="input" name="new_surname" id="new_surname" required dir="ltr" lang="en" autocomplete="off" placeholder="surname">
         <p class="muted" style="font-size:.75rem;margin:.35rem 0 0">از دیتابیس نام‌ها و جستجوی آنلاین پیشنهاد می‌شود؛ در صورت نیاز ویرایش کنید.</p>
       </div>
       <div style="grid-column:1/-1">
         <label class="label" for="new_preferred_doctor_id">درمانگر مربوط به مراجعه‌کننده</label>
-        <select class="input" name="new_preferred_doctor_id" id="new_preferred_doctor_id">
+        <select class="input" name="new_preferred_doctor_id" id="new_preferred_doctor_id" required>
           <option value="">انتخاب درمانگر</option>
           <?php foreach ($doctors as $d): ?>
             <option value="<?= e($d['id']) ?>" data-visit-price="<?= e((string) $d['session_price']) ?>"><?= e($d['name']) ?> — <?= e($d['specialty']) ?></option>
@@ -61,7 +61,7 @@ $secretaryPatientHint = $secretaryPatientHint ?? 'مراجعه‌کننده با
       <div style="grid-column:1/-1">
         <label class="label" for="new_username">نام کاربری</label>
         <div style="display:flex;gap:.5rem;align-items:stretch">
-          <input class="input" name="new_username" id="new_username" dir="ltr" pattern="[A-Za-z0-9._-]{3,32}" placeholder="حروف انگلیسی، عدد و ._- " style="flex:1">
+          <input class="input" name="new_username" id="new_username" required dir="ltr" pattern="[A-Za-z0-9._-]{3,32}" placeholder="حروف انگلیسی، عدد و ._- " style="flex:1">
           <button type="button" class="btn btn-outline" id="suggest-username" title="پیشنهاد از روی name و surname">پیشنهاد</button>
         </div>
         <p class="muted" id="username-hint" style="margin:.4rem 0 0;font-size:.8rem;line-height:1.6"></p>
@@ -69,12 +69,12 @@ $secretaryPatientHint = $secretaryPatientHint ?? 'مراجعه‌کننده با
       <div>
         <label class="label" for="new_password">رمز عبور</label>
         <div style="display:flex;gap:.5rem;align-items:stretch">
-          <input class="input" name="new_password" id="new_password" type="password" dir="ltr" minlength="6" autocomplete="new-password" placeholder="حداقل ۶ کاراکتر" style="flex:1">
+          <input class="input" name="new_password" id="new_password" required type="password" dir="ltr" minlength="6" autocomplete="new-password" placeholder="حداقل ۶ کاراکتر" style="flex:1">
           <button type="button" class="btn btn-outline" data-password-suggest data-password-target="new_password" data-password-confirm-target="new_password_confirm">پیشنهاد</button>
         </div>
       </div>
       <div>
         <label class="label" for="new_password_confirm">تکرار رمز عبور</label>
-        <input class="input" name="new_password_confirm" id="new_password_confirm" type="password" dir="ltr" minlength="6" autocomplete="new-password" placeholder="تکرار رمز">
+        <input class="input" name="new_password_confirm" id="new_password_confirm" required type="password" dir="ltr" minlength="6" autocomplete="new-password" placeholder="تکرار رمز">
       </div>
     </div>

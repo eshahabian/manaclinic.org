@@ -2424,7 +2424,7 @@ function staff_app_render(string $active, string $title, string $description, st
   <meta name="csrf-token" content="<?= e(csrf_token()) ?>">
   <?= staff_app_pwa_head() ?>
   <?= seo_render_head() ?>
-  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20261013pat">
+  <link rel="stylesheet" href="<?= e(url('/assets/css/style.css')) ?>?v=20261128validation">
   <?php if (!empty($GLOBALS['pageHead'])): ?>
     <?= $GLOBALS['pageHead'] ?>
   <?php endif; ?>

@@ -106,7 +106,7 @@ ob_start();
 </div>
 
 <div id="patients-active">
-<form class="panel form-stack secretary-add-patient" method="post" action="<?= e(url('/secretary/patients')) ?>" id="secretary-patient-form">
+<form class="panel form-stack secretary-add-patient" method="post" action="<?= e(url('/secretary/patients')) ?>" id="secretary-patient-form" data-secretary-validation>
   <?= csrf_field() ?>
   <p style="margin:0;font-weight:600">مراجعه‌کننده جدید</p>
   <?php
@@ -117,7 +117,6 @@ ob_start();
         require __DIR__ . '/../../includes/secretary_visit_fee_fields.php';
     }
   ?>
-  <p id="sec-patient-error" style="color:var(--danger);display:none;font-size:.9rem"></p>
   <button class="btn btn-primary" type="submit" id="patient-entry-submit" style="margin-top:.4rem">ثبت مراجعه‌کننده</button>
   <?php if (!empty($secretaryPatientKindSwitch)): ?></fieldset><?php endif; ?>
 </form>
@@ -289,7 +288,7 @@ ob_start();
           <td class="patient-account-actions">
             <div class="patient-account-actions-inner">
               <?php if ($isUser): ?>
-              <form id="<?= e($formId) ?>" method="post" action="<?= e(url('/secretary/users')) ?>" class="patient-account-save-form">
+              <form id="<?= e($formId) ?>" method="post" action="<?= e(url('/secretary/users')) ?>" class="patient-account-save-form" data-secretary-validation>
                 <?= csrf_field() ?>
                 <input type="hidden" name="user_id" value="<?= e($uid) ?>">
                 <button class="btn btn-primary btn-sm sec-account-action" type="submit">ذخیره</button>
@@ -393,7 +392,7 @@ ob_start();
       <button type="button" class="patient-more-close" data-activate-close aria-label="بستن">×</button>
     </div>
     <p class="muted" id="patient-activate-lead" style="margin:.7rem 0 0;line-height:1.7">تا این فرم ذخیره نشود، کاربر فعال نمی‌شود و نوبت برایش ثبت نمی‌شود.</p>
-    <form id="patient-activate-register" class="form-stack" method="post" action="<?= e(url('/secretary/patients')) ?>" hidden style="display:none;margin-top:1rem">
+    <form id="patient-activate-register" class="form-stack" method="post" action="<?= e(url('/secretary/patients')) ?>" data-secretary-validation hidden style="display:none;margin-top:1rem">
       <?= csrf_field() ?>
       <input type="hidden" name="action" value="activate_contact">
       <input type="hidden" name="outreach_id" id="act-outreach-id" value="">
@@ -452,10 +451,9 @@ ob_start();
         </div>
       </div>
       <?php require __DIR__ . '/../../includes/secretary_visit_fee_fields.php'; ?>
-      <p id="act-register-error" style="color:var(--danger);display:none;font-size:.9rem"></p>
       <button class="btn btn-primary" type="submit">ساخت پروفایل و فعال‌سازی</button>
     </form>
-    <form id="patient-activate-profile" class="form-stack" method="post" action="<?= e(url('/secretary/patients')) ?>" hidden style="display:none;margin-top:1rem">
+    <form id="patient-activate-profile" class="form-stack" method="post" action="<?= e(url('/secretary/patients')) ?>" data-secretary-validation hidden style="display:none;margin-top:1rem">
       <?= csrf_field() ?>
       <input type="hidden" name="action" value="activate_profile">
       <input type="hidden" name="user_id" id="act-user-id" value="">
@@ -485,13 +483,13 @@ $inner = ob_get_clean();
 $pageScripts = '
 <script src="' . e(url('/assets/js/search-select.js')) . '?v=20261014doc"></script>
 <script src="' . e(url('/assets/js/money-words.js')) . '?v=20261128words"></script>
+<script src="' . e(url('/assets/js/secretary-validation.js')) . '?v=20261128"></script>
 <script src="' . e(url('/assets/js/name-transliterate.js')) . '?v=20260906p"></script>
 <script src="' . e(url('/assets/js/form-draft.js')) . '?v=20260906p"></script>
-<script src="' . e(url('/assets/js/secretary-patient-form.js')) . '?v=20261128words"></script>
+<script src="' . e(url('/assets/js/secretary-patient-form.js')) . '?v=20261128validation"></script>
 <script>
 (function(){
   var form = document.getElementById("secretary-patient-form");
-  var errEl = document.getElementById("sec-patient-error");
   bindSecretaryPatientFields({
     form: form,
     transliterateUrl: ' . json_encode(url('/api/transliterate-name')) . ',
@@ -518,7 +516,6 @@ $pageScripts = '
     }
     if (inactiveBox) inactiveBox.hidden = active;
     if (submitBtn) submitBtn.hidden = !active;
-    if (errEl && !active) errEl.style.display = "none";
     document.querySelectorAll("[data-entry-kind]").forEach(function (btn) {
       var on = btn.getAttribute("data-entry-kind") === (active ? "active" : "inactive");
       btn.classList.toggle("btn-primary", on);
@@ -542,7 +539,7 @@ $pageScripts = '
         e.preventDefault();
         return;
       }
-      if (!validateSecretaryNewPatient(errEl)) e.preventDefault();
+      if (!validateSecretaryNewPatient()) e.preventDefault();
     });
   }
 
@@ -853,11 +850,9 @@ $pageScripts = '
     if (e.key === "Escape" && !modal.hidden) closeActivate();
   });
   registerForm.addEventListener("submit", function(e){
-    var err = document.getElementById("act-register-error");
     function fail(msg, el) {
       e.preventDefault();
-      if (err) { err.textContent = msg; err.style.display = "block"; }
-      if (el && el.focus) el.focus();
+      window.manaSecretaryFieldError(msg, el);
     }
     var first = document.getElementById("act_first_name");
     var last = document.getElementById("act_last_name");
@@ -870,7 +865,7 @@ $pageScripts = '
     var pass = document.getElementById("act_password");
     var pass2 = document.getElementById("act_password_confirm");
     if (!first || !first.value.trim() || !last || !last.value.trim()) return fail("نام و نام خانوادگی لازم است.", first && first.value.trim() ? last : first);
-    if (!nameEn || !nameEn.value.trim() || !surname || !surname.value.trim()) return fail("name و surname لازم است.", nameEn);
+    if (!nameEn || !nameEn.value.trim() || !surname || !surname.value.trim()) return fail("نام و نام خانوادگی را به انگلیسی وارد کنید.", nameEn && nameEn.value.trim() ? surname : nameEn);
     if (!doctor || !doctor.value) return fail("درمانگر را انتخاب کنید.", doctor);
     if (!referral || !referral.value) return fail("معرف را انتخاب کنید.", referral);
     if (!phone || !window.manaIsValidPhone || !manaIsValidPhone(phone.value.trim())) return fail("موبایل معتبر وارد کنید.", phone);
@@ -878,7 +873,6 @@ $pageScripts = '
     if (!/^[a-z0-9._-]{3,32}$/.test(user)) return fail("نام کاربری انگلیسی، ۳ تا ۳۲ کاراکتر.", username);
     if (!pass || pass.value.length < 6) return fail("رمز حداقل ۶ کاراکتر باشد.", pass);
     if (!pass2 || pass.value !== pass2.value) return fail("رمز و تکرار آن یکسان نیست.", pass2);
-    if (err) err.style.display = "none";
   });
 })();
 </script>

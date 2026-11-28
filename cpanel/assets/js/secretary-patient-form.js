@@ -43,7 +43,7 @@
     return { names: names, draft: draft };
   }
 
-  function validateSecretaryNewPatient(errEl) {
+  function validateSecretaryNewPatient() {
     var firstNameEl = document.getElementById("new_first_name");
     var lastNameEl = document.getElementById("new_last_name");
     var nameEnEl = document.getElementById("new_name_en");
@@ -55,13 +55,7 @@
     var newPhoneEl = document.getElementById("new_phone");
 
     function fail(msg, el) {
-      if (errEl) {
-        errEl.textContent = msg;
-        errEl.style.display = "block";
-      } else {
-        alert(msg);
-      }
-      if (el && el.focus) el.focus();
+      global.manaSecretaryFieldError(msg, el);
       return false;
     }
 
@@ -71,7 +65,7 @@
       return fail("نام و نام خانوادگی مراجعه‌کننده جدید الزامی است.", firstName ? lastNameEl : firstNameEl);
     }
     if (!nameEnEl || !nameEnEl.value.trim() || !surnameEl || !surnameEl.value.trim()) {
-      return fail("فیلدهای name و surname هم الزامی هستند.", (!nameEnEl || !nameEnEl.value.trim()) ? nameEnEl : surnameEl);
+      return fail("نام و نام خانوادگی را به انگلیسی وارد کنید.", (!nameEnEl || !nameEnEl.value.trim()) ? nameEnEl : surnameEl);
     }
     if (!preferredDoctorEl || !preferredDoctorEl.value) {
       return fail("درمانگر مربوط به مراجعه‌کننده را انتخاب کنید.", preferredDoctorEl);
@@ -93,7 +87,6 @@
     if (!newPassConfirmEl || newPassEl.value !== newPassConfirmEl.value) {
       return fail("رمز عبور و تکرار آن یکسان نیست.", newPassConfirmEl);
     }
-    if (errEl) errEl.style.display = "none";
     return true;
   }
 
