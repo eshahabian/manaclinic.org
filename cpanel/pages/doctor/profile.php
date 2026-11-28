@@ -117,7 +117,7 @@ ob_start();
       <label class="label" for="session_price">تومان</label>
       <div class="input" style="display:flex;align-items:center;gap:1rem;flex-wrap:wrap;height:auto">
         <input type="text" name="session_price" id="session_price" value="<?= e((string) ($p['session_price'] ?? 3000000)) ?>" required dir="ltr" inputmode="numeric" autocomplete="off" data-money style="flex:1 1 140px;width:140px;min-width:0;border:0;background:transparent;color:inherit;font:inherit;outline-offset:3px" aria-describedby="session-price-words">
-        <span id="session-price-words" data-money-words aria-live="polite" style="flex:1 1 180px;color:var(--muted, #64736c);font-size:.85rem;line-height:1.8"></span>
+        <span id="session-price-words" data-money-words aria-live="polite" style="flex-basis:100%;color:var(--muted, #64736c);font-size:.85rem;line-height:1.8"></span>
       </div>
     </section>
 

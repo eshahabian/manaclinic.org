@@ -301,6 +301,7 @@ ob_start();
 $secretaryBookFormHtml = ob_get_clean();
 
 $secretaryBookScripts = '
+<script src="' . e(url('/assets/js/money-words.js')) . '?v=20261128words"></script>
 <script src="' . e(url('/assets/js/search-select.js')) . '?v=20261013pat"></script>
 <script src="/assets/vendor/jalali/jalaali.min.js"></script>
 <script src="/assets/vendor/jalali/jalalidatepicker.min.js"></script>
@@ -405,6 +406,7 @@ $secretaryBookScripts = '
   var feeAmount = feeFields.querySelector("[name=fee_amount]");
   var feeCheck = document.getElementById("sec-visit-fee-check");
   var feeConfirmation = feeCheck.querySelector("input");
+  var previousFeeCurrency = "";
   var doctorEl = document.getElementById("doctor_id");
   function faMoney(n) {
     var s = String(Math.abs(n));
@@ -433,15 +435,21 @@ $secretaryBookScripts = '
     var confirmation = selected ? opt.getAttribute("data-fee-confirmation") : "";
     feeFields.hidden = feeFields.disabled = !selected;
     feeResidence.value = selected ? opt.getAttribute("data-fee-residence") : "";
-    feeResidence.disabled = Boolean(confirmation);
+    previousFeeCurrency = visitFeeCurrency();
     feeAmount.value = selected ? opt.getAttribute("data-fee-amount") : "";
+    window.manaRefreshMoney(feeAmount);
     feeCheck.hidden = feeConfirmation.disabled = !confirmation;
     feeConfirmation.checked = false;
     feeConfirmation.value = confirmation || "";
     feeCheck.querySelector("span").textContent = "محل اقامت و مبلغ ویزیت این نوبت را تأیید می‌کنم.";
   }
+  function visitFeeCurrency() {
+    if (feeResidence.value === "abroad") return "usd";
+    if (feeResidence.value === "abroad_gbp") return "gbp";
+    return "toman";
+  }
   function visitFeeIsForeignCurrency() {
-    return feeResidence.value === "abroad" || feeResidence.value === "abroad_gbp";
+    return visitFeeCurrency() !== "toman";
   }
   function syncWalletLine() {
     if (!walletLine || !patientEl) return;
@@ -470,7 +478,13 @@ $secretaryBookScripts = '
     syncWalletLine();
   });
   feeResidence.addEventListener("change", function(){
-    feeAmount.value = "";
+    var currency = visitFeeCurrency();
+    if (previousFeeCurrency !== currency) {
+      feeAmount.value = "";
+    }
+    previousFeeCurrency = currency;
+    feeConfirmation.checked = false;
+    window.manaRefreshMoney(feeAmount);
     syncWalletLine();
   });
   feeAmount.addEventListener("input", function(){

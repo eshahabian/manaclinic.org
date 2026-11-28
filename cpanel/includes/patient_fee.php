@@ -19,6 +19,7 @@ function patient_fee_ensure_schema(PDO $pdo): void
     $paymentColumns = [
         'amount_usd' => 'ALTER TABLE payments ADD COLUMN amount_usd DECIMAL(12,2) NULL',
         'amount_gbp' => 'ALTER TABLE payments ADD COLUMN amount_gbp DECIMAL(12,2) NULL',
+        'fee_residence' => 'ALTER TABLE payments ADD COLUMN fee_residence VARCHAR(16) NULL',
     ];
     foreach (['users' => $cols, 'payments' => $paymentColumns] as $table => $columns) {
         foreach ($columns as $name => $sql) {
@@ -184,7 +185,12 @@ function patient_fee_booking_values(string $residence, string $rawAmount): ?arra
         // Payments and wallet entries use signed INT columns.
         return $toman > 0 && $toman <= 2147483647 ? [1, $toman, 0, null, (int) ($residence === 'abroad_toman'), null] : null;
     }
-    if (in_array($residence, ['abroad', 'abroad_gbp'], true) && preg_match('/^[0-9]+(?:[.,٫،][0-9]{1,2})?$/uD', $amount)) {
+    if (in_array($residence, ['abroad', 'abroad_gbp'], true)) {
+        if (preg_match('/^(?:[0-9]+|[0-9]{1,3}(?:[,٬][0-9]{3})+)(?:[.٫،][0-9]{1,2})?$/uD', $amount)) {
+            $amount = str_replace([',', '٬'], '', $amount);
+        } elseif (!preg_match('/^[0-9]+,[0-9]{1,2}$/D', $amount)) {
+            return null;
+        }
         $foreign = patient_fee_parse_usd($amount);
         if ($foreign !== null) {
             return [0, null, 1, $residence === 'abroad' ? $foreign : null, 0, $residence === 'abroad_gbp' ? $foreign : null];

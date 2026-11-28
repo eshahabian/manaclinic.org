@@ -118,7 +118,7 @@ ob_start();
     }
   ?>
   <p id="sec-patient-error" style="color:var(--danger);display:none;font-size:.9rem"></p>
-  <button class="btn btn-primary" type="submit" id="patient-entry-submit">ثبت مراجعه‌کننده</button>
+  <button class="btn btn-primary" type="submit" id="patient-entry-submit" style="margin-top:.4rem">ثبت مراجعه‌کننده</button>
   <?php if (!empty($secretaryPatientKindSwitch)): ?></fieldset><?php endif; ?>
 </form>
 <div id="patient-entry-inactive" hidden>
@@ -277,7 +277,7 @@ ob_start();
                   <option value="<?= e($feeOption) ?>"<?= $feeOption === $feeResidence ? ' selected' : '' ?>><?= e($feeLabel) ?></option>
                 <?php endforeach; ?>
               </select>
-              <input class="input patient-fee-amount" name="fee_amount" form="<?= e($formId) ?>" dir="ltr" inputmode="decimal" maxlength="24" value="<?= e($feeAmount) ?>" aria-label="مبلغ ویزیت">
+              <input class="input patient-fee-amount" name="fee_amount" form="<?= e($formId) ?>" dir="ltr" inputmode="decimal" maxlength="24" value="<?= e($feeAmount) ?>" data-money data-visit-amount aria-label="مبلغ ویزیت">
             </div>
           </td>
           <?php else: ?>
@@ -484,10 +484,10 @@ ob_start();
 $inner = ob_get_clean();
 $pageScripts = '
 <script src="' . e(url('/assets/js/search-select.js')) . '?v=20261014doc"></script>
-<script src="' . e(url('/assets/js/money-words.js')) . '?v=20261014fee"></script>
+<script src="' . e(url('/assets/js/money-words.js')) . '?v=20261128words"></script>
 <script src="' . e(url('/assets/js/name-transliterate.js')) . '?v=20260906p"></script>
 <script src="' . e(url('/assets/js/form-draft.js')) . '?v=20260906p"></script>
-<script src="' . e(url('/assets/js/secretary-patient-form.js')) . '?v=20261128currency"></script>
+<script src="' . e(url('/assets/js/secretary-patient-form.js')) . '?v=20261128words"></script>
 <script>
 (function(){
   var form = document.getElementById("secretary-patient-form");
@@ -797,7 +797,9 @@ $pageScripts = '
       var phone = document.getElementById("act_phone");
       if (outreachId && outreachId.value !== String(row.id || "")) {
         registerForm.querySelector("[name=fee_residence]").value = "";
-        registerForm.querySelector("[name=fee_amount]").value = "";
+        var feeAmount = registerForm.querySelector("[name=fee_amount]");
+        feeAmount.value = "";
+        window.manaRefreshMoney(feeAmount);
         outreachId.value = row.id || "";
       }
       if (first) first.value = row.first || "";

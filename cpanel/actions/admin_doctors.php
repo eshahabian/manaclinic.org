@@ -42,7 +42,7 @@ if ($action === 'toggle') {
     $specialty = post('specialty');
     $bio = post('bio');
     $phone = post('phone') ?: null;
-    $price = (int) post('session_price', '3000000');
+    $price = (int) str_replace([',', '٬'], '', normalize_input(post('session_price', '3000000')));
     if ($name && preg_match('/^[a-z0-9._-]{3,32}$/', $username) && $specialty) {
         $exists = $pdo->prepare('SELECT id FROM users WHERE username=?');
         $exists->execute([$username]);

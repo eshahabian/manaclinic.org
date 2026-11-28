@@ -57,7 +57,7 @@ ob_start();
     <div><label class="label">رمز موقت</label><input class="input" name="password" value="123" required dir="ltr"></div>
     <div><label class="label">موبایل</label><input class="input" name="phone" dir="ltr"></div>
     <div><label class="label">تخصص</label><input class="input" name="specialty" required></div>
-    <div><label class="label">هزینه جلسه</label><input class="input" type="number" name="session_price" value="3000000" required dir="ltr"></div>
+    <div><label class="label" for="admin-session-price">هزینه جلسه</label><input class="input" id="admin-session-price" name="session_price" value="3000000" required dir="ltr" inputmode="numeric" data-money></div>
   </div>
   <div><label class="label">بیوگرافی</label><textarea class="input" name="bio" rows="4"></textarea></div>
   <button class="btn btn-primary" type="submit">ایجاد حساب درمانگر</button>
@@ -92,5 +92,6 @@ ob_start();
   </div>
 <?php endforeach; ?>
 </div>
+<script src="<?= e(url('/assets/js/money-words.js')) ?>?v=20261128words" defer></script>
 <?php
 render_admin_page('درمانگرها', ob_get_clean());

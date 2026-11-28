@@ -138,8 +138,8 @@ if ($savedFeeConfirmation !== '' && !hash_equals($savedFeeConfirmation, post('fe
     flash_set('error', 'محل اقامت و مبلغ ویزیت را تأیید کنید.');
     $bookRedirect('/secretary/appointments?tab=new');
 }
-[$savedResidence] = patient_fee_booking_details($feeRow);
-$feeValues = patient_fee_booking_values($savedResidence !== '' ? $savedResidence : post('fee_residence'), post('fee_amount'));
+$feeResidence = post('fee_residence');
+$feeValues = patient_fee_booking_values($feeResidence, post('fee_amount'));
 if ($feeValues === null) {
     flash_set('error', 'محل اقامت و مبلغ معتبر ویزیت را وارد کنید.');
     $bookRedirect('/secretary/appointments?tab=new');
@@ -291,8 +291,8 @@ try {
         }
         $pdo->prepare('INSERT INTO appointments (id,doctor_id,patient_id,starts_at,ends_at,status,notes,session_mode,room_no,created_by_user_id,staff_payment_note,scheduled_hold) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')
             ->execute([$rowId, $doctorId, $patientId, $occur['starts'], $occur['ends'], $isPaid ? 'CONFIRMED' : 'PENDING_PAYMENT', $notes, $sessionMode, $roomNo > 0 ? $roomNo : null, $actorId, $payNote, (int) (!$isPaid || $repeatCount > 1)]);
-        $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,amount_usd,amount_gbp,status,ref_id,recorded_by_user_id,receipt_path) VALUES (?,?,?,?,?,?,?,?,?)')
-            ->execute([$rowPayId, $rowId, $amount, $amountUsd, $amountGbp, $payStatus, $payRef, $actorId, $isFirst ? $receiptPath : null]);
+        $pdo->prepare('INSERT INTO payments (id,appointment_id,amount,amount_usd,amount_gbp,fee_residence,status,ref_id,recorded_by_user_id,receipt_path) VALUES (?,?,?,?,?,?,?,?,?,?)')
+            ->execute([$rowPayId, $rowId, $amount, $amountUsd, $amountGbp, $feeResidence, $payStatus, $payRef, $actorId, $isFirst ? $receiptPath : null]);
         if (!$walletPaused && $isFirst && $payMethod === 'wallet') {
             wallet_debit_balance(
                 $pdo,

@@ -109,6 +109,7 @@
       var option = doctor.options[doctor.selectedIndex];
       var price = option ? Number(option.getAttribute("data-visit-price")) : 0;
       amount.value = price > 0 ? String(price) : "";
+      global.manaRefreshMoney(amount);
     }
 
     var previous = currency();
@@ -122,6 +123,7 @@
         if (previous !== current || !amount.value.trim()) suggestToman();
       } else if (previous !== current) {
         amount.value = "";
+        global.manaRefreshMoney(amount);
       }
       previous = current;
     });

@@ -10,6 +10,6 @@
   </label>
   <label>
     <span class="label">مبلغ ویزیت به واحد انتخاب‌شده</span>
-    <input class="input" name="fee_amount" dir="ltr" inputmode="decimal" maxlength="24" required>
+    <input class="input" name="fee_amount" dir="ltr" inputmode="decimal" maxlength="24" data-money data-visit-amount required>
   </label>
 </div>
