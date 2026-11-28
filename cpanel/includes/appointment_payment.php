@@ -1041,15 +1041,24 @@ function appointment_staff_mark_paid_form_html(array $row, string $next, string 
       <input type="hidden" name="action" value="confirm_payment">
       <input type="hidden" name="appointment_id" value="<?= e($id) ?>">
       <input type="hidden" name="next" value="<?= e($next) ?>">
-      <label class="sec-room-select" style="flex:1 1 12rem;min-width:0;margin:0">
-        <span class="label" style="font-size:.75rem">اتاق جلسه<?= $online ? ' (اختیاری)' : ' (الزامی)' ?></span>
-        <select class="input" name="room_no" style="height:2.75rem;box-sizing:border-box"<?= $online ? '' : ' required' ?>>
-          <option value="">انتخاب اتاق</option>
+      <fieldset style="flex:1 1 12rem;min-inline-size:0;margin:0;padding:0;border:0">
+        <legend class="label" style="padding:0;font-size:.75rem">اتاق جلسه<?= $online ? ' (اختیاری)' : ' (الزامی)' ?></legend>
+        <div class="sec-room-picks" style="margin:0;min-height:2.75rem;align-items:center">
+          <?php $selectedRoom = (int) ($row['room_no'] ?? 0); ?>
+          <?php if ($online): ?>
+            <label class="sec-room-pick">
+              <input type="radio" name="room_no" value=""<?= $selectedRoom === 0 ? ' checked' : '' ?>>
+              <span>بدون اتاق</span>
+            </label>
+          <?php endif; ?>
           <?php foreach (secretary_room_choice_list() as $choice): ?>
-            <option value="<?= e($choice['value']) ?>"<?= (string) ($row['room_no'] ?? '') === $choice['value'] ? ' selected' : '' ?>><?= e($choice['label']) ?></option>
+            <label class="sec-room-pick">
+              <input type="radio" name="room_no" value="<?= e($choice['value']) ?>"<?= $selectedRoom === (int) $choice['value'] ? ' checked' : '' ?><?= $online ? '' : ' required' ?>>
+              <span><?= e($choice['label']) ?></span>
+            </label>
           <?php endforeach; ?>
-        </select>
-      </label>
+        </div>
+      </fieldset>
       <label style="flex:1 1 12rem;min-width:0;margin:0">
         <span class="label" style="font-size:.75rem">یادداشت منشی</span>
         <textarea class="input" name="note" rows="1" style="display:block;width:100%;height:2.75rem;min-height:2.75rem;box-sizing:border-box;resize:none" placeholder="مثلاً کارت‌به‌کارت شد، یا پرداخت نقدی در کلینیک"><?= e(trim((string) ($row['staff_payment_note'] ?? ''))) ?></textarea>
