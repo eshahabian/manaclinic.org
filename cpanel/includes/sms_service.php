@@ -921,22 +921,15 @@ function sms_notify_card_pilot_request(PDO $pdo, string $appointmentId): array
     );
 }
 
-/** پیام واریز نوبت آزمایشی؛ مبلغ تومانی بدون نام واحد. */
+/** پیام واریز نوبت آزمایشی؛ بدون مبلغ، چون واحد پول در پنل پیامک فیلتر می‌شود. */
 function appointment_card_pilot_sms_body(array $row): string
 {
-    $toman = (int) ($row['session_price'] ?? 0);
-    if ($toman <= 0) {
-        $toman = (int) ($row['amount'] ?? 0);
-    }
-    $lines = ['مرکز مشاوره مانا'];
-    if ($toman > 0) {
-        $lines[] = 'مبلغ: ' . to_fa_digits((string) $toman);
-    }
-    $lines[] = 'کارت 5041721059902990';
-    $lines[] = 'به نام الهه علائیان';
-    $lines[] = 'رسید در نوبت‌های من';
-
-    return implode("\n", $lines);
+    return implode("\n", [
+        'مرکز مشاوره مانا',
+        'کارت 5041721059902990',
+        'به نام الهه علائیان',
+        'رسید در نوبت‌های من',
+    ]);
 }
 
 function sms_dispatch_pending(PDO $pdo, int $limit=20, ?string $dedup = null): int
