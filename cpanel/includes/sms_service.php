@@ -211,7 +211,27 @@ function sms_notify_appointment_now(PDO $pdo, string $appointmentId, string $eve
         $pilot = $pdo->prepare("SELECT 1 FROM payments WHERE appointment_id=? AND ref_id='CARD_PILOT' LIMIT 1");
         $pilot->execute([$appointmentId]);
         if ($pilot->fetchColumn()) {
-            return ['ok' => false, 'status' => 'SKIPPED', 'error' => ''];
+            $phone = sms_iran_mobile((string) ($row['phone'] ?? ''));
+            $when = appointment_card_pilot_when_label((string) ($row['starts_at'] ?? ''));
+            $body = 'مانا کلینیک: نوبت شما' . ($when !== '' ? ' ' . $when : '') . ' ثبت شد.';
+            if ($phone === null) {
+                return ['ok' => false, 'status' => 'SKIPPED', 'error' => 'پیامک فقط به شماره موبایل ایران ارسال می‌شود.'];
+            }
+            $result = sms_send_immediate(
+                $pdo,
+                $phone,
+                $body,
+                'appointment_booked',
+                'appointment:' . $appointmentId . ':booked-plain:' . (string) ($row['starts_at'] ?? ''),
+                (string) ($row['starts_at'] ?? date('Y-m-d H:i:s', time() + 86400)),
+                ['entity' => 'appointment', 'id' => $appointmentId, 'starts_at' => $row['starts_at'], 'status' => $row['status'], 'doctor_id' => $row['doctor_id'] ?? null, 'immediate' => 1]
+            );
+
+            return [
+                'ok' => ($result['status'] ?? '') === 'SENT',
+                'status' => (string) ($result['status'] ?? 'FAILED'),
+                'error' => (string) ($result['error'] ?? ''),
+            ];
         }
     }
     $phone = sms_iran_mobile((string) ($row['phone'] ?? ''));
@@ -882,12 +902,12 @@ function appointment_card_pilot_sms_body(array $row): string
     if ($toman <= 0) {
         $toman = (int) ($row['amount'] ?? 0);
     }
-    $rial = appointment_card_pilot_rial_label($toman);
+    $rial = str_replace('/', '', appointment_card_pilot_rial_label($toman));
     $lines = ['مرکز مشاوره مانا', 'جلسه با دکتر ' . $doctor . ($when !== '' ? ' ' . $when : '')];
     if ($rial !== '') {
-        $lines[] = 'واریز ' . $rial . ' ریال';
+        $lines[] = 'مبلغ ' . $rial;
     }
-    $lines[] = 'کارت 5041-7210-5990-2990';
+    $lines[] = 'کارت 5041721059902990';
     $lines[] = 'بنام الهه علائیان';
     $lines[] = 'فیش و کدرهگیری را بفرستید.';
     $lines[] = 'لغو تا ۲۴ ساعت قبل قابل بازگشت است.';
