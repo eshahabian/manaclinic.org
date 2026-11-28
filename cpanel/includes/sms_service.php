@@ -880,15 +880,6 @@ function appointment_card_pilot_when_label(string $startsAt): string
     return trim($weekday . ' ' . to_fa_digits((string) $jd) . ' ' . $month . ' ' . $time);
 }
 
-function appointment_card_pilot_rial_label(int $toman): string
-{
-    if ($toman <= 0) {
-        return '';
-    }
-
-    return to_fa_digits(number_format($toman * 10, 0, '', '/'));
-}
-
 function appointment_card_pilot_request_sms_body(): string
 {
     return 'مانا کلینیک: درخواست نوبت شما ثبت شد. منتظر تأیید منشی بمانید.';
@@ -930,28 +921,20 @@ function sms_notify_card_pilot_request(PDO $pdo, string $appointmentId): array
     );
 }
 
-/** پیام واریز نوبت آزمایشی؛ نام درمانگر، تاریخ و مبلغ از پنل همان درمانگر. */
+/** پیام واریز نوبت آزمایشی؛ مبلغ تومانی بدون نام واحد. */
 function appointment_card_pilot_sms_body(array $row): string
 {
-    $doctor = trim((string) ($row['doctor_name'] ?? ''));
-    $doctor = preg_replace('/^دکتر\s+/u', '', $doctor) ?? $doctor;
-    if ($doctor === '') {
-        $doctor = 'درمانگر';
-    }
-    $when = appointment_card_pilot_when_label((string) ($row['starts_at'] ?? ''));
     $toman = (int) ($row['session_price'] ?? 0);
     if ($toman <= 0) {
         $toman = (int) ($row['amount'] ?? 0);
     }
-    $rial = str_replace('/', '', appointment_card_pilot_rial_label($toman));
-    $lines = ['مرکز مشاوره مانا', 'جلسه با دکتر ' . $doctor . ($when !== '' ? ' ' . $when : '')];
-    if ($rial !== '') {
-        $lines[] = 'مبلغ ' . $rial;
+    $lines = ['مرکز مشاوره مانا'];
+    if ($toman > 0) {
+        $lines[] = 'مبلغ: ' . to_fa_digits((string) $toman);
     }
     $lines[] = 'کارت 5041721059902990';
-    $lines[] = 'بنام الهه علائیان';
-    $lines[] = 'فیش و کدرهگیری را بفرستید.';
-    $lines[] = 'لغو تا یک روز قبل قابل بازگشت است.';
+    $lines[] = 'به نام الهه علائیان';
+    $lines[] = 'رسید در نوبت‌های من';
 
     return implode("\n", $lines);
 }
